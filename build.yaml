@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          use_sql_column_name_as_json_key: true
+          sql:
+            dialects:
+              - sqlite
+              - postgres
