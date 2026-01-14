@@ -18,6 +18,15 @@ export '../hlc/converter.dart';
 /// will have all users' data in the same table. To avoid performance issues, on a
 /// Postgres server, the `user_id` and `table_name` columns are partition keys.
 ///
+@TableIndex(
+  name: 'idx_crdt_data_tbl_name_column_name_row_id',
+  columns: {#tblName, #columnName, #rowId},
+  unique: true,
+)
+@TableIndex(
+  name: 'idx_crdt_data_hlc_timestamp',
+  columns: {#hlcTimestamp},
+)
 @DataClassName('CrdtDataEntry')
 class CrdtDataTable extends Table {
   @override
