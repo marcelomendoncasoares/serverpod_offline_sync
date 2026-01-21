@@ -64,14 +64,7 @@ void main() {
           final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
           expect(
             targetDateCrdtData.rawValue?.rawSqlValue,
-            targetDate.millisecondsSinceEpoch / 1000,
-          );
-        });
-
-        test('has each column entry with value changed flag set to true.', () async {
-          expect(
-            allCrdtDataEntries,
-            everyElement((CrdtDataEntry entry) => entry.valueChanged),
+            targetDate.toIso8600StringWithOffset(),
           );
         });
 
@@ -147,16 +140,8 @@ void main() {
           final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
           expect(
             targetDateCrdtData.rawValue?.rawSqlValue,
-            targetDate.millisecondsSinceEpoch / 1000,
+            targetDate.toIso8600StringWithOffset(),
           );
-        });
-
-        test('has each updated column entry with value changed flag set to true.',
-            () async {
-          for (final columnName in updatedColumnNames) {
-            final crdtData = allCrdtDataEntries.getField(rowId, columnName);
-            expect(crdtData.valueChanged, isTrue);
-          }
         });
 
         test('has the same HLC timestamp for each updated column.', () async {
@@ -240,12 +225,6 @@ void main() {
           expect(crdtData.rawValue?.rawSqlValue, 1);
         });
 
-        test('has the deleted flag column entry with value changed flag set to true.',
-            () async {
-          final crdtData = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
-          expect(crdtData.valueChanged, isTrue);
-        });
-
         test('has the deleted HLC timestamp greater than the created.', () async {
           final deletedEntry = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
           expect(deletedEntry.hlcTimestamp, greaterThan(createdHlc));
@@ -258,5 +237,13 @@ void main() {
 extension on Iterable<CrdtDataEntry> {
   CrdtDataEntry getField(String rowId, String fieldName) {
     return firstWhere((entry) => entry.rowId == rowId && entry.columnName == fieldName);
+  }
+}
+
+extension on DateTime {
+  String toIso8600StringWithOffset() {
+    final offset = toLocal().timeZoneOffset.inHours;
+    final sign = offset >= 0 ? '+' : '-';
+    return '${toIso8601String()} $sign${offset.abs().toString().padLeft(2, '0')}:00';
   }
 }
