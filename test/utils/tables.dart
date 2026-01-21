@@ -1,12 +1,11 @@
-/// TODO: Add a note with Drift LICENSE in this file, since it is mostly a copy
-/// of the Drift example tables.
-library;
-
+// TODO: Add a note with Drift LICENSE in this file, since it is mostly a copy
+// of the Drift example tables.
 import 'package:drift/drift.dart';
-import 'package:drift_offline_first/drift_offline_first.dart';
 import 'package:uuid/uuid.dart';
 
-part 'tables.g.dart';
+import 'types.dart';
+
+export 'types.dart';
 
 extension type RowId._(int id) {
   const RowId(this.id);
@@ -77,8 +76,6 @@ class SharedTodos extends Table {
       ];
 }
 
-const _uuid = Uuid();
-
 @UseRowClass(CustomRowClass, constructor: 'map', generateInsertable: true)
 class TableWithoutPK extends Table {
   IntColumn get notReallyAnId => integer()();
@@ -86,7 +83,7 @@ class TableWithoutPK extends Table {
   Int64Column get webSafeInt => int64().nullable()();
 
   TextColumn get custom =>
-      text().map(const CustomConverter()).clientDefault(_uuid.v4)();
+      text().map(const CustomConverter()).clientDefault(const Uuid().v4)();
 }
 
 class TableWithEveryColumnType extends Table with AutoIncrement {
@@ -99,7 +96,8 @@ class TableWithEveryColumnType extends Table with AutoIncrement {
   BlobColumn get aBlob => blob().nullable()();
   IntColumn get anIntEnum => intEnum<TodoStatus>().nullable()();
   TextColumn get aTextWithConverter =>
-      text().named('insert').map(const CustomJsonConverter()).nullable().nullable()();
+      text().named('insert').map(const CustomJsonConverter()).nullable()();
+  Column<UuidValue> get aUuid => customType(uuidType).nullable()();
 }
 
 class Department extends Table {
@@ -127,34 +125,6 @@ class Store extends Table {
   TextColumn get name => text().nullable()();
 }
 
-class CustomRowClass {
-  CustomRowClass._(
-    this.notReallyAnId,
-    this.anotherName,
-    this.webSafeInt,
-    this.custom,
-    this.notFromDb,
-  );
-
-  factory CustomRowClass.map(
-    int notReallyAnId,
-    double someFloat, {
-    required MyCustomObject custom,
-    BigInt? webSafeInt,
-    String? notFromDb,
-  }) {
-    return CustomRowClass._(notReallyAnId, someFloat, webSafeInt, custom, notFromDb);
-  }
-  final int notReallyAnId;
-  final double anotherName;
-  final BigInt? webSafeInt;
-  final MyCustomObject custom;
-
-  final String? notFromDb;
-
-  double get someFloat => anotherName;
-}
-
 class PureDefaults extends Table {
   // name after keyword to ensure it's escaped properly
   TextColumn get txt =>
@@ -164,206 +134,6 @@ class PureDefaults extends Table {
   Set<Column> get primaryKey => {txt};
 }
 
-// example object used for custom mapping
-class MyCustomObject {
-  MyCustomObject(this.data);
-  final String data;
-
-  @override
-  int get hashCode => data.hashCode;
-
-  @override
-  bool operator ==(Object other) {
-    return other is MyCustomObject && other.data == data;
-  }
-}
-
-class CustomConverter extends TypeConverter<MyCustomObject, String> {
-  const CustomConverter();
-
-  @override
-  MyCustomObject fromSql(String fromDb) {
-    return MyCustomObject(fromDb);
-  }
-
-  @override
-  String toSql(MyCustomObject value) {
-    return value.data;
-  }
-}
-
-class CustomJsonConverter extends CustomConverter
-    with JsonTypeConverter2<MyCustomObject, String, Map> {
-  const CustomJsonConverter();
-
-  @override
-  MyCustomObject fromJson(Map json) {
-    return MyCustomObject(json['data'] as String);
-  }
-
-  @override
-  Map toJson(MyCustomObject value) {
-    return {'data': value.data};
-  }
-}
-
-abstract class CategoryTodoCountView extends View {
-  TodosTable get todos;
-  Categories get categories;
-
-  Expression<int> get categoryId => categories.id;
-  Expression<String> get description => categories.description + const Variable('!');
-  Expression<int> get itemCount => todos.id.count();
-
-  @override
-  Query as() => select([categoryId, description, itemCount])
-      .from(categories)
-      .join([innerJoin(todos, todos.category.equalsExp(categories.id))])
-    ..groupBy([categories.id]);
-}
-
-abstract class TodoWithCategoryView extends View {
-  TodosTable get todos;
-  Categories get categories;
-
-  @override
-  Query as() => select([todos.title, categories.description])
-      .from(todos)
-      .join([innerJoin(categories, categories.id.equalsExp(todos.category))]);
-}
-
 class WithCustomType extends Table {
   Column<UuidValue> get id => customType(uuidType)();
 }
-
-class NativeUuidType implements CustomSqlType<UuidValue> {
-  const NativeUuidType();
-
-  @override
-  String mapToSqlLiteral(UuidValue dartValue) {
-    return "'$dartValue'";
-  }
-
-  @override
-  Object mapToSqlParameter(UuidValue dartValue) {
-    return dartValue;
-  }
-
-  @override
-  UuidValue read(Object fromSql) {
-    return fromSql as UuidValue;
-  }
-
-  @override
-  String sqlTypeName(GenerationContext context) => 'uuid';
-}
-
-class _UuidAsTextType implements CustomSqlType<UuidValue> {
-  const _UuidAsTextType();
-
-  @override
-  String mapToSqlLiteral(UuidValue dartValue) {
-    return "'$dartValue'";
-  }
-
-  @override
-  Object mapToSqlParameter(UuidValue dartValue) {
-    return dartValue.toString();
-  }
-
-  @override
-  UuidValue read(Object fromSql) {
-    return UuidValue.fromString(fromSql as String);
-  }
-
-  @override
-  String sqlTypeName(GenerationContext context) => 'text';
-}
-
-const uuidType = DialectAwareSqlType<UuidValue>.via(
-  fallback: _UuidAsTextType(),
-  overrides: {SqlDialect.postgres: NativeUuidType()},
-);
-
-@DriftDatabase(
-  tables: [
-    TodosTable,
-    Categories,
-    Users,
-    SharedTodos,
-    TableWithoutPK,
-    PureDefaults,
-    WithCustomType,
-    TableWithEveryColumnType,
-    Department,
-    Product,
-    Listing,
-    Store,
-  ],
-  views: [
-    CategoryTodoCountView,
-    TodoWithCategoryView,
-  ],
-  daos: [SomeDao],
-  queries: {
-    'allTodosWithCategory': 'SELECT t.*, c.id as catId, c."desc" as catDesc '
-        'FROM todos t INNER JOIN categories c ON c.id = t.category',
-    'deleteTodoById': 'DELETE FROM todos WHERE id = ?',
-    'withIn': 'SELECT * FROM todos WHERE title = ?2 OR id IN ? OR title = ?1',
-    'search': 'SELECT * FROM todos WHERE CASE WHEN -1 = :id THEN 1 ELSE id = :id END',
-    'findCustom': 'SELECT custom FROM table_without_p_k WHERE some_float < 10',
-  },
-)
-class TodoDb extends _$TodoDb {
-  TodoDb(super.e) {
-    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
-  }
-
-  @override
-  int schemaVersion = 1;
-
-  // This is what needs to be added to the user database class to make it CRDT aware.
-  @override
-  OfflineSyncMigrator createMigrator() => OfflineSyncMigrator(
-        this,
-        userId: _userId,
-        nodeId: _nodeId,
-        synchronizedTables: [
-          todosTable,
-          categories,
-          users,
-          sharedTodos,
-          // tableWithoutPK,
-          pureDefaults,
-          // withCustomType,
-          tableWithEveryColumnType,
-          department,
-          // product,
-        ],
-        excludeTables: [
-          listing,
-          product,
-          store,
-          tableWithoutPK,
-          withCustomType,
-        ],
-      );
-}
-
-@DriftAccessor(
-  tables: [Users, SharedTodos, TodosTable],
-  views: [TodoWithCategoryView],
-  queries: {
-    'todosForUser': 'SELECT t.* FROM todos t '
-        'INNER JOIN shared_todos st ON st.todo = t.id '
-        'INNER JOIN users u ON u.id = st.user '
-        'WHERE u.id = :user',
-  },
-)
-class SomeDao extends DatabaseAccessor<TodoDb> with _$SomeDaoMixin {
-  SomeDao(super.attachedDatabase);
-}
-
-// NOTE: Generated once so that the tests are deterministic.
-final _nodeId = const Uuid().v7();
-final _userId = const Uuid().v7();
