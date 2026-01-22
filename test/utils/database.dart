@@ -72,8 +72,8 @@ class TodoDb extends _$TodoDb {
   @override
   OfflineSyncMigrator createMigrator() => OfflineSyncMigrator(
         this,
-        userId: _userId,
-        nodeId: _nodeId,
+        userId: testUserId,
+        nodeId: testNodeId,
         synchronizedTables: [
           todosTable,
           categories,
@@ -110,6 +110,23 @@ class SomeDao extends DatabaseAccessor<TodoDb> with _$SomeDaoMixin {
   SomeDao(super.attachedDatabase);
 }
 
-// NOTE: Generated once so that the tests are deterministic.
-final _nodeId = const Uuid().v7();
-final _userId = const Uuid().v7();
+// NOTE: Generated once per test so that the tests are deterministic, but also
+// isolated between each other.
+String get testNodeId {
+  _testNodeId ??= const Uuid().v7();
+  addTearDown(() {
+    _testNodeId = null;
+  });
+  return _testNodeId!;
+}
+
+String get testUserId {
+  _testUserId ??= const Uuid().v7();
+  addTearDown(() {
+    _testUserId = null;
+  });
+  return _testUserId!;
+}
+
+String? _testNodeId;
+String? _testUserId;
