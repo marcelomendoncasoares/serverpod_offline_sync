@@ -59,9 +59,6 @@ class CrdtDataTable extends Table {
   /// Raw value of the data.
   late final rawValue = sqliteAny().nullable()();
 
-  /// Boolean indicating if the value has changed since last sync.
-  late final valueChanged = boolean().withDefault(const Constant(true))();
-
   @override
   Set<Column> get primaryKey => {/*userId,*/ tblName, columnName, rowId};
 }

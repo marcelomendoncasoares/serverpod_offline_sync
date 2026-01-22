@@ -79,15 +79,12 @@ abstract class OfflineSyncTriggers {
             .toList();
 
     final columnInserts = columnNamesWithoutPrimaryKey.map((c) {
-      final rawValue = c == isDeletedColumnName ? 'TRUE' : 'NEW."$c"';
-      final valueChanged =
-          operation != Operation.update ? 'TRUE' : 'NEW."$c" IS NOT OLD."$c"';
-
-      return '''
-    SELECT
-      '$c' AS "column_name",
-      $rawValue AS "raw_value",
-      $valueChanged AS "value_changed"''';
+      return '    SELECT\n${[
+        '      \'$c\' AS "column_name"',
+        '      ${c == isDeletedColumnName ? 'TRUE' : 'NEW."$c"'} AS "raw_value"',
+        if (operation == Operation.update)
+          '      NEW."$c" IS NOT OLD."$c" AS "value_changed"',
+      ].join(',\n')}';
     });
 
     final whereClause =
@@ -102,8 +99,7 @@ abstract class OfflineSyncTriggers {
     column_name,
     $uniqueRowId AS "row_id",
     "hlc_timestamp",
-    raw_value,
-    value_changed
+    raw_value
   FROM (
     SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
   ), (

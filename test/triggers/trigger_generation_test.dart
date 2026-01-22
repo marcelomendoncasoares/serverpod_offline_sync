@@ -38,47 +38,40 @@ CREATE TRIGGER IF NOT EXISTS __crdt__todos__insert
 AFTER INSERT ON "todos"
 BEGIN
   INSERT OR REPLACE INTO __crdt_data (
-    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value", "value_changed"
+    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
     'todos' AS "table_name",
     column_name,
     NEW."id" AS "row_id",
     "hlc_timestamp",
-    raw_value,
-    value_changed
+    raw_value
   FROM (
     SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
   ), (
     SELECT
       'id' AS "column_name",
-      NEW."id" AS "raw_value",
-      TRUE AS "value_changed"
+      NEW."id" AS "raw_value"
     UNION ALL
     SELECT
       'title' AS "column_name",
-      NEW."title" AS "raw_value",
-      TRUE AS "value_changed"
+      NEW."title" AS "raw_value"
     UNION ALL
     SELECT
       'content' AS "column_name",
-      NEW."content" AS "raw_value",
-      TRUE AS "value_changed"
+      NEW."content" AS "raw_value"
     UNION ALL
     SELECT
       'target_date' AS "column_name",
-      NEW."target_date" AS "raw_value",
-      TRUE AS "value_changed"
+      NEW."target_date" AS "raw_value"
     UNION ALL
     SELECT
       'category' AS "column_name",
-      NEW."category" AS "raw_value",
-      TRUE AS "value_changed"
+      NEW."category" AS "raw_value"
     UNION ALL
     SELECT
       'status' AS "column_name",
-      NEW."status" AS "raw_value",
-      TRUE AS "value_changed"
+      NEW."status" AS "raw_value"
   );
 END;''',
         );
@@ -95,7 +88,7 @@ CREATE TRIGGER IF NOT EXISTS __crdt__todos__update
 AFTER UPDATE ON "todos"
 BEGIN
   INSERT OR REPLACE INTO __crdt_data (
-    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value", "value_changed"
+    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
     'todos' AS "table_name",
@@ -153,22 +146,20 @@ CREATE TRIGGER IF NOT EXISTS __crdt__todos__delete
 AFTER DELETE ON "todos"
 BEGIN
   INSERT OR REPLACE INTO __crdt_data (
-    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value", "value_changed"
+    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
     'todos' AS "table_name",
     column_name,
     OLD."id" AS "row_id",
     "hlc_timestamp",
-    raw_value,
-    value_changed
+    raw_value
   FROM (
     SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
   ), (
     SELECT
       '__crdt_is_deleted' AS "column_name",
-      TRUE AS "raw_value",
-      TRUE AS "value_changed"
+      TRUE AS "raw_value"
   );
 END;''',
         );
