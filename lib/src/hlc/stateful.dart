@@ -19,7 +19,7 @@ class StatefulHlc {
   late Hlc lastHlc;
 
   /// Returns the next HLC timestamp for the current node.
-  Hlc nextHlc() {
+  Hlc increment() {
     lastHlc = lastHlc.increment();
     return lastHlc;
   }

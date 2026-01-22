@@ -11,22 +11,34 @@ import '/src/triggers.dart';
 /// If using Dart only, must be passed to the [NativeDatabase] constructor as `setup`
 /// parameter. If using Flutter, this function must be passed to the `driftDatabase`
 /// function as `setup` parameter.
-///
 DatabaseSetup get registerHlcFunction {
-  // if (_initialized) return (database) {};
-  // _initialized = true;
-
   return (database) {
     database.createFunction(
       functionName: nextHlcFunction,
       function: (args) {
-        final nodeId = args.firstOrNull as String?;
-        if (nodeId == null) throw ArgumentError('nodeId is required');
-        return StatefulHlc.cached(nodeId).nextHlc().toString();
+        if (args.isEmpty) throw _MissingArgumentsError();
+        if (args.length == 1) throw _MissingNodeIdError();
+        if (args.length > 2) throw _TooManyArgumentsError();
+
+        final userId = args[0] as String?;
+        if (userId == null) throw _MissingUserIdError();
+
+        final nodeId = args[1] as String?;
+        if (nodeId == null) throw _MissingNodeIdError();
+
+        return StatefulHlc.cached(userId, nodeId).increment().toString();
       },
-      // argumentCount: const AllowedArgumentCount(1),
+      // argumentCount: const AllowedArgumentCount(2),
       deterministic: false,
       directOnly: false,
     );
   };
 }
+
+class _MissingArgumentsError extends ArgumentError {}
+
+class _MissingUserIdError extends _MissingArgumentsError {}
+
+class _MissingNodeIdError extends _MissingArgumentsError {}
+
+class _TooManyArgumentsError extends ArgumentError {}
