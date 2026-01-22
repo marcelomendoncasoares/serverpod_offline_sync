@@ -17,15 +17,14 @@ export '../hlc/converter.dart';
 /// the client will have the `user_id` column with a single value, while the server
 /// will have all users' data in the same table. To avoid performance issues, on a
 /// Postgres server, the `user_id` and `table_name` columns are partition keys.
-///
 @TableIndex(
   name: 'idx_crdt_data_tbl_name_column_name_row_id',
-  columns: {#tblName, #columnName, #rowId},
+  columns: {#userId, #tblName, #columnName, #rowId},
   unique: true,
 )
 @TableIndex(
   name: 'idx_crdt_data_hlc_timestamp',
-  columns: {#hlcTimestamp},
+  columns: {#userId, #hlcTimestamp},
 )
 @DataClassName('CrdtDataEntry')
 class CrdtDataTable extends Table {
@@ -35,14 +34,8 @@ class CrdtDataTable extends Table {
   @override
   bool get isStrict => true;
 
-  // MAYBE: It seems it is not possible to have the userId column here without
-  // creating hard requirements on how each table should relate to the userId.
-  // Either all tables would have to have this column, or users would have to
-  // supply a query to join the userId with the changed table. Either way, it
-  // makes the module a lot less plug-and-play than it should, so it might be
-  // better to not have it here and accept the query performance penalty.
-  // /// Identifier for the user or client that owns the data.
-  // late final userId = text()();
+  /// Identifier for the user or client that owns the data.
+  late final userId = text()();
 
   /// Name of the table that data belongs to.
   late final tblName = text().named('table_name')();
@@ -60,5 +53,17 @@ class CrdtDataTable extends Table {
   late final rawValue = sqliteAny().nullable()();
 
   @override
-  Set<Column> get primaryKey => {/*userId,*/ tblName, columnName, rowId};
+  Set<Column> get primaryKey => {userId, tblName, columnName, rowId};
+
+  /// Query to get the last HLC timestamp for each user.
+  ///
+  /// Declared here to ensure the query is synchronized with the table.
+  static String getLastHlcTimestampQuery() {
+    return '''
+    SELECT user_id,
+           max(hlc_timestamp) as last_hlc_timestamp
+    FROM __crdt_data
+    GROUP BY 1
+  ''';
+  }
 }

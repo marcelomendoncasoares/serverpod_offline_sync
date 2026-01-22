@@ -95,13 +95,14 @@ abstract class OfflineSyncTriggers {
     ${_crdtDataAllColumns.join(', ')}
   )
   SELECT
+    '${migrator.userId}' AS "user_id",
     '$tableName' AS "table_name",
     column_name,
     $uniqueRowId AS "row_id",
     "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
+    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
   ), (
 ${columnInserts.join('\n    UNION ALL\n')}
   )$whereClause;''';

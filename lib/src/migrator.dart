@@ -79,8 +79,8 @@ class OfflineSyncMigrator extends Migrator {
       final crdtTable = crdtDb.crdtDataTable;
       await database.customStatement(
         'ALTER TABLE ${crdtTable.actualTableName} '
-        'PARTITION BY RANGE (${crdtTable.tblName.name});',
-        // 'PARTITION BY RANGE (${crdtTable.userId.name}, ${crdtTable.tblName.name});',
+        // TODO: Fix this partitioning, since RANGE can not be used for discrete values.
+        'PARTITION BY RANGE (${crdtTable.userId.name}, ${crdtTable.tblName.name});',
       );
     }
 

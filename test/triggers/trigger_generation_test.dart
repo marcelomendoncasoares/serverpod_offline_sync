@@ -38,16 +38,17 @@ CREATE TRIGGER IF NOT EXISTS __crdt__todos__insert
 AFTER INSERT ON "todos"
 BEGIN
   INSERT OR REPLACE INTO __crdt_data (
-    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
+    "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
+    '${migrator.userId}' AS "user_id",
     'todos' AS "table_name",
     column_name,
     NEW."id" AS "row_id",
     "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
+    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
   ), (
     SELECT
       'id' AS "column_name",
@@ -88,17 +89,17 @@ CREATE TRIGGER IF NOT EXISTS __crdt__todos__update
 AFTER UPDATE ON "todos"
 BEGIN
   INSERT OR REPLACE INTO __crdt_data (
-    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
+    "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
+    '${migrator.userId}' AS "user_id",
     'todos' AS "table_name",
     column_name,
     OLD."id" AS "row_id",
     "hlc_timestamp",
-    raw_value,
-    value_changed
+    raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
+    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
   ), (
     SELECT
       'id' AS "column_name",
@@ -146,16 +147,17 @@ CREATE TRIGGER IF NOT EXISTS __crdt__todos__delete
 AFTER DELETE ON "todos"
 BEGIN
   INSERT OR REPLACE INTO __crdt_data (
-    "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
+    "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
+    '${migrator.userId}' AS "user_id",
     'todos' AS "table_name",
     column_name,
     OLD."id" AS "row_id",
     "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.nodeId}') AS "hlc_timestamp"
+    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
   ), (
     SELECT
       '__crdt_is_deleted' AS "column_name",

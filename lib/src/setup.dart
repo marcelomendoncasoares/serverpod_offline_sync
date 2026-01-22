@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 
 import '/src/hlc/stateful.dart';
 import '/src/triggers.dart';
+import 'tables/data.dart';
 
 /// The database setup function to register the HLC function.
 ///
@@ -32,6 +33,18 @@ DatabaseSetup get registerHlcFunction {
       deterministic: false,
       directOnly: false,
     );
+
+    // Load the last HLC for the user from the control table.
+    try {
+      database.select(CrdtDataTable.getLastHlcTimestampQuery()).forEach((row) {
+        final userId = row.values.first! as String;
+        final lastHlcTimestamp = hlcConverter.fromSql(row.values.last! as String);
+        StatefulHlc.initialize(userId, lastHlcTimestamp);
+      });
+    } on Exception catch (_) {
+      // Ignore errors, as the HLC will be initialized to zero.
+      // This is expected to happen on a new database.
+    }
   };
 }
 

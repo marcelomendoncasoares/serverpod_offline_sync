@@ -3,14 +3,30 @@ import 'package:crdt/crdt.dart';
 /// A [Hlc] instance that is used to generate unique timestamps for CRDT operations.
 /// Will keep track of the HLC during the lifetime of the application.
 class StatefulHlc {
-  StatefulHlc._(this.nodeId) : lastHlc = Hlc.now(nodeId);
+  StatefulHlc._(this.userId, this.nodeId) {
+    lastHlc = _lastUserIdHlc[userId]?.apply(nodeId: nodeId) ?? Hlc.zero(nodeId);
+  }
 
+  static final Map<String, Hlc> _lastUserIdHlc = {};
   static final Map<String, StatefulHlc> _instances = {};
 
-  /// Returns a cached instance of [StatefulHlc] for the provided [nodeId].
-  static StatefulHlc cached(String nodeId) {
-    return _instances.putIfAbsent(nodeId, () => StatefulHlc._(nodeId));
+  /// Initialize the HLC for the provided [userId].
+  ///
+  /// This method allows a pre-initialization of the HLC for the node from the
+  /// last stored HLC for the user - regardless of the node ID. If no [initialHlc]
+  /// is provided, a zero HLC will be used.
+  static void initialize(String userId, Hlc initialHlc) {
+    if (_lastUserIdHlc.containsKey(userId)) return;
+    _lastUserIdHlc[userId] = initialHlc;
   }
+
+  /// Returns a cached instance of [StatefulHlc] for the provided [nodeId].
+  static StatefulHlc cached(String userId, String nodeId) {
+    return _instances.putIfAbsent(nodeId, () => StatefulHlc._(userId, nodeId));
+  }
+
+  /// The user ID for the CRDT system.
+  final String userId;
 
   /// The node ID for the CRDT system.
   final String nodeId;
