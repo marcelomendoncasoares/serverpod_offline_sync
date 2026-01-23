@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '/src/database.dart';
+import 'crdt.dart';
 import 'triggers.dart';
 
 /// Runs migrations declared by a [MigrationStrategy].
@@ -38,7 +39,13 @@ class OfflineSyncMigrator extends Migrator {
   final List<TableInfo> synchronizedTables;
 
   /// The database instance to apply the CRDT schema to.
-  late final crdtDb = CrdtDatabase(database.executor);
+  late final crdtDb = CrdtDatabase(
+    database.executor,
+    synchronizedTables: synchronizedTables,
+  );
+
+  /// The CRDT execution instance.
+  late final crdt = OfflineSyncCrdt(crdtDb, userId: userId, nodeId: nodeId);
 
   /// Migrations for tables that are part of the CRDT system.
   final pendingMigrations = <String, CRDTTableMigration>{};

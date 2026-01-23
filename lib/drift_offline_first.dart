@@ -3,6 +3,8 @@
 /// More docs go here.
 library;
 
+export 'src/crdt.dart';
+export 'src/crdt_base.dart';
 export 'src/database.dart';
 export 'src/hlc/converter.dart';
 export 'src/migrator.dart';

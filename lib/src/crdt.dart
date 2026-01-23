@@ -1,79 +1,65 @@
 import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
-import 'changeset.dart';
+import 'crdt_base.dart';
 import 'database.dart';
 
 /// A CRDT implementation for offline-first synchronization.
-class OfflineSyncCrdt extends Crdt {
-  /// Make sure you run [initialize] after instantiation.
-  OfflineSyncCrdt(this._db);
+class OfflineSyncCrdt extends CrdtBase {
+  /// Creates a new instance of [OfflineSyncCrdt].
+  ///
+  /// The [nodeId] must be unique across the system.
+  OfflineSyncCrdt(this._db, {required super.userId, required super.nodeId});
 
   final CrdtDatabase _db;
 
-  /// Initialize this CRDT.
-  ///
-  /// The [nodeId] must be unique across the system. Note that setting the node
-  /// id on [initialize] only works for empty CRDTs. For non-empty CRDTs, the
-  /// node id will be read from the database.
-  Future<void> initialize({required String nodeId}) async {
-    canonicalTime = await getLastModified(onlyNodeId: nodeId);
-  }
-
   @override
-  Future<Hlc> getLastModified({String? onlyNodeId, String? exceptNodeId}) async {
-    assert(
-      onlyNodeId == null || exceptNodeId == null,
-      'Only one of onlyNodeId or exceptNodeId can be provided.',
-    );
+  // TODO: Remove this method lately if it is not needed - as it seems it will.
+  Future<Hlc?> getLastModified({String? onlyNodeId, String? exceptNodeId}) async {
+    if (onlyNodeId != null && exceptNodeId != null) {
+      throw ArgumentError('Only one of onlyNodeId or exceptNodeId can be provided.');
+    }
 
     // NOTE: Although `max` has a better performance for the general use case,
     // when the column is indexed, `order by` with `limit 1` will be just as fast.
     // The plus of using the order by approach is the native deserialization of
     // the Hlc object by Drift.
     final rowWithMaxLastSyncHlc = await _db.managers.crdtDataTable
+        .filter((o) {
+          if (onlyNodeId != null) {
+            return o.hlcTimestamp.column.contains(onlyNodeId);
+          }
+          if (exceptNodeId != null) {
+            return o.hlcTimestamp.column.contains(exceptNodeId).not();
+          }
+          return const Constant(true);
+        })
         .orderBy((o) => o.hlcTimestamp.desc())
         .limit(1)
         .getSingleOrNull();
 
-    final lastModified = rowWithMaxLastSyncHlc?.hlcTimestamp;
-    return lastModified ?? Hlc.zero(nodeId);
+    return rowWithMaxLastSyncHlc?.hlcTimestamp;
   }
 
   @override
-  Future<CrdtChangeset> getChangeset({
-    Map<String, Query>? customQueries,
-    Iterable<String>? onlyTables,
+  Future<Iterable<CrdtDataEntry>> getChangeset({
     String? onlyNodeId,
     String? exceptNodeId,
-    Hlc? modifiedOn,
     Hlc? modifiedAfter,
   }) async {
     assert(onlyNodeId == null || exceptNodeId == null);
-    assert(modifiedOn == null || modifiedAfter == null);
-
-    if (customQueries != null) {
-      throw UnimplementedError('Not implemented');
-    }
 
     // Modified times use the local node id
-    modifiedOn = modifiedOn?.apply(nodeId: nodeId);
     modifiedAfter = modifiedAfter?.apply(nodeId: nodeId);
 
     final query = _db.managers.crdtDataTable.filter((o) {
       Expression<bool> condition = const Constant(true);
 
-      if (onlyTables != null) {
-        condition &= o.tblName.isIn(onlyTables);
-      }
       if (onlyNodeId != null) {
         condition &= o.hlcTimestamp.column.contains(onlyNodeId);
       }
       if (exceptNodeId != null) {
         condition &= o.hlcTimestamp.column.contains(exceptNodeId).not();
-      }
-      if (modifiedOn != null) {
-        condition &= o.hlcTimestamp.equals(modifiedOn);
       }
       if (modifiedAfter != null) {
         condition &= o.hlcTimestamp.column.isBiggerThanValue(modifiedAfter.toString());
@@ -81,30 +67,37 @@ class OfflineSyncCrdt extends Crdt {
       return condition;
     });
 
-    final rows = await query.get();
-    return rows.toChangeset();
+    return query.get();
   }
 
   @override
-  Future<void> merge(CrdtChangeset changeset) async {
-    if (changeset.recordCount == 0) return;
-
-    // Ignore empty records
-    changeset.removeWhere((_, records) => records.isEmpty);
-
-    // Validate changeset and get new canonical time
-    final hlc = validateChangeset(changeset);
-
-    // Merge records
+  Future<void> saveChangeset(
+    Iterable<CrdtDataEntry> changeset,
+    Iterable<Hlc> receivedHlcs,
+  ) async {
     await _db.transaction(() async {
-      await _db.managers.crdtDataTable.bulkCreate(
-        (_) => changeset.toCrdtDataEntries().map((e) => e.toCompanion(false)),
-        mode: InsertMode.insertOrReplace,
-      );
-
-      await applyCompensationRules();
-      onDatasetChanged(changeset.keys, hlc);
+      await _saveChangeset(changeset);
+      await _applyCompensationRules();
+      await _saveMergedHlcs(receivedHlcs);
     });
+  }
+
+  /// Save the [changeset] to the database.
+  ///
+  /// Should be called within a transaction. Must ensure that only newer values
+  /// are saved to the database.
+  Future<void> _saveChangeset(Iterable<CrdtDataEntry> changeset) async {
+    return _db.managers.crdtDataTable.bulkCreate(
+      (_) => changeset.map((e) => e.toCompanion(false)),
+      mode: InsertMode.insertOrReplace,
+      onConflict: DoUpdate.withExcluded(
+        (old, excluded) => CrdtDataTableCompanion.custom(
+          rawValue: excluded.rawValue,
+          hlcTimestamp: excluded.hlcTimestamp,
+        ),
+        where: (old, excluded) => old.hlcTimestamp.isSmallerThan(excluded.hlcTimestamp),
+      ),
+    );
   }
 
   /// Applies compensation rules to the CRDT data table to preserve invariants.
@@ -112,7 +105,31 @@ class OfflineSyncCrdt extends Crdt {
   /// If the any invariant fails to be preserved, a flag will be set on the
   /// control table to prevent further merges until the issue is resolved by
   /// the server and a repair merge is pushed to this node.
-  Future<void> applyCompensationRules() async {
+  Future<void> _applyCompensationRules() async {
     // TODO: Implement this.
+  }
+
+  /// Save the [mergedHlcs] to the database.
+  ///
+  /// Should be called within a transaction after the changeset has been saved
+  /// and properly compensated.
+  Future<void> _saveMergedHlcs(Iterable<Hlc> mergedHlcs) async {
+    return _db.managers.crdtMergeHlcTable.bulkCreate(
+      (t) => mergedHlcs.map(
+        (e) => t(
+          userId: userId,
+          nodeId: e.nodeId,
+          lastReceivedHlc: e,
+        ),
+      ),
+      mode: InsertMode.insertOrReplace,
+      onConflict: DoUpdate.withExcluded(
+        (old, excluded) => CrdtMergeHlcTableCompanion.custom(
+          lastReceivedHlc: excluded.lastReceivedHlc,
+        ),
+        where: (old, excluded) =>
+            old.lastReceivedHlc.isSmallerThan(excluded.lastReceivedHlc),
+      ),
+    );
   }
 }

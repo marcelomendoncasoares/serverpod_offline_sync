@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'tables/compensation.dart';
 import 'tables/control.dart';
 import 'tables/data.dart';
+import 'tables/merge.dart';
 
 part 'database.g.dart';
 
@@ -12,11 +13,15 @@ part 'database.g.dart';
     CrdtDataTable,
     CrdtControlTable,
     CrdtCompensationTable,
+    CrdtMergeHlcTable,
   ],
 )
 class CrdtDatabase extends _$CrdtDatabase {
   /// Creates a new instance of [CrdtDatabase] with the provided [executor].
-  CrdtDatabase(super.e);
+  CrdtDatabase(super.e, {required this.synchronizedTables});
+
+  /// Tables to be synchronized with CRDT.
+  final List<TableInfo> synchronizedTables;
 
   /// Whether the database is using the SQLite or Postgres dialect.
   bool get isPostgres => executor.dialect == SqlDialect.postgres;
@@ -26,4 +31,42 @@ class CrdtDatabase extends _$CrdtDatabase {
   /// should ever be run on this database to avoid messing with the user schema.
   @override
   int schemaVersion = 1;
+}
+
+/// Extensions for [CrdtDatabase] to extract data from the CRDT data table.
+extension CrdtDatabaseDataEntryExtensions on CrdtDatabase {
+  /// Gets a single data entry from the CRDT data table.
+  Future<R?> getSingleFromCrdtData<T extends Table, R extends DataClass>(
+    String rowId,
+  ) async {
+    return (await getFromCrdtData<T, R>([rowId])).firstOrNull;
+  }
+
+  /// Gets a list of data entries from the CRDT data table.
+  Future<List<R>> getFromCrdtData<T extends Table, R extends DataClass>(
+    List<String> rowIds,
+  ) async {
+    final tableInfo = synchronizedTables.firstWhere(
+      (t) => t is T,
+      orElse: () => throw ArgumentError('Table $T not found in synchronized tables.'),
+    );
+
+    final crdtDataEntries = await managers.crdtDataTable
+        .filter(
+          (o) => o.tblName.equals(tableInfo.actualTableName) & o.rowId.isIn(rowIds),
+        )
+        .get();
+
+    final foundRowIds = crdtDataEntries.map((e) => e.rowId).toSet();
+    return [
+      for (final rowId in foundRowIds)
+        await tableInfo.map({
+          for (final c in tableInfo.$columns)
+            c.$name: crdtDataEntries
+                .firstWhere((e) => e.rowId == rowId && e.columnName == c.$name)
+                .rawValue
+                ?.rawSqlValue,
+        }) as R,
+    ];
+  }
 }
