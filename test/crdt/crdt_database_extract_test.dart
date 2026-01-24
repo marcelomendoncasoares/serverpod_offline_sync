@@ -36,8 +36,10 @@ void main() {
     test(
         'when getting the data from the CRDT data table of the CRDT database '
         'then it rebuilds the data perfectly.', () async {
-      final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnType,
-          TableWithEveryColumnTypeData>(rowId);
+      final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
+        tableName: 'table_with_every_column_type',
+        rowId: rowId,
+      );
 
       expect(data, equals(createdData));
     });
@@ -45,8 +47,10 @@ void main() {
     test(
         'when trying to get the data from the CRDT data table with a non-existent row id '
         'then it returns null.', () async {
-      final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnType,
-          TableWithEveryColumnTypeData>('non-existent-row-id');
+      final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
+        tableName: 'table_with_every_column_type',
+        rowId: 'non-existent-row-id',
+      );
 
       expect(data, isNull);
     });
@@ -54,9 +58,9 @@ void main() {
     test(
         'when trying to get the data from the CRDT data table with multiple row ids '
         'then it returns the data for the existing row ids.', () async {
-      final data = await crdtDb
-          .getFromCrdtData<TableWithEveryColumnType, TableWithEveryColumnTypeData>(
-        [rowId, 'non-existent-row-id'],
+      final data = await crdtDb.getFromCrdtData<TableWithEveryColumnTypeData>(
+        tableName: 'table_with_every_column_type',
+        rowIds: [rowId, 'non-existent-row-id'],
       );
 
       expect(data, equals([createdData]));
@@ -66,8 +70,9 @@ void main() {
         'when trying to get the data from the CRDT data table for a non-synchronized table '
         'then it throws an error.', () async {
       expect(
-        () => crdtDb.getFromCrdtData<TableWithoutPK, TableWithEveryColumnTypeData>(
-          [rowId],
+        () => crdtDb.getFromCrdtData<TableWithEveryColumnTypeData>(
+          tableName: 'table_without_pk',
+          rowIds: [rowId],
         ),
         throwsA(isA<ArgumentError>()),
       );
