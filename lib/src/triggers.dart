@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import '/src/migrator.dart';
+import 'utils/sql_builder.dart';
 
 /// The name of the HLC function used in the database.
 const nextHlcFunction = 'next_hlc_timestamp';
@@ -13,25 +13,9 @@ enum Operation { insert, update, delete }
 // now are no longer universal as the one developed originally.
 
 /// Provides the CRDT control trigger statements for the database.
-abstract class OfflineSyncTriggers {
-  /// Creates a new instance of [OfflineSyncTriggers] with the provided [migrator].
-  const OfflineSyncTriggers(this.migrator);
-
-  /// The migrator instance to apply the CRDT schema to.
-  final OfflineSyncMigrator migrator;
-
-  /// Prefix for all CRDT-related entities.
-  String get _prefix => '__crdt';
-
-  /// Name of the column that stores the information about whether the row is deleted.
-  String get isDeletedColumnName => '${_prefix}_is_deleted';
-
-  /// Name of the CRDT data table.
-  String get _crdtDataTableName => migrator.crdtDb.crdtDataTable.actualTableName;
-
-  /// The list of columns in the CRDT data table.
-  Iterable<String> get _crdtDataAllColumns =>
-      migrator.crdtDb.crdtDataTable.$columns.quotedNames;
+abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
+  /// Creates a new instance of [OfflineSyncTriggers].
+  OfflineSyncTriggers(super.crdtDb);
 
   /// Wraps the provided SQL statement as a CREATE TRIGGER statement.
   ///
@@ -45,7 +29,7 @@ abstract class OfflineSyncTriggers {
 
   /// Gets the name of the trigger for a specific operation on a table.
   String _getTriggerName(TableInfo<Table, Object?> table, Operation operation) =>
-      '${_prefix}__${table.actualTableName}__${operation.name}';
+      '${prefix}__${table.actualTableName}__${operation.name}';
 
   /// Returns the SQL statement to insert a new row into the CRDT data table.
   ///
@@ -63,8 +47,10 @@ abstract class OfflineSyncTriggers {
   }) {
     final tableName = table.actualTableName;
 
-    final uniqueRowId =
-        table.getUniqueRowId(tableAlias: operation == Operation.insert ? 'NEW' : 'OLD');
+    final uniqueRowId = getUniqueRowId(
+      table,
+      tableAlias: operation == Operation.insert ? 'NEW' : 'OLD',
+    );
 
     final columnNamesWithoutPrimaryKey = operation == Operation.delete
         ? [isDeletedColumnName]
@@ -91,18 +77,18 @@ abstract class OfflineSyncTriggers {
         operation == Operation.update ? '\n  WHERE (value_changed = TRUE)' : '';
 
     return '''
-  INSERT OR REPLACE INTO $_crdtDataTableName (
-    ${_crdtDataAllColumns.join(', ')}
+  INSERT OR REPLACE INTO $crdtDataTableName (
+    ${crdtDataAllColumns.join(', ')}
   )
   SELECT
-    '${migrator.userId}' AS "user_id",
+    '${crdtDb.userId}' AS "user_id",
     '$tableName' AS "table_name",
     column_name,
     $uniqueRowId AS "row_id",
     "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
+    SELECT $nextHlcFunction('${crdtDb.userId}', '${crdtDb.nodeId}') AS "hlc_timestamp"
   ), (
 ${columnInserts.join('\n    UNION ALL\n')}
   )$whereClause;''';
@@ -128,7 +114,7 @@ ${columnInserts.join('\n    UNION ALL\n')}
 /// Provides the CRDT control trigger statements for the SQLite3 database.
 class Sqlite3OfflineSyncTriggers extends OfflineSyncTriggers {
   /// Creates a new instance of [Sqlite3OfflineSyncTriggers].
-  Sqlite3OfflineSyncTriggers(super.migrator);
+  Sqlite3OfflineSyncTriggers(super.crdtDb);
 
   @override
   String wrapAsCreateTriggerStatement({
@@ -143,30 +129,6 @@ AFTER ${operation.name.toUpperCase()} ON "$tableName"
 BEGIN
 $innerSql
 END;''';
-}
-
-extension on TableInfo {
-  /// Returns an expression that uniquely identifies a row in the table.
-  ///
-  /// If the table has a single primary key column, the expression will be the
-  /// column value. If it has multiple primary key columns, the values for all
-  /// will be concatenated using the `_||_` operator.
-  String getUniqueRowId({required String tableAlias}) {
-    if ($primaryKey.isEmpty) {
-      throw StateError('Table $actualTableName has no primary key and is therefore '
-          'not supported to track changes to it.');
-    }
-    if ($primaryKey.length == 1) {
-      return '$tableAlias."${$primaryKey.first.$name}"';
-    }
-    final columnNames = $primaryKey.map((c) => '$tableAlias."${c.$name}"').join(', ');
-    return "CONCAT_WS('_||_', $columnNames)";
-  }
-}
-
-extension on Iterable<GeneratedColumn> {
-  /// Returns the column names with quotes for safer SQL queries.
-  Iterable<String> get quotedNames => map((c) => '"${c.$name}"');
 }
 
 /// Extension methods for the [GeneratedDatabase] class to get the CRDT trigger names.

@@ -4,6 +4,7 @@ import 'tables/compensation.dart';
 import 'tables/control.dart';
 import 'tables/data.dart';
 import 'tables/merge.dart';
+import 'utils/sql_builder.dart';
 
 part 'database.g.dart';
 
@@ -18,10 +19,24 @@ part 'database.g.dart';
 )
 class CrdtDatabase extends _$CrdtDatabase {
   /// Creates a new instance of [CrdtDatabase] with the provided [executor].
-  CrdtDatabase(super.e, {required this.synchronizedTables});
+  CrdtDatabase(
+    super.e, {
+    required this.userId,
+    required this.nodeId,
+    required this.synchronizedTables,
+  });
+
+  /// The user ID for the CRDT system.
+  final String userId;
+
+  /// The node ID for the CRDT system.
+  final String nodeId;
 
   /// Tables to be synchronized with CRDT.
   final List<TableInfo> synchronizedTables;
+
+  /// The SQL builder for the CRDT data table.
+  late final sqlBuilder = CrdtDataSqlBuilder(this);
 
   /// Whether the database is using the SQLite or Postgres dialect.
   bool get isPostgres => executor.dialect == SqlDialect.postgres;
@@ -31,4 +46,21 @@ class CrdtDatabase extends _$CrdtDatabase {
   /// should ever be run on this database to avoid messing with the user schema.
   @override
   int schemaVersion = 1;
+
+/// Extension methods for the [List<TableInfo>] class to find a synchronized table.
+extension FindSynchronizedTable on List<TableInfo> {
+  /// Gets the table names of the synchronized tables.
+  Iterable<String> get tableNames => map((t) => t.actualTableName);
+
+  /// Gets the synchronized table information for the given table name.
+  ///
+  /// If the table is not found, an [ArgumentError] is thrown.
+  TableInfo find(String tableName) {
+    return firstWhere(
+      (t) => t.actualTableName == tableName,
+      orElse: () => throw ArgumentError(
+        'Table "$tableName" not found in synchronized tables.',
+      ),
+    );
+  }
 }

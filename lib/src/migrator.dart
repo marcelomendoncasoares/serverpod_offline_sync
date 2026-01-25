@@ -41,6 +41,8 @@ class OfflineSyncMigrator extends Migrator {
   /// The database instance to apply the CRDT schema to.
   late final crdtDb = CrdtDatabase(
     database.executor,
+    userId: userId,
+    nodeId: nodeId,
     synchronizedTables: synchronizedTables,
   );
 
@@ -48,7 +50,7 @@ class OfflineSyncMigrator extends Migrator {
   late final crdt = OfflineSyncCrdt(crdtDb, userId: userId, nodeId: nodeId);
 
   /// Migrations for tables that are part of the CRDT system.
-  final pendingMigrations = <String, CRDTTableMigration>{};
+  final pendingMigrations = <String, CrdtTableMigration>{};
 
   /// Eagerly validates that all synchronized tables are supported.
   ///
@@ -69,10 +71,10 @@ class OfflineSyncMigrator extends Migrator {
   ///
   /// If the table is not in the list of synchronized tables, a new migration
   /// will be created.
-  CRDTTableMigration _register(String tableName) {
+  CrdtTableMigration _register(String tableName) {
     return pendingMigrations.putIfAbsent(
       tableName,
-      () => CRDTTableMigration(tableName),
+      () => CrdtTableMigration(tableName),
     );
   }
 
@@ -89,6 +91,9 @@ class OfflineSyncMigrator extends Migrator {
         // TODO: Fix this partitioning, since RANGE can not be used for discrete values.
         'PARTITION BY RANGE (${crdtTable.userId.name}, ${crdtTable.tblName.name});',
       );
+
+      // TODO: Alter all ON DELETE FK constraints from RESTRICT to NO ACTION.
+      // TODO: Alter all FK constraints to be deferrable initially deferred.
     }
 
     for (final table in synchronizedTables) {
@@ -98,7 +103,8 @@ class OfflineSyncMigrator extends Migrator {
 
   Future<void> _createTriggers(TableInfo table) async {
     final triggerCreator = switch (database.executor.dialect) {
-      SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(this),
+      SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(crdtDb),
+      // TODO: Implement the triggers for the Postgres dialect.
       _ => throw UnsupportedError('Unsupported dialect: ${database.executor.dialect}'),
     };
     final triggers = triggerCreator.generateCreateTriggerStatements(table);
@@ -131,7 +137,7 @@ class OfflineSyncMigrator extends Migrator {
     final table = migration.affectedTable;
     pendingMigrations.putIfAbsent(
       table.actualTableName,
-      () => CRDTTableMigration.from(migration),
+      () => CrdtTableMigration.from(migration),
     );
 
     final existingTriggers = await database.getCrdtTriggers();
@@ -187,9 +193,9 @@ class OfflineSyncMigrator extends Migrator {
 }
 
 /// A migration for a table that is part of the CRDT system.
-class CRDTTableMigration {
-  /// Creates a new instance of [CRDTTableMigration].
-  CRDTTableMigration(this.tableName);
+class CrdtTableMigration {
+  /// Creates a new instance of [CrdtTableMigration].
+  CrdtTableMigration(this.tableName);
 
   /// The table that is being migrated.
   final String tableName;
@@ -204,7 +210,7 @@ class CRDTTableMigration {
   String? oldName;
 
   /// The columns that were added.
-  final columns = <String, CRDTColumnMigration>{};
+  final columns = <String, CrdtColumnMigration>{};
 
   /// Whether the table was modified.
   bool get modified => oldName != null || columns.isNotEmpty;
@@ -213,14 +219,14 @@ class CRDTTableMigration {
   ///
   /// If the column is not in the list of synchronized columns, a new migration
   /// will be created.
-  CRDTColumnMigration onColumn(String columnName) {
-    return columns.putIfAbsent(columnName, () => CRDTColumnMigration(columnName));
+  CrdtColumnMigration onColumn(String columnName) {
+    return columns.putIfAbsent(columnName, () => CrdtColumnMigration(columnName));
   }
 
-  /// Creates a new instance of [CRDTTableMigration] from a [TableMigration].
-  static CRDTTableMigration from(TableMigration migration) {
+  /// Creates a new instance of [CrdtTableMigration] from a [TableMigration].
+  static CrdtTableMigration from(TableMigration migration) {
     final table = migration.affectedTable;
-    final tableMigration = CRDTTableMigration(table.actualTableName);
+    final tableMigration = CrdtTableMigration(table.actualTableName);
     for (final column in migration.newColumns) {
       // TODO: Handle the column transformer.
       tableMigration.onColumn(column.name);
@@ -230,9 +236,9 @@ class CRDTTableMigration {
 }
 
 /// A migration for a table that is part of the CRDT system.
-class CRDTColumnMigration {
-  /// Creates a new instance of [CRDTColumnMigration].
-  CRDTColumnMigration(this.columnName);
+class CrdtColumnMigration {
+  /// Creates a new instance of [CrdtColumnMigration].
+  CrdtColumnMigration(this.columnName);
 
   /// The column that is being migrated.
   final String columnName;

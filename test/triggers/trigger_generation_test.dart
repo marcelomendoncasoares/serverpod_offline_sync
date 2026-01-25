@@ -16,7 +16,7 @@ void main() {
       late List<String> triggers;
 
       setUp(() async {
-        final generator = Sqlite3OfflineSyncTriggers(migrator);
+        final generator = Sqlite3OfflineSyncTriggers(migrator.crdtDb);
         triggers = generator.generateCreateTriggerStatements(database.todosTable);
       });
 

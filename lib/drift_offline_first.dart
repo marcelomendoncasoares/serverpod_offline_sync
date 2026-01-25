@@ -4,6 +4,7 @@
 library;
 
 export 'src/crdt.dart';
+export 'src/crdt/extensions/entry.dart';
 export 'src/crdt/extensions/extract.dart';
 export 'src/crdt_base.dart';
 export 'src/database.dart';

@@ -18,13 +18,7 @@ extension CrdtDatabaseExtractExtensions on CrdtDatabase {
     required String tableName,
     required Iterable<String> rowIds,
   }) async {
-    final tableInfo = synchronizedTables.firstWhere(
-      (t) => t.actualTableName == tableName,
-      orElse: () => throw ArgumentError(
-        'Table $tableName not found in synchronized tables.',
-      ),
-    );
-
+    final tableInfo = synchronizedTables.find(tableName);
     final crdtDataEntries = await managers.crdtDataTable
         .filter((o) => o.tblName.equals(tableName) & o.rowId.isIn(rowIds))
         .get();

@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_first/drift_offline_first.dart';
 import 'package:test/test.dart';
 
@@ -23,7 +22,7 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      changeset = todo.toCrdtDataEntry(nodeId);
+      changeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(nodeId));
     });
 
     test(
@@ -50,10 +49,10 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      firstChangeset = todo.toCrdtDataEntry(nodeId);
+      firstChangeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(nodeId));
       await crdt.merge(firstChangeset);
 
-      lateOldChangeset = todo.toCrdtDataEntry(nodeId, hlc: Hlc.zero(nodeId));
+      lateOldChangeset = todo.toCrdtDataEntry(crdtDb, Hlc.zero(nodeId));
     });
 
     test(
@@ -80,11 +79,12 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      firstChangeset = todo.toCrdtDataEntry(nodeId);
+      firstChangeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(nodeId));
       await crdt.merge(firstChangeset);
 
-      newerChangeset =
-          todo.toCrdtDataEntry(nodeId).where((e) => e.columnName == 'content');
+      newerChangeset = todo
+          .toCrdtDataEntry(crdtDb, Hlc.now(nodeId))
+          .where((e) => e.columnName == 'content');
     });
 
     test(
@@ -100,27 +100,4 @@ void main() {
       expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
     });
   });
-}
-
-extension on TodoEntry {
-  Iterable<CrdtDataEntry> toCrdtDataEntry(String nodeId, {Hlc? hlc}) {
-    final hlcTimestamp = hlc ?? Hlc.now(nodeId);
-
-    return database.todosTable.$columns.map(
-      (c) => CrdtDataEntry(
-        userId: 'test',
-        tblName: 'todos',
-        columnName: c.$name,
-        rowId: id.toString(),
-        rawValue: (toJson()[c.$name] as Object?)?.toDriftAny(),
-        hlcTimestamp: hlcTimestamp,
-      ),
-    );
-  }
-}
-
-extension on Object {
-  DriftAny? toDriftAny() {
-    return DriftAny(this);
-  }
 }

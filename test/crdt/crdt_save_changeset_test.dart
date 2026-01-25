@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_first/drift_offline_first.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
@@ -26,7 +25,7 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      changeset = todo.toCrdtDataEntry(otherNodeId);
+      changeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(otherNodeId));
       lastHlc = Hlc.now(otherNodeId);
     });
 
@@ -66,11 +65,11 @@ void main() {
       );
 
       lastHlc = Hlc.now(otherNodeId);
-      firstChangeset = todo.toCrdtDataEntry(otherNodeId, lastHlc);
+      firstChangeset = todo.toCrdtDataEntry(crdtDb, lastHlc);
       await crdt.saveChangeset(firstChangeset, [lastHlc]);
 
       lateOldHlc = Hlc.zero(otherNodeId);
-      lateOldChangeset = todo.toCrdtDataEntry(otherNodeId, lateOldHlc);
+      lateOldChangeset = todo.toCrdtDataEntry(crdtDb, lateOldHlc);
     });
 
     group('when saving a changeset with older HLC', () {
@@ -109,12 +108,12 @@ void main() {
       );
 
       lastHlc = Hlc.now(otherNodeId);
-      firstChangeset = todo.toCrdtDataEntry(otherNodeId);
+      firstChangeset = todo.toCrdtDataEntry(crdtDb, lastHlc);
       await crdt.saveChangeset(firstChangeset, [lastHlc]);
 
       newerHlc = Hlc.now(otherNodeId);
       newerChangeset = todo
-          .toCrdtDataEntry(otherNodeId, newerHlc)
+          .toCrdtDataEntry(crdtDb, newerHlc)
           .where((e) => e.columnName == 'content');
     });
 
@@ -138,27 +137,4 @@ void main() {
       });
     });
   });
-}
-
-extension on TodoEntry {
-  Iterable<CrdtDataEntry> toCrdtDataEntry(String nodeId, [Hlc? hlc]) {
-    final hlcTimestamp = hlc ?? Hlc.now(nodeId);
-
-    return database.todosTable.$columns.map(
-      (c) => CrdtDataEntry(
-        userId: 'test',
-        tblName: 'todos',
-        columnName: c.$name,
-        rowId: id.toString(),
-        rawValue: (toJson()[c.$name] as Object?)?.toDriftAny(),
-        hlcTimestamp: hlcTimestamp,
-      ),
-    );
-  }
-}
-
-extension on Object {
-  DriftAny? toDriftAny() {
-    return DriftAny(this);
-  }
 }
