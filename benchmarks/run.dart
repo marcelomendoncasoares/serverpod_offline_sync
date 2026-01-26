@@ -36,7 +36,7 @@ Future<void> main() async {
 
   final overhead = (crdtSize - baselineSize) / baselineSize * 100;
   print('\n📊 Storage Impact:');
-  print('  CRDT overhead: ${(crdtSize - baselineSize) / 1024} KB');
+  print('  CRDT overhead: ${((crdtSize - baselineSize) / 1024).toStringAsFixed(2)} KB');
   print('  Storage increase: ${overhead.toStringAsFixed(2)}%');
 
   print('\n${'=' * 60}');
@@ -44,7 +44,7 @@ Future<void> main() async {
   print('=' * 60);
 }
 
-Future<int> runInsertBenchmark(dynamic benchmark) async {
+Future<int> runInsertBenchmark(InsertBenchmark benchmark) async {
   await benchmark.setup();
   final stopwatch = Stopwatch()..start();
   await benchmark.run();
@@ -53,9 +53,9 @@ Future<int> runInsertBenchmark(dynamic benchmark) async {
   return stopwatch.elapsedMilliseconds;
 }
 
-Future<int> runStorageBenchmark(dynamic benchmark) async {
+Future<int> runStorageBenchmark(StorageBenchmark benchmark) async {
   await benchmark.setup();
-  final size = benchmark.measure() as int;
+  final size = benchmark.measure();
   await benchmark.teardown();
   return size;
 }
