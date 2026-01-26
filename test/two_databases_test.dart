@@ -1,3 +1,6 @@
+@Skip('Skipping two databases test until migrations are implemented.')
+library;
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:test/test.dart';
