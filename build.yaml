@@ -9,3 +9,8 @@ targets:
             dialects:
               - sqlite
               - postgres
+    sources:
+      include:
+        - lib/**
+        - test/**
+        - benchmarks/**
