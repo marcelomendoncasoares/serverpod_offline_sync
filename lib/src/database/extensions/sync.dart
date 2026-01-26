@@ -1,8 +1,8 @@
 import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
-import '../../database.dart';
 import '../../utils/sql_builder.dart';
+import '../database.dart';
 import 'transactions.dart';
 
 /// Extensions for [CrdtDatabase] to sync data to the target tables.

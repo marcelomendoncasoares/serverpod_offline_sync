@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 
-import '/src/database.dart';
-import 'crdt.dart';
-import 'triggers.dart';
+import 'crdt/crdt.dart';
+import 'database/database.dart';
+import 'database/triggers.dart';
 
 /// Runs migrations declared by a [MigrationStrategy].
 class OfflineSyncMigrator extends Migrator {

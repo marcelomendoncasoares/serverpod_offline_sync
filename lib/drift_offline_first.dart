@@ -3,13 +3,13 @@
 /// More docs go here.
 library;
 
-export 'src/crdt.dart';
-export 'src/crdt/extensions/convert.dart';
-export 'src/crdt/extensions/entry.dart';
-export 'src/crdt/extensions/extract.dart';
-export 'src/crdt/extensions/sync.dart';
-export 'src/crdt_base.dart';
-export 'src/database.dart';
+export 'src/crdt/base.dart';
+export 'src/crdt/crdt.dart';
+export 'src/database/database.dart';
+export 'src/database/extensions/convert.dart';
+export 'src/database/extensions/entry.dart';
+export 'src/database/extensions/extract.dart';
+export 'src/database/extensions/sync.dart';
+export 'src/database/setup.dart';
 export 'src/hlc/converter.dart';
 export 'src/migrator.dart';
-export 'src/setup.dart';

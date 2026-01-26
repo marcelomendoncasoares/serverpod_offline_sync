@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import 'utils/sql_builder.dart';
+import '../utils/sql_builder.dart';
 
 /// The name of the HLC function used in the database.
 const nextHlcFunction = 'next_hlc_timestamp';

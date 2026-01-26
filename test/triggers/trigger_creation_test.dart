@@ -1,4 +1,4 @@
-import 'package:drift_offline_first/src/triggers.dart';
+import 'package:drift_offline_first/src/database/triggers.dart';
 import 'package:test/test.dart';
 
 import '../utils/database.dart';

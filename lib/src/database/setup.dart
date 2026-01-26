@@ -1,8 +1,8 @@
 import 'package:drift/native.dart';
 
 import '/src/hlc/stateful.dart';
-import '/src/triggers.dart';
 import 'tables/data.dart';
+import 'triggers.dart';
 
 /// The database setup function to register the HLC function.
 ///

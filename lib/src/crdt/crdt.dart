@@ -1,8 +1,8 @@
 import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
-import 'crdt_base.dart';
-import 'database.dart';
+import '../database/database.dart';
+import 'base.dart';
 
 /// A CRDT implementation for offline-first synchronization.
 class OfflineSyncCrdt extends CrdtBase {

@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:drift_offline_first/drift_offline_first.dart';
-import 'package:drift_offline_first/src/triggers.dart';
+import 'package:drift_offline_first/src/database/triggers.dart';
 import 'package:test/test.dart';
 
 void main() {

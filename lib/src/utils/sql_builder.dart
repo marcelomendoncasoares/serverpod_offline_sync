@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import '/src/database.dart';
+import '../database/database.dart';
 
 /// Provides the base building blocks for SQL statements to interact with the
 /// CRDT data table.

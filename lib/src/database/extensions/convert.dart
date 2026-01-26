@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 
-import '../../database.dart';
 import '../../hlc/converter.dart';
+import '../database.dart';
 
 /// Extensions for [CrdtDatabase] to convert data to [CrdtDataEntry].
 extension CrdtDatabaseConvertExtensions on CrdtDatabase {

@@ -1,4 +1,4 @@
-import '../../database.dart';
+import '../database.dart';
 
 /// Extensions for [CrdtDatabase] to execute transactions.
 extension CrdtDatabaseTransactionsExtensions on CrdtDatabase {

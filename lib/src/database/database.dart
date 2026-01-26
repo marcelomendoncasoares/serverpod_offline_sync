@@ -1,10 +1,10 @@
 import 'package:drift/drift.dart';
 
+import '../utils/sql_builder.dart';
 import 'tables/compensation.dart';
 import 'tables/control.dart';
 import 'tables/data.dart';
 import 'tables/merge.dart';
-import 'utils/sql_builder.dart';
 
 part 'database.g.dart';
 

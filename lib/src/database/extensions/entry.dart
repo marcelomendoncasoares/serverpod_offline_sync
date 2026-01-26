@@ -1,5 +1,5 @@
-import '../../database.dart';
 import '../../hlc/converter.dart';
+import '../database.dart';
 
 /// Extensions for the [CrdtDataEntry] class.
 extension CrdtDataEntryUnwrapExtensions on CrdtDataEntry {

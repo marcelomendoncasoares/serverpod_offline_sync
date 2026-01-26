@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
 
-import '../hlc/converter.dart';
+import '../../hlc/converter.dart';
 
 // Required for the generated code to know the HLC and converters.
-export '../hlc/converter.dart';
+export '../../hlc/converter.dart';
 
 /// CRDT data table.
 ///

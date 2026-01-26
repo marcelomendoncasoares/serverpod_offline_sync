@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import '../../database.dart';
+import '../database.dart';
 
 /// Extensions for [CrdtDatabase] to extract data from the CRDT data table.
 extension CrdtDatabaseExtractExtensions on CrdtDatabase {
