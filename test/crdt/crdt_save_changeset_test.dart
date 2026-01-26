@@ -1,4 +1,4 @@
-import 'package:drift_offline_first/drift_offline_first.dart';
+import 'package:drift_offline_sync/drift_offline_sync.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 

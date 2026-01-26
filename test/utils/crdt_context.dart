@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:drift_offline_first/drift_offline_first.dart';
+import 'package:drift_offline_sync/drift_offline_sync.dart';
 
 /// Extensions for [GeneratedDatabase] to get the CRDT context for testing.
 extension CrdtContextExtensions on GeneratedDatabase {
