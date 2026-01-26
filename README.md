@@ -1,20 +1,23 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# Drift Offline Sync
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+[![GitHub](https://img.shields.io/badge/GitHub-marcelomendoncasoares-181717.svg?style=flat&logo=github)](https://github.com/marcelomendoncasoares)
+[![Pub Package](https://img.shields.io/pub/v/drift_offline_sync.svg)](https://pub.dev/packages/drift_offline_sync)
+[![Dart SDK Version](https://badgen.net/pub/sdk-version/drift_offline_sync.svg)](https://pub.dev/packages/drift_offline_sync)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/marcelomendoncasoares/drift_offline_sync/blob/main/LICENSE)
+[![CI](https://github.com/marcelomendoncasoares/drift_offline_sync/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/marcelomendoncasoares/drift_offline_sync/actions/workflows/ci.yaml)
 
 A plugin to build offline-first applications with Drift. Develop your app as a
 normal offline app and use this non-invasive plugin to automatically handle the
 sync process using CRDT (Conflict-free Replicated Data Type). Works
 out-of-the-box with Drift's existing APIs.
+
+- [Drift Offline Sync](#drift-offline-sync)
+  - [Features](#features)
+  - [Getting started](#getting-started)
+  - [Usage](#usage)
+  - [License](#license)
+
+---
 
 ## Features
 
