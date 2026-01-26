@@ -12,7 +12,7 @@ export '../hlc/converter.dart';
 ///
 @TableIndex(
   name: 'idx_crdt_merge_hlc_timestamp',
-  columns: {#userId, #hlcTimestamp},
+  columns: {#userId, #lastReceivedHlc},
 )
 @DataClassName('CrdtMergeHlcEntry')
 class CrdtMergeHlcTable extends Table {
