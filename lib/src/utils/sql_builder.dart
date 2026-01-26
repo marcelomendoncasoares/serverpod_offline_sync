@@ -45,8 +45,9 @@ class CrdtDataSqlBuilder {
     if (table.$primaryKey.length == 1) {
       return '$tableAlias."${table.$primaryKey.first.$name}"';
     }
-    final columnNames =
-        table.$primaryKey.map((c) => '$tableAlias."${c.$name}"').join(', ');
+    final columnNames = table.$primaryKey
+        .map((c) => '$tableAlias."${c.$name}"')
+        .join(', ');
     return "CONCAT_WS('$rowIdSeparator', $columnNames)";
   }
 }

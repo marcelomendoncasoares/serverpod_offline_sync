@@ -4,7 +4,7 @@ version: 0.0.1
 repository: https://github.com/marcelomendoncasoares/drift_offline_first
 
 environment:
-  sdk: ^3.3.0
+  sdk: ^3.8.0
 
 # TODO: Relax the package constraints to expand compatibility.
 dependencies:

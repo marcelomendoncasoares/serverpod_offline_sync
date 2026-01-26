@@ -25,8 +25,7 @@ void main() {
       changeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
     });
 
-    test(
-        'when merging a changeset '
+    test('when merging a changeset '
         'then the changeset is saved to the database.', () async {
       await crdt.merge(changeset);
 
@@ -35,69 +34,69 @@ void main() {
   });
 
   group(
-      'Given CRDT for a database with data and a pending changeset with conflicting data and older HLC',
-      () {
-    late Iterable<CrdtDataEntry> firstChangeset;
-    late Iterable<CrdtDataEntry> lateOldChangeset;
+    'Given CRDT for a database with data and a pending changeset with conflicting data and older HLC',
+    () {
+      late Iterable<CrdtDataEntry> firstChangeset;
+      late Iterable<CrdtDataEntry> lateOldChangeset;
 
-    setUp(() async {
-      (crdt, crdtDb, nodeId) = database.crdtContext;
+      setUp(() async {
+        (crdt, crdtDb, nodeId) = database.crdtContext;
 
-      final todo = TodoEntry(
-        id: const RowId(1),
-        content: 'test',
-        targetDate: DateTime.now(),
-      );
+        final todo = TodoEntry(
+          id: const RowId(1),
+          content: 'test',
+          targetDate: DateTime.now(),
+        );
 
-      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
-      await crdt.merge(firstChangeset);
+        firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
+        await crdt.merge(firstChangeset);
 
-      lateOldChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.zero(nodeId));
-    });
+        lateOldChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.zero(nodeId));
+      });
 
-    test(
-        'when merging a changeset with older HLC '
-        'then no changes are saved to the database.', () async {
-      await crdt.merge(lateOldChangeset);
+      test('when merging a changeset with older HLC '
+          'then no changes are saved to the database.', () async {
+        await crdt.merge(lateOldChangeset);
 
-      expect(await crdtDb.managers.crdtDataTable.get(), firstChangeset);
-    });
-  });
+        expect(await crdtDb.managers.crdtDataTable.get(), firstChangeset);
+      });
+    },
+  );
 
   group(
-      'Given CRDT for a database with data and a pending changeset with conflicting data and some entries with newer HLC',
-      () {
-    late Iterable<CrdtDataEntry> firstChangeset;
-    late Iterable<CrdtDataEntry> newerChangeset;
+    'Given CRDT for a database with data and a pending changeset with conflicting data and some entries with newer HLC',
+    () {
+      late Iterable<CrdtDataEntry> firstChangeset;
+      late Iterable<CrdtDataEntry> newerChangeset;
 
-    setUp(() async {
-      (crdt, crdtDb, nodeId) = database.crdtContext;
+      setUp(() async {
+        (crdt, crdtDb, nodeId) = database.crdtContext;
 
-      final todo = TodoEntry(
-        id: const RowId(1),
-        content: 'test',
-        targetDate: DateTime.now(),
-      );
+        final todo = TodoEntry(
+          id: const RowId(1),
+          content: 'test',
+          targetDate: DateTime.now(),
+        );
 
-      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
-      await crdt.merge(firstChangeset);
+        firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
+        await crdt.merge(firstChangeset);
 
-      newerChangeset = crdtDb
-          .convertToCrdtDataEntry(todo, Hlc.now(nodeId))
-          .where((e) => e.columnName == 'content');
-    });
+        newerChangeset = crdtDb
+            .convertToCrdtDataEntry(todo, Hlc.now(nodeId))
+            .where((e) => e.columnName == 'content');
+      });
 
-    test(
-        'when merging a changeset with some entries with newer HLC '
-        'then the entries with newer HLC are saved to the database.', () async {
-      await crdt.merge(newerChangeset);
+      test('when merging a changeset with some entries with newer HLC '
+          'then the entries with newer HLC are saved to the database.', () async {
+        await crdt.merge(newerChangeset);
 
-      final expectedResultingChangeset = [
-        for (final e in firstChangeset)
-          if (e.columnName == 'content') newerChangeset.first else e,
-      ];
+        final expectedResultingChangeset = [
+          for (final e in firstChangeset)
+            if (e.columnName == 'content') newerChangeset.first else e,
+        ];
 
-      expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
-    });
-  });
+        expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
+      });
+    },
+  );
 }

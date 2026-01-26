@@ -40,12 +40,13 @@ extension ConvertCrdtDataEntry on TableInfo {
     return [
       for (final rowId in foundRowIds)
         await map({
-          for (final c in $columns)
-            c.$name: entries
-                .firstWhere((e) => e.rowId == rowId && e.columnName == c.$name)
-                .rawValue
-                ?.rawSqlValue,
-        }) as T,
+              for (final c in $columns)
+                c.$name: entries
+                    .firstWhere((e) => e.rowId == rowId && e.columnName == c.$name)
+                    .rawValue
+                    ?.rawSqlValue,
+            })
+            as T,
     ];
   }
 }

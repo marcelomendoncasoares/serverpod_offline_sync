@@ -33,8 +33,7 @@ void main() {
       createdData = await database.managers.tableWithEveryColumnType.getSingle();
     });
 
-    test(
-        'when getting the data from the CRDT data table of the CRDT database '
+    test('when getting the data from the CRDT data table of the CRDT database '
         'then it rebuilds the data perfectly.', () async {
       final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
         rowId,
@@ -44,17 +43,18 @@ void main() {
     });
 
     test(
-        'when trying to get the data from the CRDT data table with a non-existent row id '
-        'then it returns null.', () async {
-      final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
-        'non-existent-row-id',
-      );
+      'when trying to get the data from the CRDT data table with a non-existent row id '
+      'then it returns null.',
+      () async {
+        final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
+          'non-existent-row-id',
+        );
 
-      expect(data, isNull);
-    });
+        expect(data, isNull);
+      },
+    );
 
-    test(
-        'when trying to get the data from the CRDT data table with multiple row ids '
+    test('when trying to get the data from the CRDT data table with multiple row ids '
         'then it returns the data for the existing row ids.', () async {
       final data = await crdtDb.getFromCrdtData<TableWithEveryColumnTypeData>(
         [rowId, 'non-existent-row-id'],
@@ -64,18 +64,20 @@ void main() {
     });
 
     test(
-        'when trying to get the data from the CRDT data table for a non-synchronized table '
-        'then it throws an error.', () async {
-      expect(
-        () => crdtDb.getSingleFromCrdtData<WithCustomTypeData>(rowId),
-        throwsA(
-          isA<ArgumentError>().having(
-            (e) => e.message,
-            'message',
-            'Table for type "WithCustomTypeData" not found in synchronized tables.',
+      'when trying to get the data from the CRDT data table for a non-synchronized table '
+      'then it throws an error.',
+      () async {
+        expect(
+          () => crdtDb.getSingleFromCrdtData<WithCustomTypeData>(rowId),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              'Table for type "WithCustomTypeData" not found in synchronized tables.',
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   });
 }

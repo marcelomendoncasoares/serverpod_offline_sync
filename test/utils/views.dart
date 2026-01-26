@@ -11,10 +11,13 @@ abstract class CategoryTodoCountView extends View {
   Expression<int> get itemCount => todos.id.count();
 
   @override
-  Query as() => select([categoryId, description, itemCount])
-      .from(categories)
-      .join([innerJoin(todos, todos.category.equalsExp(categories.id))])
-    ..groupBy([categories.id]);
+  Query as() =>
+      select(
+          [categoryId, description, itemCount],
+        ).from(categories).join([
+          innerJoin(todos, todos.category.equalsExp(categories.id)),
+        ])
+        ..groupBy([categories.id]);
 }
 
 abstract class TodoWithCategoryView extends View {
@@ -22,7 +25,10 @@ abstract class TodoWithCategoryView extends View {
   Categories get categories;
 
   @override
-  Query as() => select([todos.title, categories.description])
-      .from(todos)
-      .join([innerJoin(categories, categories.id.equalsExp(todos.category))]);
+  Query as() =>
+      select(
+        [todos.title, categories.description],
+      ).from(todos).join([
+        innerJoin(categories, categories.id.equalsExp(todos.category)),
+      ]);
 }

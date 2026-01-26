@@ -47,94 +47,96 @@ void main() {
   });
 
   group(
-      'Given CRDT for a database with data and a pending changeset with conflicting data and older HLC',
-      () {
-    late Iterable<CrdtDataEntry> firstChangeset;
-    late Iterable<CrdtDataEntry> lateOldChangeset;
-    late Hlc lastHlc;
-    late Hlc lateOldHlc;
+    'Given CRDT for a database with data and a pending changeset with conflicting data and older HLC',
+    () {
+      late Iterable<CrdtDataEntry> firstChangeset;
+      late Iterable<CrdtDataEntry> lateOldChangeset;
+      late Hlc lastHlc;
+      late Hlc lateOldHlc;
 
-    setUp(() async {
-      (crdt, crdtDb, _) = database.crdtContext;
-      otherNodeId = const Uuid().v4();
-
-      final todo = TodoEntry(
-        id: const RowId(1),
-        content: 'test',
-        targetDate: DateTime.now(),
-      );
-
-      lastHlc = Hlc.now(otherNodeId);
-      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, lastHlc);
-      await crdt.saveChangeset(firstChangeset, [lastHlc]);
-
-      lateOldHlc = Hlc.zero(otherNodeId);
-      lateOldChangeset = crdtDb.convertToCrdtDataEntry(todo, lateOldHlc);
-    });
-
-    group('when saving a changeset with older HLC', () {
       setUp(() async {
-        await crdt.saveChangeset(lateOldChangeset, [lateOldHlc]);
+        (crdt, crdtDb, _) = database.crdtContext;
+        otherNodeId = const Uuid().v4();
+
+        final todo = TodoEntry(
+          id: const RowId(1),
+          content: 'test',
+          targetDate: DateTime.now(),
+        );
+
+        lastHlc = Hlc.now(otherNodeId);
+        firstChangeset = crdtDb.convertToCrdtDataEntry(todo, lastHlc);
+        await crdt.saveChangeset(firstChangeset, [lastHlc]);
+
+        lateOldHlc = Hlc.zero(otherNodeId);
+        lateOldChangeset = crdtDb.convertToCrdtDataEntry(todo, lateOldHlc);
       });
 
-      test('then no changes are saved to the database.', () async {
-        final savedChangeset = await crdtDb.managers.crdtDataTable.get();
-        expect(savedChangeset, firstChangeset);
-      });
+      group('when saving a changeset with older HLC', () {
+        setUp(() async {
+          await crdt.saveChangeset(lateOldChangeset, [lateOldHlc]);
+        });
 
-      test('then the last received HLC is not updated in the database.', () async {
-        final savedMergedHlcs = await crdtDb.managers.crdtMergeHlcTable.get();
-        expect(savedMergedHlcs.map((e) => e.lastReceivedHlc).single, lastHlc);
+        test('then no changes are saved to the database.', () async {
+          final savedChangeset = await crdtDb.managers.crdtDataTable.get();
+          expect(savedChangeset, firstChangeset);
+        });
+
+        test('then the last received HLC is not updated in the database.', () async {
+          final savedMergedHlcs = await crdtDb.managers.crdtMergeHlcTable.get();
+          expect(savedMergedHlcs.map((e) => e.lastReceivedHlc).single, lastHlc);
+        });
       });
-    });
-  });
+    },
+  );
 
   group(
-      'Given CRDT for a database with data and a pending changeset with conflicting data and some entries with newer HLC',
-      () {
-    late Iterable<CrdtDataEntry> firstChangeset;
-    late Iterable<CrdtDataEntry> newerChangeset;
-    late Hlc lastHlc;
-    late Hlc newerHlc;
+    'Given CRDT for a database with data and a pending changeset with conflicting data and some entries with newer HLC',
+    () {
+      late Iterable<CrdtDataEntry> firstChangeset;
+      late Iterable<CrdtDataEntry> newerChangeset;
+      late Hlc lastHlc;
+      late Hlc newerHlc;
 
-    setUp(() async {
-      (crdt, crdtDb, _) = database.crdtContext;
-      otherNodeId = const Uuid().v4();
-
-      final todo = TodoEntry(
-        id: const RowId(1),
-        content: 'test',
-        targetDate: DateTime.now(),
-      );
-
-      lastHlc = Hlc.now(otherNodeId);
-      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, lastHlc);
-      await crdt.saveChangeset(firstChangeset, [lastHlc]);
-
-      newerHlc = Hlc.now(otherNodeId);
-      newerChangeset = crdtDb
-          .convertToCrdtDataEntry(todo, newerHlc)
-          .where((e) => e.columnName == 'content');
-    });
-
-    group('when saving a changeset with some entries with newer HLC', () {
       setUp(() async {
-        await crdt.saveChangeset(newerChangeset, [newerHlc]);
+        (crdt, crdtDb, _) = database.crdtContext;
+        otherNodeId = const Uuid().v4();
+
+        final todo = TodoEntry(
+          id: const RowId(1),
+          content: 'test',
+          targetDate: DateTime.now(),
+        );
+
+        lastHlc = Hlc.now(otherNodeId);
+        firstChangeset = crdtDb.convertToCrdtDataEntry(todo, lastHlc);
+        await crdt.saveChangeset(firstChangeset, [lastHlc]);
+
+        newerHlc = Hlc.now(otherNodeId);
+        newerChangeset = crdtDb
+            .convertToCrdtDataEntry(todo, newerHlc)
+            .where((e) => e.columnName == 'content');
       });
 
-      test('then the entries with newer HLC are saved to the database.', () async {
-        final expectedResultingChangeset = [
-          for (final e in firstChangeset)
-            if (e.columnName == 'content') newerChangeset.first else e,
-        ];
+      group('when saving a changeset with some entries with newer HLC', () {
+        setUp(() async {
+          await crdt.saveChangeset(newerChangeset, [newerHlc]);
+        });
 
-        expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
-      });
+        test('then the entries with newer HLC are saved to the database.', () async {
+          final expectedResultingChangeset = [
+            for (final e in firstChangeset)
+              if (e.columnName == 'content') newerChangeset.first else e,
+          ];
 
-      test('then the last received HLC is updated in the database.', () async {
-        final savedMergedHlcs = await crdtDb.managers.crdtMergeHlcTable.get();
-        expect(savedMergedHlcs.map((e) => e.lastReceivedHlc).single, newerHlc);
+          expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
+        });
+
+        test('then the last received HLC is updated in the database.', () async {
+          final savedMergedHlcs = await crdtDb.managers.crdtMergeHlcTable.get();
+          expect(savedMergedHlcs.map((e) => e.lastReceivedHlc).single, newerHlc);
+        });
       });
-    });
-  });
+    },
+  );
 }

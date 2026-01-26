@@ -52,7 +52,8 @@ TodoDb? _database;
   ],
   daos: [SomeDao],
   queries: {
-    'allTodosWithCategory': 'SELECT t.*, c.id as catId, c."desc" as catDesc '
+    'allTodosWithCategory':
+        'SELECT t.*, c.id as catId, c."desc" as catDesc '
         'FROM todos t INNER JOIN categories c ON c.id = t.category',
     'deleteTodoById': 'DELETE FROM todos WHERE id = ?',
     'withIn': 'SELECT * FROM todos WHERE title = ?2 OR id IN ? OR title = ?1',
@@ -71,36 +72,37 @@ class TodoDb extends _$TodoDb {
   // This is what needs to be added to the user database class to make it CRDT aware.
   @override
   OfflineSyncMigrator createMigrator() => OfflineSyncMigrator(
-        this,
-        userId: testUserId,
-        nodeId: testNodeId,
-        synchronizedTables: [
-          todosTable,
-          categories,
-          users,
-          sharedTodos,
-          // tableWithoutPK,
-          pureDefaults,
-          // withCustomType,
-          tableWithEveryColumnType,
-          department,
-          // product,
-        ],
-        excludeTables: [
-          listing,
-          product,
-          store,
-          tableWithoutPK,
-          withCustomType,
-        ],
-      );
+    this,
+    userId: testUserId,
+    nodeId: testNodeId,
+    synchronizedTables: [
+      todosTable,
+      categories,
+      users,
+      sharedTodos,
+      // tableWithoutPK,
+      pureDefaults,
+      // withCustomType,
+      tableWithEveryColumnType,
+      department,
+      // product,
+    ],
+    excludeTables: [
+      listing,
+      product,
+      store,
+      tableWithoutPK,
+      withCustomType,
+    ],
+  );
 }
 
 @DriftAccessor(
   tables: [Users, SharedTodos, TodosTable],
   views: [TodoWithCategoryView],
   queries: {
-    'todosForUser': 'SELECT t.* FROM todos t '
+    'todosForUser':
+        'SELECT t.* FROM todos t '
         'INNER JOIN shared_todos st ON st.todo = t.id '
         'INNER JOIN users u ON u.id = st.user '
         'WHERE u.id = :user',

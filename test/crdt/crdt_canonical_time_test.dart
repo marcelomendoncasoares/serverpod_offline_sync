@@ -15,8 +15,7 @@ void main() {
       (crdt, _, nodeId) = database.crdtContext;
     });
 
-    test(
-        'when getting the canonical time '
+    test('when getting the canonical time '
         'then it returns Hlc.zero for the nodeId.', () async {
       expect(crdt.canonicalTime, equals(Hlc.zero(nodeId)));
     });
@@ -38,8 +37,7 @@ void main() {
       createdHlc = allCrdtDataEntries.first.hlcTimestamp;
     });
 
-    test(
-        'when getting the canonical time '
+    test('when getting the canonical time '
         'then it returns the HLC timestamp of the created data.', () async {
       expect(crdt.canonicalTime, equals(createdHlc));
     });
@@ -60,8 +58,7 @@ void main() {
       );
     });
 
-    test(
-        'when getting the canonical time '
+    test('when getting the canonical time '
         'then the canonical time matches the cached HLC for the nodeId.', () async {
       expect(
         crdt.canonicalTime,

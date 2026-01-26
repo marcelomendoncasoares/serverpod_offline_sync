@@ -41,7 +41,7 @@ void main() {
     final _ = second.users.all();
     expect(second.didUpgrade, isFalse);
 
-    final __ = first.todosTable.all();
+    final _ = first.todosTable.all();
     expect(first.didUpgrade, isTrue);
   });
 }

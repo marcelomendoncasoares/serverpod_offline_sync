@@ -19,19 +19,19 @@ class FirstDb extends _$FirstDb {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          created = true;
-          await m.createAll();
-        },
-        onUpgrade: (m, from, to) async {
-          if (from == 1 && to == 2) {
-            didUpgrade = true;
-          }
-        },
-        beforeOpen: (m) async {
-          onBeforeOpen = true;
-        },
-      );
+    onCreate: (m) async {
+      created = true;
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from == 1 && to == 2) {
+        didUpgrade = true;
+      }
+    },
+    beforeOpen: (m) async {
+      onBeforeOpen = true;
+    },
+  );
 }
 
 @DriftDatabase(tables: [Users])
@@ -47,17 +47,17 @@ class SecondDb extends _$SecondDb {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          created = true;
-          await m.createAll();
-        },
-        onUpgrade: (m, from, to) async {
-          if (from == 1 && to == 2) {
-            didUpgrade = true;
-          }
-        },
-        beforeOpen: (m) async {
-          onBeforeOpen = true;
-        },
-      );
+    onCreate: (m) async {
+      created = true;
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from == 1 && to == 2) {
+        didUpgrade = true;
+      }
+    },
+    beforeOpen: (m) async {
+      onBeforeOpen = true;
+    },
+  );
 }

@@ -13,8 +13,7 @@ void main() {
       (crdt, _, _) = database.crdtContext;
     });
 
-    test(
-        'when getting the last modified timestamp '
+    test('when getting the last modified timestamp '
         'then it returns null since the database is empty.', () async {
       final lastModified = await crdt.getLastModified();
       expect(lastModified, isNull);
@@ -39,36 +38,31 @@ void main() {
     });
 
     group('when getting the last modified timestamp', () {
-      test(
-          'without any filters '
+      test('without any filters '
           'then it returns the HLC timestamp of the created data.', () async {
         final lastModified = await crdt.getLastModified();
         expect(lastModified, equals(createdHlc));
       });
 
-      test(
-          'with onlyNodeId set to the nodeId '
+      test('with onlyNodeId set to the nodeId '
           'then it returns the HLC timestamp of the created data.', () async {
         final lastModified = await crdt.getLastModified(onlyNodeId: nodeId);
         expect(lastModified, equals(createdHlc));
       });
 
-      test(
-          'with onlyNodeId set to a different nodeId '
+      test('with onlyNodeId set to a different nodeId '
           'then it returns null.', () async {
         final lastModified = await crdt.getLastModified(onlyNodeId: 'other-node');
         expect(lastModified, isNull);
       });
 
-      test(
-          'with exceptNodeId set to the nodeId '
+      test('with exceptNodeId set to the nodeId '
           'then it returns null.', () async {
         final lastModified = await crdt.getLastModified(exceptNodeId: nodeId);
         expect(lastModified, isNull);
       });
 
-      test(
-          'with exceptNodeId set to a different nodeId '
+      test('with exceptNodeId set to a different nodeId '
           'then it returns the HLC timestamp of the created data.', () async {
         final lastModified = await crdt.getLastModified(exceptNodeId: 'other-node');
         expect(lastModified, equals(createdHlc));

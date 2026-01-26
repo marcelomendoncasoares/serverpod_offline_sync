@@ -55,26 +55,26 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
     final columnNamesWithoutPrimaryKey = operation == Operation.delete
         ? [isDeletedColumnName]
         : table.$columns
-            .map((c) => c.$name)
-            // MAYBE: If we remove the primary key columns from the list, some tables
-            // might be completely ignored (like many-to-many relationship tables).
-            // Do we really need them? Probably yes if we want to avoid deserializing
-            // the split rowId into the original primary key columns, which can have
-            // different types.
-            // .where((c) => !table.$primaryKey.map((p) => p.$name).contains(c))
-            .toList();
+              .map((c) => c.$name)
+              // MAYBE: If we remove the primary key columns from the list, some tables
+              // might be completely ignored (like many-to-many relationship tables).
+              // Do we really need them? Probably yes if we want to avoid deserializing
+              // the split rowId into the original primary key columns, which can have
+              // different types.
+              // .where((c) => !table.$primaryKey.map((p) => p.$name).contains(c))
+              .toList();
 
     final columnInserts = columnNamesWithoutPrimaryKey.map((c) {
       return '    SELECT\n${[
         '      \'$c\' AS "column_name"',
         '      ${c == isDeletedColumnName ? 'TRUE' : 'NEW."$c"'} AS "raw_value"',
-        if (operation == Operation.update)
-          '      NEW."$c" IS NOT OLD."$c" AS "value_changed"',
+        if (operation == Operation.update) '      NEW."$c" IS NOT OLD."$c" AS "value_changed"',
       ].join(',\n')}';
     });
 
-    final whereClause =
-        operation == Operation.update ? '\n  WHERE (value_changed = TRUE)' : '';
+    final whereClause = operation == Operation.update
+        ? '\n  WHERE (value_changed = TRUE)'
+        : '';
 
     return '''
   INSERT OR REPLACE INTO $crdtDataTableName (

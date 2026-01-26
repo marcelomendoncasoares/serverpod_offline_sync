@@ -50,8 +50,9 @@ void main() {
       });
 
       test('then all entries have expected column names and values.', () async {
-        final mappedData =
-            await database.tableWithEveryColumnType.fromCrdtDataEntries(entries);
+        final mappedData = await database.tableWithEveryColumnType.fromCrdtDataEntries(
+          entries,
+        );
         expect(mappedData.single, equals(createdData));
       });
     });
@@ -104,15 +105,15 @@ void main() {
 }
 
 TableWithEveryColumnTypeData _createTestData() => TableWithEveryColumnTypeData(
-      id: const RowId(1),
-      aBool: true,
-      aDateTime: DateTime.now(),
-      aText: 'test',
-      anInt: 1,
-      anInt64: BigInt.one,
-      aReal: 1.0,
-      aBlob: Uint8List.fromList([1, 2, 3]),
-      anIntEnum: TodoStatus.open,
-      aTextWithConverter: MyCustomObject('test'),
-      aUuid: UuidValue.fromString('123e4567-e89b-12d3-a456-426614174000'),
-    );
+  id: const RowId(1),
+  aBool: true,
+  aDateTime: DateTime.now(),
+  aText: 'test',
+  anInt: 1,
+  anInt64: BigInt.one,
+  aReal: 1.0,
+  aBlob: Uint8List.fromList([1, 2, 3]),
+  anIntEnum: TodoStatus.open,
+  aTextWithConverter: MyCustomObject('test'),
+  aUuid: UuidValue.fromString('123e4567-e89b-12d3-a456-426614174000'),
+);

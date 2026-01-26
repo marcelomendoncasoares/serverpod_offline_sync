@@ -13,16 +13,14 @@ void main() {
       (crdt, _, _) = database.crdtContext;
     });
 
-    test(
-        'when getting a changeset '
+    test('when getting a changeset '
         'then it returns an empty changeset.', () async {
       final changeset = await crdt.getChangeset();
 
       expect(changeset, isEmpty);
     });
 
-    test(
-        'when adding data to the database '
+    test('when adding data to the database '
         'then the changeset contains the data.', () async {
       await database.managers.todosTable.create(
         (t) => t(content: 'test'),
@@ -57,15 +55,16 @@ void main() {
     group('when getting a changeset', () {
       group('without any filters', () {
         test(
-            'then it returns a changeset with one entry per column of the created data.',
-            () async {
-          final changeset = await crdt.getChangeset();
-          final changesetColumns = changeset.map((e) => e.columnName).toSet();
-          final expectedColumns = database.todosTable.$columns.map((c) => c.$name);
+          'then it returns a changeset with one entry per column of the created data.',
+          () async {
+            final changeset = await crdt.getChangeset();
+            final changesetColumns = changeset.map((e) => e.columnName).toSet();
+            final expectedColumns = database.todosTable.$columns.map((c) => c.$name);
 
-          expect(changeset.length, expectedColumns.length);
-          expect(changesetColumns, equals(expectedColumns));
-        });
+            expect(changeset.length, expectedColumns.length);
+            expect(changesetColumns, equals(expectedColumns));
+          },
+        );
 
         test('then the raw values are set correctly.', () async {
           final changeset = await crdt.getChangeset();
@@ -81,8 +80,7 @@ void main() {
         });
       });
 
-      test(
-          'with onlyNodeId set to the nodeId '
+      test('with onlyNodeId set to the nodeId '
           'then it returns a changeset with the data for the nodeId.', () async {
         final changeset = await crdt.getChangeset(onlyNodeId: nodeId);
         final nodeIds = changeset.map((e) => e.hlcTimestamp.nodeId).toSet();
@@ -91,24 +89,21 @@ void main() {
         expect(nodeIds, equals({nodeId}));
       });
 
-      test(
-          'with onlyNodeId set to a different nodeId '
+      test('with onlyNodeId set to a different nodeId '
           'then it returns an empty changeset.', () async {
         final changeset = await crdt.getChangeset(onlyNodeId: 'wrong-node');
 
         expect(changeset, isEmpty);
       });
 
-      test(
-          'with exceptNodeId set to the nodeId '
+      test('with exceptNodeId set to the nodeId '
           'then it returns an empty changeset.', () async {
         final changeset = await crdt.getChangeset(exceptNodeId: nodeId);
 
         expect(changeset, isEmpty);
       });
 
-      test(
-          'with exceptNodeId set to a different nodeId '
+      test('with exceptNodeId set to a different nodeId '
           'then it returns a changeset with data from other nodes.', () async {
         const otherNodeId = 'other-node';
         final changeset = await crdt.getChangeset(exceptNodeId: otherNodeId);
@@ -119,18 +114,18 @@ void main() {
       });
 
       test(
-          'with modifiedAfter set to a timestamp before the created data '
-          'then it returns a changeset with the entries from the created data.',
-          () async {
-        final earlierHlc = Hlc.zero(nodeId);
-        final changeset = await crdt.getChangeset(modifiedAfter: earlierHlc);
+        'with modifiedAfter set to a timestamp before the created data '
+        'then it returns a changeset with the entries from the created data.',
+        () async {
+          final earlierHlc = Hlc.zero(nodeId);
+          final changeset = await crdt.getChangeset(modifiedAfter: earlierHlc);
 
-        expect(changeset, isNotEmpty);
-        expect(changeset.map((e) => e.rowId).toSet(), equals({rowId}));
-      });
+          expect(changeset, isNotEmpty);
+          expect(changeset.map((e) => e.rowId).toSet(), equals({rowId}));
+        },
+      );
 
-      test(
-          'with modifiedAfter set to a timestamp after the created data '
+      test('with modifiedAfter set to a timestamp after the created data '
           'then it returns an empty changeset.', () async {
         final futureHlc = createdHlc.increment();
         final changeset = await crdt.getChangeset(modifiedAfter: futureHlc);

@@ -12,8 +12,9 @@ extension type RowId._(int id) {
 }
 
 mixin AutoIncrement on Table {
-  late final id =
-      integer().autoIncrement().map(TypeConverter.extensionType<RowId, int>())();
+  late final id = integer().autoIncrement().map(
+    TypeConverter.extensionType<RowId, int>(),
+  )();
 }
 
 @DataClassName('TodoEntry')
@@ -35,9 +36,9 @@ class TodosTable extends Table with AutoIncrement {
 
   @override
   List<Set<Column>>? get uniqueKeys => [
-        {title, category},
-        {title, targetDate},
-      ];
+    {title, category},
+    {title, targetDate},
+  ];
 }
 
 enum TodoStatus { open, workInProgress, done }
@@ -71,9 +72,9 @@ class SharedTodos extends Table {
 
   @override
   List<String> get customConstraints => [
-        'FOREIGN KEY (todo) REFERENCES todos(id)',
-        'FOREIGN KEY (user) REFERENCES users(id)',
-      ];
+    'FOREIGN KEY (todo) REFERENCES todos(id)',
+    'FOREIGN KEY (user) REFERENCES users(id)',
+  ];
 }
 
 @UseRowClass(CustomRowClass, constructor: 'map', generateInsertable: true)

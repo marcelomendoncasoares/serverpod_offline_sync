@@ -118,49 +118,54 @@ void main() {
         expect(row.targetDate, targetDate);
       });
 
-      group('then the trigger is executed and the updated row in the CRDT data table',
-          () {
-        late List<CrdtDataEntry> allCrdtDataEntries;
+      group(
+        'then the trigger is executed and the updated row in the CRDT data table',
+        () {
+          late List<CrdtDataEntry> allCrdtDataEntries;
 
-        setUp(() async {
-          final migrator = database.createMigrator();
-          allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-        });
+          setUp(() async {
+            final migrator = database.createMigrator();
+            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+          });
 
-        test('has the raw values updated correctly.', () async {
-          final crdtData = allCrdtDataEntries.getField(rowId, 'content');
-          expect(crdtData.unwrappedValue, targetContent);
+          test('has the raw values updated correctly.', () async {
+            final crdtData = allCrdtDataEntries.getField(rowId, 'content');
+            expect(crdtData.unwrappedValue, targetContent);
 
-          final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
-          expect(
-            targetDateCrdtData.unwrappedValue,
-            targetDate.toIso8600StringWithOffset(),
-          );
-        });
+            final targetDateCrdtData = allCrdtDataEntries.getField(
+              rowId,
+              'target_date',
+            );
+            expect(
+              targetDateCrdtData.unwrappedValue,
+              targetDate.toIso8600StringWithOffset(),
+            );
+          });
 
-        test('has the same HLC timestamp for each updated column.', () async {
-          final updatedEntriesHlc = allCrdtDataEntries
-              .where((entry) => entry.rowId == rowId)
-              .where((entry) => updatedColumnNames.contains(entry.columnName))
-              .map((entry) => entry.hlcTimestamp);
+          test('has the same HLC timestamp for each updated column.', () async {
+            final updatedEntriesHlc = allCrdtDataEntries
+                .where((entry) => entry.rowId == rowId)
+                .where((entry) => updatedColumnNames.contains(entry.columnName))
+                .map((entry) => entry.hlcTimestamp);
 
-          expect(updatedEntriesHlc.toSet(), hasLength(1));
-        });
+            expect(updatedEntriesHlc.toSet(), hasLength(1));
+          });
 
-        test('has the updated HLC timestamp greater than the created.', () async {
-          final updatedEntry = allCrdtDataEntries.getField(rowId, 'content');
-          expect(updatedEntry.hlcTimestamp, greaterThan(createdHlc));
-        });
+          test('has the updated HLC timestamp greater than the created.', () async {
+            final updatedEntry = allCrdtDataEntries.getField(rowId, 'content');
+            expect(updatedEntry.hlcTimestamp, greaterThan(createdHlc));
+          });
 
-        test('has not changed the HLC timestamp for non-updated columns.', () async {
-          final otherEntriesHlc = allCrdtDataEntries
-              .where((entry) => entry.rowId == rowId)
-              .where((entry) => !updatedColumnNames.contains(entry.columnName))
-              .map((entry) => entry.hlcTimestamp);
+          test('has not changed the HLC timestamp for non-updated columns.', () async {
+            final otherEntriesHlc = allCrdtDataEntries
+                .where((entry) => entry.rowId == rowId)
+                .where((entry) => !updatedColumnNames.contains(entry.columnName))
+                .map((entry) => entry.hlcTimestamp);
 
-          expect(otherEntriesHlc, everyElement(equals(createdHlc)));
-        });
-      });
+            expect(otherEntriesHlc, everyElement(equals(createdHlc)));
+          });
+        },
+      );
     });
 
     group('when updating the existing row with the same value', () {
@@ -173,20 +178,22 @@ void main() {
         );
       });
 
-      group('then the trigger is executed and the updated row in the CRDT data table',
-          () {
-        late List<CrdtDataEntry> allCrdtDataEntries;
+      group(
+        'then the trigger is executed and the updated row in the CRDT data table',
+        () {
+          late List<CrdtDataEntry> allCrdtDataEntries;
 
-        setUp(() async {
-          final migrator = database.createMigrator();
-          allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-        });
+          setUp(() async {
+            final migrator = database.createMigrator();
+            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+          });
 
-        test('has not changed the HLC timestamp for the updated column.', () async {
-          final updatedEntry = allCrdtDataEntries.getField(rowId, 'content');
-          expect(updatedEntry.hlcTimestamp, equals(createdHlc));
-        });
-      });
+          test('has not changed the HLC timestamp for the updated column.', () async {
+            final updatedEntry = allCrdtDataEntries.getField(rowId, 'content');
+            expect(updatedEntry.hlcTimestamp, equals(createdHlc));
+          });
+        },
+      );
     });
 
     group('when deleting the existing row', () {
@@ -202,28 +209,33 @@ void main() {
         expect(row, isNull);
       });
 
-      group('then the trigger is executed and the deleted row in the CRDT data table',
-          () {
-        late List<CrdtDataEntry> allCrdtDataEntries;
-        late String rowId;
+      group(
+        'then the trigger is executed and the deleted row in the CRDT data table',
+        () {
+          late List<CrdtDataEntry> allCrdtDataEntries;
+          late String rowId;
 
-        setUp(() async {
-          final migrator = database.createMigrator();
-          allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+          setUp(() async {
+            final migrator = database.createMigrator();
+            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
 
-          rowId = createdRowId.toString();
-        });
+            rowId = createdRowId.toString();
+          });
 
-        test('has the deleted flag column set to true.', () async {
-          final crdtData = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
-          expect(crdtData.unwrappedValue, 1);
-        });
+          test('has the deleted flag column set to true.', () async {
+            final crdtData = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
+            expect(crdtData.unwrappedValue, 1);
+          });
 
-        test('has the deleted HLC timestamp greater than the created.', () async {
-          final deletedEntry = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
-          expect(deletedEntry.hlcTimestamp, greaterThan(createdHlc));
-        });
-      });
+          test('has the deleted HLC timestamp greater than the created.', () async {
+            final deletedEntry = allCrdtDataEntries.getField(
+              rowId,
+              '__crdt_is_deleted',
+            );
+            expect(deletedEntry.hlcTimestamp, greaterThan(createdHlc));
+          });
+        },
+      );
     });
   });
 }

@@ -28,8 +28,9 @@ void main() {
       });
 
       test('then the insert trigger statement is correct.', () {
-        final insertStatement = triggers
-            .firstWhere((trigger) => trigger.contains('AFTER INSERT ON "todos"'));
+        final insertStatement = triggers.firstWhere(
+          (trigger) => trigger.contains('AFTER INSERT ON "todos"'),
+        );
 
         expect(
           insertStatement,
@@ -79,8 +80,9 @@ END;''',
       });
 
       test('then the update trigger statement is correct.', () {
-        final updateStatement = triggers
-            .firstWhere((trigger) => trigger.contains('AFTER UPDATE ON "todos"'));
+        final updateStatement = triggers.firstWhere(
+          (trigger) => trigger.contains('AFTER UPDATE ON "todos"'),
+        );
 
         expect(
           updateStatement,
@@ -137,8 +139,9 @@ END;''',
       });
 
       test('then the delete trigger statement is correct.', () {
-        final deleteStatement = triggers
-            .firstWhere((trigger) => trigger.contains('AFTER DELETE ON "todos"'));
+        final deleteStatement = triggers.firstWhere(
+          (trigger) => trigger.contains('AFTER DELETE ON "todos"'),
+        );
 
         expect(
           deleteStatement,

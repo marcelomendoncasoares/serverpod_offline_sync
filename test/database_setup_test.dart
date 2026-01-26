@@ -17,8 +17,7 @@ void main() {
       await executor.close();
     });
 
-    test(
-        'when calling the HLC function with valid arguments '
+    test('when calling the HLC function with valid arguments '
         'then it returns a valid HLC timestamp.', () async {
       final result = await executor.runSelect(
         'SELECT $nextHlcFunction(?, ?) as hlc_timestamp;',
@@ -30,8 +29,7 @@ void main() {
       expect(hlcConverter.fromSql(hlcTimestamp!), isA<Hlc>());
     });
 
-    test(
-        'when calling the HLC function with no arguments '
+    test('when calling the HLC function with no arguments '
         'then it throws a SqliteException due to the MissingArgumentsError.', () async {
       expect(
         () => executor.runSelect(
@@ -48,8 +46,7 @@ void main() {
       );
     });
 
-    test(
-        'when calling the HLC function with only the first argument '
+    test('when calling the HLC function with only the first argument '
         'then it throws a SqliteException due to the MissingNodeIdError.', () async {
       expect(
         () => executor.runSelect(
@@ -66,8 +63,7 @@ void main() {
       );
     });
 
-    test(
-        'when calling the HLC function with only the second argument '
+    test('when calling the HLC function with only the second argument '
         'then it throws a SqliteException due to the MissingUserIdError.', () async {
       expect(
         () => executor.runSelect(
@@ -84,8 +80,7 @@ void main() {
       );
     });
 
-    test(
-        'when calling the HLC function with more than two arguments '
+    test('when calling the HLC function with more than two arguments '
         'then it throws a SqliteException due to the TooManyArgumentsError.', () async {
       expect(
         () => executor.runSelect(
