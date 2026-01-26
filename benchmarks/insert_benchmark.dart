@@ -54,7 +54,10 @@ class BaselineInsertBenchmark implements InsertBenchmark {
   @override
   Future<void> teardown() async {
     await db.close();
-    File(dbPath).deleteSync();
+    final file = File(dbPath);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
   }
 }
 
@@ -95,7 +98,10 @@ class CrdtInsertBenchmark implements InsertBenchmark {
   @override
   Future<void> teardown() async {
     await db.close();
-    File(dbPath).deleteSync();
+    final file = File(dbPath);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
   }
 }
 
@@ -138,7 +144,10 @@ class BaselineStorageBenchmark implements StorageBenchmark {
   @override
   Future<void> teardown() async {
     await db.close();
-    File(dbPath).deleteSync();
+    final file = File(dbPath);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
   }
 }
 
@@ -181,6 +190,9 @@ class CrdtStorageBenchmark implements StorageBenchmark {
   @override
   Future<void> teardown() async {
     await db.close();
-    File(dbPath).deleteSync();
+    final file = File(dbPath);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
   }
 }
