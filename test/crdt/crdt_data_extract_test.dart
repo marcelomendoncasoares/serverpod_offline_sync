@@ -37,8 +37,7 @@ void main() {
         'when getting the data from the CRDT data table of the CRDT database '
         'then it rebuilds the data perfectly.', () async {
       final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
-        tableName: 'table_with_every_column_type',
-        rowId: rowId,
+        rowId,
       );
 
       expect(data, equals(createdData));
@@ -48,8 +47,7 @@ void main() {
         'when trying to get the data from the CRDT data table with a non-existent row id '
         'then it returns null.', () async {
       final data = await crdtDb.getSingleFromCrdtData<TableWithEveryColumnTypeData>(
-        tableName: 'table_with_every_column_type',
-        rowId: 'non-existent-row-id',
+        'non-existent-row-id',
       );
 
       expect(data, isNull);
@@ -59,8 +57,7 @@ void main() {
         'when trying to get the data from the CRDT data table with multiple row ids '
         'then it returns the data for the existing row ids.', () async {
       final data = await crdtDb.getFromCrdtData<TableWithEveryColumnTypeData>(
-        tableName: 'table_with_every_column_type',
-        rowIds: [rowId, 'non-existent-row-id'],
+        [rowId, 'non-existent-row-id'],
       );
 
       expect(data, equals([createdData]));
@@ -70,11 +67,14 @@ void main() {
         'when trying to get the data from the CRDT data table for a non-synchronized table '
         'then it throws an error.', () async {
       expect(
-        () => crdtDb.getFromCrdtData<TableWithEveryColumnTypeData>(
-          tableName: 'table_without_pk',
-          rowIds: [rowId],
+        () => crdtDb.getSingleFromCrdtData<WithCustomTypeData>(rowId),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            'Table for type "WithCustomTypeData" not found in synchronized tables.',
+          ),
         ),
-        throwsA(isA<ArgumentError>()),
       );
     });
   });

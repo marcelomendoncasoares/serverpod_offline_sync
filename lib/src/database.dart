@@ -46,6 +46,7 @@ class CrdtDatabase extends _$CrdtDatabase {
   /// should ever be run on this database to avoid messing with the user schema.
   @override
   int schemaVersion = 1;
+}
 
 /// Extension methods for the [List<TableInfo>] class to find a synchronized table.
 extension FindSynchronizedTable on List<TableInfo> {
@@ -55,11 +56,17 @@ extension FindSynchronizedTable on List<TableInfo> {
   /// Gets the synchronized table information for the given table name.
   ///
   /// If the table is not found, an [ArgumentError] is thrown.
-  TableInfo find(String tableName) {
+  TableInfo find<T extends Insertable>([String? tableName]) {
+    if (tableName == null && T == dynamic) {
+      throw ArgumentError('Table name is required when T is dynamic.');
+    }
     return firstWhere(
-      (t) => t.actualTableName == tableName,
+      (t) =>
+          (tableName == null && t is TableInfo<Table, T>) ||
+          t.actualTableName == tableName,
       orElse: () => throw ArgumentError(
-        'Table "$tableName" not found in synchronized tables.',
+        'Table ${tableName != null ? '"$tableName"' : 'for type "$T"'} not '
+        'found in synchronized tables.',
       ),
     );
   }

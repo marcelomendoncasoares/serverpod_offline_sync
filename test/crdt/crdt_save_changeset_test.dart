@@ -25,7 +25,7 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      changeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(otherNodeId));
+      changeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(otherNodeId));
       lastHlc = Hlc.now(otherNodeId);
     });
 
@@ -65,11 +65,11 @@ void main() {
       );
 
       lastHlc = Hlc.now(otherNodeId);
-      firstChangeset = todo.toCrdtDataEntry(crdtDb, lastHlc);
+      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, lastHlc);
       await crdt.saveChangeset(firstChangeset, [lastHlc]);
 
       lateOldHlc = Hlc.zero(otherNodeId);
-      lateOldChangeset = todo.toCrdtDataEntry(crdtDb, lateOldHlc);
+      lateOldChangeset = crdtDb.convertToCrdtDataEntry(todo, lateOldHlc);
     });
 
     group('when saving a changeset with older HLC', () {
@@ -108,12 +108,12 @@ void main() {
       );
 
       lastHlc = Hlc.now(otherNodeId);
-      firstChangeset = todo.toCrdtDataEntry(crdtDb, lastHlc);
+      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, lastHlc);
       await crdt.saveChangeset(firstChangeset, [lastHlc]);
 
       newerHlc = Hlc.now(otherNodeId);
-      newerChangeset = todo
-          .toCrdtDataEntry(crdtDb, newerHlc)
+      newerChangeset = crdtDb
+          .convertToCrdtDataEntry(todo, newerHlc)
           .where((e) => e.columnName == 'content');
     });
 

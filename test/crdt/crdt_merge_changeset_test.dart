@@ -22,7 +22,7 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      changeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(nodeId));
+      changeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
     });
 
     test(
@@ -49,10 +49,10 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      firstChangeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(nodeId));
+      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
       await crdt.merge(firstChangeset);
 
-      lateOldChangeset = todo.toCrdtDataEntry(crdtDb, Hlc.zero(nodeId));
+      lateOldChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.zero(nodeId));
     });
 
     test(
@@ -79,11 +79,11 @@ void main() {
         targetDate: DateTime.now(),
       );
 
-      firstChangeset = todo.toCrdtDataEntry(crdtDb, Hlc.now(nodeId));
+      firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
       await crdt.merge(firstChangeset);
 
-      newerChangeset = todo
-          .toCrdtDataEntry(crdtDb, Hlc.now(nodeId))
+      newerChangeset = crdtDb
+          .convertToCrdtDataEntry(todo, Hlc.now(nodeId))
           .where((e) => e.columnName == 'content');
     });
 

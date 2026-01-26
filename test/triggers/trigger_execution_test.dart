@@ -56,14 +56,11 @@ void main() {
 
         test('has the raw values inserted correctly.', () async {
           final crdtData = allCrdtDataEntries.getField(rowId, 'content');
-          expect(
-            crdtData.rawValue?.rawSqlValue,
-            targetContent,
-          );
+          expect(crdtData.unwrappedValue, targetContent);
 
           final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
           expect(
-            targetDateCrdtData.rawValue?.rawSqlValue,
+            targetDateCrdtData.unwrappedValue,
             targetDate.toIso8600StringWithOffset(),
           );
         });
@@ -132,14 +129,11 @@ void main() {
 
         test('has the raw values updated correctly.', () async {
           final crdtData = allCrdtDataEntries.getField(rowId, 'content');
-          expect(
-            crdtData.rawValue?.rawSqlValue,
-            targetContent,
-          );
+          expect(crdtData.unwrappedValue, targetContent);
 
           final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
           expect(
-            targetDateCrdtData.rawValue?.rawSqlValue,
+            targetDateCrdtData.unwrappedValue,
             targetDate.toIso8600StringWithOffset(),
           );
         });
@@ -222,7 +216,7 @@ void main() {
 
         test('has the deleted flag column set to true.', () async {
           final crdtData = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
-          expect(crdtData.rawValue?.rawSqlValue, 1);
+          expect(crdtData.unwrappedValue, 1);
         });
 
         test('has the deleted HLC timestamp greater than the created.', () async {
