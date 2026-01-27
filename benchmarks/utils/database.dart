@@ -48,24 +48,48 @@ class CrdtBenchmarkDatabase extends _$CrdtBenchmarkDatabase {
           synchronizedTables: [tableWithEveryColumnType],
         );
 
-  Future<void> insertTestRow(int i, DateTime baseTimestamp) async {
-    await managers.tableWithEveryColumnType.create(
-      (t) => t(
-        aBool: Value(i.isEven),
-        aDateTime: Value(baseTimestamp.add(Duration(seconds: i))),
-        aText: Value('Text $i'),
-        anInt: Value(i),
-        anInt64: Value(BigInt.from(i)),
-        aReal: Value(i.toDouble()),
-        aBlob: Value(Uint8List.fromList([i % 256])),
-        anIntEnum: const Value(null),
-        aTextWithConverter: const Value(null),
-        aUuid: const Value(null),
-      ),
+  Future<void> batchInsertTestRows(int count) async {
+    final baseTimestamp = DateTime.now();
+    await managers.tableWithEveryColumnType.bulkCreate(
+      (_) => List.generate(count, (i) => _createTestRow(i, baseTimestamp)),
     );
+  }
+
+  Future<void> upsertTestRows(int count) async {
+    final baseTimestamp = DateTime.now();
+    for (var i = 0; i < count; i++) {
+      await managers.tableWithEveryColumnType.create(
+        (_) => _createTestRow(i, baseTimestamp),
+        mode: InsertMode.insertOrReplace,
+      );
+    }
+  }
+
+  Future<void> deleteTestRows(int count) async {
+    for (var i = 0; i < count; i++) {
+      await managers.tableWithEveryColumnType
+          .filter((t) => t.id.equals(RowId(i)))
+          .delete();
+    }
   }
 
   Future<int> testRowsCount() async {
     return managers.tableWithEveryColumnType.count();
+  }
+
+  TableWithEveryColumnTypeCompanion _createTestRow(int i, DateTime baseTimestamp) {
+    return TableWithEveryColumnTypeCompanion(
+      id: Value(RowId(i)),
+      aBool: Value(i.isEven),
+      aDateTime: Value(baseTimestamp.add(Duration(seconds: i))),
+      aText: Value('Text $i'),
+      anInt: Value(i),
+      anInt64: Value(BigInt.from(i)),
+      aReal: Value(i.toDouble()),
+      aBlob: Value(Uint8List.fromList([i % 256])),
+      anIntEnum: const Value(null),
+      aTextWithConverter: const Value(null),
+      aUuid: const Value(null),
+    );
   }
 }

@@ -1,7 +1,6 @@
-import 'dart:io';
-
 import 'utils/benchmark.dart';
 import 'utils/conversion.dart';
+import 'utils/results.dart';
 import 'utils/runner.dart';
 
 Future<void> main() async {
@@ -13,56 +12,58 @@ Future<void> main() async {
   print('synchronization on database operations.');
   print('-' * 60);
 
-  final baselineBenchmark = CrdtBenchmark('Baseline', crdtEnabled: false);
-  final (baselineTime, baselineSize) = await runWithProgress(
-    'Running baseline benchmark',
-    baselineBenchmark.report,
-  );
+  final benchmarkResults = <BenchmarkResults>[];
 
-  final crdtBenchmark = CrdtBenchmark('Crdt', crdtEnabled: true);
-  final (crdtTime, crdtSize) = await runWithProgress(
-    'Running CRDT benchmark',
-    crdtBenchmark.report,
-  );
-
-  if (baselineTime > crdtTime) {
-    print(
-      '''
-❌ Baseline time is greater than CRDT time. This is likely due
-to running with a very low number of rows ($rowsString). This is not
-a valid benchmark and will not be reported.''',
+  for (final operation in Operation.values) {
+    final baselineResult = await runWithProgress(
+      'Running ${operation.name} benchmark (baseline)',
+      CrdtBenchmark(
+        '${operation.name} (baseline)',
+        crdtEnabled: false,
+        operation: operation,
+      ).report,
     );
-    exit(1);
+
+    final crdtResult = await runWithProgress(
+      'Running ${operation.name} benchmark (CRDT)',
+      CrdtBenchmark(
+        '${operation.name} (CRDT)',
+        crdtEnabled: true,
+        operation: operation,
+      ).report,
+      validator: (result) => result.$1 > baselineResult.$1,
+    );
+
+    benchmarkResults.add(
+      BenchmarkResults(
+        operation: operation,
+        baseline: baselineResult,
+        crdt: crdtResult,
+      ),
+    );
   }
 
-  print('\n📊 Performance Impact:');
-  final baselineSeconds = baselineTime / Duration.microsecondsPerSecond;
-  final crdtSeconds = crdtTime / Duration.microsecondsPerSecond;
-  final runDelayUs = crdtTime - baselineTime;
-  final slowdown = runDelayUs / baselineTime * 100;
-  final runDelayMs = runDelayUs / Duration.microsecondsPerMillisecond;
-  final averageDelayMs = runDelayMs / rowCount;
-  print(
-    '  Time: ${formatter2.format(baselineSeconds)} s '
-    '--> ${formatter2.format(crdtSeconds)} s '
-    '(+${formatter2.format(crdtSeconds - baselineSeconds)} s)',
+  final spuriousBenchmarks = benchmarkResults.where(
+    (result) => result.baseline.$1 > result.crdt.$1,
   );
-  print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
-  print('  Delay per insert: ${formatter3.format(averageDelayMs)}ms');
 
-  print('\n💽 Storage Impact:');
-  final storageIncrease = crdtSize - baselineSize;
-  final storageIncPercent = storageIncrease / baselineSize * 100;
-  final extraStoragePerRow = storageIncrease / rowCount;
-  final storageIncreaseVolume = storageIncPercent > 100
-      ? '(x${formatter2.format(storageIncPercent / 100)})'
-      : '(+${(crdtSize - baselineSize).toFormattedStorageSize()})';
-  print(
-    '  Storage size: ${baselineSize.toFormattedStorageSize()} '
-    '--> ${crdtSize.toFormattedStorageSize()} $storageIncreaseVolume',
-  );
-  print('  CRDT overhead: ${formatter2.format(storageIncPercent)}% increase');
-  print('  Storage per row: ${extraStoragePerRow.toFormattedStorageSize()}');
+  if (spuriousBenchmarks.isNotEmpty) {
+    print(
+      '''
+\n❌ Baseline time is greater than CRDT time. This is likely due
+to running with a very low number of rows ($rowsString). This is not
+a valid benchmark and the time comparison should be ignored.''',
+    );
+
+    for (final result in spuriousBenchmarks) {
+      final baselineDelay = result.baseline.$1.toFormattedDuration();
+      final crdtDelay = result.crdt.$1.toFormattedDuration();
+      print('  - ${result.operation.name.toUpperCase()}: $baselineDelay > $crdtDelay');
+    }
+  }
+
+  benchmarkResults.forEach(printPerformanceImpact);
+  printStorageImpact(benchmarkResults.first);
 
   print('\n${'-' * 60}');
   print('✅ Benchmark complete!');

@@ -1,16 +1,25 @@
 import 'dart:io';
 
 import 'package:benchmark_harness/benchmark_harness.dart';
+import 'package:drift_offline_sync/src/database/triggers.dart';
 import 'package:path/path.dart' as p;
 
 import 'database.dart';
 
-const int rowCount = 10_000;
+export 'package:drift_offline_sync/src/database/triggers.dart' show Operation;
+
+const int rowCount = 1_000;
 
 class CrdtBenchmark extends AsyncBenchmarkBase {
-  CrdtBenchmark(super.name, {required this.crdtEnabled});
+  CrdtBenchmark(
+    super.name, {
+    required this.crdtEnabled,
+    required this.operation,
+  });
 
   final bool crdtEnabled;
+  final Operation operation;
+
   late final CrdtBenchmarkDatabase _db;
   late final File _dbFile;
 
@@ -22,15 +31,32 @@ class CrdtBenchmark extends AsyncBenchmarkBase {
     final dbPath = p.join(Directory.systemTemp.path, 'benchmark_$name.db');
     _dbFile = File(dbPath);
     _db = CrdtBenchmarkDatabase.createDatabase(_dbFile, crdtEnabled: crdtEnabled);
+
+    // Force the migration to be applied during setup.
+    await _db.batchInsertTestRows(1);
+    await _db.deleteTestRows(1);
+    await _db.managers.tableWithEveryColumnType.delete();
+
+    if (operation != Operation.insert) {
+      await _db.batchInsertTestRows(rowCount);
+    }
   }
+
+  /// The default warmup is to invoke the [run] method once, but this pollutes the
+  /// results by persisting data before the run.
+  @override
+  Future<void> warmup() async {}
 
   @override
   Future<void> run() async {
-    final baseTimestamp = DateTime.now();
     _lastDatabaseSize = 0;
     _lastRowsCount = 0;
-    for (var i = 0; i < rowCount; i++) {
-      await _db.insertTestRow(i, baseTimestamp);
+    switch (operation) {
+      case Operation.insert:
+      case Operation.update:
+        await _db.upsertTestRows(rowCount);
+      case Operation.delete:
+        await _db.deleteTestRows(rowCount);
     }
   }
 
@@ -51,6 +77,10 @@ class CrdtBenchmark extends AsyncBenchmarkBase {
   }
 
   int measureStorage() {
+    if (operation == Operation.delete) {
+      return _lastDatabaseSize;
+    }
+
     if (_lastDatabaseSize == 0) {
       throw Exception('Last database size is not set.');
     }

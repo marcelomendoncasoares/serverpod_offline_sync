@@ -5,13 +5,21 @@ import 'package:cli_tools/src/logger/helpers/progress.dart';
 
 Progress? _trackedAnimationInProgress;
 
-Future<T> runWithProgress<T>(String message, Future<T> Function() runner) async {
+Future<T> runWithProgress<T>(
+  String message,
+  Future<T> Function() runner, {
+  bool Function(T result)? validator,
+}) async {
   _stopAnimationInProgress();
   final progress = Progress(message, stdout);
   _trackedAnimationInProgress = progress;
   final result = await Isolate.run(runner);
   _trackedAnimationInProgress = null;
-  progress.complete();
+  if (validator?.call(result) ?? true) {
+    progress.complete();
+  } else {
+    progress.fail();
+  }
   return result;
 }
 
