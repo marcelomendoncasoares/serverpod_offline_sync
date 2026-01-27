@@ -16,6 +16,25 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+      - name: Run pub get
+        run: dart pub get
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Upload generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-code
+          path: |
+            **/*.g.dart
+            **/*.freezed.dart
+            lib/**/*.part.dart
+
   dart_format:
     name: dart format
     runs-on: ubuntu-latest
@@ -23,8 +42,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
       - name: Run pub get
         run: dart pub get
       # Skip code generation for formatting check
@@ -32,22 +49,24 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
   dart_analyze:
+    needs: generate
     name: dart analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
       - name: Run pub get
         run: dart pub get
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Run lint
         run: dart analyze .
 
   tests:
+    needs: generate
     name: dart test
     runs-on: ubuntu-latest
     steps:
@@ -58,12 +77,43 @@ jobs:
           sdk: stable
       - name: Run pub get
         run: dart pub get
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Run tests
         run: dart test
 
+  benchmarks:
+    needs: generate
+    name: run benchmarks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Run pub get
+        run: dart pub get
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
+      - name: Run benchmarks
+        run: dart benchmark/run.dart --ci > benchmark-results.txt
+      - name: Comment on PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: benchmark-results.txt
+          comment-tag: benchmark-results
+
   publish_check:
+    needs: generate
     name: dart publish check
     runs-on: ubuntu-latest
     steps:
@@ -74,7 +124,9 @@ jobs:
           sdk: stable
       - name: Run pub get
         run: dart pub get
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Run publish dry run
         run: dart pub publish --dry-run

@@ -62,7 +62,6 @@ linter:
     - noop_primitive_operations
     - null_check_on_nullable_type_parameter
     - omit_local_variable_types
-    - one_member_abstracts
     - only_throw_errors
     - package_prefixed_library_names
     - parameter_assignments
