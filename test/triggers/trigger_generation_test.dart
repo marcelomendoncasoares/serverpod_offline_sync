@@ -186,5 +186,130 @@ END;''',
     });
   });
 
-  // TODO: Add a test for the case where a table has multiple primary key columns.
+  test('Given a SQLite3 database with a table that has only primary key columns '
+      'when generating trigger statements '
+      'then the triggers are generated with success.', () {
+    final migrator = database.createMigrator();
+    final generator = Sqlite3OfflineSyncTriggers(migrator.crdtDb);
+    final triggers = generator.generateCreateTriggerStatements(database.pureDefaults);
+
+    expect(triggers, hasLength(3));
+  });
+
+  group(
+    'Given a SQLite3 database with a table that has multiple primary key columns',
+    () {
+      late OfflineSyncMigrator migrator;
+
+      setUp(() {
+        migrator = database.createMigrator();
+      });
+
+      group('when generating trigger statements', () {
+        late List<String> triggers;
+
+        setUp(() {
+          final generator = Sqlite3OfflineSyncTriggers(migrator.crdtDb);
+          triggers = generator.generateCreateTriggerStatements(database.sharedTodos);
+        });
+
+        test('then the triggers are generated with success.', () {
+          expect(triggers, hasLength(3));
+        });
+
+        group('then the insert trigger', () {
+          late final insertStatement = triggers.firstWhere(
+            (trigger) => trigger.contains('AFTER INSERT ON "shared_todos"'),
+          );
+
+          test(
+            'has the "row_id" as a "CONCAT_WS" of all primary key columns.',
+            () {
+              expect(
+                insertStatement,
+                contains("CONCAT_WS('||', NEW.\"todo\", NEW.\"user\") AS \"row_id\""),
+              );
+            },
+          );
+
+          test('has the primary key columns also present as individual entries.', () {
+            expect(insertStatement, contains("'todo' AS \"column_name\""));
+            expect(insertStatement, contains("'user' AS \"column_name\""));
+          });
+        });
+
+        group('then the update trigger', () {
+          late final updateStatement = triggers.firstWhere(
+            (trigger) => trigger.contains('AFTER UPDATE ON "shared_todos"'),
+          );
+
+          test('has the "row_id" as a "CONCAT_WS" of all primary key columns.', () {
+            expect(
+              updateStatement,
+              contains("CONCAT_WS('||', OLD.\"todo\", OLD.\"user\") AS \"row_id\""),
+            );
+          });
+
+          test('has the primary key columns also present as individual entries.', () {
+            expect(updateStatement, contains("'todo' AS \"column_name\""));
+            expect(updateStatement, contains("'user' AS \"column_name\""));
+          });
+        });
+
+        test(
+          'then the delete trigger has the "row_id" as a "CONCAT_WS" of all primary key columns.',
+          () {
+            final deleteStatement = triggers.firstWhere(
+              (trigger) => trigger.contains('AFTER DELETE ON "shared_todos"'),
+            );
+
+            expect(
+              deleteStatement,
+              contains("CONCAT_WS('||', OLD.\"todo\", OLD.\"user\") AS \"row_id\""),
+            );
+          },
+        );
+      });
+    },
+  );
+
+  group('Given a SQLite3 database with a table that has generated columns', () {
+    late OfflineSyncMigrator migrator;
+
+    setUp(() {
+      migrator = database.createMigrator();
+    });
+
+    group('when generating trigger statements', () {
+      late List<String> triggers;
+
+      setUp(() {
+        final generator = Sqlite3OfflineSyncTriggers(migrator.crdtDb);
+        triggers = generator.generateCreateTriggerStatements(database.categories);
+
+        // Pin the column name to avoid having the `isNot(contains())` tests passing
+        // with no real test if the column is removed or renamed.
+        expect(
+          database.categories.descriptionInUpperCase.$name,
+          'description_in_upper_case',
+        );
+      });
+
+      test('then the insert trigger excludes generated columns.', () {
+        final insertStatement = triggers.firstWhere(
+          (trigger) => trigger.contains('AFTER INSERT ON "categories"'),
+        );
+
+        expect(insertStatement, isNot(contains("'description_in_upper_case'")));
+      });
+
+      test('then the update trigger excludes generated columns.', () {
+        final updateStatement = triggers.firstWhere(
+          (trigger) => trigger.contains('AFTER UPDATE ON "categories"'),
+        );
+
+        expect(updateStatement, isNot(contains("'description_in_upper_case'")));
+      });
+    });
+  });
 }
