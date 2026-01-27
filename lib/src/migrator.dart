@@ -4,6 +4,15 @@ import 'crdt/crdt.dart';
 import 'database/database.dart';
 import 'database/triggers.dart';
 
+/// The bias to use when conflicting operations are detected.
+enum ConflictingBias {
+  /// Newer updates are overridden by deletes.
+  deleteWins,
+
+  /// Deletes are undone by newer conflicting updates.
+  updateWins,
+}
+
 /// Runs migrations declared by a [MigrationStrategy].
 class OfflineSyncMigrator extends Migrator {
   /// Used internally by drift when opening the database.
@@ -11,6 +20,7 @@ class OfflineSyncMigrator extends Migrator {
     super.database, {
     required this.userId,
     required this.nodeId,
+    this.conflictingBias = ConflictingBias.deleteWins,
 
     /// Restrict tables to synchronize. If not provided, all tables will be considered.
     List<TableInfo>? synchronizedTables,
@@ -37,6 +47,11 @@ class OfflineSyncMigrator extends Migrator {
 
   /// Tables to be synchronized with CRDT.
   final List<TableInfo> synchronizedTables;
+
+  /// The bias to use when conflicting operations are detected.
+  ///
+  /// The default is [ConflictingBias.deleteWins], which is the most common case.
+  final ConflictingBias conflictingBias;
 
   /// The database instance to apply the CRDT schema to.
   late final crdtDb = CrdtDatabase(
@@ -103,7 +118,7 @@ class OfflineSyncMigrator extends Migrator {
 
   Future<void> _createTriggers(TableInfo table) async {
     final triggerCreator = switch (database.executor.dialect) {
-      SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(crdtDb),
+      SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(crdtDb, conflictingBias),
       // TODO: Implement the triggers for the Postgres dialect.
       _ => throw UnsupportedError('Unsupported dialect: ${database.executor.dialect}'),
     };

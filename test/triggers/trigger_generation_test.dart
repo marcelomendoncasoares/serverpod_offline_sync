@@ -74,6 +74,10 @@ BEGIN
     SELECT
       'status' AS "column_name",
       NEW."status" AS "raw_value"
+    UNION ALL
+    SELECT
+      '__crdt_is_deleted' AS "column_name",
+      FALSE AS "raw_value"
   )
   WHERE TRUE
   ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
@@ -309,6 +313,62 @@ END;''',
         );
 
         expect(updateStatement, isNot(contains("'description_in_upper_case'")));
+      });
+    });
+  });
+
+  // This test assures that the above tests are for [ConflictingBias.deleteWins]
+  // and avoids the need for duplicating all tests.
+  test('Given a SQLite3 migrator with no specified conflicting bias '
+      'then it generates the triggers with the deleteWins conflicting bias.', () {
+    final migrator = database.createMigrator();
+    expect(migrator.conflictingBias, ConflictingBias.deleteWins);
+  });
+
+  group('Given a SQLite3 database with a table and updateWins conflicting bias', () {
+    late OfflineSyncMigrator migrator;
+    late String isDeletedColumnName;
+
+    setUp(() {
+      migrator = OfflineSyncMigrator(
+        database,
+        userId: testUserId,
+        nodeId: testNodeId,
+        conflictingBias: ConflictingBias.updateWins,
+        synchronizedTables: [
+          database.todosTable,
+        ],
+      );
+
+      isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
+    });
+
+    group('when generating trigger statements', () {
+      late List<String> triggers;
+
+      setUp(() {
+        final generator = Sqlite3OfflineSyncTriggers(
+          migrator.crdtDb,
+          ConflictingBias.updateWins,
+        );
+        triggers = generator.generateCreateTriggerStatements(database.todosTable);
+      });
+
+      test('then the update trigger includes the deleted flag column.', () {
+        final updateStatement = triggers.firstWhere(
+          (trigger) => trigger.contains('AFTER UPDATE ON "todos"'),
+        );
+
+        expect(
+          updateStatement,
+          contains('''
+    UNION ALL
+    SELECT
+      '$isDeletedColumnName' AS "column_name",
+      FALSE AS "raw_value",
+      NEW."__crdt_is_deleted" IS NOT OLD."__crdt_is_deleted" AS "value_changed"
+  '''),
+        );
       });
     });
   });

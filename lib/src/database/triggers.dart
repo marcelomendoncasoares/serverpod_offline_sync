@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../migrator.dart';
 import '../utils/sql_builder.dart';
 
 /// The name of the HLC function used in the database.
@@ -15,7 +16,13 @@ enum Operation { insert, update, delete }
 /// Provides the CRDT control trigger statements for the database.
 abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
   /// Creates a new instance of [OfflineSyncTriggers].
-  OfflineSyncTriggers(super.crdtDb);
+  OfflineSyncTriggers(
+    super.crdtDb, [
+    this.conflictingBias = ConflictingBias.deleteWins,
+  ]);
+
+  /// The bias to use when conflicting operations are detected.
+  final ConflictingBias conflictingBias;
 
   /// Wraps the provided SQL statement as a CREATE TRIGGER statement.
   ///
@@ -52,14 +59,23 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
       tableAlias: operation == Operation.insert ? 'NEW' : 'OLD',
     );
 
-    final columnNames = operation == Operation.delete
-        ? [isDeletedColumnName]
-        : table.nonGenerated;
+    final columnNames = [
+      if (operation != Operation.delete) ...table.nonGenerated,
+      if (operation != Operation.update ||
+          conflictingBias == ConflictingBias.updateWins)
+        isDeletedColumnName,
+    ];
 
     final columnInserts = columnNames.map((c) {
+      final columnValue = c == isDeletedColumnName
+          ? operation == Operation.delete
+                ? 'TRUE'
+                : 'FALSE'
+          : 'NEW."$c"';
+
       return '    SELECT\n${[
         '      \'$c\' AS "column_name"',
-        '      ${c == isDeletedColumnName ? 'TRUE' : 'NEW."$c"'} AS "raw_value"',
+        '      $columnValue AS "raw_value"',
         if (operation == Operation.update) '      NEW."$c" IS NOT OLD."$c" AS "value_changed"',
       ].join(',\n')}';
     });
@@ -111,7 +127,7 @@ ${columnInserts.join('\n    UNION ALL\n')}
 /// Provides the CRDT control trigger statements for the SQLite3 database.
 class Sqlite3OfflineSyncTriggers extends OfflineSyncTriggers {
   /// Creates a new instance of [Sqlite3OfflineSyncTriggers].
-  Sqlite3OfflineSyncTriggers(super.crdtDb);
+  Sqlite3OfflineSyncTriggers(super.crdtDb, [super.conflictingBias]);
 
   @override
   String wrapAsCreateTriggerStatement({

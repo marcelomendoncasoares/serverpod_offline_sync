@@ -33,17 +33,22 @@ void main() {
       });
 
       group('then the trigger is executed and the CRDT data table', () {
+        late String isDeletedColumnName;
         late List<CrdtDataEntry> allCrdtDataEntries;
 
         setUp(() async {
           final migrator = database.createMigrator();
           allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+          isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
         });
 
         test('has one entry for each column of the target table.', () async {
           expect(
             allCrdtDataEntries.map((e) => e.columnName).toSet(),
-            equals(database.todosTable.$columns.map((c) => c.$name).toSet()),
+            equals(
+              database.todosTable.$columns.map((c) => c.$name).toSet()
+                ..add(isDeletedColumnName),
+            ),
           );
         });
 
@@ -81,11 +86,11 @@ void main() {
       createdRowId = await database.managers.todosTable.create(
         (t) => t(content: initialContent),
       );
+      rowId = createdRowId.toString();
 
       final migrator = database.createMigrator();
       final allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
       createdHlc = allCrdtDataEntries.first.hlcTimestamp;
-      rowId = createdRowId.toString();
     });
 
     group('when updating the existing row with a different value', () {
@@ -206,27 +211,113 @@ void main() {
         'then the trigger is executed and the deleted row in the CRDT data table',
         () {
           late List<CrdtDataEntry> allCrdtDataEntries;
-          late String rowId;
+          late String isDeletedColumnName;
 
           setUp(() async {
             final migrator = database.createMigrator();
             allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-
-            rowId = createdRowId.toString();
+            isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
           });
 
           test('has the deleted flag column set to true.', () async {
-            final crdtData = allCrdtDataEntries.getField(rowId, '__crdt_is_deleted');
+            final crdtData = allCrdtDataEntries.getField(rowId, isDeletedColumnName);
             expect(crdtData.unwrappedValue, 1);
           });
 
           test('has the deleted HLC timestamp greater than the created.', () async {
             final deletedEntry = allCrdtDataEntries.getField(
               rowId,
-              '__crdt_is_deleted',
+              isDeletedColumnName,
             );
             expect(deletedEntry.hlcTimestamp, greaterThan(createdHlc));
           });
+        },
+      );
+    });
+  });
+
+  group('Given a database with a previously deleted row from a synchronized table', () {
+    const initialContent = 'test';
+    late String isDeletedColumnName;
+    late int createdRowId;
+    late Hlc deletedHlc;
+    late String rowId;
+
+    setUp(() async {
+      createdRowId = await database.managers.todosTable.create(
+        (t) => t(content: initialContent),
+      );
+      rowId = createdRowId.toString();
+
+      final migrator = database.createMigrator();
+
+      final deleted = await database.managers.todosTable
+          .filter((t) => t.id.equals(RowId(createdRowId)))
+          .delete();
+      expect(deleted, equals(1));
+
+      final allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+      isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
+      deletedHlc = allCrdtDataEntries.getField(rowId, isDeletedColumnName).hlcTimestamp;
+    });
+
+    group('when re-inserting the previously deleted row', () {
+      setUp(() async {
+        await database.managers.todosTable.create(
+          (t) => t(
+            id: Value(RowId(createdRowId)),
+            content: initialContent,
+          ),
+        );
+      });
+
+      test(
+        'then the row has been re-inserted in the target table with the same data.',
+        () async {
+          final row = await database.managers.todosTable.getSingle();
+
+          expect(row, isNotNull);
+          expect(row.id, equals(createdRowId));
+          expect(row.content, initialContent);
+        },
+      );
+
+      group(
+        'then the trigger is executed and the re-inserted row in the CRDT data table',
+        () {
+          late List<CrdtDataEntry> allCrdtDataEntries;
+
+          setUp(() async {
+            final migrator = database.createMigrator();
+            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+            isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
+          });
+
+          test('has the deleted flag column set to false.', () async {
+            final crdtData = allCrdtDataEntries.getField(rowId, isDeletedColumnName);
+            expect(crdtData.unwrappedValue, 0);
+          });
+
+          test(
+            'has the deleted flag HLC timestamp greater than the deleted.',
+            () async {
+              final deletedEntry = allCrdtDataEntries.getField(
+                rowId,
+                isDeletedColumnName,
+              );
+              expect(deletedEntry.hlcTimestamp, greaterThan(deletedHlc));
+            },
+          );
+
+          test(
+            'has the HLC timestamp updated for newly inserted columns.',
+            () async {
+              expect(
+                allCrdtDataEntries.map((e) => e.hlcTimestamp),
+                everyElement(greaterThan(deletedHlc)),
+              );
+            },
+          );
         },
       );
     });
