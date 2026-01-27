@@ -6,8 +6,10 @@ This folder contains benchmarks to measure the performance impact of using the `
 
 The benchmarks measure two key metrics:
 
-1. **Insert Performance**: Time required to insert 10,000 rows with much columns.
-2. **Storage Overhead**: Database file size after inserting 10,000 rows.
+1. **Insert/Update/Delete Performance**: Time required to insert/update/delete
+   a large number of rows with many columns.
+2. **Storage Overhead**: Database file size after inserting a large number of
+   rows with many columns.
 
 The benchmarks are run in a separate isolate to avoid interference with the main
 process. A baseline benchmark is run first to establish a reference point and
@@ -19,7 +21,7 @@ the `drift_offline_sync` package.
 To run the benchmarks:
 
 ```bash
-dart benchmarks/run.dart
+dart benchmark/run.dart
 ```
 
 ## Benchmark Details

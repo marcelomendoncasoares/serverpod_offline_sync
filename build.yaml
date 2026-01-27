@@ -14,4 +14,4 @@ targets:
         - $package$
         - lib/**
         - test/**
-        - benchmarks/**
+        - benchmark/**
