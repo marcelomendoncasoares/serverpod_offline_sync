@@ -40,13 +40,6 @@ void main() {
           allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
         });
 
-        // test('has no entries for the primary key columns.', () async {
-        //   final columnNames = allCrdtDataEntries.map((e) => e.columnName);
-        //   final primaryKeys = database.todosTable.$primaryKey.map((p) => p.$name);
-        //
-        //   expect(columnNames, isNot(containsAll(primaryKeys)));
-        // });
-
         test('has one entry for each column of the target table.', () async {
           expect(
             allCrdtDataEntries.map((e) => e.columnName).toSet(),

@@ -52,19 +52,11 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
       tableAlias: operation == Operation.insert ? 'NEW' : 'OLD',
     );
 
-    final columnNamesWithoutPrimaryKey = operation == Operation.delete
+    final columnNames = operation == Operation.delete
         ? [isDeletedColumnName]
-        : table.$columns
-              .map((c) => c.$name)
-              // MAYBE: If we remove the primary key columns from the list, some tables
-              // might be completely ignored (like many-to-many relationship tables).
-              // Do we really need them? Probably yes if we want to avoid deserializing
-              // the split rowId into the original primary key columns, which can have
-              // different types.
-              // .where((c) => !table.$primaryKey.map((p) => p.$name).contains(c))
-              .toList();
+        : table.persistedColumns;
 
-    final columnInserts = columnNamesWithoutPrimaryKey.map((c) {
+    final columnInserts = columnNames.map((c) {
       return '    SELECT\n${[
         '      \'$c\' AS "column_name"',
         '      ${c == isDeletedColumnName ? 'TRUE' : 'NEW."$c"'} AS "raw_value"',
@@ -73,17 +65,17 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
     });
 
     final whereClause = operation == Operation.update
-        ? '\n  WHERE (value_changed = TRUE)'
-        : '';
+        ? '("value_changed" = TRUE)'
+        : 'TRUE';
 
     return '''
-  INSERT OR REPLACE INTO $crdtDataTableName (
+  INSERT INTO "$crdtDataTableName" (
     ${crdtDataAllColumns.join(', ')}
   )
   SELECT
     '${crdtDb.userId}' AS "user_id",
     '$tableName' AS "table_name",
-    column_name,
+    "column_name",
     $uniqueRowId AS "row_id",
     "hlc_timestamp",
     raw_value
@@ -91,7 +83,12 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
     SELECT $nextHlcFunction('${crdtDb.userId}', '${crdtDb.nodeId}') AS "hlc_timestamp"
   ), (
 ${columnInserts.join('\n    UNION ALL\n')}
-  )$whereClause;''';
+  )
+  WHERE $whereClause
+  ON CONFLICT (${crdtDataPrimaryKeyColumns.join(', ')})
+  DO UPDATE SET
+    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
+    "raw_value" = EXCLUDED."raw_value";''';
   }
 
   /// Returns the SQL statements to create the triggers for the changelog table.
@@ -124,7 +121,7 @@ class Sqlite3OfflineSyncTriggers extends OfflineSyncTriggers {
     required String innerSql,
   }) =>
       '''
-CREATE TRIGGER IF NOT EXISTS $triggerName
+CREATE TRIGGER IF NOT EXISTS "$triggerName"
 AFTER ${operation.name.toUpperCase()} ON "$tableName"
 BEGIN
 $innerSql
@@ -145,4 +142,9 @@ WHERE (type = "trigger")
 
     return result.map((row) => row.read<String>('name')).toList();
   }
+}
+
+extension on TableInfo {
+  Iterable<String> get persistedColumns =>
+      $columns.where((c) => c.generatedAs == null).map((c) => c.$name);
 }

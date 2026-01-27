@@ -8,14 +8,14 @@ void main() {
   group('Given a SQLite3 database with a table', () {
     late OfflineSyncMigrator migrator;
 
-    setUp(() async {
+    setUp(() {
       migrator = database.createMigrator();
     });
 
     group('when generating trigger statements', () {
       late List<String> triggers;
 
-      setUp(() async {
+      setUp(() {
         final generator = Sqlite3OfflineSyncTriggers(migrator.crdtDb);
         triggers = generator.generateCreateTriggerStatements(database.todosTable);
       });
@@ -35,16 +35,16 @@ void main() {
         expect(
           insertStatement,
           '''\
-CREATE TRIGGER IF NOT EXISTS __crdt__todos__insert
+CREATE TRIGGER IF NOT EXISTS "__crdt__todos__insert"
 AFTER INSERT ON "todos"
 BEGIN
-  INSERT OR REPLACE INTO __crdt_data (
+  INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
     '${migrator.userId}' AS "user_id",
     'todos' AS "table_name",
-    column_name,
+    "column_name",
     NEW."id" AS "row_id",
     "hlc_timestamp",
     raw_value
@@ -74,7 +74,12 @@ BEGIN
     SELECT
       'status' AS "column_name",
       NEW."status" AS "raw_value"
-  );
+  )
+  WHERE TRUE
+  ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
+  DO UPDATE SET
+    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
+    "raw_value" = EXCLUDED."raw_value";
 END;''',
         );
       });
@@ -87,16 +92,16 @@ END;''',
         expect(
           updateStatement,
           '''\
-CREATE TRIGGER IF NOT EXISTS __crdt__todos__update
+CREATE TRIGGER IF NOT EXISTS "__crdt__todos__update"
 AFTER UPDATE ON "todos"
 BEGIN
-  INSERT OR REPLACE INTO __crdt_data (
+  INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
     '${migrator.userId}' AS "user_id",
     'todos' AS "table_name",
-    column_name,
+    "column_name",
     OLD."id" AS "row_id",
     "hlc_timestamp",
     raw_value
@@ -133,7 +138,11 @@ BEGIN
       NEW."status" AS "raw_value",
       NEW."status" IS NOT OLD."status" AS "value_changed"
   )
-  WHERE (value_changed = TRUE);
+  WHERE ("value_changed" = TRUE)
+  ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
+  DO UPDATE SET
+    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
+    "raw_value" = EXCLUDED."raw_value";
 END;''',
         );
       });
@@ -146,16 +155,16 @@ END;''',
         expect(
           deleteStatement,
           '''\
-CREATE TRIGGER IF NOT EXISTS __crdt__todos__delete
+CREATE TRIGGER IF NOT EXISTS "__crdt__todos__delete"
 AFTER DELETE ON "todos"
 BEGIN
-  INSERT OR REPLACE INTO __crdt_data (
+  INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
   SELECT
     '${migrator.userId}' AS "user_id",
     'todos' AS "table_name",
-    column_name,
+    "column_name",
     OLD."id" AS "row_id",
     "hlc_timestamp",
     raw_value
@@ -165,7 +174,12 @@ BEGIN
     SELECT
       '__crdt_is_deleted' AS "column_name",
       TRUE AS "raw_value"
-  );
+  )
+  WHERE TRUE
+  ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
+  DO UPDATE SET
+    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
+    "raw_value" = EXCLUDED."raw_value";
 END;''',
         );
       });
