@@ -82,7 +82,7 @@ extension CrdtDatabaseSyncExtensions on CrdtDatabase {
   }) {
     final tableInfo = synchronizedTables.find(tableName);
 
-    final columnSelects = tableInfo.persistedColumns.map((column) {
+    final columnSelects = tableInfo.nonGenerated.map((column) {
       final whereClause = 'WHERE c."column_name" = \'$column\'';
       return 'MAX(c."raw_value") FILTER ($whereClause) AS "$column"';
     });
@@ -99,7 +99,7 @@ extension CrdtDatabaseSyncExtensions on CrdtDatabase {
 
     return '''
 INSERT INTO "$tableName" (
-  ${tableInfo.persistedColumns.map((c) => '"$c"').join(', ')}
+  ${tableInfo.nonGenerated.map((c) => '"$c"').join(', ')}
 )
 SELECT ${columnSelects.join(',\n       ')}
 FROM ${sqlBuilder.crdtDataTableName} AS c
@@ -128,9 +128,9 @@ $onConflict;''';
 }
 
 extension on TableInfo {
-  Iterable<String> get persistedColumns =>
+  Iterable<String> get nonGenerated =>
       $columns.where((c) => c.generatedAs == null).map((c) => c.$name);
 
   Iterable<String> get nonPrimaryKeyColumns =>
-      persistedColumns.where((c) => !$primaryKey.map((p) => p.$name).contains(c));
+      nonGenerated.where((c) => !$primaryKey.map((p) => p.$name).contains(c));
 }

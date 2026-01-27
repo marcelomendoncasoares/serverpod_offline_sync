@@ -54,7 +54,7 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
 
     final columnNames = operation == Operation.delete
         ? [isDeletedColumnName]
-        : table.persistedColumns;
+        : table.nonGenerated;
 
     final columnInserts = columnNames.map((c) {
       return '    SELECT\n${[
@@ -145,6 +145,6 @@ WHERE (type = "trigger")
 }
 
 extension on TableInfo {
-  Iterable<String> get persistedColumns =>
+  Iterable<String> get nonGenerated =>
       $columns.where((c) => c.generatedAs == null).map((c) => c.$name);
 }
