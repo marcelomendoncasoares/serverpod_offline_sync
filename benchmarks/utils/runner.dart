@@ -9,7 +9,12 @@ Future<T> runWithProgress<T>(
   String message,
   Future<T> Function() runner, {
   bool Function(T result)? validator,
+  bool skipProgress = false,
 }) async {
+  if (skipProgress) {
+    return Isolate.run(runner);
+  }
+
   _stopAnimationInProgress();
   final progress = Progress(message, stdout);
   _trackedAnimationInProgress = progress;

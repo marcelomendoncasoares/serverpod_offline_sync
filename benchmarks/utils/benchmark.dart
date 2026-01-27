@@ -8,17 +8,17 @@ import 'database.dart';
 
 export 'package:drift_offline_sync/src/database/triggers.dart' show Operation;
 
-const int rowCount = 1_000;
-
 class CrdtBenchmark extends AsyncBenchmarkBase {
   CrdtBenchmark(
     super.name, {
     required this.crdtEnabled,
     required this.operation,
+    required this.rowCount,
   });
 
   final bool crdtEnabled;
   final Operation operation;
+  final int rowCount;
 
   late final CrdtBenchmarkDatabase _db;
   late final File _dbFile;

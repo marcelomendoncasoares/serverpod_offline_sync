@@ -3,14 +3,21 @@ import 'utils/conversion.dart';
 import 'utils/results.dart';
 import 'utils/runner.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  final runningInCI = args.contains('--ci');
+  final rowCountArg = args.where((arg) => arg.startsWith('--rows=')).firstOrNull;
+  final rowCount = rowCountArg == null ? 1000 : int.parse(rowCountArg.substring(7));
   final rowsString = formatter0.format(rowCount);
 
-  print('\n${'=' * 60}');
-  print('Performance Benchmark ($rowsString rows)\n');
-  print('This benchmark measures the performance impact of using CRDT');
-  print('synchronization on database operations.');
-  print('-' * 60);
+  if (!runningInCI) print('\n${'=' * 60}');
+  print('## Performance Benchmark ($rowsString rows)\n');
+  print(
+    [
+      'This benchmark measures the performance impact of using CRDT ',
+      'synchronization on database operations.',
+    ].join(runningInCI ? '' : '\n'),
+  );
+  if (!runningInCI) print('-' * 60);
 
   final benchmarkResults = <BenchmarkResults>[];
 
@@ -21,7 +28,9 @@ Future<void> main() async {
         '${operation.name} (baseline)',
         crdtEnabled: false,
         operation: operation,
+        rowCount: rowCount,
       ).report,
+      skipProgress: runningInCI,
     );
 
     final crdtResult = await runWithProgress(
@@ -30,8 +39,10 @@ Future<void> main() async {
         '${operation.name} (CRDT)',
         crdtEnabled: true,
         operation: operation,
+        rowCount: rowCount,
       ).report,
       validator: (result) => result.$1 > baselineResult.$1,
+      skipProgress: runningInCI,
     );
 
     benchmarkResults.add(
@@ -48,11 +59,13 @@ Future<void> main() async {
   );
 
   if (spuriousBenchmarks.isNotEmpty) {
+    final leadingText = runningInCI ? '\n> ' : '\n';
     print(
-      '''
-\n❌ Baseline time is greater than CRDT time. This is likely due
-to running with a very low number of rows ($rowsString). This is not
-a valid benchmark and the time comparison should be ignored.''',
+      [
+        '$leadingText❌ Baseline time is greater than CRDT time. This is likely due ',
+        'to running with a very low number of rows ($rowsString). This is not ',
+        ' a valid benchmark and the time comparison should be ignored.',
+      ].join(runningInCI ? '' : '\n'),
     );
 
     for (final result in spuriousBenchmarks) {
@@ -62,10 +75,19 @@ a valid benchmark and the time comparison should be ignored.''',
     }
   }
 
-  benchmarkResults.forEach(printPerformanceImpact);
-  printStorageImpact(benchmarkResults.first);
+  for (final result in benchmarkResults) {
+    printPerformanceImpact(
+      result,
+      rowCount: rowCount,
+      runningInCI: runningInCI,
+    );
+  }
+  printStorageImpact(
+    benchmarkResults.first,
+    rowCount: rowCount,
+    runningInCI: runningInCI,
+  );
 
   print('\n${'-' * 60}');
-  print('✅ Benchmark complete!');
-  print('${'=' * 60}\n');
+  print('✅ Benchmark complete!\n');
 }

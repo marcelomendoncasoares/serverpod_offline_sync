@@ -1,8 +1,15 @@
 import 'benchmark.dart';
 import 'conversion.dart';
 
-void printPerformanceImpact(BenchmarkResults benchmarkResults) {
-  print('\n📊 ${benchmarkResults.operation.name.toUpperCase()} performance impact:');
+void printPerformanceImpact(
+  BenchmarkResults benchmarkResults, {
+  required int rowCount,
+  bool runningInCI = false,
+}) {
+  print(
+    '${runningInCI ? '```' : ''}'
+    '\n📊 ${benchmarkResults.operation.name.toUpperCase()} performance impact:',
+  );
   final (baselineTime, _) = benchmarkResults.baseline;
   final (crdtTime, _) = benchmarkResults.crdt;
 
@@ -17,10 +24,15 @@ void printPerformanceImpact(BenchmarkResults benchmarkResults) {
   print('  Time: $baselineDelay --> $crdtDelay ($runDelay)');
   print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
   print('  Delay per ${benchmarkResults.operation.name}: $runDelayPerOperation');
+  if (runningInCI) print('```');
 }
 
-void printStorageImpact(BenchmarkResults benchmarkResults) {
-  print('\n💽 Storage impact:');
+void printStorageImpact(
+  BenchmarkResults benchmarkResults, {
+  required int rowCount,
+  bool runningInCI = false,
+}) {
+  print('${runningInCI ? '```' : ''}\n💽 Storage impact:');
   final (_, baselineSize) = benchmarkResults.baseline;
   final (_, crdtSize) = benchmarkResults.crdt;
 
@@ -35,7 +47,8 @@ void printStorageImpact(BenchmarkResults benchmarkResults) {
     '--> ${crdtSize.toFormattedStorageSize()} $storageIncreaseVolume',
   );
   print('  CRDT overhead: ${formatter2.format(storageIncPercent)}% increase');
-  print('  Storage per row: ${extraStoragePerRow.toFormattedStorageSize()}');
+  print('  Extra storage per row: ${extraStoragePerRow.toFormattedStorageSize()}');
+  if (runningInCI) print('```');
 }
 
 class BenchmarkResults {

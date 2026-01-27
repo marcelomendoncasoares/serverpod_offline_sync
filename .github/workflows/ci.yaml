@@ -81,7 +81,7 @@ jobs:
       - name: Generate code
         run: dart run build_runner build --delete-conflicting-outputs
       - name: Run benchmarks
-        run: dart benchmarks/run.dart > benchmark-results.txt
+        run: dart benchmarks/run.dart --ci > benchmark-results.txt
       - name: Comment on PR
         uses: thollander/actions-comment-pull-request@v3
         with:
