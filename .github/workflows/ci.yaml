@@ -82,7 +82,7 @@ jobs:
         with:
           name: generated-code
       - name: Run tests
-        run: dart test
+        run: dart test --reporter=failures-only
 
   benchmarks:
     needs: generate
