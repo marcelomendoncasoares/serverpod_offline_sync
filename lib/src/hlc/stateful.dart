@@ -1,14 +1,19 @@
 import 'package:crdt/crdt.dart';
 
+import 'normalized.dart';
+
 /// A [Hlc] instance that is used to generate unique timestamps for CRDT operations.
 /// Will keep track of the HLC during the lifetime of the application.
+/// 
+/// Supports both traditional HLC format and normalized format for reduced storage.
 class StatefulHlc {
-  StatefulHlc._(this.userId, this.nodeId) {
+  StatefulHlc._(this.userId, this.nodeId, this.normalizedNodeId) {
     lastHlc = _lastUserIdHlc[userId]?.apply(nodeId: nodeId) ?? Hlc.zero(nodeId);
   }
 
   static final Map<String, Hlc> _lastUserIdHlc = {};
   static final Map<String, StatefulHlc> _instances = {};
+  static final Map<String, int> _nodeIdToNormalized = {};
 
   /// Initialize the HLC for the provided [userId].
   ///
@@ -20,9 +25,26 @@ class StatefulHlc {
     _lastUserIdHlc[userId] = initialHlc;
   }
 
+  /// Registers the normalized node ID for a given node ID string.
+  ///
+  /// This is used to track the integer ID that corresponds to a node ID string
+  /// in the normalized schema. Must be called during initialization.
+  static void registerNormalizedNodeId(String nodeId, int normalizedId) {
+    _nodeIdToNormalized[nodeId] = normalizedId;
+  }
+
   /// Returns a cached instance of [StatefulHlc] for the provided [nodeId].
   static StatefulHlc cached(String userId, String nodeId) {
-    return _instances.putIfAbsent(nodeId, () => StatefulHlc._(userId, nodeId));
+    return _instances.putIfAbsent(nodeId, () {
+      final normalizedId = _nodeIdToNormalized[nodeId];
+      if (normalizedId == null) {
+        throw StateError(
+          'Normalized node ID for "$nodeId" not registered. '
+          'Call registerNormalizedNodeId() during initialization.',
+        );
+      }
+      return StatefulHlc._(userId, nodeId, normalizedId);
+    });
   }
 
   /// The user ID for the CRDT system.
@@ -31,6 +53,9 @@ class StatefulHlc {
   /// The node ID for the CRDT system.
   final String nodeId;
 
+  /// The normalized node ID (integer reference to __crdt_nodes table).
+  final int normalizedNodeId;
+
   /// The current HLC timestamp for the user. Will be incremented on each operation.
   late Hlc lastHlc;
 
@@ -38,6 +63,21 @@ class StatefulHlc {
   Hlc increment() {
     lastHlc = lastHlc.increment();
     return lastHlc;
+  }
+
+  /// Returns the next HLC as normalized components (datetime, counter).
+  ///
+  /// This is used by the database trigger function to return only the
+  /// timestamp and counter, reducing the data that needs to be passed around.
+  /// The node ID is implicit (always uses normalizedNodeId).
+  ///
+  /// Returns a tuple of (datetime_microseconds, counter).
+  (int, int) incrementNormalized() {
+    lastHlc = lastHlc.increment();
+    return (
+      NormalizedHlc.extractDatetime(lastHlc),
+      NormalizedHlc.extractCounter(lastHlc),
+    );
   }
 
   /// Merges another [Hlc] instance into the current one.
