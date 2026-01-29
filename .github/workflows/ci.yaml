@@ -69,6 +69,9 @@ jobs:
     needs: generate
     name: dart test
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Set up Dart
@@ -81,8 +84,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: generated-code
-      - name: Run tests
-        run: dart test --reporter=failures-only
+      - name: Run tests with coverage
+        run: dart test --coverage=coverage --reporter=failures-only
+      - name: Activate coverage package
+        run: dart pub global activate coverage
+      - name: Format coverage
+        run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore
+      - name: Generate coverage report
+        run: dart coverage_reporter/run.dart --ci > coverage-results.txt
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: coverage-results.txt
+          comment-tag: coverage-results
 
   benchmarks:
     needs: generate
