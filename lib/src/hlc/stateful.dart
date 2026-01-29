@@ -47,6 +47,20 @@ class StatefulHlc {
     });
   }
 
+  /// Returns a cached instance for the current user, regardless of node ID.
+  ///
+  /// This is used by the database function which doesn't receive a node ID parameter.
+  /// Returns null if no instance has been cached yet for this user.
+  static StatefulHlc? getCachedInstance(String userId) {
+    // Find any cached instance for this user
+    for (final instance in _instances.values) {
+      if (instance.userId == userId) {
+        return instance;
+      }
+    }
+    return null;
+  }
+
   /// The user ID for the CRDT system.
   final String userId;
 

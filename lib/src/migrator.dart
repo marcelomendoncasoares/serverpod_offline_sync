@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'crdt/crdt.dart';
 import 'database/database.dart';
 import 'database/triggers.dart';
+import 'hlc/stateful.dart';
 
 /// The bias to use when conflicting operations are detected.
 enum ConflictingBias {
@@ -99,12 +100,15 @@ class OfflineSyncMigrator extends Migrator {
       await createTable(table);
     }
 
+    // Populate the schema tables and node table
+    await _populateSchemaAndNodes();
+
     if (crdtDb.isPostgres) {
       final crdtTable = crdtDb.crdtDataTable;
       await database.customStatement(
         'ALTER TABLE ${crdtTable.actualTableName} '
         // TODO: Fix this partitioning, since RANGE can not be used for discrete values.
-        'PARTITION BY RANGE (${crdtTable.userId.name}, ${crdtTable.tblName.name});',
+        'PARTITION BY RANGE (${crdtTable.userId.name}, ${crdtTable.tableId.name});',
       );
 
       // TODO: Alter all ON DELETE FK constraints from RESTRICT to NO ACTION.
@@ -116,13 +120,110 @@ class OfflineSyncMigrator extends Migrator {
     }
   }
 
+  /// Populates the schema tables and nodes table.
+  ///
+  /// This method must be called after creating the CRDT control tables but before
+  /// creating triggers, as triggers depend on the schema being populated.
+  Future<void> _populateSchemaAndNodes() async {
+    // First, ensure the current node exists and has ID 1
+    await _ensureCurrentNodeIsFirst();
+
+    // Register the normalized node ID for StatefulHlc
+    StatefulHlc.registerNormalizedNodeId(nodeId, 1);
+
+    // Initialize a StatefulHlc instance for this user/node to ensure it's cached
+    StatefulHlc.cached(userId, nodeId);
+
+    // Then populate schema tables for all synchronized tables
+    for (final table in synchronizedTables) {
+      await _populateSchemaForTable(table);
+    }
+
+    // Clear the cache after population to ensure fresh data on next access
+    crdtDb.clearSchemaCache();
+  }
+
+  /// Ensures the current node is registered with ID 1.
+  ///
+  /// If the node already exists, it will not be re-inserted. If it exists
+  /// with a different ID, an error is thrown as the schema is inconsistent.
+  Future<void> _ensureCurrentNodeIsFirst() async {
+    // Check if current node exists
+    final existing = await (crdtDb.select(crdtDb.crdtNodesTable)
+          ..where((t) => t.nodeId.equals(nodeId)))
+        .getSingleOrNull();
+
+    if (existing != null) {
+      if (existing.id != 1) {
+        throw StateError(
+          'Current node "$nodeId" exists with ID ${existing.id} but must have ID 1. '
+          'This indicates a corrupted schema. Please reset the database.',
+        );
+      }
+      // Node already exists with correct ID
+      return;
+    }
+
+    // Check if ID 1 is already taken by another node
+    final nodeWithId1 = await (crdtDb.select(crdtDb.crdtNodesTable)
+          ..where((t) => t.id.equals(1)))
+        .getSingleOrNull();
+
+    if (nodeWithId1 != null) {
+      throw StateError(
+        'Node ID 1 is already taken by "${nodeWithId1.nodeId}" but current node is "$nodeId". '
+        'The current node must always be registered with ID 1. Please reset the database.',
+      );
+    }
+
+    // Insert current node with explicit ID 1
+    // Note: This assumes the database supports explicit ID insertion for autoincrement fields
+    await crdtDb.into(crdtDb.crdtNodesTable).insert(
+          CrdtNodesTableCompanion.insert(
+            id: const Value(1),
+            nodeId: nodeId,
+          ),
+        );
+  }
+
+  /// Populates the schema tables for a given table.
+  ///
+  /// This registers the table name and all its column names in the normalized
+  /// schema tables. If entries already exist, they will not be re-inserted.
+  Future<void> _populateSchemaForTable(TableInfo table) async {
+    final tableName = table.actualTableName;
+
+    // Insert or get existing table ID
+    await crdtDb.into(crdtDb.crdtSchemaTablesTable).insert(
+          CrdtSchemaTablesTableCompanion.insert(tableName: tableName),
+          mode: InsertMode.insertOrIgnore,
+        );
+
+    final tableId = await crdtDb.getTableId(tableName);
+
+    // Insert all columns for this table
+    final columns = table.$columns.map((c) => c.$name).toSet();
+    // Also include the special "__crdt_is_deleted" column
+    columns.add(crdtDb.sqlBuilder.isDeletedColumnName);
+
+    for (final columnName in columns) {
+      await crdtDb.into(crdtDb.crdtSchemaColumnsTable).insert(
+            CrdtSchemaColumnsTableCompanion.insert(
+              tableId: tableId,
+              columnName: columnName,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+    }
+  }
+
   Future<void> _createTriggers(TableInfo table) async {
     final triggerCreator = switch (database.executor.dialect) {
       SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(crdtDb, conflictingBias),
       // TODO: Implement the triggers for the Postgres dialect.
       _ => throw UnsupportedError('Unsupported dialect: ${database.executor.dialect}'),
     };
-    final triggers = triggerCreator.generateCreateTriggerStatements(table);
+    final triggers = await triggerCreator.generateCreateTriggerStatements(table);
     for (final trigger in triggers) {
       await database.customStatement(trigger);
     }
@@ -143,6 +244,8 @@ class OfflineSyncMigrator extends Migrator {
     }
     await super.createTable(table);
     if (synchronizedTables.contains(table)) {
+      // Populate schema for the new table
+      await _populateSchemaForTable(table);
       await _createTriggers(table);
     }
   }
@@ -161,6 +264,13 @@ class OfflineSyncMigrator extends Migrator {
     }
 
     await super.alterTable(migration);
+    
+    // Refresh schema after migration
+    if (synchronizedTables.contains(table)) {
+      await _populateSchemaForTable(table);
+      crdtDb.clearSchemaCache();
+    }
+    
     await _createTriggers(table);
   }
 

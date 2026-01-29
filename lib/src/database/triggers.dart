@@ -48,11 +48,17 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
   /// identifiers that are used in the statement for maximum compatibility. On
   /// MySQL this is done by setting the `SQL_MODE` to `ANSI_QUOTES` and on SQL
   /// Server this is done by setting the `QUOTED_IDENTIFIER` option to `ON`.
-  String _getInsertStatement({
+  ///
+  /// Now uses normalized schema with integer IDs for reduced storage footprint.
+  Future<String> _getInsertStatement({
     required TableInfo<Table, Object?> table,
     required Operation operation,
-  }) {
+  }) async {
     final tableName = table.actualTableName;
+
+    // Get normalized IDs from cache
+    final tableId = await crdtDb.getTableId(tableName);
+    final currentNodeId = await crdtDb.getCurrentNodeId();
 
     final uniqueRowId = getUniqueRowId(
       table,
@@ -66,56 +72,70 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
         isDeletedColumnName,
     ];
 
-    final columnInserts = columnNames.map((c) {
+    // Build column inserts with normalized column IDs
+    final columnInserts = <String>[];
+    for (final c in columnNames) {
+      final columnId = await crdtDb.getColumnId(tableId, c);
       final columnValue = c == isDeletedColumnName
           ? operation == Operation.delete
                 ? 'TRUE'
                 : 'FALSE'
           : 'NEW."$c"';
 
-      return '    SELECT\n${[
-        '      \'$c\' AS "column_name"',
+      columnInserts.add('    SELECT\n${[
+        '      $columnId AS "column_id"',
         '      $columnValue AS "raw_value"',
         if (operation == Operation.update) '      NEW."$c" IS NOT OLD."$c" AS "value_changed"',
-      ].join(',\n')}';
-    });
+      ].join(',\n')}');
+    }
 
     final whereClause = operation == Operation.update
         ? '("value_changed" = TRUE)'
         : 'TRUE';
 
+    // The next_hlc_timestamp function now returns "datetime|counter" as a delimited string
+    // We call it once and parse the result to avoid multiple increments
     return '''
   INSERT INTO "$crdtDataTableName" (
     ${crdtDataAllColumns.join(', ')}
   )
   SELECT
     '${crdtDb.userId}' AS "user_id",
-    '$tableName' AS "table_name",
-    "column_name",
+    $tableId AS "table_id",
+    "column_id",
     $uniqueRowId AS "row_id",
-    "hlc_timestamp",
+    "hlc_datetime",
+    "hlc_counter",
+    $currentNodeId AS "hlc_node_id",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${crdtDb.userId}', '${crdtDb.nodeId}') AS "hlc_timestamp"
+    SELECT 
+      CAST(SUBSTR(hlc_result, 1, INSTR(hlc_result, '|') - 1) AS INTEGER) AS "hlc_datetime",
+      CAST(SUBSTR(hlc_result, INSTR(hlc_result, '|') + 1) AS INTEGER) AS "hlc_counter"
+    FROM (
+      SELECT $nextHlcFunction('${crdtDb.userId}') AS hlc_result
+    )
   ), (
 ${columnInserts.join('\n    UNION ALL\n')}
   )
   WHERE $whereClause
   ON CONFLICT (${crdtDataPrimaryKeyColumns.join(', ')})
   DO UPDATE SET
-    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
+    "hlc_datetime" = EXCLUDED."hlc_datetime",
+    "hlc_counter" = EXCLUDED."hlc_counter",
+    "hlc_node_id" = EXCLUDED."hlc_node_id",
     "raw_value" = EXCLUDED."raw_value";''';
   }
 
   /// Returns the SQL statements to create the triggers for the changelog table.
-  List<String> generateCreateTriggerStatements(TableInfo<Table, Object?> table) {
+  Future<List<String>> generateCreateTriggerStatements(TableInfo<Table, Object?> table) async {
     return [
       for (final op in Operation.values)
         wrapAsCreateTriggerStatement(
           operation: op,
           tableName: table.actualTableName,
           triggerName: _getTriggerName(table, op),
-          innerSql: _getInsertStatement(
+          innerSql: await _getInsertStatement(
             table: table,
             operation: op,
           ),
