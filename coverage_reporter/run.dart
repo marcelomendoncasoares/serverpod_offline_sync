@@ -9,10 +9,20 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
-  final coverage = _parseLcov(lcovFile.readAsStringSync());
+  final String lcovContent;
+  try {
+    lcovContent = lcovFile.readAsStringSync();
+  } on Exception catch (e) {
+    stderr.writeln('Error reading coverage/lcov.info: $e');
+    exit(1);
+  }
+
+  final coverage = _parseLcov(lcovContent);
   final totalLines = coverage['total_lines'] as int;
   final coveredLines = coverage['covered_lines'] as int;
-  final percentage = (coveredLines / totalLines * 100).toStringAsFixed(2);
+  final percentage = totalLines > 0
+      ? (coveredLines / totalLines * 100).toStringAsFixed(2)
+      : '0.00';
 
   if (!runningInCI) print('\n${'=' * 60}');
   print('## Test Coverage Report\n');
@@ -34,8 +44,13 @@ Future<void> main(List<String> args) async {
     print('### File Coverage\n');
     final sortedFiles = files.entries.toList()
       ..sort((a, b) {
-        final aPercent = a.value['covered']! / a.value['total']!;
-        final bPercent = b.value['covered']! / b.value['total']!;
+        final aTotal = a.value['total']!;
+        final bTotal = b.value['total']!;
+        if (aTotal == 0 && bTotal == 0) return 0;
+        if (aTotal == 0) return 1;
+        if (bTotal == 0) return -1;
+        final aPercent = a.value['covered']! / aTotal;
+        final bPercent = b.value['covered']! / bTotal;
         return bPercent.compareTo(aPercent);
       });
 
@@ -43,7 +58,9 @@ Future<void> main(List<String> args) async {
       final fileName = entry.key.split('/').last;
       final covered = entry.value['covered']!;
       final total = entry.value['total']!;
-      final filePercentage = (covered / total * 100).toStringAsFixed(1);
+      final filePercentage = total > 0
+          ? (covered / total * 100).toStringAsFixed(1)
+          : '0.0';
       print('- `$fileName`: $filePercentage% ($covered/$total lines)');
     }
   }
@@ -76,14 +93,26 @@ Map<String, dynamic> _parseLcov(String lcovContent) {
         }
       }
     } else if (line == 'end_of_record' && currentFile != null) {
-      totalLines += currentFileLines;
-      coveredLines += currentFileCovered;
-      files[currentFile] = {
-        'total': currentFileLines,
-        'covered': currentFileCovered,
-      };
+      if (currentFileLines > 0) {
+        totalLines += currentFileLines;
+        coveredLines += currentFileCovered;
+        files[currentFile] = {
+          'total': currentFileLines,
+          'covered': currentFileCovered,
+        };
+      }
       currentFile = null;
     }
+  }
+
+  // Handle case where file ends without 'end_of_record'
+  if (currentFile != null && currentFileLines > 0) {
+    totalLines += currentFileLines;
+    coveredLines += currentFileCovered;
+    files[currentFile] = {
+      'total': currentFileLines,
+      'covered': currentFileCovered,
+    };
   }
 
   return {
