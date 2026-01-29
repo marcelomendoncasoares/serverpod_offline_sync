@@ -77,7 +77,7 @@ class CrdtDatabase extends _$CrdtDatabase {
     }
 
     final result = await (select(crdtSchemaTablesTable)
-          ..where((t) => t.tableName.equals(tableName)))
+          ..where((t) => t.tblName.equals(tableName)))
         .getSingleOrNull();
 
     if (result == null) {

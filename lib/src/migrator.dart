@@ -195,7 +195,7 @@ class OfflineSyncMigrator extends Migrator {
 
     // Insert or get existing table ID
     await crdtDb.into(crdtDb.crdtSchemaTablesTable).insert(
-          CrdtSchemaTablesTableCompanion.insert(tableName: tableName),
+          CrdtSchemaTablesTableCompanion.insert(tblName: tableName),
           mode: InsertMode.insertOrIgnore,
         );
 

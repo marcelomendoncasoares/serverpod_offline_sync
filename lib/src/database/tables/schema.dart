@@ -17,8 +17,8 @@ class CrdtSchemaTablesTable extends Table {
   /// Unique identifier for the table.
   late final id = integer().autoIncrement()();
 
-  /// Name of the table.
-  late final tableName = text().named('table_name').unique()();
+  /// Name of the synchronized table.
+  late final tblName = text().named('table_name').unique()();
 }
 
 /// CRDT schema columns table.
