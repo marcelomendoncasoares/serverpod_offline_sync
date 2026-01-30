@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:test/test.dart';
 
 import '../utils/crdt_context.dart';
+import '../utils/crdt_test_helper.dart';
 import '../utils/database.dart';
 
 void main() {
@@ -34,7 +36,7 @@ void main() {
       (crdt, crdtDb, nodeId) = database.crdtContext;
 
       final allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
-      createdHlc = allCrdtDataEntries.first.hlcTimestamp;
+      createdHlc = await CrdtTestHelper.getHlc(crdtDb, allCrdtDataEntries.first);
     });
 
     group('when getting the last modified timestamp', () {

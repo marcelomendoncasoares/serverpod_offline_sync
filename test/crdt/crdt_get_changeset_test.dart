@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:test/test.dart';
 
 import '../utils/crdt_context.dart';
+import '../utils/crdt_test_helper.dart';
 import '../utils/database.dart';
 
 void main() {
@@ -47,7 +49,7 @@ void main() {
       (crdt, crdtDb, nodeId) = database.crdtContext;
 
       final allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
-      createdHlc = allCrdtDataEntries.first.hlcTimestamp;
+      createdHlc = await CrdtTestHelper.getHlc(crdtDb, allCrdtDataEntries.first);
       rowId = createdRowId.toString();
       createdData = await database.managers.todosTable.getSingle();
     });
@@ -58,26 +60,41 @@ void main() {
           'then it returns a changeset with one entry per column of the created data.',
           () async {
             final changeset = await crdt.getChangeset();
-            final changesetColumns = changeset.map((e) => e.columnName).toSet();
+            final changesetColumns = await Future.wait(
+              changeset.map((e) => CrdtTestHelper.getColumnName(crdtDb, e)),
+            );
             final expectedColumns = [
               ...database.todosTable.$columns.map((c) => c.$name),
               crdtDb.sqlBuilder.isDeletedColumnName,
             ];
 
             expect(changeset.length, expectedColumns.length);
-            expect(changesetColumns, equals(expectedColumns));
+            expect(changesetColumns.toSet(), equals(expectedColumns));
           },
         );
 
         test('then the raw values are set correctly.', () async {
           final changeset = await crdt.getChangeset();
-          final rebuiltData = database.todosTable.map({
-            for (final c in database.todosTable.$columns)
-              c.$name: changeset
-                  .firstWhere((e) => e.rowId == rowId && e.columnName == c.$name)
-                  .rawValue
-                  ?.rawSqlValue,
-          });
+
+          final rebuiltDataMap = <String, Object?>{};
+          for (final c in database.todosTable.$columns) {
+            final columnName = c.$name;
+            CrdtDataEntry? matchingEntry;
+            for (final e in changeset) {
+              if (e.rowId == rowId) {
+                final entryColumnName = await CrdtTestHelper.getColumnName(crdtDb, e);
+                if (entryColumnName == columnName) {
+                  matchingEntry = e;
+                  break;
+                }
+              }
+            }
+            if (matchingEntry != null) {
+              rebuiltDataMap[columnName] = matchingEntry.rawValue?.rawSqlValue;
+            }
+          }
+
+          final rebuiltData = database.todosTable.map(rebuiltDataMap);
 
           expect(rebuiltData, equals(createdData));
         });
@@ -86,10 +103,15 @@ void main() {
       test('with onlyNodeId set to the nodeId '
           'then it returns a changeset with the data for the nodeId.', () async {
         final changeset = await crdt.getChangeset(onlyNodeId: nodeId);
-        final nodeIds = changeset.map((e) => e.hlcTimestamp.nodeId).toSet();
+        final nodeIds = await Future.wait(
+          changeset.map((e) async {
+            final hlc = await CrdtTestHelper.getHlc(crdtDb, e);
+            return hlc.nodeId;
+          }),
+        );
 
         expect(changeset, isNotEmpty);
-        expect(nodeIds, equals({nodeId}));
+        expect(nodeIds.toSet(), equals({nodeId}));
       });
 
       test('with onlyNodeId set to a different nodeId '
@@ -110,10 +132,15 @@ void main() {
           'then it returns a changeset with data from other nodes.', () async {
         const otherNodeId = 'other-node';
         final changeset = await crdt.getChangeset(exceptNodeId: otherNodeId);
-        final nodeIds = changeset.map((e) => e.hlcTimestamp.nodeId).toSet();
+        final nodeIds = await Future.wait(
+          changeset.map((e) async {
+            final hlc = await CrdtTestHelper.getHlc(crdtDb, e);
+            return hlc.nodeId;
+          }),
+        );
 
         expect(changeset, isNotEmpty);
-        expect(nodeIds, isNot(contains(otherNodeId)));
+        expect(nodeIds.toSet(), isNot(contains(otherNodeId)));
       });
 
       test(

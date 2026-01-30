@@ -1,9 +1,11 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
 import '../utils/crdt_context.dart';
+import '../utils/crdt_test_helper.dart';
 import '../utils/database.dart';
 import '../utils/tables.dart';
 
@@ -135,9 +137,11 @@ void main() {
         await crdt.saveChangeset(firstChangeset, [lastHlc]);
 
         newerHlc = Hlc.now(otherNodeId);
-        newerChangeset = crdtDb
-            .convertToCrdtDataEntry(todo, newerHlc)
-            .where((e) => e.columnName == 'content');
+        newerChangeset = await _filterByColumnName(
+          crdtDb,
+          crdtDb.convertToCrdtDataEntry(todo, newerHlc),
+          'content',
+        );
       });
 
       group('when saving a changeset with some entries with newer HLC', () {
@@ -146,10 +150,12 @@ void main() {
         });
 
         test('then the entries with newer HLC are saved to the database.', () async {
-          final expectedResultingChangeset = [
-            for (final e in firstChangeset)
-              if (e.columnName == 'content') newerChangeset.first else e,
-          ];
+          final expectedResultingChangeset = await Future.wait(
+            firstChangeset.map((e) async {
+              final columnName = await CrdtTestHelper.getColumnName(crdtDb, e);
+              return columnName == 'content' ? newerChangeset.first : e;
+            }),
+          );
 
           expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
         });
@@ -161,4 +167,19 @@ void main() {
       });
     },
   );
+}
+
+Future<Iterable<CrdtDataEntry>> _filterByColumnName(
+  CrdtDatabase db,
+  Iterable<CrdtDataEntry> entries,
+  String columnName,
+) async {
+  final filtered = <CrdtDataEntry>[];
+  for (final entry in entries) {
+    final entryColumnName = await CrdtTestHelper.getColumnName(db, entry);
+    if (entryColumnName == columnName) {
+      filtered.add(entry);
+    }
+  }
+  return filtered;
 }

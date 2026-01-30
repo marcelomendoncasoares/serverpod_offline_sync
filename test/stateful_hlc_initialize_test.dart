@@ -1,8 +1,10 @@
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:drift_offline_sync/src/hlc/stateful.dart';
 import 'package:test/test.dart';
 
 import 'utils/crdt_context.dart';
+import 'utils/crdt_test_helper.dart';
 import 'utils/database.dart';
 import 'utils/executor.dart';
 
@@ -79,13 +81,19 @@ Future<TodoDb> testDatabaseFixture({
 
   final (crdt, crdtDb, nodeId) = database.crdtContext;
 
+  final tableId = crdtDb.schemaCache.getTableId('todos');
+  final columnId = crdtDb.schemaCache.getColumnId(tableId, 'content');
+  final hlcNodeId = crdtDb.schemaCache.getNodeId(initialHlc.nodeId);
+
   await crdtDb.managers.crdtDataTable.create(
     (t) => t(
       userId: userId ?? crdt.userId,
-      tblName: 'todos',
-      columnName: 'content',
+      tableId: tableId,
+      columnId: columnId,
       rowId: '1',
-      hlcTimestamp: initialHlc,
+      hlcDatetime: NormalizedHlc.extractDatetime(initialHlc),
+      hlcCounter: NormalizedHlc.extractCounter(initialHlc),
+      hlcNodeId: hlcNodeId,
     ),
   );
 

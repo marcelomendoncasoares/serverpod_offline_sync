@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:test/test.dart';
 
+import '../utils/crdt_test_helper.dart';
 import '../utils/database.dart';
 import '../utils/tables.dart';
 
@@ -35,16 +37,21 @@ void main() {
       group('then the trigger is executed and the CRDT data table', () {
         late String isDeletedColumnName;
         late List<CrdtDataEntry> allCrdtDataEntries;
+        late CrdtDatabase crdtDb;
 
         setUp(() async {
           final migrator = database.createMigrator();
-          allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-          isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
+          crdtDb = migrator.crdtDb;
+          allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
+          isDeletedColumnName = crdtDb.sqlBuilder.isDeletedColumnName;
         });
 
         test('has one entry for each column of the target table.', () async {
+          final columnNames = await Future.wait(
+            allCrdtDataEntries.map((e) => CrdtTestHelper.getColumnName(crdtDb, e)),
+          );
           expect(
-            allCrdtDataEntries.map((e) => e.columnName).toSet(),
+            columnNames.toSet(),
             equals(
               database.todosTable.$columns.map((c) => c.$name).toSet()
                 ..add(isDeletedColumnName),
@@ -53,10 +60,18 @@ void main() {
         });
 
         test('has the raw values inserted correctly.', () async {
-          final crdtData = allCrdtDataEntries.getField(rowId, 'content');
+          final crdtData = await allCrdtDataEntries.getFieldAsync(
+            crdtDb,
+            rowId,
+            'content',
+          );
           expect(crdtData.unwrappedValue, targetContent);
 
-          final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
+          final targetDateCrdtData = await allCrdtDataEntries.getFieldAsync(
+            crdtDb,
+            rowId,
+            'target_date',
+          );
           expect(
             targetDateCrdtData.unwrappedValue,
             targetDate.toIso8600StringWithOffset(),
@@ -64,13 +79,26 @@ void main() {
         });
 
         test('has the same HLC timestamp for each inserted column.', () async {
-          final targetHlc = allCrdtDataEntries.first.hlcTimestamp;
+          final targetHlc = await CrdtTestHelper.getHlc(
+            crdtDb,
+            allCrdtDataEntries.first,
+          );
 
-          final crdtData = allCrdtDataEntries.getField(rowId, 'content');
-          expect(crdtData.hlcTimestamp, equals(targetHlc));
+          final crdtData = await allCrdtDataEntries.getFieldAsync(
+            crdtDb,
+            rowId,
+            'content',
+          );
+          final crdtDataHlc = await CrdtTestHelper.getHlc(crdtDb, crdtData);
+          expect(crdtDataHlc, equals(targetHlc));
 
-          final targetDateCrdtData = allCrdtDataEntries.getField(rowId, 'target_date');
-          expect(targetDateCrdtData.hlcTimestamp, equals(targetHlc));
+          final targetDateCrdtData = await allCrdtDataEntries.getFieldAsync(
+            crdtDb,
+            rowId,
+            'target_date',
+          );
+          final targetDateHlc = await CrdtTestHelper.getHlc(crdtDb, targetDateCrdtData);
+          expect(targetDateHlc, equals(targetHlc));
         });
       });
     });
@@ -90,7 +118,10 @@ void main() {
 
       final migrator = database.createMigrator();
       final allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-      createdHlc = allCrdtDataEntries.first.hlcTimestamp;
+      createdHlc = await CrdtTestHelper.getHlc(
+        migrator.crdtDb,
+        allCrdtDataEntries.first,
+      );
     });
 
     group('when updating the existing row with a different value', () {
@@ -120,17 +151,24 @@ void main() {
         'then the trigger is executed and the updated row in the CRDT data table',
         () {
           late List<CrdtDataEntry> allCrdtDataEntries;
+          late CrdtDatabase crdtDb;
 
           setUp(() async {
             final migrator = database.createMigrator();
-            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+            crdtDb = migrator.crdtDb;
+            allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
           });
 
           test('has the raw values updated correctly.', () async {
-            final crdtData = allCrdtDataEntries.getField(rowId, 'content');
+            final crdtData = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
+              rowId,
+              'content',
+            );
             expect(crdtData.unwrappedValue, targetContent);
 
-            final targetDateCrdtData = allCrdtDataEntries.getField(
+            final targetDateCrdtData = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
               rowId,
               'target_date',
             );
@@ -141,24 +179,41 @@ void main() {
           });
 
           test('has the same HLC timestamp for each updated column.', () async {
-            final updatedEntriesHlc = allCrdtDataEntries
-                .where((entry) => entry.rowId == rowId)
-                .where((entry) => updatedColumnNames.contains(entry.columnName))
-                .map((entry) => entry.hlcTimestamp);
+            final updatedEntriesHlc = <Hlc>[];
+            for (final entry in allCrdtDataEntries.where(
+              (entry) => entry.rowId == rowId,
+            )) {
+              final columnName = await CrdtTestHelper.getColumnName(crdtDb, entry);
+              if (updatedColumnNames.contains(columnName)) {
+                final hlc = await CrdtTestHelper.getHlc(crdtDb, entry);
+                updatedEntriesHlc.add(hlc);
+              }
+            }
 
             expect(updatedEntriesHlc.toSet(), hasLength(1));
           });
 
           test('has the updated HLC timestamp greater than the created.', () async {
-            final updatedEntry = allCrdtDataEntries.getField(rowId, 'content');
-            expect(updatedEntry.hlcTimestamp, greaterThan(createdHlc));
+            final updatedEntry = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
+              rowId,
+              'content',
+            );
+            final updatedHlc = await CrdtTestHelper.getHlc(crdtDb, updatedEntry);
+            expect(updatedHlc, greaterThan(createdHlc));
           });
 
           test('has not changed the HLC timestamp for non-updated columns.', () async {
-            final otherEntriesHlc = allCrdtDataEntries
-                .where((entry) => entry.rowId == rowId)
-                .where((entry) => !updatedColumnNames.contains(entry.columnName))
-                .map((entry) => entry.hlcTimestamp);
+            final otherEntriesHlc = <Hlc>[];
+            for (final entry in allCrdtDataEntries.where(
+              (entry) => entry.rowId == rowId,
+            )) {
+              final columnName = await CrdtTestHelper.getColumnName(crdtDb, entry);
+              if (!updatedColumnNames.contains(columnName)) {
+                final hlc = await CrdtTestHelper.getHlc(crdtDb, entry);
+                otherEntriesHlc.add(hlc);
+              }
+            }
 
             expect(otherEntriesHlc, everyElement(equals(createdHlc)));
           });
@@ -180,15 +235,22 @@ void main() {
         'then the trigger is executed and the updated row in the CRDT data table',
         () {
           late List<CrdtDataEntry> allCrdtDataEntries;
+          late CrdtDatabase crdtDb;
 
           setUp(() async {
             final migrator = database.createMigrator();
-            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+            crdtDb = migrator.crdtDb;
+            allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
           });
 
           test('has not changed the HLC timestamp for the updated column.', () async {
-            final updatedEntry = allCrdtDataEntries.getField(rowId, 'content');
-            expect(updatedEntry.hlcTimestamp, equals(createdHlc));
+            final updatedEntry = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
+              rowId,
+              'content',
+            );
+            final updatedHlc = await CrdtTestHelper.getHlc(crdtDb, updatedEntry);
+            expect(updatedHlc, equals(createdHlc));
           });
         },
       );
@@ -212,24 +274,32 @@ void main() {
         () {
           late List<CrdtDataEntry> allCrdtDataEntries;
           late String isDeletedColumnName;
+          late CrdtDatabase crdtDb;
 
           setUp(() async {
             final migrator = database.createMigrator();
-            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-            isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
+            crdtDb = migrator.crdtDb;
+            allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
+            isDeletedColumnName = crdtDb.sqlBuilder.isDeletedColumnName;
           });
 
           test('has the deleted flag column set to true.', () async {
-            final crdtData = allCrdtDataEntries.getField(rowId, isDeletedColumnName);
+            final crdtData = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
+              rowId,
+              isDeletedColumnName,
+            );
             expect(crdtData.unwrappedValue, 1);
           });
 
           test('has the deleted HLC timestamp greater than the created.', () async {
-            final deletedEntry = allCrdtDataEntries.getField(
+            final deletedEntry = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
               rowId,
               isDeletedColumnName,
             );
-            expect(deletedEntry.hlcTimestamp, greaterThan(createdHlc));
+            final deletedHlc = await CrdtTestHelper.getHlc(crdtDb, deletedEntry);
+            expect(deletedHlc, greaterThan(createdHlc));
           });
         },
       );
@@ -258,7 +328,14 @@ void main() {
 
       final allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
       isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
-      deletedHlc = allCrdtDataEntries.getField(rowId, isDeletedColumnName).hlcTimestamp;
+      deletedHlc = await CrdtTestHelper.getHlc(
+        migrator.crdtDb,
+        await allCrdtDataEntries.getFieldAsync(
+          migrator.crdtDb,
+          rowId,
+          isDeletedColumnName,
+        ),
+      );
     });
 
     group('when re-inserting the previously deleted row', () {
@@ -286,34 +363,45 @@ void main() {
         'then the trigger is executed and the re-inserted row in the CRDT data table',
         () {
           late List<CrdtDataEntry> allCrdtDataEntries;
+          late CrdtDatabase crdtDb;
 
           setUp(() async {
             final migrator = database.createMigrator();
-            allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
-            isDeletedColumnName = migrator.crdtDb.sqlBuilder.isDeletedColumnName;
+            crdtDb = migrator.crdtDb;
+            allCrdtDataEntries = await crdtDb.managers.crdtDataTable.get();
+            isDeletedColumnName = crdtDb.sqlBuilder.isDeletedColumnName;
           });
 
           test('has the deleted flag column set to false.', () async {
-            final crdtData = allCrdtDataEntries.getField(rowId, isDeletedColumnName);
+            final crdtData = await allCrdtDataEntries.getFieldAsync(
+              crdtDb,
+              rowId,
+              isDeletedColumnName,
+            );
             expect(crdtData.unwrappedValue, 0);
           });
 
           test(
             'has the deleted flag HLC timestamp greater than the deleted.',
             () async {
-              final deletedEntry = allCrdtDataEntries.getField(
+              final deletedEntry = await allCrdtDataEntries.getFieldAsync(
+                crdtDb,
                 rowId,
                 isDeletedColumnName,
               );
-              expect(deletedEntry.hlcTimestamp, greaterThan(deletedHlc));
+              final deletedEntryHlc = await CrdtTestHelper.getHlc(crdtDb, deletedEntry);
+              expect(deletedEntryHlc, greaterThan(deletedHlc));
             },
           );
 
           test(
             'has the HLC timestamp updated for newly inserted columns.',
             () async {
+              final hlcs = await Future.wait(
+                allCrdtDataEntries.map((e) => CrdtTestHelper.getHlc(crdtDb, e)),
+              );
               expect(
-                allCrdtDataEntries.map((e) => e.hlcTimestamp),
+                hlcs,
                 everyElement(greaterThan(deletedHlc)),
               );
             },
@@ -325,8 +413,20 @@ void main() {
 }
 
 extension on Iterable<CrdtDataEntry> {
-  CrdtDataEntry getField(String rowId, String fieldName) {
-    return firstWhere((entry) => entry.rowId == rowId && entry.columnName == fieldName);
+  Future<CrdtDataEntry> getFieldAsync(
+    CrdtDatabase db,
+    String rowId,
+    String fieldName,
+  ) async {
+    for (final entry in this) {
+      if (entry.rowId == rowId) {
+        final columnName = await CrdtTestHelper.getColumnName(db, entry);
+        if (columnName == fieldName) {
+          return entry;
+        }
+      }
+    }
+    throw StateError('No entry found for rowId=$rowId, fieldName=$fieldName');
   }
 }
 

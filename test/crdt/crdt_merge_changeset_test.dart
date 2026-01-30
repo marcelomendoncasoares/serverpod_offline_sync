@@ -1,7 +1,9 @@
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:test/test.dart';
 
 import '../utils/crdt_context.dart';
+import '../utils/crdt_test_helper.dart';
 import '../utils/database.dart';
 import '../utils/tables.dart';
 
@@ -81,22 +83,41 @@ void main() {
         firstChangeset = crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId));
         await crdt.merge(firstChangeset);
 
-        newerChangeset = crdtDb
-            .convertToCrdtDataEntry(todo, Hlc.now(nodeId))
-            .where((e) => e.columnName == 'content');
+        newerChangeset = await _filterByColumnName(
+          crdtDb,
+          crdtDb.convertToCrdtDataEntry(todo, Hlc.now(nodeId)),
+          'content',
+        );
       });
 
       test('when merging a changeset with some entries with newer HLC '
           'then the entries with newer HLC are saved to the database.', () async {
         await crdt.merge(newerChangeset);
 
-        final expectedResultingChangeset = [
-          for (final e in firstChangeset)
-            if (e.columnName == 'content') newerChangeset.first else e,
-        ];
+        final expectedResultingChangeset = await Future.wait(
+          firstChangeset.map((e) async {
+            final columnName = await CrdtTestHelper.getColumnName(crdtDb, e);
+            return columnName == 'content' ? newerChangeset.first : e;
+          }),
+        );
 
         expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
       });
     },
   );
+}
+
+Future<Iterable<CrdtDataEntry>> _filterByColumnName(
+  CrdtDatabase db,
+  Iterable<CrdtDataEntry> entries,
+  String columnName,
+) async {
+  final filtered = <CrdtDataEntry>[];
+  for (final entry in entries) {
+    final entryColumnName = await CrdtTestHelper.getColumnName(db, entry);
+    if (entryColumnName == columnName) {
+      filtered.add(entry);
+    }
+  }
+  return filtered;
 }
