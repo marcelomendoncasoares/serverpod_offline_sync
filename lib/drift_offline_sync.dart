@@ -10,6 +10,7 @@ export 'src/database/extensions/convert.dart';
 export 'src/database/extensions/entry.dart';
 export 'src/database/extensions/extract.dart';
 export 'src/database/extensions/sync.dart';
+export 'src/database/extensions/triggers.dart';
 export 'src/database/setup.dart';
 export 'src/hlc/converter.dart';
 export 'src/migrator.dart';

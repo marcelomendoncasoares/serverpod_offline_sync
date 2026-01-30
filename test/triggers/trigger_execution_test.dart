@@ -322,6 +322,132 @@ void main() {
       );
     });
   });
+
+  group('Given a database with an empty synchronized table and triggers disabled', () {
+    group('when inserting a new row on a synchronized table', () {
+      const targetContent = 'test';
+      final targetDate = DateTime(2026, 1, 13);
+
+      setUp(() async {
+        final migrator = database.createMigrator();
+        await migrator.crdtDb.disableTriggers();
+
+        await database.managers.todosTable.create(
+          (t) => t(
+            content: targetContent,
+            targetDate: Value(targetDate),
+          ),
+        );
+      });
+
+      test('then the row exists in the target table.', () async {
+        final row = await database.managers.todosTable.getSingle();
+
+        expect(row, isNotNull);
+        expect(row.content, targetContent);
+        expect(row.targetDate, targetDate);
+      });
+
+      group('then the trigger is not executed and the CRDT data table', () {
+        late List<CrdtDataEntry> allCrdtDataEntries;
+
+        setUp(() async {
+          final migrator = database.createMigrator();
+          allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+        });
+
+        test('has no entries.', () async {
+          expect(allCrdtDataEntries, isEmpty);
+        });
+      });
+    });
+  });
+
+  group(
+    'Given a database with a synchronized table with a row and triggers disabled',
+    () {
+      late int createdRowId;
+
+      setUp(() async {
+        createdRowId = await database.managers.todosTable.create(
+          (t) => t(content: 'test'),
+        );
+
+        final migrator = database.createMigrator();
+        await migrator.crdtDb.managers.crdtDataTable.delete();
+        await migrator.crdtDb.disableTriggers();
+      });
+
+      group('when updating the existing row with a different value', () {
+        const targetContent = 'test2';
+        final targetDate = DateTime(2026, 1, 13);
+
+        setUp(() async {
+          await database.managers.todosTable.update(
+            (t) => t(
+              id: Value(RowId(createdRowId)),
+              content: const Value('test2'),
+              targetDate: Value(DateTime(2026, 1, 13)),
+            ),
+          );
+        });
+
+        test('then the row has been updated in the target table.', () async {
+          final row = await database.managers.todosTable.getSingle();
+
+          expect(row, isNotNull);
+          expect(row.content, targetContent);
+          expect(row.targetDate, targetDate);
+        });
+
+        group(
+          'then the trigger is not executed and the updated row in the CRDT data table',
+          () {
+            late List<CrdtDataEntry> allCrdtDataEntries;
+
+            setUp(() async {
+              final migrator = database.createMigrator();
+              allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+            });
+
+            test('has no entries.', () async {
+              expect(allCrdtDataEntries, isEmpty);
+            });
+          },
+        );
+      });
+
+      group('when deleting the existing row', () {
+        setUp(() async {
+          await database.managers.todosTable
+              .filter((t) => t.id.equals(RowId(createdRowId)))
+              .delete();
+        });
+
+        test('then the row has been deleted in the target table.', () async {
+          final row = await database.managers.todosTable.getSingleOrNull();
+
+          expect(row, isNull);
+        });
+
+        group(
+          'then the trigger is not executed and the deleted row in the CRDT data table',
+          () {
+            late List<CrdtDataEntry> allCrdtDataEntries;
+
+            setUp(() async {
+              final migrator = database.createMigrator();
+              allCrdtDataEntries = await migrator.crdtDb.managers.crdtDataTable.get();
+            });
+
+            test('has no entries.', () async {
+              expect(allCrdtDataEntries, isEmpty);
+            });
+          },
+        );
+      });
+    },
+  );
 }
 
 extension on Iterable<CrdtDataEntry> {
