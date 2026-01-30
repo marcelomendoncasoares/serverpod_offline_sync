@@ -70,10 +70,10 @@ abstract class CrdtBase {
   );
 
   /// Merge [changeset] with the local dataset.
-  Future<void> merge(Iterable<CrdtDataEntry> changeset, CrdtDatabase db) async {
+  Future<void> merge(Iterable<CrdtDataEntry> changeset) async {
     if (changeset.isEmpty) return;
 
-    final receivedHlcs = await _extractLastReceivedHlcs(changeset, db);
+    final receivedHlcs = await _extractLastReceivedHlcs(changeset);
     await saveChangeset(changeset, receivedHlcs);
 
     if (receivedHlcs.isEmpty) return;
@@ -81,10 +81,10 @@ abstract class CrdtBase {
   }
 
   /// Extracts the last received HLCs from the changeset.
-  Future<Iterable<Hlc>> _extractLastReceivedHlcs(
-    Iterable<CrdtDataEntry> changeset,
-    CrdtDatabase db,
-  ) async {
+  ///
+  /// Subclasses must provide the database instance for node lookups.
+  Future<Iterable<Hlc>> _extractLastReceivedHlcs(Iterable<CrdtDataEntry> changeset) async {
+    final db = _getDatabase();
     final currentNodeId = db.schemaCache.currentNodeId;
     final receivedHlcs = <String, Hlc>{};
 
@@ -122,6 +122,9 @@ abstract class CrdtBase {
 
     return receivedHlcs.values;
   }
+
+  /// Gets the database instance. Must be overridden by subclasses.
+  CrdtDatabase _getDatabase();
 
   /// Compares two CrdtDataEntry HLC components.
   ///

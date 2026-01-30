@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:drift_offline_sync/src/hlc/normalized.dart';
 import 'package:test/test.dart';
 
 import '../utils/crdt_context.dart';
@@ -26,8 +27,16 @@ void main() {
       });
 
       test('then it creates an entry for each column.', () async {
+        // Get column names from entries (requires async lookups)
+        final columnNames = <String>{};
+        for (final entry in entries) {
+          final column = await (crdtDb.select(crdtDb.crdtSchemaColumnsTable)
+                ..where((t) => t.id.equals(entry.columnId)))
+              .getSingle();
+          columnNames.add(column.columnName);
+        }
         expect(
-          entries.map((e) => e.columnName).toSet(),
+          columnNames,
           equals(
             database.tableWithEveryColumnType.$columns.map((c) => c.$name).toSet(),
           ),
@@ -39,19 +48,35 @@ void main() {
       });
 
       test('then each entry has the correct table name.', () async {
+        // Get table name from first entry
+        final firstEntry = entries.first;
+        final table = await (crdtDb.select(crdtDb.crdtSchemaTablesTable)
+              ..where((t) => t.id.equals(firstEntry.tableId)))
+            .getSingle();
         expect(
-          entries.map((e) => e.tblName),
-          everyElement(equals('table_with_every_column_type')),
+          table.tblName,
+          equals('table_with_every_column_type'),
         );
       });
 
       test('then each entry has the correct HLC timestamp.', () async {
-        expect(entries.map((e) => e.hlcTimestamp), everyElement(equals(testHlc)));
+        // Check HLC components match
+        final expectedDatetime = NormalizedHlc.extractDatetime(testHlc);
+        final expectedCounter = NormalizedHlc.extractCounter(testHlc);
+        expect(
+          entries.map((e) => e.hlcDatetime),
+          everyElement(equals(expectedDatetime)),
+        );
+        expect(
+          entries.map((e) => e.hlcCounter),
+          everyElement(equals(expectedCounter)),
+        );
       });
 
       test('then all entries have expected column names and values.', () async {
         final mappedData = await database.tableWithEveryColumnType.fromCrdtDataEntries(
           entries,
+          crdtDb,
         );
         expect(mappedData.single, equals(createdData));
       });
@@ -74,10 +99,25 @@ void main() {
       await database.tableWithEveryColumnType.insertOne(createdData);
       expectedChangeset = await crdtDb.managers.crdtDataTable
           .filter(
-            (f) => f.columnName.equals(crdtDb.sqlBuilder.isDeletedColumnName).not(),
+            (f) {
+              final isDeletedColumnId = crdtDb.schemaCache.getColumnId(
+                f.tableId.peek()!,
+                crdtDb.sqlBuilder.isDeletedColumnName,
+              );
+              return f.columnId.equals(isDeletedColumnId).not();
+            },
           )
           .get();
-      testHlc = expectedChangeset.first.hlcTimestamp;
+      // Reconstruct HLC from first entry
+      final firstEntry = expectedChangeset.first;
+      final node = await (crdtDb.select(crdtDb.crdtNodesTable)
+            ..where((t) => t.id.equals(firstEntry.hlcNodeId)))
+          .getSingle();
+      testHlc = NormalizedHlc.reconstruct(
+        datetime: firstEntry.hlcDatetime,
+        counter: firstEntry.hlcCounter,
+        nodeId: node.nodeId,
+      );
       await crdtDb.crdtDataTable.deleteAll();
     });
 

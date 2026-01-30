@@ -145,10 +145,7 @@ class OfflineSyncCrdt extends CrdtBase {
   }
 
   @override
-  Future<void> merge(Iterable<CrdtDataEntry> changeset, CrdtDatabase db) async {
-    // Override to pass our database instance
-    await super.merge(changeset, _db);
-  }
+  CrdtDatabase _getDatabase() => _db;
 
   /// Save the [mergedHlcs] to the database.
   ///
