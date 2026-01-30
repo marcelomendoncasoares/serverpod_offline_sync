@@ -18,7 +18,7 @@
 //
 // # Format coverage to lcov
 // dart pub global activate coverage
-// dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore
+// dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
 //
 // # Generate markdown report
 // dart scripts/coverage_report.dart
@@ -118,6 +118,15 @@ Map<String, dynamic> _parseLcov(String lcovContent) {
 
   for (final line in lines) {
     if (line.startsWith('SF:')) {
+      // Save previous file data if it exists (handles malformed lcov)
+      if (currentFile != null && currentFileLines > 0) {
+        totalLines += currentFileLines;
+        coveredLines += currentFileCovered;
+        files[currentFile] = {
+          'total': currentFileLines,
+          'covered': currentFileCovered,
+        };
+      }
       currentFile = line.substring(3);
       currentFileLines = 0;
       currentFileCovered = 0;
