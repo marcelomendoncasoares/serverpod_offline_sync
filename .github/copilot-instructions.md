@@ -3,6 +3,8 @@
 - Before starting any task, CONSIDER ALL GUIDELINES from this document.
 - If a guideline that is directly related to the task contains a reference,
   fetch the reference to improve the understanding of the task.
+- When addressing feedbacks on a pull request, commit changes in separate
+  commits, but feel free to group some in the same commit if it make sense.
 
 ## Project Context
 
