@@ -34,4 +34,24 @@ class CrdtControlTable extends Table {
 
   @override
   Set<Column> get primaryKey => {userId, nodeId};
+
+  /// Query to insert a new entry into the CRDT control table.
+  ///
+  /// Declared here to ensure the query is synchronized with the table.
+  static String getDefaultUpsertQuery({
+    required String userId,
+    required String nodeId,
+    required int schemaVersion,
+  }) {
+    return '''
+INSERT INTO "__crdt_control" (
+  "user_id",
+  "node_id",
+  "crdt_triggers_on",
+  "schema_version"
+) VALUES ('$userId', '$nodeId', TRUE, $schemaVersion)
+ON CONFLICT ("user_id", "node_id") DO UPDATE SET
+  "crdt_triggers_on" = TRUE,
+  "schema_version" = $schemaVersion;''';
+  }
 }
