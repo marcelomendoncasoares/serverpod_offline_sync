@@ -4,6 +4,7 @@ import 'package:crdt/crdt.dart';
 import 'package:meta/meta.dart';
 
 import '../database/database.dart';
+import '../hlc/normalized.dart';
 import '../hlc/stateful.dart';
 
 /// Base class for CRDT implementations.
@@ -69,10 +70,10 @@ abstract class CrdtBase {
   );
 
   /// Merge [changeset] with the local dataset.
-  Future<void> merge(Iterable<CrdtDataEntry> changeset) async {
+  Future<void> merge(Iterable<CrdtDataEntry> changeset, CrdtDatabase db) async {
     if (changeset.isEmpty) return;
 
-    final receivedHlcs = _extractLastReceivedHlcs(changeset);
+    final receivedHlcs = await _extractLastReceivedHlcs(changeset, db);
     await saveChangeset(changeset, receivedHlcs);
 
     if (receivedHlcs.isEmpty) return;
@@ -80,13 +81,59 @@ abstract class CrdtBase {
   }
 
   /// Extracts the last received HLCs from the changeset.
-  Iterable<Hlc> _extractLastReceivedHlcs(Iterable<CrdtDataEntry> changeset) {
+  Future<Iterable<Hlc>> _extractLastReceivedHlcs(
+    Iterable<CrdtDataEntry> changeset,
+    CrdtDatabase db,
+  ) async {
+    final currentNodeId = db.schemaCache.currentNodeId;
     final receivedHlcs = <String, Hlc>{};
+
+    // Group by node ID and find max HLC per node
+    final nodeEntries = <int, List<CrdtDataEntry>>{};
     for (final entry in changeset) {
-      if (entry.hlcTimestamp.nodeId == nodeId) continue;
-      receivedHlcs.addOrUpdate(entry.hlcTimestamp);
+      if (entry.hlcNodeId == currentNodeId) continue; // Skip current node
+      nodeEntries.putIfAbsent(entry.hlcNodeId, () => []).add(entry);
     }
+
+    // Reconstruct HLCs for each node
+    for (final nodeId in nodeEntries.keys) {
+      final entries = nodeEntries[nodeId]!;
+      // Find entry with max HLC for this node
+      var maxEntry = entries.first;
+      for (final entry in entries) {
+        if (_compareHlc(entry, maxEntry) > 0) {
+          maxEntry = entry;
+        }
+      }
+
+      // Reconstruct the HLC
+      final node = await (db.select(db.crdtNodesTable)
+            ..where((t) => t.id.equals(nodeId)))
+          .getSingle();
+
+      final hlc = NormalizedHlc.reconstruct(
+        datetime: maxEntry.hlcDatetime,
+        counter: maxEntry.hlcCounter,
+        nodeId: node.nodeId,
+      );
+
+      receivedHlcs.addOrUpdate(hlc);
+    }
+
     return receivedHlcs.values;
+  }
+
+  /// Compares two CrdtDataEntry HLC components.
+  ///
+  /// Returns positive if a > b, negative if a < b, zero if equal.
+  int _compareHlc(CrdtDataEntry a, CrdtDataEntry b) {
+    if (a.hlcDatetime != b.hlcDatetime) {
+      return a.hlcDatetime.compareTo(b.hlcDatetime);
+    }
+    if (a.hlcCounter != b.hlcCounter) {
+      return a.hlcCounter.compareTo(b.hlcCounter);
+    }
+    return a.hlcNodeId.compareTo(b.hlcNodeId);
   }
 }
 

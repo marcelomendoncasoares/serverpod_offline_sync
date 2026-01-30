@@ -2,6 +2,7 @@ import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
 import '../database/database.dart';
+import '../hlc/normalized.dart';
 import 'base.dart';
 
 /// A CRDT implementation for offline-first synchronization.
@@ -20,25 +21,40 @@ class OfflineSyncCrdt extends CrdtBase {
       throw ArgumentError('Only one of onlyNodeId or exceptNodeId can be provided.');
     }
 
-    // NOTE: Although `max` has a better performance for the general use case,
-    // when the column is indexed, `order by` with `limit 1` will be just as fast.
-    // The plus of using the order by approach is the native deserialization of
-    // the Hlc object by Drift.
-    final rowWithMaxLastSyncHlc = await _db.managers.crdtDataTable
-        .filter((o) {
-          if (onlyNodeId != null) {
-            return o.hlcTimestamp.column.contains(onlyNodeId);
-          }
-          if (exceptNodeId != null) {
-            return o.hlcTimestamp.column.contains(exceptNodeId).not();
-          }
-          return const Constant(true);
-        })
-        .orderBy((o) => o.hlcTimestamp.desc())
-        .limit(1)
-        .getSingleOrNull();
+    // Query the maximum HLC using tuple ordering on normalized components
+    final query = _db.select(_db.crdtDataTable).join([
+      innerJoin(
+        _db.crdtNodesTable,
+        _db.crdtNodesTable.id.equalsExp(_db.crdtDataTable.hlcNodeId),
+      ),
+    ]);
 
-    return rowWithMaxLastSyncHlc?.hlcTimestamp;
+    if (onlyNodeId != null) {
+      query.where(_db.crdtNodesTable.nodeId.equals(onlyNodeId));
+    }
+    if (exceptNodeId != null) {
+      query.where(_db.crdtNodesTable.nodeId.equals(exceptNodeId).not());
+    }
+
+    query
+      ..orderBy([
+        OrderingTerm.desc(_db.crdtDataTable.hlcDatetime),
+        OrderingTerm.desc(_db.crdtDataTable.hlcCounter),
+        OrderingTerm.desc(_db.crdtDataTable.hlcNodeId),
+      ])
+      ..limit(1);
+
+    final result = await query.getSingleOrNull();
+    if (result == null) return null;
+
+    final entry = result.readTable(_db.crdtDataTable);
+    final node = result.readTable(_db.crdtNodesTable);
+
+    return NormalizedHlc.reconstruct(
+      datetime: entry.hlcDatetime,
+      counter: entry.hlcCounter,
+      nodeId: node.nodeId,
+    );
   }
 
   @override
@@ -52,22 +68,32 @@ class OfflineSyncCrdt extends CrdtBase {
     // Modified times use the local node id
     modifiedAfter = modifiedAfter?.apply(nodeId: nodeId);
 
-    final query = _db.managers.crdtDataTable.filter((o) {
-      Expression<bool> condition = const Constant(true);
+    final query = _db.select(_db.crdtDataTable).join([
+      innerJoin(
+        _db.crdtNodesTable,
+        _db.crdtNodesTable.id.equalsExp(_db.crdtDataTable.hlcNodeId),
+      ),
+    ]);
 
-      if (onlyNodeId != null) {
-        condition &= o.hlcTimestamp.column.contains(onlyNodeId);
-      }
-      if (exceptNodeId != null) {
-        condition &= o.hlcTimestamp.column.contains(exceptNodeId).not();
-      }
-      if (modifiedAfter != null) {
-        condition &= o.hlcTimestamp.column.isBiggerThanValue(modifiedAfter.toString());
-      }
-      return condition;
-    });
+    if (onlyNodeId != null) {
+      query.where(_db.crdtNodesTable.nodeId.equals(onlyNodeId));
+    }
+    if (exceptNodeId != null) {
+      query.where(_db.crdtNodesTable.nodeId.equals(exceptNodeId).not());
+    }
+    if (modifiedAfter != null) {
+      final datetime = NormalizedHlc.extractDatetime(modifiedAfter);
+      final counter = NormalizedHlc.extractCounter(modifiedAfter);
+      // Tuple comparison for HLC
+      query.where(
+        (_db.crdtDataTable.hlcDatetime.isBiggerThanValue(datetime)) |
+            ((_db.crdtDataTable.hlcDatetime.equals(datetime)) &
+                (_db.crdtDataTable.hlcCounter.isBiggerThanValue(counter))),
+      );
+    }
 
-    return query.get();
+    final results = await query.get();
+    return results.map((r) => r.readTable(_db.crdtDataTable));
   }
 
   @override
@@ -93,9 +119,18 @@ class OfflineSyncCrdt extends CrdtBase {
       onConflict: DoUpdate.withExcluded(
         (old, excluded) => CrdtDataTableCompanion.custom(
           rawValue: excluded.rawValue,
-          hlcTimestamp: excluded.hlcTimestamp,
+          hlcDatetime: excluded.hlcDatetime,
+          hlcCounter: excluded.hlcCounter,
+          hlcNodeId: excluded.hlcNodeId,
         ),
-        where: (old, excluded) => old.hlcTimestamp.isSmallerThan(excluded.hlcTimestamp),
+        where: (old, excluded) =>
+            // Tuple comparison: old HLC < excluded HLC
+            (old.hlcDatetime.isSmallerThan(excluded.hlcDatetime)) |
+            ((old.hlcDatetime.equals(excluded.hlcDatetime)) &
+                (old.hlcCounter.isSmallerThan(excluded.hlcCounter))) |
+            ((old.hlcDatetime.equals(excluded.hlcDatetime)) &
+                (old.hlcCounter.equals(excluded.hlcCounter)) &
+                (old.hlcNodeId.isSmallerThan(excluded.hlcNodeId))),
       ),
     );
   }
@@ -107,6 +142,12 @@ class OfflineSyncCrdt extends CrdtBase {
   /// the server and a repair merge is pushed to this node.
   Future<void> _applyCompensationRules() async {
     // TODO: Implement this.
+  }
+
+  @override
+  Future<void> merge(Iterable<CrdtDataEntry> changeset, CrdtDatabase db) async {
+    // Override to pass our database instance
+    await super.merge(changeset, _db);
   }
 
   /// Save the [mergedHlcs] to the database.
