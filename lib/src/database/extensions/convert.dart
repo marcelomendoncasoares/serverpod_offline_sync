@@ -1,6 +1,7 @@
+import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
-import '../../hlc/converter.dart';
+import '../../hlc/normalized.dart';
 import '../database.dart';
 
 /// Extensions for [CrdtDatabase] to convert data to [CrdtDataEntry].
@@ -19,15 +20,28 @@ extension CrdtDatabaseConvertExtensions on CrdtDatabase {
     final tableInfo = synchronizedTables.whereType<TableInfo<dynamic, T>>().single;
     final rowIdValues = [for (final c in tableInfo.$primaryKey) json[c.$name]];
 
+    // Get normalized IDs from schema cache
+    final tableId = schemaCache.getTableId(tableInfo.actualTableName);
+    final currentNodeId = schemaCache.currentNodeId;
+
+    // Extract HLC components
+    final hlcDatetime = NormalizedHlc.extractDatetime(hlcTimestamp);
+    final hlcCounter = NormalizedHlc.extractCounter(hlcTimestamp);
+
     return tableInfo.$columns.map(
-      (c) => CrdtDataEntry(
-        userId: userId,
-        tblName: tableInfo.actualTableName,
-        columnName: c.$name,
-        rowId: rowIdValues.join(sqlBuilder.rowIdSeparator),
-        rawValue: json[c.$name]?.toDriftAny(),
-        hlcTimestamp: hlcTimestamp,
-      ),
+      (c) {
+        final columnId = schemaCache.getColumnId(tableId, c.$name);
+        return CrdtDataEntry(
+          userId: userId,
+          tableId: tableId,
+          columnId: columnId,
+          rowId: rowIdValues.join(sqlBuilder.rowIdSeparator),
+          hlcDatetime: hlcDatetime,
+          hlcCounter: hlcCounter,
+          hlcNodeId: currentNodeId,
+          rawValue: json[c.$name]?.toDriftAny(),
+        );
+      },
     );
   }
 

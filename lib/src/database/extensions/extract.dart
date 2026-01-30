@@ -16,9 +16,11 @@ extension CrdtDatabaseExtractExtensions on CrdtDatabase {
   ]) async {
     final tableInfo = synchronizedTables.find<T>();
     final tableName = tableInfo.actualTableName;
+    final tableId = schemaCache.getTableId(tableName);
+
     final crdtDataEntries = await managers.crdtDataTable.filter(
       (o) {
-        var condition = o.tblName.equals(tableName);
+        var condition = o.tableId.equals(tableId);
         if (rowIds != null) {
           condition &= o.rowId.isIn(rowIds);
         }
@@ -26,7 +28,7 @@ extension CrdtDatabaseExtractExtensions on CrdtDatabase {
       },
     ).get();
 
-    return tableInfo.fromCrdtDataEntries<T>(crdtDataEntries);
+    return tableInfo.fromCrdtDataEntries<T>(crdtDataEntries, this);
   }
 }
 
@@ -35,14 +37,21 @@ extension ConvertCrdtDataEntry on TableInfo {
   /// Converts [CrdtDataEntry] to [Insertable].
   Future<Iterable<T>> fromCrdtDataEntries<T extends Insertable>(
     Iterable<CrdtDataEntry> entries,
+    CrdtDatabase db,
   ) async {
     final foundRowIds = entries.map((e) => e.rowId).toSet();
+    final tableId = db.schemaCache.getTableId(actualTableName);
+
     return [
       for (final rowId in foundRowIds)
         await map({
               for (final c in $columns)
                 c.$name: entries
-                    .firstWhere((e) => e.rowId == rowId && e.columnName == c.$name)
+                    .firstWhere(
+                      (e) =>
+                          e.rowId == rowId &&
+                          e.columnId == db.schemaCache.getColumnId(tableId, c.$name),
+                    )
                     .rawValue
                     ?.rawSqlValue,
             })

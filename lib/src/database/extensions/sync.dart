@@ -1,6 +1,7 @@
 import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
+import '../../hlc/normalized.dart';
 import '../../utils/sql_builder.dart';
 import '../database.dart';
 import 'transactions.dart';
@@ -81,9 +82,11 @@ extension CrdtDatabaseSyncExtensions on CrdtDatabase {
     Hlc? sinceHlc,
   }) {
     final tableInfo = synchronizedTables.find(tableName);
+    final tableId = schemaCache.getTableId(tableName);
 
     final columnSelects = tableInfo.nonGenerated.map((column) {
-      final whereClause = 'WHERE c."column_name" = \'$column\'';
+      final columnId = schemaCache.getColumnId(tableId, column);
+      final whereClause = 'WHERE c."column_id" = $columnId';
       return 'MAX(c."raw_value") FILTER ($whereClause) AS "$column"';
     });
 
@@ -115,14 +118,32 @@ $onConflict;''';
     Hlc? sinceHlc, {
     bool isDeleted = false,
   }) {
+    final tableId = schemaCache.getTableId(tableName);
+    final isDeletedColumnId = schemaCache.getColumnId(
+      tableId,
+      sqlBuilder.isDeletedColumnName,
+    );
+
     final whereConditions = <String>[
       '"user_id" = \'$userId\'',
-      '"table_name" = \'$tableName\'',
+      '"table_id" = $tableId',
       if (rowIds != null && rowIds.isNotEmpty)
         'row_id IN (${rowIds.map((id) => "'$id'").join(', ')})',
-      if (sinceHlc != null) '"hlc_timestamp" >= \'$sinceHlc\'',
-      if (isDeleted) '"${sqlBuilder.isDeletedColumnName}" = TRUE',
     ];
+
+    // HLC comparison using tuple: (datetime, counter, node_id)
+    if (sinceHlc != null) {
+      final hlcDatetime = NormalizedHlc.extractDatetime(sinceHlc);
+      final hlcCounter = NormalizedHlc.extractCounter(sinceHlc);
+      whereConditions.add(
+        '("hlc_datetime", "hlc_counter", "hlc_node_id") >= ($hlcDatetime, $hlcCounter, 0)',
+      );
+    }
+
+    if (isDeleted) {
+      whereConditions.add('"column_id" = $isDeletedColumnId AND "raw_value" = 1');
+    }
+
     return whereConditions.join(' AND ');
   }
 }
