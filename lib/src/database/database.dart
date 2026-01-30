@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../utils/sql_builder.dart';
+import 'schemas.dart';
 import 'tables/control.dart';
 import 'tables/data.dart';
 import 'tables/merge.dart';
@@ -39,109 +40,8 @@ class CrdtDatabase extends _$CrdtDatabase {
   /// The SQL builder for the CRDT data table.
   late final sqlBuilder = CrdtDataSqlBuilder(this);
 
-  /// Cache for table name to ID mapping.
-  final Map<String, int> _tableNameToIdCache = {};
-
-  /// Cache for column name to ID mapping per table.
-  final Map<int, Map<String, int>> _columnNameToIdCache = {};
-
-  /// Cache for node ID string to integer ID mapping.
-  final Map<String, int> _nodeIdCache = {};
-
-  /// The normalized ID for the current node (always 1).
-  int? _currentNodeId;
-
-  /// Gets the current node's normalized ID (cached).
-  Future<int> getCurrentNodeId() async {
-    if (_currentNodeId != null) return _currentNodeId!;
-
-    final result = await (select(crdtNodesTable)
-          ..where((t) => t.nodeId.equals(nodeId)))
-        .getSingleOrNull();
-
-    if (result == null) {
-      throw StateError(
-        'Current node ID "$nodeId" not found in __crdt_nodes table. '
-        'Ensure the database has been properly initialized.',
-      );
-    }
-
-    _currentNodeId = result.id;
-    return _currentNodeId!;
-  }
-
-  /// Gets the table ID for a table name, using cache.
-  Future<int> getTableId(String tableName) async {
-    if (_tableNameToIdCache.containsKey(tableName)) {
-      return _tableNameToIdCache[tableName]!;
-    }
-
-    final result = await (select(crdtSchemaTablesTable)
-          ..where((t) => t.tblName.equals(tableName)))
-        .getSingleOrNull();
-
-    if (result == null) {
-      throw ArgumentError(
-        'Table "$tableName" not found in schema cache. '
-        'Ensure the schema has been populated.',
-      );
-    }
-
-    _tableNameToIdCache[tableName] = result.id;
-    return result.id;
-  }
-
-  /// Gets the column ID for a column name in a specific table, using cache.
-  Future<int> getColumnId(int tableId, String columnName) async {
-    final tableCache = _columnNameToIdCache.putIfAbsent(tableId, () => {});
-
-    if (tableCache.containsKey(columnName)) {
-      return tableCache[columnName]!;
-    }
-
-    final result = await (select(crdtSchemaColumnsTable)
-          ..where((t) => t.tableId.equals(tableId) & t.columnName.equals(columnName)))
-        .getSingleOrNull();
-
-    if (result == null) {
-      throw ArgumentError(
-        'Column "$columnName" for table ID $tableId not found in schema cache. '
-        'Ensure the schema has been populated.',
-      );
-    }
-
-    tableCache[columnName] = result.id;
-    return result.id;
-  }
-
-  /// Gets the node ID for a node string, using cache.
-  Future<int> getNodeId(String nodeIdStr) async {
-    if (_nodeIdCache.containsKey(nodeIdStr)) {
-      return _nodeIdCache[nodeIdStr]!;
-    }
-
-    final result = await (select(crdtNodesTable)
-          ..where((t) => t.nodeId.equals(nodeIdStr)))
-        .getSingleOrNull();
-
-    if (result == null) {
-      throw ArgumentError(
-        'Node ID "$nodeIdStr" not found in __crdt_nodes table. '
-        'Ensure the node has been registered.',
-      );
-    }
-
-    _nodeIdCache[nodeIdStr] = result.id;
-    return result.id;
-  }
-
-  /// Clears all caches. Call this after schema changes or migrations.
-  void clearSchemaCache() {
-    _tableNameToIdCache.clear();
-    _columnNameToIdCache.clear();
-    _nodeIdCache.clear();
-    _currentNodeId = null;
-  }
+  /// The schema cache for normalized lookups.
+  late final schemaCache = CrdtSchemaCache(this);
 
   /// Whether the database is using the SQLite or Postgres dialect.
   bool get isPostgres => executor.dialect == SqlDialect.postgres;

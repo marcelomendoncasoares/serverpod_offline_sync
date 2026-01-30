@@ -139,8 +139,8 @@ class OfflineSyncMigrator extends Migrator {
       await _populateSchemaForTable(table);
     }
 
-    // Clear the cache after population to ensure fresh data on next access
-    crdtDb.clearSchemaCache();
+    // Initialize the schema cache with all loaded data
+    await crdtDb.schemaCache.initialize();
   }
 
   /// Ensures the current node is registered with ID 1.
@@ -199,7 +199,11 @@ class OfflineSyncMigrator extends Migrator {
           mode: InsertMode.insertOrIgnore,
         );
 
-    final tableId = await crdtDb.getTableId(tableName);
+    // Query the table ID directly since cache isn't initialized yet
+    final tableEntry = await (crdtDb.select(crdtDb.crdtSchemaTablesTable)
+          ..where((t) => t.tblName.equals(tableName)))
+        .getSingle();
+    final tableId = tableEntry.id;
 
     // Insert all columns for this table
     final columns = table.$columns.map((c) => c.$name).toSet();
@@ -223,7 +227,7 @@ class OfflineSyncMigrator extends Migrator {
       // TODO: Implement the triggers for the Postgres dialect.
       _ => throw UnsupportedError('Unsupported dialect: ${database.executor.dialect}'),
     };
-    final triggers = await triggerCreator.generateCreateTriggerStatements(table);
+    final triggers = triggerCreator.generateCreateTriggerStatements(table);
     for (final trigger in triggers) {
       await database.customStatement(trigger);
     }
@@ -246,6 +250,8 @@ class OfflineSyncMigrator extends Migrator {
     if (synchronizedTables.contains(table)) {
       // Populate schema for the new table
       await _populateSchemaForTable(table);
+      // Reinitialize cache after adding new schema
+      await crdtDb.schemaCache.initialize();
       await _createTriggers(table);
     }
   }
@@ -268,7 +274,9 @@ class OfflineSyncMigrator extends Migrator {
     // Refresh schema after migration
     if (synchronizedTables.contains(table)) {
       await _populateSchemaForTable(table);
-      crdtDb.clearSchemaCache();
+      // Reinitialize cache after schema changes
+      crdtDb.schemaCache.clear();
+      await crdtDb.schemaCache.initialize();
     }
     
     await _createTriggers(table);

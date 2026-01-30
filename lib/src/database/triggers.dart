@@ -50,15 +50,15 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
   /// Server this is done by setting the `QUOTED_IDENTIFIER` option to `ON`.
   ///
   /// Now uses normalized schema with integer IDs for reduced storage footprint.
-  Future<String> _getInsertStatement({
+  String _getInsertStatement({
     required TableInfo<Table, Object?> table,
     required Operation operation,
-  }) async {
+  }) {
     final tableName = table.actualTableName;
 
-    // Get normalized IDs from cache
-    final tableId = await crdtDb.getTableId(tableName);
-    final currentNodeId = await crdtDb.getCurrentNodeId();
+    // Get normalized IDs from cache (synchronous after initialization)
+    final tableId = crdtDb.schemaCache.getTableId(tableName);
+    final currentNodeId = crdtDb.schemaCache.currentNodeId;
 
     final uniqueRowId = getUniqueRowId(
       table,
@@ -75,7 +75,7 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
     // Build column inserts with normalized column IDs
     final columnInserts = <String>[];
     for (final c in columnNames) {
-      final columnId = await crdtDb.getColumnId(tableId, c);
+      final columnId = crdtDb.schemaCache.getColumnId(tableId, c);
       final columnValue = c == isDeletedColumnName
           ? operation == Operation.delete
                 ? 'TRUE'
@@ -128,14 +128,14 @@ ${columnInserts.join('\n    UNION ALL\n')}
   }
 
   /// Returns the SQL statements to create the triggers for the changelog table.
-  Future<List<String>> generateCreateTriggerStatements(TableInfo<Table, Object?> table) async {
+  List<String> generateCreateTriggerStatements(TableInfo<Table, Object?> table) {
     return [
       for (final op in Operation.values)
         wrapAsCreateTriggerStatement(
           operation: op,
           tableName: table.actualTableName,
           triggerName: _getTriggerName(table, op),
-          innerSql: await _getInsertStatement(
+          innerSql: _getInsertStatement(
             table: table,
             operation: op,
           ),
