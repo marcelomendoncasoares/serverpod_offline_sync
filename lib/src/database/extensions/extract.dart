@@ -20,7 +20,7 @@ extension CrdtDatabaseExtractExtensions on CrdtDatabase {
 
     final crdtDataEntries = await managers.crdtDataTable.filter(
       (o) {
-        var condition = o.tableId.equals(tableId);
+        var condition = o.tableId.id.equals(tableId);
         if (rowIds != null) {
           condition &= o.rowId.isIn(rowIds);
         }

@@ -1,7 +1,7 @@
 import 'package:crdt/crdt.dart';
 
-import '../hlc/normalized.dart';
-import 'database.dart';
+import '../../hlc/normalized.dart';
+import '../database.dart';
 
 /// Extension methods for working with normalized CrdtDataEntry.
 ///

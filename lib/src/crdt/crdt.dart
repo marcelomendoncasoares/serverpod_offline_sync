@@ -126,10 +126,10 @@ class OfflineSyncCrdt extends CrdtBase {
         where: (old, excluded) =>
             // Tuple comparison: old HLC < excluded HLC
             (old.hlcDatetime.isSmallerThan(excluded.hlcDatetime)) |
-            ((old.hlcDatetime.equals(excluded.hlcDatetime)) &
+            ((old.hlcDatetime.equalsExp(excluded.hlcDatetime)) &
                 (old.hlcCounter.isSmallerThan(excluded.hlcCounter))) |
-            ((old.hlcDatetime.equals(excluded.hlcDatetime)) &
-                (old.hlcCounter.equals(excluded.hlcCounter)) &
+            ((old.hlcDatetime.equalsExp(excluded.hlcDatetime)) &
+                (old.hlcCounter.equalsExp(excluded.hlcCounter)) &
                 (old.hlcNodeId.isSmallerThan(excluded.hlcNodeId))),
       ),
     );
