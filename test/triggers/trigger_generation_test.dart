@@ -3,6 +3,7 @@ import 'package:drift_offline_sync/src/migrator.dart';
 import 'package:test/test.dart';
 
 import '../utils/database.dart';
+import '../utils/user.dart';
 
 void main() {
   group('Given a SQLite3 database with a table', () {
