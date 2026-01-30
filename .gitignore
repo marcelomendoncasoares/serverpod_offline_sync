@@ -8,3 +8,7 @@ pubspec.lock
 
 .vscode/
 *.g.dart
+
+# Coverage reports
+coverage/
+coverage-results.txt
