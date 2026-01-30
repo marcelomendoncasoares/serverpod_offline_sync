@@ -89,9 +89,9 @@ jobs:
       - name: Activate coverage package
         run: dart pub global activate coverage
       - name: Format coverage
-        run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore
+        run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
       - name: Generate coverage report
-        run: dart coverage_reporter/run.dart --ci > coverage-results.txt
+        run: dart scripts/coverage_report.dart --ci > coverage-results.txt
       - name: Comment on PR
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
