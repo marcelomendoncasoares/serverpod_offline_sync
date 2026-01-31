@@ -126,12 +126,16 @@ jobs:
       - name: Fetch Existing Benchmark Data
         run: git fetch origin refs/notes/benchmarks:refs/notes/benchmarks || true
       - name: Run benchmarks
-        run: dart benchmark/run.dart --ci --store-in-git-notes > benchmark-results.txt
+        run: dart benchmark/run.dart --ci > benchmark-results.txt
       - name: Comment on PR
         uses: thollander/actions-comment-pull-request@v3
         with:
           file-path: benchmark-results.txt
           comment-tag: benchmark-results
+      - name: Store Benchmark Data in Git Notes
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          git notes --ref=benchmarks add -f -F benchmark-results.txt $COMMIT_SHA
       - name: Push Benchmark Data
         if: github.event.pull_request.head.repo.fork != true
         run: git push origin refs/notes/benchmarks

@@ -1,14 +1,10 @@
-import 'dart:io';
-
 import 'utils/benchmark.dart';
 import 'utils/conversion.dart';
-import 'utils/git_notes.dart';
 import 'utils/results.dart';
 import 'utils/runner.dart';
 
 Future<void> main(List<String> args) async {
   final runningInCI = args.contains('--ci');
-  final storeInGitNotes = args.contains('--store-in-git-notes');
   final rowCountArg = args.where((arg) => arg.startsWith('--rows=')).firstOrNull;
   final rowCount = rowCountArg == null ? 1000 : int.parse(rowCountArg.substring(7));
   final rowsString = formatter0.format(rowCount);
@@ -94,16 +90,4 @@ Future<void> main(List<String> args) async {
 
   print('\n${'-' * 60}');
   print('✅ Benchmark complete!\n');
-
-  if (storeInGitNotes) {
-    print('Storing benchmark results in git notes...');
-    final output = collectBenchmarkOutput(benchmarkResults, rowCount);
-    final success = await storeBenchmarkInGitNotes(output);
-    if (success) {
-      print('✅ Benchmark results stored in git notes successfully!');
-    } else {
-      print('❌ Failed to store benchmark results in git notes.');
-      exit(1);
-    }
-  }
 }
