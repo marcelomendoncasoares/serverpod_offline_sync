@@ -133,7 +133,7 @@ jobs:
           file-path: benchmark-results.txt
           comment-tag: benchmark-results
       - name: Push Benchmark Data
-        if: github.event.pull_request.head.repo.fork == false
+        if: github.event.pull_request.head.repo.fork != true
         run: git push origin refs/notes/benchmarks
 
   publish_check:
