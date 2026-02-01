@@ -2,6 +2,26 @@
 
 This folder contains benchmarks to measure the performance impact of using the `drift_offline_sync` package on database operations.
 
+## Accessing Benchmark Results
+
+Benchmark results are automatically stored as git notes on commits when CI runs. To access historical benchmark data:
+
+```bash
+# View benchmark results for the latest commit
+git log --show-notes=benchmarks -1
+
+# View benchmark results for a specific commit
+git log --show-notes=benchmarks <commit-sha> -1
+
+# View all commits with their benchmark results
+git log --show-notes=benchmarks
+
+# Fetch benchmark notes from remote (if not already available)
+git fetch origin refs/notes/benchmarks:refs/notes/benchmarks
+```
+
+The benchmark results include performance metrics for INSERT, UPDATE, and DELETE operations, as well as storage overhead comparisons between baseline and CRDT-enabled databases.
+
 ## What is Measured
 
 The benchmarks measure two key metrics:
