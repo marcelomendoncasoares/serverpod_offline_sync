@@ -16,7 +16,7 @@ void main() {
     'Given CRDT for an empty database and a saved changeset during a merge operation',
     () {
       late TableWithEveryColumnTypeData testData;
-      late Iterable<CrdtDataEntry> changeset;
+      late List<CrdtDataEntry> expectedChangeset;
 
       setUp(() async {
         (crdt, crdtDb, _) = database.crdtContext;
@@ -39,7 +39,7 @@ void main() {
         await database.tableWithEveryColumnType.insertOne(testData);
         await database.tableWithEveryColumnType.deleteAll();
 
-        changeset = await crdtDb.crdtDataTable.all().get();
+        expectedChangeset = await crdtDb.managers.crdtDataTable.get();
       });
 
       group('when syncing tables to the database', () {
@@ -60,9 +60,19 @@ void main() {
           'then no changes are made to the CRDT data table due to the sync.',
           () async {
             final savedChangeset = await crdtDb.managers.crdtDataTable.get();
-            expect(savedChangeset, changeset);
+
+            // The list object is not equal to the other objects because it is a
+            // different instance. So we remove it from the list and compare the
+            // it separately.
+            final savedListObject = savedChangeset.removeAt(7);
+            final expectedListObject = expectedChangeset.removeAt(7);
+
+            expect(savedChangeset, equals(expectedChangeset));
+            expect(
+              savedListObject.unwrappedValue,
+              equals(expectedListObject.unwrappedValue),
+            );
           },
-          skip: 'Skipping test until the trigger disable mechanism is implemented.',
         );
       });
     },

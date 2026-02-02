@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import 'crdt/crdt.dart';
 import 'database/database.dart';
+import 'database/tables/control.dart';
 import 'database/triggers.dart';
 
 /// The bias to use when conflicting operations are detected.
@@ -55,7 +56,7 @@ class OfflineSyncMigrator extends Migrator {
 
   /// The database instance to apply the CRDT schema to.
   late final crdtDb = CrdtDatabase(
-    database.executor,
+    database,
     userId: userId,
     nodeId: nodeId,
     synchronizedTables: synchronizedTables,
@@ -114,6 +115,18 @@ class OfflineSyncMigrator extends Migrator {
     for (final table in synchronizedTables) {
       await _createTriggers(table);
     }
+
+    // NOTE: Ensure that the CRDT control table always contains the default entry.
+    // This is needed to prevent triggers from failing due to missing entries.
+    // This row must be inserted using the custom statement since the database
+    // is still locked by the migrations.
+    await database.customStatement(
+      CrdtControlTable.getDefaultUpsertQuery(
+        userId: crdtDb.userId,
+        nodeId: crdtDb.nodeId,
+        schemaVersion: crdtDb.schemaVersion,
+      ),
+    );
   }
 
   Future<void> _createTriggers(TableInfo table) async {

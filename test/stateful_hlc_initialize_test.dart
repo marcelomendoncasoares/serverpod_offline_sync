@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 import 'utils/crdt_context.dart';
 import 'utils/database.dart';
 import 'utils/executor.dart';
+import 'utils/user.dart';
 
 void main() {
   group(

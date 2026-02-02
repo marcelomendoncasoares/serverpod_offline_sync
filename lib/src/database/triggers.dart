@@ -139,6 +139,12 @@ class Sqlite3OfflineSyncTriggers extends OfflineSyncTriggers {
       '''
 CREATE TRIGGER IF NOT EXISTS "$triggerName"
 AFTER ${operation.name.toUpperCase()} ON "$tableName"
+WHEN (
+  SELECT MAX("crdt_triggers_on")
+  FROM "__crdt_control"
+  WHERE ("user_id" = '${crdtDb.userId}')
+    AND ("node_id" = '${crdtDb.nodeId}')
+) = TRUE
 BEGIN
 $innerSql
 END;''';

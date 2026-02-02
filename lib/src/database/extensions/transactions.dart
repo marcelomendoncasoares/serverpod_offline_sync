@@ -1,4 +1,5 @@
 import '../database.dart';
+import 'triggers.dart';
 
 /// Extensions for [CrdtDatabase] to execute transactions.
 extension CrdtDatabaseTransactionsExtensions on CrdtDatabase {
@@ -11,14 +12,16 @@ extension CrdtDatabaseTransactionsExtensions on CrdtDatabase {
     Future<T> Function() operation,
   ) async {
     if (isPostgres) {
-      return transaction(() async {
-        await customStatement('SET CONSTRAINTS ALL DEFERRED');
-        return operation();
-      });
+      return transaction(
+        () => withTriggersDisabled(() async {
+          await customStatement('SET CONSTRAINTS ALL DEFERRED');
+          return operation();
+        }),
+      );
     }
 
     return _withForeignKeysDisabled(
-      () => transaction(operation),
+      () => transaction(() => withTriggersDisabled(operation)),
     );
   }
 

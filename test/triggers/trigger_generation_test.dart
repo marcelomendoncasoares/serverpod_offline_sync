@@ -3,6 +3,7 @@ import 'package:drift_offline_sync/src/migrator.dart';
 import 'package:test/test.dart';
 
 import '../utils/database.dart';
+import '../utils/user.dart';
 
 void main() {
   group('Given a SQLite3 database with a table', () {
@@ -37,6 +38,12 @@ void main() {
           '''\
 CREATE TRIGGER IF NOT EXISTS "__crdt__todos__insert"
 AFTER INSERT ON "todos"
+WHEN (
+  SELECT MAX("crdt_triggers_on")
+  FROM "__crdt_control"
+  WHERE ("user_id" = '${migrator.userId}')
+    AND ("node_id" = '${migrator.nodeId}')
+) = TRUE
 BEGIN
   INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
@@ -98,6 +105,12 @@ END;''',
           '''\
 CREATE TRIGGER IF NOT EXISTS "__crdt__todos__update"
 AFTER UPDATE ON "todos"
+WHEN (
+  SELECT MAX("crdt_triggers_on")
+  FROM "__crdt_control"
+  WHERE ("user_id" = '${migrator.userId}')
+    AND ("node_id" = '${migrator.nodeId}')
+) = TRUE
 BEGIN
   INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
@@ -161,6 +174,12 @@ END;''',
           '''\
 CREATE TRIGGER IF NOT EXISTS "__crdt__todos__delete"
 AFTER DELETE ON "todos"
+WHEN (
+  SELECT MAX("crdt_triggers_on")
+  FROM "__crdt_control"
+  WHERE ("user_id" = '${migrator.userId}')
+    AND ("node_id" = '${migrator.nodeId}')
+) = TRUE
 BEGIN
   INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
