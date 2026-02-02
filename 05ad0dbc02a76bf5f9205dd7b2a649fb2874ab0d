@@ -1,0 +1,33 @@
+## Performance Benchmark (1,000 rows)
+
+This benchmark measures the performance impact of using CRDT synchronization on database operations.
+
+> ❌ Baseline time is greater than CRDT time. This is likely due to running with a very low number of rows (1,000). This is not  a valid benchmark and the time comparison should be ignored.
+  - DELETE: 24.84 ms > 23.65 ms
+```
+📊 INSERT performance impact:
+  Time: 1.10 s --> 2.76 s (1.65 s)
+  CRDT overhead: 149.43% slower
+  Delay per insert: 1.65 ms
+```
+```
+📊 UPDATE performance impact:
+  Time: 771.59 ms --> 881.15 ms (109.56 ms)
+  CRDT overhead: 14.20% slower
+  Delay per update: 109.56 μs
+```
+```
+📊 DELETE performance impact:
+  Time: 24.84 ms --> 23.65 ms (-1.19 ms)
+  CRDT overhead: -4.79% slower
+  Delay per delete: -1.19 μs
+```
+```
+💽 Storage impact:
+  Storage size: 76.00 KB --> 3.07 MB (x40.37)
+  CRDT overhead: 4,036.84% increase
+  Extra storage per row: 3.07 KB
+```
+
+------------------------------------------------------------
+✅ Benchmark complete!
