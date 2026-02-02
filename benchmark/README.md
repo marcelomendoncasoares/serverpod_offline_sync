@@ -24,6 +24,24 @@ To run the benchmarks:
 dart benchmark/run.dart
 ```
 
+## Accessing Benchmark Results
+
+When running from the CI, benchmark results are automatically stored as git notes on commits. If running on a pull-request, it is also pasted as a comment that is kept up to date on each push. To access historical benchmark data:
+
+```bash
+# Fetch benchmark notes from remote (if not already available)
+git fetch origin refs/notes/benchmarks:refs/notes/benchmarks
+
+# View benchmark results for the latest commit
+git notes --ref=benchmarks show
+
+# View benchmark results for a specific commit
+git notes --ref=benchmarks show <commit-sha>
+
+# View all commits with their benchmark results
+git log --show-notes=benchmark
+```
+
 ## Benchmark Details
 
 ### Table Structure

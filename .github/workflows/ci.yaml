@@ -102,11 +102,10 @@ jobs:
   benchmarks:
     needs: generate
     name: run benchmarks
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up Dart
@@ -119,13 +118,31 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: generated-code
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      - name: Fetch Existing Benchmark Data
+        run: git fetch origin refs/notes/benchmarks:refs/notes/benchmarks || true
       - name: Run benchmarks
         run: dart benchmark/run.dart --ci > benchmark-results.txt
       - name: Comment on PR
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
           file-path: benchmark-results.txt
           comment-tag: benchmark-results
+      - name: Store Benchmark Data in Git Notes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          else
+            COMMIT_SHA=${{ github.sha }}
+          fi
+          git notes --ref=benchmarks add -f -F benchmark-results.txt $COMMIT_SHA
+      - name: Push Benchmark Data
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork != true
+        run: git push origin refs/notes/benchmarks
 
   publish_check:
     needs: generate
