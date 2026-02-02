@@ -1,14 +1,16 @@
-// TODO: Remove this file in favor of the database.dart file.
-
 import 'package:drift/drift.dart';
+import 'package:drift_offline_sync/drift_offline_sync.dart';
 
 import 'tables.dart';
+import 'user.dart';
 
-part 'databases.g.dart';
+part 'migration.g.dart';
 
 @DriftDatabase(tables: [TodosTable])
 class FirstDb extends _$FirstDb {
-  FirstDb(super.e);
+  FirstDb(super.e) {
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+  }
 
   bool created = false;
   bool didUpgrade = false;
@@ -16,6 +18,13 @@ class FirstDb extends _$FirstDb {
 
   @override
   int schemaVersion = 1;
+
+  @override
+  OfflineSyncMigrator createMigrator() => OfflineSyncMigrator(
+    this,
+    userId: testUserId,
+    nodeId: testNodeId,
+  );
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -36,7 +45,9 @@ class FirstDb extends _$FirstDb {
 
 @DriftDatabase(tables: [Users])
 class SecondDb extends _$SecondDb {
-  SecondDb(super.e);
+  SecondDb(super.e) {
+    driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+  }
 
   bool created = false;
   bool didUpgrade = false;
@@ -46,6 +57,13 @@ class SecondDb extends _$SecondDb {
   int schemaVersion = 2;
 
   @override
+  OfflineSyncMigrator createMigrator() => OfflineSyncMigrator(
+    this,
+    userId: testUserId,
+    nodeId: testNodeId,
+  );
+
+  @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       created = true;
@@ -53,6 +71,7 @@ class SecondDb extends _$SecondDb {
     },
     onUpgrade: (m, from, to) async {
       if (from == 1 && to == 2) {
+        await m.createTable(users);
         didUpgrade = true;
       }
     },

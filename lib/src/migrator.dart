@@ -56,7 +56,7 @@ class OfflineSyncMigrator extends Migrator {
 
   /// The database instance to apply the CRDT schema to.
   late final crdtDb = CrdtDatabase(
-    database.executor,
+    database,
     userId: userId,
     nodeId: nodeId,
     synchronizedTables: synchronizedTables,

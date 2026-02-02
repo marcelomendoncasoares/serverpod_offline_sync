@@ -18,11 +18,18 @@ part 'database.g.dart';
 class CrdtDatabase extends _$CrdtDatabase {
   /// Creates a new instance of [CrdtDatabase] with the provided [executor].
   CrdtDatabase(
-    super.e, {
+    this.userDatabase, {
     required this.userId,
     required this.nodeId,
     required this.synchronizedTables,
-  });
+  }) : super(
+         userDatabase.executor.interceptWith(
+           _EnsureHlcInitialized(userDatabase),
+         ),
+       );
+
+  /// The user database to synchronize with.
+  final GeneratedDatabase userDatabase;
 
   /// The user ID for the CRDT system.
   final String userId;
@@ -44,6 +51,54 @@ class CrdtDatabase extends _$CrdtDatabase {
   /// should ever be run on this database to avoid messing with the user schema.
   @override
   int schemaVersion = 1;
+}
+
+class _EnsureHlcInitialized extends QueryInterceptor {
+  _EnsureHlcInitialized(this.userDatabase);
+
+  final GeneratedDatabase userDatabase;
+
+  @override
+  Future<bool> ensureOpen(QueryExecutor executor, QueryExecutorUser user) async {
+    return executor.ensureOpen(_EnsureHlcInitializedUser(user, userDatabase));
+  }
+}
+
+class _EnsureHlcInitializedUser implements QueryExecutorUser {
+  _EnsureHlcInitializedUser(this.user, this.userDatabase);
+
+  final QueryExecutorUser user;
+  final GeneratedDatabase userDatabase;
+
+  /// This must be set to the [schemaVersion] of the [userDatabase] to ensure
+  /// that the `PRAGMA user_version` is correctly updated after migrations are
+  /// applied. Otherwise, the saved version will match the CRDT database version.
+  @override
+  int get schemaVersion => userDatabase.schemaVersion;
+
+  /// If this method is reached, it means that the CRDT database is being opened
+  /// before the user database. This method will ensure that the user database is
+  /// always opened first. When, on the opposite, the user database is opened before
+  /// the CRDT database, this method will never be called.
+  @override
+  Future<void> beforeOpen(QueryExecutor executor, OpeningDetails details) async {
+    final userDetails = OpeningDetails(
+      details.versionBefore,
+      userDatabase.schemaVersion,
+    );
+    await userDatabase.beforeOpen(executor, userDetails);
+
+    // This means an explicit opt-out from Drift managed migrations. Since the
+    // [userDatabase] will be migrated first, by using its [schemaVersion] on
+    // the [crdtDetails], the CRDT database will skip migrations entirely. If
+    // migrations are needed for the CRDT database in the future, they should
+    // be hooked manually on this method.
+    final crdtDetails = OpeningDetails(
+      userDatabase.schemaVersion,
+      userDatabase.schemaVersion,
+    );
+    await user.beforeOpen(executor, crdtDetails);
+  }
 }
 
 /// Extension methods for the [List<TableInfo>] class to find a synchronized table.

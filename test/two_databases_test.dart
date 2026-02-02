@@ -5,7 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:test/test.dart';
 
-import 'utils/databases.dart';
+import 'utils/migration.dart';
 
 void main() {
   test('Two databases with different schema versions 1-2', () async {
