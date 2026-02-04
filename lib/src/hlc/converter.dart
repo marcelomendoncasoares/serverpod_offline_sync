@@ -1,7 +1,8 @@
-import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
-export 'package:crdt/crdt.dart' show Hlc;
+import 'hlc.dart';
+
+export 'hlc.dart';
 
 class _HlcConverter extends TypeConverter<Hlc, String> {
   const _HlcConverter();

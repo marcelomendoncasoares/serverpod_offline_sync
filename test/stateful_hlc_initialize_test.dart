@@ -39,7 +39,7 @@ void main() {
         'when retrieving the cached HLC '
         'then the HLC for the node is the initial HLC for the requested node.',
         () async {
-          final expectedHlc = initialHlc.apply(nodeId: testNodeId);
+          final expectedHlc = initialHlc.copyWith(nodeId: testNodeId);
           expect(
             StatefulHlc.cached(testUserId, testNodeId).lastHlc,
             equals(expectedHlc),

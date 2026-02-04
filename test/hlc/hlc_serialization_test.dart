@@ -1,0 +1,70 @@
+import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:test/test.dart';
+
+const _isoTime = '2001-09-09T01:46:40.000Z';
+final _dateTime = DateTime.parse(_isoTime);
+
+void main() {
+  test('Given an HLC built with dateTime, counter and nodeId '
+      'when reading properties '
+      'then dateTime, counter and nodeId match.', () {
+    final hlc = Hlc(_dateTime, 0x17, 'abc');
+
+    expect(hlc.dateTime, _dateTime);
+    expect(hlc.counter, 0x17);
+    expect(hlc.nodeId, 'abc');
+  });
+
+  test('Given Hlc.zero '
+      'when building for a nodeId '
+      'then it equals epoch with zero counter.', () {
+    final zero = Hlc.zero('abc');
+
+    expect(zero.unixTimestamp, 0);
+    expect(zero.counter, 0);
+    expect(zero.nodeId, 'abc');
+  });
+
+  test('Given an ISO HLC string '
+      'when parsing '
+      'then it returns the equivalent Hlc.', () {
+    final hlc = Hlc(_dateTime, 0x17, 'abc');
+
+    expect(Hlc.parse('${_dateTime.toIso8601String()}-0017-abc'), hlc);
+  });
+
+  test('Given a Unix timestamp HLC string '
+      'when parsing '
+      'then it returns the equivalent Hlc.', () {
+    final hlc = Hlc(_dateTime, 0x17, 'abc');
+
+    expect(Hlc.parse('${_dateTime.millisecondsSinceEpoch}-0017-abc'), hlc);
+  });
+
+  test('Given a parsed Hlc '
+      'when calling toString '
+      'then it returns the ISO HLC string.', () {
+    final hlc = Hlc.parse('$_isoTime-0017-abc');
+
+    expect(hlc.toString(), '$_isoTime-0017-abc');
+  });
+
+  test('Given an HLC '
+      'when converting to JSON '
+      'then it returns the equivalent string.', () {
+    final hlc = Hlc(_dateTime, 0x17, 'abc');
+
+    expect(hlc.toJson(), '${_dateTime.toIso8601String()}-0017-abc');
+  });
+
+  test('Given an HLC '
+      'when converting to JSON with unixTimestamp '
+      'then it returns the equivalent string with padded unix timestamp.', () {
+    final hlc = Hlc(_dateTime, 0x17, 'abc');
+
+    expect(
+      hlc.toJson(unixTimestamp: true),
+      '${_dateTime.millisecondsSinceEpoch.toString().padLeft(15, '0')}-0017-abc',
+    );
+  });
+}

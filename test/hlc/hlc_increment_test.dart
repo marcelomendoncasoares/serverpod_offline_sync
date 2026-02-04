@@ -1,0 +1,85 @@
+import 'package:clock/clock.dart';
+import 'package:drift_offline_sync/drift_offline_sync.dart';
+import 'package:test/test.dart';
+
+final _dateTime = DateTime.parse('2001-09-09T01:46:40.000Z');
+
+void main() {
+  group('Given an HLC with lower canonical time than wall time', () {
+    final hlc = Hlc(_dateTime, 17, 'abc');
+    final wallTime = _dateTime.advance();
+
+    test('when incrementing then dateTime becomes wall time and counter resets.', () {
+      withClock(Clock.fixed(wallTime), () {
+        final sendHlc = hlc.increment();
+
+        expect(sendHlc, isNot(hlc));
+        expect(sendHlc.dateTime, wallTime);
+        expect(sendHlc.counter, 0);
+        expect(sendHlc.nodeId, hlc.nodeId);
+      });
+    });
+  });
+
+  group('Given an HLC with equal canonical time and wall time', () {
+    final hlc = Hlc(_dateTime, 17, 'abc');
+    final wallTime = _dateTime;
+
+    test('when incrementing then counter increments and dateTime is unchanged.', () {
+      withClock(Clock.fixed(wallTime), () {
+        final sendHlc = hlc.increment();
+
+        expect(sendHlc, isNot(hlc));
+        expect(sendHlc.dateTime, hlc.dateTime);
+        expect(sendHlc.counter, 18);
+        expect(sendHlc.nodeId, hlc.nodeId);
+      });
+    });
+  });
+
+  group('Given an HLC with higher canonical time than wall time', () {
+    final hlc = Hlc(_dateTime, 17, 'abc');
+    final wallTime = _dateTime.retreat();
+
+    test('when incrementing then counter increments and dateTime is unchanged.', () {
+      withClock(Clock.fixed(wallTime), () {
+        final sendHlc = hlc.increment();
+
+        expect(sendHlc, isNot(hlc));
+        expect(sendHlc.dateTime, hlc.dateTime);
+        expect(sendHlc.counter, 18);
+        expect(sendHlc.nodeId, hlc.nodeId);
+      });
+    });
+  });
+
+  group('Given an HLC with canonical time more than one minute ahead of wall time', () {
+    final hlc = Hlc(_dateTime.advance(const Duration(minutes: 2)), 0, 'abc');
+    final wallTime = _dateTime;
+
+    test('when incrementing then ClockDriftException is thrown.', () {
+      withClock(Clock.fixed(wallTime), () {
+        expect(hlc.increment, throwsA(isA<ClockDriftException>()));
+      });
+    });
+  });
+
+  group('Given an HLC with counter at maximum and canonical time at wall time', () {
+    final hlc = Hlc(_dateTime, 0xFFFF, 'abc');
+    final wallTime = _dateTime;
+
+    test('when incrementing at same time then OverflowException is thrown.', () {
+      withClock(Clock.fixed(wallTime), () {
+        expect(hlc.increment, throwsA(isA<OverflowException>()));
+      });
+    });
+  });
+}
+
+extension on DateTime {
+  DateTime advance([Duration duration = const Duration(milliseconds: 1)]) =>
+      add(duration);
+
+  DateTime retreat([Duration duration = const Duration(milliseconds: 1)]) =>
+      subtract(duration);
+}
