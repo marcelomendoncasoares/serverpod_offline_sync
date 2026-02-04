@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:crdt/crdt.dart';
 import 'package:meta/meta.dart';
 
 import '../database/database.dart';
+import '../hlc/hlc.dart';
 import '../hlc/stateful.dart';
 
 /// Base class for CRDT implementations.

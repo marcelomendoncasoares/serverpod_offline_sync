@@ -1,6 +1,6 @@
-import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
+import '../../hlc/hlc.dart';
 import '../../utils/sql_builder.dart';
 import '../database.dart';
 import 'transactions.dart';

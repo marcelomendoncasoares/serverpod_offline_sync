@@ -1,10 +1,10 @@
-import 'package:crdt/crdt.dart';
+import 'hlc.dart';
 
 /// A [Hlc] instance that is used to generate unique timestamps for CRDT operations.
 /// Will keep track of the HLC during the lifetime of the application.
 class StatefulHlc {
   StatefulHlc._(this.userId, this.nodeId) {
-    lastHlc = _lastUserIdHlc[userId]?.apply(nodeId: nodeId) ?? Hlc.zero(nodeId);
+    lastHlc = _lastUserIdHlc[userId]?.copyWith(nodeId: nodeId) ?? Hlc.zero(nodeId);
   }
 
   static final Map<String, Hlc> _lastUserIdHlc = {};

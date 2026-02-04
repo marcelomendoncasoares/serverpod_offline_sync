@@ -1,7 +1,7 @@
-import 'package:crdt/crdt.dart';
 import 'package:drift/drift.dart';
 
 import '../database/database.dart';
+import '../hlc/hlc.dart';
 import 'base.dart';
 
 /// A CRDT implementation for offline-first synchronization.
@@ -50,7 +50,7 @@ class OfflineSyncCrdt extends CrdtBase {
     assert(onlyNodeId == null || exceptNodeId == null);
 
     // Modified times use the local node id
-    modifiedAfter = modifiedAfter?.apply(nodeId: nodeId);
+    modifiedAfter = modifiedAfter?.copyWith(nodeId: nodeId);
 
     final query = _db.managers.crdtDataTable.filter((o) {
       Expression<bool> condition = const Constant(true);
