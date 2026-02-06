@@ -1,7 +1,8 @@
 import 'package:drift/drift.dart';
 
 import '../database/database.dart';
-import '../hlc/hlc.dart';
+import '../database/extensions/entry.dart';
+import '../hlc/converter.dart';
 import 'base.dart';
 
 /// A CRDT implementation for offline-first synchronization.
@@ -12,6 +13,56 @@ class OfflineSyncCrdt extends CrdtBase {
   OfflineSyncCrdt(this._db, {required super.userId, required super.nodeId});
 
   final CrdtDatabase _db;
+
+  @override
+  Future<Hlc> getCanonicalTime() async {
+    final row = await _db.managers.crdtHlcStateTable
+        .filter((o) => o.userId.equals(userId))
+        .getSingleOrNull();
+
+    return row?.toHlc(nodeId) ?? Hlc.zero(nodeId);
+  }
+
+  @override
+  Future<void> mergeCanonicalTime(Hlc maxMergedHlc) async {
+    await _db.managers.crdtHlcStateTable.create(
+      (t) => t(
+        userId: userId,
+        lastTimestamp: maxMergedHlc.unixTimestamp,
+        counter: maxMergedHlc.counter,
+      ),
+      mode: InsertMode.insertOrReplace,
+      onConflict: DoUpdate.withExcluded(
+        (old, excluded) => CrdtHlcStateTableCompanion.custom(
+          lastTimestamp: CaseWhenExpression(
+            // Combined with the `orElse`, this is the same as a max() function,
+            // but it works for all databases. Otherwise, we would need to check
+            // the database dialect to use either `MAX` or `GREATEST`.
+            cases: [
+              excluded.lastTimestamp
+                  .isBiggerOrEqual(old.lastTimestamp)
+                  .then(excluded.lastTimestamp),
+            ],
+            orElse: old.lastTimestamp,
+          ),
+          counter: CaseWhenExpression(
+            cases: [
+              // If one timestamp is greater, its counter should be persisted.
+              excluded.lastTimestamp
+                  .isBiggerThan(old.lastTimestamp)
+                  .then(excluded.counter),
+              // Otherwise, if the timestamps are equal, the counter should be
+              // the greater counter.
+              (excluded.lastTimestamp.equalsExp(old.lastTimestamp) &
+                      excluded.counter.isBiggerThan(old.counter))
+                  .then(excluded.counter),
+            ],
+            orElse: old.counter,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   // TODO: Remove this method lately if it is not needed - as it seems it will.
@@ -62,7 +113,9 @@ class OfflineSyncCrdt extends CrdtBase {
         condition &= o.hlcTimestamp.column.contains(exceptNodeId).not();
       }
       if (modifiedAfter != null) {
-        condition &= o.hlcTimestamp.column.isBiggerThanValue(modifiedAfter.toString());
+        condition &= o.hlcTimestamp.column.isBiggerThanValue(
+          hlcConverter.toSql(modifiedAfter),
+        );
       }
       return condition;
     });
@@ -132,4 +185,11 @@ class OfflineSyncCrdt extends CrdtBase {
       ),
     );
   }
+}
+
+extension on Expression<bool> {
+  CaseWhen<bool, T> then<T extends Object>(Expression<T> value) => CaseWhen(
+    this,
+    then: value,
+  );
 }

@@ -54,7 +54,7 @@ void main() {
   });
 
   group('Given an HLC with canonical time more than one minute ahead of wall time', () {
-    final hlc = Hlc(_dateTime.advance(const Duration(minutes: 2)), 0, 'abc');
+    final hlc = Hlc(_dateTime.add(const Duration(minutes: 1, seconds: 5)), 0, 'abc');
     final wallTime = _dateTime;
 
     test('when incrementing then ClockDriftException is thrown.', () {
@@ -77,9 +77,6 @@ void main() {
 }
 
 extension on DateTime {
-  DateTime advance([Duration duration = const Duration(milliseconds: 1)]) =>
-      add(duration);
-
-  DateTime retreat([Duration duration = const Duration(milliseconds: 1)]) =>
-      subtract(duration);
+  DateTime advance() => add(const Duration(milliseconds: 1));
+  DateTime retreat() => subtract(const Duration(milliseconds: 1));
 }

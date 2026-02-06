@@ -1,5 +1,15 @@
-import '../../hlc/converter.dart';
+import '../../hlc/hlc.dart';
 import '../database.dart';
+
+/// Extensions for the [CrdtHlcEntry] class.
+extension CrdtHlcEntryExtensions on CrdtHlcEntry {
+  /// Returns the HLC. If the [nodeId] is not provided, it will use the [userId].
+  Hlc toHlc([String? nodeId]) => Hlc(
+    DateTime.fromMillisecondsSinceEpoch(lastTimestamp, isUtc: true),
+    counter,
+    nodeId ?? userId,
+  );
+}
 
 /// Extensions for the [CrdtDataEntry] class.
 extension CrdtDataEntryUnwrapExtensions on CrdtDataEntry {

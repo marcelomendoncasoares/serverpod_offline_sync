@@ -1,5 +1,4 @@
 import 'package:drift/native.dart';
-import 'package:drift_offline_sync/src/database/setup.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart';
@@ -15,7 +14,7 @@ import 'package:test_descriptor/test_descriptor.dart';
 void setTestFileExecutor([String fileName = 'test.db']) {
   final databaseFile = file(fileName);
   final sqliteDatabase = sqlite3.open(databaseFile.io.path);
-  final executor = NativeDatabase.opened(sqliteDatabase, setup: registerHlcFunction);
+  final executor = NativeDatabase.opened(sqliteDatabase);
   _setTestExecutor(executor);
 }
 
@@ -26,7 +25,7 @@ void setTestFileExecutor([String fileName = 'test.db']) {
 /// created for each test. The executor is closed once test ends.
 NativeDatabase get testExecutor {
   if (_testExecutor != null) return _testExecutor!;
-  final executor = NativeDatabase.memory(setup: registerHlcFunction);
+  final executor = NativeDatabase.memory();
   _setTestExecutor(executor);
   return executor;
 }

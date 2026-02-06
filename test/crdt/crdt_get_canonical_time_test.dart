@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift_offline_sync/drift_offline_sync.dart';
-import 'package:drift_offline_sync/src/hlc/stateful.dart';
 import 'package:test/test.dart';
 
 import '../utils/crdt_context.dart';
@@ -17,7 +16,7 @@ void main() {
 
     test('when getting the canonical time '
         'then it returns Hlc.zero for the nodeId.', () async {
-      expect(crdt.canonicalTime, equals(Hlc.zero(nodeId)));
+      expect(await crdt.getCanonicalTime(), equals(Hlc.zero(nodeId)));
     });
   });
 
@@ -39,12 +38,13 @@ void main() {
 
     test('when getting the canonical time '
         'then it returns the HLC timestamp of the created data.', () async {
-      expect(crdt.canonicalTime, equals(createdHlc));
+      expect(await crdt.getCanonicalTime(), equals(createdHlc));
     });
   });
 
   group('Given CRDT for a database with data and a new data entry', () {
     late OfflineSyncCrdt crdt;
+    late Hlc firstCreatedHlc;
 
     setUp(() async {
       await database.managers.todosTable.create(
@@ -53,17 +53,20 @@ void main() {
 
       (crdt, _, _) = database.crdtContext;
 
+      firstCreatedHlc = await crdt.getCanonicalTime();
+
       await database.managers.todosTable.create(
         (t) => t(content: 'test2', targetDate: Value(DateTime.now())),
       );
     });
 
-    test('when getting the canonical time '
-        'then the canonical time matches the cached HLC for the nodeId.', () async {
-      expect(
-        crdt.canonicalTime,
-        equals(StatefulHlc.cached(crdt.userId, crdt.nodeId).lastHlc),
-      );
-    });
+    test(
+      'when getting the canonical time '
+      'then the canonical time is increased since the first data entry was created.',
+      () async {
+        final canonicalTime = await crdt.getCanonicalTime();
+        expect(canonicalTime, greaterThan(firstCreatedHlc));
+      },
+    );
   });
 }

@@ -45,6 +45,9 @@ WHEN (
     AND ("node_id" = '${migrator.nodeId}')
 ) = TRUE
 BEGIN
+  INSERT INTO "${Sqlite3OfflineSyncTriggers.hlcCanonicalViewName}" ("user_id")
+  VALUES ('${migrator.userId}');
+
   INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
@@ -53,11 +56,13 @@ BEGIN
     'todos' AS "table_name",
     "column_name",
     NEW."id" AS "row_id",
-    "hlc_timestamp",
+    (
+      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%05x', "counter") || '-' || '${migrator.nodeId}')
+      FROM "${migrator.crdtDb.sqlBuilder.hlcStateTableName}"
+      WHERE "user_id" = '${migrator.userId}'
+    ) AS "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
-  ), (
     SELECT
       'id' AS "column_name",
       NEW."id" AS "raw_value"
@@ -112,6 +117,9 @@ WHEN (
     AND ("node_id" = '${migrator.nodeId}')
 ) = TRUE
 BEGIN
+  INSERT INTO "${Sqlite3OfflineSyncTriggers.hlcCanonicalViewName}" ("user_id")
+  VALUES ('${migrator.userId}');
+
   INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
@@ -120,11 +128,13 @@ BEGIN
     'todos' AS "table_name",
     "column_name",
     OLD."id" AS "row_id",
-    "hlc_timestamp",
+    (
+      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%05x', "counter") || '-' || '${migrator.nodeId}')
+      FROM "${migrator.crdtDb.sqlBuilder.hlcStateTableName}"
+      WHERE "user_id" = '${migrator.userId}'
+    ) AS "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
-  ), (
     SELECT
       'id' AS "column_name",
       NEW."id" AS "raw_value",
@@ -181,6 +191,9 @@ WHEN (
     AND ("node_id" = '${migrator.nodeId}')
 ) = TRUE
 BEGIN
+  INSERT INTO "${Sqlite3OfflineSyncTriggers.hlcCanonicalViewName}" ("user_id")
+  VALUES ('${migrator.userId}');
+
   INSERT INTO "__crdt_data" (
     "user_id", "table_name", "column_name", "row_id", "hlc_timestamp", "raw_value"
   )
@@ -189,11 +202,13 @@ BEGIN
     'todos' AS "table_name",
     "column_name",
     OLD."id" AS "row_id",
-    "hlc_timestamp",
+    (
+      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%05x', "counter") || '-' || '${migrator.nodeId}')
+      FROM "${migrator.crdtDb.sqlBuilder.hlcStateTableName}"
+      WHERE "user_id" = '${migrator.userId}'
+    ) AS "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${migrator.userId}', '${migrator.nodeId}') AS "hlc_timestamp"
-  ), (
     SELECT
       '__crdt_is_deleted' AS "column_name",
       TRUE AS "raw_value"

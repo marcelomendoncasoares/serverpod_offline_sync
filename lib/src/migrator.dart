@@ -65,6 +65,13 @@ class OfflineSyncMigrator extends Migrator {
   /// The CRDT execution instance.
   late final crdt = OfflineSyncCrdt(crdtDb, userId: userId, nodeId: nodeId);
 
+  /// The trigger creator for the CRDT system.
+  late final triggerCreator = switch (database.executor.dialect) {
+    SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(crdtDb, conflictingBias),
+    // TODO: Implement the triggers for the Postgres dialect.
+    _ => throw UnsupportedError('Unsupported dialect: ${database.executor.dialect}'),
+  };
+
   /// Migrations for tables that are part of the CRDT system.
   final pendingMigrations = <String, CrdtTableMigration>{};
 
@@ -112,6 +119,10 @@ class OfflineSyncMigrator extends Migrator {
       // TODO: Alter all FK constraints to be deferrable initially deferred.
     }
 
+    for (final statement in triggerCreator.generateSetupStatements()) {
+      await database.customStatement(statement);
+    }
+
     for (final table in synchronizedTables) {
       await _createTriggers(table);
     }
@@ -130,11 +141,6 @@ class OfflineSyncMigrator extends Migrator {
   }
 
   Future<void> _createTriggers(TableInfo table) async {
-    final triggerCreator = switch (database.executor.dialect) {
-      SqlDialect.sqlite => Sqlite3OfflineSyncTriggers(crdtDb, conflictingBias),
-      // TODO: Implement the triggers for the Postgres dialect.
-      _ => throw UnsupportedError('Unsupported dialect: ${database.executor.dialect}'),
-    };
     final triggers = triggerCreator.generateCreateTriggerStatements(table);
     for (final trigger in triggers) {
       await database.customStatement(trigger);
