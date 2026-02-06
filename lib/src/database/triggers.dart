@@ -3,15 +3,9 @@ import 'package:drift/drift.dart';
 import '../migrator.dart';
 import '../utils/sql_builder.dart';
 
-/// The name of the HLC function used in the database.
-const nextHlcFunction = 'next_hlc_timestamp';
-
 /// The operation that was performed on a row.
 // ignore: public_member_api_docs
 enum Operation { insert, update, delete }
-
-// TODO: The [OfflineSyncTriggers] class should be reworked since the SQL statements
-// now are no longer universal as the one developed originally.
 
 /// Provides the CRDT control trigger statements for the database.
 abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
@@ -39,16 +33,61 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
       '${prefix}__${table.actualTableName}__${operation.name}';
 
   /// Returns the SQL statement to insert a new row into the CRDT data table.
-  ///
-  /// This statement is compatible with all major SQL dialects like SQLite,
-  /// Postgres, MySQL, SQL Server, etc. So the dialect-specific subclass only
-  /// needs to wrap it in the appropriate CREATE TRIGGER statement.
-  ///
-  /// For some dialects, it will only be needed to enable support for quoted
-  /// identifiers that are used in the statement for maximum compatibility. On
-  /// MySQL this is done by setting the `SQL_MODE` to `ANSI_QUOTES` and on SQL
-  /// Server this is done by setting the `QUOTED_IDENTIFIER` option to `ON`.
-  String _getInsertStatement({
+  String getInsertStatement({
+    required TableInfo<Table, Object?> table,
+    required Operation operation,
+  });
+
+  /// Returns the SQL statements to create the triggers for the changelog table.
+  List<String> generateCreateTriggerStatements(TableInfo<Table, Object?> table) {
+    return [
+      for (final op in Operation.values)
+        wrapAsCreateTriggerStatement(
+          operation: op,
+          tableName: table.actualTableName,
+          triggerName: _getTriggerName(table, op),
+          innerSql: getInsertStatement(
+            table: table,
+            operation: op,
+          ),
+        ),
+    ];
+  }
+
+  /// Returns extra statements to execute once before the triggers are created.
+  List<String> generateSetupStatements() => const [];
+}
+
+/// Provides the CRDT control trigger statements for the SQLite3 database.
+class Sqlite3OfflineSyncTriggers extends OfflineSyncTriggers {
+  /// Creates a new instance of [Sqlite3OfflineSyncTriggers].
+  Sqlite3OfflineSyncTriggers(super.crdtDb, [super.conflictingBias]);
+
+  /// Name of the view used to advance HLC via INSERT (INSTEAD OF trigger).
+  static const hlcCanonicalViewName = '__hlc_canonical_view';
+
+  @override
+  String wrapAsCreateTriggerStatement({
+    required Operation operation,
+    required String tableName,
+    required String triggerName,
+    required String innerSql,
+  }) =>
+      '''
+CREATE TRIGGER IF NOT EXISTS "$triggerName"
+AFTER ${operation.name.toUpperCase()} ON "$tableName"
+WHEN (
+  SELECT MAX("crdt_triggers_on")
+  FROM "__crdt_control"
+  WHERE ("user_id" = '${crdtDb.userId}')
+    AND ("node_id" = '${crdtDb.nodeId}')
+) = TRUE
+BEGIN
+$innerSql
+END;''';
+
+  @override
+  String getInsertStatement({
     required TableInfo<Table, Object?> table,
     required Operation operation,
   }) {
@@ -85,6 +124,9 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
         : 'TRUE';
 
     return '''
+  INSERT INTO "$hlcCanonicalViewName" ("user_id")
+  VALUES ('${crdtDb.userId}');
+
   INSERT INTO "$crdtDataTableName" (
     ${crdtDataAllColumns.join(', ')}
   )
@@ -93,11 +135,13 @@ abstract class OfflineSyncTriggers extends CrdtDataSqlBuilder {
     '$tableName' AS "table_name",
     "column_name",
     $uniqueRowId AS "row_id",
-    "hlc_timestamp",
+    (
+      SELECT (${_getHlcJsonExprSql()})
+      FROM "$hlcStateTableName"
+      WHERE "user_id" = '${crdtDb.userId}'
+    ) AS "hlc_timestamp",
     raw_value
   FROM (
-    SELECT $nextHlcFunction('${crdtDb.userId}', '${crdtDb.nodeId}') AS "hlc_timestamp"
-  ), (
 ${columnInserts.join('\n    UNION ALL\n')}
   )
   WHERE $whereClause
@@ -107,47 +151,55 @@ ${columnInserts.join('\n    UNION ALL\n')}
     "raw_value" = EXCLUDED."raw_value";''';
   }
 
-  /// Returns the SQL statements to create the triggers for the changelog table.
-  List<String> generateCreateTriggerStatements(TableInfo<Table, Object?> table) {
+  /// Returns SQL fragment that formats (last_timestamp, counter, node_id) in the
+  /// same format as the `hlcConverter.toSql` method.
+  String _getHlcJsonExprSql() {
+    return "printf('%015d', \"last_timestamp\") || '-' || "
+        "printf('%05x', \"counter\") || '-' || "
+        "'${crdtDb.nodeId}'";
+  }
+
+  /// Returns SQL statements to create the in-SQLite HLC view with "instead of"
+  /// trigger that will act as a function to update the HLC on the HLC state table.
+  /// This will be called from within trigger statements for the CRDT data table.
+  @override
+  List<String> generateSetupStatements() {
     return [
-      for (final op in Operation.values)
-        wrapAsCreateTriggerStatement(
-          operation: op,
-          tableName: table.actualTableName,
-          triggerName: _getTriggerName(table, op),
-          innerSql: _getInsertStatement(
-            table: table,
-            operation: op,
-          ),
-        ),
+      '''
+CREATE VIEW IF NOT EXISTS "$hlcCanonicalViewName" AS
+SELECT CAST(NULL AS TEXT) AS "user_id"
+WHERE FALSE;
+
+CREATE TRIGGER IF NOT EXISTS "increment_canonical_hlc"
+INSTEAD OF INSERT ON "$hlcCanonicalViewName"
+BEGIN
+  SELECT RAISE(ABORT, 'Clock drift exceeds 1 minute maximum.')
+  FROM "$hlcStateTableName"
+  WHERE "user_id" = NEW."user_id"
+    AND "last_timestamp" > (unixepoch('now','subsec') + 60) * 1000;
+
+  SELECT RAISE(ABORT, 'Timestamp counter overflow: 0xFFFF.')
+  FROM "$hlcStateTableName"
+  WHERE "user_id" = NEW."user_id"
+    AND "counter" = 0xFFFF;
+
+  INSERT INTO "$hlcStateTableName" ("user_id", "last_timestamp", "counter")
+  SELECT NEW."user_id", ts, 0
+  FROM (
+    SELECT CAST(unixepoch('now','subsec') * 1000 AS INTEGER) AS ts
+  )
+  WHERE TRUE
+  ON CONFLICT ("user_id") DO UPDATE SET
+    "last_timestamp" = MAX("last_timestamp", EXCLUDED."last_timestamp"),
+    "counter" = (
+      CASE
+        WHEN EXCLUDED."last_timestamp" > "last_timestamp" THEN 0
+        ELSE "counter" + 1
+      END
+    );
+END;''',
     ];
   }
-}
-
-/// Provides the CRDT control trigger statements for the SQLite3 database.
-class Sqlite3OfflineSyncTriggers extends OfflineSyncTriggers {
-  /// Creates a new instance of [Sqlite3OfflineSyncTriggers].
-  Sqlite3OfflineSyncTriggers(super.crdtDb, [super.conflictingBias]);
-
-  @override
-  String wrapAsCreateTriggerStatement({
-    required Operation operation,
-    required String tableName,
-    required String triggerName,
-    required String innerSql,
-  }) =>
-      '''
-CREATE TRIGGER IF NOT EXISTS "$triggerName"
-AFTER ${operation.name.toUpperCase()} ON "$tableName"
-WHEN (
-  SELECT MAX("crdt_triggers_on")
-  FROM "__crdt_control"
-  WHERE ("user_id" = '${crdtDb.userId}')
-    AND ("node_id" = '${crdtDb.nodeId}')
-) = TRUE
-BEGIN
-$innerSql
-END;''';
 }
 
 /// Extension methods for the [GeneratedDatabase] class to get the CRDT trigger names.

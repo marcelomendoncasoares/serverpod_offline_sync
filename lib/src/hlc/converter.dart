@@ -11,7 +11,7 @@ class _HlcConverter extends TypeConverter<Hlc, String> {
   Hlc fromSql(String fromDb) => Hlc.parse(fromDb);
 
   @override
-  String toSql(Hlc value) => value.toJson();
+  String toSql(Hlc value) => value.toJson(unixTimestamp: true);
 }
 
 /// Converter for [Hlc] to store it in the database as string.

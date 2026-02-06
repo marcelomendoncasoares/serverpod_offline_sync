@@ -4,7 +4,6 @@ import 'package:meta/meta.dart';
 
 import '../database/database.dart';
 import '../hlc/hlc.dart';
-import '../hlc/stateful.dart';
 
 /// Base class for CRDT implementations.
 ///
@@ -21,11 +20,11 @@ abstract class CrdtBase {
   /// The node ID of the CRDT.
   final String nodeId;
 
-  /// The stateful canonical time of the CRDT.
-  late final StatefulHlc _statefulCanonicalTime = StatefulHlc.cached(userId, nodeId);
+  /// The current canonical time from the database (in-SQLite HLC state).
+  Future<Hlc> getCanonicalTime();
 
-  /// The canonical time of the CRDT.
-  Hlc get canonicalTime => _statefulCanonicalTime.lastHlc;
+  /// Merge the [maxMergedHlc] into the canonical time.
+  Future<void> mergeCanonicalTime(Hlc maxMergedHlc);
 
   /// Returns the last modified timestamp, optionally filtering for or against a
   /// specific node id. Useful to get "modified since" timestamps for executing
@@ -69,6 +68,10 @@ abstract class CrdtBase {
   );
 
   /// Merge [changeset] with the local dataset.
+  ///
+  /// This operation must be done within a transaction to ensure that no other
+  /// operation modifies the data between the save, invariants preservation and
+  /// the merge of remote HLCs into the canonical time.
   Future<void> merge(Iterable<CrdtDataEntry> changeset) async {
     if (changeset.isEmpty) return;
 
@@ -76,7 +79,7 @@ abstract class CrdtBase {
     await saveChangeset(changeset, receivedHlcs);
 
     if (receivedHlcs.isEmpty) return;
-    _statefulCanonicalTime.merge(receivedHlcs.max);
+    await mergeCanonicalTime(receivedHlcs.max);
   }
 
   /// Extracts the last received HLCs from the changeset.
