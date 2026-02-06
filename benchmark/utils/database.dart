@@ -25,10 +25,7 @@ class CrdtBenchmarkDatabase extends _$CrdtBenchmarkDatabase {
     }
 
     return CrdtBenchmarkDatabase(
-      NativeDatabase.opened(
-        sqlite3.open(file.path),
-        setup: crdtEnabled ? registerHlcFunction : null,
-      ),
+      NativeDatabase.opened(sqlite3.open(file.path)),
       crdtEnabled: crdtEnabled,
     );
   }
