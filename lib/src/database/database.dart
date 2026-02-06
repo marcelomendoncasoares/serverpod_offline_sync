@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../utils/sql_builder.dart';
 import 'tables/control.dart';
 import 'tables/data.dart';
+import 'tables/hlc.dart';
 import 'tables/merge.dart';
 
 part 'database.g.dart';
@@ -12,6 +13,7 @@ part 'database.g.dart';
   tables: [
     CrdtDataTable,
     CrdtControlTable,
+    CrdtHlcStateTable,
     CrdtMergeHlcTable,
   ],
 )

@@ -23,6 +23,9 @@ class CrdtDataSqlBuilder {
   /// Name of the CRDT data table.
   String get crdtDataTableName => crdtDb.crdtDataTable.actualTableName;
 
+  /// Name of the HLC state table.
+  String get hlcStateTableName => crdtDb.crdtHlcStateTable.actualTableName;
+
   /// The list of quoted column names in the CRDT data table.
   Iterable<String> get crdtDataAllColumns => crdtDb.crdtDataTable.$columns.quotedNames;
 
