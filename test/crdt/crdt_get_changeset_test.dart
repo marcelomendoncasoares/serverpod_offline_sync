@@ -59,10 +59,10 @@ void main() {
           () async {
             final changeset = await crdt.getChangeset();
             final changesetColumns = changeset.map((e) => e.columnName).toSet();
-            final expectedColumns = [
+            final expectedColumns = {
               ...database.todosTable.$columns.map((c) => c.$name),
               crdtDb.sqlBuilder.isDeletedColumnName,
-            ];
+            };
 
             expect(changeset.length, expectedColumns.length);
             expect(changesetColumns, equals(expectedColumns));
