@@ -83,8 +83,8 @@ class CrdtNormalizedDataTable extends Table {
   /// Hybrid Logical Clock timestamp component (milliseconds since epoch).
   late final hlcTimestamp = integer()();
 
-  /// Hybrid Logical Clock counter component (stored as hex string).
-  late final hlcCounter = text()();
+  /// Hybrid Logical Clock counter component.
+  late final hlcCounter = integer()();
 
   /// Hybrid Logical Clock node ID component.
   late final hlcNodeId = text()();

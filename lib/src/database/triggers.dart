@@ -151,12 +151,59 @@ ${columnInserts.join('\n    UNION ALL\n')}
   }
 
   /// Returns SQL fragment that combines the split HLC columns (hlc_timestamp,
-  /// hlc_counter, hlc_node_id) back into a single text field. The counter is
-  /// stored as a 4-digit uppercase hex string (e.g., "0000", "001A").
+  /// hlc_counter, hlc_node_id) back into a single text field.
   String _getHlcCombineExprSql() {
     return "printf('%015d', \"hlc_timestamp\") || '-' || "
-        '"hlc_counter" || \'-\' || '
+        "printf('%04X', \"hlc_counter\") || '-' || "
         '"hlc_node_id"';
+  }
+
+  /// Returns SQL expression that converts a 4-character hex string to integer.
+  /// Used to parse the counter from the HLC text format.
+  String _hexToIntExpr(String hexString) {
+    // Convert each hex digit (0-9, A-F) to its decimal value and combine
+    return '''(
+      CASE SUBSTR($hexString, 1, 1)
+        WHEN '0' THEN 0 WHEN '1' THEN 1 WHEN '2' THEN 2 WHEN '3' THEN 3
+        WHEN '4' THEN 4 WHEN '5' THEN 5 WHEN '6' THEN 6 WHEN '7' THEN 7
+        WHEN '8' THEN 8 WHEN '9' THEN 9 
+        WHEN 'A' THEN 10 WHEN 'B' THEN 11 WHEN 'C' THEN 12 WHEN 'D' THEN 13
+        WHEN 'E' THEN 14 WHEN 'F' THEN 15
+        WHEN 'a' THEN 10 WHEN 'b' THEN 11 WHEN 'c' THEN 12 WHEN 'd' THEN 13
+        WHEN 'e' THEN 14 WHEN 'f' THEN 15
+        ELSE 0
+      END * 4096 +
+      CASE SUBSTR($hexString, 2, 1)
+        WHEN '0' THEN 0 WHEN '1' THEN 1 WHEN '2' THEN 2 WHEN '3' THEN 3
+        WHEN '4' THEN 4 WHEN '5' THEN 5 WHEN '6' THEN 6 WHEN '7' THEN 7
+        WHEN '8' THEN 8 WHEN '9' THEN 9 
+        WHEN 'A' THEN 10 WHEN 'B' THEN 11 WHEN 'C' THEN 12 WHEN 'D' THEN 13
+        WHEN 'E' THEN 14 WHEN 'F' THEN 15
+        WHEN 'a' THEN 10 WHEN 'b' THEN 11 WHEN 'c' THEN 12 WHEN 'd' THEN 13
+        WHEN 'e' THEN 14 WHEN 'f' THEN 15
+        ELSE 0
+      END * 256 +
+      CASE SUBSTR($hexString, 3, 1)
+        WHEN '0' THEN 0 WHEN '1' THEN 1 WHEN '2' THEN 2 WHEN '3' THEN 3
+        WHEN '4' THEN 4 WHEN '5' THEN 5 WHEN '6' THEN 6 WHEN '7' THEN 7
+        WHEN '8' THEN 8 WHEN '9' THEN 9 
+        WHEN 'A' THEN 10 WHEN 'B' THEN 11 WHEN 'C' THEN 12 WHEN 'D' THEN 13
+        WHEN 'E' THEN 14 WHEN 'F' THEN 15
+        WHEN 'a' THEN 10 WHEN 'b' THEN 11 WHEN 'c' THEN 12 WHEN 'd' THEN 13
+        WHEN 'e' THEN 14 WHEN 'f' THEN 15
+        ELSE 0
+      END * 16 +
+      CASE SUBSTR($hexString, 4, 1)
+        WHEN '0' THEN 0 WHEN '1' THEN 1 WHEN '2' THEN 2 WHEN '3' THEN 3
+        WHEN '4' THEN 4 WHEN '5' THEN 5 WHEN '6' THEN 6 WHEN '7' THEN 7
+        WHEN '8' THEN 8 WHEN '9' THEN 9 
+        WHEN 'A' THEN 10 WHEN 'B' THEN 11 WHEN 'C' THEN 12 WHEN 'D' THEN 13
+        WHEN 'E' THEN 14 WHEN 'F' THEN 15
+        WHEN 'a' THEN 10 WHEN 'b' THEN 11 WHEN 'c' THEN 12 WHEN 'd' THEN 13
+        WHEN 'e' THEN 14 WHEN 'f' THEN 15
+        ELSE 0
+      END
+    )''';
   }
 
   /// Returns SQL statements to create the CRDT data view and its INSTEAD OF
@@ -221,7 +268,7 @@ BEGIN
     NEW."column_name",
     NEW."row_id",
     CAST(SUBSTR(NEW."hlc_timestamp", 1, 15) AS INTEGER),
-    SUBSTR(NEW."hlc_timestamp", 17, 4),
+    ${_hexToIntExpr('SUBSTR(NEW."hlc_timestamp", 17, 4)')},
     SUBSTR(NEW."hlc_timestamp", 22),
     NEW."raw_value"
   ON CONFLICT ("user_id", "table_name", "column_name", "row_id") DO UPDATE SET
@@ -248,7 +295,7 @@ BEGIN
     "column_name" = NEW."column_name",
     "row_id" = NEW."row_id",
     "hlc_timestamp" = CAST(SUBSTR(NEW."hlc_timestamp", 1, 15) AS INTEGER),
-    "hlc_counter" = SUBSTR(NEW."hlc_timestamp", 17, 4),
+    "hlc_counter" = ${_hexToIntExpr('SUBSTR(NEW."hlc_timestamp", 17, 4)')},
     "hlc_node_id" = SUBSTR(NEW."hlc_timestamp", 22),
     "raw_value" = NEW."raw_value"
   WHERE "user_id" = OLD."user_id"
