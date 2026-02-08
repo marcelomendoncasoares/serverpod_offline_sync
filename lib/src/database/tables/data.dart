@@ -80,8 +80,14 @@ class CrdtNormalizedDataTable extends Table {
   /// Unique identifier for the row in the table.
   late final rowId = text()();
 
-  /// Hybrid Logical Clock timestamp of the data update.
-  late final hlcTimestamp = text().map(hlcConverter)();
+  /// Hybrid Logical Clock timestamp component (milliseconds since epoch).
+  late final hlcTimestamp = integer()();
+
+  /// Hybrid Logical Clock counter component (stored as hex string).
+  late final hlcCounter = text()();
+
+  /// Hybrid Logical Clock node ID component.
+  late final hlcNodeId = text()();
 
   /// Raw value of the data.
   late final rawValue = sqliteAny().nullable()();

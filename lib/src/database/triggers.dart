@@ -146,8 +146,17 @@ ${columnInserts.join('\n    UNION ALL\n')}
   /// same format as the `hlcConverter.toSql` method.
   String _getHlcJsonExprSql() {
     return "printf('%015d', \"last_timestamp\") || '-' || "
-        "printf('%05x', \"counter\") || '-' || "
+        "printf('%04X', \"counter\") || '-' || "
         "'${crdtDb.nodeId}'";
+  }
+
+  /// Returns SQL fragment that combines the split HLC columns (hlc_timestamp,
+  /// hlc_counter, hlc_node_id) back into a single text field. The counter is
+  /// stored as a 4-digit uppercase hex string (e.g., "0000", "001A").
+  String _getHlcCombineExprSql() {
+    return "printf('%015d', \"hlc_timestamp\") || '-' || "
+        '"hlc_counter" || \'-\' || '
+        '"hlc_node_id"';
   }
 
   /// Returns SQL statements to create the CRDT data view and its INSTEAD OF
@@ -180,38 +189,72 @@ ${columnInserts.join('\n    UNION ALL\n')}
 
   String get _normalizedTableName => crdtDb.crdtNormalizedDataTable.actualTableName;
 
-  /// CREATE VIEW for the CRDT data view: selects all columns from the
-  /// normalized table so reads against the view hit the real table.
+  /// CREATE VIEW for the CRDT data view: combines the split HLC columns from
+  /// the normalized table back into a single hlc_timestamp text field.
   String _createCrdtDataViewStatement() =>
       '''
 CREATE VIEW IF NOT EXISTS "$crdtDataTableName" AS
-SELECT ${crdtDataAllColumns.join(', ')} FROM "$_normalizedTableName";''';
+SELECT 
+  "user_id",
+  "table_name",
+  "column_name",
+  "row_id",
+  ${_getHlcCombineExprSql()} AS "hlc_timestamp",
+  "raw_value"
+FROM "$_normalizedTableName";''';
 
   /// INSTEAD OF INSERT on the CRDT data view: insert into the normalized table,
-  /// and on conflict update only when the new row has a greater hlc_timestamp.
+  /// splitting the hlc_timestamp text into 3 columns, and on conflict update
+  /// only when the new row has a greater hlc_timestamp.
   String _createCrdtDataInsteadOfInsertTriggerStatement() =>
       '''
 CREATE TRIGGER IF NOT EXISTS "${crdtDataTableName}__instead_of_insert"
 INSTEAD OF INSERT ON "$crdtDataTableName"
 BEGIN
-  INSERT INTO "$_normalizedTableName" (${crdtDataAllColumns.join(', ')})
-  VALUES (${crdtDataAllColumns.map((c) => 'NEW.$c').join(', ')})
-  ON CONFLICT (${crdtDataPrimaryKeyColumns.join(', ')}) DO UPDATE SET
+  INSERT INTO "$_normalizedTableName" (
+    "user_id", "table_name", "column_name", "row_id",
+    "hlc_timestamp", "hlc_counter", "hlc_node_id", "raw_value"
+  )
+  SELECT
+    NEW."user_id",
+    NEW."table_name",
+    NEW."column_name",
+    NEW."row_id",
+    CAST(SUBSTR(NEW."hlc_timestamp", 1, 15) AS INTEGER),
+    SUBSTR(NEW."hlc_timestamp", 17, 4),
+    SUBSTR(NEW."hlc_timestamp", 22),
+    NEW."raw_value"
+  ON CONFLICT ("user_id", "table_name", "column_name", "row_id") DO UPDATE SET
     "hlc_timestamp" = excluded."hlc_timestamp",
+    "hlc_counter" = excluded."hlc_counter",
+    "hlc_node_id" = excluded."hlc_node_id",
     "raw_value" = excluded."raw_value"
-  WHERE "hlc_timestamp" < excluded."hlc_timestamp";
+  WHERE "hlc_timestamp" < excluded."hlc_timestamp"
+     OR ("hlc_timestamp" = excluded."hlc_timestamp" AND "hlc_counter" < excluded."hlc_counter");
 END;''';
 
   /// INSTEAD OF UPDATE on the CRDT data view: apply the new values to the
-  /// matching row in the normalized table (by primary key).
+  /// matching row in the normalized table (by primary key), splitting the
+  /// hlc_timestamp text into 3 columns.
   String _createCrdtDataInsteadOfUpdateTriggerStatement() =>
       '''
 CREATE TRIGGER IF NOT EXISTS "${crdtDataTableName}__instead_of_update"
 INSTEAD OF UPDATE ON "$crdtDataTableName"
 BEGIN
   UPDATE "$_normalizedTableName"
-  SET ${crdtDataAllColumns.map((c) => '$c = NEW.$c').join(', ')}
-  WHERE ${crdtDataPrimaryKeyColumns.map((c) => '$c = OLD.$c').join(' AND ')};
+  SET 
+    "user_id" = NEW."user_id",
+    "table_name" = NEW."table_name",
+    "column_name" = NEW."column_name",
+    "row_id" = NEW."row_id",
+    "hlc_timestamp" = CAST(SUBSTR(NEW."hlc_timestamp", 1, 15) AS INTEGER),
+    "hlc_counter" = SUBSTR(NEW."hlc_timestamp", 17, 4),
+    "hlc_node_id" = SUBSTR(NEW."hlc_timestamp", 22),
+    "raw_value" = NEW."raw_value"
+  WHERE "user_id" = OLD."user_id"
+    AND "table_name" = OLD."table_name"
+    AND "column_name" = OLD."column_name"
+    AND "row_id" = OLD."row_id";
 END;''';
 
   /// INSTEAD OF DELETE on the CRDT data view: delete the matching row from the
@@ -222,7 +265,10 @@ CREATE TRIGGER IF NOT EXISTS "${crdtDataTableName}__instead_of_delete"
 INSTEAD OF DELETE ON "$crdtDataTableName"
 BEGIN
   DELETE FROM "$_normalizedTableName"
-  WHERE ${crdtDataPrimaryKeyColumns.map((c) => '$c = OLD.$c').join(' AND ')};
+  WHERE "user_id" = OLD."user_id"
+    AND "table_name" = OLD."table_name"
+    AND "column_name" = OLD."column_name"
+    AND "row_id" = OLD."row_id";
 END;''';
 
   /// CREATE VIEW for the HLC canonical view: an empty view (WHERE FALSE) used

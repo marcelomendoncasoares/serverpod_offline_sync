@@ -57,7 +57,7 @@ BEGIN
     "column_name",
     NEW."id" AS "row_id",
     (
-      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%05x', "counter") || '-' || '${migrator.nodeId}')
+      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%04X', "counter") || '-' || '${migrator.nodeId}')
       FROM "${migrator.crdtDb.sqlBuilder.hlcStateTableName}"
       WHERE "user_id" = '${migrator.userId}'
     ) AS "hlc_timestamp",
@@ -124,7 +124,7 @@ BEGIN
     "column_name",
     OLD."id" AS "row_id",
     (
-      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%05x', "counter") || '-' || '${migrator.nodeId}')
+      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%04X', "counter") || '-' || '${migrator.nodeId}')
       FROM "${migrator.crdtDb.sqlBuilder.hlcStateTableName}"
       WHERE "user_id" = '${migrator.userId}'
     ) AS "hlc_timestamp",
@@ -194,7 +194,7 @@ BEGIN
     "column_name",
     OLD."id" AS "row_id",
     (
-      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%05x', "counter") || '-' || '${migrator.nodeId}')
+      SELECT (printf('%015d', "last_timestamp") || '-' || printf('%04X', "counter") || '-' || '${migrator.nodeId}')
       FROM "${migrator.crdtDb.sqlBuilder.hlcStateTableName}"
       WHERE "user_id" = '${migrator.userId}'
     ) AS "hlc_timestamp",
