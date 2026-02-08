@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 import '../utils/crdt_context.dart';
 import '../utils/database.dart';
 import '../utils/tables.dart';
+import 'crdt_test_utils.dart';
 
 void main() {
   group('Given a data object with every column type', () {
@@ -95,10 +96,10 @@ void main() {
         // The list object is not equal to the other objects because it is a
         // different instance. So we remove it from the list and compare the
         // it separately.
-        final savedListObject = savedChangeset.removeAt(7);
-        final expectedListObject = expectedChangeset.removeAt(7);
+        final savedListObject = savedChangeset.removeEntry('a_blob');
+        final expectedListObject = expectedChangeset.removeEntry('a_blob');
 
-        expect(savedChangeset, equals(expectedChangeset));
+        expect(savedChangeset.sortedEntries, expectedChangeset.sortedEntries);
         expect(
           savedListObject.unwrappedValue,
           equals(expectedListObject.unwrappedValue),

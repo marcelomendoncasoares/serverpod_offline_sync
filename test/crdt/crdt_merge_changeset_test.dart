@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 import '../utils/crdt_context.dart';
 import '../utils/database.dart';
 import '../utils/tables.dart';
+import 'crdt_test_utils.dart';
 
 void main() {
   late OfflineSyncCrdt crdt;
@@ -29,7 +30,8 @@ void main() {
         'then the changeset is saved to the database.', () async {
       await crdt.merge(changeset);
 
-      expect(await crdtDb.managers.crdtDataTable.get(), changeset);
+      final savedChangeset = await crdtDb.managers.crdtDataTable.get();
+      expect(savedChangeset.sortedEntries, changeset.sortedEntries);
     });
   });
 
@@ -58,7 +60,8 @@ void main() {
           'then no changes are saved to the database.', () async {
         await crdt.merge(lateOldChangeset);
 
-        expect(await crdtDb.managers.crdtDataTable.get(), firstChangeset);
+        final savedChangeset = await crdtDb.managers.crdtDataTable.get();
+        expect(savedChangeset.sortedEntries, firstChangeset.sortedEntries);
       });
     },
   );
@@ -90,12 +93,13 @@ void main() {
           'then the entries with newer HLC are saved to the database.', () async {
         await crdt.merge(newerChangeset);
 
-        final expectedResultingChangeset = [
+        final expectedChangeset = [
           for (final e in firstChangeset)
             if (e.columnName == 'content') newerChangeset.first else e,
         ];
 
-        expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
+        final savedChangeset = await crdtDb.managers.crdtDataTable.get();
+        expect(savedChangeset.sortedEntries, expectedChangeset.sortedEntries);
       });
     },
   );

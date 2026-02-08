@@ -10,10 +10,6 @@ export '../../hlc/converter.dart';
 /// This table stores the last HLC timestamp received from each node when merging
 /// changes, so that the next merges can be performed incrementally.
 ///
-@TableIndex(
-  name: 'idx_crdt_merge_hlc_timestamp',
-  columns: {#userId, #lastReceivedHlc},
-)
 @DataClassName('CrdtMergeHlcEntry')
 class CrdtMergeHlcTable extends Table {
   @override

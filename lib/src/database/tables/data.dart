@@ -17,19 +17,13 @@ export '../../hlc/converter.dart';
 /// the client will have the `user_id` column with a single value, while the server
 /// will have all users' data in the same table. To avoid performance issues, on a
 /// Postgres server, the `user_id` and `table_name` columns are partition keys.
-@TableIndex(
-  name: 'idx_crdt_data_tbl_name_column_name_row_id',
-  columns: {#userId, #tblName, #columnName, #rowId},
-  unique: true,
-)
-@TableIndex(
-  name: 'idx_crdt_data_hlc_timestamp',
-  columns: {#userId, #hlcTimestamp},
-)
 @DataClassName('CrdtDataEntry')
 class CrdtDataTable extends Table {
   @override
   String get tableName => '__crdt_data';
+
+  @override
+  bool get withoutRowId => true;
 
   @override
   bool get isStrict => true;
@@ -54,16 +48,4 @@ class CrdtDataTable extends Table {
 
   @override
   Set<Column> get primaryKey => {userId, tblName, columnName, rowId};
-
-  /// Query to get the last HLC timestamp for each user.
-  ///
-  /// Declared here to ensure the query is synchronized with the table.
-  static String getLastHlcTimestampQuery() {
-    return '''
-    SELECT user_id,
-           max(hlc_timestamp) as last_hlc_timestamp
-    FROM __crdt_data
-    GROUP BY 1
-  ''';
-  }
 }

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../utils/crdt_context.dart';
 import '../utils/database.dart';
 import '../utils/tables.dart';
+import 'crdt_test_utils.dart';
 
 void main() {
   late OfflineSyncCrdt crdt;
@@ -36,7 +37,7 @@ void main() {
 
       test('then the changeset is saved to the database.', () async {
         final savedChangeset = await crdtDb.managers.crdtDataTable.get();
-        expect(savedChangeset, changeset);
+        expect(savedChangeset.sortedEntries, changeset.sortedEntries);
       });
 
       test('then the merged HLCs are saved to the database.', () async {
@@ -79,7 +80,7 @@ void main() {
 
         test('then no changes are saved to the database.', () async {
           final savedChangeset = await crdtDb.managers.crdtDataTable.get();
-          expect(savedChangeset, firstChangeset);
+          expect(savedChangeset.sortedEntries, firstChangeset.sortedEntries);
         });
 
         test('then the last received HLC is not updated in the database.', () async {
@@ -124,12 +125,13 @@ void main() {
         });
 
         test('then the entries with newer HLC are saved to the database.', () async {
-          final expectedResultingChangeset = [
+          final expectedChangeset = [
             for (final e in firstChangeset)
               if (e.columnName == 'content') newerChangeset.first else e,
           ];
 
-          expect(await crdtDb.managers.crdtDataTable.get(), expectedResultingChangeset);
+          final savedChangeset = await crdtDb.managers.crdtDataTable.get();
+          expect(savedChangeset.sortedEntries, expectedChangeset.sortedEntries);
         });
 
         test('then the last received HLC is updated in the database.', () async {

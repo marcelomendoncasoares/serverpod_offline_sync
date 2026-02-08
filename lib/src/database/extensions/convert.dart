@@ -5,12 +5,10 @@ import '../database.dart';
 
 /// Extensions for [CrdtDatabase] to convert data to [CrdtDataEntry].
 extension CrdtDatabaseConvertExtensions on CrdtDatabase {
-  /// Converts the [Insertable] object to a list of [CrdtDataEntry].
+  /// Converts the [Insertable] object to an [Iterable] of [CrdtDataEntry].
   ///
   /// Note that the generated entries will have the same HLC timestamp for all
   /// columns and will overwrite individual column updates if newer.
-  ///
-  /// Returns a list of [CrdtDataEntry].
   Iterable<CrdtDataEntry> convertToCrdtDataEntry<T extends Insertable>(
     T data,
     Hlc hlcTimestamp,
