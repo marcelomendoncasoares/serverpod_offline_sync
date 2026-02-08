@@ -140,16 +140,11 @@ class OfflineSyncCrdt extends CrdtBase {
   /// Should be called within a transaction. Must ensure that only newer values
   /// are saved to the database.
   Future<void> _saveChangeset(Iterable<CrdtDataEntry> changeset) async {
+    // Pure inserts; conflict resolution (newer HLC wins) is handled by the
+    // INSTEAD OF INSERT trigger on the CRDT data view.
     return _db.managers.crdtDataTable.bulkCreate(
       (_) => changeset.map((e) => e.toCompanion(false)),
-      mode: InsertMode.insertOrReplace,
-      onConflict: DoUpdate.withExcluded(
-        (old, excluded) => CrdtDataTableCompanion.custom(
-          rawValue: excluded.rawValue,
-          hlcTimestamp: excluded.hlcTimestamp,
-        ),
-        where: (old, excluded) => old.hlcTimestamp.isSmallerThan(excluded.hlcTimestamp),
-      ),
+      mode: InsertMode.insert,
     );
   }
 

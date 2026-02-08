@@ -119,10 +119,6 @@ END;''';
       ].join(',\n')}';
     });
 
-    final whereClause = operation == Operation.update
-        ? '("value_changed" = TRUE)'
-        : 'TRUE';
-
     return '''
   INSERT INTO "$hlcCanonicalViewName" ("user_id")
   VALUES ('${crdtDb.userId}');
@@ -143,12 +139,7 @@ END;''';
     raw_value
   FROM (
 ${columnInserts.join('\n    UNION ALL\n')}
-  )
-  WHERE $whereClause
-  ON CONFLICT (${crdtDataPrimaryKeyColumns.join(', ')})
-  DO UPDATE SET
-    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
-    "raw_value" = EXCLUDED."raw_value";''';
+  )${operation == Operation.update ? '\n  WHERE ("value_changed" = TRUE)' : ''};''';
   }
 
   /// Returns SQL fragment that formats (last_timestamp, counter, node_id) in the
@@ -159,17 +150,93 @@ ${columnInserts.join('\n    UNION ALL\n')}
         "'${crdtDb.nodeId}'";
   }
 
-  /// Returns SQL statements to create the in-SQLite HLC view with "instead of"
-  /// trigger that will act as a function to update the HLC on the HLC state table.
-  /// This will be called from within trigger statements for the CRDT data table.
+  /// Returns SQL statements to create the CRDT data view and its INSTEAD OF
+  /// triggers, and the HLC canonical view with its INSTEAD OF trigger.
+  ///
+  /// The CRDT data view exposes the crdt data table schema reading from the
+  /// normalized table. Conflict resolution (newer HLC wins) is done in the
+  /// INSTEAD OF INSERT trigger so that callers can use pure INSERT.
+  ///
+  /// The INSTEAD OF trigger for the HLC canonical view will be used to update
+  /// the HLC on the HLC state table. This will be called from within trigger
+  /// statements for the CRDT data table.
   @override
-  List<String> generateSetupStatements() {
+  List<String> generateSetupStatements() => [
+    ..._createCrdtDataViewSetupStatements(),
+    _createHlcCanonicalViewStatement(),
+    _createIncrementCanonicalHlcTriggerStatement(),
+  ];
+
+  /// CRDT data view scope: view name, normalized table, and derived SQL
+  /// fragments. Returns the CREATE VIEW and the three INSTEAD OF triggers.
+  List<String> _createCrdtDataViewSetupStatements() {
     return [
+      _createCrdtDataViewStatement(),
+      _createCrdtDataInsteadOfInsertTriggerStatement(),
+      _createCrdtDataInsteadOfUpdateTriggerStatement(),
+      _createCrdtDataInsteadOfDeleteTriggerStatement(),
+    ];
+  }
+
+  String get _normalizedTableName => crdtDb.crdtNormalizedDataTable.actualTableName;
+
+  /// CREATE VIEW for the CRDT data view: selects all columns from the
+  /// normalized table so reads against the view hit the real table.
+  String _createCrdtDataViewStatement() =>
+      '''
+CREATE VIEW IF NOT EXISTS "$crdtDataTableName" AS
+SELECT ${crdtDataAllColumns.join(', ')} FROM "$_normalizedTableName";''';
+
+  /// INSTEAD OF INSERT on the CRDT data view: insert into the normalized table,
+  /// and on conflict update only when the new row has a greater hlc_timestamp.
+  String _createCrdtDataInsteadOfInsertTriggerStatement() =>
+      '''
+CREATE TRIGGER IF NOT EXISTS "${crdtDataTableName}__instead_of_insert"
+INSTEAD OF INSERT ON "$crdtDataTableName"
+BEGIN
+  INSERT INTO "$_normalizedTableName" (${crdtDataAllColumns.join(', ')})
+  VALUES (${crdtDataAllColumns.map((c) => 'NEW.$c').join(', ')})
+  ON CONFLICT (${crdtDataPrimaryKeyColumns.join(', ')}) DO UPDATE SET
+    "hlc_timestamp" = excluded."hlc_timestamp",
+    "raw_value" = excluded."raw_value"
+  WHERE "hlc_timestamp" < excluded."hlc_timestamp";
+END;''';
+
+  /// INSTEAD OF UPDATE on the CRDT data view: apply the new values to the
+  /// matching row in the normalized table (by primary key).
+  String _createCrdtDataInsteadOfUpdateTriggerStatement() =>
+      '''
+CREATE TRIGGER IF NOT EXISTS "${crdtDataTableName}__instead_of_update"
+INSTEAD OF UPDATE ON "$crdtDataTableName"
+BEGIN
+  UPDATE "$_normalizedTableName"
+  SET ${crdtDataAllColumns.map((c) => '$c = NEW.$c').join(', ')}
+  WHERE ${crdtDataPrimaryKeyColumns.map((c) => '$c = OLD.$c').join(' AND ')};
+END;''';
+
+  /// INSTEAD OF DELETE on the CRDT data view: delete the matching row from the
+  /// normalized table (by primary key).
+  String _createCrdtDataInsteadOfDeleteTriggerStatement() =>
+      '''
+CREATE TRIGGER IF NOT EXISTS "${crdtDataTableName}__instead_of_delete"
+INSTEAD OF DELETE ON "$crdtDataTableName"
+BEGIN
+  DELETE FROM "$_normalizedTableName"
+  WHERE ${crdtDataPrimaryKeyColumns.map((c) => '$c = OLD.$c').join(' AND ')};
+END;''';
+
+  /// CREATE VIEW for the HLC canonical view: an empty view (WHERE FALSE) used
+  /// only as a target for INSTEAD OF INSERT to advance the HLC.
+  String _createHlcCanonicalViewStatement() =>
       '''
 CREATE VIEW IF NOT EXISTS "$hlcCanonicalViewName" AS
 SELECT CAST(NULL AS TEXT) AS "user_id"
-WHERE FALSE;
+WHERE FALSE;''';
 
+  /// INSTEAD OF INSERT on the HLC canonical view: validates clock and counter,
+  /// then upserts the HLC state row (advancing timestamp/counter on conflict).
+  String _createIncrementCanonicalHlcTriggerStatement() =>
+      '''
 CREATE TRIGGER IF NOT EXISTS "increment_canonical_hlc"
 INSTEAD OF INSERT ON "$hlcCanonicalViewName"
 BEGIN
@@ -197,9 +264,7 @@ BEGIN
         ELSE "counter" + 1
       END
     );
-END;''',
-    ];
-  }
+END;''';
 }
 
 /// Extension methods for the [GeneratedDatabase] class to get the CRDT trigger names.

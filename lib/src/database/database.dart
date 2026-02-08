@@ -12,6 +12,7 @@ part 'database.g.dart';
 @DriftDatabase(
   tables: [
     CrdtDataTable,
+    CrdtNormalizedDataTable,
     CrdtControlTable,
     CrdtHlcStateTable,
     CrdtMergeHlcTable,
