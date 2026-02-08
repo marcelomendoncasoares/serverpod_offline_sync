@@ -90,12 +90,7 @@ BEGIN
     SELECT
       '__crdt_is_deleted' AS "column_name",
       FALSE AS "raw_value"
-  )
-  WHERE TRUE
-  ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
-  DO UPDATE SET
-    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
-    "raw_value" = EXCLUDED."raw_value";
+  );
 END;''',
         );
       });
@@ -165,11 +160,7 @@ BEGIN
       NEW."status" AS "raw_value",
       NEW."status" IS NOT OLD."status" AS "value_changed"
   )
-  WHERE ("value_changed" = TRUE)
-  ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
-  DO UPDATE SET
-    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
-    "raw_value" = EXCLUDED."raw_value";
+  WHERE ("value_changed" = TRUE);
 END;''',
         );
       });
@@ -212,12 +203,7 @@ BEGIN
     SELECT
       '__crdt_is_deleted' AS "column_name",
       TRUE AS "raw_value"
-  )
-  WHERE TRUE
-  ON CONFLICT ("user_id", "table_name", "column_name", "row_id")
-  DO UPDATE SET
-    "hlc_timestamp" = EXCLUDED."hlc_timestamp",
-    "raw_value" = EXCLUDED."raw_value";
+  );
 END;''',
         );
       });

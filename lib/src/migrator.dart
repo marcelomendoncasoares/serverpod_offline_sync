@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'crdt/crdt.dart';
 import 'database/database.dart';
 import 'database/tables/control.dart';
+import 'database/tables/data.dart';
 import 'database/triggers.dart';
 
 /// The bias to use when conflicting operations are detected.
@@ -104,11 +105,12 @@ class OfflineSyncMigrator extends Migrator {
   /// Creates the CRDT-related entities in the database.
   Future<void> createCrdtControl() async {
     for (final table in crdtDb.allTables) {
+      if (table is CrdtDataTable) continue;
       await createTable(table);
     }
 
     if (crdtDb.isPostgres) {
-      final crdtTable = crdtDb.crdtDataTable;
+      final crdtTable = crdtDb.crdtNormalizedDataTable;
       await database.customStatement(
         'ALTER TABLE ${crdtTable.actualTableName} '
         // TODO: Fix this partitioning, since RANGE can not be used for discrete values.
