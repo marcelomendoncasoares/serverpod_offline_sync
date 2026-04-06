@@ -9,8 +9,8 @@
 ## Project Context
 
 - This package is a non-invasive plugin implementation of offline-first
-  features for Drift that uses CRDT (conflict-free replicated data types) for
-  conflict resolution.
+  features for Serverpod that uses CRDT (conflict-free replicated data types)
+  for conflict resolution.
 - The package is in early stages and more documentation will be added as it
   evolves. Currently, rely on the code and comments to understand how it works.
   Although extensive docs are not present, the code is well-documented and the
