@@ -74,7 +74,10 @@ class CrdtBenchmarkDatabase extends _$CrdtBenchmarkDatabase {
     return managers.tableWithEveryColumnType.count();
   }
 
-  TableWithEveryColumnTypeCompanion _createTestRow(int i, DateTime baseTimestamp) {
+  TableWithEveryColumnTypeCompanion _createTestRow(
+    int i,
+    DateTime baseTimestamp,
+  ) {
     return TableWithEveryColumnTypeCompanion(
       id: Value(RowId(i)),
       aBool: Value(i.isEven),

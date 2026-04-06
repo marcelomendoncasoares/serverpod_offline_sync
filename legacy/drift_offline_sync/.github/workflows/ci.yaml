@@ -16,6 +16,25 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+      - name: Run pub get
+        run: dart pub get
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Upload generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-code
+          path: |
+            **/*.g.dart
+            **/*.freezed.dart
+            lib/**/*.part.dart
+
   dart_format:
     name: dart format
     runs-on: ubuntu-latest
@@ -25,10 +44,12 @@ jobs:
         uses: dart-lang/setup-dart@v1
       - name: Run pub get
         run: dart pub get
+      # Skip code generation for formatting check
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
 
   dart_analyze:
+    needs: generate
     name: dart analyze
     runs-on: ubuntu-latest
     steps:
@@ -37,10 +58,15 @@ jobs:
         uses: dart-lang/setup-dart@v1
       - name: Run pub get
         run: dart pub get
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Run lint
         run: dart analyze .
 
   tests:
+    needs: generate
     name: dart test
     runs-on: ubuntu-latest
     permissions:
@@ -54,6 +80,10 @@ jobs:
           sdk: stable
       - name: Run pub get
         run: dart pub get
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Run tests with coverage
         run: dart test --coverage=coverage --reporter=failures-only
       - name: Activate coverage package
@@ -70,6 +100,7 @@ jobs:
           comment-tag: coverage-results
 
   benchmarks:
+    needs: generate
     name: run benchmarks
     runs-on: ubuntu-latest
     permissions:
@@ -83,6 +114,10 @@ jobs:
           sdk: stable
       - name: Run pub get
         run: dart pub get
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Actions"
@@ -110,6 +145,7 @@ jobs:
         run: git push origin refs/notes/benchmarks
 
   publish_check:
+    needs: generate
     name: dart publish check
     runs-on: ubuntu-latest
     steps:
@@ -120,5 +156,9 @@ jobs:
           sdk: stable
       - name: Run pub get
         run: dart pub get
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
       - name: Run publish dry run
         run: dart pub publish --dry-run

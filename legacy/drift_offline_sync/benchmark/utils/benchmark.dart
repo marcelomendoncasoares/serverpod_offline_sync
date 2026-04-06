@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 
 import 'database.dart';
 
-export 'package:drift_offline_sync/src/database/triggers.dart' show Operation;
+export '../../lib/src/database/triggers.dart' show Operation;
 
 class CrdtBenchmark extends AsyncBenchmarkBase {
   CrdtBenchmark(
@@ -30,7 +30,10 @@ class CrdtBenchmark extends AsyncBenchmarkBase {
   Future<void> setup() async {
     final dbPath = p.join(Directory.systemTemp.path, 'benchmark_$name.db');
     _dbFile = File(dbPath);
-    _db = CrdtBenchmarkDatabase.createDatabase(_dbFile, crdtEnabled: crdtEnabled);
+    _db = CrdtBenchmarkDatabase.createDatabase(
+      _dbFile,
+      crdtEnabled: crdtEnabled,
+    );
 
     // Force the migration to be applied during setup.
     await _db.batchInsertTestRows(1);
@@ -85,7 +88,9 @@ class CrdtBenchmark extends AsyncBenchmarkBase {
       throw Exception('Last database size is not set.');
     }
     if (_lastRowsCount < rowCount) {
-      throw Exception('Rows count is $_lastRowsCount but expected at least $rowCount.');
+      throw Exception(
+        'Rows count is $_lastRowsCount but expected at least $rowCount.',
+      );
     }
     // If the benchmark ran for more than one loop, it can contain a greater number
     // of rows than the expected. We need to normalize it to the expected total.
