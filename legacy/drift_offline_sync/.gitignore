@@ -7,7 +7,6 @@
 pubspec.lock
 
 .vscode/
-*.g.dart
 
 # Coverage reports
 coverage/
