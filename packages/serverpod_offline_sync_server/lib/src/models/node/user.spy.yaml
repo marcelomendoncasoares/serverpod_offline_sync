@@ -1,0 +1,20 @@
+### CRDT users table.
+###
+### Normalized storage for user IDs. The normalized data table references this
+### by integer id instead of storing the user id string.
+class: CrdtUser
+table: crdt_users
+fields:
+  ### User identifier string.
+  uuidUserId: UuidValue
+
+  ### The current node id of the user.
+  currentNode: CrdtNode?, relation
+
+  ### The nodes associated with the user.
+  nodes: List<CrdtNode>?, relation(name=user_nodes)
+
+indexes:
+  crdt_users_idx:
+    fields: uuidUserId
+    unique: true

@@ -1,0 +1,11 @@
+### CRDT schema tables table.
+class: CrdtSchemaTable
+table: crdt_schema_tables
+fields:
+  ### Name of the synchronized table.
+  name: String
+
+indexes:
+  crdt_schema_tables_idx:
+    fields: name
+    unique: true

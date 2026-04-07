@@ -8,7 +8,7 @@ fields:
   workerId: int
 
   ### The datetime component of the HLC timestamp.
-  datetime: DateTime, default=now
+  datetime: DateTime
 
   ### The counter component of the HLC timestamp.
-  counter: int, default=0
+  counter: int

@@ -1,0 +1,14 @@
+### CRDT schema columns table.
+class: CrdtSchemaColumn
+table: crdt_schema_columns
+fields:
+  ### Reference to the table this column belongs to.
+  tbl: CrdtSchemaTable?, relation
+
+  ### Name of the column.
+  name: String
+
+indexes:
+  crdt_schema_columns_table_column_idx:
+    fields: tblId, name
+    unique: true
