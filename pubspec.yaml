@@ -1,0 +1,10 @@
+name: serverpod_offline_sync
+publish_to: none
+
+environment:
+  sdk: '^3.8.0'
+
+workspace:
+  - packages/serverpod_offline_sync_client
+  - packages/serverpod_offline_sync_server
+  - packages/serverpod_offline_sync_shared

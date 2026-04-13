@@ -1,0 +1,8 @@
+type: module
+nickname: serverpod_offline_sync
+
+client_package_path: ../serverpod_offline_sync_client
+server_test_tools_path: test/integration/test_tools
+
+shared_packages:
+  - ../serverpod_offline_sync_shared
