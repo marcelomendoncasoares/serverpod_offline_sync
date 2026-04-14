@@ -6,10 +6,10 @@ class: CrdtUser
 table: crdt_users
 fields:
   ### User identifier string.
-  uuidUserId: UuidValue
+  uuidUserId: UuidValue, default=random_v7
 
   ### The current node id of the user.
-  currentNode: CrdtNode?, relation
+  currentNode: CrdtNode?, relation(optional)
 
   ### The nodes associated with the user.
   nodes: List<CrdtNode>?, relation(name=user_nodes)

@@ -8,14 +8,14 @@ fields:
   user: CrdtUser?, relation(name=user_nodes)
 
   ### Unique identifier for the node.
-  uuidNodeId: UuidValue
+  uuidNodeId: UuidValue, default=random_v7
 
   # TODO: Make this non-nullable once the migration version is implemented.
   ### The migration version of the CRDT data that the node has seen.
   lastSeenMigrationVersion: String?
 
   ### The last HLC timestamp when the node has synchronized.
-  lastReceivedHlc: Hlc
+  lastReceivedHlc: Hlc?
 
 indexes:
   crdt_nodes_unique_idx:

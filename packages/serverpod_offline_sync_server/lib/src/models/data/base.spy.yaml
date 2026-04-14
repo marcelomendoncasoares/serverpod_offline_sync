@@ -1,0 +1,5 @@
+### This class must be extended by all CRDT tables.
+class: CrdtBaseTable
+fields:
+  id: UuidValue, default=random_v7
+  isDeleted: bool, default=false
