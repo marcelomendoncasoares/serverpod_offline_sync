@@ -24,7 +24,7 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   final rootTable = serializationManager.getTableForType(T)!;
   var merged = _mergeWhereOptional(
     where,
-    _notDeletedTombstoneExpression(rootTable),
+    rootTable.whereNotDeletedOnTombstone,
   );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -41,7 +41,7 @@ Expression? _walkIncludeGraphForTombstone(
     // List relation: filter inside the list subquery only.
     inc.where = _mergeWhereOptional(
       inc.where,
-      _notDeletedTombstoneExpression(inc.table),
+      inc.table.whereNotDeletedOnTombstone,
     );
     return _walkIncludeGraphForTombstone(inc.include, includeObjectPredicates);
   }
@@ -61,7 +61,7 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          _notDeletedTombstoneExpression(childTable),
+          childTable.whereNotDeletedOnTombstone,
         );
       }
       acc = _walkIncludeGraphForTombstone(nested, acc);
@@ -70,31 +70,34 @@ Expression? _walkIncludeGraphForTombstone(
   return acc;
 }
 
-/// Creates a predicate that filters out tombstone rows for the given
-/// [targetTable] similarly to the generated field [CrdtDataRow.deleted].
-///
-/// Join path: [TableRow.id] ([targetTable]) = [CrdtDataRow.rowId], then
-/// [CrdtDataRow.id] = [CrdtDataDeleted.rowId].
-///
-/// Returns null when [targetTable] does not use a UUID primary key. Keeps rows
-/// when there is no tombstone row or [CrdtDataDeleted.isDeleted] is false
-/// (LEFT JOIN null-safe).
-Expression? _notDeletedTombstoneExpression(Table targetTable) {
-  if (targetTable.id is! ColumnUuid) return null;
-  final crdtRowTable = createRelationTable<CrdtDataRowTable>(
-    relationFieldName: '${targetTable.tableName}_crdt_row',
-    field: targetTable.id,
-    foreignField: CrdtDataRow.t.rowId,
-    tableRelation: targetTable.tableRelation,
-    createTable: (foreignTableRelation) =>
-        CrdtDataRowTable(tableRelation: foreignTableRelation),
-  );
-  final tomb = crdtRowTable.deleted;
-  return (tomb.id.equals(null)) | (tomb.isDeleted.equals(false));
-}
-
 Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
   if (addition == null) return where;
   if (where == null) return addition;
   return where & addition;
+}
+
+extension on Table {
+  /// Creates a predicate that filters out tombstone rows for the given [Table]
+  /// similarly to the generated field [CrdtDataRow.deleted].
+  ///
+  /// Join path:
+  ///   - [id] = [CrdtDataRow.rowId],
+  ///   - [CrdtDataRow.id] = [CrdtDataDeleted.rowId].
+  ///
+  /// Returns null when [Table] does not use a UUID primary key. Keeps rows
+  /// when there is no tombstone row or [CrdtDataDeleted.isDeleted] is false
+  /// (LEFT JOIN null-safe).
+  Expression? get whereNotDeletedOnTombstone {
+    if (id is! ColumnUuid) return null;
+    final crdtRowTable = createRelationTable<CrdtDataRowTable>(
+      relationFieldName: '${tableName}_crdt_row',
+      field: id,
+      foreignField: CrdtDataRow.t.rowId,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          CrdtDataRowTable(tableRelation: foreignTableRelation),
+    );
+    final tomb = crdtRowTable.deleted;
+    return (tomb.id.equals(null)) | (tomb.isDeleted.equals(false));
+  }
 }
