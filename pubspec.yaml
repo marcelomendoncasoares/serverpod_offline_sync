@@ -8,3 +8,5 @@ workspace:
   - packages/serverpod_offline_sync_client
   - packages/serverpod_offline_sync_server
   - packages/serverpod_offline_sync_shared
+  - test/serverpod_offline_sync_test_client
+  - test/serverpod_offline_sync_test_server

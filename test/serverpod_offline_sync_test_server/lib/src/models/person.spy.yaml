@@ -1,0 +1,7 @@
+class: Person
+table: person
+fields:
+  name: String
+  address: Address?, relation(name=person_address)
+  organization: Organization?, relation(name=org_person, optional)
+  oldCompany: Company?, relation(optional)

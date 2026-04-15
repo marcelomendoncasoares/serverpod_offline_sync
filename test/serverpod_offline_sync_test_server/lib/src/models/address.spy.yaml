@@ -1,0 +1,6 @@
+class: Address
+table: address
+fields:
+  street: String
+  inhabitantId: int?, unique
+  inhabitant: Person?, relation(name=person_address, field=inhabitantId, onDelete=Cascade)

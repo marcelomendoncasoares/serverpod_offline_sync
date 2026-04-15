@@ -2,7 +2,8 @@ include: ../../analysis_options.yaml
 
 analyzer:
   exclude:
-    - lib/src/protocol/**
+    - lib/src/generated/**
+    - test/integration/test_tools/serverpod_test_tools.dart
 
 formatter:
   trailing_commas: preserve
