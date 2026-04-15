@@ -6,7 +6,6 @@ import 'package:serverpod/serverpod.dart';
 
 import 'recorder.dart';
 import 'tombstone.dart';
-import 'transaction.dart';
 
 bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
   SerializationManagerServer serializationManager,
@@ -14,6 +13,9 @@ bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
   final table = serializationManager.getTableForType(T);
   return table != null && table.id is ColumnUuid;
 }
+
+/// Map of transaction hashes to the user ID they are associated with.
+final userForTransaction = <int, UuidValue>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -407,7 +409,14 @@ class CrdtDatabase implements Database {
     TransactionSettings? settings,
   }) {
     return transaction<R>(
-      (tx) => transactionFunction(CrdtTransaction(tx, userId: userId)),
+      (tx) {
+        try {
+          userForTransaction[tx.hashCode] = userId;
+          return transactionFunction(tx);
+        } finally {
+          userForTransaction.remove(tx.hashCode);
+        }
+      },
       settings: settings,
     );
   }

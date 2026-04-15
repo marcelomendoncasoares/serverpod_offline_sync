@@ -4,7 +4,6 @@ import '../generated/protocol.dart';
 import '../hlc/manager.dart';
 import 'database.dart';
 import 'session.dart';
-import 'transaction.dart';
 
 /// Persists additional CRDT rows after a mutating ORM operation completes.
 ///
@@ -237,16 +236,10 @@ class CrdtMutationRecorder {
   }
 
   Future<UuidValue> _effectiveUuidUserId(Transaction transaction) async {
-    UuidValue? userId;
-    if (transaction is CrdtTransaction) {
-      userId = transaction.userId;
-    }
-
-    userId ??= persistentUserId;
+    final userId = userForTransaction[transaction.hashCode] ?? persistentUserId;
     if (userId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }
-
     return userId;
   }
 }
