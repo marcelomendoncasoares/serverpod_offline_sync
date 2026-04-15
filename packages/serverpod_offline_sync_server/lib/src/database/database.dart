@@ -4,9 +4,8 @@
 
 import 'package:serverpod/serverpod.dart';
 
-import '../generated/protocol.dart';
 import 'recorder.dart';
-import 'session.dart';
+import 'tombstone.dart';
 import 'transaction.dart';
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
@@ -27,9 +26,6 @@ class CrdtDatabase implements Database {
   final Database _delegate;
 
   final CrdtMutationRecorder _recorder;
-
-  /// Internal sessions used for operations with CRDT tables.
-  late final _delegateSession = CrdtDatabaseSession(_delegate);
 
   @override
   DatabaseAnalyzer get analyzer => _delegate.analyzer;
@@ -53,22 +49,8 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    void applyTombstoneToIncludeLists(Include? include) {
-      switch (include) {
-        case null:
-          return;
-        case IncludeList():
-          include.where = _notDeletedWhere(include.table, include.where);
-          applyTombstoneToIncludeLists(include.include);
-          return;
-        case IncludeObject():
-          include.includes.values.forEach(applyTombstoneToIncludeLists);
-      }
-    }
-
-    applyTombstoneToIncludeLists(include);
     return _delegate.find<T>(
-      where: _notDeletedWhere<T>(null, where),
+      where: mergeWhereWithTombstone<T>(serializationManager, where, include),
       limit: limit,
       offset: offset,
       orderBy: orderBy,
@@ -81,26 +63,6 @@ class CrdtDatabase implements Database {
     );
   }
 
-  /// Join path: domain row PK (UUID) = `crdt_data_rows.rowId`, then
-  /// `crdt_data_rows.id` = `crdt_data_tombstone.rowId`, same as generated `CrdtDataRow.deleted`.
-  Expression _notDeletedWhere<T extends TableRow>(Table? table, Expression? where) {
-    final targetTable = table ?? serializationManager.getTableForType(T)!;
-    final crdtRowTable = createRelationTable<CrdtDataRowTable>(
-      relationFieldName: '${targetTable.tableName}_crdt_row',
-      field: targetTable.id,
-      foreignField: CrdtDataRow.t.rowId,
-      tableRelation: targetTable.tableRelation,
-      createTable: (foreignTableRelation) =>
-          CrdtDataRowTable(tableRelation: foreignTableRelation),
-    );
-    return _andWhere(where, ~crdtRowTable.deleted.isDeleted.equals(true));
-  }
-
-  Expression _andWhere(Expression? where, Expression addition) {
-    if (where == null) return addition;
-    return where & addition;
-  }
-
   @override
   Future<T?> findById<T extends TableRow>(
     Object id, {
@@ -109,14 +71,14 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    return _filterDeletedRow(
-      await _delegate.findById<T>(
-        id,
-        transaction: transaction,
-        include: include,
-        lockMode: lockMode,
-        lockBehavior: lockBehavior,
-      ),
+    final table = serializationManager.getTableForType(T)!;
+    final where = table.id.equals(id);
+    return _delegate.findFirstRow<T>(
+      where: mergeWhereWithTombstone(serializationManager, where, include),
+      transaction: transaction,
+      include: include,
+      lockMode: lockMode,
+      lockBehavior: lockBehavior,
     );
   }
 
@@ -132,41 +94,17 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    return _filterDeletedRow(
-      await _delegate.findFirstRow<T>(
-        where: where,
-        offset: offset,
-        orderBy: orderBy,
-        orderByList: orderByList,
-        orderDescending: orderDescending,
-        transaction: transaction,
-        include: include,
-        lockMode: lockMode,
-        lockBehavior: lockBehavior,
-      ),
+    return _delegate.findFirstRow<T>(
+      where: mergeWhereWithTombstone<T>(serializationManager, where, include),
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      orderDescending: orderDescending,
+      transaction: transaction,
+      include: include,
+      lockMode: lockMode,
+      lockBehavior: lockBehavior,
     );
-  }
-
-  /// Removes a single row that is marked as deleted in the CRDT tombstone table.
-  Future<T?> _filterDeletedRow<T extends TableRow>(
-    T? row,
-  ) async {
-    if (row == null) return null;
-    return _filterDeletedRows([row]).then((rows) => rows.firstOrNull);
-  }
-
-  /// Removes rows that are marked as deleted in the CRDT tombstone table.
-  Future<List<T>> _filterDeletedRows<T extends TableRow>(
-    List<T> rows,
-  ) async {
-    final deletedRows = await CrdtDataRow.db.find(
-      _delegateSession,
-      where: (t) =>
-          t.rowId.inSet(rows.map((row) => row.id as UuidValue).toSet()) &
-          t.deleted.isDeleted.equals(true),
-    );
-    final deletedRowIds = deletedRows.map((row) => row.rowId).toSet();
-    return rows.where((row) => !deletedRowIds.contains(row.id)).toList();
   }
 
   @override
@@ -297,7 +235,7 @@ class CrdtDatabase implements Database {
       (tx) async {
         final result = await _delegate.updateWhere<T>(
           columnValues: columnValues,
-          where: where,
+          where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
           limit: limit,
           offset: offset,
           orderBy: orderBy,
@@ -381,7 +319,7 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) {
     return _delegate.count<T>(
-      where: where,
+      where: mergeWhereWithTombstone<T>(serializationManager, where, null),
       limit: limit,
       useCache: useCache,
       transaction: transaction,
@@ -396,7 +334,7 @@ class CrdtDatabase implements Database {
     LockBehavior lockBehavior = LockBehavior.wait,
   }) {
     return _delegate.lockRows<T>(
-      where: where,
+      where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
       lockMode: lockMode,
       transaction: transaction,
       lockBehavior: lockBehavior,
