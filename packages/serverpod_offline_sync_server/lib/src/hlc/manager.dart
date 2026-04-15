@@ -138,8 +138,7 @@ class HlcManager {
     _workerId = await session.db.transaction((transaction) async {
       final lastWorkerId = await CrdtWorker.db.findFirstRow(
         session,
-        orderBy: (t) => t.workerId,
-        orderDescending: true,
+        orderBy: (t) => t.workerId.desc(),
         transaction: transaction,
         lockMode: LockMode.forUpdate,
         lockBehavior: LockBehavior.wait,
