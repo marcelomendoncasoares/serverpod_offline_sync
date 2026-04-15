@@ -53,24 +53,52 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    // TODO: Instead of this, we'll have to inject a table relation on all
-    // queries of find, update, delete and count to skip entries on the CRDT
-    // tombstone table. It is the only way, since we can't actually delete the
-    // rows from the database.
-    return _filterDeletedRows(
-      await _delegate.find<T>(
-        where: where,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        orderByList: orderByList,
-        orderDescending: orderDescending,
-        transaction: transaction,
-        include: include,
-        lockMode: lockMode,
-        lockBehavior: lockBehavior,
-      ),
+    void applyTombstoneToIncludeLists(Include? include) {
+      switch (include) {
+        case null:
+          return;
+        case IncludeList():
+          include.where = _notDeletedWhere(include.table, include.where);
+          applyTombstoneToIncludeLists(include.include);
+          return;
+        case IncludeObject():
+          include.includes.values.forEach(applyTombstoneToIncludeLists);
+      }
+    }
+
+    applyTombstoneToIncludeLists(include);
+    return _delegate.find<T>(
+      where: _notDeletedWhere<T>(null, where),
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      orderDescending: orderDescending,
+      transaction: transaction,
+      include: include,
+      lockMode: lockMode,
+      lockBehavior: lockBehavior,
     );
+  }
+
+  /// Join path: domain row PK (UUID) = `crdt_data_rows.rowId`, then
+  /// `crdt_data_rows.id` = `crdt_data_tombstone.rowId`, same as generated `CrdtDataRow.deleted`.
+  Expression _notDeletedWhere<T extends TableRow>(Table? table, Expression? where) {
+    final targetTable = table ?? serializationManager.getTableForType(T)!;
+    final crdtRowTable = createRelationTable<CrdtDataRowTable>(
+      relationFieldName: '${targetTable.tableName}_crdt_row',
+      field: targetTable.id,
+      foreignField: CrdtDataRow.t.rowId,
+      tableRelation: targetTable.tableRelation,
+      createTable: (foreignTableRelation) =>
+          CrdtDataRowTable(tableRelation: foreignTableRelation),
+    );
+    return _andWhere(where, ~crdtRowTable.deleted.isDeleted.equals(true));
+  }
+
+  Expression _andWhere(Expression? where, Expression addition) {
+    if (where == null) return addition;
+    return where & addition;
   }
 
   @override

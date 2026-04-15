@@ -76,28 +76,20 @@ class CrdtMutationRecorder {
 
     final existingCrdtFields = await CrdtDataField.db.find(
       _session,
-      where: (t) => t.row.rowId.inSet(
-        updatedRows.map((row) => row.id as UuidValue).toSet(),
-      ),
+      where: (t) => t.row.rowId.inSet(updatedRows.uuidRowIds),
       include: CrdtDataField.include(
         row: CrdtDataRow.include(),
         column: CrdtSchemaColumn.include(),
       ),
     );
 
-    /// Map of row ID to normalized row ID.
-    final existingCrdtRowIds = <UuidValue, int>{
-      for (final field in existingCrdtFields) field.row!.rowId: field.row!.id!,
-    };
-
+    final existingCrdtRowIds = existingCrdtFields.map((f) => f.row!.rowId).toSet();
     if (existingCrdtRowIds.length != updatedRows.length) {
-      final updatedRowIds = updatedRows.map((row) => row.id as UuidValue).toSet();
-      final missingRowIds = updatedRowIds.difference(existingCrdtRowIds.keys.toSet());
-      // TODO: Insert non-tracked fields for missing rows with Hlc.zero.
-      // The HLC will be updated in order soon below.
-
-      // Update the map with the previously missing and newly inserted row IDs.
-      // existingCrdtRowIds.updateAll()
+      final missingRowIds = updatedRows.uuidRowIds.difference(existingCrdtRowIds);
+      throw StateError(
+        'Missing CRDT rows for ${missingRowIds.length} updated rows:\n'
+        '${missingRowIds.map((id) => '  - $id').join('\n')}',
+      );
     }
 
     final hlcManager = await _getHlcManager(transaction);
@@ -184,5 +176,14 @@ extension on Table {
       throw StateError('Table not found: $tableName');
     }
     return tableId.id!;
+  }
+}
+
+extension on List<TableRow> {
+  Set<UuidValue> get uuidRowIds {
+    if (isEmpty) return {};
+    if (first.id == null) throw StateError('Row IDs must be non-null.');
+    if (first.id is! UuidValue) throw StateError('Row IDs must be UuidValue.');
+    return {for (final row in this) row.id as UuidValue};
   }
 }
