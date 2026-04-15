@@ -1,6 +1,7 @@
 class: Person
 table: person
 fields:
+  id: UuidValue?, defaultPersist=random_v7
   name: String
   address: Address?, relation(name=person_address)
   organization: Organization?, relation(name=org_person, optional)

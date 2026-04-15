@@ -1,6 +1,7 @@
 class: Organization
 table: organization
 fields:
+  id: UuidValue?, defaultPersist=random_v7
   name: String
   people: List<Person>?, relation(name=org_person)
   city: City?, relation(name=city_org, optional)

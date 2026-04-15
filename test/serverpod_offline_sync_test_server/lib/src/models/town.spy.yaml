@@ -1,5 +1,6 @@
 class: Town
 table: town
 fields:
+  id: UuidValue?, defaultPersist=random_v7
   name: String
   mayor: Person?, relation(optional)

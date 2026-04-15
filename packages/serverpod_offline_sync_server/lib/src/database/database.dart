@@ -8,6 +8,13 @@ import 'recorder.dart';
 import 'tombstone.dart';
 import 'transaction.dart';
 
+bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
+  SerializationManagerServer serializationManager,
+) {
+  final table = serializationManager.getTableForType(T);
+  return table != null && table.id is ColumnUuid;
+}
+
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
 class CrdtDatabase implements Database {
@@ -42,7 +49,7 @@ class CrdtDatabase implements Database {
     int? limit,
     int? offset,
     Column? orderBy,
-    List<Order>? orderByList,
+    List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
     Include? include,
@@ -55,6 +62,8 @@ class CrdtDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
+      // Remove this once the deprecated member is removed.
+      // ignore: deprecated_member_use
       orderDescending: orderDescending,
       transaction: transaction,
       include: include,
@@ -74,7 +83,7 @@ class CrdtDatabase implements Database {
     final table = serializationManager.getTableForType(T)!;
     final where = table.id.equals(id);
     return _delegate.findFirstRow<T>(
-      where: mergeWhereWithTombstone(serializationManager, where, include),
+      where: mergeWhereWithTombstone<T>(serializationManager, where, include),
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -87,7 +96,7 @@ class CrdtDatabase implements Database {
     Expression? where,
     int? offset,
     Column? orderBy,
-    List<Order>? orderByList,
+    List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
     Include? include,
@@ -99,6 +108,8 @@ class CrdtDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
+      // Remove this once the deprecated member is removed.
+      // ignore: deprecated_member_use
       orderDescending: orderDescending,
       transaction: transaction,
       include: include,
@@ -225,7 +236,7 @@ class CrdtDatabase implements Database {
     int? limit,
     int? offset,
     Column? orderBy,
-    List<Order>? orderByList,
+    List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
   }) {
@@ -240,6 +251,8 @@ class CrdtDatabase implements Database {
           offset: offset,
           orderBy: orderBy,
           orderByList: orderByList,
+          // Remove this once the deprecated member is removed.
+          // ignore: deprecated_member_use
           orderDescending: orderDescending,
           transaction: tx,
         );
@@ -254,19 +267,31 @@ class CrdtDatabase implements Database {
   @override
   Future<List<T>> delete<T extends TableRow>(
     List<T> rows, {
+    Column? orderBy,
+    List<Column>? orderByList,
+    bool orderDescending = false,
     Transaction? transaction,
   }) {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
-        final result = await _delegate.delete<T>(
-          rows,
-          transaction: tx,
-        );
-
-        await _recorder.afterDelete<T>(result, tx);
-        return result;
+        if (!_domainTableHasUuidPrimaryKey<T>(serializationManager)) {
+          final result = await _delegate.delete<T>(
+            rows,
+            transaction: tx,
+            orderBy: orderBy,
+            orderByList: orderByList,
+            // Remove this once the deprecated member is removed.
+            // ignore: deprecated_member_use
+            orderDescending: orderDescending,
+          );
+          await _recorder.afterDelete<T>(result, tx);
+          return result;
+        }
+        if (rows.isEmpty) return [];
+        await _recorder.markDomainRowsDeleted(rows, tx);
+        return rows;
       },
     );
   }
@@ -280,13 +305,16 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        final result = await _delegate.deleteRow<T>(
-          row,
-          transaction: tx,
-        );
-
-        await _recorder.afterDelete([result], tx);
-        return result;
+        if (!_domainTableHasUuidPrimaryKey<T>(serializationManager)) {
+          final result = await _delegate.deleteRow<T>(
+            row,
+            transaction: tx,
+          );
+          await _recorder.afterDelete([result], tx);
+          return result;
+        }
+        await _recorder.markDomainRowsDeleted([row], tx);
+        return row;
       },
     );
   }
@@ -294,19 +322,35 @@ class CrdtDatabase implements Database {
   @override
   Future<List<T>> deleteWhere<T extends TableRow>({
     required Expression where,
+    Column? orderBy,
+    List<Column>? orderByList,
+    bool orderDescending = false,
     Transaction? transaction,
   }) {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
-        final result = await _delegate.deleteWhere<T>(
-          where: where,
+        if (!_domainTableHasUuidPrimaryKey<T>(serializationManager)) {
+          final result = await _delegate.deleteWhere<T>(
+            where: where,
+            orderBy: orderBy,
+            orderByList: orderByList,
+            // Remove this once the deprecated member is removed.
+            // ignore: deprecated_member_use
+            orderDescending: orderDescending,
+            transaction: tx,
+          );
+          await _recorder.afterDelete(result, tx);
+          return result;
+        }
+        final rows = await _delegate.find<T>(
+          where: mergeWhereWithTombstone<T>(serializationManager, where, null),
           transaction: tx,
         );
-
-        await _recorder.afterDelete(result, tx);
-        return result;
+        if (rows.isEmpty) return [];
+        await _recorder.markDomainRowsDeleted(rows, tx);
+        return rows;
       },
     );
   }

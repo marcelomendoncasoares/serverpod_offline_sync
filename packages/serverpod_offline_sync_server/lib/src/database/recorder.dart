@@ -136,14 +136,99 @@ class CrdtMutationRecorder {
     );
   }
 
-  /// Delete the CRDT metadata for the deleted rows.
+  /// Physical deletes on the delegate DB (non-UUID tables). No CRDT tombstone.
   Future<void> afterDelete<T extends TableRow>(
     List<T> deletedRows,
     Transaction transaction,
+  ) async {}
+
+  /// Sets `CrdtDataDeleted.isDeleted` for domain rows (UUID PK) instead of removing rows.
+  ///
+  /// Expects a matching [CrdtDataRow] per domain row (`rowId` = domain id).
+  Future<void> markDomainRowsDeleted(
+    List<TableRow> rows,
+    Transaction transaction,
   ) async {
-    // Foreign keys use ON DELETE NO ACTION: callers must delete dependent
-    // `CrdtDataField` rows before `CrdtDataRow` / `CrdtSchemaColumn` rows.
-    // Successful deletes therefore do not require extra CRDT rows here.
+    if (rows.isEmpty) return;
+
+    final byUuid = <UuidValue, TableRow>{};
+    for (final row in rows) {
+      if (row.id == null) throw StateError('Row id must be non-null.');
+      final id = row.id;
+      if (id is! UuidValue) {
+        throw StateError('markDomainRowsDeleted expects UuidValue ids.');
+      }
+      byUuid[id] = row;
+    }
+
+    final crdtRows = await CrdtDataRow.db.find(
+      _session,
+      where: (t) => t.rowId.inSet(byUuid.keys.toSet()),
+      transaction: transaction,
+    );
+    if (crdtRows.length != byUuid.length) {
+      final found = crdtRows.map((r) => r.rowId).toSet();
+      final missing = byUuid.keys.toSet().difference(found);
+      throw StateError(
+        'Missing CRDT rows for ${missing.length} deleted domain rows:\n'
+        '${missing.map((id) => '  - $id').join('\n')}',
+      );
+    }
+
+    final crdtIds = {for (final r in crdtRows) r.id!};
+    final existingTombs = await CrdtDataDeleted.db.find(
+      _session,
+      where: (t) => t.rowId.inSet(crdtIds),
+      transaction: transaction,
+    );
+    final tombByCrdtRowPk = {for (final t in existingTombs) t.rowId: t};
+
+    final hlcManager = await _getHlcManager(transaction);
+    final toInsert = <CrdtDataDeleted>[];
+    final toUpdate = <CrdtDataDeleted>[];
+
+    for (final crdtRow in crdtRows) {
+      final pk = crdtRow.id!;
+      final hlc = hlcManager.increment();
+      final existing = tombByCrdtRowPk[pk];
+      if (existing != null) {
+        toUpdate.add(
+          existing.copyWith(
+            isDeleted: true,
+            workerId: hlcManager.workerId,
+            datetime: hlc.datetime,
+            counter: hlc.counter,
+            nodeId: hlcManager.normalizedNodeId,
+          ),
+        );
+      } else {
+        toInsert.add(
+          CrdtDataDeleted(
+            rowId: pk,
+            nodeId: hlcManager.normalizedNodeId,
+            workerId: hlcManager.workerId,
+            datetime: hlc.datetime,
+            counter: hlc.counter,
+            isDeleted: true,
+          ),
+        );
+      }
+    }
+
+    if (toInsert.isNotEmpty) {
+      await CrdtDataDeleted.db.insert(
+        _session,
+        toInsert,
+        transaction: transaction,
+      );
+    }
+    if (toUpdate.isNotEmpty) {
+      await CrdtDataDeleted.db.update(
+        _session,
+        toUpdate,
+        transaction: transaction,
+      );
+    }
   }
 
   Future<HlcManager> _getHlcManager(Transaction transaction) async {

@@ -14,10 +14,10 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
           "fieldName": "id",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -31,9 +31,9 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "inhabitantId",
           "fieldName": "inhabitantId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": true,
-          "dartType": "int?"
+          "dartType": "UuidValue?"
         }
       ],
       "foreignKeys": [
@@ -81,10 +81,10 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
           "fieldName": "id",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -110,10 +110,10 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
           "fieldName": "id",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -127,9 +127,9 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "townId",
           "fieldName": "townId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "dartType": "int"
+          "dartType": "UuidValue"
         }
       ],
       "foreignKeys": [
@@ -162,10 +162,10 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
           "fieldName": "id",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -179,9 +179,9 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "cityId",
           "fieldName": "cityId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": true,
-          "dartType": "int?"
+          "dartType": "UuidValue?"
         }
       ],
       "foreignKeys": [
@@ -214,10 +214,10 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
           "fieldName": "id",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -231,25 +231,25 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "organizationId",
           "fieldName": "organizationId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": true,
-          "dartType": "int?"
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "oldCompanyId",
           "fieldName": "oldCompanyId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": true,
-          "dartType": "int?"
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "_cityCitizensCityId",
           "fieldName": "_cityCitizensCityId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": true,
-          "dartType": "int?"
+          "dartType": "UuidValue?"
         }
       ],
       "foreignKeys": [
@@ -310,10 +310,10 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
           "fieldName": "id",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -327,9 +327,9 @@
           "__className__": "serverpod.ColumnDefinition",
           "name": "mayorId",
           "fieldName": "mayorId",
-          "columnType": 6,
+          "columnType": 7,
           "isNullable": true,
-          "dartType": "int?"
+          "dartType": "UuidValue?"
         }
       ],
       "foreignKeys": [
@@ -360,18 +360,8 @@
     },
     {
       "__className__": "serverpod.DatabaseMigrationVersion",
-      "module": "serverpod_auth_idp",
-      "version": "20260324085850822"
-    },
-    {
-      "__className__": "serverpod.DatabaseMigrationVersion",
       "module": "serverpod_offline_sync",
-      "version": "20260406022300405"
-    },
-    {
-      "__className__": "serverpod.DatabaseMigrationVersion",
-      "module": "serverpod_auth_core",
-      "version": "20260324085844499"
+      "version": "20260415022807074"
     }
   ],
   "migrationApiVersion": 1
