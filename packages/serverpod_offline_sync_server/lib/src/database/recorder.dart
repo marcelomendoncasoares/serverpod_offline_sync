@@ -1,9 +1,12 @@
 import 'package:serverpod/serverpod.dart';
 
+import '../crdt/user.dart';
 import '../generated/protocol.dart';
 import '../hlc/manager.dart';
 import 'database.dart';
+import 'schema.dart';
 import 'session.dart';
+import 'upsert.dart';
 
 /// Persists additional CRDT rows after a mutating ORM operation completes.
 ///
@@ -23,7 +26,21 @@ class CrdtMutationRecorder {
 
   final Database _db;
 
-  late final _session = CrdtDatabaseSession(_db);
+  late final _session = CrdtDatabaseSession(_db, persistentUserId: persistentUserId);
+
+  late final Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
+
+  /// Initializes the CRDT recorder.
+  Future<void> initialize() async {
+    final (tableRows, columnRows) = await CrdtSchema(_session, []).ensureCreated();
+    _schema = {
+      for (final t in tableRows)
+        t.name: (
+          t.id!,
+          {for (final c in columnRows.where((c) => c.tblId == t.id)) c.name: c},
+        ),
+    };
+  }
 
   /// The user ID to use for all CRDT operations. This should only be used for
   /// databases operating on the client side, where all data is for the same user.
@@ -36,11 +53,12 @@ class CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     if (insertedRows.isEmpty) return;
+    if (_shouldSkipCrdtTypes<T>()) return;
 
-    final tableId = await insertedRows.first.table.getId(_session);
-    final hlcManager = await _getHlcManager(transaction);
+    final (tableId, _) = _schema[insertedRows.first.table.tableName]!;
+    final hlcManager = _getHlcManager(transaction);
 
-    final newCrdtRows = insertedRows.map((row) async {
+    final newCrdtRows = insertedRows.map((row) {
       final hlc = hlcManager.increment();
 
       return CrdtDataRow(
@@ -56,7 +74,7 @@ class CrdtMutationRecorder {
 
     await CrdtDataRow.db.insert(
       _session,
-      await newCrdtRows.wait,
+      newCrdtRows.toList(),
       transaction: transaction,
       ignoreConflicts: true,
     );
@@ -72,6 +90,7 @@ class CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     if (updatedRows.isEmpty) return;
+    if (_shouldSkipCrdtTypes<T>()) return;
 
     final existingCrdtFields = await CrdtDataField.db.find(
       _session,
@@ -91,7 +110,7 @@ class CrdtMutationRecorder {
       );
     }
 
-    final hlcManager = await _getHlcManager(transaction);
+    final hlcManager = _getHlcManager(transaction);
     final updatedColumns = columns ?? updatedRows.first.table.columns;
 
     final modifiedCrdtFields = <CrdtDataField>[];
@@ -107,9 +126,7 @@ class CrdtMutationRecorder {
         final hlc = hlcManager.increment();
 
         modifiedCrdtFields.add(
-          CrdtDataField(
-            rowId: existingField.rowId,
-            columnId: existingField.columnId,
+          existingField.copyWith(
             nodeId: hlcManager.normalizedNodeId,
             workerId: hlcManager.workerId,
             datetime: hlc.datetime,
@@ -119,22 +136,13 @@ class CrdtMutationRecorder {
       }
     }
 
-    // TODO: Combine both statements into upsert when it's available.
-    await CrdtDataField.db.insert(
-      _session,
-      modifiedCrdtFields,
-      transaction: transaction,
-      ignoreConflicts: true,
-    );
-
-    // TODO: Update only non-inserted fields.
-    await CrdtDataField.db.update(
-      _session,
+    await _session.db.upsert(
       modifiedCrdtFields,
       transaction: transaction,
     );
   }
 
+  // TODO: Change to INSTEAD OF DELETE.
   /// Physical deletes on the delegate DB (non-UUID tables). No CRDT tombstone.
   Future<void> afterDelete<T extends TableRow>(
     List<T> deletedRows,
@@ -182,7 +190,7 @@ class CrdtMutationRecorder {
     );
     final tombByCrdtRowPk = {for (final t in existingTombs) t.rowId: t};
 
-    final hlcManager = await _getHlcManager(transaction);
+    final hlcManager = _getHlcManager(transaction);
     final toInsert = <CrdtDataDeleted>[];
     final toUpdate = <CrdtDataDeleted>[];
 
@@ -230,31 +238,32 @@ class CrdtMutationRecorder {
     }
   }
 
-  Future<HlcManager> _getHlcManager(Transaction transaction) async {
-    final uuidUserId = await _effectiveUuidUserId(transaction);
-    return HlcManager.forUser(_session, uuidUserId);
+  HlcManager _getHlcManager(Transaction transaction) {
+    final user = _getEffectiveUser(transaction);
+    return HlcManager.forUser(user);
   }
 
-  Future<UuidValue> _effectiveUuidUserId(Transaction transaction) async {
-    final userId = userForTransaction[transaction.hashCode] ?? persistentUserId;
-    if (userId == null) {
+  CrdtUser _getEffectiveUser(Transaction transaction) {
+    final user = userForTransaction[transaction.hashCode];
+    if (user == null && persistentUserId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }
-    return userId;
+    return CrdtUserManager.getCached(persistentUserId!);
   }
 }
 
-extension on Table {
-  Future<int> getId(DatabaseSession session) async {
-    final tableId = await CrdtSchemaTable.db.findFirstRow(
-      session,
-      where: (t) => t.name.equals(tableName),
-    );
-    if (tableId == null || tableId.id == null) {
-      throw StateError('Table not found: $tableName');
-    }
-    return tableId.id!;
+bool _shouldSkipCrdtTypes<T extends TableRow>() {
+  if (T == CrdtDataRow ||
+      T == CrdtDataField ||
+      T == CrdtDataDeleted ||
+      T == CrdtNode ||
+      T == CrdtWorker ||
+      T == CrdtUser ||
+      T == CrdtSchemaTable ||
+      T == CrdtSchemaColumn) {
+    return true;
   }
+  return false;
 }
 
 extension on List<TableRow> {

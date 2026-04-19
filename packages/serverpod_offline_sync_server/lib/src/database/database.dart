@@ -4,7 +4,10 @@
 
 import 'package:serverpod/serverpod.dart';
 
+import '../crdt/user.dart';
+import '../generated/protocol.dart';
 import 'recorder.dart';
+import 'session.dart';
 import 'tombstone.dart';
 
 bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
@@ -15,7 +18,7 @@ bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
 }
 
 /// Map of transaction hashes to the user ID they are associated with.
-final userForTransaction = <int, UuidValue>{};
+final userForTransaction = <int, CrdtUser>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -24,8 +27,7 @@ class CrdtDatabase implements Database {
   CrdtDatabase(
     this._delegate, {
     required this.persistentUserId,
-    required CrdtMutationRecorder Function(Database) recorder,
-  }) : _recorder = recorder(_delegate);
+  }) : _recorder = CrdtMutationRecorder(_delegate, persistentUserId: persistentUserId);
 
   /// The user ID to use for all CRDT operations. This should only be used for
   /// databases operating on the client side, where all data is for the same user.
@@ -35,6 +37,13 @@ class CrdtDatabase implements Database {
   final Database _delegate;
 
   final CrdtMutationRecorder _recorder;
+
+  /// Initializes the CRDT database.
+  Future<void> initialize() async {
+    await _recorder.initialize();
+  }
+
+  DatabaseSession get _session => BasicDatabaseSession(this);
 
   @override
   DatabaseAnalyzer get analyzer => _delegate.analyzer;
@@ -407,11 +416,14 @@ class CrdtDatabase implements Database {
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
     TransactionSettings? settings,
-  }) {
+  }) async {
+    // Ensure that the user exists with a node before starting the transaction.
+    final user = await CrdtUserManager.getOrCreate(_session, userId);
+
     return transaction<R>(
       (tx) {
         try {
-          userForTransaction[tx.hashCode] = userId;
+          userForTransaction[tx.hashCode] = user;
           return transactionFunction(tx);
         } finally {
           userForTransaction.remove(tx.hashCode);

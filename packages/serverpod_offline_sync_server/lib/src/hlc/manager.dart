@@ -38,47 +38,22 @@ class HlcManager {
   /// Returns the [HlcManager] for the given node ID.
   ///
   /// Will create a new [HlcManager] with [Hlc.zero] if no manager is found.
-  static Future<HlcManager> forUser(
-    DatabaseSession session,
-    UuidValue uuidUserId,
-  ) async {
-    var user = await CrdtUser.db.findFirstRow(
-      session,
-      where: (t) => t.uuidUserId.equals(uuidUserId),
-      include: CrdtUser.include(currentNode: CrdtNode.include()),
-    );
-
-    // User must exist in the database.
-    if (user == null) {
-      throw StateError('User $uuidUserId not found in CRDT users table.');
-    }
-
-    // User has no current node and must be created.
-    if (user.currentNodeId == null) {
-      final currentNode = await CrdtNode.db.insertRow(
-        session,
-        CrdtNode(userId: user.id!),
-      );
-      user = user.copyWith(
-        currentNodeId: currentNode.id,
-        currentNode: currentNode,
-      );
-    }
-
-    _instances[uuidUserId] ??= HlcManager._(
-      uuidUserId,
+  static HlcManager forUser(CrdtUser user) {
+    _instances[user.uuidUserId] ??= HlcManager._(
+      user.uuidUserId,
       user.id!,
       user.currentNodeId!,
       user.currentNode!.lastReceivedHlc ??
           Hlc.zero(
             NodeWithWorker(
               nodeId: user.currentNode!.uuidNodeId,
-              workerId: await _getWorkerId(session),
+              // TODO: This must be negotiated in an initialize step.
+              workerId: _workerId ?? (throw StateError('Worker ID not initialized.')),
             ),
           ),
     );
 
-    return _instances[uuidUserId]!;
+    return _instances[user.uuidUserId]!;
   }
 
   /// Closes the [HlcManager] and updates the last received HLC for all nodes.
@@ -127,12 +102,12 @@ class HlcManager {
 
   static int? _workerId;
 
-  /// The ID of this worker to apply to all nodes it manages.
+  /// Set the ID of this worker to apply to all nodes it manages.
   ///
   /// In case of a multi-user instance (like the server), this worker ID will
   /// be reused for all users. It serves only to make the HLC unique across
   /// different workers on the same node.
-  static Future<int> _getWorkerId(DatabaseSession session) async {
+  static Future<int> initialize(DatabaseSession session) async {
     if (_workerId != null) return _workerId!;
 
     _workerId = await session.db.transaction((transaction) async {

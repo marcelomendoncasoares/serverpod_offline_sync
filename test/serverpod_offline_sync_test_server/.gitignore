@@ -13,4 +13,4 @@ build/
 doc/api/
 
 # Test database file
-**/test.db
+**/test.db*
