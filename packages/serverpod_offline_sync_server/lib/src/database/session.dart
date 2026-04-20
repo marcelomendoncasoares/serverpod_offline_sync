@@ -5,19 +5,38 @@ import 'database.dart';
 /// Wraps a [DatabaseSession] to provide a [CrdtDatabase] as [DatabaseSession.db].
 class CrdtDatabaseSession implements DatabaseSession {
   /// Creates a [CrdtDatabaseSession] instance.
-  CrdtDatabaseSession(Database db, {this.persistentUserId})
-    : _db = CrdtDatabase(db, persistentUserId: persistentUserId);
+  CrdtDatabaseSession(
+    Database db, {
 
-  /// Wraps a [DatabaseSession] to provide a [CrdtDatabase] as [DatabaseSession.db].
-  static CrdtDatabaseSession wraps(
-    DatabaseSession session, {
+    /// The list of tables to sync with CRDT.
+    required List<Table> syncTables,
+
+    /// The user ID to use for all CRDT operations. This should only be used for
+    /// databases operating on the client side, where all data is for the same user.
+    /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-  }) => CrdtDatabaseSession(session.db, persistentUserId: persistentUserId);
+  }) : _db = CrdtDatabase(
+         db,
+         syncTables: syncTables,
+         persistentUserId: persistentUserId,
+       );
 
-  /// The user ID to use for all CRDT operations. This should only be used for
-  /// databases operating on the client side, where all data is for the same user.
-  /// Otherwise, the user ID must be passed through the transaction.
-  final UuidValue? persistentUserId;
+  /// Creates a [CrdtDatabaseSession] instance that wraps a [DatabaseSession].
+  factory CrdtDatabaseSession.wraps(
+    DatabaseSession session, {
+
+    /// The list of tables to sync with CRDT.
+    required List<Table> syncTables,
+
+    /// The user ID to use for all CRDT operations. This should only be used for
+    /// databases operating on the client side, where all data is for the same user.
+    /// Otherwise, the user ID must be passed through the transaction.
+    UuidValue? persistentUserId,
+  }) => CrdtDatabaseSession(
+    session.db,
+    syncTables: syncTables,
+    persistentUserId: persistentUserId,
+  );
 
   final CrdtDatabase _db;
 

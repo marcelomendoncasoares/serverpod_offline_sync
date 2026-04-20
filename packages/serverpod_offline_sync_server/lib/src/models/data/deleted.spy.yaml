@@ -6,7 +6,7 @@ extends: BaseHlc
 table: crdt_data_tombstone
 fields:
   ### Row that was deleted.
-  row: CrdtDataRow?, relation(name=row_deleted, field=rowId)
+  row: CrdtDataRow?, relation(name=row_deleted, field=rowId, onDelete=Cascade)
   rowId: int
 
   ### The node that updated the field.

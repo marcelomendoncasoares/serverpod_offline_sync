@@ -18,6 +18,7 @@ class CrdtMutationRecorder {
   CrdtMutationRecorder(
     this._db, {
     required this.persistentUserId,
+    required this.syncTables,
   }) : assert(
          _db is! CrdtDatabase,
          'The database must be the user database, not the CRDT database. '
@@ -26,13 +27,18 @@ class CrdtMutationRecorder {
 
   final Database _db;
 
-  late final _session = CrdtDatabaseSession(_db, persistentUserId: persistentUserId);
+  late final _session = CrdtDatabaseSession(
+    _db,
+    syncTables: syncTables,
+    persistentUserId: persistentUserId,
+  );
 
   late final Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
 
   /// Initializes the CRDT recorder.
   Future<void> initialize() async {
-    final (tableRows, columnRows) = await CrdtSchema(_session, []).ensureCreated();
+    final schemaRegistry = CrdtSchemaRegistry(_session, syncTables: syncTables);
+    final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
     _schema = {
       for (final t in tableRows)
         t.name: (
@@ -46,6 +52,9 @@ class CrdtMutationRecorder {
   /// databases operating on the client side, where all data is for the same user.
   /// Otherwise, the user ID must be passed through the transaction.
   final UuidValue? persistentUserId;
+
+  /// The list of tables to sync with CRDT.
+  final List<Table> syncTables;
 
   /// Insert the CRDT metadata for the inserted rows.
   Future<void> afterInsert<T extends TableRow>(
@@ -64,7 +73,7 @@ class CrdtMutationRecorder {
       return CrdtDataRow(
         userId: hlcManager.normalizedUserId,
         tblId: tableId,
-        rowId: row.id as UuidValue,
+        uuidRowId: row.id as UuidValue,
         nodeId: hlcManager.normalizedNodeId,
         workerId: hlcManager.workerId,
         datetime: hlc.datetime,
@@ -94,14 +103,14 @@ class CrdtMutationRecorder {
 
     final existingCrdtFields = await CrdtDataField.db.find(
       _session,
-      where: (t) => t.row.rowId.inSet(updatedRows.uuidRowIds),
+      where: (t) => t.row.uuidRowId.inSet(updatedRows.uuidRowIds),
       include: CrdtDataField.include(
         row: CrdtDataRow.include(),
         column: CrdtSchemaColumn.include(),
       ),
     );
 
-    final existingCrdtRowIds = existingCrdtFields.map((f) => f.row!.rowId).toSet();
+    final existingCrdtRowIds = existingCrdtFields.map((f) => f.row!.uuidRowId).toSet();
     if (existingCrdtRowIds.length != updatedRows.length) {
       final missingRowIds = updatedRows.uuidRowIds.difference(existingCrdtRowIds);
       throw StateError(
@@ -116,7 +125,7 @@ class CrdtMutationRecorder {
     final modifiedCrdtFields = <CrdtDataField>[];
     for (final row in updatedRows) {
       final existingFields = existingCrdtFields
-          .where((field) => field.row!.rowId == row.id as UuidValue)
+          .where((field) => field.row!.uuidRowId == row.id as UuidValue)
           .toList();
 
       for (final column in updatedColumns) {
@@ -143,6 +152,7 @@ class CrdtMutationRecorder {
   }
 
   // TODO: Change to INSTEAD OF DELETE.
+  // TODO: Must evaluate cascade operations.
   /// Physical deletes on the delegate DB (non-UUID tables). No CRDT tombstone.
   Future<void> afterDelete<T extends TableRow>(
     List<T> deletedRows,
@@ -170,11 +180,11 @@ class CrdtMutationRecorder {
 
     final crdtRows = await CrdtDataRow.db.find(
       _session,
-      where: (t) => t.rowId.inSet(byUuid.keys.toSet()),
+      where: (t) => t.uuidRowId.inSet(byUuid.keys.toSet()),
       transaction: transaction,
     );
     if (crdtRows.length != byUuid.length) {
-      final found = crdtRows.map((r) => r.rowId).toSet();
+      final found = crdtRows.map((r) => r.uuidRowId).toSet();
       final missing = byUuid.keys.toSet().difference(found);
       throw StateError(
         'Missing CRDT rows for ${missing.length} deleted domain rows:\n'
@@ -244,7 +254,7 @@ class CrdtMutationRecorder {
   }
 
   CrdtUser _getEffectiveUser(Transaction transaction) {
-    final user = userForTransaction[transaction.hashCode];
+    final user = userForTransaction[transaction];
     if (user == null && persistentUserId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }

@@ -61,7 +61,7 @@ void main() {
             setUp(() async {
               crdtRow = (await CrdtDataRow.db.findFirstRow(
                 session,
-                where: (t) => t.rowId.equals(person.id),
+                where: (t) => t.uuidRowId.equals(person.id),
                 include: CrdtDataRow.include(node: CrdtNode.include()),
               ))!;
             });
@@ -71,11 +71,11 @@ void main() {
               () async {
                 final fieldCount = await CrdtDataField.db.count(
                   session,
-                  where: (t) => t.row.rowId.equals(person.id),
+                  where: (t) => t.row.uuidRowId.equals(person.id),
                 );
                 expect(fieldCount, 3);
                 expect(crdtRow.tblId, isNotNull);
-                expect(crdtRow.rowId, person.id);
+                expect(crdtRow.uuidRowId, person.id);
               },
             );
 
@@ -120,7 +120,7 @@ void main() {
 
             final fields = await CrdtDataField.db.find(
               session,
-              where: (t) => t.row.rowId.equals(person.id),
+              where: (t) => t.row.uuidRowId.equals(person.id),
               include: CrdtDataField.include(
                 column: CrdtSchemaColumn.include(),
                 row: CrdtDataRow.include(node: CrdtNode.include()),
@@ -163,7 +163,7 @@ void main() {
             setUp(() async {
               fields = await CrdtDataField.db.find(
                 session,
-                where: (t) => t.row.rowId.equals(person.id),
+                where: (t) => t.row.uuidRowId.equals(person.id),
                 include: CrdtDataField.include(
                   column: CrdtSchemaColumn.include(),
                   row: CrdtDataRow.include(node: CrdtNode.include()),
@@ -216,7 +216,7 @@ void main() {
 
             final field = (await CrdtDataField.db.findFirstRow(
               session,
-              where: (t) => t.row.rowId.equals(person.id),
+              where: (t) => t.row.uuidRowId.equals(person.id),
               include: CrdtDataField.include(
                 row: CrdtDataRow.include(node: CrdtNode.include()),
               ),
@@ -239,7 +239,7 @@ void main() {
             () async {
               final field = (await CrdtDataField.db.findFirstRow(
                 session,
-                where: (t) => t.row.rowId.equals(person.id),
+                where: (t) => t.row.uuidRowId.equals(person.id),
                 include: CrdtDataField.include(
                   row: CrdtDataRow.include(node: CrdtNode.include()),
                 ),
@@ -270,7 +270,7 @@ void main() {
 
             final crdtRow = (await CrdtDataRow.db.findFirstRow(
               session,
-              where: (t) => t.rowId.equals(person.id),
+              where: (t) => t.uuidRowId.equals(person.id),
               include: CrdtDataRow.include(node: CrdtNode.include()),
             ))!;
             createdRowHlc = crdtRow.toHlcForNode(crdtRow.node!.uuidNodeId);
@@ -289,7 +289,7 @@ void main() {
             test('then isDeleted is true with an HLC after the insert HLC.', () async {
               final crdtRow = (await CrdtDataRow.db.findFirstRow(
                 session,
-                where: (t) => t.rowId.equals(person.id),
+                where: (t) => t.uuidRowId.equals(person.id),
                 include: CrdtDataRow.include(node: CrdtNode.include()),
               ))!;
 
@@ -342,7 +342,7 @@ void main() {
 
             fieldCount = await CrdtDataField.db.count(
               session,
-              where: (t) => t.row.rowId.equals(person.id),
+              where: (t) => t.row.uuidRowId.equals(person.id),
             );
 
             await Person.db.updateRow(
@@ -358,7 +358,7 @@ void main() {
               expect(
                 await CrdtDataField.db.count(
                   session,
-                  where: (t) => t.row.rowId.equals(person.id),
+                  where: (t) => t.row.uuidRowId.equals(person.id),
                 ),
                 fieldCount,
               );

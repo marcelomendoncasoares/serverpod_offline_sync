@@ -81,7 +81,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -95,7 +95,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -193,8 +193,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "rowId",
-          "fieldName": "rowId",
+          "name": "uuidRowId",
+          "fieldName": "uuidRowId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
@@ -221,7 +221,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -235,7 +235,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -270,7 +270,7 @@
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "rowId"
+              "definition": "uuidRowId"
             }
           ],
           "type": "btree",
@@ -358,7 +358,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -456,13 +456,13 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         }
       ],
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_nodes_unique_idx",
+          "indexName": "crdt_nodes__uuidNodeId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -523,7 +523,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         }
       ],
       "indexes": [
@@ -578,7 +578,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_schema_tables_idx",
+          "indexName": "crdt_schema_tables__name__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -646,7 +646,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_users_idx",
+          "indexName": "crdt_users__uuidUserId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -690,7 +690,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_workers_unique_idx",
+          "indexName": "crdt_workers__workerId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -710,7 +710,7 @@
     {
       "__className__": "serverpod.DatabaseMigrationVersion",
       "module": "serverpod",
-      "version": "20260324085808546"
+      "version": "20260416151914983-insights-perf"
     }
   ],
   "migrationApiVersion": 1

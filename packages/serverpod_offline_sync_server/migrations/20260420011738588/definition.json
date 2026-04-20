@@ -81,7 +81,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -95,7 +95,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -193,8 +193,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "rowId",
-          "fieldName": "rowId",
+          "name": "uuidRowId",
+          "fieldName": "uuidRowId",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
@@ -221,7 +221,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -235,7 +235,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -270,7 +270,7 @@
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "rowId"
+              "definition": "uuidRowId"
             }
           ],
           "type": "btree",
@@ -358,7 +358,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         },
         {
           "__className__": "serverpod.ForeignKeyDefinition",
@@ -456,13 +456,13 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         }
       ],
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_nodes_unique_idx",
+          "indexName": "crdt_nodes__uuidNodeId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -523,7 +523,7 @@
             "id"
           ],
           "onUpdate": 3,
-          "onDelete": 3
+          "onDelete": 4
         }
       ],
       "indexes": [
@@ -578,7 +578,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_schema_tables_idx",
+          "indexName": "crdt_schema_tables__name__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -646,7 +646,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_users_idx",
+          "indexName": "crdt_users__uuidUserId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -690,7 +690,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_workers_unique_idx",
+          "indexName": "crdt_workers__workerId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -715,6 +715,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -723,6 +724,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "storageId",
+          "fieldName": "storageId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -730,6 +732,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "path",
+          "fieldName": "path",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -737,6 +740,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "addedTime",
+          "fieldName": "addedTime",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -744,6 +748,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "expiration",
+          "fieldName": "expiration",
           "columnType": 4,
           "isNullable": true,
           "dartType": "DateTime?"
@@ -751,6 +756,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "byteData",
+          "fieldName": "byteData",
           "columnType": 5,
           "isNullable": false,
           "dartType": "dart:typed_data:ByteData"
@@ -758,6 +764,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "verified",
+          "fieldName": "verified",
           "columnType": 1,
           "isNullable": false,
           "dartType": "bool"
@@ -811,6 +818,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -819,6 +827,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "storageId",
+          "fieldName": "storageId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -826,6 +835,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "path",
+          "fieldName": "path",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -833,6 +843,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "expiration",
+          "fieldName": "expiration",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -840,6 +851,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "authKey",
+          "fieldName": "authKey",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -879,6 +891,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -887,6 +900,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "name",
+          "fieldName": "name",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -894,6 +908,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "time",
+          "fieldName": "time",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -901,6 +916,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serializedObject",
+          "fieldName": "serializedObject",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -908,6 +924,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -915,9 +932,18 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "identifier",
+          "fieldName": "identifier",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "scheduling",
+          "fieldName": "scheduling",
+          "columnType": 8,
+          "isNullable": true,
+          "dartType": "protocol:FutureCallScheduling?"
         }
       ],
       "foreignKeys": [],
@@ -977,6 +1003,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -985,6 +1012,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "futureCallId",
+          "fieldName": "futureCallId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -992,6 +1020,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "lastHeartbeatTime",
+          "fieldName": "lastHeartbeatTime",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -1041,6 +1070,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1049,6 +1079,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1056,6 +1087,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "timestamp",
+          "fieldName": "timestamp",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -1063,6 +1095,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "active",
+          "fieldName": "active",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1070,6 +1103,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "closing",
+          "fieldName": "closing",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1077,6 +1111,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "idle",
+          "fieldName": "idle",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1084,6 +1119,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "granularity",
+          "fieldName": "granularity",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1128,6 +1164,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1136,6 +1173,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "name",
+          "fieldName": "name",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1143,6 +1181,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1150,6 +1189,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "timestamp",
+          "fieldName": "timestamp",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -1157,6 +1197,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "isHealthy",
+          "fieldName": "isHealthy",
           "columnType": 1,
           "isNullable": false,
           "dartType": "bool"
@@ -1164,6 +1205,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "value",
+          "fieldName": "value",
           "columnType": 3,
           "isNullable": false,
           "dartType": "double"
@@ -1171,6 +1213,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "granularity",
+          "fieldName": "granularity",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1220,6 +1263,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1228,6 +1272,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "sessionLogId",
+          "fieldName": "sessionLogId",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1235,6 +1280,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "messageId",
+          "fieldName": "messageId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1242,6 +1288,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "reference",
+          "fieldName": "reference",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1249,6 +1296,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1256,6 +1304,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "time",
+          "fieldName": "time",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -1263,6 +1312,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "logLevel",
+          "fieldName": "logLevel",
           "columnType": 6,
           "isNullable": false,
           "dartType": "protocol:LogLevel"
@@ -1270,6 +1320,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "message",
+          "fieldName": "message",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1277,6 +1328,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "error",
+          "fieldName": "error",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1284,6 +1336,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "stackTrace",
+          "fieldName": "stackTrace",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1291,6 +1344,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "order",
+          "fieldName": "order",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1321,6 +1375,11 @@
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
               "definition": "sessionLogId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "order"
             }
           ],
           "type": "btree",
@@ -1340,6 +1399,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1348,6 +1408,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "sessionLogId",
+          "fieldName": "sessionLogId",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1355,6 +1416,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1362,6 +1424,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "messageId",
+          "fieldName": "messageId",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1369,6 +1432,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "endpoint",
+          "fieldName": "endpoint",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1376,6 +1440,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "messageName",
+          "fieldName": "messageName",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1383,6 +1448,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "duration",
+          "fieldName": "duration",
           "columnType": 3,
           "isNullable": false,
           "dartType": "double"
@@ -1390,6 +1456,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "error",
+          "fieldName": "error",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1397,6 +1464,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "stackTrace",
+          "fieldName": "stackTrace",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1404,6 +1472,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "slow",
+          "fieldName": "slow",
           "columnType": 1,
           "isNullable": false,
           "dartType": "bool"
@@ -1411,6 +1480,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "order",
+          "fieldName": "order",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1432,7 +1502,27 @@
           "onDelete": 4
         }
       ],
-      "indexes": [],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "serverpod_message_log_sessionLogId_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "sessionLogId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "order"
+            }
+          ],
+          "type": "btree",
+          "isUnique": false,
+          "isPrimary": false
+        }
+      ],
       "managed": true
     },
     {
@@ -1445,6 +1535,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1453,6 +1544,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "endpoint",
+          "fieldName": "endpoint",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1460,6 +1552,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "method",
+          "fieldName": "method",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1499,6 +1592,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1507,6 +1601,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "module",
+          "fieldName": "module",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1514,6 +1609,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "version",
+          "fieldName": "version",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1521,6 +1617,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "timestamp",
+          "fieldName": "timestamp",
           "columnType": 4,
           "isNullable": true,
           "dartType": "DateTime?"
@@ -1555,6 +1652,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1563,6 +1661,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1570,6 +1669,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "sessionLogId",
+          "fieldName": "sessionLogId",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1577,6 +1677,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "messageId",
+          "fieldName": "messageId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1584,6 +1685,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "query",
+          "fieldName": "query",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1591,6 +1693,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "duration",
+          "fieldName": "duration",
           "columnType": 3,
           "isNullable": false,
           "dartType": "double"
@@ -1598,6 +1701,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "numRows",
+          "fieldName": "numRows",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1605,6 +1709,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "error",
+          "fieldName": "error",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1612,6 +1717,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "stackTrace",
+          "fieldName": "stackTrace",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1619,6 +1725,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "slow",
+          "fieldName": "slow",
           "columnType": 1,
           "isNullable": false,
           "dartType": "bool"
@@ -1626,6 +1733,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "order",
+          "fieldName": "order",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1656,6 +1764,11 @@
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
               "definition": "sessionLogId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "order"
             }
           ],
           "type": "btree",
@@ -1675,6 +1788,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1683,6 +1797,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "number",
+          "fieldName": "number",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -1702,6 +1817,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1710,6 +1826,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "logSettings",
+          "fieldName": "logSettings",
           "columnType": 8,
           "isNullable": false,
           "dartType": "protocol:LogSettings"
@@ -1717,6 +1834,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "logSettingsOverrides",
+          "fieldName": "logSettingsOverrides",
           "columnType": 8,
           "isNullable": false,
           "dartType": "List<protocol:LogSettingsOverride>"
@@ -1724,6 +1842,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "logServiceCalls",
+          "fieldName": "logServiceCalls",
           "columnType": 1,
           "isNullable": false,
           "dartType": "bool"
@@ -1731,6 +1850,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "logMalformedCalls",
+          "fieldName": "logMalformedCalls",
           "columnType": 1,
           "isNullable": false,
           "dartType": "bool"
@@ -1750,6 +1870,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "id",
+          "fieldName": "id",
           "columnType": 6,
           "isNullable": false,
           "columnDefault": "serial",
@@ -1758,6 +1879,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "serverId",
+          "fieldName": "serverId",
           "columnType": 0,
           "isNullable": false,
           "dartType": "String"
@@ -1765,6 +1887,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "time",
+          "fieldName": "time",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -1772,6 +1895,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "module",
+          "fieldName": "module",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1779,6 +1903,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "endpoint",
+          "fieldName": "endpoint",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1786,6 +1911,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "method",
+          "fieldName": "method",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1793,6 +1919,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "duration",
+          "fieldName": "duration",
           "columnType": 3,
           "isNullable": true,
           "dartType": "double?"
@@ -1800,6 +1927,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "numQueries",
+          "fieldName": "numQueries",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1807,6 +1935,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "slow",
+          "fieldName": "slow",
           "columnType": 1,
           "isNullable": true,
           "dartType": "bool?"
@@ -1814,6 +1943,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "error",
+          "fieldName": "error",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1821,6 +1951,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "stackTrace",
+          "fieldName": "stackTrace",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1828,6 +1959,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "authenticatedUserId",
+          "fieldName": "authenticatedUserId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1835,6 +1967,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "userId",
+          "fieldName": "userId",
           "columnType": 0,
           "isNullable": true,
           "dartType": "String?"
@@ -1842,6 +1975,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "isOpen",
+          "fieldName": "isOpen",
           "columnType": 1,
           "isNullable": true,
           "dartType": "bool?"
@@ -1849,6 +1983,7 @@
         {
           "__className__": "serverpod.ColumnDefinition",
           "name": "touched",
+          "fieldName": "touched",
           "columnType": 4,
           "isNullable": false,
           "dartType": "DateTime"
@@ -1920,12 +2055,12 @@
     {
       "__className__": "serverpod.DatabaseMigrationVersionModel",
       "module": "serverpod_offline_sync",
-      "version": "20260415022807074"
+      "version": "20260420011738588"
     },
     {
       "__className__": "serverpod.DatabaseMigrationVersion",
       "module": "serverpod",
-      "version": "20260324085808546"
+      "version": "20260416151914983-insights-perf"
     }
   ],
   "migrationApiVersion": 1

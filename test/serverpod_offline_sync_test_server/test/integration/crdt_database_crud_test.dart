@@ -36,7 +36,7 @@ void main() {
 
             final crdtRows = await CrdtDataRow.db.find(
               session,
-              where: (t) => t.rowId.equals(person.id),
+              where: (t) => t.uuidRowId.equals(person.id),
             );
             expect(crdtRows, hasLength(1));
             expect(crdtRows.single.tblId, isNotNull);
@@ -68,7 +68,7 @@ void main() {
             for (final p in inserted) {
               final n = await CrdtDataRow.db.count(
                 session,
-                where: (t) => t.rowId.equals(p.id),
+                where: (t) => t.uuidRowId.equals(p.id),
               );
               expect(n, 1);
             }
@@ -137,7 +137,7 @@ void main() {
 
               final crdtRow = await CrdtDataRow.db.findFirstRow(
                 session,
-                where: (t) => t.rowId.equals(person.id),
+                where: (t) => t.uuidRowId.equals(person.id),
               );
               expect(crdtRow, isNotNull);
 

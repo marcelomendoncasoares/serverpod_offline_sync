@@ -81,7 +81,7 @@ extension on Table {
   /// similarly to the generated field [CrdtDataRow.deleted].
   ///
   /// Join path:
-  ///   - [id] = [CrdtDataRow.rowId],
+  ///   - UserModel.[id] = [CrdtDataRow.uuidRowId],
   ///   - [CrdtDataRow.id] = [CrdtDataDeleted.rowId].
   ///
   /// Returns null when [Table] does not use a UUID primary key. Keeps rows
@@ -92,7 +92,7 @@ extension on Table {
     final crdtRowTable = createRelationTable<CrdtDataRowTable>(
       relationFieldName: '${tableName}_crdt_row',
       field: id,
-      foreignField: CrdtDataRow.t.rowId,
+      foreignField: CrdtDataRow.t.uuidRowId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
           CrdtDataRowTable(tableRelation: foreignTableRelation),

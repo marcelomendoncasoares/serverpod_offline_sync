@@ -10,9 +10,4 @@ class: CrdtWorker
 table: crdt_workers
 fields:
   ### The worker ID to identify different workers on the same node.
-  workerId: int
-
-indexes:
-  crdt_workers_unique_idx:
-    fields: workerId
-    unique: true
+  workerId: int, unique

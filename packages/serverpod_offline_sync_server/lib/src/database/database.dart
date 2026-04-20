@@ -18,7 +18,7 @@ bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
 }
 
 /// Map of transaction hashes to the user ID they are associated with.
-final userForTransaction = <int, CrdtUser>{};
+final userForTransaction = <Transaction, CrdtUser>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -26,13 +26,19 @@ class CrdtDatabase implements Database {
   /// Creates a CRDT-aware database wrapper around the inner database.
   CrdtDatabase(
     this._delegate, {
-    required this.persistentUserId,
-  }) : _recorder = CrdtMutationRecorder(_delegate, persistentUserId: persistentUserId);
 
-  /// The user ID to use for all CRDT operations. This should only be used for
-  /// databases operating on the client side, where all data is for the same user.
-  /// Otherwise, the user ID must be passed through the transaction.
-  final UuidValue? persistentUserId;
+    /// The list of tables to sync with CRDT.
+    required List<Table> syncTables,
+
+    /// The user ID to use for all CRDT operations. This should only be used for
+    /// databases operating on the client side, where all data is for the same user.
+    /// Otherwise, the user ID must be passed through the transaction.
+    UuidValue? persistentUserId,
+  }) : _recorder = CrdtMutationRecorder(
+         _delegate,
+         persistentUserId: persistentUserId,
+         syncTables: syncTables,
+       );
 
   final Database _delegate;
 
@@ -423,10 +429,10 @@ class CrdtDatabase implements Database {
     return transaction<R>(
       (tx) {
         try {
-          userForTransaction[tx.hashCode] = user;
+          userForTransaction[tx] = user;
           return transactionFunction(tx);
         } finally {
-          userForTransaction.remove(tx.hashCode);
+          userForTransaction.remove(tx);
         }
       },
       settings: settings,

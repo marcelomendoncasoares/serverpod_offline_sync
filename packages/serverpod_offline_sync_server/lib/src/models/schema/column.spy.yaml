@@ -3,7 +3,7 @@ class: CrdtSchemaColumn
 table: crdt_schema_columns
 fields:
   ### Reference to the table this column belongs to.
-  tbl: CrdtSchemaTable?, relation
+  tbl: CrdtSchemaTable?, relation(onDelete=Cascade)
 
   ### Name of the column.
   name: String

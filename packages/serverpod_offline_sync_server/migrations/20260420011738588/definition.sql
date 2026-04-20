@@ -1,7 +1,7 @@
 BEGIN;
 
 --
--- ACTION CREATE TABLE
+-- Class CrdtDataField as table crdt_data_fields
 --
 CREATE TABLE "crdt_data_fields" (
     "id" INTEGER PRIMARY KEY,
@@ -11,16 +11,17 @@ CREATE TABLE "crdt_data_fields" (
     "rowId" INTEGER NOT NULL,
     "columnId" INTEGER NOT NULL,
     "nodeId" INTEGER NOT NULL,
-    CONSTRAINT "crdt_data_fields_fk_0" FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "crdt_data_fields_fk_1" FOREIGN KEY ("columnId") REFERENCES "crdt_schema_columns" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "crdt_data_fields_fk_0" FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
+    CONSTRAINT "crdt_data_fields_fk_1" FOREIGN KEY ("columnId") REFERENCES "crdt_schema_columns" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT "crdt_data_fields_fk_2" FOREIGN KEY ("nodeId") REFERENCES "crdt_nodes" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 ) STRICT;
 
 -- Indexes
 CREATE UNIQUE INDEX "crdt_data_fields_row_column_idx" ON "crdt_data_fields" ("rowId", "columnId");
 
+
 --
--- ACTION CREATE TABLE
+-- Class CrdtDataRow as table crdt_data_rows
 --
 CREATE TABLE "crdt_data_rows" (
     "id" INTEGER PRIMARY KEY,
@@ -29,18 +30,19 @@ CREATE TABLE "crdt_data_rows" (
     "counter" INTEGER NOT NULL,
     "userId" INTEGER NOT NULL,
     "tblId" INTEGER NOT NULL,
-    "rowId" BLOB NOT NULL,
+    "uuidRowId" BLOB NOT NULL,
     "nodeId" INTEGER NOT NULL,
-    CONSTRAINT "crdt_data_rows_fk_0" FOREIGN KEY ("userId") REFERENCES "crdt_users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
-    CONSTRAINT "crdt_data_rows_fk_1" FOREIGN KEY ("tblId") REFERENCES "crdt_schema_tables" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "crdt_data_rows_fk_0" FOREIGN KEY ("userId") REFERENCES "crdt_users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
+    CONSTRAINT "crdt_data_rows_fk_1" FOREIGN KEY ("tblId") REFERENCES "crdt_schema_tables" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT "crdt_data_rows_fk_2" FOREIGN KEY ("nodeId") REFERENCES "crdt_nodes" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 ) STRICT;
 
 -- Indexes
-CREATE UNIQUE INDEX "crdt_data_rows_user_tbl_row_idx" ON "crdt_data_rows" ("userId", "tblId", "rowId");
+CREATE UNIQUE INDEX "crdt_data_rows_user_tbl_row_idx" ON "crdt_data_rows" ("userId", "tblId", "uuidRowId");
+
 
 --
--- ACTION CREATE TABLE
+-- Class CrdtDataDeleted as table crdt_data_tombstone
 --
 CREATE TABLE "crdt_data_tombstone" (
     "id" INTEGER PRIMARY KEY,
@@ -50,15 +52,16 @@ CREATE TABLE "crdt_data_tombstone" (
     "rowId" INTEGER NOT NULL,
     "nodeId" INTEGER NOT NULL,
     "isDeleted" INTEGER NOT NULL,
-    CONSTRAINT "crdt_data_tombstone_fk_0" FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT "crdt_data_tombstone_fk_0" FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT "crdt_data_tombstone_fk_1" FOREIGN KEY ("nodeId") REFERENCES "crdt_nodes" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 ) STRICT;
 
 -- Indexes
 CREATE UNIQUE INDEX "crdt_data_tombstone_row_idx" ON "crdt_data_tombstone" ("rowId");
 
+
 --
--- ACTION CREATE TABLE
+-- Class CrdtNode as table crdt_nodes
 --
 CREATE TABLE "crdt_nodes" (
     "id" INTEGER PRIMARY KEY,
@@ -66,27 +69,29 @@ CREATE TABLE "crdt_nodes" (
     "uuidNodeId" BLOB NOT NULL DEFAULT (unhex(printf('%012x', CAST(unixepoch('now', 'subsecond') * 1000 AS INTEGER)) || '7' || substr(hex(randomblob(2)), 2, 3) || substr('89AB', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(8)), 2, 15))),
     "lastSeenMigrationVersion" TEXT,
     "lastReceivedHlc" TEXT,
-    CONSTRAINT "crdt_nodes_fk_0" FOREIGN KEY ("userId") REFERENCES "crdt_users" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    CONSTRAINT "crdt_nodes_fk_0" FOREIGN KEY ("userId") REFERENCES "crdt_users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
 ) STRICT;
 
 -- Indexes
-CREATE UNIQUE INDEX "crdt_nodes_unique_idx" ON "crdt_nodes" ("uuidNodeId");
+CREATE UNIQUE INDEX "crdt_nodes__uuidNodeId__unique_idx" ON "crdt_nodes" ("uuidNodeId");
+
 
 --
--- ACTION CREATE TABLE
+-- Class CrdtSchemaColumn as table crdt_schema_columns
 --
 CREATE TABLE "crdt_schema_columns" (
     "id" INTEGER PRIMARY KEY,
     "tblId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
-    CONSTRAINT "crdt_schema_columns_fk_0" FOREIGN KEY ("tblId") REFERENCES "crdt_schema_tables" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+    CONSTRAINT "crdt_schema_columns_fk_0" FOREIGN KEY ("tblId") REFERENCES "crdt_schema_tables" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
 ) STRICT;
 
 -- Indexes
 CREATE UNIQUE INDEX "crdt_schema_columns_table_column_idx" ON "crdt_schema_columns" ("tblId", "name");
 
+
 --
--- ACTION CREATE TABLE
+-- Class CrdtSchemaTable as table crdt_schema_tables
 --
 CREATE TABLE "crdt_schema_tables" (
     "id" INTEGER PRIMARY KEY,
@@ -94,10 +99,11 @@ CREATE TABLE "crdt_schema_tables" (
 ) STRICT;
 
 -- Indexes
-CREATE UNIQUE INDEX "crdt_schema_tables_idx" ON "crdt_schema_tables" ("name");
+CREATE UNIQUE INDEX "crdt_schema_tables__name__unique_idx" ON "crdt_schema_tables" ("name");
+
 
 --
--- ACTION CREATE TABLE
+-- Class CrdtUser as table crdt_users
 --
 CREATE TABLE "crdt_users" (
     "id" INTEGER PRIMARY KEY,
@@ -107,10 +113,11 @@ CREATE TABLE "crdt_users" (
 ) STRICT;
 
 -- Indexes
-CREATE UNIQUE INDEX "crdt_users_idx" ON "crdt_users" ("uuidUserId");
+CREATE UNIQUE INDEX "crdt_users__uuidUserId__unique_idx" ON "crdt_users" ("uuidUserId");
+
 
 --
--- ACTION CREATE TABLE
+-- Class CrdtWorker as table crdt_workers
 --
 CREATE TABLE "crdt_workers" (
     "id" INTEGER PRIMARY KEY,
@@ -118,10 +125,11 @@ CREATE TABLE "crdt_workers" (
 ) STRICT;
 
 -- Indexes
-CREATE UNIQUE INDEX "crdt_workers_unique_idx" ON "crdt_workers" ("workerId");
+CREATE UNIQUE INDEX "crdt_workers__workerId__unique_idx" ON "crdt_workers" ("workerId");
+
 
 --
--- ACTION CREATE TABLE
+-- Class CloudStorageEntry as table serverpod_cloud_storage
 --
 CREATE TABLE "serverpod_cloud_storage" (
     "id" INTEGER PRIMARY KEY,
@@ -137,8 +145,9 @@ CREATE TABLE "serverpod_cloud_storage" (
 CREATE UNIQUE INDEX "serverpod_cloud_storage_path_idx" ON "serverpod_cloud_storage" ("storageId", "path");
 CREATE INDEX "serverpod_cloud_storage_expiration" ON "serverpod_cloud_storage" ("expiration");
 
+
 --
--- ACTION CREATE TABLE
+-- Class CloudStorageDirectUploadEntry as table serverpod_cloud_storage_direct_upload
 --
 CREATE TABLE "serverpod_cloud_storage_direct_upload" (
     "id" INTEGER PRIMARY KEY,
@@ -151,8 +160,9 @@ CREATE TABLE "serverpod_cloud_storage_direct_upload" (
 -- Indexes
 CREATE UNIQUE INDEX "serverpod_cloud_storage_direct_upload_storage_path" ON "serverpod_cloud_storage_direct_upload" ("storageId", "path");
 
+
 --
--- ACTION CREATE TABLE
+-- Class FutureCallEntry as table serverpod_future_call
 --
 CREATE TABLE "serverpod_future_call" (
     "id" INTEGER PRIMARY KEY,
@@ -160,7 +170,8 @@ CREATE TABLE "serverpod_future_call" (
     "time" INTEGER NOT NULL,
     "serializedObject" TEXT,
     "serverId" TEXT NOT NULL,
-    "identifier" TEXT
+    "identifier" TEXT,
+    "scheduling" TEXT
 ) STRICT;
 
 -- Indexes
@@ -168,8 +179,9 @@ CREATE INDEX "serverpod_future_call_time_idx" ON "serverpod_future_call" ("time"
 CREATE INDEX "serverpod_future_call_serverId_idx" ON "serverpod_future_call" ("serverId");
 CREATE INDEX "serverpod_future_call_identifier_idx" ON "serverpod_future_call" ("identifier");
 
+
 --
--- ACTION CREATE TABLE
+-- Class FutureCallClaimEntry as table serverpod_future_call_claim
 --
 CREATE TABLE "serverpod_future_call_claim" (
     "id" INTEGER PRIMARY KEY,
@@ -181,8 +193,9 @@ CREATE TABLE "serverpod_future_call_claim" (
 -- Indexes
 CREATE UNIQUE INDEX "future_call_unique_idx" ON "serverpod_future_call_claim" ("futureCallId");
 
+
 --
--- ACTION CREATE TABLE
+-- Class ServerHealthConnectionInfo as table serverpod_health_connection_info
 --
 CREATE TABLE "serverpod_health_connection_info" (
     "id" INTEGER PRIMARY KEY,
@@ -197,8 +210,9 @@ CREATE TABLE "serverpod_health_connection_info" (
 -- Indexes
 CREATE UNIQUE INDEX "serverpod_health_connection_info_timestamp_idx" ON "serverpod_health_connection_info" ("timestamp", "serverId", "granularity");
 
+
 --
--- ACTION CREATE TABLE
+-- Class ServerHealthMetric as table serverpod_health_metric
 --
 CREATE TABLE "serverpod_health_metric" (
     "id" INTEGER PRIMARY KEY,
@@ -213,8 +227,9 @@ CREATE TABLE "serverpod_health_metric" (
 -- Indexes
 CREATE UNIQUE INDEX "serverpod_health_metric_timestamp_idx" ON "serverpod_health_metric" ("timestamp", "serverId", "name", "granularity");
 
+
 --
--- ACTION CREATE TABLE
+-- Class LogEntry as table serverpod_log
 --
 CREATE TABLE "serverpod_log" (
     "id" INTEGER PRIMARY KEY,
@@ -232,10 +247,11 @@ CREATE TABLE "serverpod_log" (
 ) STRICT;
 
 -- Indexes
-CREATE INDEX "serverpod_log_sessionLogId_idx" ON "serverpod_log" ("sessionLogId");
+CREATE INDEX "serverpod_log_sessionLogId_idx" ON "serverpod_log" ("sessionLogId", "order");
+
 
 --
--- ACTION CREATE TABLE
+-- Class MessageLogEntry as table serverpod_message_log
 --
 CREATE TABLE "serverpod_message_log" (
     "id" INTEGER PRIMARY KEY,
@@ -252,8 +268,12 @@ CREATE TABLE "serverpod_message_log" (
     CONSTRAINT "serverpod_message_log_fk_0" FOREIGN KEY ("sessionLogId") REFERENCES "serverpod_session_log" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
 ) STRICT;
 
+-- Indexes
+CREATE INDEX "serverpod_message_log_sessionLogId_idx" ON "serverpod_message_log" ("sessionLogId", "order");
+
+
 --
--- ACTION CREATE TABLE
+-- Class MethodInfo as table serverpod_method
 --
 CREATE TABLE "serverpod_method" (
     "id" INTEGER PRIMARY KEY,
@@ -264,8 +284,9 @@ CREATE TABLE "serverpod_method" (
 -- Indexes
 CREATE UNIQUE INDEX "serverpod_method_endpoint_method_idx" ON "serverpod_method" ("endpoint", "method");
 
+
 --
--- ACTION CREATE TABLE
+-- Class DatabaseMigrationVersion as table serverpod_migrations
 --
 CREATE TABLE "serverpod_migrations" (
     "id" INTEGER PRIMARY KEY,
@@ -277,8 +298,9 @@ CREATE TABLE "serverpod_migrations" (
 -- Indexes
 CREATE UNIQUE INDEX "serverpod_migrations_ids" ON "serverpod_migrations" ("module");
 
+
 --
--- ACTION CREATE TABLE
+-- Class QueryLogEntry as table serverpod_query_log
 --
 CREATE TABLE "serverpod_query_log" (
     "id" INTEGER PRIMARY KEY,
@@ -296,18 +318,20 @@ CREATE TABLE "serverpod_query_log" (
 ) STRICT;
 
 -- Indexes
-CREATE INDEX "serverpod_query_log_sessionLogId_idx" ON "serverpod_query_log" ("sessionLogId");
+CREATE INDEX "serverpod_query_log_sessionLogId_idx" ON "serverpod_query_log" ("sessionLogId", "order");
+
 
 --
--- ACTION CREATE TABLE
+-- Class ReadWriteTestEntry as table serverpod_readwrite_test
 --
 CREATE TABLE "serverpod_readwrite_test" (
     "id" INTEGER PRIMARY KEY,
     "number" INTEGER NOT NULL
 ) STRICT;
 
+
 --
--- ACTION CREATE TABLE
+-- Class RuntimeSettings as table serverpod_runtime_settings
 --
 CREATE TABLE "serverpod_runtime_settings" (
     "id" INTEGER PRIMARY KEY,
@@ -317,8 +341,9 @@ CREATE TABLE "serverpod_runtime_settings" (
     "logMalformedCalls" INTEGER NOT NULL
 ) STRICT;
 
+
 --
--- ACTION CREATE TABLE
+-- Class SessionLogEntry as table serverpod_session_log
 --
 CREATE TABLE "serverpod_session_log" (
     "id" INTEGER PRIMARY KEY,
@@ -343,6 +368,7 @@ CREATE INDEX "serverpod_session_log_serverid_idx" ON "serverpod_session_log" ("s
 CREATE INDEX "serverpod_session_log_time_idx" ON "serverpod_session_log" ("time");
 CREATE INDEX "serverpod_session_log_touched_idx" ON "serverpod_session_log" ("touched");
 CREATE INDEX "serverpod_session_log_isopen_idx" ON "serverpod_session_log" ("isOpen");
+
 
 --
 -- STORE COLUMN TYPES FOR MIGRATIONS
@@ -371,7 +397,7 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
     ('crdt_data_rows', 'counter', 'bigint', NULL),
     ('crdt_data_rows', 'userId', 'bigint', NULL),
     ('crdt_data_rows', 'tblId', 'bigint', NULL),
-    ('crdt_data_rows', 'rowId', 'uuid', NULL),
+    ('crdt_data_rows', 'uuidRowId', 'uuid', NULL),
     ('crdt_data_rows', 'nodeId', 'bigint', NULL),
     ('crdt_data_tombstone', 'id', 'bigint', NULL),
     ('crdt_data_tombstone', 'workerId', 'bigint', NULL),
@@ -413,6 +439,7 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
     ('serverpod_future_call', 'serializedObject', 'text', NULL),
     ('serverpod_future_call', 'serverId', 'text', NULL),
     ('serverpod_future_call', 'identifier', 'text', NULL),
+    ('serverpod_future_call', 'scheduling', 'json', NULL),
     ('serverpod_future_call_claim', 'id', 'bigint', NULL),
     ('serverpod_future_call_claim', 'futureCallId', 'bigint', NULL),
     ('serverpod_future_call_claim', 'lastHeartbeatTime', 'timestampWithoutTimeZone', NULL),
@@ -497,17 +524,17 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
 -- MIGRATION VERSION FOR serverpod_offline_sync
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('serverpod_offline_sync', '20260415022807074', (unixepoch('now', 'subsecond') * 1000))
+    VALUES ('serverpod_offline_sync', '20260420011738588', (unixepoch('now', 'subsecond') * 1000))
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20260415022807074', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
+    DO UPDATE SET "version" = '20260420011738588', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
 
 --
 -- MIGRATION VERSION FOR serverpod
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('serverpod', '20260324085808546', (unixepoch('now', 'subsecond') * 1000))
+    VALUES ('serverpod', '20260416151914983-insights-perf', (unixepoch('now', 'subsecond') * 1000))
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20260324085808546', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
+    DO UPDATE SET "version" = '20260416151914983-insights-perf', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
 
 
 COMMIT;

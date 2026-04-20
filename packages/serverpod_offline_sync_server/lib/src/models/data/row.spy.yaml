@@ -10,13 +10,13 @@ extends: BaseHlc
 table: crdt_data_rows
 fields:
   ### Identifier for the user or client that owns the data.
-  user: CrdtUser?, relation
+  user: CrdtUser?, relation(onDelete=Cascade)
 
   ### Reference to the table this row belongs to.
-  tbl: CrdtSchemaTable?, relation
+  tbl: CrdtSchemaTable?, relation(onDelete=Cascade)
 
   ### Row identifier.
-  rowId: UuidValue
+  uuidRowId: UuidValue
 
   ### The node that inserted the row with the HLC timestamp.
   node: CrdtNode?, relation
@@ -29,5 +29,5 @@ fields:
 
 indexes:
   crdt_data_rows_user_tbl_row_idx:
-    fields: userId, tblId, rowId
+    fields: userId, tblId, uuidRowId
     unique: true

@@ -7,10 +7,10 @@ extends: BaseHlc
 table: crdt_data_fields
 fields:
   ### Row that the field belongs to.
-  row: CrdtDataRow?, relation(name=row_fields)
+  row: CrdtDataRow?, relation(name=row_fields, onDelete=Cascade)
 
   ### Column that the field belongs to.
-  column: CrdtSchemaColumn?, relation
+  column: CrdtSchemaColumn?, relation(onDelete=Cascade)
 
   ### The node that updated the field.
   node: CrdtNode?, relation
