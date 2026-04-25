@@ -38,6 +38,11 @@ class HlcManager {
   /// Returns the [HlcManager] for the given node ID.
   ///
   /// Will create a new [HlcManager] with [Hlc.zero] if no manager is found.
+  ///
+  /// Call [initialize] once per process (e.g. server startup) before any CRDT
+  /// writes so a [CrdtWorker] row exists and [workerId] is defined. Multi-worker
+  /// negotiation for the same node is not implemented yet; all workers on this
+  /// process share the allocated worker id from [initialize].
   static HlcManager forUser(CrdtUser user) {
     _instances[user.uuidUserId] ??= HlcManager._(
       user.uuidUserId,

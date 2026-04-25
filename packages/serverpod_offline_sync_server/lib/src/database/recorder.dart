@@ -108,6 +108,7 @@ class CrdtMutationRecorder {
         row: CrdtDataRow.include(),
         column: CrdtSchemaColumn.include(),
       ),
+      transaction: transaction,
     );
 
     final existingCrdtRowIds = existingCrdtFields.map((f) => f.row!.uuidRowId).toSet();
