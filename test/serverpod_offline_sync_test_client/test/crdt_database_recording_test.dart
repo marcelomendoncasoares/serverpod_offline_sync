@@ -1,8 +1,7 @@
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
-import 'package:serverpod_offline_sync_test_server/src/generated/organization.dart';
-import 'package:serverpod_offline_sync_test_server/src/generated/person.dart';
+import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client';
 import 'package:test/test.dart';
 
 import 'crdt_database_test_fixtures.dart';
@@ -215,13 +214,13 @@ void main() {
               ),
             );
 
-            final field = (await CrdtDataField.db.findFirstRow(
+            final field = await CrdtDataField.db.findFirstRow(
               session,
               where: (t) => t.row.uuidRowId.equals(person.id),
               include: CrdtDataField.include(
                 row: CrdtDataRow.include(node: CrdtNode.include()),
               ),
-            ))!;
+            );
             createdFieldHlc = field.toHlcForNode(field.row!.node!.uuidNodeId);
 
             await session.db.transactionForUser(
@@ -238,13 +237,13 @@ void main() {
           test(
             'then the recorder still advances the field HLC (no SQLite OLD/NEW short-circuit).',
             () async {
-              final field = (await CrdtDataField.db.findFirstRow(
+              final field = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) => t.row.uuidRowId.equals(person.id),
                 include: CrdtDataField.include(
                   row: CrdtDataRow.include(node: CrdtNode.include()),
                 ),
-              ))!;
+              );
               final after = field.toHlcForNode(field.row!.node!.uuidNodeId);
               expect(after, greaterThan(createdFieldHlc));
             },
@@ -269,11 +268,11 @@ void main() {
               ),
             );
 
-            final crdtRow = (await CrdtDataRow.db.findFirstRow(
+            final crdtRow = await CrdtDataRow.db.findFirstRow(
               session,
               where: (t) => t.uuidRowId.equals(person.id),
               include: CrdtDataRow.include(node: CrdtNode.include()),
-            ))!;
+            );
             createdRowHlc = crdtRow.toHlcForNode(crdtRow.node!.uuidNodeId);
 
             await session.db.transactionForUser(
@@ -288,19 +287,19 @@ void main() {
 
           group('then the tombstone row records deletion,', () {
             test('then isDeleted is true with an HLC after the insert HLC.', () async {
-              final crdtRow = (await CrdtDataRow.db.findFirstRow(
+              final crdtRow = await CrdtDataRow.db.findFirstRow(
                 session,
                 where: (t) => t.uuidRowId.equals(person.id),
                 include: CrdtDataRow.include(node: CrdtNode.include()),
-              ))!;
+              );
 
-              final tomb = (await CrdtDataDeleted.db.findFirstRow(
+              final tomb = await CrdtDataDeleted.db.findFirstRow(
                 session,
                 where: (t) => t.rowId.equals(crdtRow.id),
                 include: CrdtDataDeleted.include(
                   row: CrdtDataRow.include(node: CrdtNode.include()),
                 ),
-              ))!;
+              );
 
               expect(tomb.isDeleted, true);
               final nodeUuid = crdtRow.node!.uuidNodeId;

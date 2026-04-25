@@ -3,6 +3,7 @@
 ### This table stores all nodes that have been seen.
 class: CrdtNode
 table: crdt_nodes
+database: all
 fields:
   ### The user that owns the node.
   user: CrdtUser?, relation(name=user_nodes, onDelete=Cascade)

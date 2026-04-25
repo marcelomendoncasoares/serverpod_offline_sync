@@ -1,5 +1,6 @@
 class: Organization
 table: organization
+database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
   name: String

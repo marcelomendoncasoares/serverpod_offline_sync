@@ -1,7 +1,8 @@
-import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
+import 'package:uuid/uuid.dart';
 
-import '../generated/protocol.dart';
+import '../protocol/protocol.dart';
 
 /// A manager for [Hlc] instances that is used to generate unique timestamps
 /// for CRDT operations. Will keep track of the HLC during the lifetime of the

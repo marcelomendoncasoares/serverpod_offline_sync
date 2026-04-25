@@ -4,6 +4,7 @@
 ### by integer id instead of storing the user id string.
 class: CrdtUser
 table: crdt_users
+database: all
 fields:
   ### User identifier string.
   uuidUserId: UuidValue, default=random_v7, unique

@@ -5,6 +5,7 @@
 class: CrdtDataField
 extends: BaseHlc
 table: crdt_data_fields
+database: all
 fields:
   ### Row that the field belongs to.
   row: CrdtDataRow?, relation(name=row_fields, onDelete=Cascade)

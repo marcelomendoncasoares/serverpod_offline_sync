@@ -8,6 +8,7 @@
 ### when the worker is no longer needed, so the numbers are always low.
 class: CrdtWorker
 table: crdt_workers
+database: all
 fields:
   ### The worker ID to identify different workers on the same node.
   workerId: int, unique

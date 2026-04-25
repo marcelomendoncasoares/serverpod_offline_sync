@@ -4,6 +4,7 @@
 class: CrdtDataDeleted
 extends: BaseHlc
 table: crdt_data_tombstone
+database: all
 fields:
   ### Row that was deleted.
   row: CrdtDataRow?, relation(name=row_deleted, field=rowId, onDelete=Cascade)

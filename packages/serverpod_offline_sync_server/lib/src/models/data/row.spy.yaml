@@ -8,6 +8,7 @@
 class: CrdtDataRow
 extends: BaseHlc
 table: crdt_data_rows
+database: all
 fields:
   ### Identifier for the user or client that owns the data.
   user: CrdtUser?, relation(onDelete=Cascade)

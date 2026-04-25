@@ -1,7 +1,7 @@
 import 'package:meta/meta.dart';
-import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
 
-import '../generated/protocol.dart';
+import '../protocol/protocol.dart';
 
 /// Merges [where] with CRDT tombstone predicates and mutates [include] in place.
 ///
@@ -15,7 +15,7 @@ import '../generated/protocol.dart';
 /// single [IncludeObject]).
 @internal
 Expression? mergeWhereWithTombstone<T extends TableRow>(
-  SerializationManagerServer serializationManager,
+  DatabaseSerializationManager serializationManager,
   Expression? where,
   Include? include,
 ) {

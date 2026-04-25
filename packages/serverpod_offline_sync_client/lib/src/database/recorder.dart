@@ -1,8 +1,9 @@
-import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
+import 'package:uuid/uuid.dart';
 
 import '../crdt/user.dart';
-import '../generated/protocol.dart';
 import '../hlc/manager.dart';
+import '../protocol/protocol.dart';
 import 'database.dart';
 import 'schema.dart';
 import 'session.dart';

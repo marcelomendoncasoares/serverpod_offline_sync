@@ -2,20 +2,14 @@
 // flag internal Serverpod APIs used by generated code.
 // ignore_for_file: invalid_use_of_internal_member
 
-import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
+import 'package:uuid/uuid.dart';
 
 import '../crdt/user.dart';
-import '../generated/protocol.dart';
+import '../protocol/protocol.dart';
 import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
-
-bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
-  SerializationManagerServer serializationManager,
-) {
-  final table = serializationManager.getTableForType(T);
-  return table != null && table.id is ColumnUuid;
-}
 
 /// Map of transaction hashes to the user ID they are associated with.
 final userForTransaction = <Transaction, CrdtUser>{};
@@ -58,7 +52,8 @@ class CrdtDatabase implements Database {
   DatabaseDialect get dialect => _delegate.dialect;
 
   @override
-  SerializationManagerServer get serializationManager => _delegate.serializationManager;
+  DatabaseSerializationManager get serializationManager =>
+      _delegate.serializationManager;
 
   @override
   Future<List<T>> find<T extends TableRow>({
@@ -497,4 +492,11 @@ class CrdtDatabase implements Database {
 
   @override
   Future<bool> testConnection() => _delegate.testConnection();
+}
+
+bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
+  DatabaseSerializationManager serializationManager,
+) {
+  final table = serializationManager.getTableForType(T);
+  return table != null && table.id is ColumnUuid;
 }

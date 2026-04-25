@@ -2,7 +2,7 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:test/test.dart';
 
-import '../../../../packages/serverpod_offline_sync_server/test/integration/test_tools/serverpod_test_tools.dart';
+import 'test_tools/serverpod_test_tools.dart';
 
 Constant allRows(_) => Constant.bool(true);
 

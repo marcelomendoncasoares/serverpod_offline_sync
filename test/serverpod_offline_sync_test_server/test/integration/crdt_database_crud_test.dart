@@ -15,7 +15,6 @@ void main() {
 
       setUp(() async {
         session = sessionBuilder.build();
-        await seedCrdtUserAndPersonSchema(session);
         crdtDb = crdtDatabase(session);
       });
 

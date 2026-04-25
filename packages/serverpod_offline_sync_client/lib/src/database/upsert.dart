@@ -1,4 +1,4 @@
-import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
 
 /// Extensions for [Database] to upsert rows.
 extension DatabaseUpsertExtensions on Database {

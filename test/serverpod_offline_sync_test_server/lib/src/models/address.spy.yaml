@@ -1,5 +1,6 @@
 class: Address
 table: address
+database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
   street: String

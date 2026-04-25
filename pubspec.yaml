@@ -11,34 +11,34 @@ workspace:
   - test/serverpod_offline_sync_test_client
   - test/serverpod_offline_sync_test_server
 
-# dependency_overrides:
-#   serverpod:
-#     git:
-#       url: https://github.com/serverpod/serverpod.git
-#       path: packages/serverpod
-#       ref: main
-#   serverpod_client:
-#     git:
-#       url: https://github.com/serverpod/serverpod.git
-#       path: packages/serverpod_client
-#       ref: main
-#   serverpod_database:
-#     git:
-#       url: https://github.com/serverpod/serverpod.git
-#       path: packages/serverpod_database
-#       ref: main
-#   serverpod_shared:
-#     git:
-#       url: https://github.com/serverpod/serverpod.git
-#       path: packages/serverpod_shared
-#       ref: main
-#   serverpod_serialization:
-#     git:
-#       url: https://github.com/serverpod/serverpod.git
-#       path: packages/serverpod_serialization
-#       ref: main
-#   serverpod_test:
-#     git:
-#       url: https://github.com/serverpod/serverpod.git
-#       path: packages/serverpod_test
-#       ref: main
+dependency_overrides:
+  serverpod:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod
+      ref: client-database-session
+  serverpod_client:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_client
+      ref: client-database-session
+  serverpod_database:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_database
+      ref: client-database-session
+  serverpod_shared:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_shared
+      ref: client-database-session
+  serverpod_serialization:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_serialization
+      ref: client-database-session
+  serverpod_test:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_test
+      ref: client-database-session

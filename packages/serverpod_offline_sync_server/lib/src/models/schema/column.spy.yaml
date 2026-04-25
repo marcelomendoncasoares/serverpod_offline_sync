@@ -1,6 +1,7 @@
 ### CRDT schema columns table.
 class: CrdtSchemaColumn
 table: crdt_schema_columns
+database: all
 fields:
   ### Reference to the table this column belongs to.
   tbl: CrdtSchemaTable?, relation(onDelete=Cascade)
