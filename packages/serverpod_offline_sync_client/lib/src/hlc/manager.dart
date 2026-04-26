@@ -138,6 +138,14 @@ class HlcManager {
     return _workerId!;
   }
 
+  /// Clears static worker and per-user HLC state when the database file was
+  /// emptied (e.g. test cleanup). Call before [initialize] to recreate the
+  /// [CrdtWorker] and HLC state that matches the store.
+  static void reset() {
+    _workerId = null;
+    _instances.clear();
+  }
+
   /// Returns the next HLC timestamp for the current node.
   Hlc increment() {
     lastHlc = lastHlc.increment();

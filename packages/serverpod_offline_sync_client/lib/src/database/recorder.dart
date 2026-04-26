@@ -34,9 +34,12 @@ class CrdtMutationRecorder {
     persistentUserId: persistentUserId,
   );
 
-  late final Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
+  late Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
 
   /// Initializes the CRDT recorder.
+  ///
+  /// Safe to call again after the database was wiped (e.g. test `tearDown`)
+  /// for in-memory schema ids to match new rows.
   Future<void> initialize() async {
     final schemaRegistry = CrdtSchemaRegistry(_session, syncTables: syncTables);
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
@@ -257,7 +260,8 @@ class CrdtMutationRecorder {
 
   CrdtUser _getEffectiveUser(Transaction transaction) {
     final user = userForTransaction[transaction];
-    if (user == null && persistentUserId == null) {
+    if (user != null) return user;
+    if (persistentUserId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }
     return CrdtUserManager.getCached(persistentUserId!);

@@ -2403,7 +2403,7 @@
     {
       "__className__": "serverpod.DatabaseMigrationVersionModel",
       "module": "serverpod_offline_sync_test",
-      "version": "20260425022441248"
+      "version": "20260425031452112"
     },
     {
       "__className__": "serverpod.DatabaseMigrationVersion",

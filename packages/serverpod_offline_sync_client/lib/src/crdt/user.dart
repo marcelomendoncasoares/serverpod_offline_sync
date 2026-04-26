@@ -16,6 +16,12 @@ class CrdtUserManager {
   static CrdtUser getCached(UuidValue uuidUserId) =>
       _instances[uuidUserId] ?? (throw StateError('User $uuidUserId not found.'));
 
+  /// Clears the in-memory user cache. Used when the database is reset (e.g. tests)
+  /// so [getOrCreate] loads fresh rows from the store.
+  static void clearCache() {
+    _instances.clear();
+  }
+
   /// Returns the [CrdtUser] for the given user ID.
   ///
   /// Will create a new [CrdtUser] if no user is found.

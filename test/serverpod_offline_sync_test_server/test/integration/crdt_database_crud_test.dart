@@ -1,346 +1,248 @@
-import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_test_server/src/generated/person.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
+import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
-import 'crdt_database_test_fixtures.dart';
-import 'test_tools/serverpod_test_tools.dart';
+import 'test_tools/client_session.dart';
 
 void main() {
-  withServerpod(
-    'Given CrdtDatabase wrapping the session database',
-    (sessionBuilder, _) {
-      late Session session;
-      late CrdtDatabase crdtDb;
+  initTestClientSession();
+
+  group(
+    'Given an empty person table, '
+    'when inserting a Person with insertRow,',
+    () {
+      const targetName = 'test';
+      late Person person;
 
       setUp(() async {
-        session = sessionBuilder.build();
-        crdtDb = crdtDatabase(session);
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: targetName),
+            transaction: tx,
+          ),
+        );
       });
 
-      group(
-        'Given insertRow inserted a single Person with CRDT metadata on a UUID primary key,',
-        () {
-          late Person person;
+      test('then the row exists in the person table.', () async {
+        final row = await Person.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(person.id),
+        );
+        expect(row, isNotNull);
+        expect(row!.name, targetName);
+      });
 
-          setUp(() async {
-            person = await crdtDb.transactionForUser(
-              testCrdtUserId,
-              (tx) => crdtDb.insertRow(Person(name: 'insert-one'), transaction: tx),
-            );
-          });
+      group('then CRDT metadata row', () {
+        late CrdtDataRow? crdtRow;
 
-          test('then a CrdtDataRow exists for the domain row.', () async {
-            expect(person.id, isNotNull);
+        setUp(() async {
+          crdtRow = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(person.id),
+            include: CrdtDataRow.include(node: CrdtNode.include()),
+          );
+        });
 
-            final crdtRows = await CrdtDataRow.db.find(
+        test('is recorded.', () async {
+          expect(crdtRow, isNotNull);
+          expect(crdtRow!.tblId, isNotNull);
+          expect(crdtRow!.uuidRowId, person.id);
+        });
+
+        test('has the HLC components populated consistently.', () async {
+          final hlc = crdtRow!.toHlcForNode(crdtRow!.node!.uuidNodeId);
+          expect(hlc, greaterThan(Hlc.zero(hlc.node)));
+        });
+      });
+
+      test('then no CRDT fields metadata are registered.', () async {
+        final fieldCount = await CrdtDataField.db.count(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+        expect(fieldCount, 0);
+      });
+
+      test('then no CRDT tombstone is created for the row.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+
+        expect(tombstone, isNull);
+      });
+    },
+  );
+
+  // TODO: Add tests for insert.
+  // TODO: Add a test for insert with ignoreConflicts.
+
+  group(
+    'Given a person table with an existing row, ',
+    () {
+      const initialName = 'test';
+      const targetName = 'test2';
+      late Person person;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: initialName),
+            transaction: tx,
+          ),
+        );
+      });
+
+      group('when updating the Person name column with updateRow,', () {
+        setUp(() async {
+          await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.updateRow(
               session,
-              where: (t) => t.uuidRowId.equals(person.id),
-            );
-            expect(crdtRows, hasLength(1));
-            expect(crdtRows.single.tblId, isNotNull);
-          });
-        },
-      );
-
-      group(
-        'Given insert inserted two Person rows in one batch with CRDT metadata on UUID primary keys,',
-        () {
-          late List<Person> inserted;
-
-          setUp(() async {
-            inserted = await crdtDb.transactionForUser(
-              testCrdtUserId,
-              (tx) => crdtDb.insert(
-                [
-                  Person(name: 'batch-a'),
-                  Person(name: 'batch-b'),
-                ],
-                transaction: tx,
-              ),
-            );
-          });
-
-          test('then each row has a CrdtDataRow.', () async {
-            expect(inserted, hasLength(2));
-
-            for (final p in inserted) {
-              final n = await CrdtDataRow.db.count(
-                session,
-                where: (t) => t.uuidRowId.equals(p.id),
-              );
-              expect(n, 1);
-            }
-          });
-        },
-      );
-
-      group('Given a Person row exists for reads through CrdtDatabase,', () {
-        late Person person;
-
-        setUp(() async {
-          person = await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'reader'), transaction: tx),
-          );
-        });
-
-        test('then find returns the row.', () async {
-          final rows = await crdtDb.find<Person>(
-            where: Person.t.id.equals(person.id),
-          );
-          expect(rows, hasLength(1));
-          expect(rows.single.name, 'reader');
-        });
-
-        test('then findById returns the row.', () async {
-          final one = await crdtDb.findById<Person>(person.id!);
-          expect(one?.name, 'reader');
-        });
-
-        test('then findFirstRow returns the row.', () async {
-          final one = await crdtDb.findFirstRow<Person>(
-            where: Person.t.name.equals('reader'),
-          );
-          expect(one?.id, person.id);
-        });
-
-        test('then count includes the row.', () async {
-          final n = await crdtDb.count<Person>(
-            where: Person.t.name.equals('reader'),
-          );
-          expect(n, 1);
-        });
-      });
-
-      group('Given a Person inserted for single-row soft delete,', () {
-        late Person person;
-
-        setUp(() async {
-          person = await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'to-tomb'), transaction: tx),
-          );
-        });
-
-        group('when deleteRow is applied,', () {
-          test(
-            'then find no longer returns the row and a tombstone records deletion.',
-            () async {
-              await crdtDb.transactionForUser(
-                testCrdtUserId,
-                (tx) => crdtDb.deleteRow(person, transaction: tx),
-              );
-
-              expect(await crdtDb.findById<Person>(person.id!), isNull);
-
-              final crdtRow = await CrdtDataRow.db.findFirstRow(
-                session,
-                where: (t) => t.uuidRowId.equals(person.id),
-              );
-              expect(crdtRow, isNotNull);
-
-              final tomb = await CrdtDataDeleted.db.findFirstRow(
-                session,
-                where: (t) => t.rowId.equals(crdtRow!.id),
-              );
-              expect(tomb?.isDeleted, true);
-            },
-          );
-        });
-      });
-
-      group('Given two Person rows share a name for bulk delete,', () {
-        setUp(() async {
-          await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insert(
-              [
-                Person(name: 'bulk-x'),
-                Person(name: 'bulk-x'),
-              ],
+              person.copyWith(name: targetName),
+              columns: (t) => [t.name],
               transaction: tx,
             ),
           );
         });
 
-        group('when deleteWhere matches that name,', () {
-          test('then both rows are tombstoned and no longer appear in find.', () async {
-            final deleted = await crdtDb.transactionForUser(
-              testCrdtUserId,
-              (tx) => crdtDb.deleteWhere<Person>(
-                where: Person.t.name.equals('bulk-x'),
-                transaction: tx,
-              ),
-            );
-            expect(deleted, hasLength(2));
+        test('then the person row reflects the new values.', () async {
+          final row = await Person.db.findById(session, person.id!);
+          expect(row?.name, targetName);
+        });
 
-            final remaining = await crdtDb.find<Person>(
-              where: Person.t.name.equals('bulk-x'),
-            );
-            expect(remaining, isEmpty);
-          });
+        test('then a CRDT field is created for the name column.', () async {
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+            include: CrdtDataField.include(
+              column: CrdtSchemaColumn.include(),
+              row: CrdtDataRow.include(node: CrdtNode.include()),
+            ),
+          );
+
+          expect(field, isNotNull);
+          expect(field!.column!.name, 'name');
+        });
+
+        test('then the CRDT field has the HLC newer than the row HLC.', () async {
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+            include: CrdtDataField.include(
+              node: CrdtNode.include(),
+              row: CrdtDataRow.include(node: CrdtNode.include()),
+            ),
+          );
+
+          final fieldHlc = field!.toHlcForNode(field.node!.uuidNodeId);
+          final rowHlc = field.row!.toHlcForNode(field.row!.node!.uuidNodeId);
+          expect(fieldHlc, greaterThan(rowHlc));
         });
       });
 
-      group('Given two Person rows exist for list delete,', () {
-        late Person p1;
-        late Person p2;
+      // TODO: Add tests for update.
 
+      group('when updating the Person name column without specifying columns,', () {
         setUp(() async {
-          p1 = await crdtDb.transactionForUser(
+          await session.db.transactionForUser(
             testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'list-1'), transaction: tx),
-          );
-          p2 = await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'list-2'), transaction: tx),
-          );
-        });
-
-        group('when delete is called on a list of those rows,', () {
-          test('then neither row is returned by findById.', () async {
-            await crdtDb.transactionForUser(
-              testCrdtUserId,
-              (tx) => crdtDb.delete([p1, p2], transaction: tx),
-            );
-
-            expect(await crdtDb.findById<Person>(p1.id!), isNull);
-            expect(await crdtDb.findById<Person>(p2.id!), isNull);
-          });
-        });
-      });
-
-      group('Given a Person row exists for locking,', () {
-        late Person person;
-
-        setUp(() async {
-          person = await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'locked-row'), transaction: tx),
+            (tx) => Person.db.updateRow(
+              session,
+              person.copyWith(name: targetName),
+              transaction: tx,
+            ),
           );
         });
 
-        group('when lockRows runs inside a user transaction,', () {
-          test('then it completes without error.', () async {
-            await crdtDb.transactionForUser(
-              testCrdtUserId,
-              (tx) async {
-                await crdtDb.lockRows<Person>(
-                  where: Person.t.id.equals(person.id),
-                  lockMode: LockMode.forUpdate,
-                  transaction: tx,
-                );
-              },
-            );
-          });
+        test('then the person row reflects the new values.', () async {
+          final row = await Person.db.findById(session, person.id!);
+          expect(row?.name, targetName);
         });
-      });
 
-      group('Given a Person exists without CrdtDataField rows for updateRow,', () {
-        late Person person;
-
-        setUp(() async {
-          person = await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'before-update'), transaction: tx),
+        test('then a CRDT field is created for each column.', () async {
+          final fields = await CrdtDataField.db.find(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+            include: CrdtDataField.include(
+              column: CrdtSchemaColumn.include(),
+              row: CrdtDataRow.include(node: CrdtNode.include()),
+            ),
           );
-        });
 
-        group('when updateRow changes a column,', () {
-          test(
-            'then StateError is thrown until CrdtDataField rows exist for updated columns.',
-            () async {
-              await expectLater(
-                () => crdtDb.transactionForUser(
-                  testCrdtUserId,
-                  (tx) => crdtDb.updateRow(
-                    person.copyWith(name: 'after-update'),
-                    transaction: tx,
-                  ),
-                ),
-                throwsA(
-                  isA<StateError>().having(
-                    (e) => e.message,
-                    'message',
-                    contains('Missing CRDT rows'),
-                  ),
-                ),
-              );
-            },
+          expect(
+            fields.map((e) => e.column!.name).toSet(),
+            {'name', 'organizationId', 'oldCompanyId'},
           );
         });
       });
 
-      group('Given a Person exists without CrdtDataField rows for updateById,', () {
-        late Person person;
-
+      group('when deleting the Person row with deleteRow,', () {
         setUp(() async {
-          person = await crdtDb.transactionForUser(
+          await session.db.transactionForUser(
             testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'by-id'), transaction: tx),
+            (tx) => Person.db.deleteRow(session, person, transaction: tx),
           );
         });
 
-        group('when updateById changes a column,', () {
-          test(
-            'then StateError is thrown until CrdtDataField rows exist for updated columns.',
-            () async {
-              await expectLater(
-                () => crdtDb.transactionForUser(
-                  testCrdtUserId,
-                  (tx) => crdtDb.updateById<Person>(
-                    person.id!,
-                    columnValues: [Person.t.updateTable.name('renamed')],
-                    transaction: tx,
-                  ),
-                ),
-                throwsA(
-                  isA<StateError>().having(
-                    (e) => e.message,
-                    'message',
-                    contains('Missing CRDT rows'),
-                  ),
-                ),
-              );
-            },
+        test('then a CRDT tombstone is created for the row.', () async {
+          final tombstone = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
           );
-        });
-      });
 
-      group('Given a Person exists without CrdtDataField rows for updateWhere,', () {
-        setUp(() async {
-          await crdtDb.transactionForUser(
-            testCrdtUserId,
-            (tx) => crdtDb.insertRow(Person(name: 'where-target'), transaction: tx),
-          );
-        });
-
-        group('when updateWhere changes a column,', () {
-          test(
-            'then StateError is thrown until CrdtDataField rows exist for updated columns.',
-            () async {
-              await expectLater(
-                () => crdtDb.transactionForUser(
-                  testCrdtUserId,
-                  (tx) => crdtDb.updateWhere<Person>(
-                    columnValues: [Person.t.updateTable.name('where-renamed')],
-                    where: Person.t.name.equals('where-target'),
-                    transaction: tx,
-                  ),
-                ),
-                throwsA(
-                  isA<StateError>().having(
-                    (e) => e.message,
-                    'message',
-                    contains('Missing CRDT rows'),
-                  ),
-                ),
-              );
-            },
-          );
+          expect(tombstone, isNotNull);
+          expect(tombstone!.isDeleted, true);
         });
       });
     },
   );
+
+  group('Given a person table with a deleted row, ', () {
+    late Person person;
+
+    setUp(() async {
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(session, Person(name: 'test'), transaction: tx),
+      );
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.deleteRow(session, person, transaction: tx),
+      );
+    });
+
+    test('when calling findById, then it returns null.', () async {
+      expect(
+        await Person.db.findById(session, person.id!),
+        isNull,
+      );
+    });
+
+    test('when calling findFirstRow, then it returns null.', () async {
+      expect(
+        await Person.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(person.id),
+        ),
+        isNull,
+      );
+    });
+
+    test('when calling find, then it returns an empty list.', () async {
+      expect(
+        await Person.db.find(
+          session,
+          where: (t) => t.id.equals(person.id),
+        ),
+        isEmpty,
+      );
+    });
+  });
 }

@@ -21,10 +21,10 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
 ) {
   final includeObjectPredicates = _walkIncludeGraphForTombstone(include, null);
 
-  final rootTable = serializationManager.getTableForType(T)!;
+  final rootTable = serializationManager.getTableForType(T);
   var merged = _mergeWhereOptional(
     where,
-    rootTable.whereNotDeletedOnTombstone,
+    rootTable?.whereNotDeletedOnTombstone,
   );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;

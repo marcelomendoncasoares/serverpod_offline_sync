@@ -497,15 +497,15 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
     ('crdt_data_tombstone', 'isDeleted', 'boolean', NULL),
     ('crdt_nodes', 'uuidNodeId', 'uuid', NULL),
     ('crdt_nodes', 'lastReceivedHlc', 'json', NULL),
-    ('crdt_users', 'uuidUserId', 'uuid', NULL),
+    ('crdt_users', 'uuidUserId', 'uuid', NULL);
 
 --
 -- MIGRATION VERSION FOR serverpod_offline_sync_test
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('serverpod_offline_sync_test', '20260425022441248', (unixepoch('now', 'subsecond') * 1000))
+    VALUES ('serverpod_offline_sync_test', '20260425031452112', (unixepoch('now', 'subsecond') * 1000))
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20260425022441248', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
+    DO UPDATE SET "version" = '20260425031452112', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
 
 --
 -- MIGRATION VERSION FOR serverpod

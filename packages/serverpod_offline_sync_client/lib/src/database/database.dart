@@ -92,8 +92,8 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    final table = serializationManager.getTableForType(T)!;
-    final where = table.id.equals(id);
+    final table = serializationManager.getTableForType(T);
+    final where = table?.id.equals(id);
     return _delegate.findFirstRow<T>(
       where: mergeWhereWithTombstone<T>(serializationManager, where, include),
       transaction: transaction,
@@ -422,10 +422,10 @@ class CrdtDatabase implements Database {
     final user = await CrdtUserManager.getOrCreate(_session, userId);
 
     return transaction<R>(
-      (tx) {
+      (tx) async {
         try {
           userForTransaction[tx] = user;
-          return transactionFunction(tx);
+          return await transactionFunction(tx);
         } finally {
           userForTransaction.remove(tx);
         }
