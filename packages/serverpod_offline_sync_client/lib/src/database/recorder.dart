@@ -59,13 +59,22 @@ class CrdtMutationRecorder {
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
 
+  late final _syncTablesNames = syncTables.map((t) => t.tableName).toSet();
+
+  /// Whether the given table is tracked by CRDT.
+  bool isCrdtTracked<T extends TableRow>([Table? table]) {
+    final targetTable = table ?? _db.serializationManager.getTableForType(T);
+    if (targetTable == null) return false;
+    return _syncTablesNames.contains(targetTable.tableName);
+  }
+
   /// Insert the CRDT metadata for the inserted rows.
   Future<void> afterInsert<T extends TableRow>(
     List<T> insertedRows,
     Transaction transaction,
   ) async {
     if (insertedRows.isEmpty) return;
-    if (_shouldSkipCrdtTypes<T>()) return;
+    if (!isCrdtTracked<T>(insertedRows.first.table)) return;
 
     final (tableId, _) = _schema[insertedRows.first.table.tableName]!;
     final hlcManager = _getHlcManager(transaction);
@@ -102,7 +111,7 @@ class CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     if (updatedRows.isEmpty) return;
-    if (_shouldSkipCrdtTypes<T>()) return;
+    if (!isCrdtTracked<T>(updatedRows.first.table)) return;
 
     final crdtDataRows = await CrdtDataRow.db.find(
       _session,
@@ -201,51 +210,48 @@ class CrdtMutationRecorder {
     }
   }
 
-  // TODO: Change to INSTEAD OF DELETE.
   // TODO: Must evaluate cascade operations.
-  /// Physical deletes on the delegate DB (non-UUID tables). No CRDT tombstone.
-  Future<void> afterDelete<T extends TableRow>(
+  /// Soft-deletes rows by recording a tombstone instead of removing them.
+  ///
+  /// Expects a matching [CrdtDataRow] per domain row (`uuidRowId` = domain id).
+  Future<void> insteadOfDelete<T extends TableRow>(
     List<T> deletedRows,
     Transaction transaction,
-  ) async {}
+  ) async {
+    if (deletedRows.isEmpty) return;
+    if (!isCrdtTracked<T>(deletedRows.first.table)) return;
+    await _markDomainRowsDeleted<T>(deletedRows, transaction);
+  }
 
-  /// Sets `CrdtDataDeleted.isDeleted` for domain rows (UUID PK) instead of removing rows.
+  /// Sets `CrdtDataDeleted.isDeleted` for domain rows instead of removing rows.
   ///
-  /// Expects a matching [CrdtDataRow] per domain row (`rowId` = domain id).
-  Future<void> markDomainRowsDeleted(
-    List<TableRow> rows,
+  /// Expects a matching [CrdtDataRow] per domain row (`uuidRowId` = domain id).
+  Future<void> _markDomainRowsDeleted<T extends TableRow>(
+    List<T> deletedRows,
     Transaction transaction,
   ) async {
-    if (rows.isEmpty) return;
-
-    final byUuid = <UuidValue, TableRow>{};
-    for (final row in rows) {
-      if (row.id == null) throw StateError('Row id must be non-null.');
-      final id = row.id;
-      if (id is! UuidValue) {
-        throw StateError('markDomainRowsDeleted expects UuidValue ids.');
-      }
-      byUuid[id] = row;
-    }
-
-    final crdtRows = await CrdtDataRow.db.find(
+    final crdtDataRows = await CrdtDataRow.db.find(
       _session,
-      where: (t) => t.uuidRowId.inSet(byUuid.keys.toSet()),
+      where: (t) => t.uuidRowId.inSet(deletedRows.uuidRowIds),
       transaction: transaction,
     );
-    if (crdtRows.length != byUuid.length) {
-      final found = crdtRows.map((r) => r.uuidRowId).toSet();
-      final missing = byUuid.keys.toSet().difference(found);
+
+    if (crdtDataRows.length != deletedRows.length) {
+      final found = crdtDataRows.map((e) => e.uuidRowId).toSet();
+      final missing = deletedRows.uuidRowIds.difference(found);
       throw StateError(
         'Missing CRDT rows for ${missing.length} deleted domain rows:\n'
         '${missing.map((id) => '  - $id').join('\n')}',
       );
     }
 
-    final crdtIds = {for (final r in crdtRows) r.id!};
+    final crdtDataRowByUuid = {
+      for (final r in crdtDataRows) r.uuidRowId: r,
+    };
+
     final existingTombs = await CrdtDataDeleted.db.find(
       _session,
-      where: (t) => t.rowId.inSet(crdtIds),
+      where: (t) => t.rowId.inSet(crdtDataRows.map((r) => r.id!).toSet()),
       transaction: transaction,
     );
     final tombByCrdtRowPk = {for (final t in existingTombs) t.rowId: t};
@@ -254,24 +260,26 @@ class CrdtMutationRecorder {
     final toInsert = <CrdtDataDeleted>[];
     final toUpdate = <CrdtDataDeleted>[];
 
-    for (final crdtRow in crdtRows) {
-      final pk = crdtRow.id!;
+    for (final row in deletedRows) {
+      final crdtDataRow = crdtDataRowByUuid[row.id as UuidValue]!;
+      final rowPk = crdtDataRow.id!;
       final hlc = hlcManager.increment();
-      final existing = tombByCrdtRowPk[pk];
-      if (existing != null) {
-        toUpdate.add(
-          existing.copyWith(
-            isDeleted: true,
+      final existing = tombByCrdtRowPk[rowPk];
+
+      if (existing == null) {
+        toInsert.add(
+          CrdtDataDeleted(
+            rowId: rowPk,
+            nodeId: hlcManager.normalizedNodeId,
             workerId: hlcManager.workerId,
             datetime: hlc.datetime,
             counter: hlc.counter,
-            nodeId: hlcManager.normalizedNodeId,
+            isDeleted: true,
           ),
         );
       } else {
-        toInsert.add(
-          CrdtDataDeleted(
-            rowId: pk,
+        toUpdate.add(
+          existing.copyWith(
             nodeId: hlcManager.normalizedNodeId,
             workerId: hlcManager.workerId,
             datetime: hlc.datetime,
@@ -311,20 +319,6 @@ class CrdtMutationRecorder {
     }
     return CrdtUserManager.getCached(persistentUserId!);
   }
-}
-
-bool _shouldSkipCrdtTypes<T extends TableRow>() {
-  if (T == CrdtDataRow ||
-      T == CrdtDataField ||
-      T == CrdtDataDeleted ||
-      T == CrdtNode ||
-      T == CrdtWorker ||
-      T == CrdtUser ||
-      T == CrdtSchemaTable ||
-      T == CrdtSchemaColumn) {
-    return true;
-  }
-  return false;
 }
 
 extension on List<TableRow> {

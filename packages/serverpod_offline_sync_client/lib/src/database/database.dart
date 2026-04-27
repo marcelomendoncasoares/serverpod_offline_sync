@@ -288,8 +288,9 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        if (!_domainTableHasUuidPrimaryKey<T>(serializationManager)) {
-          final result = await _delegate.delete<T>(
+        if (rows.isEmpty) return [];
+        if (!_recorder.isCrdtTracked<T>()) {
+          return _delegate.delete<T>(
             rows,
             transaction: tx,
             orderBy: orderBy,
@@ -298,11 +299,9 @@ class CrdtDatabase implements Database {
             // ignore: deprecated_member_use
             orderDescending: orderDescending,
           );
-          await _recorder.afterDelete<T>(result, tx);
-          return result;
         }
-        if (rows.isEmpty) return [];
-        await _recorder.markDomainRowsDeleted(rows, tx);
+
+        await _recorder.insteadOfDelete<T>(rows, tx);
         return rows;
       },
     );
@@ -317,15 +316,11 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        if (!_domainTableHasUuidPrimaryKey<T>(serializationManager)) {
-          final result = await _delegate.deleteRow<T>(
-            row,
-            transaction: tx,
-          );
-          await _recorder.afterDelete([result], tx);
-          return result;
+        if (!_recorder.isCrdtTracked<T>()) {
+          return _delegate.deleteRow<T>(row, transaction: tx);
         }
-        await _recorder.markDomainRowsDeleted([row], tx);
+
+        await _recorder.insteadOfDelete<T>([row], tx);
         return row;
       },
     );
@@ -343,8 +338,8 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        if (!_domainTableHasUuidPrimaryKey<T>(serializationManager)) {
-          final result = await _delegate.deleteWhere<T>(
+        if (!_recorder.isCrdtTracked<T>()) {
+          return _delegate.deleteWhere<T>(
             where: where,
             orderBy: orderBy,
             orderByList: orderByList,
@@ -353,15 +348,20 @@ class CrdtDatabase implements Database {
             orderDescending: orderDescending,
             transaction: tx,
           );
-          await _recorder.afterDelete(result, tx);
-          return result;
         }
+
+        // TODO: Find a more performant implementation that does not imply a full
+        // data round-trip just for the delete.
         final rows = await _delegate.find<T>(
           where: mergeWhereWithTombstone<T>(serializationManager, where, null),
+          orderBy: orderBy,
+          orderByList: orderByList,
+          // Remove this once the deprecated member is removed.
+          // ignore: deprecated_member_use
+          orderDescending: orderDescending,
           transaction: tx,
         );
-        if (rows.isEmpty) return [];
-        await _recorder.markDomainRowsDeleted(rows, tx);
+        await _recorder.insteadOfDelete<T>(rows, tx);
         return rows;
       },
     );
@@ -492,11 +492,4 @@ class CrdtDatabase implements Database {
 
   @override
   Future<bool> testConnection() => _delegate.testConnection();
-}
-
-bool _domainTableHasUuidPrimaryKey<T extends TableRow>(
-  DatabaseSerializationManager serializationManager,
-) {
-  final table = serializationManager.getTableForType(T);
-  return table != null && table.id is ColumnUuid;
 }
