@@ -7,7 +7,6 @@ import '../protocol/protocol.dart';
 import 'database.dart';
 import 'schema.dart';
 import 'session.dart';
-import 'upsert.dart';
 
 /// Persists additional CRDT rows after a mutating ORM operation completes.
 ///
@@ -105,55 +104,101 @@ class CrdtMutationRecorder {
     if (updatedRows.isEmpty) return;
     if (_shouldSkipCrdtTypes<T>()) return;
 
-    final existingCrdtFields = await CrdtDataField.db.find(
+    final crdtDataRows = await CrdtDataRow.db.find(
       _session,
-      where: (t) => t.row.uuidRowId.inSet(updatedRows.uuidRowIds),
+      where: (t) => t.uuidRowId.inSet(updatedRows.uuidRowIds),
+      transaction: transaction,
+    );
+
+    if (crdtDataRows.length != updatedRows.length) {
+      final found = crdtDataRows.map((e) => e.uuidRowId).toSet();
+      final missing = updatedRows.uuidRowIds.difference(found);
+      throw StateError(
+        'Missing CRDT rows for ${missing.length} updated domain rows:\n'
+        '${missing.map((id) => '  - $id').join('\n')}',
+      );
+    }
+
+    final crdtDataRowByUuid = {
+      for (final r in crdtDataRows) r.uuidRowId: r,
+    };
+
+    final table = updatedRows.first.table;
+    final updatedColumnList = (columns ?? table.managedColumns)
+        .where((c) => c.columnName != 'id')
+        .toList();
+
+    final existingFields = await CrdtDataField.db.find(
+      _session,
+      where: (t) => t.rowId.inSet(crdtDataRows.map((r) => r.id!).toSet()),
       include: CrdtDataField.include(
-        row: CrdtDataRow.include(),
         column: CrdtSchemaColumn.include(),
       ),
       transaction: transaction,
     );
 
-    final existingCrdtRowIds = existingCrdtFields.map((f) => f.row!.uuidRowId).toSet();
-    if (existingCrdtRowIds.length != updatedRows.length) {
-      final missingRowIds = updatedRows.uuidRowIds.difference(existingCrdtRowIds);
-      throw StateError(
-        'Missing CRDT rows for ${missingRowIds.length} updated rows:\n'
-        '${missingRowIds.map((id) => '  - $id').join('\n')}',
-      );
-    }
+    final fieldByRowAndColumn = {
+      for (final f in existingFields) (f.rowId, f.columnId): f,
+    };
 
     final hlcManager = _getHlcManager(transaction);
-    final updatedColumns = columns ?? updatedRows.first.table.columns;
-
-    final modifiedCrdtFields = <CrdtDataField>[];
+    final toInsert = <CrdtDataField>[];
+    final toUpdate = <CrdtDataField>[];
     for (final row in updatedRows) {
-      final existingFields = existingCrdtFields
-          .where((field) => field.row!.uuidRowId == row.id as UuidValue)
-          .toList();
+      final crdtDataRow = crdtDataRowByUuid[row.id as UuidValue]!;
+      final (_, colMap) = _schema[row.table.tableName]!;
 
-      for (final column in updatedColumns) {
-        final existingField = existingFields.firstWhere(
-          (field) => field.column!.name == column.columnName,
-        );
+      for (final column in updatedColumnList) {
+        final schemaCol = colMap[column.columnName];
+        if (schemaCol == null) {
+          throw StateError(
+            'No CRDT schema column for ${row.table.tableName}.${column.columnName}',
+          );
+        }
+
         final hlc = hlcManager.increment();
+        final rowPk = crdtDataRow.id!;
+        final colPk = schemaCol.id!;
+        final existing = fieldByRowAndColumn[(rowPk, colPk)];
 
-        modifiedCrdtFields.add(
-          existingField.copyWith(
-            nodeId: hlcManager.normalizedNodeId,
-            workerId: hlcManager.workerId,
-            datetime: hlc.datetime,
-            counter: hlc.counter,
-          ),
-        );
+        if (existing == null) {
+          toInsert.add(
+            CrdtDataField(
+              rowId: rowPk,
+              columnId: colPk,
+              nodeId: crdtDataRow.nodeId,
+              workerId: hlcManager.workerId,
+              datetime: hlc.datetime,
+              counter: hlc.counter,
+            ),
+          );
+        } else {
+          toUpdate.add(
+            existing.copyWith(
+              nodeId: crdtDataRow.nodeId,
+              workerId: hlcManager.workerId,
+              datetime: hlc.datetime,
+              counter: hlc.counter,
+            ),
+          );
+        }
       }
     }
 
-    await _session.db.upsert(
-      modifiedCrdtFields,
-      transaction: transaction,
-    );
+    if (toInsert.isNotEmpty) {
+      await CrdtDataField.db.insert(
+        _session,
+        toInsert,
+        transaction: transaction,
+      );
+    }
+    if (toUpdate.isNotEmpty) {
+      await CrdtDataField.db.update(
+        _session,
+        toUpdate,
+        transaction: transaction,
+      );
+    }
   }
 
   // TODO: Change to INSTEAD OF DELETE.
