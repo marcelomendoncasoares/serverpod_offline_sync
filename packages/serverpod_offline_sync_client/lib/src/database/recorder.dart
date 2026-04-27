@@ -1,8 +1,8 @@
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
-import '../crdt/user.dart';
-import '../hlc/manager.dart';
+import '../managers/hlc.dart';
+import '../managers/user.dart';
 import '../protocol/protocol.dart';
 import 'database.dart';
 import 'schema.dart';
