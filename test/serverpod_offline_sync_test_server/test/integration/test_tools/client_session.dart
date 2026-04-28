@@ -62,7 +62,6 @@ Future<void> _initialize() async {
   CrdtUserManager.clearCache();
   HlcManager.reset();
 
-  await HlcManager.initialize(_testSession);
   await _crdtSession.db.initialize();
 }
 

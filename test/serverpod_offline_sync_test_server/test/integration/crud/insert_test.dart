@@ -51,7 +51,7 @@ void main() {
 
       test('has the HLC components populated consistently.', () async {
         final hlc = crdtRow!.toHlcForNode(crdtRow!.node!.uuidNodeId);
-        expect(hlc, greaterThan(Hlc.zero(hlc.node)));
+        expect(hlc, greaterThan(Hlc.zero(hlc.nodeId)));
       });
     });
 

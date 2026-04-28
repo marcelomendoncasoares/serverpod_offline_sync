@@ -4,9 +4,6 @@
 ### extended with the node ID (in its canonical or normalized form).
 class: BaseHlc
 fields:
-  ### An incremental worker ID, in case of a multi-worker setup on the same node.
-  workerId: int
-
   ### The datetime component of the HLC timestamp.
   datetime: DateTime
 

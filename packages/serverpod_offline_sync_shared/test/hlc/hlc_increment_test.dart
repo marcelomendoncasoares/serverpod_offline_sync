@@ -4,11 +4,11 @@ import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
 final _dateTime = DateTime.parse('2001-09-09T01:46:40.000Z');
-final _node = NodeWithWorker(nodeId: const Uuid().v4obj(), workerId: 1);
+final _nodeId = const Uuid().v4obj();
 
 void main() {
   group('Given an HLC with lower canonical time than wall time', () {
-    final hlc = Hlc(_dateTime, 17, _node);
+    final hlc = Hlc(_dateTime, 17, _nodeId);
     final wallTime = _dateTime.advance();
 
     test('when incrementing then dateTime becomes wall time and counter resets.', () {
@@ -18,13 +18,13 @@ void main() {
         expect(sendHlc, isNot(hlc));
         expect(sendHlc.datetime, wallTime);
         expect(sendHlc.counter, 0);
-        expect(sendHlc.node, hlc.node);
+        expect(sendHlc.nodeId, hlc.nodeId);
       });
     });
   });
 
   group('Given an HLC with equal canonical time and wall time', () {
-    final hlc = Hlc(_dateTime, 17, _node);
+    final hlc = Hlc(_dateTime, 17, _nodeId);
     final wallTime = _dateTime;
 
     test('when incrementing then counter increments and dateTime is unchanged.', () {
@@ -34,13 +34,13 @@ void main() {
         expect(sendHlc, isNot(hlc));
         expect(sendHlc.datetime, hlc.datetime);
         expect(sendHlc.counter, 18);
-        expect(sendHlc.node, hlc.node);
+        expect(sendHlc.nodeId, hlc.nodeId);
       });
     });
   });
 
   group('Given an HLC with higher canonical time than wall time', () {
-    final hlc = Hlc(_dateTime, 17, _node);
+    final hlc = Hlc(_dateTime, 17, _nodeId);
     final wallTime = _dateTime.retreat();
 
     test('when incrementing then counter increments and dateTime is unchanged.', () {
@@ -50,13 +50,13 @@ void main() {
         expect(sendHlc, isNot(hlc));
         expect(sendHlc.datetime, hlc.datetime);
         expect(sendHlc.counter, 18);
-        expect(sendHlc.node, hlc.node);
+        expect(sendHlc.nodeId, hlc.nodeId);
       });
     });
   });
 
   group('Given an HLC with canonical time more than one minute ahead of wall time', () {
-    final hlc = Hlc(_dateTime.add(const Duration(minutes: 1, seconds: 5)), 0, _node);
+    final hlc = Hlc(_dateTime.add(const Duration(minutes: 1, seconds: 5)), 0, _nodeId);
     final wallTime = _dateTime;
 
     test('when incrementing then ClockDriftException is thrown.', () {
@@ -67,7 +67,7 @@ void main() {
   });
 
   group('Given an HLC with counter at maximum and canonical time at wall time', () {
-    final hlc = Hlc(_dateTime, 0xFFFF, _node);
+    final hlc = Hlc(_dateTime, 0xFFFF, _nodeId);
     final wallTime = _dateTime;
 
     test('when incrementing at same time then OverflowException is thrown.', () {

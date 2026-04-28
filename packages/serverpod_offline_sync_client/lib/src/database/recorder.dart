@@ -87,7 +87,6 @@ class CrdtMutationRecorder {
         tblId: tableId,
         uuidRowId: row.id as UuidValue,
         nodeId: hlcManager.normalizedNodeId,
-        workerId: hlcManager.workerId,
         datetime: hlc.datetime,
         counter: hlc.counter,
       );
@@ -176,7 +175,6 @@ class CrdtMutationRecorder {
               rowId: rowPk,
               columnId: colPk,
               nodeId: crdtDataRow.nodeId,
-              workerId: hlcManager.workerId,
               datetime: hlc.datetime,
               counter: hlc.counter,
             ),
@@ -185,7 +183,6 @@ class CrdtMutationRecorder {
           toUpdate.add(
             existing.copyWith(
               nodeId: crdtDataRow.nodeId,
-              workerId: hlcManager.workerId,
               datetime: hlc.datetime,
               counter: hlc.counter,
             ),
@@ -271,7 +268,6 @@ class CrdtMutationRecorder {
           CrdtDataDeleted(
             rowId: rowPk,
             nodeId: hlcManager.normalizedNodeId,
-            workerId: hlcManager.workerId,
             datetime: hlc.datetime,
             counter: hlc.counter,
             isDeleted: true,
@@ -281,7 +277,6 @@ class CrdtMutationRecorder {
         toUpdate.add(
           existing.copyWith(
             nodeId: hlcManager.normalizedNodeId,
-            workerId: hlcManager.workerId,
             datetime: hlc.datetime,
             counter: hlc.counter,
             isDeleted: true,

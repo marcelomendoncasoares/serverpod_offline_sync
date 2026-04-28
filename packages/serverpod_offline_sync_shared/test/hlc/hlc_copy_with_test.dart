@@ -3,11 +3,11 @@ import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
 final _dateTime = DateTime.parse('2001-09-09T01:46:40.000Z');
-final _node = NodeWithWorker(nodeId: const Uuid().v4obj(), workerId: 1);
+final _nodeId = const Uuid().v4obj();
 
 void main() {
   group('Given an HLC', () {
-    final hlc = Hlc(_dateTime, 17, _node);
+    final hlc = Hlc(_dateTime, 17, _nodeId);
 
     test('when calling copyWith with new dateTime then result has new dateTime.', () {
       final newDateTime = _dateTime.add(const Duration(minutes: 1));
@@ -23,10 +23,10 @@ void main() {
     });
 
     test('when calling copyWith with new nodeId then result has new nodeId.', () {
-      final newNode = NodeWithWorker(nodeId: const Uuid().v4obj(), workerId: 2);
-      final newHlc = hlc.copyWith(node: newNode);
+      final newNodeId = const Uuid().v4obj();
+      final newHlc = hlc.copyWith(nodeId: newNodeId);
 
-      expect(newHlc.node, newNode);
+      expect(newHlc.nodeId, newNodeId);
     });
   });
 }

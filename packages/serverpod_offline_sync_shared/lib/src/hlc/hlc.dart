@@ -10,7 +10,6 @@ import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../../src/generated/hlc/base.dart';
 import 'exceptions.dart';
-import 'node_with_worker.dart';
 
 /// A Hybrid Logical Clock implementation that supports both ISO 8601 and Unix
 /// timestamp formats. The datetime component has millisecond precision and is
@@ -30,19 +29,14 @@ class Hlc implements Comparable<Hlc> {
   /// Creates a new instance of [Hlc].
   ///
   /// Precision of the [datetime] is milliseconds.
-  factory Hlc(DateTime datetime, int counter, NodeWithWorker node) =>
-      Hlc._(datetime.toUtcMillisecond(), counter, node);
+  factory Hlc(DateTime datetime, int counter, UuidValue nodeId) =>
+      Hlc._(datetime.toUtcMillisecond(), counter, nodeId);
 
-  const Hlc._(this.datetime, this.counter, this.node) : assert(counter <= _maxCounter);
-
-  /// Instantiates an Hlc at the beginning of time and space: January 1, 1970.
-  factory Hlc.zero(NodeWithWorker node) => Hlc(DateTime.utc(1970), 0, node);
-
-  /// Instantiates an Hlc using the wall clock.
-  factory Hlc.now(NodeWithWorker node) => Hlc(DateTime.now(), 0, node);
-
-  /// Parse an HLC string in the format `<ISO8601_date>-<counter>-<node_id>:<worker_id>`
-  /// or `<unix_timestamp>-<counter>-<node_id>:<worker_id>`.
+  /// Parse an HLC string in the format `<ISO8601_date>-<counter>-<node_id>`
+  /// or `<unix_timestamp>-<counter>-<node_id>`.
+  ///
+  /// For backward compatibility, the node segment may use a legacy
+  /// `uuid:worker_id` form; the worker suffix is ignored.
   factory Hlc.parse(String timestamp) {
     final indexOfColon = timestamp.indexOf(':');
     final indexOfStart = indexOfColon > 0 && indexOfColon < 20 ? indexOfColon : 0;
@@ -64,15 +58,33 @@ class Hlc implements Comparable<Hlc> {
 
     final counter = int.parse(counterPart, radix: 16);
     final nodeIdPart = timestamp.substring(nodeIdDash + 1);
-    return Hlc(datetime, counter, NodeWithWorker.parse(nodeIdPart));
+    return Hlc(datetime, counter, parseNodeSegment(nodeIdPart));
   }
 
   /// Convenience method to decode the HLC from a JSON map.
   factory Hlc.fromJson(Map<String, dynamic> json) => Hlc(
     DateTime.parse(json['datetime'] as String),
     int.parse(json['counter'] as String, radix: 16),
-    NodeWithWorker.parse(json['node'] as String),
+    UuidValue.withValidation(json['node'] as String),
   );
+
+  const Hlc._(this.datetime, this.counter, this.nodeId)
+    : assert(counter <= _maxCounter);
+
+  /// Instantiates an Hlc at the beginning of time and space: January 1, 1970.
+  factory Hlc.zero(UuidValue nodeId) => Hlc(DateTime.utc(1970), 0, nodeId);
+
+  /// Instantiates an Hlc using the wall clock.
+  factory Hlc.now(UuidValue nodeId) => Hlc(DateTime.now(), 0, nodeId);
+
+  /// Parses the node segment of an HLC string: a UUID, or legacy `uuid:workerId`.
+  static UuidValue parseNodeSegment(String segment) {
+    final parts = segment.split(':');
+    if (parts.length == 2 && int.tryParse(parts[1]) != null) {
+      return UuidValue.withValidation(parts[0]);
+    }
+    return UuidValue.withValidation(segment);
+  }
 
   /// The date and time of the HLC.
   final DateTime datetime;
@@ -80,8 +92,8 @@ class Hlc implements Comparable<Hlc> {
   /// The counter of the HLC.
   final int counter;
 
-  /// The node with worker ID of the HLC.
-  final NodeWithWorker node;
+  /// The logical node ID for this HLC.
+  final UuidValue nodeId;
 
   /// The Unix timestamp of the HLC.
   int get unixTimestamp => datetime.millisecondsSinceEpoch;
@@ -102,7 +114,7 @@ class Hlc implements Comparable<Hlc> {
       throw OverflowException(counterNew);
     }
 
-    return Hlc(datetimeNew, counterNew, node);
+    return Hlc(datetimeNew, counterNew, nodeId);
   }
 
   /// Compares and validates a timestamp from a remote system with the local
@@ -113,8 +125,8 @@ class Hlc implements Comparable<Hlc> {
       return this;
     }
 
-    if (node.nodeId == remote.node.nodeId) {
-      throw DuplicateNodeException(node.nodeId);
+    if (nodeId == remote.nodeId) {
+      throw DuplicateNodeException(nodeId);
     }
 
     final localWallTime = clock.now().toUtc();
@@ -122,27 +134,27 @@ class Hlc implements Comparable<Hlc> {
       throw ClockDriftException(remote.datetime, localWallTime, _maxDrift);
     }
 
-    return remote.copyWith(node: node);
+    return remote.copyWith(nodeId: nodeId);
   }
 
   /// Create a copy of this object replacing the optional properties.
-  Hlc copyWith({DateTime? datetime, int? counter, NodeWithWorker? node}) => Hlc(
+  Hlc copyWith({DateTime? datetime, int? counter, UuidValue? nodeId}) => Hlc(
     datetime ?? this.datetime,
     counter ?? this.counter,
-    node ?? this.node,
+    nodeId ?? this.nodeId,
   );
 
   @override
   String toString() =>
       '${datetime.toIso8601String()}-'
       '${counter.toRadixString(16).toUpperCase().padLeft(4, '0')}-'
-      '$node'; // Format: <ISO8601_date>-<counter>-<node_id>:<worker_id>
+      '$nodeId';
 
   /// Convenience method for easy json encoding.
   Map<String, dynamic> toJson() => {
     'datetime': datetime.toIso8601String(),
     'counter': counter.toRadixString(16).toUpperCase().padLeft(4, '0'),
-    'node': node.toString(),
+    'node': nodeId.toString(),
   };
 
   @override
@@ -166,7 +178,7 @@ class Hlc implements Comparable<Hlc> {
   @override
   int compareTo(Hlc other) => datetime.isAtSameMomentAs(other.datetime)
       ? counter == other.counter
-            ? node.compareTo(other.node)
+            ? nodeId.uuid.compareTo(other.nodeId.uuid)
             : counter - other.counter
       : datetime.compareTo(other.datetime);
 }
@@ -179,6 +191,5 @@ extension on DateTime {
 /// Extensions for [BaseHlc] to convert it to an [Hlc].
 extension BaseHlcToHlc on BaseHlc {
   /// Converts the [BaseHlc] to an [Hlc] with the given [nodeId].
-  Hlc toHlcForNode(UuidValue nodeId) =>
-      Hlc(datetime, counter, NodeWithWorker(nodeId: nodeId, workerId: workerId));
+  Hlc toHlcForNode(UuidValue nodeId) => Hlc(datetime, counter, nodeId);
 }
