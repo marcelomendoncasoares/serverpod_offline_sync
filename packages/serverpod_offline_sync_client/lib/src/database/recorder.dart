@@ -87,8 +87,8 @@ class CrdtMutationRecorder {
         tblId: tableId,
         uuidRowId: row.id as UuidValue,
         nodeId: hlcManager.normalizedNodeId,
-        datetime: hlc.datetime,
-        counter: hlc.counter,
+        hlcDatetime: hlc.datetime,
+        hlcCounter: hlc.counter,
       );
     });
 
@@ -175,16 +175,16 @@ class CrdtMutationRecorder {
               rowId: rowPk,
               columnId: colPk,
               nodeId: crdtDataRow.nodeId,
-              datetime: hlc.datetime,
-              counter: hlc.counter,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
             ),
           );
         } else {
           toUpdate.add(
             existing.copyWith(
               nodeId: crdtDataRow.nodeId,
-              datetime: hlc.datetime,
-              counter: hlc.counter,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
             ),
           );
         }
@@ -268,8 +268,8 @@ class CrdtMutationRecorder {
           CrdtDataDeleted(
             rowId: rowPk,
             nodeId: hlcManager.normalizedNodeId,
-            datetime: hlc.datetime,
-            counter: hlc.counter,
+            hlcDatetime: hlc.datetime,
+            hlcCounter: hlc.counter,
             isDeleted: true,
           ),
         );
@@ -277,8 +277,8 @@ class CrdtMutationRecorder {
         toUpdate.add(
           existing.copyWith(
             nodeId: hlcManager.normalizedNodeId,
-            datetime: hlc.datetime,
-            counter: hlc.counter,
+            hlcDatetime: hlc.datetime,
+            hlcCounter: hlc.counter,
             isDeleted: true,
           ),
         );

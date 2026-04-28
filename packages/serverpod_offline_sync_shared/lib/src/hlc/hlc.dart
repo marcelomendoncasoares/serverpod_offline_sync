@@ -191,5 +191,5 @@ extension on DateTime {
 /// Extensions for [BaseHlc] to convert it to an [Hlc].
 extension BaseHlcToHlc on BaseHlc {
   /// Converts the [BaseHlc] to an [Hlc] with the given [nodeId].
-  Hlc toHlcForNode(UuidValue nodeId) => Hlc(datetime, counter, nodeId);
+  Hlc toHlcForNode(UuidValue nodeId) => Hlc(hlcDatetime, hlcCounter, nodeId);
 }

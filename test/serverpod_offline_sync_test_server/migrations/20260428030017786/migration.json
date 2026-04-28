@@ -1,0 +1,491 @@
+{
+  "__className__": "serverpod.DatabaseMigration",
+  "actions": [
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "deleteTable",
+      "deleteTable": "crdt_data_fields"
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "createTable",
+      "createTable": {
+        "__className__": "serverpod.TableDefinition",
+        "name": "crdt_data_fields",
+        "dartName": "CrdtDataField",
+        "module": "serverpod_offline_sync",
+        "schema": "public",
+        "columns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "id",
+            "fieldName": "id",
+            "columnType": 6,
+            "isNullable": false,
+            "columnDefault": "serial",
+            "dartType": "int?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "hlcDatetime",
+            "fieldName": "hlcDatetime",
+            "columnType": 4,
+            "isNullable": false,
+            "dartType": "DateTime"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "hlcCounter",
+            "fieldName": "hlcCounter",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "rowId",
+            "fieldName": "rowId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "columnId",
+            "fieldName": "columnId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "nodeId",
+            "fieldName": "nodeId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_fields_fk_0",
+            "columns": [
+              "rowId"
+            ],
+            "referenceTable": "crdt_data_rows",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          },
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_fields_fk_1",
+            "columns": [
+              "columnId"
+            ],
+            "referenceTable": "crdt_schema_columns",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          },
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_fields_fk_2",
+            "columns": [
+              "nodeId"
+            ],
+            "referenceTable": "crdt_nodes",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 3
+          }
+        ],
+        "indexes": [
+          {
+            "__className__": "serverpod.IndexDefinition",
+            "indexName": "crdt_data_fields_row_column_idx",
+            "elements": [
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "rowId"
+              },
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "columnId"
+              }
+            ],
+            "type": "btree",
+            "isUnique": true,
+            "isPrimary": false
+          }
+        ],
+        "managed": true
+      }
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "deleteTable",
+      "deleteTable": "crdt_data_rows"
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "createTable",
+      "createTable": {
+        "__className__": "serverpod.TableDefinition",
+        "name": "crdt_data_rows",
+        "dartName": "CrdtDataRow",
+        "module": "serverpod_offline_sync",
+        "schema": "public",
+        "columns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "id",
+            "fieldName": "id",
+            "columnType": 6,
+            "isNullable": false,
+            "columnDefault": "serial",
+            "dartType": "int?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "hlcDatetime",
+            "fieldName": "hlcDatetime",
+            "columnType": 4,
+            "isNullable": false,
+            "dartType": "DateTime"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "hlcCounter",
+            "fieldName": "hlcCounter",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "userId",
+            "fieldName": "userId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "tblId",
+            "fieldName": "tblId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "uuidRowId",
+            "fieldName": "uuidRowId",
+            "columnType": 7,
+            "isNullable": false,
+            "dartType": "UuidValue"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "nodeId",
+            "fieldName": "nodeId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_rows_fk_0",
+            "columns": [
+              "userId"
+            ],
+            "referenceTable": "crdt_users",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          },
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_rows_fk_1",
+            "columns": [
+              "tblId"
+            ],
+            "referenceTable": "crdt_schema_tables",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          },
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_rows_fk_2",
+            "columns": [
+              "nodeId"
+            ],
+            "referenceTable": "crdt_nodes",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 3
+          }
+        ],
+        "indexes": [
+          {
+            "__className__": "serverpod.IndexDefinition",
+            "indexName": "crdt_data_rows_user_tbl_row_idx",
+            "elements": [
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "userId"
+              },
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "tblId"
+              },
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "uuidRowId"
+              }
+            ],
+            "type": "btree",
+            "isUnique": true,
+            "isPrimary": false
+          }
+        ],
+        "managed": true
+      }
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "deleteTable",
+      "deleteTable": "crdt_data_tombstone"
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "createTable",
+      "createTable": {
+        "__className__": "serverpod.TableDefinition",
+        "name": "crdt_data_tombstone",
+        "dartName": "CrdtDataDeleted",
+        "module": "serverpod_offline_sync",
+        "schema": "public",
+        "columns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "id",
+            "fieldName": "id",
+            "columnType": 6,
+            "isNullable": false,
+            "columnDefault": "serial",
+            "dartType": "int?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "hlcDatetime",
+            "fieldName": "hlcDatetime",
+            "columnType": 4,
+            "isNullable": false,
+            "dartType": "DateTime"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "hlcCounter",
+            "fieldName": "hlcCounter",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "rowId",
+            "fieldName": "rowId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "nodeId",
+            "fieldName": "nodeId",
+            "columnType": 6,
+            "isNullable": false,
+            "dartType": "int"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "isDeleted",
+            "fieldName": "isDeleted",
+            "columnType": 1,
+            "isNullable": false,
+            "dartType": "bool"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_tombstone_fk_0",
+            "columns": [
+              "rowId"
+            ],
+            "referenceTable": "crdt_data_rows",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          },
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "crdt_data_tombstone_fk_1",
+            "columns": [
+              "nodeId"
+            ],
+            "referenceTable": "crdt_nodes",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 3
+          }
+        ],
+        "indexes": [
+          {
+            "__className__": "serverpod.IndexDefinition",
+            "indexName": "crdt_data_tombstone_row_idx",
+            "elements": [
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "rowId"
+              }
+            ],
+            "type": "btree",
+            "isUnique": true,
+            "isPrimary": false
+          }
+        ],
+        "managed": true
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"datetime\" of table \"crdt_data_fields\" will be dropped.",
+      "table": "crdt_data_fields",
+      "columns": [
+        "datetime"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"counter\" of table \"crdt_data_fields\" will be dropped.",
+      "table": "crdt_data_fields",
+      "columns": [
+        "counter"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "tableDropped",
+      "message": "One or more columns are added to table \"crdt_data_fields\" which cannot be added in a table migration. The complete table will be deleted and recreated.",
+      "table": "crdt_data_fields",
+      "columns": [
+        "hlcDatetime"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"datetime\" of table \"crdt_data_rows\" will be dropped.",
+      "table": "crdt_data_rows",
+      "columns": [
+        "datetime"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"counter\" of table \"crdt_data_rows\" will be dropped.",
+      "table": "crdt_data_rows",
+      "columns": [
+        "counter"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "tableDropped",
+      "message": "One or more columns are added to table \"crdt_data_rows\" which cannot be added in a table migration. The complete table will be deleted and recreated.",
+      "table": "crdt_data_rows",
+      "columns": [
+        "hlcDatetime"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"datetime\" of table \"crdt_data_tombstone\" will be dropped.",
+      "table": "crdt_data_tombstone",
+      "columns": [
+        "datetime"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"counter\" of table \"crdt_data_tombstone\" will be dropped.",
+      "table": "crdt_data_tombstone",
+      "columns": [
+        "counter"
+      ],
+      "destrucive": true
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "tableDropped",
+      "message": "One or more columns are added to table \"crdt_data_tombstone\" which cannot be added in a table migration. The complete table will be deleted and recreated.",
+      "table": "crdt_data_tombstone",
+      "columns": [
+        "hlcDatetime"
+      ],
+      "destrucive": true
+    }
+  ],
+  "migrationApiVersion": 1
+}

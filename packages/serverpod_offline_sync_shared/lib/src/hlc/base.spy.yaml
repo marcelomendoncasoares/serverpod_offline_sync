@@ -5,7 +5,7 @@
 class: BaseHlc
 fields:
   ### The datetime component of the HLC timestamp.
-  datetime: DateTime
+  hlcDatetime: DateTime
 
   ### The counter component of the HLC timestamp.
-  counter: int
+  hlcCounter: int
