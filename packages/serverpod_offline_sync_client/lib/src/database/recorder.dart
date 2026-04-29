@@ -10,6 +10,13 @@ import 'database.dart';
 import 'schema.dart';
 import 'session.dart';
 
+typedef _ReferencingForeignKey = ({
+  String childTableName,
+  String childColumn,
+  String parentColumn,
+  ForeignKeyAction action,
+});
+
 /// Persists additional CRDT rows after a mutating ORM operation completes.
 ///
 /// Callbacks receive the underlying database (not the CRDT proxy) and the
@@ -42,6 +49,49 @@ class CrdtMutationRecorder {
       table.name: table,
   };
 
+  late final Map<String, List<_ReferencingForeignKey>> _foreignKeysByReferencedTable =
+      () {
+        final result = <String, List<_ReferencingForeignKey>>{};
+        for (final table in _tableDefinitionsByName.values) {
+          final childTableName = table.name;
+          for (final foreignKey in table.foreignKeys) {
+            if (foreignKey.columns.length != 1 ||
+                foreignKey.referenceColumns.length != 1) {
+              throw StateError(
+                'Composite foreign keys are not supported for CRDT soft deletes.',
+              );
+            }
+
+            result.putIfAbsent(foreignKey.referenceTable, () => []).add((
+              childTableName: childTableName,
+              childColumn: foreignKey.columns.single,
+              parentColumn: foreignKey.referenceColumns.single,
+              action: foreignKey.onDelete ?? ForeignKeyAction.noAction,
+            ));
+          }
+        }
+        return result;
+      }();
+
+  late final Map<String, List<IndexDefinition>> _uniqueIndexesByTableName = {
+    for (final table in _tableDefinitionsByName.values)
+      table.name: table.indexes
+          .where(
+            (index) =>
+                index.isUnique &&
+                !index.isPrimary &&
+                index.elements.every(
+                  (element) => element.type == IndexElementDefinitionType.column,
+                ),
+          )
+          .toList(),
+  };
+
+  late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
+    for (final table in _tableDefinitionsByName.values)
+      table.name: {for (final column in table.columns) column.name: column},
+  };
+
   /// Initializes the CRDT recorder.
   ///
   /// Safe to call again after the database was wiped (e.g. test `tearDown`)
@@ -49,11 +99,17 @@ class CrdtMutationRecorder {
   Future<void> initialize() async {
     final schemaRegistry = CrdtSchemaRegistry(_session, syncTables: syncTables);
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
+
+    final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
+    for (final column in columnRows) {
+      columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;
+    }
+
     _schema = {
       for (final t in tableRows)
         t.name: (
           t.id!,
-          {for (final c in columnRows.where((c) => c.tblId == t.id)) c.name: c},
+          columnsByTableId[t.id!] ?? {},
         ),
     };
   }
@@ -239,13 +295,21 @@ class CrdtMutationRecorder {
     final updatedColumnList = (columns ?? table.managedColumns)
         .where((c) => c.columnName != 'id')
         .toList();
+    if (updatedColumnList.isEmpty) return;
 
+    final (_, colMap) = _schema[table.tableName]!;
+    final schemaColumns = [
+      for (final column in updatedColumnList)
+        colMap[column.columnName] ??
+            (throw StateError(
+              'No CRDT schema column for ${table.tableName}.${column.columnName}',
+            )),
+    ];
+    final rowPks = crdtDataRows.map((r) => r.id!).toSet();
+    final columnPks = schemaColumns.map((c) => c.id!).toSet();
     final existingFields = await CrdtDataField.db.find(
       _session,
-      where: (t) => t.rowId.inSet(crdtDataRows.map((r) => r.id!).toSet()),
-      include: CrdtDataField.include(
-        column: CrdtSchemaColumn.include(),
-      ),
+      where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnPks),
       transaction: transaction,
     );
 
@@ -258,16 +322,8 @@ class CrdtMutationRecorder {
     final toUpdate = <CrdtDataField>[];
     for (final row in updatedRows) {
       final crdtDataRow = crdtDataRowByUuid[row.id as UuidValue]!;
-      final (_, colMap) = _schema[row.table.tableName]!;
 
-      for (final column in updatedColumnList) {
-        final schemaCol = colMap[column.columnName];
-        if (schemaCol == null) {
-          throw StateError(
-            'No CRDT schema column for ${row.table.tableName}.${column.columnName}',
-          );
-        }
-
+      for (final schemaCol in schemaColumns) {
         final hlc = hlcManager.increment();
         final rowPk = crdtDataRow.id!;
         final colPk = schemaCol.id!;
@@ -388,25 +444,30 @@ class CrdtMutationRecorder {
     final crdtDataRows = await _findCrdtRows(tableName, rowIds, transaction);
     if (crdtDataRows.isEmpty) return;
 
+    final (_, colMap) = _schema[tableName]!;
+    final schemaColumns = [
+      for (final columnName in columnNames)
+        if (colMap[columnName] != null) colMap[columnName]!,
+    ];
+    if (schemaColumns.isEmpty) return;
+
+    final rowPks = crdtDataRows.map((r) => r.id!).toSet();
+    final columnPks = schemaColumns.map((c) => c.id!).toSet();
     final existingFields = await CrdtDataField.db.find(
       _session,
-      where: (t) => t.rowId.inSet(crdtDataRows.map((r) => r.id!).toSet()),
+      where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnPks),
       transaction: transaction,
     );
     final fieldByRowAndColumn = {
       for (final f in existingFields) (f.rowId, f.columnId): f,
     };
 
-    final (_, colMap) = _schema[tableName]!;
     final hlcManager = _getHlcManager(transaction);
     final toInsert = <CrdtDataField>[];
     final toUpdate = <CrdtDataField>[];
 
     for (final row in crdtDataRows) {
-      for (final columnName in columnNames) {
-        final schemaCol = colMap[columnName];
-        if (schemaCol == null) continue;
-
+      for (final schemaCol in schemaColumns) {
         final hlc = hlcManager.increment();
         final existing = fieldByRowAndColumn[(row.id!, schemaCol.id!)];
         if (existing == null) {
@@ -528,9 +589,11 @@ class CrdtMutationRecorder {
     CrdtDataRowInclude? include,
   }) {
     final (tableId, _) = _schema[tableName]!;
+    final userId = _getHlcManager(transaction).normalizedUserId;
     return CrdtDataRow.db.find(
       _session,
-      where: (t) => t.tblId.equals(tableId) & t.uuidRowId.inSet(rowIds),
+      where: (t) =>
+          t.userId.equals(userId) & t.tblId.equals(tableId) & t.uuidRowId.inSet(rowIds),
       include: include,
       transaction: transaction,
     );
@@ -544,97 +607,81 @@ class CrdtMutationRecorder {
   ) async {
     if (parentIds.isEmpty) return;
 
-    final referencingTables = _tableDefinitionsByName.values.where(
-      (table) => table.foreignKeys.any(
-        (foreignKey) => foreignKey.referenceTable == parentTableName,
-      ),
-    );
+    final foreignKeys =
+        _foreignKeysByReferencedTable[parentTableName] ??
+        const <_ReferencingForeignKey>[];
+    for (final reference in foreignKeys) {
+      final parentValuesById = reference.parentColumn == 'id'
+          ? null
+          : await _readDomainColumnValues(
+              parentTableName,
+              parentIds,
+              [reference.parentColumn],
+              transaction,
+            );
 
-    for (final childTable in referencingTables) {
-      for (final foreignKey in childTable.foreignKeys.where(
-        (foreignKey) => foreignKey.referenceTable == parentTableName,
-      )) {
-        if (foreignKey.columns.length != 1 || foreignKey.referenceColumns.length != 1) {
-          throw StateError(
-            'Composite foreign keys are not supported for CRDT soft deletes.',
-          );
-        }
+      for (final parentId in parentIds) {
+        final referencedValue = reference.parentColumn == 'id'
+            ? parentId
+            : parentValuesById?[parentId]?[reference.parentColumn];
+        final childIds = await _findVisibleReferencingRowIds(
+          tableName: reference.childTableName,
+          columnName: reference.childColumn,
+          value: referencedValue,
+          transaction: transaction,
+        );
+        if (childIds.isEmpty) continue;
 
-        final childColumn = foreignKey.columns.single;
-        final parentColumn = foreignKey.referenceColumns.single;
-        final action = foreignKey.onDelete ?? ForeignKeyAction.noAction;
-
-        for (final parentId in parentIds) {
-          final referencedValue = parentColumn == 'id'
-              ? parentId
-              : await _readDomainColumnValue(
-                  parentTableName,
-                  parentId,
-                  parentColumn,
-                  transaction,
-                );
-          final childIds = await _findVisibleReferencingRowIds(
-            tableName: childTable.name,
-            columnName: childColumn,
-            value: referencedValue,
-            transaction: transaction,
-          );
-          if (childIds.isEmpty) continue;
-
-          switch (action) {
-            case ForeignKeyAction.restrict:
-            case ForeignKeyAction.noAction:
-              throw Exception(
-                'Cannot delete $parentTableName row because '
-                '${childTable.name}.$childColumn references it.',
+        switch (reference.action) {
+          case ForeignKeyAction.restrict:
+          case ForeignKeyAction.noAction:
+            throw Exception(
+              'Cannot delete $parentTableName row because '
+              '${reference.childTableName}.${reference.childColumn} references it.',
+            );
+          case ForeignKeyAction.setNull:
+            await _updateDomainRows(
+              reference.childTableName,
+              childIds,
+              {reference.childColumn: null},
+              transaction,
+            );
+            await recordFieldsUpdatedByTable(
+              reference.childTableName,
+              childIds,
+              [reference.childColumn],
+              transaction,
+            );
+          case ForeignKeyAction.setDefault:
+            final defaultValue = _defaultValueForColumn(
+              reference.childTableName,
+              reference.childColumn,
+            );
+            if (defaultValue == null) {
+              throw StateError(
+                'No default value found for '
+                '${reference.childTableName}.${reference.childColumn}.',
               );
-            case ForeignKeyAction.setNull:
-              for (final childId in childIds) {
-                await _updateDomainRow(
-                  childTable.name,
-                  childId,
-                  {childColumn: null},
-                  transaction,
-                );
-              }
-              await recordFieldsUpdatedByTable(
-                childTable.name,
-                childIds,
-                [childColumn],
-                transaction,
-              );
-            case ForeignKeyAction.setDefault:
-              final defaultValue = _defaultValueForColumn(
-                childTable.name,
-                childColumn,
-              );
-              if (defaultValue == null) {
-                throw StateError(
-                  'No default value found for ${childTable.name}.$childColumn.',
-                );
-              }
-              for (final childId in childIds) {
-                await _updateDomainRow(
-                  childTable.name,
-                  childId,
-                  {childColumn: defaultValue},
-                  transaction,
-                );
-              }
-              await recordFieldsUpdatedByTable(
-                childTable.name,
-                childIds,
-                [childColumn],
-                transaction,
-              );
-            case ForeignKeyAction.cascade:
-              await _softDeleteRowsByTable(
-                childTable.name,
-                childIds,
-                transaction,
-                processing,
-              );
-          }
+            }
+            await _updateDomainRows(
+              reference.childTableName,
+              childIds,
+              {reference.childColumn: defaultValue},
+              transaction,
+            );
+            await recordFieldsUpdatedByTable(
+              reference.childTableName,
+              childIds,
+              [reference.childColumn],
+              transaction,
+            );
+          case ForeignKeyAction.cascade:
+            await _softDeleteRowsByTable(
+              reference.childTableName,
+              childIds,
+              transaction,
+              processing,
+            );
         }
       }
     }
@@ -648,27 +695,18 @@ class CrdtMutationRecorder {
     final tableDefinition = _tableDefinitionsByName[tableName];
     if (tableDefinition == null) return;
 
-    final uniqueIndexes = tableDefinition.indexes.where(
-      (index) =>
-          index.isUnique &&
-          !index.isPrimary &&
-          index.elements.every(
-            (element) => element.type == IndexElementDefinitionType.column,
-          ),
-    );
-
+    final uniqueIndexes = _uniqueIndexesByTableName[tableName] ?? const [];
     for (final index in uniqueIndexes) {
-      final columnNames = index.elements.map((e) => e.definition).toList();
-      for (final rowId in rowIds) {
-        final values = <String, Object?>{};
-        for (final columnName in columnNames) {
-          values[columnName] = await _readDomainColumnValue(
-            tableName,
-            rowId,
-            columnName,
-            transaction,
-          );
-        }
+      final columnNames = index.elements.map((element) => element.definition).toList();
+      final valuesByRowId = await _readDomainColumnValues(
+        tableName,
+        rowIds,
+        columnNames,
+        transaction,
+      );
+      final updatedRowIds = <UuidValue>{};
+
+      for (final MapEntry(key: rowId, value: values) in valuesByRowId.entries) {
         if (values.values.any((value) => value == null)) continue;
 
         final updates = <String, Object?>{};
@@ -682,9 +720,13 @@ class CrdtMutationRecorder {
         }
 
         await _updateDomainRow(tableName, rowId, updates, transaction);
+        updatedRowIds.add(rowId);
+      }
+
+      if (updatedRowIds.isNotEmpty) {
         await recordFieldsUpdatedByTable(
           tableName,
-          {rowId},
+          updatedRowIds,
           columnNames,
           transaction,
         );
@@ -699,16 +741,17 @@ class CrdtMutationRecorder {
     required Transaction transaction,
   }) async {
     final (tableId, _) = _schema[tableName]!;
+    final userId = _getHlcManager(transaction).normalizedUserId;
     final result = await _db.unsafeQuery(
       '''
 SELECT d."id"
 FROM "${_escapeIdentifier(tableName)}" d
 LEFT JOIN "crdt_data_rows" r
-  ON r."uuidRowId" = d."id" AND r."tblId" = $tableId
+  ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 LEFT JOIN "crdt_data_tombstone" tomb
   ON tomb."rowId" = r."id"
 WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
-  AND (tomb."id" IS NULL OR tomb."isDeleted" = 0)
+  AND (tomb."id" IS NULL OR tomb."isDeleted" = FALSE)
 ''',
       transaction: transaction,
     );
@@ -723,7 +766,16 @@ WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
     Map<String, Object?> updates,
     Transaction transaction,
   ) async {
-    if (updates.isEmpty) return;
+    await _updateDomainRows(tableName, {rowId}, updates, transaction);
+  }
+
+  Future<void> _updateDomainRows(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Map<String, Object?> updates,
+    Transaction transaction,
+  ) async {
+    if (rowIds.isEmpty || updates.isEmpty) return;
 
     final assignments = updates.entries
         .map(
@@ -735,38 +787,46 @@ WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
       '''
 UPDATE "${_escapeIdentifier(tableName)}"
 SET $assignments
-WHERE "id" = ${_sqlLiteral(rowId)}
+WHERE "id" IN (${_sqlLiteralList(rowIds)})
 ''',
       transaction: transaction,
     );
   }
 
-  Future<Object?> _readDomainColumnValue(
+  Future<Map<UuidValue, Map<String, Object?>>> _readDomainColumnValues(
     String tableName,
-    UuidValue rowId,
-    String columnName,
+    Set<UuidValue> rowIds,
+    List<String> columnNames,
     Transaction transaction,
   ) async {
+    if (rowIds.isEmpty || columnNames.isEmpty) return {};
+
+    final columns = [
+      '"id"',
+      for (final columnName in columnNames) '"${_escapeIdentifier(columnName)}"',
+    ].join(', ');
+
     final result = await _db.unsafeQuery(
       '''
-SELECT "${_escapeIdentifier(columnName)}"
+SELECT $columns
 FROM "${_escapeIdentifier(tableName)}"
-WHERE "id" = ${_sqlLiteral(rowId)}
-LIMIT 1
+WHERE "id" IN (${_sqlLiteralList(rowIds)})
 ''',
       transaction: transaction,
     );
 
-    if (result.isEmpty) return null;
-    return result.first[0];
+    return {
+      for (final row in result)
+        _uuidFromDatabase(row[0]): {
+          for (final (index, columnName) in columnNames.indexed)
+            columnName: row[index + 1],
+        },
+    };
   }
 
   Object? _defaultValueForColumn(String tableName, String columnName) {
-    final tableDefinition = _tableDefinitionsByName[tableName];
-    if (tableDefinition == null) return null;
-    final column = tableDefinition.columns.firstWhere(
-      (column) => column.name == columnName,
-    );
+    final column = _columnsByTableAndName[tableName]?[columnName];
+    if (column == null) return null;
     final defaultValue = column.columnDefault;
     if (defaultValue == null) return null;
     if (column.columnType == ColumnType.uuid) {
@@ -783,10 +843,8 @@ LIMIT 1
     Object? value,
     UuidValue conflictingId,
   ) {
-    final column = tableDefinition.columns.firstWhere(
-      (column) => column.name == columnName,
-    );
-    if (column.columnType == ColumnType.text && value is String) {
+    final column = _columnsByTableAndName[tableDefinition.name]?[columnName];
+    if (column?.columnType == ColumnType.text && value is String) {
       return '${value}__deleted__${conflictingId.uuid}';
     }
     throw StateError(
@@ -831,6 +889,10 @@ String _sqlLiteral(Object? value) {
   if (value is DateTime) return value.millisecondsSinceEpoch.toString();
   if (value is num) return value.toString();
   throw StateError('Unsupported SQL literal type: ${value.runtimeType}.');
+}
+
+String _sqlLiteralList(Iterable<Object?> values) {
+  return values.map(_sqlLiteral).join(', ');
 }
 
 UuidValue _uuidFromDatabase(Object? value) {
