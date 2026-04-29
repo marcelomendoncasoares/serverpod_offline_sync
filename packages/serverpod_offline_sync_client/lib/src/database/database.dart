@@ -161,10 +161,16 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        final result = await _delegate.insertRow<T>(
-          row,
-          transaction: tx,
-        );
+        late final T result;
+        try {
+          result = await _delegate.insertRow<T>(row, transaction: tx);
+        } on DatabaseQueryException {
+          if (!await _recorder.isDeleted(row, tx)) rethrow;
+
+          result = await _delegate.updateRow<T>(row, transaction: tx);
+          await _recorder.afterReinsert([result], tx);
+          return result;
+        }
 
         await _recorder.afterInsert([result], tx);
         return result;
@@ -178,18 +184,15 @@ class CrdtDatabase implements Database {
     List<Column>? columns,
     Transaction? transaction,
   }) async {
+    if (rows.isEmpty) return [];
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
-        final result = await _delegate.update<T>(
-          rows,
-          columns: columns,
-          transaction: tx,
-        );
-
-        await _recorder.afterUpdate<T>(result, columns, tx);
-        return result;
+        return [
+          for (final row in rows)
+            await updateRow<T>(row, columns: columns, transaction: tx),
+        ];
       },
     );
   }
@@ -200,20 +203,25 @@ class CrdtDatabase implements Database {
     List<Column>? columns,
     Transaction? transaction,
   }) async {
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
-      transaction,
-      (tx) async {
-        final result = await _delegate.updateRow<T>(
-          row,
-          columns: columns,
-          transaction: tx,
-        );
+    final values = row.toJsonForDatabase() as Map<String, dynamic>;
+    final columnValues = (columns ?? row.table.managedColumns)
+        .where((c) => c.columnName != 'id')
+        .map((c) => ColumnValue(c, values[c.columnName]))
+        .toList();
 
-        await _recorder.afterUpdate([result], columns, tx);
-        return result;
-      },
+    final updatedRows = await updateWhere<T>(
+      columnValues: columnValues,
+      where: row.table.id.equals(row.id),
+      transaction: transaction,
     );
+
+    if (updatedRows.isEmpty) {
+      // FIXME: We can't use the proper `DatabaseUpdateRowException` because
+      // it is declared as a base type on the `serverpod_database` package.
+      throw Exception('Failed to update row, no rows updated.');
+    }
+
+    return updatedRows.single;
   }
 
   @override
@@ -222,23 +230,17 @@ class CrdtDatabase implements Database {
     required List<ColumnValue> columnValues,
     Transaction? transaction,
   }) async {
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
-      transaction,
-      (tx) async {
-        final result = await _delegate.updateById<T>(
-          id,
-          columnValues: columnValues,
-          transaction: tx,
-        );
+    final table = serializationManager.getTableForType(T);
+    if (table == null) return null;
 
-        if (result != null) {
-          final columns = columnValues.map((e) => e.column).toList();
-          await _recorder.afterUpdate([result], columns, tx);
-        }
-        return result;
-      },
+    final updatedRows = await updateWhere<T>(
+      columnValues: columnValues,
+      where: table.id.equals(id),
+      transaction: transaction,
     );
+
+    if (updatedRows.isEmpty) return null;
+    return updatedRows.single;
   }
 
   @override
