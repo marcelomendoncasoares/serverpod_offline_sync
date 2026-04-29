@@ -204,6 +204,8 @@ void main() {
       });
 
       test('then the CRDT metadata row is updated.', () async {
+        await insertFuture;
+
         final crdt = await CrdtDataRow.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(person.id),
@@ -265,7 +267,7 @@ void main() {
     late Unique deletedRow;
 
     setUp(() async {
-      await session.db.transactionForUser(
+      deletedRow = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Unique.db.insertRow(session, Unique(name: name), transaction: tx),
       );

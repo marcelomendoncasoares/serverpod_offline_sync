@@ -193,22 +193,16 @@ void main() {
     });
 
     group('when updating the table with updateWhere, ', () {
-      late Future<void> updateFuture;
-
       setUp(() async {
-        updateFuture = session.db.transactionForUser(
+        await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Unique.db.updateWhere(
             session,
             columnValues: (t) => [t.name('updated')],
-            where: (t) => t.id >= 0,
+            where: (t) => t.id.notEquals(null),
             transaction: tx,
           ),
         );
-      });
-
-      test('then the update succeeds.', () async {
-        await expectLater(updateFuture, completes);
       });
 
       test('then only the visible row has the new values.', () async {
@@ -225,10 +219,8 @@ void main() {
     });
 
     group('when updating the visible row to the same name as the deleted row, ', () {
-      late Future<void> updateFuture;
-
       setUp(() async {
-        updateFuture = session.db.transactionForUser(
+        await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Unique.db.update(
             session,
@@ -237,10 +229,6 @@ void main() {
             transaction: tx,
           ),
         );
-      });
-
-      test('then the update succeeds.', () async {
-        await expectLater(updateFuture, completes);
       });
 
       test('then the visible row reflects the new values.', () async {

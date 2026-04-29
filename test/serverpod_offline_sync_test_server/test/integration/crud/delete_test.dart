@@ -232,51 +232,54 @@ void main() {
     });
   });
 
-  group('Given a person row with an ON DELETE CASCADE related address, '
-      'when the person is deleted,', () {
-    late Person person;
-    late Address address;
+  group('Given an organization row with an ON DELETE CASCADE related city, '
+      'when deleting the city,', () {
+    late City city;
+    late Organization organization;
 
     setUp(() async {
-      person = await session.db.transactionForUser(
+      city = await session.db.transactionForUser(
         testCrdtUserId,
-        (tx) => Person.db.insertRow(
+        (tx) => City.db.insertRow(
           session,
-          Person(name: 'cascade'),
+          City(name: 'parent'),
           transaction: tx,
         ),
       );
 
-      address = await session.db.transactionForUser(
+      organization = await session.db.transactionForUser(
         testCrdtUserId,
-        (tx) => Address.db.insertRow(
+        (tx) => Organization.db.insertRow(
           session,
-          Address(street: 'Main', inhabitantId: person.id),
+          Organization(name: 'child', cityId: city.id),
           transaction: tx,
         ),
       );
 
-      await Person.db.deleteRow(session, person);
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => City.db.deleteRow(session, city, transaction: tx),
+      );
     });
 
-    test('then a CRDT tombstone is created for the address row.', () async {
+    test('then a CRDT tombstone is created for the organization row.', () async {
       final tombstone = await CrdtDataDeleted.db.findFirstRow(
         session,
-        where: (t) => t.row.uuidRowId.equals(address.id),
+        where: (t) => t.row.uuidRowId.equals(organization.id),
       );
 
       expect(tombstone, isNotNull);
       expect(tombstone!.isDeleted, true);
     });
 
-    test('then the address row still exist on the address table.', () async {
-      final row = await Address.db.findFirstRow(
+    test('then the organization row still exist on the organization table.', () async {
+      final row = await Organization.db.findFirstRow(
         // Use the test session to avoid the tombstone filter of the CRDT database.
         testSession,
-        where: (t) => t.id.equals(address.id),
+        where: (t) => t.id.equals(organization.id),
       );
       expect(row, isNotNull);
-      expect(row!.street, address.street);
+      expect(row!.name, organization.name);
     });
   });
 
@@ -404,7 +407,7 @@ void main() {
         testCrdtUserId,
         (tx) => Company.db.insertRow(
           session,
-          Company(name: 'test', townId: town.id!),
+          Company(name: 'test', townId: town.id),
           transaction: tx,
         ),
       );

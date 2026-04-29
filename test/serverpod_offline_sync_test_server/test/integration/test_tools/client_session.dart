@@ -39,7 +39,15 @@ void initTestClientSession() {
     _testCrdtUserId = const Uuid().v7obj();
     _crdtSession = CrdtDatabaseSession.wraps(
       testSession,
-      syncTables: [Person.t, Organization.t],
+      syncTables: [
+        Address.t,
+        City.t,
+        Company.t,
+        Organization.t,
+        Person.t,
+        Town.t,
+        Unique.t,
+      ],
     );
 
     await _initialize();
