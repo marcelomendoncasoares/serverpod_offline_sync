@@ -1,0 +1,6 @@
+class: UniqueUuid
+table: unique_uuid
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  value: UuidValue, unique

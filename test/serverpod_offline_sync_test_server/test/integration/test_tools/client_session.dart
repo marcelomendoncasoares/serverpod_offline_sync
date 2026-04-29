@@ -47,6 +47,7 @@ void initTestClientSession() {
         Person.t,
         Town.t,
         Unique.t,
+        UniqueUuid.t,
       ],
     );
 

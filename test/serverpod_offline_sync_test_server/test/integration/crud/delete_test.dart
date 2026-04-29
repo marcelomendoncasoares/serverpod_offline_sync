@@ -217,6 +217,109 @@ void main() {
     );
   });
 
+  group('Given a row with a unique UUID value that was deleted,', () {
+    const uuidValue = UuidValue.raw('11111111-1111-4111-8111-111111111111');
+    late UniqueUuid uniqueUuid;
+
+    setUp(() async {
+      uniqueUuid = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => UniqueUuid.db.insertRow(
+          session,
+          UniqueUuid(value: uuidValue),
+          transaction: tx,
+        ),
+      );
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => UniqueUuid.db.deleteRow(session, uniqueUuid, transaction: tx),
+      );
+    });
+
+    test(
+      'then the unique UUID property of the row is updated to a conflict-free value.',
+      () async {
+        final row = await UniqueUuid.db.findById(testSession, uniqueUuid.id!);
+
+        expect(row, isNotNull);
+        expect(row!.value, isNot(uniqueUuid.value));
+      },
+    );
+
+    test(
+      'then another row can reuse the original UUID value.',
+      () async {
+        final row = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => UniqueUuid.db.insertRow(
+            session,
+            UniqueUuid(value: uniqueUuid.value),
+            transaction: tx,
+          ),
+        );
+
+        expect(row.value, uniqueUuid.value);
+      },
+    );
+  });
+
+  group(
+    'Given an address row with a unique nullable UUID foreign key that was deleted,',
+    () {
+      late Address address;
+      late Person person;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) =>
+              Person.db.insertRow(session, Person(name: 'inhabitant'), transaction: tx),
+        );
+
+        address = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Address.db.insertRow(
+            session,
+            Address(street: 'Pine', inhabitantId: person.id),
+            transaction: tx,
+          ),
+        );
+
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Address.db.deleteRow(session, address, transaction: tx),
+        );
+      });
+
+      test(
+        'then the unique nullable UUID foreign key is set to null.',
+        () async {
+          final row = await Address.db.findById(testSession, address.id!);
+
+          expect(row, isNotNull);
+          expect(row!.inhabitantId, isNull);
+        },
+      );
+
+      test(
+        'then another row can reuse the original foreign key value.',
+        () async {
+          final row = await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Address.db.insertRow(
+              session,
+              Address(street: 'Cedar', inhabitantId: person.id),
+              transaction: tx,
+            ),
+          );
+
+          expect(row.inhabitantId, person.id);
+        },
+      );
+    },
+  );
+
   group('Given a person that was deleted and reinserted, ', () {
     late Person person;
 

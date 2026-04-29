@@ -17,6 +17,21 @@ typedef _ReferencingForeignKey = ({
   ForeignKeyAction action,
 });
 
+typedef _UniqueIndexConflictRelease = ({
+  List<_UniqueColumnConflictRelease> columns,
+});
+
+typedef _UniqueColumnConflictRelease = ({
+  String columnName,
+  _UniqueConflictReleaseKind kind,
+});
+
+enum _UniqueConflictReleaseKind {
+  setNull,
+  textSuffix,
+  syntheticUuid,
+}
+
 /// Persists additional CRDT rows after a mutating ORM operation completes.
 ///
 /// Callbacks receive the underlying database (not the CRDT proxy) and the
@@ -73,19 +88,7 @@ class CrdtMutationRecorder {
         return result;
       }();
 
-  late final Map<String, List<IndexDefinition>> _uniqueIndexesByTableName = {
-    for (final table in _tableDefinitionsByName.values)
-      table.name: table.indexes
-          .where(
-            (index) =>
-                index.isUnique &&
-                !index.isPrimary &&
-                index.elements.every(
-                  (element) => element.type == IndexElementDefinitionType.column,
-                ),
-          )
-          .toList(),
-  };
+  final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
   late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
     for (final table in _tableDefinitionsByName.values)
@@ -695,9 +698,12 @@ class CrdtMutationRecorder {
     final tableDefinition = _tableDefinitionsByName[tableName];
     if (tableDefinition == null) return;
 
-    final uniqueIndexes = _uniqueIndexesByTableName[tableName] ?? const [];
-    for (final index in uniqueIndexes) {
-      final columnNames = index.elements.map((element) => element.definition).toList();
+    final uniqueIndexes = _uniqueIndexesForTable(tableDefinition);
+    for (final uniqueIndex in uniqueIndexes) {
+      final columnNames = uniqueIndex.columns
+          .map((column) => column.columnName)
+          .toList();
+
       final valuesByRowId = await _readDomainColumnValues(
         tableName,
         rowIds,
@@ -710,11 +716,11 @@ class CrdtMutationRecorder {
         if (values.values.any((value) => value == null)) continue;
 
         final updates = <String, Object?>{};
-        for (final columnName in columnNames) {
-          updates[columnName] = _conflictFreeValue(
-            tableDefinition,
-            columnName,
-            values[columnName],
+        for (final column in uniqueIndex.columns) {
+          updates[column.columnName] = _conflictFreeValue(
+            column,
+            values[column.columnName],
+            tableDefinition.name,
             rowId,
           );
         }
@@ -732,6 +738,15 @@ class CrdtMutationRecorder {
         );
       }
     }
+  }
+
+  List<_UniqueIndexConflictRelease> _uniqueIndexesForTable(
+    TableDefinition tableDefinition,
+  ) {
+    return _uniqueIndexesByTableName.putIfAbsent(
+      tableDefinition.name,
+      () => _syncableUniqueIndexesForTable(tableDefinition),
+    );
   }
 
   Future<Set<UuidValue>> _findVisibleReferencingRowIds({
@@ -838,18 +853,33 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
   }
 
   Object? _conflictFreeValue(
-    TableDefinition tableDefinition,
-    String columnName,
+    _UniqueColumnConflictRelease column,
     Object? value,
+    String tableName,
     UuidValue conflictingId,
   ) {
-    final column = _columnsByTableAndName[tableDefinition.name]?[columnName];
-    if (column?.columnType == ColumnType.text && value is String) {
-      return '${value}__deleted__${conflictingId.uuid}';
+    switch (column.kind) {
+      case _UniqueConflictReleaseKind.setNull:
+        return null;
+      case _UniqueConflictReleaseKind.textSuffix:
+        if (value is String) {
+          return '${value}__deleted__${conflictingId.uuid}';
+        }
+      case _UniqueConflictReleaseKind.syntheticUuid:
+        if (value != null) {
+          final uuidValue = _uuidFromDatabase(value);
+          return _syntheticDeletedUuid(
+            tableName,
+            column.columnName,
+            uuidValue,
+            conflictingId,
+          );
+        }
     }
+
     throw StateError(
-      'Cannot make tombstoned unique value conflict-free for '
-      '${tableDefinition.name}.$columnName.',
+      'Unexpected value for $tableName.${column.columnName} while making '
+      'tombstoned unique value conflict-free: ${value.runtimeType}.',
     );
   }
 
@@ -878,6 +908,83 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 }
 
 String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
+
+List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
+  TableDefinition table,
+) {
+  final uniqueIndexes = table.indexes
+      .where(
+        (index) =>
+            index.isUnique &&
+            !index.isPrimary &&
+            index.elements.every(
+              (element) => element.type == IndexElementDefinitionType.column,
+            ),
+      )
+      .toList();
+
+  final columnsByName = {for (final column in table.columns) column.name: column};
+  return [
+    for (final index in uniqueIndexes)
+      (
+        columns: [
+          for (final columnName in index.elements.map((element) => element.definition))
+            _uniqueConflictReleaseForColumn(
+              table,
+              columnsByName[columnName],
+              columnName,
+            ),
+        ],
+      ),
+  ];
+}
+
+_UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
+  TableDefinition table,
+  ColumnDefinition? column,
+  String columnName,
+) {
+  if (column == null) {
+    throw StateError('No column definition found for ${table.name}.$columnName.');
+  }
+
+  if (column.isNullable) {
+    return (columnName: columnName, kind: _UniqueConflictReleaseKind.setNull);
+  }
+
+  if (column.columnType == ColumnType.text) {
+    return (columnName: columnName, kind: _UniqueConflictReleaseKind.textSuffix);
+  }
+
+  if (column.columnType == ColumnType.uuid && !_isForeignKeyColumn(table, columnName)) {
+    return (columnName: columnName, kind: _UniqueConflictReleaseKind.syntheticUuid);
+  }
+
+  throw StateError(
+    'CRDT soft deletes cannot release unique conflicts for ${table.name}.$columnName. '
+    'Only nullable, text, and non-FK UUID unique columns are supported.',
+  );
+}
+
+bool _isForeignKeyColumn(TableDefinition table, String columnName) {
+  return table.foreignKeys.any(
+    (fk) => fk.columns.length == 1 && fk.columns.single == columnName,
+  );
+}
+
+UuidValue _syntheticDeletedUuid(
+  String tableName,
+  String columnName,
+  UuidValue value,
+  UuidValue conflictingId,
+) {
+  return UuidValue.withValidation(
+    const Uuid().v5(
+      Namespace.oid.value,
+      '$tableName.$columnName:${value.uuid}:${conflictingId.uuid}',
+    ),
+  );
+}
 
 String _sqlLiteral(Object? value) {
   if (value == null) return 'NULL';
