@@ -214,7 +214,8 @@ void main() {
         // in the CRDT database.
         final foundDeletedRow = await Unique.db.findById(testSession, deletedRow.id!);
         expect(foundDeletedRow, isNotNull);
-        expect(foundDeletedRow!.name, deletedRow.name);
+        expect(foundDeletedRow!.name, startsWith(deletedRow.name));
+        expect(foundDeletedRow.name, isNot(deletedRow.name));
       });
     });
 

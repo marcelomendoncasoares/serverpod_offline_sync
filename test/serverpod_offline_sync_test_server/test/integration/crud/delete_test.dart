@@ -190,6 +190,33 @@ void main() {
     });
   });
 
+  group('Given a unique row that was deleted,', () {
+    late Unique unique;
+
+    setUp(() async {
+      unique = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.insertRow(session, Unique(name: 'test'), transaction: tx),
+      );
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.deleteRow(session, unique, transaction: tx),
+      );
+    });
+
+    test(
+      'then the unique property of the row is updated to a conflict-free value.',
+      () async {
+        final row = await Unique.db.findById(testSession, unique.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, startsWith(unique.name));
+        expect(row.name, contains('${unique.name}__deleted__${unique.id!}'));
+      },
+    );
+  });
+
   group('Given a person that was deleted and reinserted, ', () {
     late Person person;
 
@@ -232,10 +259,11 @@ void main() {
     });
   });
 
-  group('Given an organization row with an ON DELETE CASCADE related city, '
+  group('Given an ON DELETE CASCADE city -> organization -> person relationship, '
       'when deleting the city,', () {
     late City city;
     late Organization organization;
+    late Person person;
 
     setUp(() async {
       city = await session.db.transactionForUser(
@@ -252,6 +280,15 @@ void main() {
         (tx) => Organization.db.insertRow(
           session,
           Organization(name: 'child', cityId: city.id),
+          transaction: tx,
+        ),
+      );
+
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'grandchild', organizationId: organization.id),
           transaction: tx,
         ),
       );
@@ -280,6 +317,16 @@ void main() {
       );
       expect(row, isNotNull);
       expect(row!.name, organization.name);
+    });
+
+    test('then a CRDT tombstone is also created for the person row.', () async {
+      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+        session,
+        where: (t) => t.row.uuidRowId.equals(person.id),
+      );
+
+      expect(tombstone, isNotNull);
+      expect(tombstone!.isDeleted, true);
     });
   });
 
