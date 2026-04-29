@@ -135,7 +135,7 @@ class CrdtDatabase implements Database {
     List<T> rows, {
     Transaction? transaction,
     bool ignoreConflicts = false,
-  }) {
+  }) async {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -156,7 +156,7 @@ class CrdtDatabase implements Database {
   Future<T> insertRow<T extends TableRow>(
     T row, {
     Transaction? transaction,
-  }) {
+  }) async {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -177,7 +177,7 @@ class CrdtDatabase implements Database {
     List<T> rows, {
     List<Column>? columns,
     Transaction? transaction,
-  }) {
+  }) async {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -199,7 +199,7 @@ class CrdtDatabase implements Database {
     T row, {
     List<Column>? columns,
     Transaction? transaction,
-  }) {
+  }) async {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -221,7 +221,7 @@ class CrdtDatabase implements Database {
     Object id, {
     required List<ColumnValue> columnValues,
     Transaction? transaction,
-  }) {
+  }) async {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -251,7 +251,7 @@ class CrdtDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
-  }) {
+  }) async {
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -283,27 +283,18 @@ class CrdtDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
-  }) {
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
-      transaction,
-      (tx) async {
-        if (rows.isEmpty) return [];
-        if (!_recorder.isCrdtTracked<T>()) {
-          return _delegate.delete<T>(
-            rows,
-            transaction: tx,
-            orderBy: orderBy,
-            orderByList: orderByList,
-            // Remove this once the deprecated member is removed.
-            // ignore: deprecated_member_use
-            orderDescending: orderDescending,
-          );
-        }
-
-        await _recorder.insteadOfDelete<T>(rows, tx);
-        return rows;
-      },
+  }) async {
+    if (rows.isEmpty) return [];
+    return deleteWhere<T>(
+      where: rows.first.table.id.inSet(
+        rows.map((row) => row.id).castToIdType().toSet(),
+      ),
+      orderBy: orderBy,
+      orderByList: orderByList,
+      // Remove this once the deprecated member is removed.
+      // ignore: deprecated_member_use
+      orderDescending: orderDescending,
+      transaction: transaction,
     );
   }
 
@@ -311,19 +302,19 @@ class CrdtDatabase implements Database {
   Future<T> deleteRow<T extends TableRow>(
     T row, {
     Transaction? transaction,
-  }) {
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
-      transaction,
-      (tx) async {
-        if (!_recorder.isCrdtTracked<T>()) {
-          return _delegate.deleteRow<T>(row, transaction: tx);
-        }
-
-        await _recorder.insteadOfDelete<T>([row], tx);
-        return row;
-      },
+  }) async {
+    final deletedRows = await deleteWhere<T>(
+      where: row.table.id.equals(row.id),
+      transaction: transaction,
     );
+
+    if (deletedRows.isEmpty) {
+      // FIXME: We can't use the proper `DatabaseDeleteRowException` because
+      // it is declared as a base type on the `serverpod_database` package.
+      throw Exception('Failed to delete row, no rows deleted.');
+    }
+
+    return deletedRows.single;
   }
 
   @override
@@ -333,25 +324,23 @@ class CrdtDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
-  }) {
+  }) async {
+    if (!_recorder.isCrdtTracked<T>()) {
+      return _delegate.deleteWhere<T>(
+        where: where,
+        orderBy: orderBy,
+        orderByList: orderByList,
+        // Remove this once the deprecated member is removed.
+        // ignore: deprecated_member_use
+        orderDescending: orderDescending,
+        transaction: transaction,
+      );
+    }
+
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
-        if (!_recorder.isCrdtTracked<T>()) {
-          return _delegate.deleteWhere<T>(
-            where: where,
-            orderBy: orderBy,
-            orderByList: orderByList,
-            // Remove this once the deprecated member is removed.
-            // ignore: deprecated_member_use
-            orderDescending: orderDescending,
-            transaction: tx,
-          );
-        }
-
-        // TODO: Find a more performant implementation that does not imply a full
-        // data round-trip just for the delete.
         final rows = await _delegate.find<T>(
           where: mergeWhereWithTombstone<T>(serializationManager, where, null),
           orderBy: orderBy,
@@ -361,6 +350,7 @@ class CrdtDatabase implements Database {
           orderDescending: orderDescending,
           transaction: tx,
         );
+
         await _recorder.insteadOfDelete<T>(rows, tx);
         return rows;
       },
@@ -373,7 +363,7 @@ class CrdtDatabase implements Database {
     int? limit,
     bool useCache = true,
     Transaction? transaction,
-  }) {
+  }) async {
     return _delegate.count<T>(
       where: mergeWhereWithTombstone<T>(serializationManager, where, null),
       limit: limit,
@@ -388,7 +378,7 @@ class CrdtDatabase implements Database {
     required LockMode lockMode,
     required Transaction transaction,
     LockBehavior lockBehavior = LockBehavior.wait,
-  }) {
+  }) async {
     return _delegate.lockRows<T>(
       where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
       lockMode: lockMode,
@@ -401,7 +391,7 @@ class CrdtDatabase implements Database {
   Future<R> transaction<R>(
     TransactionFunction<R> transactionFunction, {
     TransactionSettings? settings,
-  }) {
+  }) async {
     return _delegate.transaction(
       transactionFunction,
       settings: settings,
@@ -440,7 +430,7 @@ class CrdtDatabase implements Database {
     int? timeoutInSeconds,
     Transaction? transaction,
     QueryParameters? parameters,
-  }) {
+  }) async {
     return _delegate.unsafeExecute(
       query,
       timeoutInSeconds: timeoutInSeconds,
@@ -455,7 +445,7 @@ class CrdtDatabase implements Database {
     int? timeoutInSeconds,
     Transaction? transaction,
     QueryParameters? parameters,
-  }) {
+  }) async {
     return _delegate.unsafeQuery(
       query,
       timeoutInSeconds: timeoutInSeconds,
@@ -469,7 +459,7 @@ class CrdtDatabase implements Database {
     String query, {
     int? timeoutInSeconds,
     Transaction? transaction,
-  }) {
+  }) async {
     return _delegate.unsafeSimpleExecute(
       query,
       timeoutInSeconds: timeoutInSeconds,
@@ -482,7 +472,7 @@ class CrdtDatabase implements Database {
     String query, {
     int? timeoutInSeconds,
     Transaction? transaction,
-  }) {
+  }) async {
     return _delegate.unsafeSimpleQuery(
       query,
       timeoutInSeconds: timeoutInSeconds,
