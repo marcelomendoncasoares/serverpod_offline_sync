@@ -11,3 +11,6 @@ build/
 
 # Directory created by dartdoc
 doc/api/
+
+# Migrations do not need to be committed, as they are only for testing
+lib/migrations/
