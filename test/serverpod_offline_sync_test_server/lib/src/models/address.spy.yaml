@@ -5,4 +5,4 @@ fields:
   id: UuidValue?, defaultPersist=random_v7
   street: String
   inhabitantId: UuidValue?, unique
-  inhabitant: Person?, relation(name=person_address, field=inhabitantId, onDelete=Cascade)
+  inhabitant: Person?, relation(name=person_address, field=inhabitantId, onDelete=Restrict)

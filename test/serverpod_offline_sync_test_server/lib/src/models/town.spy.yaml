@@ -4,4 +4,4 @@ database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
   name: String
-  mayor: Person?, relation(optional)
+  mayor: Person?, relation(optional, onDelete=SetNull)

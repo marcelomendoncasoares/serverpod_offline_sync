@@ -73,11 +73,99 @@ void main() {
     });
   });
 
-  // TODO: Add tests for insert method.
-  // TODO: Add a test for insert with ignoreConflicts.
+  group('Given an empty person table, '
+      'when inserting two Person rows with insert,', () {
+    late List<Person> inserted;
+
+    setUp(() async {
+      inserted = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insert(
+          session,
+          [Person(name: 'a'), Person(name: 'b')],
+          transaction: tx,
+        ),
+      );
+    });
+
+    test('then both rows exist with distinct ids and CRDT metadata.', () async {
+      expect(inserted, hasLength(2));
+      expect(inserted[0].id, isNot(equals(inserted[1].id)));
+
+      final insertedIds = inserted.map((e) => e.id!).toSet();
+      final crdt = await CrdtDataRow.db.find(
+        session,
+        where: (t) => t.uuidRowId.inSet(insertedIds),
+      );
+
+      expect(crdt, hasLength(2));
+      expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
+    });
+  });
+
+  group('Given a person row with a fixed id,', () {
+    late UuidValue id;
+
+    setUp(() async {
+      id = const Uuid().v7obj();
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insert(
+          session,
+          [Person(id: id, name: 'first')],
+          transaction: tx,
+        ),
+      );
+    });
+
+    group('when inserting the same primary key again with ignoreConflicts,', () {
+      late Future<List<Person>> insertFuture;
+      late CrdtDataRow crdtRow;
+
+      setUp(() async {
+        insertFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(id: id, name: 'ignored')],
+            transaction: tx,
+            ignoreConflicts: true,
+          ),
+        );
+
+        crdtRow = (await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(id),
+        ))!;
+      });
+
+      test('then the insert returns an empty list.', () async {
+        expect(await insertFuture, isEmpty);
+      });
+
+      test('then the original row is unchanged.', () async {
+        final row = await Person.db.findById(session, id);
+        expect(row?.name, 'first');
+      });
+
+      test('then no changes are recorded on CRDT for the ignored row.', () async {
+        final crdt = await CrdtDataRow.db.find(
+          session,
+          where: (t) => t.uuidRowId.equals(id),
+        );
+
+        expect(crdt, hasLength(1));
+        expect(crdt.first.nodeId, crdtRow.nodeId);
+        expect(crdt.first.hlcDatetime, crdtRow.hlcDatetime);
+        expect(crdt.first.hlcCounter, crdtRow.hlcCounter);
+      });
+    });
+  });
 
   group('Given a person table with a deleted row, ', () {
     late Person person;
+    late CrdtDataRow firstInsertedCrdtRow;
 
     setUp(() async {
       person = await session.db.transactionForUser(
@@ -85,27 +173,52 @@ void main() {
         (tx) => Person.db.insertRow(session, Person(name: 'test'), transaction: tx),
       );
 
+      firstInsertedCrdtRow = (await CrdtDataRow.db.findFirstRow(
+        session,
+        where: (t) => t.uuidRowId.equals(person.id),
+        include: CrdtDataRow.include(node: CrdtNode.include()),
+      ))!;
+
       await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.deleteRow(session, person, transaction: tx),
       );
     });
 
-    test('when reinserting the row, then it succeeds.', () async {
-      final insertFuture = session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(session, person, transaction: tx),
-      );
+    group('when reinserting the row,', () {
+      late Future<Person> insertFuture;
 
-      await expectLater(
-        insertFuture,
-        completes,
-        reason: 'This should succeed by un-marking the row as tombstoned.',
-      );
+      setUp(() async {
+        insertFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(session, person, transaction: tx),
+        );
+      });
 
-      final newPerson = await insertFuture;
-      expect(newPerson, isNotNull);
-      expect(newPerson.name, person.name);
+      test('then it succeeds.', () async {
+        await expectLater(
+          insertFuture,
+          completes,
+          reason: 'This should succeed by un-marking the row as tombstoned.',
+        );
+      });
+
+      test('then the CRDT metadata row is updated.', () async {
+        final crdt = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        final firstHlc = firstInsertedCrdtRow.toHlcForNode(
+          firstInsertedCrdtRow.node!.uuidNodeId,
+        );
+        final secondHlc = crdt!.toHlcForNode(
+          crdt.node!.uuidNodeId,
+        );
+
+        expect(secondHlc, greaterThan(firstHlc));
+      });
     });
   });
 
@@ -147,5 +260,52 @@ void main() {
     });
   });
 
-  // TODO: Add tests for insert that generates unique conflict with a deleted row.
+  group('Given a unique table with a soft-deleted row,', () {
+    const name = 'unique';
+    late Unique deletedRow;
+
+    setUp(() async {
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.insertRow(session, Unique(name: name), transaction: tx),
+      );
+
+      deletedRow = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.deleteRow(session, deletedRow, transaction: tx),
+      );
+
+      expect(
+        await Unique.db.findById(testSession, deletedRow.id!),
+        isNotNull,
+      );
+    });
+
+    group('when inserting another row with the same unique key,', () {
+      late Unique insertedRow;
+
+      setUp(() async {
+        insertedRow = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Unique.db.insertRow(session, Unique(name: name), transaction: tx),
+        );
+      });
+
+      test('then it succeeds.', () async {
+        expect(insertedRow, isNotNull);
+      });
+
+      test('then the deleted row is still soft-deleted.', () async {
+        expect(await Unique.db.findById(testSession, deletedRow.id!), isNotNull);
+      });
+
+      test('then the soft-deleted row has another conflict-free name.', () async {
+        final row = await Unique.db.findById(testSession, deletedRow.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, startsWith(name));
+        expect(row.name, isNot(name));
+      });
+    });
+  });
 }

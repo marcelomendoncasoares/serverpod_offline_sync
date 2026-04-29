@@ -70,7 +70,38 @@ void main() {
       });
     });
 
-    // TODO: Add tests for update method.
+    group('when updating the person name column with update,', () {
+      setUp(() async {
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.update(
+            session,
+            [person.copyWith(name: 'updated')],
+            columns: (t) => [t.name],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated');
+      });
+
+      test('then a CRDT field is created for the name column.', () async {
+        final field = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataField.include(
+            column: CrdtSchemaColumn.include(),
+            row: CrdtDataRow.include(node: CrdtNode.include()),
+          ),
+        );
+
+        expect(field, isNotNull);
+        expect(field!.column!.name, 'name');
+      });
+    });
 
     group('when updating the Person name column without specifying columns,', () {
       setUp(() async {
@@ -140,5 +171,90 @@ void main() {
     });
   });
 
-  // TODO: Add tests for update that generates unique conflict with a deleted row.
+  group('Given a unique table with one visible and one deleted row, ', () {
+    late Unique visibleRow;
+    late Unique deletedRow;
+
+    setUp(() async {
+      visibleRow = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.insertRow(session, Unique(name: 'visible'), transaction: tx),
+      );
+
+      deletedRow = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.insertRow(session, Unique(name: 'deleted'), transaction: tx),
+      );
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Unique.db.deleteRow(session, deletedRow, transaction: tx),
+      );
+    });
+
+    group('when updating the table with updateWhere, ', () {
+      late Future<void> updateFuture;
+
+      setUp(() async {
+        updateFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Unique.db.updateWhere(
+            session,
+            columnValues: (t) => [t.name('updated')],
+            where: (t) => t.id >= 0,
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then the update succeeds.', () async {
+        await expectLater(updateFuture, completes);
+      });
+
+      test('then only the visible row has the new values.', () async {
+        final foundVisibleRow = await Unique.db.findById(session, visibleRow.id!);
+        expect(foundVisibleRow, isNotNull);
+        expect(foundVisibleRow!.name, 'updated');
+
+        // Use the test session to find the deleted row, since it is not visible
+        // in the CRDT database.
+        final foundDeletedRow = await Unique.db.findById(testSession, deletedRow.id!);
+        expect(foundDeletedRow, isNotNull);
+        expect(foundDeletedRow!.name, deletedRow.name);
+      });
+    });
+
+    group('when updating the visible row to the same name as the deleted row, ', () {
+      late Future<void> updateFuture;
+
+      setUp(() async {
+        updateFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Unique.db.update(
+            session,
+            [visibleRow.copyWith(name: deletedRow.name)],
+            columns: (t) => [t.name],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then the update succeeds.', () async {
+        await expectLater(updateFuture, completes);
+      });
+
+      test('then the visible row reflects the new values.', () async {
+        final row = await Unique.db.findById(session, visibleRow.id!);
+        expect(row?.name, deletedRow.name);
+      });
+
+      test('then the soft-deleted row has another conflict-free name.', () async {
+        final row = await Unique.db.findById(testSession, deletedRow.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, startsWith(deletedRow.name));
+        expect(row.name, isNot(deletedRow.name));
+      });
+    });
+  });
 }
