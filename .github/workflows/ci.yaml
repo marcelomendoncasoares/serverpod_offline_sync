@@ -16,109 +16,183 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install Serverpod CLI
+        run: |
+          dart install https://github.com/marcelomendoncasoares/serverpod.git \
+            --git-ref client-database-session \
+            --git-path tools/serverpod_cli
+
+      - name: Run pub get
+        run: dart pub get
+
+      - name: Generate code and migrations
+        run: melos generate && melos create-migration
+
+      - name: Upload generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-code
+          path: |
+            **/lib/migrations/**
+            **/lib/src/generated/**
+            **/lib/src/protocol/**
+            **/*_server/migrations/**
+            **/test/**/serverpod_test_tools.dart
+
   dart_format:
     name: dart format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
-      # - name: Run pub get
-      #   run: dart pub get
-      # - name: Verify formatting
-      #   run: dart format --output=none --set-exit-if-changed .
+
+      - name: Run pub get
+        run: dart pub get
+
+      # Skip code generation for formatting check
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
 
   dart_analyze:
+    needs: generate
     name: dart analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
-      # - name: Run pub get
-      #   run: dart pub get
-      # - name: Run lint
-      #   run: dart analyze .
 
-  # tests:
-  #   name: dart test
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     pull-requests: write
-  #     contents: read
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Dart
-  #       uses: dart-lang/setup-dart@v1
-  #       with:
-  #         sdk: stable
-  #     - name: Run pub get
-  #       run: dart pub get
-  #     - name: Run tests with coverage
-  #       run: dart test --coverage=coverage --reporter=failures-only
-  #     - name: Activate coverage package
-  #       run: dart pub global activate coverage
-  #     - name: Format coverage
-  #       run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
-  #     - name: Generate coverage report
-  #       run: dart scripts/coverage_report.dart --ci > coverage-results.txt
-  #     - name: Comment on PR
-  #       if: github.event_name == 'pull_request'
-  #       uses: thollander/actions-comment-pull-request@v3
-  #       with:
-  #         file-path: coverage-results.txt
-  #         comment-tag: coverage-results
+      - name: Run pub get
+        run: dart pub get
 
-  # benchmarks:
-  #   name: run benchmarks
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     pull-requests: write
-  #     contents: write
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Dart
-  #       uses: dart-lang/setup-dart@v1
-  #       with:
-  #         sdk: stable
-  #     - name: Run pub get
-  #       run: dart pub get
-  #     - name: Configure Git
-  #       run: |
-  #         git config --global user.name "GitHub Actions"
-  #         git config --global user.email "actions@github.com"
-  #     - name: Fetch Existing Benchmark Data
-  #       run: git fetch origin refs/notes/benchmarks:refs/notes/benchmarks || true
-  #     - name: Run benchmarks
-  #       run: dart benchmark/run.dart --ci > benchmark-results.txt
-  #     - name: Comment on PR
-  #       if: github.event_name == 'pull_request'
-  #       uses: thollander/actions-comment-pull-request@v3
-  #       with:
-  #         file-path: benchmark-results.txt
-  #         comment-tag: benchmark-results
-  #     - name: Store Benchmark Data in Git Notes
-  #       run: |
-  #         if [ "${{ github.event_name }}" = "pull_request" ]; then
-  #           COMMIT_SHA=${{ github.event.pull_request.head.sha }}
-  #         else
-  #           COMMIT_SHA=${{ github.sha }}
-  #         fi
-  #         git notes --ref=benchmarks add -f -F benchmark-results.txt $COMMIT_SHA
-  #     - name: Push Benchmark Data
-  #       if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork != true
-  #       run: git push origin refs/notes/benchmarks
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
 
-  # publish_check:
-  #   name: dart publish check
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up Dart
-  #       uses: dart-lang/setup-dart@v1
-  #       with:
-  #         sdk: stable
-  #     - name: Run pub get
-  #       run: dart pub get
-  #     - name: Run publish dry run
-  #       run: dart pub publish --dry-run
+      - name: Run lint
+        run: melos lint
+
+  tests:
+    needs: generate
+    name: dart test
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Run pub get
+        run: dart pub get
+
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
+
+      - name: Run tests with coverage
+        run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
+
+      - name: Activate coverage package
+        run: dart pub global activate coverage
+
+      - name: Format coverage
+        run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
+
+      - name: Generate coverage report
+        run: dart scripts/coverage_report.dart --ci > coverage-results.txt
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: coverage-results.txt
+          comment-tag: coverage-results
+
+  benchmarks:
+    needs: generate
+    name: run benchmarks
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Run pub get
+        run: dart pub get
+
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Fetch Existing Benchmark Data
+        run: git fetch origin refs/notes/benchmarks:refs/notes/benchmarks || true
+
+      - name: Run benchmarks
+        run: dart benchmark/run.dart --ci > benchmark-results.txt
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: benchmark-results.txt
+          comment-tag: benchmark-results
+
+      - name: Store Benchmark Data in Git Notes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          else
+            COMMIT_SHA=${{ github.sha }}
+          fi
+          git notes --ref=benchmarks add -f -F benchmark-results.txt $COMMIT_SHA
+
+      - name: Push Benchmark Data
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork != true
+        run: git push origin refs/notes/benchmarks
+
+  publish_check:
+    needs: generate
+    name: dart publish check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Run pub get
+        run: dart pub get
+
+      - name: Download generated code
+        uses: actions/download-artifact@v4
+        with:
+          name: generated-code
+
+      - name: Run publish dry run
+        run: melos publish-check

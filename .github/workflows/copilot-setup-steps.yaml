@@ -21,8 +21,15 @@ jobs:
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
+
+      - name: Install Serverpod CLI
+        run: |
+          dart install https://github.com/marcelomendoncasoares/serverpod.git \
+            --git-ref client-database-session \
+            --git-path tools/serverpod_cli
 
       - name: Install all dependencies
         run: dart pub get
+
+      - name: Generate code and migrations
+        run: melos generate && melos create-migration
