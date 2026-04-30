@@ -1,7 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:serverpod_database/serverpod_database.dart';
-import 'package:uuid/uuid.dart';
+import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../managers/hlc.dart';
 import '../managers/user.dart';
@@ -771,7 +769,7 @@ WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
       transaction: transaction,
     );
     return {
-      for (final row in result) _uuidFromDatabase(row[0]),
+      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
     };
   }
 
@@ -832,7 +830,7 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 
     return {
       for (final row in result)
-        _uuidFromDatabase(row[0]): {
+        UuidValueJsonExtension.fromJson(row[0]): {
           for (final (index, columnName) in columnNames.indexed)
             columnName: row[index + 1],
         },
@@ -867,11 +865,10 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
         }
       case _UniqueConflictReleaseKind.syntheticUuid:
         if (value != null) {
-          final uuidValue = _uuidFromDatabase(value);
           return _syntheticDeletedUuid(
             tableName,
             column.columnName,
-            uuidValue,
+            UuidValueJsonExtension.fromJson(value),
             conflictingId,
           );
         }
@@ -986,28 +983,10 @@ UuidValue _syntheticDeletedUuid(
   );
 }
 
-String _sqlLiteral(Object? value) {
-  if (value == null) return 'NULL';
-  if (value is UuidValue) {
-    return "X'${value.uuid.replaceAll('-', '').toLowerCase()}'";
-  }
-  if (value is String) return "'${value.replaceAll("'", "''")}'";
-  if (value is bool) return value ? '1' : '0';
-  if (value is DateTime) return value.millisecondsSinceEpoch.toString();
-  if (value is num) return value.toString();
-  throw StateError('Unsupported SQL literal type: ${value.runtimeType}.');
-}
+String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);
 
-String _sqlLiteralList(Iterable<Object?> values) {
-  return values.map(_sqlLiteral).join(', ');
-}
-
-UuidValue _uuidFromDatabase(Object? value) {
-  if (value is UuidValue) return value;
-  if (value is Uint8List) return UuidValue.fromByteList(value);
-  if (value is List<int>) return UuidValue.fromByteList(Uint8List.fromList(value));
-  return UuidValue.withValidation(value! as String);
-}
+String _sqlLiteralList(Iterable<Object?> values) =>
+    values.map(ValueEncoder.instance.convert).join(', ');
 
 extension on List<TableRow> {
   Set<UuidValue> get uuidRowIds {
