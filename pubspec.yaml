@@ -11,6 +11,9 @@ workspace:
   - test/serverpod_offline_sync_test_client
   - test/serverpod_offline_sync_test_server
 
+dev_dependencies:
+  melos: ^7.5.1
+
 dependency_overrides:
   serverpod:
     git:
@@ -42,3 +45,32 @@ dependency_overrides:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_test
       ref: client-database-session
+
+melos:
+  packages:
+    - packages/*
+    - tests/**
+
+  categories:
+    publish:
+      - packages/*
+
+  scripts:
+    setup:
+      run: dart pub get && melos generate && melos create-migration
+    lint:
+      exec: dart analyze . --fatal-infos --fatal-warnings
+    generate:
+      run: melos exec --scope="*_server" -- serverpod generate
+    create-migration:
+      run: melos exec --scope="*_server" -- serverpod create-migration --force
+    upgrade:
+      exec: dart pub upgrade
+    downgrade:
+      exec: dart pub downgrade
+    test:
+      run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
+    reset:
+      exec: rm -f test.db*
+    publish-check:
+      run: melos exec --category="publish" -- dart pub publish --dry-run
