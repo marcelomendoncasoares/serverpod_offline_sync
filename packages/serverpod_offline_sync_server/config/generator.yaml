@@ -1,6 +1,8 @@
 type: module
 nickname: serverpod_offline_sync
 
+serialize_as_jsonb_by_default: true
+
 client_package_path: ../serverpod_offline_sync_client
 server_test_tools_path: test/integration/test_tools
 
