@@ -24,11 +24,8 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
-      - name: Install Serverpod CLI
-        run: |
-          dart install https://github.com/marcelomendoncasoares/serverpod.git \
-            --git-ref client-database-session \
-            --git-path tools/serverpod_cli
+      - name: Install Melos
+        run: dart pub global activate melos
 
       - name: Run pub get
         run: dart pub get
@@ -73,13 +70,16 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
-      - name: Run pub get
-        run: dart pub get
+      - name: Install Melos
+        run: dart pub global activate melos
 
       - name: Download generated code
         uses: actions/download-artifact@v4
         with:
           name: generated-code
+
+      - name: Run pub get
+        run: dart pub get
 
       - name: Run lint
         run: melos lint
@@ -97,22 +97,22 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
-      - name: Run pub get
-        run: dart pub get
-
       - name: Download generated code
         uses: actions/download-artifact@v4
         with:
           name: generated-code
 
+      - name: Run pub get
+        run: dart pub get
+
       - name: Run tests with coverage
         run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
 
       - name: Activate coverage package
-        run: dart pub global activate coverage
+        run: dart install coverage
 
       - name: Format coverage
-        run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
+        run: dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
 
       - name: Generate coverage report
         run: dart scripts/coverage_report.dart --ci > coverage-results.txt
@@ -137,13 +137,13 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
-      - name: Run pub get
-        run: dart pub get
-
       - name: Download generated code
         uses: actions/download-artifact@v4
         with:
           name: generated-code
+
+      - name: Run pub get
+        run: dart pub get
 
       - name: Configure Git
         run: |
@@ -186,13 +186,16 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
-      - name: Run pub get
-        run: dart pub get
+      - name: Install Melos
+        run: dart pub global activate melos
 
       - name: Download generated code
         uses: actions/download-artifact@v4
         with:
           name: generated-code
+
+      - name: Run pub get
+        run: dart pub get
 
       - name: Run publish dry run
         run: melos publish-check

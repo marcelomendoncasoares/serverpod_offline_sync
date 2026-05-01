@@ -2,7 +2,7 @@ name: serverpod_offline_sync
 publish_to: none
 
 environment:
-  sdk: '^3.8.0'
+  sdk: '^3.10.3'
 
 workspace:
   - packages/serverpod_offline_sync_client
@@ -13,38 +13,44 @@ workspace:
 
 dev_dependencies:
   melos: ^7.5.1
+  serverpod_cli: 3.5.0-beta.4
 
 dependency_overrides:
   serverpod:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod
-      ref: client-database-session
+      ref: testing
+  serverpod_cli:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: tools/serverpod_cli
+      ref: testing
   serverpod_client:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_client
-      ref: client-database-session
+      ref: testing
   serverpod_database:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_database
-      ref: client-database-session
+      ref: testing
   serverpod_shared:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_shared
-      ref: client-database-session
+      ref: testing
   serverpod_serialization:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_serialization
-      ref: client-database-session
+      ref: testing
   serverpod_test:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_test
-      ref: client-database-session
+      ref: testing
 
 melos:
   packages:
@@ -61,9 +67,12 @@ melos:
     lint:
       exec: dart analyze . --fatal-infos --fatal-warnings
     generate:
-      run: melos exec --scope="*_server" -- serverpod generate
+      # Must run the module first, or the test project won't have the tables.
+      run: |
+        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
     create-migration:
-      run: melos exec --scope="*_server" -- serverpod create-migration --force
+      run: melos exec --scope="*_server" -- dart run serverpod_cli create-migration --force
     upgrade:
       exec: dart pub upgrade
     downgrade:
