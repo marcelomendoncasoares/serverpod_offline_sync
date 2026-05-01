@@ -3,25 +3,23 @@
 part of 'migration.dart';
 
 // ignore_for_file: type=lint
-class $CategoriesTable extends Categories
-    with TableInfo<$CategoriesTable, Category> {
+class $CategoriesTable extends Categories with TableInfo<$CategoriesTable, Category> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $CategoriesTable(this.attachedDatabase, [this._alias]);
   @override
-  late final GeneratedColumnWithTypeConverter<RowId, int> id =
-      GeneratedColumn<int>(
-        'id',
-        aliasedName,
-        false,
-        hasAutoIncrement: true,
-        type: DriftSqlType.int,
-        requiredDuringInsert: false,
-        defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'PRIMARY KEY AUTOINCREMENT',
-        ),
-      ).withConverter<RowId>($CategoriesTable.$converterid);
+  late final GeneratedColumnWithTypeConverter<RowId, int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  ).withConverter<RowId>($CategoriesTable.$converterid);
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -44,21 +42,21 @@ class $CategoriesTable extends Categories
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       ).withConverter<CategoryPriority>($CategoriesTable.$converterpriority);
-  static const VerificationMeta _descriptionInUpperCaseMeta =
-      const VerificationMeta('descriptionInUpperCase');
+  static const VerificationMeta _descriptionInUpperCaseMeta = const VerificationMeta(
+    'descriptionInUpperCase',
+  );
   @override
-  late final GeneratedColumn<String> descriptionInUpperCase =
-      GeneratedColumn<String>(
-        'description_in_upper_case',
-        aliasedName,
-        false,
-        generatedAs: GeneratedAs(
-          StringExpressionOperators(description).upper(),
-          false,
-        ),
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-      );
+  late final GeneratedColumn<String> descriptionInUpperCase = GeneratedColumn<String>(
+    'description_in_upper_case',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(
+      StringExpressionOperators(description).upper(),
+      false,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -214,8 +212,7 @@ class Category extends DataClass implements Insertable<Category> {
     id: id ?? this.id,
     description: description ?? this.description,
     priority: priority ?? this.priority,
-    descriptionInUpperCase:
-        descriptionInUpperCase ?? this.descriptionInUpperCase,
+    descriptionInUpperCase: descriptionInUpperCase ?? this.descriptionInUpperCase,
   );
   @override
   String toString() {
@@ -229,8 +226,7 @@ class Category extends DataClass implements Insertable<Category> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, description, priority, descriptionInUpperCase);
+  int get hashCode => Object.hash(id, description, priority, descriptionInUpperCase);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -307,25 +303,23 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   }
 }
 
-class $TodosTableTable extends TodosTable
-    with TableInfo<$TodosTableTable, TodoEntry> {
+class $TodosTableTable extends TodosTable with TableInfo<$TodosTableTable, TodoEntry> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $TodosTableTable(this.attachedDatabase, [this._alias]);
   @override
-  late final GeneratedColumnWithTypeConverter<RowId, int> id =
-      GeneratedColumn<int>(
-        'id',
-        aliasedName,
-        false,
-        hasAutoIncrement: true,
-        type: DriftSqlType.int,
-        requiredDuringInsert: false,
-        defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'PRIMARY KEY AUTOINCREMENT',
-        ),
-      ).withConverter<RowId>($TodosTableTable.$converterid);
+  late final GeneratedColumnWithTypeConverter<RowId, int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  ).withConverter<RowId>($TodosTableTable.$converterid);
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -532,9 +526,7 @@ class TodoEntry extends DataClass implements Insertable<TodoEntry> {
   TodosTableCompanion toCompanion(bool nullToAbsent) {
     return TodosTableCompanion(
       id: Value(id),
-      title: title == null && nullToAbsent
-          ? const Value.absent()
-          : Value(title),
+      title: title == null && nullToAbsent ? const Value.absent() : Value(title),
       content: Value(content),
       targetDate: targetDate == null && nullToAbsent
           ? const Value.absent()
@@ -542,9 +534,7 @@ class TodoEntry extends DataClass implements Insertable<TodoEntry> {
       category: category == null && nullToAbsent
           ? const Value.absent()
           : Value(category),
-      status: status == null && nullToAbsent
-          ? const Value.absent()
-          : Value(status),
+      status: status == null && nullToAbsent ? const Value.absent() : Value(status),
     );
   }
 
@@ -605,9 +595,7 @@ class TodoEntry extends DataClass implements Insertable<TodoEntry> {
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
       content: data.content.present ? data.content.value : this.content,
-      targetDate: data.targetDate.present
-          ? data.targetDate.value
-          : this.targetDate,
+      targetDate: data.targetDate.present ? data.targetDate.value : this.targetDate,
       category: data.category.present ? data.category.value : this.category,
       status: data.status.present ? data.status.value : this.status,
     );
@@ -627,8 +615,7 @@ class TodoEntry extends DataClass implements Insertable<TodoEntry> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, title, content, targetDate, category, status);
+  int get hashCode => Object.hash(id, title, content, targetDate, category, status);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -794,8 +781,7 @@ final class $$CategoriesTableReferences
   }
 }
 
-class $$CategoriesTableFilterComposer
-    extends Composer<_$FirstDb, $CategoriesTable> {
+class $$CategoriesTableFilterComposer extends Composer<_$FirstDb, $CategoriesTable> {
   $$CategoriesTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -803,11 +789,10 @@ class $$CategoriesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnWithTypeConverterFilters<RowId, RowId, int> get id =>
-      $composableBuilder(
-        column: $table.id,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnWithTypeConverterFilters<RowId, RowId, int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnFilters<String> get description => $composableBuilder(
     column: $table.description,
@@ -843,16 +828,14 @@ class $$CategoriesTableFilterComposer
             $table: $db.todosTable,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
           ),
     );
     return f(composer);
   }
 }
 
-class $$CategoriesTableOrderingComposer
-    extends Composer<_$FirstDb, $CategoriesTable> {
+class $$CategoriesTableOrderingComposer extends Composer<_$FirstDb, $CategoriesTable> {
   $$CategoriesTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -924,8 +907,7 @@ class $$CategoriesTableAnnotationComposer
             $table: $db.todosTable,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
           ),
     );
     return f(composer);
@@ -994,11 +976,7 @@ class $$CategoriesTableTableManager
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (todos)
-                    await $_getPrefetchedData<
-                      Category,
-                      $CategoriesTable,
-                      TodoEntry
-                    >(
+                    await $_getPrefetchedData<Category, $CategoriesTable, TodoEntry>(
                       currentTable: table,
                       referencedTable: $$CategoriesTableReferences._todosTable(
                         db,
@@ -1054,10 +1032,9 @@ final class $$TodosTableTableReferences
     extends BaseReferences<_$FirstDb, $TodosTableTable, TodoEntry> {
   $$TodosTableTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $CategoriesTable _categoryTable(_$FirstDb db) =>
-      db.categories.createAlias(
-        $_aliasNameGenerator(db.todosTable.category, db.categories.id),
-      );
+  static $CategoriesTable _categoryTable(_$FirstDb db) => db.categories.createAlias(
+    $_aliasNameGenerator(db.todosTable.category, db.categories.id),
+  );
 
   $$CategoriesTableProcessedTableManager? get category {
     final $_column = $_itemColumn<int>('category');
@@ -1074,8 +1051,7 @@ final class $$TodosTableTableReferences
   }
 }
 
-class $$TodosTableTableFilterComposer
-    extends Composer<_$FirstDb, $TodosTableTable> {
+class $$TodosTableTableFilterComposer extends Composer<_$FirstDb, $TodosTableTable> {
   $$TodosTableTableFilterComposer({
     required super.$db,
     required super.$table,
@@ -1083,11 +1059,10 @@ class $$TodosTableTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnWithTypeConverterFilters<RowId, RowId, int> get id =>
-      $composableBuilder(
-        column: $table.id,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnWithTypeConverterFilters<RowId, RowId, int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnFilters<String> get title => $composableBuilder(
     column: $table.title,
@@ -1126,16 +1101,14 @@ class $$TodosTableTableFilterComposer
             $table: $db.categories,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
           ),
     );
     return composer;
   }
 }
 
-class $$TodosTableTableOrderingComposer
-    extends Composer<_$FirstDb, $TodosTableTable> {
+class $$TodosTableTableOrderingComposer extends Composer<_$FirstDb, $TodosTableTable> {
   $$TodosTableTableOrderingComposer({
     required super.$db,
     required super.$table,
@@ -1184,8 +1157,7 @@ class $$TodosTableTableOrderingComposer
             $table: $db.categories,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
           ),
     );
     return composer;
@@ -1234,8 +1206,7 @@ class $$TodosTableTableAnnotationComposer
             $table: $db.categories,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
+            $removeJoinBuilderFromRootComposer: $removeJoinBuilderFromRootComposer,
           ),
     );
     return composer;
@@ -1383,18 +1354,17 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
   final String? _alias;
   $UsersTable(this.attachedDatabase, [this._alias]);
   @override
-  late final GeneratedColumnWithTypeConverter<RowId, int> id =
-      GeneratedColumn<int>(
-        'id',
-        aliasedName,
-        false,
-        hasAutoIncrement: true,
-        type: DriftSqlType.int,
-        requiredDuringInsert: false,
-        defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'PRIMARY KEY AUTOINCREMENT',
-        ),
-      ).withConverter<RowId>($UsersTable.$converterid);
+  late final GeneratedColumnWithTypeConverter<RowId, int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  ).withConverter<RowId>($UsersTable.$converterid);
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -1429,14 +1399,13 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     'profilePicture',
   );
   @override
-  late final GeneratedColumn<Uint8List> profilePicture =
-      GeneratedColumn<Uint8List>(
-        'profile_picture',
-        aliasedName,
-        false,
-        type: DriftSqlType.blob,
-        requiredDuringInsert: true,
-      );
+  late final GeneratedColumn<Uint8List> profilePicture = GeneratedColumn<Uint8List>(
+    'profile_picture',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _creationTimeMeta = const VerificationMeta(
     'creationTime',
   );
@@ -1798,11 +1767,10 @@ class $$UsersTableFilterComposer extends Composer<_$SecondDb, $UsersTable> {
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnWithTypeConverterFilters<RowId, RowId, int> get id =>
-      $composableBuilder(
-        column: $table.id,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnWithTypeConverterFilters<RowId, RowId, int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
@@ -1967,6 +1935,5 @@ typedef $$UsersTableProcessedTableManager =
 class $SecondDbManager {
   final _$SecondDb _db;
   $SecondDbManager(this._db);
-  $$UsersTableTableManager get users =>
-      $$UsersTableTableManager(_db, _db.users);
+  $$UsersTableTableManager get users => $$UsersTableTableManager(_db, _db.users);
 }

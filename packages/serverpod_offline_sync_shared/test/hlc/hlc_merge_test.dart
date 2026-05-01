@@ -86,7 +86,11 @@ void main() {
     'Given local canonical Hlc and remote with time more than one minute ahead of wall',
     () {
       final canonical = Hlc(_dateTime, 17, _nodeId);
-      final remote = Hlc(_dateTime.advance(const Duration(minutes: 2)), 17, _nodeIdAfter);
+      final remote = Hlc(
+        _dateTime.advance(const Duration(minutes: 2)),
+        17,
+        _nodeIdAfter,
+      );
 
       test('when merging then ClockDriftException is thrown.', () {
         withClock(Clock.fixed(_dateTime.advance()), () {
