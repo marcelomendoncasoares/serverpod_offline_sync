@@ -48,7 +48,10 @@ melos:
         melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate
         melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
     create-migration:
-      run: melos exec --scope="*_server" -- dart run serverpod_cli create-migration --force
+      # If the module does not run first, the test project will see no module tables.
+      run: |
+        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli create-migration --force
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli create-migration --force
     upgrade:
       exec: dart pub upgrade
     downgrade:
