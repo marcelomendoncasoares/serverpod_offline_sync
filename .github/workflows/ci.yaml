@@ -157,7 +157,9 @@ jobs:
         run: git fetch origin refs/notes/benchmarks:refs/notes/benchmarks || true
 
       - name: Run benchmarks
-        run: dart benchmark/run.dart --ci > benchmark-results.txt
+        working-directory: benchmark
+        # --verbosity=error avoids "Running build hooks..." on stdout (pollutes PR comment).
+        run: dart run --verbosity=error run.dart --ci > ../benchmark-results.txt
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'

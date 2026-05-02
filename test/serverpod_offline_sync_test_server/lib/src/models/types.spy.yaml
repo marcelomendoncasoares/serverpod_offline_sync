@@ -1,0 +1,16 @@
+# Wide row shape inspired by the legacy Drift `TableWithEveryColumnType` benchmark.
+class: Types
+table: types
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  aBool: bool
+  aDateTime: DateTime
+  aText: String
+  anInt: int
+  anInt64: BigInt
+  aReal: double
+  aBlob: ByteData
+  anEnum: TypesEnum?
+  optionalText: String?
+  optionalUuid: UuidValue?

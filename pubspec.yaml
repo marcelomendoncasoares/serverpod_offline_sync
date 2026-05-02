@@ -5,6 +5,7 @@ environment:
   sdk: '^3.10.3'
 
 workspace:
+  - benchmark
   - packages/serverpod_offline_sync_client
   - packages/serverpod_offline_sync_server
   - packages/serverpod_offline_sync_shared
@@ -30,6 +31,7 @@ dependency_overrides:
 
 melos:
   packages:
+    - benchmark
     - packages/*
     - tests/**
 
