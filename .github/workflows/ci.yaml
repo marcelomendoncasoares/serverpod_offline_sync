@@ -108,21 +108,24 @@ jobs:
       - name: Run tests with coverage
         run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
 
-      - name: Activate coverage package
-        run: dart install coverage
-
-      - name: Format coverage
-        run: dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
-
-      - name: Generate coverage report
-        run: dart scripts/coverage_report.dart --ci > coverage-results.txt
-
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          file-path: coverage-results.txt
-          comment-tag: coverage-results
+      # TODO: Find a way to make coverage work with the tests running from a
+      # test project and not as part of the module.
+      #
+      # - name: Activate coverage package
+      #   run: dart install coverage
+      #
+      # - name: Format coverage
+      #   run: dart run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --check-ignore --ignore-files="**/*.g.dart"
+      #
+      # - name: Generate coverage report
+      #   run: dart scripts/coverage_report.dart --ci > coverage-results.txt
+      #
+      # - name: Comment on PR
+      #   if: github.event_name == 'pull_request'
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     file-path: coverage-results.txt
+      #     comment-tag: coverage-results
 
   benchmarks:
     needs: generate
@@ -176,26 +179,29 @@ jobs:
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork != true
         run: git push origin refs/notes/benchmarks
 
-  publish_check:
-    needs: generate
-    name: dart publish check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-
-      - name: Install Melos
-        run: dart pub global activate melos
-
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
-
-      - name: Run pub get
-        run: dart pub get
-
-      - name: Run publish dry run
-        run: melos publish-check
+  # TODO: Re-enable the publish check when the package is ready for first
+  # public version.
+  #
+  # publish_check:
+  #   needs: generate
+  #   name: dart publish check
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Set up Dart
+  #       uses: dart-lang/setup-dart@v1
+  #
+  #     - name: Install Melos
+  #       run: dart pub global activate melos
+  #
+  #     - name: Download generated code
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: generated-code
+  #
+  #     - name: Run pub get
+  #       run: dart pub get
+  #
+  #     - name: Run publish dry run
+  #       run: melos publish-check
