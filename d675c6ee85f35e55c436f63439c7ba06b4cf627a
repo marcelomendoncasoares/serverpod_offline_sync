@@ -1,0 +1,30 @@
+Running build hooks...Running build hooks...## Performance Benchmark (1,000 rows)
+
+This benchmark measures the performance impact of using CRDT metadata synchronization on database operations.
+```
+📊 INSERT performance impact:
+  Time: 438.79 ms --> 557.48 ms (118.69 ms)
+  CRDT overhead: 27.05% slower
+  Delay per insert: 118.69 μs
+```
+```
+📊 UPDATE performance impact:
+  Time: 245.89 ms --> 3.28 s (3.04 s)
+  CRDT overhead: 1,235.26% slower
+  Delay per update: 3.04 ms
+```
+```
+📊 DELETE performance impact:
+  Time: 11.06 ms --> 239.42 ms (228.36 ms)
+  CRDT overhead: 2,065.43% slower
+  Delay per delete: 228.36 μs
+```
+```
+💽 Storage impact:
+  Storage size: 164.00 KB --> 247.00 KB (+83.00 KB)
+  CRDT overhead: 50.61% increase
+  Extra storage per row: 84.99 B
+```
+
+------------------------------------------------------------
+✅ Benchmark complete!
