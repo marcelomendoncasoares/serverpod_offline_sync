@@ -13,44 +13,20 @@ workspace:
 
 dev_dependencies:
   melos: ^7.5.1
-  serverpod_cli: 3.5.0-beta.4
+  serverpod_cli: 3.5.0-beta.5
 
 dependency_overrides:
-  serverpod:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: packages/serverpod
-      ref: testing
-  serverpod_cli:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: tools/serverpod_cli
-      ref: testing
-  serverpod_client:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: packages/serverpod_client
-      ref: testing
-  serverpod_database:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: packages/serverpod_database
-      ref: testing
-  serverpod_shared:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: packages/serverpod_shared
-      ref: testing
-  serverpod_serialization:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: packages/serverpod_serialization
-      ref: testing
-  serverpod_test:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      path: packages/serverpod_test
-      ref: testing
+  serverpod: 3.5.0-beta.5
+  serverpod_cli: 3.5.0-beta.5
+  serverpod_client: 3.5.0-beta.5
+  serverpod_database: 3.5.0-beta.5
+  serverpod_shared: 3.5.0-beta.5
+  serverpod_serialization: 3.5.0-beta.5
+  serverpod_test: 3.5.0-beta.5
+    # git:
+    #   url: https://github.com/marcelomendoncasoares/serverpod.git
+    #   path: packages/serverpod_test
+    #   ref: testing
 
 melos:
   packages:
