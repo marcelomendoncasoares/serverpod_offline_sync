@@ -211,12 +211,25 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     return totalTimedMicros / timedIterations;
   }
 
+  Future<void> _captureDatabaseSize() async {
+    try {
+      await _plainSession.db.unsafeExecute('PRAGMA wal_checkpoint(TRUNCATE)');
+    } on Exception {
+      // WAL checkpoint is best-effort (e.g. non-SQLite tests).
+    }
+    _lastDatabaseSize = _sqliteDbFootprintBytes(_dbFile);
+  }
+
+  Future<double> _measureAverageMicroseconds() async {
+    await _measurePreparedCycles(_warmupMillis);
+    return _measurePreparedCycles(_measurementMillis);
+  }
+
   @override
   Future<double> measure() async {
     await setup();
     try {
-      await _measurePreparedCycles(_warmupMillis);
-      return _measurePreparedCycles(_measurementMillis);
+      return _measureAverageMicroseconds();
     } finally {
       await teardown();
     }
@@ -224,15 +237,16 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   @override
   Future<(double, int)> report() async {
-    final averageMicroseconds = await measure();
-    final storageSample = TypesTableBenchmark(
-      name,
-      crdtEnabled: crdtEnabled,
-      operation: operation,
-      rowCount: rowCount,
-    );
-    final storageSize = await storageSample._measureStorageSample();
-    return (averageMicroseconds, storageSize);
+    await setup();
+    try {
+      final averageMicroseconds = await _measureAverageMicroseconds();
+      await _prepareCycle();
+      await run();
+      await _captureDatabaseSize();
+      return (averageMicroseconds, measureStorage());
+    } finally {
+      await teardown();
+    }
   }
 
   @override
@@ -256,26 +270,10 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     if (!_hasOpenSession) {
       return;
     }
-    try {
-      await _plainSession.db.unsafeExecute('PRAGMA wal_checkpoint(TRUNCATE)');
-    } on Exception {
-      // WAL checkpoint is best-effort (e.g. non-SQLite tests).
-    }
-    _lastDatabaseSize = _sqliteDbFootprintBytes(_dbFile);
+    await _captureDatabaseSize();
     await _plainSession.close();
     _hasOpenSession = false;
     _deleteDatabaseFiles(_dbFile);
-  }
-
-  Future<int> _measureStorageSample() async {
-    await setup();
-    try {
-      await _prepareCycle();
-      await run();
-      return measureStorage();
-    } finally {
-      await teardown();
-    }
   }
 
   int measureStorage() {
