@@ -1,0 +1,8 @@
+class: Company
+table: company
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  town: Town?, relation(field=townId, onDelete=SetDefault)
+  townId: UuidValue, default='550e8400-e29b-41d4-a716-446655440000'

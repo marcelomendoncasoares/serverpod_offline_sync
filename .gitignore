@@ -7,7 +7,19 @@
 pubspec.lock
 
 .vscode/
+.dart_skills/
+.cursor/skills/relic*
+.cursor/skills/serverpod*
 
 # Coverage reports
 coverage/
 coverage-results.txt
+
+# Melos
+.idea/
+*melos_*.iml
+
+# TODO: Remove this once the generated code is stable.
+**/lib/src/generated/
+**/lib/src/protocol/
+**/test/integration/test_tools/serverpod_test_tools.dart

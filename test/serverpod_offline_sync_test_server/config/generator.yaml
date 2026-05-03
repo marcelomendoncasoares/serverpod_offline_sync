@@ -1,0 +1,9 @@
+type: server
+
+serialize_as_jsonb_by_default: true
+
+client_package_path: ../serverpod_offline_sync_test_client
+server_test_tools_path: test/integration/test_tools
+
+modules:
+  serverpod_offline_sync:

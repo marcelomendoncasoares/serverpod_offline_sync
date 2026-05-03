@@ -1,0 +1,6 @@
+enum: TypesEnum
+serialized: byIndex
+values:
+  - alpha
+  - beta
+  - gamma

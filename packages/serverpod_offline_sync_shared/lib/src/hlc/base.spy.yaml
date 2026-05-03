@@ -1,0 +1,11 @@
+### Base class for HLC timestamps.
+###
+### This class is used to represent the base HLC timestamp, which will be
+### extended with the node ID (in its canonical or normalized form).
+class: BaseHlc
+fields:
+  ### The datetime component of the HLC timestamp.
+  hlcDatetime: DateTime
+
+  ### The counter component of the HLC timestamp.
+  hlcCounter: int

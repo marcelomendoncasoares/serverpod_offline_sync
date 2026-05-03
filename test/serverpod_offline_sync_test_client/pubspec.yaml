@@ -1,0 +1,14 @@
+name: serverpod_offline_sync_test_client
+description: Starting point for a Serverpod client.
+publish_to: none
+
+environment:
+  sdk: '^3.10.3'
+
+resolution: workspace
+
+dependencies:
+  serverpod_client: 3.5.0-beta.5
+  serverpod_database: 3.5.0-beta.5
+  serverpod_offline_sync_client:
+    path: ../../packages/serverpod_offline_sync_client

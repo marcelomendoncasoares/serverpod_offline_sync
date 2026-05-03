@@ -1,0 +1,19 @@
+### CRDT nodes table.
+###
+### This table stores all nodes that have been seen.
+class: CrdtNode
+table: crdt_nodes
+database: all
+fields:
+  ### The user that owns the node.
+  user: CrdtUser?, relation(name=user_nodes, onDelete=Cascade)
+
+  ### Unique identifier for the node.
+  uuidNodeId: UuidValue, default=random_v7, unique
+
+  # TODO: Make this non-nullable once the migration version is implemented.
+  ### The migration version of the CRDT data that the node has seen.
+  lastSeenMigrationVersion: String?
+
+  ### The last HLC timestamp when the node has synchronized.
+  lastReceivedHlc: Hlc?

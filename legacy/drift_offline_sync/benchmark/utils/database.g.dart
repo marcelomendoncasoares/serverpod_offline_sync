@@ -4,28 +4,23 @@ part of 'database.dart';
 
 // ignore_for_file: type=lint
 class $TableWithEveryColumnTypeTable extends TableWithEveryColumnType
-    with
-        TableInfo<
-          $TableWithEveryColumnTypeTable,
-          TableWithEveryColumnTypeData
-        > {
+    with TableInfo<$TableWithEveryColumnTypeTable, TableWithEveryColumnTypeData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $TableWithEveryColumnTypeTable(this.attachedDatabase, [this._alias]);
   @override
-  late final GeneratedColumnWithTypeConverter<RowId, int> id =
-      GeneratedColumn<int>(
-        'id',
-        aliasedName,
-        false,
-        hasAutoIncrement: true,
-        type: DriftSqlType.int,
-        requiredDuringInsert: false,
-        defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'PRIMARY KEY AUTOINCREMENT',
-        ),
-      ).withConverter<RowId>($TableWithEveryColumnTypeTable.$converterid);
+  late final GeneratedColumnWithTypeConverter<RowId, int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  ).withConverter<RowId>($TableWithEveryColumnTypeTable.$converterid);
   static const VerificationMeta _aBoolMeta = const VerificationMeta('aBool');
   @override
   late final GeneratedColumn<bool> aBool = GeneratedColumn<bool>(
@@ -255,8 +250,7 @@ class $TableWithEveryColumnTypeTable extends TableWithEveryColumnType
           data['${effectivePrefix}an_int_enum'],
         ),
       ),
-      aTextWithConverter: $TableWithEveryColumnTypeTable
-          .$converteraTextWithConvertern
+      aTextWithConverter: $TableWithEveryColumnTypeTable.$converteraTextWithConvertern
           .fromSql(
             attachedDatabase.typeMapping.read(
               DriftSqlType.string,
@@ -365,36 +359,22 @@ class TableWithEveryColumnTypeData extends DataClass
   TableWithEveryColumnTypeCompanion toCompanion(bool nullToAbsent) {
     return TableWithEveryColumnTypeCompanion(
       id: Value(id),
-      aBool: aBool == null && nullToAbsent
-          ? const Value.absent()
-          : Value(aBool),
+      aBool: aBool == null && nullToAbsent ? const Value.absent() : Value(aBool),
       aDateTime: aDateTime == null && nullToAbsent
           ? const Value.absent()
           : Value(aDateTime),
-      aText: aText == null && nullToAbsent
-          ? const Value.absent()
-          : Value(aText),
-      anInt: anInt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(anInt),
-      anInt64: anInt64 == null && nullToAbsent
-          ? const Value.absent()
-          : Value(anInt64),
-      aReal: aReal == null && nullToAbsent
-          ? const Value.absent()
-          : Value(aReal),
-      aBlob: aBlob == null && nullToAbsent
-          ? const Value.absent()
-          : Value(aBlob),
+      aText: aText == null && nullToAbsent ? const Value.absent() : Value(aText),
+      anInt: anInt == null && nullToAbsent ? const Value.absent() : Value(anInt),
+      anInt64: anInt64 == null && nullToAbsent ? const Value.absent() : Value(anInt64),
+      aReal: aReal == null && nullToAbsent ? const Value.absent() : Value(aReal),
+      aBlob: aBlob == null && nullToAbsent ? const Value.absent() : Value(aBlob),
       anIntEnum: anIntEnum == null && nullToAbsent
           ? const Value.absent()
           : Value(anIntEnum),
       aTextWithConverter: aTextWithConverter == null && nullToAbsent
           ? const Value.absent()
           : Value(aTextWithConverter),
-      aUuid: aUuid == null && nullToAbsent
-          ? const Value.absent()
-          : Value(aUuid),
+      aUuid: aUuid == null && nullToAbsent ? const Value.absent() : Value(aUuid),
     );
   }
 
@@ -417,8 +397,7 @@ class TableWithEveryColumnTypeData extends DataClass
       anIntEnum: $TableWithEveryColumnTypeTable.$converteranIntEnumn.fromJson(
         serializer.fromJson<int?>(json['an_int_enum']),
       ),
-      aTextWithConverter: $TableWithEveryColumnTypeTable
-          .$converteraTextWithConvertern
+      aTextWithConverter: $TableWithEveryColumnTypeTable.$converteraTextWithConvertern
           .fromJson(
             serializer.fromJson<Map<dynamic, dynamic>?>(json['insert']),
           ),
@@ -712,8 +691,7 @@ class TableWithEveryColumnTypeCompanion
 
 abstract class _$CrdtBenchmarkDatabase extends GeneratedDatabase {
   _$CrdtBenchmarkDatabase(QueryExecutor e) : super(e);
-  $CrdtBenchmarkDatabaseManager get managers =>
-      $CrdtBenchmarkDatabaseManager(this);
+  $CrdtBenchmarkDatabaseManager get managers => $CrdtBenchmarkDatabaseManager(this);
   late final $TableWithEveryColumnTypeTable tableWithEveryColumnType =
       $TableWithEveryColumnTypeTable(this);
   @override
@@ -766,11 +744,10 @@ class $$TableWithEveryColumnTypeTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnWithTypeConverterFilters<RowId, RowId, int> get id =>
-      $composableBuilder(
-        column: $table.id,
-        builder: (column) => ColumnWithTypeConverterFilters(column),
-      );
+  ColumnWithTypeConverterFilters<RowId, RowId, int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnFilters<bool> get aBool => $composableBuilder(
     column: $table.aBool,
@@ -926,11 +903,11 @@ class $$TableWithEveryColumnTypeTableAnnotationComposer
   GeneratedColumnWithTypeConverter<TodoStatus?, int> get anIntEnum =>
       $composableBuilder(column: $table.anIntEnum, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<MyCustomObject?, String>
-  get aTextWithConverter => $composableBuilder(
-    column: $table.aTextWithConverter,
-    builder: (column) => column,
-  );
+  GeneratedColumnWithTypeConverter<MyCustomObject?, String> get aTextWithConverter =>
+      $composableBuilder(
+        column: $table.aTextWithConverter,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<UuidValue> get aUuid =>
       $composableBuilder(column: $table.aUuid, builder: (column) => column);
@@ -965,16 +942,14 @@ class $$TableWithEveryColumnTypeTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer: () =>
-              $$TableWithEveryColumnTypeTableFilterComposer(
-                $db: db,
-                $table: table,
-              ),
-          createOrderingComposer: () =>
-              $$TableWithEveryColumnTypeTableOrderingComposer(
-                $db: db,
-                $table: table,
-              ),
+          createFilteringComposer: () => $$TableWithEveryColumnTypeTableFilterComposer(
+            $db: db,
+            $table: table,
+          ),
+          createOrderingComposer: () => $$TableWithEveryColumnTypeTableOrderingComposer(
+            $db: db,
+            $table: table,
+          ),
           createComputedFieldComposer: () =>
               $$TableWithEveryColumnTypeTableAnnotationComposer(
                 $db: db,
@@ -991,8 +966,7 @@ class $$TableWithEveryColumnTypeTableTableManager
                 Value<double?> aReal = const Value.absent(),
                 Value<Uint8List?> aBlob = const Value.absent(),
                 Value<TodoStatus?> anIntEnum = const Value.absent(),
-                Value<MyCustomObject?> aTextWithConverter =
-                    const Value.absent(),
+                Value<MyCustomObject?> aTextWithConverter = const Value.absent(),
                 Value<UuidValue?> aUuid = const Value.absent(),
               }) => TableWithEveryColumnTypeCompanion(
                 id: id,
@@ -1018,8 +992,7 @@ class $$TableWithEveryColumnTypeTableTableManager
                 Value<double?> aReal = const Value.absent(),
                 Value<Uint8List?> aBlob = const Value.absent(),
                 Value<TodoStatus?> anIntEnum = const Value.absent(),
-                Value<MyCustomObject?> aTextWithConverter =
-                    const Value.absent(),
+                Value<MyCustomObject?> aTextWithConverter = const Value.absent(),
                 Value<UuidValue?> aUuid = const Value.absent(),
               }) => TableWithEveryColumnTypeCompanion.insert(
                 id: id,

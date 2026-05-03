@@ -1,0 +1,34 @@
+### CRDT data rows table.
+###
+### This table stores the data for all tables that are registered for CRDT
+### synchronization. It is used to interact with the CRDT data.
+###
+### The row is also the HLC timestamp for when it was inserted. This is used to
+### avoid creating one entry per field until a field is updated.
+class: CrdtDataRow
+extends: BaseHlc
+table: crdt_data_rows
+database: all
+fields:
+  ### Identifier for the user or client that owns the data.
+  user: CrdtUser?, relation(onDelete=Cascade)
+
+  ### Reference to the table this row belongs to.
+  tbl: CrdtSchemaTable?, relation(onDelete=Cascade)
+
+  ### Row identifier.
+  uuidRowId: UuidValue
+
+  ### The node that inserted the row with the HLC timestamp.
+  node: CrdtNode?, relation
+
+  ### The tombstone for this row.
+  deleted: CrdtDataDeleted?, relation(name=row_deleted, optional)
+
+  ### The fields for this row.
+  fields: List<CrdtDataField>?, relation(name=row_fields)
+
+indexes:
+  crdt_data_rows_user_tbl_row_idx:
+    fields: userId, tblId, uuidRowId
+    unique: true

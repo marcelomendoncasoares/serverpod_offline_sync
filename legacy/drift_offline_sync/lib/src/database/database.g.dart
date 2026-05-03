@@ -281,9 +281,7 @@ class CrdtDataEntry extends DataClass implements Insertable<CrdtDataEntry> {
     return CrdtDataEntry(
       userId: data.userId.present ? data.userId.value : this.userId,
       tblName: data.tblName.present ? data.tblName.value : this.tblName,
-      columnName: data.columnName.present
-          ? data.columnName.value
-          : this.columnName,
+      columnName: data.columnName.present ? data.columnName.value : this.columnName,
       rowId: data.rowId.present ? data.rowId.value : this.rowId,
       hlcTimestamp: data.hlcTimestamp.present
           ? data.hlcTimestamp.value
@@ -781,16 +779,12 @@ class CrdtNormalizedDataEntry extends DataClass
     return CrdtNormalizedDataEntry(
       userId: data.userId.present ? data.userId.value : this.userId,
       tblName: data.tblName.present ? data.tblName.value : this.tblName,
-      columnName: data.columnName.present
-          ? data.columnName.value
-          : this.columnName,
+      columnName: data.columnName.present ? data.columnName.value : this.columnName,
       rowId: data.rowId.present ? data.rowId.value : this.rowId,
       hlcTimestamp: data.hlcTimestamp.present
           ? data.hlcTimestamp.value
           : this.hlcTimestamp,
-      hlcCounter: data.hlcCounter.present
-          ? data.hlcCounter.value
-          : this.hlcCounter,
+      hlcCounter: data.hlcCounter.present ? data.hlcCounter.value : this.hlcCounter,
       hlcNodeId: data.hlcNodeId.present ? data.hlcNodeId.value : this.hlcNodeId,
       rawValue: data.rawValue.present ? data.rawValue.value : this.rawValue,
     );
@@ -1133,14 +1127,11 @@ class $CrdtControlTableTable extends CrdtControlTable
     return $CrdtControlTableTable(attachedDatabase, alias);
   }
 
-  static TypeConverter<Hlc?, String?> $converterlastSyncHlc =
-      nullableHlcConverter;
-  static TypeConverter<Hlc?, String?> $converterlastApplyHlc =
-      nullableHlcConverter;
+  static TypeConverter<Hlc?, String?> $converterlastSyncHlc = nullableHlcConverter;
+  static TypeConverter<Hlc?, String?> $converterlastApplyHlc = nullableHlcConverter;
 }
 
-class CrdtControlEntry extends DataClass
-    implements Insertable<CrdtControlEntry> {
+class CrdtControlEntry extends DataClass implements Insertable<CrdtControlEntry> {
   /// Identifier for the user or client.
   final String userId;
 
@@ -1253,9 +1244,7 @@ class CrdtControlEntry extends DataClass
       schemaVersion: data.schemaVersion.present
           ? data.schemaVersion.value
           : this.schemaVersion,
-      lastSyncHlc: data.lastSyncHlc.present
-          ? data.lastSyncHlc.value
-          : this.lastSyncHlc,
+      lastSyncHlc: data.lastSyncHlc.present ? data.lastSyncHlc.value : this.lastSyncHlc,
       lastApplyHlc: data.lastApplyHlc.present
           ? data.lastApplyHlc.value
           : this.lastApplyHlc,
@@ -1764,13 +1753,12 @@ class $CrdtMergeHlcTableTable extends CrdtMergeHlcTable
         DriftSqlType.string,
         data['${effectivePrefix}node_id'],
       )!,
-      lastReceivedHlc: $CrdtMergeHlcTableTable.$converterlastReceivedHlc
-          .fromSql(
-            attachedDatabase.typeMapping.read(
-              DriftSqlType.string,
-              data['${effectivePrefix}last_received_hlc'],
-            )!,
-          ),
+      lastReceivedHlc: $CrdtMergeHlcTableTable.$converterlastReceivedHlc.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}last_received_hlc'],
+        )!,
+      ),
     );
   }
 
@@ -1782,8 +1770,7 @@ class $CrdtMergeHlcTableTable extends CrdtMergeHlcTable
   static TypeConverter<Hlc, String> $converterlastReceivedHlc = hlcConverter;
 }
 
-class CrdtMergeHlcEntry extends DataClass
-    implements Insertable<CrdtMergeHlcEntry> {
+class CrdtMergeHlcEntry extends DataClass implements Insertable<CrdtMergeHlcEntry> {
   /// Identifier for the user or client.
   final String userId;
 
@@ -1971,10 +1958,8 @@ abstract class _$CrdtDatabase extends GeneratedDatabase {
   late final $CrdtControlTableTable crdtControlTable = $CrdtControlTableTable(
     this,
   );
-  late final $CrdtHlcStateTableTable crdtHlcStateTable =
-      $CrdtHlcStateTableTable(this);
-  late final $CrdtMergeHlcTableTable crdtMergeHlcTable =
-      $CrdtMergeHlcTableTable(this);
+  late final $CrdtHlcStateTableTable crdtHlcStateTable = $CrdtHlcStateTableTable(this);
+  late final $CrdtMergeHlcTableTable crdtMergeHlcTable = $CrdtMergeHlcTableTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2114,11 +2099,10 @@ class $$CrdtDataTableTableAnnotationComposer
   GeneratedColumn<String> get rowId =>
       $composableBuilder(column: $table.rowId, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<Hlc, String> get hlcTimestamp =>
-      $composableBuilder(
-        column: $table.hlcTimestamp,
-        builder: (column) => column,
-      );
+  GeneratedColumnWithTypeConverter<Hlc, String> get hlcTimestamp => $composableBuilder(
+    column: $table.hlcTimestamp,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DriftAny> get rawValue =>
       $composableBuilder(column: $table.rawValue, builder: (column) => column);
@@ -2402,16 +2386,14 @@ class $$CrdtNormalizedDataTableTableTableManager
         TableManagerState(
           db: db,
           table: table,
-          createFilteringComposer: () =>
-              $$CrdtNormalizedDataTableTableFilterComposer(
-                $db: db,
-                $table: table,
-              ),
-          createOrderingComposer: () =>
-              $$CrdtNormalizedDataTableTableOrderingComposer(
-                $db: db,
-                $table: table,
-              ),
+          createFilteringComposer: () => $$CrdtNormalizedDataTableTableFilterComposer(
+            $db: db,
+            $table: table,
+          ),
+          createOrderingComposer: () => $$CrdtNormalizedDataTableTableOrderingComposer(
+            $db: db,
+            $table: table,
+          ),
           createComputedFieldComposer: () =>
               $$CrdtNormalizedDataTableTableAnnotationComposer(
                 $db: db,
@@ -2614,17 +2596,15 @@ class $$CrdtControlTableTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumnWithTypeConverter<Hlc?, String> get lastSyncHlc =>
-      $composableBuilder(
-        column: $table.lastSyncHlc,
-        builder: (column) => column,
-      );
+  GeneratedColumnWithTypeConverter<Hlc?, String> get lastSyncHlc => $composableBuilder(
+    column: $table.lastSyncHlc,
+    builder: (column) => column,
+  );
 
-  GeneratedColumnWithTypeConverter<Hlc?, String> get lastApplyHlc =>
-      $composableBuilder(
-        column: $table.lastApplyHlc,
-        builder: (column) => column,
-      );
+  GeneratedColumnWithTypeConverter<Hlc?, String> get lastApplyHlc => $composableBuilder(
+    column: $table.lastApplyHlc,
+    builder: (column) => column,
+  );
 }
 
 class $$CrdtControlTableTableTableManager
@@ -2640,11 +2620,7 @@ class $$CrdtControlTableTableTableManager
           $$CrdtControlTableTableUpdateCompanionBuilder,
           (
             CrdtControlEntry,
-            BaseReferences<
-              _$CrdtDatabase,
-              $CrdtControlTableTable,
-              CrdtControlEntry
-            >,
+            BaseReferences<_$CrdtDatabase, $CrdtControlTableTable, CrdtControlEntry>,
           ),
           CrdtControlEntry,
           PrefetchHooks Function()
@@ -2718,11 +2694,7 @@ typedef $$CrdtControlTableTableProcessedTableManager =
       $$CrdtControlTableTableUpdateCompanionBuilder,
       (
         CrdtControlEntry,
-        BaseReferences<
-          _$CrdtDatabase,
-          $CrdtControlTableTable,
-          CrdtControlEntry
-        >,
+        BaseReferences<_$CrdtDatabase, $CrdtControlTableTable, CrdtControlEntry>,
       ),
       CrdtControlEntry,
       PrefetchHooks Function()
@@ -2826,11 +2798,7 @@ class $$CrdtHlcStateTableTableTableManager
           $$CrdtHlcStateTableTableUpdateCompanionBuilder,
           (
             CrdtHlcEntry,
-            BaseReferences<
-              _$CrdtDatabase,
-              $CrdtHlcStateTableTable,
-              CrdtHlcEntry
-            >,
+            BaseReferences<_$CrdtDatabase, $CrdtHlcStateTableTable, CrdtHlcEntry>,
           ),
           CrdtHlcEntry,
           PrefetchHooks Function()
@@ -2846,11 +2814,10 @@ class $$CrdtHlcStateTableTableTableManager
               $$CrdtHlcStateTableTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
               $$CrdtHlcStateTableTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$CrdtHlcStateTableTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
+          createComputedFieldComposer: () => $$CrdtHlcStateTableTableAnnotationComposer(
+            $db: db,
+            $table: table,
+          ),
           updateCompanionCallback:
               ({
                 Value<String> userId = const Value.absent(),
@@ -3001,11 +2968,7 @@ class $$CrdtMergeHlcTableTableTableManager
           $$CrdtMergeHlcTableTableUpdateCompanionBuilder,
           (
             CrdtMergeHlcEntry,
-            BaseReferences<
-              _$CrdtDatabase,
-              $CrdtMergeHlcTableTable,
-              CrdtMergeHlcEntry
-            >,
+            BaseReferences<_$CrdtDatabase, $CrdtMergeHlcTableTable, CrdtMergeHlcEntry>,
           ),
           CrdtMergeHlcEntry,
           PrefetchHooks Function()
@@ -3021,11 +2984,10 @@ class $$CrdtMergeHlcTableTableTableManager
               $$CrdtMergeHlcTableTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
               $$CrdtMergeHlcTableTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$CrdtMergeHlcTableTableAnnotationComposer(
-                $db: db,
-                $table: table,
-              ),
+          createComputedFieldComposer: () => $$CrdtMergeHlcTableTableAnnotationComposer(
+            $db: db,
+            $table: table,
+          ),
           updateCompanionCallback:
               ({
                 Value<String> userId = const Value.absent(),
@@ -3070,11 +3032,7 @@ typedef $$CrdtMergeHlcTableTableProcessedTableManager =
       $$CrdtMergeHlcTableTableUpdateCompanionBuilder,
       (
         CrdtMergeHlcEntry,
-        BaseReferences<
-          _$CrdtDatabase,
-          $CrdtMergeHlcTableTable,
-          CrdtMergeHlcEntry
-        >,
+        BaseReferences<_$CrdtDatabase, $CrdtMergeHlcTableTable, CrdtMergeHlcEntry>,
       ),
       CrdtMergeHlcEntry,
       PrefetchHooks Function()

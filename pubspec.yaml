@@ -1,0 +1,66 @@
+name: serverpod_offline_sync
+publish_to: none
+
+environment:
+  sdk: '^3.10.3'
+
+workspace:
+  - benchmark
+  - packages/serverpod_offline_sync_client
+  - packages/serverpod_offline_sync_server
+  - packages/serverpod_offline_sync_shared
+  - test/serverpod_offline_sync_test_client
+  - test/serverpod_offline_sync_test_server
+
+dev_dependencies:
+  melos: ^7.5.1
+  serverpod_cli: 3.5.0-beta.5
+
+dependency_overrides:
+  serverpod: 3.5.0-beta.5
+  serverpod_cli: 3.5.0-beta.5
+  serverpod_client: 3.5.0-beta.5
+  serverpod_database: 3.5.0-beta.5
+  serverpod_shared: 3.5.0-beta.5
+  serverpod_serialization: 3.5.0-beta.5
+  serverpod_test: 3.5.0-beta.5
+    # git:
+    #   url: https://github.com/marcelomendoncasoares/serverpod.git
+    #   path: packages/serverpod_test
+    #   ref: testing
+
+melos:
+  packages:
+    - benchmark
+    - packages/*
+    - tests/**
+
+  categories:
+    publish:
+      - packages/*
+
+  scripts:
+    setup:
+      run: dart pub get && melos generate && melos create-migration
+    lint:
+      exec: dart analyze . --fatal-infos --fatal-warnings
+    generate:
+      # Must run the module first, or the test project won't have the tables.
+      run: |
+        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
+    create-migration:
+      # If the module does not run first, the test project will see no module tables.
+      run: |
+        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli create-migration --force
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli create-migration --force
+    upgrade:
+      exec: dart pub upgrade
+    downgrade:
+      exec: dart pub downgrade
+    test:
+      run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
+    reset:
+      exec: rm -f test.db*
+    publish-check:
+      run: melos exec --category="publish" -- dart pub publish --dry-run

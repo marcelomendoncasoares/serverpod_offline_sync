@@ -1,0 +1,8 @@
+class: City
+table: city
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  citizens: List<Person>?, relation
+  organizations: List<Organization>?, relation(name=city_org)

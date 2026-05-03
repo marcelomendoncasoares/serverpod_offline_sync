@@ -1,0 +1,10 @@
+class: Person
+table: person
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  surname: String?
+  address: Address?, relation(name=person_address)
+  organization: Organization?, relation(name=org_person, optional, onDelete=Cascade)
+  oldCompany: Company?, relation(optional)

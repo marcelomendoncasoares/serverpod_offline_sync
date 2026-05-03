@@ -1,0 +1,22 @@
+### CRDT tombstone table.
+###
+### This table stores all tombstones for deleted data.
+class: CrdtDataDeleted
+extends: BaseHlc
+table: crdt_data_tombstone
+database: all
+fields:
+  ### Row that was deleted.
+  row: CrdtDataRow?, relation(name=row_deleted, field=rowId, onDelete=Cascade)
+  rowId: int
+
+  ### The node that updated the field.
+  node: CrdtNode?, relation
+
+  ### When the row was deleted.
+  isDeleted: bool
+
+indexes:
+  crdt_data_tombstone_row_idx:
+    fields: rowId
+    unique: true
