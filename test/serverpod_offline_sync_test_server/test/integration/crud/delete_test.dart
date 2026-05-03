@@ -362,8 +362,7 @@ void main() {
     });
   });
 
-  group('Given an ON DELETE CASCADE city -> organization -> person relationship, '
-      'when deleting the city,', () {
+  group('Given an ON DELETE CASCADE city -> organization -> person relationship, ', () {
     late City city;
     late Organization organization;
     late Person person;
@@ -402,35 +401,44 @@ void main() {
       );
     });
 
-    test('then a CRDT tombstone is created for the organization row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
-        session,
-        where: (t) => t.row.uuidRowId.equals(organization.id),
-      );
+    test(
+      'when deleting the city then a CRDT tombstone is created for the organization row.',
+      () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(organization.id),
+        );
 
-      expect(tombstone, isNotNull);
-      expect(tombstone!.isDeleted, true);
-    });
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, true);
+      },
+    );
 
-    test('then the organization row still exist on the organization table.', () async {
-      final row = await Organization.db.findFirstRow(
-        // Use the test session to avoid the tombstone filter of the CRDT database.
-        testSession,
-        where: (t) => t.id.equals(organization.id),
-      );
-      expect(row, isNotNull);
-      expect(row!.name, organization.name);
-    });
+    test(
+      'when deleting the city then the organization row still exist on the organization table.',
+      () async {
+        final row = await Organization.db.findFirstRow(
+          // Use the test session to avoid the tombstone filter of the CRDT database.
+          testSession,
+          where: (t) => t.id.equals(organization.id),
+        );
+        expect(row, isNotNull);
+        expect(row!.name, organization.name);
+      },
+    );
 
-    test('then a CRDT tombstone is also created for the person row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
-        session,
-        where: (t) => t.row.uuidRowId.equals(person.id),
-      );
+    test(
+      'when deleting the city then a CRDT tombstone is also created for the person row.',
+      () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
 
-      expect(tombstone, isNotNull);
-      expect(tombstone!.isDeleted, true);
-    });
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, true);
+      },
+    );
   });
 
   group('Given an address row with an ON DELETE RESTRICT related person, '
@@ -505,7 +513,7 @@ void main() {
 
       test('then the town row is updated.', () async {
         final updatedTown = await Town.db.findFirstRow(
-          testSession,
+          session,
           where: (t) => t.id.equals(town.id),
         );
         expect(updatedTown, isNotNull);
