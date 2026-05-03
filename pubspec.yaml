@@ -49,7 +49,7 @@ melos:
       run: |
         melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate
         melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
-        python -c "from pathlib import Path; paths=('packages/serverpod_offline_sync_client/lib/src/protocol/merge/insert.dart','packages/serverpod_offline_sync_client/lib/src/protocol/merge/update.dart','packages/serverpod_offline_sync_server/lib/src/generated/merge/insert.dart','packages/serverpod_offline_sync_server/lib/src/generated/merge/update.dart'); [path.write_text(text.rstrip() + '\n\nclass _Undefined {}\n') for path in map(Path, paths) for text in [path.read_text()] if 'Object? data = _Undefined' in text and 'class _Undefined {}' not in text]"
+        python scripts/fix_generated_merge_undefined.py
     create-migration:
       # If the module does not run first, the test project will see no module tables.
       run: |

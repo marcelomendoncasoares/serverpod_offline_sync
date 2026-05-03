@@ -39,6 +39,10 @@ enum _UniqueConflictReleaseKind {
 /// Callbacks receive the underlying database (not the CRDT proxy) and the
 /// active transaction. Use that database for follow-up inserts so work is not
 /// wrapped again by the proxy.
+///
+/// The public type uses a factory so the shared recorder state can live on this
+/// base class while merge-specific behavior stays isolated in
+/// [CrdtMergeRecorderMixin].
 abstract base class CrdtMutationRecorder {
   /// Creates a [CrdtMutationRecorder] instance.
   factory CrdtMutationRecorder(
