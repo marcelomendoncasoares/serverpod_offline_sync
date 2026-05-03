@@ -421,7 +421,7 @@ void main() {
       });
     });
 
-    group('when deleting the city,', () {
+    group('when deleting the city with deleteRow,', () {
       setUp(() async {
         await session.db.transactionForUser(
           testCrdtUserId,
