@@ -76,10 +76,10 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
       }
     }
 
-    _mergeIncomingHlc(operations, transaction);
+    _updateHlcFromIncomingOperations(operations, transaction);
   }
 
-  void _mergeIncomingHlc(
+  void _updateHlcFromIncomingOperations(
     List<CrdtMergeChange> operations,
     Transaction transaction,
   ) {
@@ -182,6 +182,9 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
       if (columnNames == null || columnNames.isEmpty || loadedRows.isEmpty) continue;
 
       final rowPks = loadedRows.map((row) => row.id).whereType<int>().toSet();
+      if (rowPks.length != loadedRows.length) {
+        throw StateError('Loaded merge metadata rows without persisted identifiers.');
+      }
       final (_, columnsByName) = _schema[tableName]!;
       final columnIds = <int>{
         for (final columnName in columnNames)

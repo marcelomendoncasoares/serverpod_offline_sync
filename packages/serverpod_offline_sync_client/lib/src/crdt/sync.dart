@@ -64,15 +64,17 @@ extension CrdtMergeInsertExtension on CrdtMergeInsert {
   Hlc get hlc => Hlc(hlcDatetime, hlcCounter, nodeId);
 
   /// The database column payload represented by this change.
-  Map<String, Object?> get databaseColumns => switch (data) {
-    TableRow() => Map<String, Object?>.from(
-      (data as TableRow).toJsonForDatabase() as Map<String, dynamic>,
-    ),
-    Map<String, dynamic>() => Map<String, Object?>.from(data as Map<String, dynamic>),
-    _ => throw StateError(
-      'Unsupported merge insert payload type for $tableName: ${data.runtimeType}.',
-    ),
-  };
+  Map<String, Object?> get databaseColumns {
+    final payload = switch (data) {
+      final TableRow row => row.toJsonForDatabase(),
+      final Map<String, dynamic> map => map,
+      _ => throw StateError(
+        'Unsupported merge insert payload type for $tableName: ${data.runtimeType}.',
+      ),
+    };
+
+    return Map<String, Object?>.from(payload as Map<String, dynamic>);
+  }
 
   /// The merge payload column names excluding the primary key.
   Iterable<String> get trackedColumnNames =>
