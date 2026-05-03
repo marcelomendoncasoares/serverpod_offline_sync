@@ -28,7 +28,12 @@ UuidValue get testCrdtUserId => _testCrdtUserId;
 /// slower operation of creating one file per test. The isolation is ensured by
 /// a cleanup of all tables after each test. This means that tests do not need
 /// a [tearDown].
-void initTestClientSession() {
+///
+/// When [withPersistentUser] is true, [testCrdtUserId] is passed as
+/// [CrdtDatabaseSession]'s `persistentUserId` so mutations can use plain
+/// [Database.transaction] instead of [CrdtDatabase.transactionForUser] (client
+/// mode).
+void initTestClientSession({bool withPersistentUser = false}) {
   setUpAll(() async {
     _tempDir = await Directory.systemTemp.createTemp('offline_first_');
     _testSession = await Client(_clientUrl).createSession(
@@ -49,6 +54,7 @@ void initTestClientSession() {
         Unique.t,
         UniqueUuid.t,
       ],
+      persistentUserId: withPersistentUser ? _testCrdtUserId : null,
     );
 
     await _initialize();
