@@ -415,7 +415,7 @@ void main() {
     );
 
     test(
-      'when deleting the city then the organization row still exist on the organization table.',
+      'when deleting the city then the organization row still exists on the organization table.',
       () async {
         final row = await Organization.db.findFirstRow(
           // Use the test session to avoid the tombstone filter of the CRDT database.
