@@ -225,6 +225,23 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     return _measurePreparedCycles(_measurementMillis);
   }
 
+  Future<void> _resetForStorageSample() async {
+    _valueSeq = 0;
+    _lastDatabaseSize = 0;
+    _lastRowsCount = 0;
+    _seededRows = [];
+    await clearUserTables(_plainSession);
+    await _plainSession.db.unsafeExecute('VACUUM');
+    CrdtUserManager.clearCache();
+    HlcManager.reset();
+    final wrapped = CrdtDatabaseSession.wraps(
+      _plainSession,
+      syncTables: benchmarkSyncTables,
+    );
+    await wrapped.db.initialize();
+    _crdtSession = crdtEnabled ? wrapped : null;
+  }
+
   @override
   Future<double> measure() async {
     await setup();
@@ -240,6 +257,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     await setup();
     try {
       final averageMicroseconds = await _measureAverageMicroseconds();
+      await _resetForStorageSample();
       await _prepareCycle();
       await run();
       await _captureDatabaseSize();
