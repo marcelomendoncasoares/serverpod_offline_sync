@@ -51,14 +51,17 @@ class CrdtMutationRecorder with CrdtMergeRecorderMixin {
          'Passing a CRDT database would cause an infinite recursion.',
        );
 
+  @override
   final Database _db;
 
+  @override
   late final _session = CrdtDatabaseSession(
     _db,
     syncTables: syncTables,
     persistentUserId: persistentUserId,
   );
 
+  @override
   late Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
 
   late final _tableDefinitionsByName = {
@@ -92,6 +95,7 @@ class CrdtMutationRecorder with CrdtMergeRecorderMixin {
 
   final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
+  @override
   late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
     for (final table in _tableDefinitionsByName.values)
       table.name: {for (final column in table.columns) column.name: column},
@@ -143,6 +147,7 @@ class CrdtMutationRecorder with CrdtMergeRecorderMixin {
   }
 
   /// Whether the given table name is tracked by CRDT.
+  @override
   bool _isCrdtTrackedTableName(String tableName) {
     return _syncTablesNames.contains(tableName);
   }
@@ -593,6 +598,7 @@ class CrdtMutationRecorder with CrdtMergeRecorderMixin {
     return tombstone?.isDeleted ?? false;
   }
 
+  @override
   Future<List<CrdtDataRow>> _findCrdtRows(
     String tableName,
     Set<UuidValue> rowIds,
@@ -783,6 +789,7 @@ WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
     };
   }
 
+  @override
   Future<void> _updateDomainRow(
     String tableName,
     UuidValue rowId,
@@ -899,11 +906,13 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     );
   }
 
+  @override
   HlcManager _getHlcManager(Transaction transaction) {
     final user = _getEffectiveUser(transaction);
     return HlcManager.forUser(user);
   }
 
+  @override
   CrdtUser _getEffectiveUser(Transaction transaction) {
     final user = userForTransaction[transaction];
     if (user != null) return user;

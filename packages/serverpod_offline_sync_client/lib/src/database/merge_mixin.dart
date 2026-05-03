@@ -3,6 +3,7 @@ part of 'recorder.dart';
 typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
 
+/// Merge-specific behavior mixed into [CrdtMutationRecorder].
 mixin CrdtMergeRecorderMixin {
   Database get _db;
   CrdtDatabaseSession get _session;
@@ -208,7 +209,7 @@ mixin CrdtMergeRecorderMixin {
       );
 
       for (final row in loadedRows) {
-        final _MergeRowKey rowKey = (tableName, row.uuidRowId);
+        final rowKey = (tableName, row.uuidRowId);
         rows[rowKey] = row;
         if (row.deleted != null) {
           tombstones[rowKey] = row.deleted!;
@@ -218,9 +219,9 @@ mixin CrdtMergeRecorderMixin {
       final columnNames = columnNamesByTable[tableName];
       if (columnNames == null || columnNames.isEmpty || loadedRows.isEmpty) continue;
 
-      final Set<int> rowPks = loadedRows.map((row) => row.id!).toSet();
+      final rowPks = loadedRows.map((row) => row.id!).toSet();
       final (_, columnsByName) = _schema[tableName]!;
-      final Set<int> columnIds = {
+      final columnIds = {
         for (final columnName in columnNames)
           if (columnsByName[columnName] != null) columnsByName[columnName]!.id!,
       };
