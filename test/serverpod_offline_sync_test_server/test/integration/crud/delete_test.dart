@@ -390,16 +390,17 @@ void main() {
           transaction: tx,
         ),
       );
-
-      await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => City.db.delete(session, [city], transaction: tx),
-      );
     });
 
-    test(
-      'when deleting the city with delete then a CRDT tombstone is created for the organization row.',
-      () async {
+    group('when deleting the city with delete,', () {
+      setUp(() async {
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => City.db.delete(session, [city], transaction: tx),
+        );
+      });
+
+      test('then a CRDT tombstone is created for the organization row.', () async {
         final tombstone = await CrdtDataDeleted.db.findFirstRow(
           session,
           where: (t) => t.row.uuidRowId.equals(organization.id),
@@ -407,12 +408,9 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
-      },
-    );
+      });
 
-    test(
-      'when deleting the city with delete then a CRDT tombstone is also created for the person row.',
-      () async {
+      test('then a CRDT tombstone is also created for the person row.', () async {
         final tombstone = await CrdtDataDeleted.db.findFirstRow(
           session,
           where: (t) => t.row.uuidRowId.equals(person.id),
@@ -420,8 +418,8 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
-      },
-    );
+      });
+    });
   });
 
   group('Given an ON DELETE CASCADE city -> organization -> person relationship, '
@@ -664,28 +662,24 @@ void main() {
       ))!;
     });
 
-    setUp(() async {
-      await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.delete(session, [person], transaction: tx),
-      );
-    });
+    group('when deleting the person with delete,', () {
+      setUp(() async {
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.delete(session, [person], transaction: tx),
+        );
+      });
 
-    test(
-      'when deleting the person with delete then the town row is updated.',
-      () async {
+      test('then the town row is updated.', () async {
         final updatedTown = await Town.db.findFirstRow(
           testSession,
           where: (t) => t.id.equals(town.id),
         );
         expect(updatedTown, isNotNull);
         expect(updatedTown!.mayorId, isNull);
-      },
-    );
+      });
 
-    test(
-      'when deleting the person with delete then the CRDT field entry for the mayor is updated.',
-      () async {
+      test('then the CRDT field entry for the mayor is updated.', () async {
         final crdtField = await CrdtDataField.db.findFirstRow(
           session,
           where: (t) =>
@@ -701,8 +695,8 @@ void main() {
         );
 
         expect(crdtFieldHlc, greaterThan(attachedCrdtFieldHlc));
-      },
-    );
+      });
+    });
   });
 
   group('Given a company row with an ON DELETE SET DEFAULT related town,', () {
