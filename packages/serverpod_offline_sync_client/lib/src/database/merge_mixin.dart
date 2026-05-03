@@ -71,10 +71,7 @@ mixin CrdtMergeRecorderMixin {
           metadata.fields,
           transaction,
         );
-        continue;
-      }
-
-      if (operation.update case final update?) {
+      } else if (operation.update case final update?) {
         await _applyMergeUpdate(
           update,
           remoteNodes,
@@ -82,10 +79,7 @@ mixin CrdtMergeRecorderMixin {
           metadata.fields,
           transaction,
         );
-        continue;
-      }
-
-      if (operation.delete case final delete?) {
+      } else if (operation.delete case final delete?) {
         await _applyMergeDelete(
           delete,
           remoteNodes,
@@ -93,12 +87,11 @@ mixin CrdtMergeRecorderMixin {
           metadata.tombstones,
           transaction,
         );
-        continue;
+      } else {
+        throw StateError(
+          'Unexpected merge change state for ${operation.tableName}/${operation.rowId}.',
+        );
       }
-
-      throw StateError(
-        'Unexpected merge change state for ${operation.tableName}/${operation.rowId}.',
-      );
     }
 
     final maxIncomingHlc = operations.fold<Hlc?>(
