@@ -607,7 +607,7 @@ void main() {
 
       test('then the town row is updated.', () async {
         final updatedTown = await Town.db.findFirstRow(
-          testSession,
+          session,
           where: (t) => t.id.equals(town.id),
         );
         expect(updatedTown, isNotNull);
