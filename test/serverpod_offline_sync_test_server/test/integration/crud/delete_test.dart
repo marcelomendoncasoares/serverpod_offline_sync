@@ -632,35 +632,6 @@ void main() {
         expect(crdtFieldHlc, greaterThan(attachedCrdtFieldHlc));
       });
     });
-  });
-
-  group('Given a town row with an ON DELETE SET NULL related person,', () {
-    late Town town;
-    late Person person;
-    late CrdtDataField attachedCrdtField;
-
-    setUp(() async {
-      town = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Town.db.insertRow(session, Town(name: 'test'), transaction: tx),
-      );
-
-      person = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(session, Person(name: 'test'), transaction: tx),
-      );
-
-      await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Town.db.attachRow.mayor(session, town, person, transaction: tx),
-      );
-
-      attachedCrdtField = (await CrdtDataField.db.findFirstRow(
-        session,
-        where: (t) => t.row.uuidRowId.equals(town.id) & t.column.name.equals('mayorId'),
-        include: CrdtDataField.include(node: CrdtNode.include()),
-      ))!;
-    });
 
     group('when deleting the person with delete,', () {
       setUp(() async {
@@ -672,7 +643,7 @@ void main() {
 
       test('then the town row is updated.', () async {
         final updatedTown = await Town.db.findFirstRow(
-          testSession,
+          session,
           where: (t) => t.id.equals(town.id),
         );
         expect(updatedTown, isNotNull);
