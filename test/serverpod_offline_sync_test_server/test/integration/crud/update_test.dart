@@ -132,7 +132,7 @@ void main() {
 
         expect(
           fields.map((e) => e.column!.name).toSet(),
-          {'name', 'organizationId', 'oldCompanyId'},
+          {'name', 'surname', 'organizationId', 'oldCompanyId'},
         );
       });
     });
@@ -170,6 +170,114 @@ void main() {
       );
     });
   });
+
+  group(
+    'Given a person table with an existing row that was inserted and updated from a different node, ',
+    () {
+      late Person person;
+      late CrdtNode otherNode;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'new'),
+            transaction: tx,
+          ),
+        );
+
+        final user = await CrdtUser.db.findFirstRow(session);
+
+        otherNode = await CrdtNode.db.insertRow(
+          session,
+          CrdtNode(userId: user!.id!),
+        );
+
+        final crdtDataRow = await CrdtDataRow.db
+            .updateWhere(
+              session,
+              columnValues: (t) => [t.nodeId(otherNode.id!)],
+              where: (t) => t.uuidRowId.equals(person.id),
+            )
+            .then((value) => value.first);
+
+        final crdtSchemaColumn = await CrdtSchemaColumn.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.tbl.name.equals(Person.t.tableName) &
+              t.name.equals(Person.t.name.columnName),
+        );
+
+        await CrdtDataField.db.insertRow(
+          session,
+          CrdtDataField(
+            rowId: crdtDataRow.id!,
+            columnId: crdtSchemaColumn!.id!,
+            nodeId: otherNode.id!,
+            hlcDatetime: DateTime.now(),
+            hlcCounter: 0,
+          ),
+        );
+      });
+
+      group('when updating the same updated column from the current node,', () {
+        setUp(() async {
+          await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.updateRow(
+              session,
+              person.copyWith(name: 'updated'),
+              columns: (t) => [t.name],
+              transaction: tx,
+            ),
+          );
+        });
+
+        test('then the node ID is updated in the CRDT field.', () async {
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(person.id) &
+                t.column.name.equals(Person.t.name.columnName),
+            include: CrdtDataField.include(
+              node: CrdtNode.include(),
+            ),
+          );
+
+          expect(field!.node!.uuidNodeId, isNot(otherNode.uuidNodeId));
+        });
+      });
+
+      group('when updating a never updated column from the current node,', () {
+        setUp(() async {
+          await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.updateRow(
+              session,
+              person.copyWith(surname: 'updated'),
+              columns: (t) => [t.surname],
+              transaction: tx,
+            ),
+          );
+        });
+
+        test('then the node ID is updated in the CRDT field.', () async {
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(person.id) &
+                t.column.name.equals(Person.t.surname.columnName),
+            include: CrdtDataField.include(
+              node: CrdtNode.include(),
+            ),
+          );
+
+          expect(field!.node!.uuidNodeId, isNot(otherNode.uuidNodeId));
+        });
+      });
+    },
+  );
 
   group('Given a unique table with one visible and one deleted row, ', () {
     late Unique visibleRow;

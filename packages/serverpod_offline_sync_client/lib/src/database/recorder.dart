@@ -335,7 +335,7 @@ class CrdtMutationRecorder {
             CrdtDataField(
               rowId: rowPk,
               columnId: colPk,
-              nodeId: crdtDataRow.nodeId,
+              nodeId: hlcManager.normalizedNodeId,
               hlcDatetime: hlc.datetime,
               hlcCounter: hlc.counter,
             ),
@@ -343,7 +343,7 @@ class CrdtMutationRecorder {
         } else {
           toUpdate.add(
             existing.copyWith(
-              nodeId: crdtDataRow.nodeId,
+              nodeId: hlcManager.normalizedNodeId,
               hlcDatetime: hlc.datetime,
               hlcCounter: hlc.counter,
             ),
