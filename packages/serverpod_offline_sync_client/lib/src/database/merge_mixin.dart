@@ -281,7 +281,7 @@ mixin CrdtMergeRecorderMixin {
 
     final data = _sanitizeMergeRowData(
       insert.tableName,
-      Map<String, Object?>.from(insert.data),
+      insert.data.cast<String, Object?>(),
     );
     final domainUpdates = <String, Object?>{};
     for (final MapEntry(key: columnName, value: value) in data.entries) {

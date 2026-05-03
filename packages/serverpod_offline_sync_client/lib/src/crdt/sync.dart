@@ -3,9 +3,6 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 
 import '../protocol/protocol.dart';
 
-/// Key used to encode a single update value inside [CrdtMergeUpdate.data].
-const crdtMergeUpdateValueKey = 'value';
-
 /// Typed view over any merge change entry in a [CrdtMergeSet].
 typedef CrdtMergeChange = ({
   String tableName,
@@ -68,11 +65,14 @@ extension CrdtMergeInsertExtension on CrdtMergeInsert {
 
 /// Convenience helpers for update changes.
 extension CrdtMergeUpdateExtension on CrdtMergeUpdate {
+  /// Key used to encode a single update value inside [CrdtMergeUpdate.data].
+  static const valueKey = 'value';
+
   /// The HLC represented by this change.
   Hlc get hlc => Hlc(hlcDatetime, hlcCounter, nodeId);
 
   /// The decoded value represented by this change.
-  Object? get value => data[crdtMergeUpdateValueKey];
+  Object? get value => data[valueKey];
 }
 
 /// Convenience helpers for delete changes.
