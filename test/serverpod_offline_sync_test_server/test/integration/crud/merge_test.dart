@@ -63,7 +63,7 @@ void main() {
           hlcDatetime: remoteInsert.hlc.datetime.add(const Duration(milliseconds: 1)),
           hlcCounter: 0,
           columnName: Person.t.name.columnName,
-          data: {'value': 'updated remotely'},
+          data: {CrdtMergeUpdateExtension.valueKey: 'updated remotely'},
         );
 
         await session.db.mergeChanges(
@@ -154,7 +154,7 @@ void main() {
                 ),
                 hlcCounter: localFieldHlc.counter,
                 columnName: Person.t.name.columnName,
-                data: {'value': 'older remote'},
+                data: {CrdtMergeUpdateExtension.valueKey: 'older remote'},
               ),
             ],
             deletes: [],
