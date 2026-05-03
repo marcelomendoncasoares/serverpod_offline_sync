@@ -9,6 +9,8 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
   @override
   Future<void> lockCurrentUser(Transaction transaction) async {
     final user = _getEffectiveUser(transaction);
+    // Use a row lock without fetching the record since the merge path only
+    // needs serialization against concurrent work for the same user.
     await CrdtUser.db.lockRows(
       _session,
       where: (t) => t.id.equals(user.id),

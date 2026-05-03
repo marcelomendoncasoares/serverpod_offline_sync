@@ -40,9 +40,10 @@ enum _UniqueConflictReleaseKind {
 /// active transaction. Use that database for follow-up inserts so work is not
 /// wrapped again by the proxy.
 ///
-/// The public type uses a factory so the shared recorder state can live on this
-/// base class while merge-specific behavior stays isolated in
-/// [CrdtMergeRecorderMixin].
+/// The factory keeps the shared recorder state on this base class while the
+/// concrete implementation layers in [CrdtMergeRecorderMixin]. This avoids
+/// instantiating the abstract base directly while keeping merge-specific
+/// behavior isolated from the core recorder state.
 abstract base class CrdtMutationRecorder {
   /// Creates a [CrdtMutationRecorder] instance.
   factory CrdtMutationRecorder(

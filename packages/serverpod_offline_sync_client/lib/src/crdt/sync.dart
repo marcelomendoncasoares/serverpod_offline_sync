@@ -70,7 +70,8 @@ extension CrdtMergeInsertExtension on CrdtMergeInsert {
     ),
     Map() => Map<String, Object?>.from(data as Map),
     _ => throw StateError(
-      'Unsupported merge insert payload type for $tableName: ${data.runtimeType}.',
+      'Unsupported merge insert payload type for '
+      '$tableName/$uuidRowId: ${data.runtimeType}.',
     ),
   };
 
