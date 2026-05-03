@@ -6,7 +6,7 @@ fields:
   tableName: String
 
   ### The domain row identifier receiving the change.
-  rowId: UuidValue
+  uuidRowId: UuidValue
 
   ### The remote node that produced the change.
   nodeId: UuidValue
@@ -14,5 +14,5 @@ fields:
   ### The updated database column name.
   columnName: String
 
-  ### The new value for the column encoded in a JSON-compatible payload.
-  data: Map<String, dynamic>
+  ### The serialized new value for the column.
+  data: dynamic

@@ -6,10 +6,10 @@ fields:
   tableName: String
 
   ### The domain row identifier receiving the change.
-  rowId: UuidValue
+  uuidRowId: UuidValue
 
   ### The remote node that produced the change.
   nodeId: UuidValue
 
-  ### Full row data keyed by database column name.
-  data: Map<String, dynamic>
+  ### The serialized domain row payload for the insert.
+  data: dynamic

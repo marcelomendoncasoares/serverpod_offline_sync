@@ -6,7 +6,7 @@ fields:
   tableName: String
 
   ### The domain row identifier receiving the change.
-  rowId: UuidValue
+  uuidRowId: UuidValue
 
   ### The remote node that produced the change.
   nodeId: UuidValue

@@ -58,12 +58,12 @@ void main() {
       setUp(() async {
         remoteUpdate = CrdtMergeUpdate(
           tableName: Person.t.tableName,
-          rowId: remotePerson.id!,
+          uuidRowId: remotePerson.id!,
           nodeId: remoteNodeId,
           hlcDatetime: remoteInsert.hlc.datetime.add(const Duration(milliseconds: 1)),
           hlcCounter: 0,
           columnName: Person.t.name.columnName,
-          data: {CrdtMergeUpdateExtension.valueKey: 'updated remotely'},
+          data: 'updated remotely',
         );
 
         await session.db.mergeChanges(
@@ -147,14 +147,14 @@ void main() {
             updates: [
               CrdtMergeUpdate(
                 tableName: Person.t.tableName,
-                rowId: person.id!,
+                uuidRowId: person.id!,
                 nodeId: remoteNodeId,
                 hlcDatetime: localFieldHlc.datetime.subtract(
                   const Duration(milliseconds: 1),
                 ),
                 hlcCounter: localFieldHlc.counter,
                 columnName: Person.t.name.columnName,
-                data: {CrdtMergeUpdateExtension.valueKey: 'older remote'},
+                data: 'older remote',
               ),
             ],
             deletes: [],
@@ -202,7 +202,7 @@ void main() {
       setUp(() async {
         remoteDelete = CrdtMergeDelete(
           tableName: Person.t.tableName,
-          rowId: person.id!,
+          uuidRowId: person.id!,
           nodeId: remoteNodeId,
           hlcDatetime: rowHlc.datetime.add(const Duration(milliseconds: 1)),
           hlcCounter: 0,
@@ -253,7 +253,7 @@ void main() {
             deletes: [
               CrdtMergeDelete(
                 tableName: Person.t.tableName,
-                rowId: person.id!,
+                uuidRowId: person.id!,
                 nodeId: remoteNodeId,
                 hlcDatetime: deleteHlc.datetime,
                 hlcCounter: deleteHlc.counter,
@@ -261,7 +261,7 @@ void main() {
               ),
               CrdtMergeDelete(
                 tableName: Person.t.tableName,
-                rowId: person.id!,
+                uuidRowId: person.id!,
                 nodeId: remoteNodeId,
                 hlcDatetime: restoreHlc.datetime,
                 hlcCounter: restoreHlc.counter,
@@ -296,16 +296,10 @@ void main() {
 CrdtMergeInsert _buildMergeInsert(Person person, Hlc hlc) {
   return CrdtMergeInsert(
     tableName: Person.t.tableName,
-    rowId: person.id!,
+    uuidRowId: person.id!,
     nodeId: hlc.nodeId,
     hlcDatetime: hlc.datetime,
     hlcCounter: hlc.counter,
-    data: {
-      'id': person.id,
-      'name': person.name,
-      'surname': person.surname,
-      'organizationId': person.organizationId,
-      'oldCompanyId': person.oldCompanyId,
-    },
+    data: person,
   );
 }

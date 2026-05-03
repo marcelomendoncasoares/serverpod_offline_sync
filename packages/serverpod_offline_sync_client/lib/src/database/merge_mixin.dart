@@ -4,34 +4,13 @@ typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
 
 /// Merge-specific behavior mixed into [CrdtMutationRecorder].
-mixin CrdtMergeRecorderMixin {
-  Database get _db;
-  CrdtDatabaseSession get _session;
-  Map<String, (int, Map<String, CrdtSchemaColumn>)> get _schema;
-  Map<String, Map<String, ColumnDefinition>> get _columnsByTableAndName;
-
-  bool _isCrdtTrackedTableName(String tableName);
-  HlcManager _getHlcManager(Transaction transaction);
-  CrdtUser _getEffectiveUser(Transaction transaction);
-  Future<List<CrdtDataRow>> _findCrdtRows(
-    String tableName,
-    Set<UuidValue> rowIds,
-    Transaction transaction, {
-    CrdtDataRowInclude? include,
-  });
-  Future<void> _updateDomainRow(
-    String tableName,
-    UuidValue rowId,
-    Map<String, Object?> updates,
-    Transaction transaction,
-  );
-
+mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
   /// Locks the current user row so merges can serialize with other work.
   Future<void> lockCurrentUser(Transaction transaction) async {
     final user = _getEffectiveUser(transaction);
-    await CrdtUser.db.findById(
+    await CrdtUser.db.lockRows(
       _session,
-      user.id!,
+      where: (t) => t.id.equals(user.id),
       transaction: transaction,
       lockMode: LockMode.forUpdate,
       lockBehavior: LockBehavior.wait,
@@ -58,8 +37,7 @@ mixin CrdtMergeRecorderMixin {
       ..sort((left, right) => left.hlc.compareTo(right.hlc));
 
     for (final operation in operations) {
-      if (!_isCrdtTrackedTableName(operation.tableName) ||
-          !_schema.containsKey(operation.tableName)) {
+      if (!_isCrdtTrackedTableName(operation.tableName)) {
         continue;
       }
 
@@ -89,11 +67,18 @@ mixin CrdtMergeRecorderMixin {
         );
       } else {
         throw StateError(
-          'Unexpected merge change state for ${operation.tableName}/${operation.rowId}.',
+          'Unexpected merge change state for ${operation.tableName}/${operation.uuidRowId}.',
         );
       }
     }
 
+    _mergeIncomingHlc(operations, transaction);
+  }
+
+  void _mergeIncomingHlc(
+    List<CrdtMergeChange> operations,
+    Transaction transaction,
+  ) {
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
       (current, change) =>
@@ -163,38 +148,9 @@ mixin CrdtMergeRecorderMixin {
     CrdtMergeSet mergeSet,
     Transaction transaction,
   ) async {
-    final rowIdsByTable = <String, Set<UuidValue>>{};
-    final columnNamesByTable = <String, Set<String>>{};
-
-    for (final insert in mergeSet.inserts) {
-      if (!_isCrdtTrackedTableName(insert.tableName) ||
-          !_schema.containsKey(insert.tableName)) {
-        continue;
-      }
-      rowIdsByTable.putIfAbsent(insert.tableName, () => {}).add(insert.rowId);
-      columnNamesByTable
-          .putIfAbsent(insert.tableName, () => {})
-          .addAll(
-            insert.data.keys.where((columnName) => columnName != 'id'),
-          );
-    }
-
-    for (final update in mergeSet.updates) {
-      if (!_isCrdtTrackedTableName(update.tableName) ||
-          !_schema.containsKey(update.tableName)) {
-        continue;
-      }
-      rowIdsByTable.putIfAbsent(update.tableName, () => {}).add(update.rowId);
-      columnNamesByTable.putIfAbsent(update.tableName, () => {}).add(update.columnName);
-    }
-
-    for (final delete in mergeSet.deletes) {
-      if (!_isCrdtTrackedTableName(delete.tableName) ||
-          !_schema.containsKey(delete.tableName)) {
-        continue;
-      }
-      rowIdsByTable.putIfAbsent(delete.tableName, () => {}).add(delete.rowId);
-    }
+    final (:rowIdsByTable, :columnNamesByTable) = mergeSet.collectMetadataLookup(
+      isTrackedTable: _isCrdtTrackedTableName,
+    );
 
     final rows = <_MergeRowKey, CrdtDataRow>{};
     final fields = <_MergeFieldKey, CrdtDataField>{};
@@ -260,7 +216,7 @@ mixin CrdtMergeRecorderMixin {
     Map<_MergeFieldKey, CrdtDataField> fields,
     Transaction transaction,
   ) async {
-    final rowKey = (insert.tableName, insert.rowId);
+    final rowKey = (insert.tableName, insert.uuidRowId);
     final incomingHlc = insert.hlc;
     final remoteNode =
         remoteNodes[insert.nodeId] ??
@@ -272,13 +228,10 @@ mixin CrdtMergeRecorderMixin {
       return;
     }
 
-    final data = _sanitizeMergeRowData(
-      insert.tableName,
-      insert.data.cast<String, Object?>(),
-    );
+    final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
     final domainUpdates = <String, Object?>{};
     for (final MapEntry(key: columnName, value: value) in data.entries) {
-      final currentField = fields[(insert.tableName, insert.rowId, columnName)];
+      final currentField = fields[(insert.tableName, insert.uuidRowId, columnName)];
       final currentColumnHlc = currentField == null
           ? currentRowHlc
           : _fieldHlc(currentField);
@@ -289,7 +242,7 @@ mixin CrdtMergeRecorderMixin {
 
     final persistedRow = await _upsertMergeRow(
       insert.tableName,
-      insert.rowId,
+      insert.uuidRowId,
       remoteNode,
       incomingHlc,
       currentRow,
@@ -301,13 +254,13 @@ mixin CrdtMergeRecorderMixin {
 
     final rowExists = await _domainRowExists(
       insert.tableName,
-      insert.rowId,
+      insert.uuidRowId,
       transaction,
     );
     if (rowExists) {
       await _updateDomainRow(
         insert.tableName,
-        insert.rowId,
+        insert.uuidRowId,
         domainUpdates,
         transaction,
       );
@@ -317,7 +270,7 @@ mixin CrdtMergeRecorderMixin {
     await _insertDomainRow(
       insert.tableName,
       {
-        'id': insert.rowId,
+        'id': insert.uuidRowId,
         ...domainUpdates,
       },
       transaction,
@@ -331,7 +284,7 @@ mixin CrdtMergeRecorderMixin {
     Map<_MergeFieldKey, CrdtDataField> fields,
     Transaction transaction,
   ) async {
-    final rowKey = (update.tableName, update.rowId);
+    final rowKey = (update.tableName, update.uuidRowId);
     final row = rows[rowKey];
     if (row == null) return;
 
@@ -340,7 +293,7 @@ mixin CrdtMergeRecorderMixin {
     if (schemaColumn == null) return;
 
     final incomingHlc = update.hlc;
-    final fieldKey = (update.tableName, update.rowId, update.columnName);
+    final fieldKey = (update.tableName, update.uuidRowId, update.columnName);
     final currentField = fields[fieldKey];
     final currentHlc = currentField == null ? _rowHlc(row) : _fieldHlc(currentField);
     if (incomingHlc <= currentHlc) {
@@ -349,7 +302,7 @@ mixin CrdtMergeRecorderMixin {
 
     await _updateDomainRow(
       update.tableName,
-      update.rowId,
+      update.uuidRowId,
       {update.columnName: update.value},
       transaction,
     );
@@ -375,7 +328,7 @@ mixin CrdtMergeRecorderMixin {
     Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
-    final rowKey = (delete.tableName, delete.rowId);
+    final rowKey = (delete.tableName, delete.uuidRowId);
     final row = rows[rowKey];
     if (row == null) return;
 
