@@ -14,5 +14,5 @@ fields:
   ### The updated database column name.
   columnName: String
 
-  ### The new value for the column.
-  value: dynamic
+  ### The new value for the column encoded in a JSON-compatible payload.
+  data: Map<String, dynamic>

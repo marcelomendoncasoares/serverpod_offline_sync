@@ -1,3 +1,4 @@
+import 'package:serverpod_client/serverpod_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
 import '../protocol/protocol.dart';
@@ -23,8 +24,13 @@ extension CrdtMergeInsertExtension on CrdtMergeInsert {
 
 /// Convenience helpers for update changes.
 extension CrdtMergeUpdateExtension on CrdtMergeUpdate {
+  static const _valueKey = 'value';
+
   /// The HLC represented by this change.
   Hlc get hlc => Hlc(hlcDatetime, hlcCounter, nodeId);
+
+  /// The decoded value represented by this change.
+  Object? get value => data[_valueKey];
 }
 
 /// Convenience helpers for delete changes.

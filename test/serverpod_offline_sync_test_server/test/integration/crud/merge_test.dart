@@ -27,7 +27,7 @@ void main() {
     group('when merging a remote insert, ', () {
       setUp(() async {
         await session.db.mergeChanges(
-          CrdtMergeSet(inserts: [remoteInsert]),
+          CrdtMergeSet(inserts: [remoteInsert], updates: [], deletes: []),
           userId: testCrdtUserId,
         );
       });
@@ -63,13 +63,14 @@ void main() {
           hlcDatetime: remoteInsert.hlc.datetime.add(const Duration(milliseconds: 1)),
           hlcCounter: 0,
           columnName: Person.t.name.columnName,
-          value: 'updated remotely',
+          data: {'value': 'updated remotely'},
         );
 
         await session.db.mergeChanges(
           CrdtMergeSet(
             inserts: [remoteInsert],
             updates: [remoteUpdate],
+            deletes: [],
           ),
           userId: testCrdtUserId,
         );
@@ -142,6 +143,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           CrdtMergeSet(
+            inserts: [],
             updates: [
               CrdtMergeUpdate(
                 tableName: Person.t.tableName,
@@ -152,9 +154,10 @@ void main() {
                 ),
                 hlcCounter: localFieldHlc.counter,
                 columnName: Person.t.name.columnName,
-                value: 'older remote',
+                data: {'value': 'older remote'},
               ),
             ],
+            deletes: [],
           ),
           userId: testCrdtUserId,
         );
@@ -207,7 +210,7 @@ void main() {
         );
 
         await session.db.mergeChanges(
-          CrdtMergeSet(deletes: [remoteDelete]),
+          CrdtMergeSet(inserts: [], updates: [], deletes: [remoteDelete]),
           userId: testCrdtUserId,
         );
       });
@@ -245,6 +248,8 @@ void main() {
 
         await session.db.mergeChanges(
           CrdtMergeSet(
+            inserts: [],
+            updates: [],
             deletes: [
               CrdtMergeDelete(
                 tableName: Person.t.tableName,
