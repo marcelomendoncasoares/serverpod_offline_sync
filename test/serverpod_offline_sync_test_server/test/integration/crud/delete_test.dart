@@ -559,10 +559,6 @@ void main() {
       );
     });
 
-    test('then the delete fails.', () async {
-      await expectLater(personDelete, throwsA(isA<Exception>()));
-    });
-
     test('then no tombstone is created for the person row.', () async {
       await expectLater(personDelete, throwsA(isA<Exception>()));
 

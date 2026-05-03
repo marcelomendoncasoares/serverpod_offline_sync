@@ -183,10 +183,6 @@ void main() {
         );
       });
 
-      test('then it throws.', () async {
-        await expectLater(insertFuture, throwsA(isA<Exception>()));
-      });
-
       test('then only the original row remains visible.', () async {
         await expectLater(insertFuture, throwsA(isA<Exception>()));
 
@@ -217,10 +213,6 @@ void main() {
             transaction: tx,
           ),
         );
-      });
-
-      test('then it throws.', () async {
-        await expectLater(insertFuture, throwsA(isA<Exception>()));
       });
 
       test('then no rows are inserted.', () async {

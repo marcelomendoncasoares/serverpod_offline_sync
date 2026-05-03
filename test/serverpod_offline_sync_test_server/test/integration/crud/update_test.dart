@@ -204,10 +204,6 @@ void main() {
           );
         });
 
-        test('then it throws.', () async {
-          await expectLater(updateFuture, throwsA(isA<Exception>()));
-        });
-
         test('then both rows keep their original values.', () async {
           await expectLater(updateFuture, throwsA(isA<Exception>()));
 
@@ -361,10 +357,6 @@ void main() {
               transaction: tx,
             ),
           );
-        });
-
-        test('then it throws.', () async {
-          await expectLater(updateFuture, throwsA(isA<Exception>()));
         });
 
         test('then the row keeps its original foreign key value.', () async {
