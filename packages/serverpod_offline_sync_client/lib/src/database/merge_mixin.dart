@@ -49,52 +49,62 @@ mixin CrdtMergeRecorderMixin {
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
       {
-        for (final change in mergeSet.changes) change.mergeNodeId,
+        for (final change in mergeSet.changes) change.nodeId,
       },
       transaction,
     );
     final metadata = await _loadMergeMetadata(mergeSet, transaction);
     final operations = mergeSet.changes.toList()
-      ..sort((left, right) => left.mergeHlc.compareTo(right.mergeHlc));
+      ..sort((left, right) => left.hlc.compareTo(right.hlc));
 
     for (final operation in operations) {
-      if (!_isCrdtTrackedTableName(operation.mergeTableName) ||
-          !_schema.containsKey(operation.mergeTableName)) {
+      if (!_isCrdtTrackedTableName(operation.tableName) ||
+          !_schema.containsKey(operation.tableName)) {
         continue;
       }
 
-      switch (operation) {
-        case CrdtMergeInsert():
-          await _applyMergeInsert(
-            operation,
-            remoteNodes,
-            metadata.rows,
-            metadata.fields,
-            transaction,
-          );
-        case CrdtMergeUpdate():
-          await _applyMergeUpdate(
-            operation,
-            remoteNodes,
-            metadata.rows,
-            metadata.fields,
-            transaction,
-          );
-        case CrdtMergeDelete():
-          await _applyMergeDelete(
-            operation,
-            remoteNodes,
-            metadata.rows,
-            metadata.tombstones,
-            transaction,
-          );
+      if (operation.insert case final insert?) {
+        await _applyMergeInsert(
+          insert,
+          remoteNodes,
+          metadata.rows,
+          metadata.fields,
+          transaction,
+        );
+        continue;
       }
+
+      if (operation.update case final update?) {
+        await _applyMergeUpdate(
+          update,
+          remoteNodes,
+          metadata.rows,
+          metadata.fields,
+          transaction,
+        );
+        continue;
+      }
+
+      if (operation.delete case final delete?) {
+        await _applyMergeDelete(
+          delete,
+          remoteNodes,
+          metadata.rows,
+          metadata.tombstones,
+          transaction,
+        );
+        continue;
+      }
+
+      throw StateError(
+        'Unexpected merge change state for ${operation.tableName}/${operation.rowId}.',
+      );
     }
 
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
       (current, change) =>
-          current == null || change.mergeHlc > current ? change.mergeHlc : current,
+          current == null || change.hlc > current ? change.hlc : current,
     );
     if (maxIncomingHlc != null) {
       final hlcManager = _getHlcManager(transaction);
@@ -269,7 +279,10 @@ mixin CrdtMergeRecorderMixin {
       return;
     }
 
-    final data = _sanitizeMergeRowData(insert.tableName, insert.data);
+    final data = _sanitizeMergeRowData(
+      insert.tableName,
+      Map<String, Object?>.from(insert.data),
+    );
     final domainUpdates = <String, Object?>{};
     for (final MapEntry(key: columnName, value: value) in data.entries) {
       final currentField = fields[(insert.tableName, insert.rowId, columnName)];
@@ -530,7 +543,7 @@ mixin CrdtMergeRecorderMixin {
 
   Map<String, Object?> _sanitizeMergeRowData(
     String tableName,
-    Map<String, dynamic> data,
+    Map<String, Object?> data,
   ) {
     final columns = _columnsByTableAndName[tableName];
     if (columns == null) return {};
