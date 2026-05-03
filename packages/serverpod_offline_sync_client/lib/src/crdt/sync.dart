@@ -100,6 +100,7 @@ typedef CrdtMergeMetadataLookup = ({
   Map<String, Set<String>> columnNamesByTable,
 });
 
+/// Helpers for collecting merge metadata from a [CrdtMergeSet].
 extension CrdtMergeLookupExtension on CrdtMergeSet {
   /// Collects the row and column metadata needed to load merge state.
   CrdtMergeMetadataLookup collectMetadataLookup({

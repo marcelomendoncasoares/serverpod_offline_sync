@@ -932,10 +932,10 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 final class _CrdtMutationRecorderImpl extends CrdtMutationRecorder
     with CrdtMergeRecorderMixin {
   _CrdtMutationRecorderImpl(
-    Database db, {
+    super._db, {
     required super.persistentUserId,
     required super.syncTables,
-  }) : super._(db);
+  }) : super._();
 }
 
 String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
