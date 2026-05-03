@@ -43,8 +43,6 @@ class CrdtDatabase implements Database {
     await _recorder.initialize();
   }
 
-  DatabaseSession get _session => BasicDatabaseSession(this);
-
   @override
   DatabaseAnalyzer get analyzer => _delegate.analyzer;
 
@@ -411,7 +409,7 @@ class CrdtDatabase implements Database {
     TransactionSettings? settings,
   }) async {
     // Ensure that the user exists with a node before starting the transaction.
-    final user = await CrdtUserManager.getOrCreate(_session, userId);
+    final user = await CrdtUserManager.getOrCreate(_delegate.session, userId);
 
     return transaction<R>(
       (tx) async {

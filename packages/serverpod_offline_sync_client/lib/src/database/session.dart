@@ -1,3 +1,4 @@
+import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
@@ -55,6 +56,7 @@ class CrdtDatabaseSession implements DatabaseSession {
 }
 
 /// Wraps a [Database] to provide a [DatabaseSession] as [DatabaseSession.db].
+@internal
 class BasicDatabaseSession implements DatabaseSession {
   /// Creates a [BasicDatabaseSession] instance.
   BasicDatabaseSession(this._db);
@@ -72,4 +74,9 @@ class BasicDatabaseSession implements DatabaseSession {
 
   @override
   Transaction? transaction;
+}
+
+@internal
+extension DatabaseSessionExtension on Database {
+  DatabaseSession get session => BasicDatabaseSession(this);
 }

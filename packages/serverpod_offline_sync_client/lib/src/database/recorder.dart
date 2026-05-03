@@ -98,11 +98,13 @@ class CrdtMutationRecorder {
   /// Safe to call again after the database was wiped (e.g. test `tearDown`)
   /// for in-memory schema ids to match new rows.
   Future<void> initialize() async {
+    final session = _db.session;
+
     if (persistentUserId != null) {
-      await CrdtUserManager.getOrCreate(_session, persistentUserId!);
+      await CrdtUserManager.getOrCreate(session, persistentUserId!);
     }
 
-    final schemaRegistry = CrdtSchemaRegistry(_session, syncTables: syncTables);
+    final schemaRegistry = CrdtSchemaRegistry(session, syncTables: syncTables);
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
