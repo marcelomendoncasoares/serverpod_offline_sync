@@ -1,0 +1,15 @@
+### A remote tombstone update to merge.
+class: CrdtMergeDelete
+extends: BaseHlc
+fields:
+  ### The table receiving the change.
+  tableName: String
+
+  ### The domain row identifier receiving the change.
+  rowId: UuidValue
+
+  ### The remote node that produced the change.
+  nodeId: UuidValue
+
+  ### Whether the row is deleted or restored.
+  isDeleted: bool

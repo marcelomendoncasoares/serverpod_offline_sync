@@ -1,0 +1,11 @@
+### A set of remote CRDT changes to merge into the local database.
+class: CrdtMergeSet
+fields:
+  ### Remote row insertions.
+  inserts: List<CrdtMergeInsert>
+
+  ### Remote field updates.
+  updates: List<CrdtMergeUpdate>
+
+  ### Remote tombstone updates.
+  deletes: List<CrdtMergeDelete>

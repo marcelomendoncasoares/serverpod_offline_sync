@@ -57,16 +57,9 @@ class CrdtDatabase implements Database {
         (throw StateError(
           'A user ID is required when merging changes without a persistent user.',
         ));
-    final user = await CrdtUserManager.getOrCreate(_delegate.session, effectiveUserId);
-
-    await transaction<void>((tx) async {
-      try {
-        userForTransaction[tx] = user;
-        await _recorder.lockCurrentUser(tx);
-        await _recorder.mergeChanges(mergeSet, tx);
-      } finally {
-        userForTransaction.remove(tx);
-      }
+    await transactionForUser<void>(effectiveUserId, (tx) async {
+      await _recorder.lockCurrentUser(tx);
+      await _recorder.mergeChanges(mergeSet, tx);
     });
   }
 

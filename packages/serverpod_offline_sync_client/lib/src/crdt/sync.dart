@@ -1,107 +1,69 @@
-import 'package:serverpod_client/serverpod_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
-/// A set of remote CRDT changes to merge into the local database.
-class CrdtMergeSet {
-  /// Creates a [CrdtMergeSet].
-  const CrdtMergeSet({
-    this.inserts = const [],
-    this.updates = const [],
-    this.deletes = const [],
-  });
+import '../protocol/protocol.dart';
 
-  /// Remote row insertions.
-  final List<CrdtMergeInsert> inserts;
-
-  /// Remote field updates.
-  final List<CrdtMergeUpdate> updates;
-
-  /// Remote tombstone updates.
-  final List<CrdtMergeDelete> deletes;
-
+/// CRDT merge helpers built on top of the generated Serverpod models.
+extension CrdtMergeSetExtension on CrdtMergeSet {
   /// Whether this merge set has no changes.
   bool get isEmpty => inserts.isEmpty && updates.isEmpty && deletes.isEmpty;
 
-  /// All changes in this merge set.
-  Iterable<CrdtMergeChange> get changes sync* {
+  /// All merge changes in this set.
+  Iterable<Object> get changes sync* {
     yield* inserts;
     yield* updates;
     yield* deletes;
   }
 }
 
-/// Base class for a remote CRDT change.
-sealed class CrdtMergeChange extends BaseHlc {
-  /// Creates a [CrdtMergeChange].
-  CrdtMergeChange({
-    required super.hlcDatetime,
-    required super.hlcCounter,
-    required this.tableName,
-    required this.rowId,
-    required this.nodeId,
-  });
-
-  /// The table receiving the change.
-  final String tableName;
-
-  /// The domain row identifier receiving the change.
-  final UuidValue rowId;
-
-  /// The remote node that produced the change.
-  final UuidValue nodeId;
-
-  /// The HLC for this change.
+/// Convenience helpers for insert changes.
+extension CrdtMergeInsertExtension on CrdtMergeInsert {
+  /// The HLC represented by this change.
   Hlc get hlc => Hlc(hlcDatetime, hlcCounter, nodeId);
 }
 
-/// A remote row insertion.
-final class CrdtMergeInsert extends CrdtMergeChange {
-  /// Creates a [CrdtMergeInsert].
-  CrdtMergeInsert({
-    required super.hlcDatetime,
-    required super.hlcCounter,
-    required super.tableName,
-    required super.rowId,
-    required super.nodeId,
-    required this.data,
-  });
-
-  /// Full row data keyed by database column name.
-  final Map<String, Object?> data;
+/// Convenience helpers for update changes.
+extension CrdtMergeUpdateExtension on CrdtMergeUpdate {
+  /// The HLC represented by this change.
+  Hlc get hlc => Hlc(hlcDatetime, hlcCounter, nodeId);
 }
 
-/// A remote field update.
-final class CrdtMergeUpdate extends CrdtMergeChange {
-  /// Creates a [CrdtMergeUpdate].
-  CrdtMergeUpdate({
-    required super.hlcDatetime,
-    required super.hlcCounter,
-    required super.tableName,
-    required super.rowId,
-    required super.nodeId,
-    required this.columnName,
-    required this.value,
-  });
-
-  /// The updated database column name.
-  final String columnName;
-
-  /// The new value for the column.
-  final Object? value;
+/// Convenience helpers for delete changes.
+extension CrdtMergeDeleteExtension on CrdtMergeDelete {
+  /// The HLC represented by this change.
+  Hlc get hlc => Hlc(hlcDatetime, hlcCounter, nodeId);
 }
 
-/// A remote tombstone update.
-final class CrdtMergeDelete extends CrdtMergeChange {
-  /// Creates a [CrdtMergeDelete].
-  CrdtMergeDelete({
-    required super.hlcDatetime,
-    required super.hlcCounter,
-    required super.tableName,
-    required super.rowId,
-    required super.nodeId,
-    required this.isDeleted,
-  });
+/// Convenience helpers shared by all merge changes.
+extension CrdtMergeChangeExtension on Object {
+  /// The affected table name.
+  String get mergeTableName => switch (this) {
+    CrdtMergeInsert(:final tableName) => tableName,
+    CrdtMergeUpdate(:final tableName) => tableName,
+    CrdtMergeDelete(:final tableName) => tableName,
+    _ => throw StateError('Unsupported merge change type: $runtimeType'),
+  };
 
-  /// Whether the row is deleted or restored.
-  final bool isDeleted;
+  /// The affected row identifier.
+  UuidValue get mergeRowId => switch (this) {
+    CrdtMergeInsert(:final rowId) => rowId,
+    CrdtMergeUpdate(:final rowId) => rowId,
+    CrdtMergeDelete(:final rowId) => rowId,
+    _ => throw StateError('Unsupported merge change type: $runtimeType'),
+  };
+
+  /// The originating node identifier.
+  UuidValue get mergeNodeId => switch (this) {
+    CrdtMergeInsert(:final nodeId) => nodeId,
+    CrdtMergeUpdate(:final nodeId) => nodeId,
+    CrdtMergeDelete(:final nodeId) => nodeId,
+    _ => throw StateError('Unsupported merge change type: $runtimeType'),
+  };
+
+  /// The HLC represented by this change.
+  Hlc get mergeHlc => switch (this) {
+    CrdtMergeInsert() => (this as CrdtMergeInsert).hlc,
+    CrdtMergeUpdate() => (this as CrdtMergeUpdate).hlc,
+    CrdtMergeDelete() => (this as CrdtMergeDelete).hlc,
+    _ => throw StateError('Unsupported merge change type: $runtimeType'),
+  };
 }

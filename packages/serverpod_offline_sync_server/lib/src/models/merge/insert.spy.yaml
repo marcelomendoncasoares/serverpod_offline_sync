@@ -1,0 +1,15 @@
+### A remote row insertion to merge.
+class: CrdtMergeInsert
+extends: BaseHlc
+fields:
+  ### The table receiving the change.
+  tableName: String
+
+  ### The domain row identifier receiving the change.
+  rowId: UuidValue
+
+  ### The remote node that produced the change.
+  nodeId: UuidValue
+
+  ### Full row data keyed by database column name.
+  data: Map<String, dynamic>

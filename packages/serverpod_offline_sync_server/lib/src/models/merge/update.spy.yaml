@@ -1,0 +1,18 @@
+### A remote field update to merge.
+class: CrdtMergeUpdate
+extends: BaseHlc
+fields:
+  ### The table receiving the change.
+  tableName: String
+
+  ### The domain row identifier receiving the change.
+  rowId: UuidValue
+
+  ### The remote node that produced the change.
+  nodeId: UuidValue
+
+  ### The updated database column name.
+  columnName: String
+
+  ### The new value for the column.
+  value: dynamic
