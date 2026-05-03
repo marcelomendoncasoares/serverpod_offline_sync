@@ -41,9 +41,10 @@ enum _UniqueConflictReleaseKind {
 /// wrapped again by the proxy.
 ///
 /// The factory keeps the shared recorder state on this base class while the
-/// concrete implementation layers in [CrdtMergeRecorderMixin]. This avoids
-/// instantiating the abstract base directly while keeping merge-specific
-/// behavior isolated from the core recorder state.
+/// concrete implementation layers in [CrdtMergeRecorderMixin]. The `abstract
+/// base` shape prevents direct instantiation or unsupported subtyping outside
+/// this library while keeping merge-specific behavior isolated from the core
+/// recorder state.
 abstract base class CrdtMutationRecorder {
   /// Creates a [CrdtMutationRecorder] instance.
   factory CrdtMutationRecorder(

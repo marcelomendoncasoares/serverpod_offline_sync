@@ -181,7 +181,7 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
       final columnNames = columnNamesByTable[tableName];
       if (columnNames == null || columnNames.isEmpty || loadedRows.isEmpty) continue;
 
-      final rowPks = loadedRows.map((row) => row.id!).toSet().cast<int>();
+      final rowPks = loadedRows.map((row) => row.id).whereType<int>().toSet();
       final (_, columnsByName) = _schema[tableName]!;
       final columnIds = <int>{
         for (final columnName in columnNames)
