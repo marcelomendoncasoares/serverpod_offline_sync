@@ -187,39 +187,42 @@ void main() {
       );
     });
 
-    group('when updating one row to the other visible unique value with updateRow,', () {
-      late Future<Unique> updateFuture;
+    group(
+      'when updating one row to the other visible unique value with updateRow,',
+      () {
+        late Future<Unique> updateFuture;
 
-      setUp(() async {
-        updateFuture = session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Unique.db.updateRow(
+        setUp(() async {
+          updateFuture = session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Unique.db.updateRow(
+              session,
+              secondRow.copyWith(name: firstRow.name),
+              columns: (t) => [t.name],
+              transaction: tx,
+            ),
+          );
+        });
+
+        test('then it throws.', () async {
+          await expectLater(updateFuture, throwsA(isA<Exception>()));
+        });
+
+        test('then both rows keep their original values.', () async {
+          await expectLater(updateFuture, throwsA(isA<Exception>()));
+
+          final rows = await Unique.db.find(
             session,
-            secondRow.copyWith(name: firstRow.name),
-            columns: (t) => [t.name],
-            transaction: tx,
-          ),
-        );
-      });
+            where: (t) => t.id.equals(firstRow.id) | t.id.equals(secondRow.id),
+          );
 
-      test('then it throws.', () async {
-        await expectLater(updateFuture, throwsA(isA<Exception>()));
-      });
-
-      test('then both rows keep their original values.', () async {
-        await expectLater(updateFuture, throwsA(isA<Exception>()));
-
-        final rows = await Unique.db.find(
-          session,
-          where: (t) => t.id.inSet({firstRow.id!, secondRow.id!}),
-        );
-
-        expect(
-          rows.map((e) => e.name).toSet(),
-          {firstRow.name, secondRow.name},
-        );
-      });
-    });
+          expect(
+            rows.map((e) => e.name).toSet(),
+            {firstRow.name, secondRow.name},
+          );
+        });
+      },
+    );
   });
 
   group(
@@ -340,36 +343,39 @@ void main() {
       );
     });
 
-    group('when updating the organization foreign key with updateWhere to a missing row,', () {
-      final missingOrganizationId = const UuidValue.raw(
-        '44444444-4444-4444-8444-444444444444',
-      );
-      late Future<List<Person>> updateFuture;
-
-      setUp(() async {
-        updateFuture = session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.updateWhere(
-            session,
-            columnValues: (t) => [t.organizationId(missingOrganizationId)],
-            where: (t) => t.id.equals(person.id),
-            transaction: tx,
-          ),
+    group(
+      'when updating the organization foreign key with updateWhere to a missing row,',
+      () {
+        final missingOrganizationId = const UuidValue.raw(
+          '44444444-4444-4444-8444-444444444444',
         );
-      });
+        late Future<List<Person>> updateFuture;
 
-      test('then it throws.', () async {
-        await expectLater(updateFuture, throwsA(isA<Exception>()));
-      });
+        setUp(() async {
+          updateFuture = session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.updateWhere(
+              session,
+              columnValues: (t) => [t.organizationId(missingOrganizationId)],
+              where: (t) => t.id.equals(person.id),
+              transaction: tx,
+            ),
+          );
+        });
 
-      test('then the row keeps its original foreign key value.', () async {
-        await expectLater(updateFuture, throwsA(isA<Exception>()));
+        test('then it throws.', () async {
+          await expectLater(updateFuture, throwsA(isA<Exception>()));
+        });
 
-        final row = await Person.db.findById(session, person.id!);
-        expect(row, isNotNull);
-        expect(row!.organizationId, isNull);
-      });
-    });
+        test('then the row keeps its original foreign key value.', () async {
+          await expectLater(updateFuture, throwsA(isA<Exception>()));
+
+          final row = await Person.db.findById(session, person.id!);
+          expect(row, isNotNull);
+          expect(row!.organizationId, isNull);
+        });
+      },
+    );
   });
 
   group('Given a unique table with one visible and one deleted row, ', () {
