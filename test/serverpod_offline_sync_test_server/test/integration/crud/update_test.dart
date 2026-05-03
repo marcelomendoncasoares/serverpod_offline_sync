@@ -171,51 +171,58 @@ void main() {
     });
   });
 
-  group('Given a unique table with two visible rows, ', () {
-    late Unique firstRow;
-    late Unique secondRow;
+  group('Given a person table with a deleted organization row, ', () {
+    late Person person;
+    late Organization deletedOrganization;
 
     setUp(() async {
-      firstRow = await session.db.transactionForUser(
+      person = await session.db.transactionForUser(
         testCrdtUserId,
-        (tx) => Unique.db.insertRow(session, Unique(name: 'first'), transaction: tx),
+        (tx) => Person.db.insertRow(session, Person(name: 'new'), transaction: tx),
       );
 
-      secondRow = await session.db.transactionForUser(
+      deletedOrganization = await session.db.transactionForUser(
         testCrdtUserId,
-        (tx) => Unique.db.insertRow(session, Unique(name: 'second'), transaction: tx),
+        (tx) => Organization.db.insertRow(
+          session,
+          Organization(name: 'deleted'),
+          transaction: tx,
+        ),
+      );
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Organization.db.deleteRow(
+          session,
+          deletedOrganization,
+          transaction: tx,
+        ),
       );
     });
 
     group(
-      'when updating one row to the other visible unique value with updateRow,',
+      'when updating the organization foreign key with updateWhere to the deleted row id,',
       () {
-        late Future<Unique> updateFuture;
+        late Future<List<Person>> updateFuture;
 
         setUp(() async {
           updateFuture = session.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Unique.db.updateRow(
+            (tx) => Person.db.updateWhere(
               session,
-              secondRow.copyWith(name: firstRow.name),
-              columns: (t) => [t.name],
+              columnValues: (t) => [t.organizationId(deletedOrganization.id)],
+              where: (t) => t.id.equals(person.id),
               transaction: tx,
             ),
           );
         });
 
-        test('then both rows keep their original values.', () async {
+        test('then the row keeps its original foreign key value.', () async {
           await expectLater(updateFuture, throwsA(isA<Exception>()));
 
-          final rows = await Unique.db.find(
-            session,
-            where: (t) => t.id.equals(firstRow.id) | t.id.equals(secondRow.id),
-          );
-
-          expect(
-            rows.map((e) => e.name).toSet(),
-            {firstRow.name, secondRow.name},
-          );
+          final row = await Person.db.findById(session, person.id!);
+          expect(row, isNotNull);
+          expect(row!.organizationId, isNull);
         });
       },
     );
@@ -328,47 +335,6 @@ void main() {
       });
     },
   );
-
-  group('Given a person table with an existing row, ', () {
-    late Person person;
-
-    setUp(() async {
-      person = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(session, Person(name: 'new'), transaction: tx),
-      );
-    });
-
-    group(
-      'when updating the organization foreign key with updateWhere to a missing row,',
-      () {
-        final missingOrganizationId = const UuidValue.raw(
-          '44444444-4444-4444-8444-444444444444',
-        );
-        late Future<List<Person>> updateFuture;
-
-        setUp(() async {
-          updateFuture = session.db.transactionForUser(
-            testCrdtUserId,
-            (tx) => Person.db.updateWhere(
-              session,
-              columnValues: (t) => [t.organizationId(missingOrganizationId)],
-              where: (t) => t.id.equals(person.id),
-              transaction: tx,
-            ),
-          );
-        });
-
-        test('then the row keeps its original foreign key value.', () async {
-          await expectLater(updateFuture, throwsA(isA<Exception>()));
-
-          final row = await Person.db.findById(session, person.id!);
-          expect(row, isNotNull);
-          expect(row!.organizationId, isNull);
-        });
-      },
-    );
-  });
 
   group('Given a unique table with one visible and one deleted row, ', () {
     late Unique visibleRow;

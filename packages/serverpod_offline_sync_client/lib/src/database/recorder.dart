@@ -193,6 +193,8 @@ class CrdtMutationRecorder {
     List<Column>? columns,
     Transaction transaction,
   ) async {
+    await _assertVisibleForeignKeyTargets(updatedRows, columns, transaction);
+
     await _forTrackedRows(updatedRows, transaction, (
       tableName,
       rowIds,
@@ -206,6 +208,75 @@ class CrdtMutationRecorder {
       );
       await _recordUpdatedFields(updatedRows, crdtDataRows, columns, transaction);
     });
+  }
+
+  Future<void> _assertVisibleForeignKeyTargets<T extends TableRow>(
+    List<T> rows,
+    List<Column>? columns,
+    Transaction transaction,
+  ) async {
+    if (rows.isEmpty) return;
+    if (!isCrdtTracked<T>(rows.first.table)) return;
+
+    final tableName = rows.first.table.tableName;
+    final tableDefinition = _tableDefinitionsByName[tableName];
+    if (tableDefinition == null) return;
+
+    final updatedColumnNames = columns?.map((column) => column.columnName).toSet();
+    final rowValues = [
+      for (final row in rows) row.toJsonForDatabase() as Map<String, dynamic>,
+    ];
+
+    for (final foreignKey in tableDefinition.foreignKeys) {
+      if (foreignKey.columns.length != 1 || foreignKey.referenceColumns.length != 1) {
+        continue;
+      }
+
+      final childColumn = foreignKey.columns.single;
+      if (updatedColumnNames != null && !updatedColumnNames.contains(childColumn)) {
+        continue;
+      }
+
+      final parentTableName = foreignKey.referenceTable;
+      if (!_isCrdtTrackedTableName(parentTableName)) continue;
+      final parentColumn = foreignKey.referenceColumns.single;
+      final columnDefinition = _columnsByTableAndName[tableName]?[childColumn];
+      final referencedValues = rowValues
+          .map(
+            (values) => _deserializeColumnValue(
+              columnDefinition,
+              values[childColumn],
+            ),
+          )
+          .whereType<Object>()
+          .toSet();
+
+      for (final referencedValue in referencedValues) {
+        final visibleParentIds = await _findVisibleReferencingRowIds(
+          tableName: parentTableName,
+          columnName: parentColumn,
+          value: referencedValue,
+          transaction: transaction,
+        );
+        if (visibleParentIds.isNotEmpty) continue;
+
+        throw Exception(
+          'Cannot reference deleted row $parentTableName.$parentColumn = '
+          '$referencedValue.',
+        );
+      }
+    }
+  }
+
+  Object? _deserializeColumnValue(
+    ColumnDefinition? columnDefinition,
+    Object? value,
+  ) {
+    if (value == null) return null;
+    if (columnDefinition?.columnType == ColumnType.uuid && value is String) {
+      return UuidValueJsonExtension.fromJson(value);
+    }
+    return value;
   }
 
   Future<void> _forTrackedRows<T extends TableRow>(

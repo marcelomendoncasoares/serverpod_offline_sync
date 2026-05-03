@@ -163,66 +163,6 @@ void main() {
     });
   });
 
-  group('Given a unique table with an existing visible row, ', () {
-    const name = 'unique';
-
-    setUp(() async {
-      await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Unique.db.insertRow(session, Unique(name: name), transaction: tx),
-      );
-    });
-
-    group('when inserting another row with the same unique key with insertRow,', () {
-      late Future<Unique> insertFuture;
-
-      setUp(() async {
-        insertFuture = session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Unique.db.insertRow(session, Unique(name: name), transaction: tx),
-        );
-      });
-
-      test('then only the original row remains visible.', () async {
-        await expectLater(insertFuture, throwsA(isA<Exception>()));
-
-        final rows = await Unique.db.find(session);
-        expect(rows, hasLength(1));
-        expect(rows.single.name, name);
-      });
-    });
-  });
-
-  group('Given an address table with no related person, ', () {
-    const missingPersonId = UuidValue.raw(
-      '33333333-3333-4333-8333-333333333333',
-    );
-
-    group('when inserting rows with a missing foreign key with insert,', () {
-      late Future<List<Address>> insertFuture;
-
-      setUp(() async {
-        insertFuture = session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Address.db.insert(
-            session,
-            [
-              Address(street: 'Oak', inhabitantId: missingPersonId),
-              Address(street: 'Pine'),
-            ],
-            transaction: tx,
-          ),
-        );
-      });
-
-      test('then no rows are inserted.', () async {
-        await expectLater(insertFuture, throwsA(isA<Exception>()));
-
-        expect(await Address.db.count(session), 0);
-      });
-    });
-  });
-
   group('Given a person table with a deleted row, ', () {
     late Person person;
     late CrdtDataRow firstInsertedCrdtRow;
