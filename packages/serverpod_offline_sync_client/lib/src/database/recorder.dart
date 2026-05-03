@@ -1012,7 +1012,7 @@ class CrdtMutationRecorder {
     }
 
     final updatedRow = currentRow.copyWith(
-      nodeId: remoteNode.id!,
+      nodeId: remoteNode.id,
       node: remoteNode,
       hlcDatetime: incomingHlc.datetime,
       hlcCounter: incomingHlc.counter,
@@ -1056,7 +1056,7 @@ class CrdtMutationRecorder {
     final updatedField = currentField.copyWith(
       row: row,
       column: column,
-      nodeId: remoteNode.id!,
+      nodeId: remoteNode.id,
       node: remoteNode,
       hlcDatetime: incomingHlc.datetime,
       hlcCounter: incomingHlc.counter,
@@ -1098,7 +1098,7 @@ class CrdtMutationRecorder {
 
     final updatedTombstone = currentTombstone.copyWith(
       row: row,
-      nodeId: remoteNode.id!,
+      nodeId: remoteNode.id,
       node: remoteNode,
       hlcDatetime: incomingHlc.datetime,
       hlcCounter: incomingHlc.counter,

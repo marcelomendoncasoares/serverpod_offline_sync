@@ -1,9 +1,7 @@
-import 'package:meta/meta.dart';
 import 'package:serverpod_client/serverpod_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
 /// A set of remote CRDT changes to merge into the local database.
-@immutable
 class CrdtMergeSet {
   /// Creates a [CrdtMergeSet].
   const CrdtMergeSet({
@@ -33,7 +31,6 @@ class CrdtMergeSet {
 }
 
 /// Base class for a remote CRDT change.
-@immutable
 sealed class CrdtMergeChange extends BaseHlc {
   /// Creates a [CrdtMergeChange].
   CrdtMergeChange({
@@ -58,7 +55,6 @@ sealed class CrdtMergeChange extends BaseHlc {
 }
 
 /// A remote row insertion.
-@immutable
 final class CrdtMergeInsert extends CrdtMergeChange {
   /// Creates a [CrdtMergeInsert].
   CrdtMergeInsert({
@@ -75,7 +71,6 @@ final class CrdtMergeInsert extends CrdtMergeChange {
 }
 
 /// A remote field update.
-@immutable
 final class CrdtMergeUpdate extends CrdtMergeChange {
   /// Creates a [CrdtMergeUpdate].
   CrdtMergeUpdate({
@@ -96,7 +91,6 @@ final class CrdtMergeUpdate extends CrdtMergeChange {
 }
 
 /// A remote tombstone update.
-@immutable
 final class CrdtMergeDelete extends CrdtMergeChange {
   /// Creates a [CrdtMergeDelete].
   CrdtMergeDelete({
