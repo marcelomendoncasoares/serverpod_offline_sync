@@ -32,9 +32,10 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   static const _clientUrl = 'http://localhost:8081/';
 
-  late final File _dbFile;
-  late final ClientDatabaseSession _plainSession;
+  late File _dbFile;
+  late ClientDatabaseSession _plainSession;
   CrdtDatabaseSession? _crdtSession;
+  var _hasOpenSession = false;
 
   final UuidValue _userId = const Uuid().v7obj();
 
@@ -158,108 +159,111 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   @override
   Future<void> setup() async {
     _valueSeq = 0;
+    _seededRows = [];
     final dbPath = p.join(
       Directory.systemTemp.path,
       'offline_sync_benchmark_$name.db',
     );
     _dbFile = File(dbPath);
-    if (_dbFile.existsSync()) {
-      _dbFile.deleteSync();
-    }
+    _deleteDatabaseFiles(_dbFile);
 
     _plainSession = await Client(_clientUrl).createSession(
       _dbFile.path,
       isDebugMode: true,
     );
+    _hasOpenSession = true;
 
     await _bootstrapDatabase();
+  }
 
+  Future<void> _prepareCycle() async {
+    if (_seededRows.isNotEmpty) {
+      await _deleteTypes(_seededRows);
+      _seededRows = [];
+    }
     switch (operation) {
       case Operation.insert:
-        _seededRows = [];
+        return;
       case Operation.update:
         _seededRows = await _insertTypes(rowCount);
       case Operation.delete:
-        _seededRows = [];
+        _seededRows = await _insertTypes(rowCount);
     }
   }
 
-  @override
-  Future<void> warmup() async {}
+  Future<double> _measurePreparedCycles(int minimumMillis) async {
+    final minimumMicros = minimumMillis * 1000;
+    final watch = Stopwatch()..start();
+    var totalTimedMicros = 0.0;
+    var timedIterations = 0;
 
-  @override
-  Future<void> run() async {
-    switch (operation) {
-      case Operation.insert:
-        await _insertTypes(rowCount);
-      case Operation.update:
-        await _updateTypesInPlace();
-      case Operation.delete:
-        await _deleteTypes(_seededRows);
+    while (watch.elapsedMicroseconds < minimumMicros) {
+      await _prepareCycle();
+      final sw = Stopwatch()..start();
+      await run();
+      totalTimedMicros += sw.elapsedMicroseconds;
+      timedIterations++;
     }
-  }
 
-  Future<void> _prepareDeleteCycle() async {
-    await _bootstrapDatabase();
-    _seededRows = await _insertTypes(rowCount);
-  }
-
-  Future<void> _timedDeleteBatch() async {
-    await _deleteTypes(_seededRows);
+    return totalTimedMicros / timedIterations;
   }
 
   @override
   Future<double> measure() async {
-    if (operation == Operation.delete) {
-      await setup();
-      try {
-        await AsyncBenchmarkBase.measureFor(() async {}, 100);
-        const minimumMicros = 2000 * 1000;
-        final watch = Stopwatch()..start();
-        var totalTimedMicros = 0.0;
-        var timedIterations = 0;
-        while (watch.elapsedMicroseconds < minimumMicros) {
-          await _prepareDeleteCycle();
-          final sw = Stopwatch()..start();
-          await _timedDeleteBatch();
-          totalTimedMicros += sw.elapsedMicroseconds;
-          timedIterations++;
-        }
-        return totalTimedMicros / timedIterations;
-      } finally {
-        await teardown();
-      }
+    await setup();
+    try {
+      await _measurePreparedCycles(100);
+      return _measurePreparedCycles(2000);
+    } finally {
+      await teardown();
     }
-    return super.measure();
   }
 
   @override
   Future<(double, int)> report() async {
     final averageMicroseconds = await measure();
-    return (averageMicroseconds, measureStorage());
+    await setup();
+    try {
+      await _prepareCycle();
+      await run();
+      return (averageMicroseconds, measureStorage());
+    } finally {
+      await teardown();
+    }
+  }
+
+  @override
+  Future<void> run() async {
+    _lastDatabaseSize = 0;
+    _lastRowsCount = 0;
+    switch (operation) {
+      case Operation.insert:
+        _seededRows = await _insertTypes(rowCount);
+        _lastRowsCount = _seededRows.length;
+      case Operation.update:
+        await _updateTypesInPlace();
+        _lastRowsCount = _seededRows.length;
+      case Operation.delete:
+        await _deleteTypes(_seededRows);
+        _seededRows = [];
+        _lastRowsCount = 0;
+    }
   }
 
   @override
   Future<void> teardown() async {
+    if (!_hasOpenSession) {
+      return;
+    }
     try {
       await _plainSession.db.unsafeExecute('PRAGMA wal_checkpoint(TRUNCATE)');
     } on Exception {
       // WAL checkpoint is best-effort (e.g. non-SQLite tests).
     }
     _lastDatabaseSize = _sqliteDbFootprintBytes(_dbFile);
-    _lastRowsCount = await Types.db.count(_plainSession);
     await _plainSession.close();
-    if (_dbFile.existsSync()) {
-      _dbFile.deleteSync();
-    }
-    for (final companion in [
-      File('${_dbFile.path}-wal'),
-      File('${_dbFile.path}-shm'),
-    ]) {
-      if (companion.existsSync()) {
-        companion.deleteSync();
-      }
-    }
+    _hasOpenSession = false;
+    _deleteDatabaseFiles(_dbFile);
   }
 
   int measureStorage() {
@@ -292,4 +296,18 @@ int _sqliteDbFootprintBytes(File mainDb) {
     total += shm.lengthSync();
   }
   return total;
+}
+
+void _deleteDatabaseFiles(File mainDb) {
+  if (mainDb.existsSync()) {
+    mainDb.deleteSync();
+  }
+  for (final companion in [
+    File('${mainDb.path}-wal'),
+    File('${mainDb.path}-shm'),
+  ]) {
+    if (companion.existsSync()) {
+      companion.deleteSync();
+    }
+  }
 }
