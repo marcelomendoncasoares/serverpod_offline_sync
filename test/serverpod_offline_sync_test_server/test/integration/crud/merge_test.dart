@@ -21,7 +21,7 @@ void main() {
       );
 
       final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
-      remoteInsert = _mergeInsert(remotePerson, hlc);
+      remoteInsert = _buildMergeInsert(remotePerson, hlc);
     });
 
     group('when merging a remote insert, ', () {
@@ -288,7 +288,7 @@ void main() {
   });
 }
 
-CrdtMergeInsert _mergeInsert(Person person, Hlc hlc) {
+CrdtMergeInsert _buildMergeInsert(Person person, Hlc hlc) {
   return CrdtMergeInsert(
     tableName: Person.t.tableName,
     rowId: person.id!,
