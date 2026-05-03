@@ -4,7 +4,7 @@ typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
 
 /// Merge-specific behavior mixed into [CrdtMutationRecorder].
-mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
+base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
   /// Locks the current user row so merges can serialize with other work.
   Future<void> lockCurrentUser(Transaction transaction) async {
     final user = _getEffectiveUser(transaction);
@@ -168,7 +168,7 @@ mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
       );
 
       for (final row in loadedRows) {
-        final rowKey = (tableName, row.uuidRowId);
+        final _MergeRowKey rowKey = (tableName, row.uuidRowId);
         rows[rowKey] = row;
         if (row.deleted != null) {
           tombstones[rowKey] = row.deleted!;
@@ -178,9 +178,9 @@ mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
       final columnNames = columnNamesByTable[tableName];
       if (columnNames == null || columnNames.isEmpty || loadedRows.isEmpty) continue;
 
-      final rowPks = loadedRows.map((row) => row.id!).toSet();
+      final Set<int> rowPks = loadedRows.map((row) => row.id!).toSet();
       final (_, columnsByName) = _schema[tableName]!;
-      final columnIds = {
+      final Set<int> columnIds = {
         for (final columnName in columnNames)
           if (columnsByName[columnName] != null) columnsByName[columnName]!.id!,
       };

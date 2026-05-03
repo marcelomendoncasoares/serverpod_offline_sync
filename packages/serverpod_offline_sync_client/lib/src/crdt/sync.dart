@@ -66,12 +66,12 @@ extension CrdtMergeInsertExtension on CrdtMergeInsert {
   /// The database column payload represented by this change.
   Map<String, Object?> get databaseColumns => switch (data) {
     TableRow() => Map<String, Object?>.from(
-        (data as TableRow).toJsonForDatabase() as Map<String, dynamic>,
-      ),
+      (data as TableRow).toJsonForDatabase() as Map<String, dynamic>,
+    ),
     Map() => Map<String, Object?>.from(data as Map),
     _ => throw StateError(
-        'Unsupported merge insert payload type for $tableName: ${data.runtimeType}.',
-      ),
+      'Unsupported merge insert payload type for $tableName: ${data.runtimeType}.',
+    ),
   };
 
   /// The merge payload column names excluding the primary key.

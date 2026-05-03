@@ -39,9 +39,15 @@ enum _UniqueConflictReleaseKind {
 /// Callbacks receive the underlying database (not the CRDT proxy) and the
 /// active transaction. Use that database for follow-up inserts so work is not
 /// wrapped again by the proxy.
-class CrdtMutationRecorder with CrdtMergeRecorderMixin {
+abstract base class CrdtMutationRecorder {
   /// Creates a [CrdtMutationRecorder] instance.
-  CrdtMutationRecorder(
+  factory CrdtMutationRecorder(
+    Database db, {
+    required UuidValue? persistentUserId,
+    required List<Table> syncTables,
+  }) = _CrdtMutationRecorderImpl;
+
+  CrdtMutationRecorder._(
     this._db, {
     required this.persistentUserId,
     required this.syncTables,
@@ -124,6 +130,15 @@ class CrdtMutationRecorder with CrdtMergeRecorderMixin {
         ),
     };
   }
+
+  /// Locks the current user row so merges can serialize with other work.
+  Future<void> lockCurrentUser(Transaction transaction);
+
+  /// Merges remote CRDT changes into the current database.
+  Future<void> mergeChanges(
+    CrdtMergeSet mergeSet,
+    Transaction transaction,
+  );
 
   /// The user ID to use for all CRDT operations. This should only be used for
   /// databases operating on the client side, where all data is for the same user.
@@ -912,6 +927,15 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     }
     return CrdtUserManager.getCached(persistentUserId!);
   }
+}
+
+final class _CrdtMutationRecorderImpl extends CrdtMutationRecorder
+    with CrdtMergeRecorderMixin {
+  _CrdtMutationRecorderImpl(
+    Database db, {
+    required super.persistentUserId,
+    required super.syncTables,
+  }) : super._(db);
 }
 
 String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
