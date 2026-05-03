@@ -82,19 +82,22 @@ void main() {
         expect(row!.name, remoteUpdate.value);
       });
 
-      test('then the CRDT field metadata is recorded for the updated column.', () async {
-        final field = await CrdtDataField.db.findFirstRow(
-          session,
-          where: (t) =>
-              t.row.uuidRowId.equals(remotePerson.id) &
-              t.column.name.equals(Person.t.name.columnName),
-          include: CrdtDataField.include(node: CrdtNode.include()),
-        );
+      test(
+        'then the CRDT field metadata is recorded for the updated column.',
+        () async {
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(remotePerson.id) &
+                t.column.name.equals(Person.t.name.columnName),
+            include: CrdtDataField.include(node: CrdtNode.include()),
+          );
 
-        expect(field, isNotNull);
-        expect(field!.node!.uuidNodeId, remoteNodeId);
-        expect(field.toHlcForNode(field.node!.uuidNodeId), remoteUpdate.hlc);
-      });
+          expect(field, isNotNull);
+          expect(field!.node!.uuidNodeId, remoteNodeId);
+          expect(field.toHlcForNode(field.node!.uuidNodeId), remoteUpdate.hlc);
+        },
+      );
     });
   });
 
@@ -229,7 +232,11 @@ void main() {
 
     group('when merging a newer restore after a delete, ', () {
       setUp(() async {
-        final deleteHlc = Hlc(rowHlc.datetime.add(const Duration(milliseconds: 1)), 0, remoteNodeId);
+        final deleteHlc = Hlc(
+          rowHlc.datetime.add(const Duration(milliseconds: 1)),
+          0,
+          remoteNodeId,
+        );
         final restoreHlc = Hlc(
           deleteHlc.datetime.add(const Duration(milliseconds: 1)),
           0,
@@ -288,6 +295,12 @@ CrdtMergeInsert _mergeInsert(Person person, Hlc hlc) {
     nodeId: hlc.nodeId,
     hlcDatetime: hlc.datetime,
     hlcCounter: hlc.counter,
-    data: Map<String, Object?>.from(person.toJsonForDatabase() as Map),
+    data: {
+      'id': person.id,
+      'name': person.name,
+      'surname': person.surname,
+      'organizationId': person.organizationId,
+      'oldCompanyId': person.oldCompanyId,
+    },
   );
 }

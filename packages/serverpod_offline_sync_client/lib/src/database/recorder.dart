@@ -1,4 +1,5 @@
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../crdt/sync.dart';
@@ -279,7 +280,8 @@ class CrdtMutationRecorder {
 
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
-      (current, change) => current == null || change.hlc > current ? change.hlc : current,
+      (current, change) =>
+          current == null || change.hlc > current ? change.hlc : current,
     );
     if (maxIncomingHlc != null) {
       final hlcManager = _getHlcManager(transaction);
@@ -747,17 +749,21 @@ class CrdtMutationRecorder {
     final columnNamesByTable = <String, Set<String>>{};
 
     for (final insert in mergeSet.inserts) {
-      if (!_isCrdtTrackedTableName(insert.tableName) || !_schema.containsKey(insert.tableName)) {
+      if (!_isCrdtTrackedTableName(insert.tableName) ||
+          !_schema.containsKey(insert.tableName)) {
         continue;
       }
       rowIdsByTable.putIfAbsent(insert.tableName, () => {}).add(insert.rowId);
-      columnNamesByTable.putIfAbsent(insert.tableName, () => {}).addAll(
-        insert.data.keys.where((columnName) => columnName != 'id'),
-      );
+      columnNamesByTable
+          .putIfAbsent(insert.tableName, () => {})
+          .addAll(
+            insert.data.keys.where((columnName) => columnName != 'id'),
+          );
     }
 
     for (final update in mergeSet.updates) {
-      if (!_isCrdtTrackedTableName(update.tableName) || !_schema.containsKey(update.tableName)) {
+      if (!_isCrdtTrackedTableName(update.tableName) ||
+          !_schema.containsKey(update.tableName)) {
         continue;
       }
       rowIdsByTable.putIfAbsent(update.tableName, () => {}).add(update.rowId);
@@ -765,7 +771,8 @@ class CrdtMutationRecorder {
     }
 
     for (final delete in mergeSet.deletes) {
-      if (!_isCrdtTrackedTableName(delete.tableName) || !_schema.containsKey(delete.tableName)) {
+      if (!_isCrdtTrackedTableName(delete.tableName) ||
+          !_schema.containsKey(delete.tableName)) {
         continue;
       }
       rowIdsByTable.putIfAbsent(delete.tableName, () => {}).add(delete.rowId);
@@ -851,7 +858,9 @@ class CrdtMutationRecorder {
     final domainUpdates = <String, Object?>{};
     for (final MapEntry(key: columnName, value: value) in data.entries) {
       final currentField = fields[(insert.tableName, insert.rowId, columnName)];
-      final currentColumnHlc = currentField == null ? currentRowHlc : _fieldHlc(currentField);
+      final currentColumnHlc = currentField == null
+          ? currentRowHlc
+          : _fieldHlc(currentField);
       if (currentColumnHlc == null || incomingHlc > currentColumnHlc) {
         domainUpdates[columnName] = value;
       }
@@ -869,9 +878,18 @@ class CrdtMutationRecorder {
 
     if (domainUpdates.isEmpty) return;
 
-    final rowExists = await _domainRowExists(insert.tableName, insert.rowId, transaction);
+    final rowExists = await _domainRowExists(
+      insert.tableName,
+      insert.rowId,
+      transaction,
+    );
     if (rowExists) {
-      await _updateDomainRow(insert.tableName, insert.rowId, domainUpdates, transaction);
+      await _updateDomainRow(
+        insert.tableName,
+        insert.rowId,
+        domainUpdates,
+        transaction,
+      );
       return;
     }
 
@@ -943,10 +961,11 @@ class CrdtMutationRecorder {
     final incomingHlc = delete.hlc;
     final currentRowHlc = _rowHlc(row);
     final currentTombstone = tombstones[rowKey];
-    final currentTombstoneHlc =
-        currentTombstone == null ? null : _tombstoneHlc(currentTombstone);
-    final currentVisibilityHlc = currentTombstoneHlc == null ||
-            currentRowHlc > currentTombstoneHlc
+    final currentTombstoneHlc = currentTombstone == null
+        ? null
+        : _tombstoneHlc(currentTombstone);
+    final currentVisibilityHlc =
+        currentTombstoneHlc == null || currentRowHlc > currentTombstoneHlc
         ? currentRowHlc
         : currentTombstoneHlc;
     if (incomingHlc <= currentVisibilityHlc) {
