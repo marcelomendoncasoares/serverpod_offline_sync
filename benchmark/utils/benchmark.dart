@@ -25,6 +25,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   /// Minimal blob column payload (shared; column stays non-null with zero bytes).
   static final ByteData _emptyBlob = ByteData(0);
+  static const _warmupMillis = 100;
+  static const _measurementMillis = 2000;
 
   final bool crdtEnabled;
   final Operation operation;
@@ -32,8 +34,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   static const _clientUrl = 'http://localhost:8081/';
 
-  late File _dbFile;
-  late ClientDatabaseSession _plainSession;
+  late final File _dbFile;
+  late final ClientDatabaseSession _plainSession;
   CrdtDatabaseSession? _crdtSession;
   var _hasOpenSession = false;
 
@@ -159,7 +161,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   @override
   Future<void> setup() async {
     _valueSeq = 0;
-    _seededRows = [];
+    _lastDatabaseSize = 0;
+    _lastRowsCount = 0;
     final dbPath = p.join(
       Directory.systemTemp.path,
       'offline_sync_benchmark_$name.db',
@@ -212,8 +215,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   Future<double> measure() async {
     await setup();
     try {
-      await _measurePreparedCycles(100);
-      return _measurePreparedCycles(2000);
+      await _measurePreparedCycles(_warmupMillis);
+      return _measurePreparedCycles(_measurementMillis);
     } finally {
       await teardown();
     }
@@ -222,20 +225,18 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   @override
   Future<(double, int)> report() async {
     final averageMicroseconds = await measure();
-    await setup();
-    try {
-      await _prepareCycle();
-      await run();
-      return (averageMicroseconds, measureStorage());
-    } finally {
-      await teardown();
-    }
+    final storageSample = TypesTableBenchmark(
+      name,
+      crdtEnabled: crdtEnabled,
+      operation: operation,
+      rowCount: rowCount,
+    );
+    final storageSize = await storageSample._measureStorageSample();
+    return (averageMicroseconds, storageSize);
   }
 
   @override
   Future<void> run() async {
-    _lastDatabaseSize = 0;
-    _lastRowsCount = 0;
     switch (operation) {
       case Operation.insert:
         _seededRows = await _insertTypes(rowCount);
@@ -264,6 +265,17 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     await _plainSession.close();
     _hasOpenSession = false;
     _deleteDatabaseFiles(_dbFile);
+  }
+
+  Future<int> _measureStorageSample() async {
+    await setup();
+    try {
+      await _prepareCycle();
+      await run();
+      return measureStorage();
+    } finally {
+      await teardown();
+    }
   }
 
   int measureStorage() {
