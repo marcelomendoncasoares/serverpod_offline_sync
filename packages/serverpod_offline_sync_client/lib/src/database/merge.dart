@@ -3,29 +3,8 @@ part of 'recorder.dart';
 typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
 
-/// Merge-specific behavior mixed into [CrdtMutationRecorder].
-mixin CrdtMergeRecorderMixin {
-  Database get _db;
-  CrdtDatabaseSession get _session;
-  Map<String, (int, Map<String, CrdtSchemaColumn>)> get _schema;
-  Map<String, Map<String, ColumnDefinition>> get _columnsByTableAndName;
-
-  bool _isCrdtTrackedTableName(String tableName);
-  HlcManager _getHlcManager(Transaction transaction);
-  CrdtUser _getEffectiveUser(Transaction transaction);
-  Future<List<CrdtDataRow>> _findCrdtRows(
-    String tableName,
-    Set<UuidValue> rowIds,
-    Transaction transaction, {
-    CrdtDataRowInclude? include,
-  });
-  Future<void> _updateDomainRow(
-    String tableName,
-    UuidValue rowId,
-    Map<String, Object?> updates,
-    Transaction transaction,
-  );
-
+/// Adds merge-specific behavior to [CrdtMutationRecorder].
+extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   /// Locks the current user row so merges can serialize with other work.
   Future<void> lockCurrentUser(Transaction transaction) async {
     final user = _getEffectiveUser(transaction);
