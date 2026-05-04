@@ -4,9 +4,29 @@ typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
 
 /// Merge-specific behavior mixed into [CrdtMutationRecorder].
-base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
+mixin CrdtMergeRecorderMixin {
+  Database get _db;
+  CrdtDatabaseSession get _session;
+  Map<String, (int, Map<String, CrdtSchemaColumn>)> get _schema;
+  Map<String, Map<String, ColumnDefinition>> get _columnsByTableAndName;
+
+  bool _isCrdtTrackedTableName(String tableName);
+  HlcManager _getHlcManager(Transaction transaction);
+  CrdtUser _getEffectiveUser(Transaction transaction);
+  Future<List<CrdtDataRow>> _findCrdtRows(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Transaction transaction, {
+    CrdtDataRowInclude? include,
+  });
+  Future<void> _updateDomainRow(
+    String tableName,
+    UuidValue rowId,
+    Map<String, Object?> updates,
+    Transaction transaction,
+  );
+
   /// Locks the current user row so merges can serialize with other work.
-  @override
   Future<void> lockCurrentUser(Transaction transaction) async {
     final user = _getEffectiveUser(transaction);
     // Use a row lock without fetching the record since the merge path only
@@ -21,58 +41,51 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
   }
 
   /// Merges remote CRDT changes into the current database.
-  @override
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet,
     Transaction transaction,
   ) async {
     if (mergeSet.isEmpty) return;
 
+    final operations = mergeSet.causallyOrderedChanges;
     final currentUser = _getEffectiveUser(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
-      {
-        for (final change in mergeSet.changes) change.nodeId,
-      },
+      {for (final change in operations) change.uuidNodeId},
       transaction,
     );
     final metadata = await _loadMergeMetadata(mergeSet, transaction);
-    final operations = mergeSet.changes.toList()
-      ..sort((left, right) => left.hlc.compareTo(right.hlc));
 
     for (final operation in operations) {
       if (!_isCrdtTrackedTableName(operation.tableName)) {
         continue;
       }
 
-      if (operation.insert case final insert?) {
-        await _applyMergeInsert(
-          insert,
-          remoteNodes,
-          metadata.rows,
-          metadata.fields,
-          transaction,
-        );
-      } else if (operation.update case final update?) {
-        await _applyMergeUpdate(
-          update,
-          remoteNodes,
-          metadata.rows,
-          metadata.fields,
-          transaction,
-        );
-      } else if (operation.delete case final delete?) {
-        await _applyMergeDelete(
-          delete,
-          remoteNodes,
-          metadata.rows,
-          metadata.tombstones,
-          transaction,
-        );
-      } else {
-        throw StateError(
-          'Unexpected merge change state for ${operation.tableName}/${operation.uuidRowId}.',
-        );
+      switch (operation) {
+        case CrdtMergeInsert insert:
+          await _applyMergeInsert(
+            insert,
+            remoteNodes,
+            metadata.rows,
+            metadata.fields,
+            transaction,
+          );
+        case CrdtMergeUpdate update:
+          await _applyMergeUpdate(
+            update,
+            remoteNodes,
+            metadata.rows,
+            metadata.fields,
+            transaction,
+          );
+        case CrdtMergeDelete delete:
+          await _applyMergeDelete(
+            delete,
+            remoteNodes,
+            metadata.rows,
+            metadata.tombstones,
+            transaction,
+          );
       }
     }
 
@@ -183,7 +196,10 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
 
       final rowPks = loadedRows.map((row) => row.id).whereType<int>().toSet();
       if (rowPks.length != loadedRows.length) {
-        throw StateError('Loaded merge metadata rows without persisted identifiers.');
+        throw StateError(
+          'Loaded ${loadedRows.length - rowPks.length} merge metadata rows '
+          'for table $tableName without persisted identifiers.',
+        );
       }
       final (_, columnsByName) = _schema[tableName]!;
       final columnIds = <int>{
@@ -225,8 +241,10 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
     final rowKey = (insert.tableName, insert.uuidRowId);
     final incomingHlc = insert.hlc;
     final remoteNode =
-        remoteNodes[insert.nodeId] ??
-        (throw StateError('Remote node ${insert.nodeId} not found for merge.'));
+        remoteNodes[insert.uuidNodeId] ??
+        (throw StateError(
+          'Remote node ${insert.uuidNodeId} not found for merge.',
+        ));
 
     final currentRow = rows[rowKey];
     final currentRowHlc = currentRow == null ? null : _rowHlc(currentRow);
@@ -314,8 +332,10 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
     );
 
     final remoteNode =
-        remoteNodes[update.nodeId] ??
-        (throw StateError('Remote node ${update.nodeId} not found for merge.'));
+        remoteNodes[update.uuidNodeId] ??
+        (throw StateError(
+          'Remote node ${update.uuidNodeId} not found for merge.',
+        ));
     final persistedField = await _upsertMergeField(
       row,
       schemaColumn,
@@ -353,8 +373,10 @@ base mixin CrdtMergeRecorderMixin on CrdtMutationRecorder {
     }
 
     final remoteNode =
-        remoteNodes[delete.nodeId] ??
-        (throw StateError('Remote node ${delete.nodeId} not found for merge.'));
+        remoteNodes[delete.uuidNodeId] ??
+        (throw StateError(
+          'Remote node ${delete.uuidNodeId} not found for merge.',
+        ));
     final persistedTombstone = await _upsertMergeTombstone(
       row,
       remoteNode,

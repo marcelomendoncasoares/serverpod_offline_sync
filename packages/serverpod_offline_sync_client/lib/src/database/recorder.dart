@@ -2,7 +2,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
-import '../crdt/sync.dart';
+import '../crdt/merge.dart';
 import '../managers/hlc.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
@@ -10,7 +10,7 @@ import 'database.dart';
 import 'schema.dart';
 import 'session.dart';
 
-part 'merge_mixin.dart';
+part 'merge.dart';
 
 typedef _ReferencingForeignKey = ({
   String childTableName,
@@ -39,29 +39,19 @@ enum _UniqueConflictReleaseKind {
 /// Callbacks receive the underlying database (not the CRDT proxy) and the
 /// active transaction. Use that database for follow-up inserts so work is not
 /// wrapped again by the proxy.
-///
-/// The factory keeps the shared recorder state on this base class while the
-/// concrete implementation layers in [CrdtMergeRecorderMixin]. The `abstract
-/// base` shape prevents direct instantiation or unsupported subtyping outside
-/// this library while keeping merge-specific behavior isolated from the core
-/// recorder state.
-abstract base class CrdtMutationRecorder {
+class CrdtMutationRecorder with CrdtMergeRecorderMixin {
   /// Creates a [CrdtMutationRecorder] instance.
-  factory CrdtMutationRecorder(
-    Database db, {
+  CrdtMutationRecorder(
+    this._db, {
     required UuidValue? persistentUserId,
     required List<Table> syncTables,
-  }) = _CrdtMutationRecorderImpl;
-
-  CrdtMutationRecorder._(
-    this._db, {
-    required this.persistentUserId,
-    required this.syncTables,
-  }) : assert(
-         _db is! CrdtDatabase,
-         'The database must be the user database, not the CRDT database. '
-         'Passing a CRDT database would cause an infinite recursion.',
-       );
+  }) : persistentUserId = persistentUserId,
+       syncTables = syncTables,
+       assert(
+          _db is! CrdtDatabase,
+          'The database must be the user database, not the CRDT database. '
+          'Passing a CRDT database would cause an infinite recursion.',
+        );
 
   final Database _db;
 
@@ -136,15 +126,6 @@ abstract base class CrdtMutationRecorder {
         ),
     };
   }
-
-  /// Locks the current user row so merges can serialize with other work.
-  Future<void> lockCurrentUser(Transaction transaction);
-
-  /// Merges remote CRDT changes into the current database.
-  Future<void> mergeChanges(
-    CrdtMergeSet mergeSet,
-    Transaction transaction,
-  );
 
   /// The user ID to use for all CRDT operations. This should only be used for
   /// databases operating on the client side, where all data is for the same user.
@@ -933,15 +914,6 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     }
     return CrdtUserManager.getCached(persistentUserId!);
   }
-}
-
-final class _CrdtMutationRecorderImpl extends CrdtMutationRecorder
-    with CrdtMergeRecorderMixin {
-  _CrdtMutationRecorderImpl(
-    super._db, {
-    required super.persistentUserId,
-    required super.syncTables,
-  }) : super._();
 }
 
 String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');

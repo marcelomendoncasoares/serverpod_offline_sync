@@ -5,7 +5,7 @@
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
-import '../crdt/sync.dart';
+import '../crdt/merge.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
 import 'recorder.dart';
@@ -45,6 +45,10 @@ class CrdtDatabase implements Database {
   }
 
   /// Merges remote CRDT changes into the local database for the given user.
+  ///
+  /// When [userId] is omitted, this uses the recorder's persistent user id.
+  /// The merge locks the current user's CRDT tables and executes atomically
+  /// inside [transactionForUser].
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
     UuidValue? userId,
