@@ -93,7 +93,7 @@ void printStorageImpact(
     );
     print(
       '    Extra storage per ${stage.unitLabel}: '
-      '${_formatSignedStorage(stage.extraBytesPerUnit)}',
+      '${_formatSignedStorage(stage.incrementalExtraBytesPerUnit)}',
     );
   }
 
@@ -149,7 +149,8 @@ class _StorageStageComparison {
   int get extraBytes => crdtSize - baselineSize;
   double? get overheadPercent =>
       baselineSize == 0 ? null : extraBytes / baselineSize * 100;
-  double get extraBytesPerUnit => (crdtIncrement - baselineIncrement) / unitCount;
+  double get incrementalExtraBytesPerUnit =>
+      (crdtIncrement - baselineIncrement) / unitCount;
 }
 
 String _formatSignedStorage(num size) {
