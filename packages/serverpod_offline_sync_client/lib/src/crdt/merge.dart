@@ -31,33 +31,28 @@ extension CrdtMergeSetExtension on CrdtMergeSet {
 
   /// Collects the row and column metadata needed to load merge state.
   CrdtMergeMetadataLookup collectMetadataLookup({
-    required bool Function(String tableName) isTrackedTable,
+    required Map<String, Set<String>> columnNamesByTableName,
   }) {
-    final rowIdsByTable = <String, Set<UuidValue>>{};
-    final columnNamesByTable = <String, Set<String>>{};
+    final rowIdsToLoadByTable = <String, Set<UuidValue>>{};
+    final columnNamesToLoadByTable = <String, Set<String>>{};
 
-    for (final insert in inserts) {
-      if (!isTrackedTable(insert.tableName)) continue;
-      rowIdsByTable.putIfAbsent(insert.tableName, () => {}).add(insert.uuidRowId);
-      columnNamesByTable
-          .putIfAbsent(insert.tableName, () => {})
-          .addAll(insert.trackedColumnNames);
-    }
+    for (final change in changes) {
+      final availableColumnNames = columnNamesByTableName[change.tableName];
+      if (availableColumnNames == null) continue;
 
-    for (final update in updates) {
-      if (!isTrackedTable(update.tableName)) continue;
-      rowIdsByTable.putIfAbsent(update.tableName, () => {}).add(update.uuidRowId);
-      columnNamesByTable.putIfAbsent(update.tableName, () => {}).add(update.columnName);
-    }
-
-    for (final delete in deletes) {
-      if (!isTrackedTable(delete.tableName)) continue;
-      rowIdsByTable.putIfAbsent(delete.tableName, () => {}).add(delete.uuidRowId);
+      rowIdsToLoadByTable.putIfAbsent(change.tableName, () => {}).add(change.uuidRowId);
+      columnNamesToLoadByTable.putIfAbsent(change.tableName, () => {}).addAll(
+        switch (change) {
+          CrdtMergeInsert() => availableColumnNames.difference({'id'}),
+          CrdtMergeUpdate() => [change.columnName],
+          _ => [],
+        },
+      );
     }
 
     return (
-      rowIdsByTable: rowIdsByTable,
-      columnNamesByTable: columnNamesByTable,
+      rowIdsByTable: rowIdsToLoadByTable,
+      columnNamesByTable: columnNamesToLoadByTable,
     );
   }
 }
@@ -83,8 +78,4 @@ extension CrdtMergeInsertExtension on CrdtMergeInsert {
 
     return Map<String, Object?>.from(payload as Map<String, dynamic>);
   }
-
-  /// The merge payload column names excluding the primary key.
-  Iterable<String> get trackedColumnNames =>
-      databaseColumns.keys.where((columnName) => columnName != 'id');
 }

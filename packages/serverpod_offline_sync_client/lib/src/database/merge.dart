@@ -145,7 +145,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     final (:rowIdsByTable, :columnNamesByTable) = mergeSet.collectMetadataLookup(
-      isTrackedTable: _isCrdtTrackedTableName,
+      columnNamesByTableName: _syncedTableColumnNamesForMerge,
     );
 
     final rows = <_MergeRowKey, CrdtDataRow>{};
@@ -180,6 +180,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           'persisted identifiers.',
         );
       }
+
       final (_, columnsByName) = _schema[tableName]!;
       final columnIds = <int>{
         for (final columnName in columnNames)
@@ -232,18 +233,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
-    final domainUpdates = <String, Object?>{};
-    for (final MapEntry(key: columnName, value: value) in data.entries) {
+    final updatedColumns = <String>{};
+    for (final columnName in data.keys) {
       final currentField = fields[(insert.tableName, insert.uuidRowId, columnName)];
       final currentColumnHlc = currentField == null
           ? currentRowHlc
           : _fieldHlc(currentField);
       if (currentColumnHlc == null || incomingHlc > currentColumnHlc) {
-        domainUpdates[columnName] = value;
+        updatedColumns.add(columnName);
       }
     }
 
-    final persistedRow = await _upsertMergeRow(
+    rows[rowKey] = await _upsertMergeRow(
       insert.tableName,
       insert.uuidRowId,
       remoteNode,
@@ -251,33 +252,28 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       currentRow,
       transaction,
     );
-    rows[rowKey] = persistedRow;
 
-    if (domainUpdates.isEmpty) return;
+    if (updatedColumns.isEmpty) return;
 
-    final rowExists = await _domainRowExists(
-      insert.tableName,
-      insert.uuidRowId,
-      transaction,
-    );
-    if (rowExists) {
-      await _updateDomainRow(
-        insert.tableName,
-        insert.uuidRowId,
-        domainUpdates,
-        transaction,
+    final row = insert.data;
+    if (row is! TableRow) {
+      throw StateError(
+        'Unsupported merge insert payload type for "${insert.tableName}": '
+        '${row.runtimeType}. Expected subclass of TableRow.',
       );
-      return;
     }
 
-    await _insertDomainRow(
-      insert.tableName,
-      {
-        'id': insert.uuidRowId,
-        ...domainUpdates,
-      },
-      transaction,
-    );
+    try {
+      await _db.updateRow(
+        row,
+        columns: _syncTableByName[insert.tableName]!.managedColumns
+            .where((c) => updatedColumns.contains(c.columnName))
+            .toList(),
+        transaction: transaction,
+      );
+    } on DatabaseUpdateRowException {
+      await _db.insertRow(row, transaction: transaction);
+    }
   }
 
   Future<void> _applyMergeUpdate(
@@ -303,9 +299,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       return;
     }
 
-    await _updateDomainRow(
+    await _updateDomainRows(
       update.tableName,
-      update.uuidRowId,
+      {update.uuidRowId},
       {update.columnName: update.value},
       transaction,
     );
@@ -315,7 +311,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         (throw StateError(
           'Remote node ${update.uuidNodeId} not found for merge.',
         ));
-    final persistedField = await _upsertMergeField(
+
+    fields[fieldKey] = await _upsertMergeField(
       row,
       schemaColumn,
       remoteNode,
@@ -323,7 +320,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       currentField,
       transaction,
     );
-    fields[fieldKey] = persistedField;
   }
 
   Future<void> _applyMergeDelete(
@@ -343,6 +339,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final currentTombstoneHlc = currentTombstone == null
         ? null
         : _tombstoneHlc(currentTombstone);
+
     final currentVisibilityHlc =
         currentTombstoneHlc == null || currentRowHlc > currentTombstoneHlc
         ? currentRowHlc
@@ -356,7 +353,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         (throw StateError(
           'Remote node ${delete.uuidNodeId} not found for merge.',
         ));
-    final persistedTombstone = await _upsertMergeTombstone(
+
+    tombstones[rowKey] = await _upsertMergeTombstone(
       row,
       remoteNode,
       incomingHlc,
@@ -364,7 +362,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       currentTombstone,
       transaction,
     );
-    tombstones[rowKey] = persistedTombstone;
   }
 
   Future<CrdtDataRow> _upsertMergeRow(
@@ -389,6 +386,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         ),
         transaction: transaction,
       );
+
       return insertedRow.copyWith(node: remoteNode);
     }
 
@@ -398,12 +396,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       hlcDatetime: incomingHlc.datetime,
       hlcCounter: incomingHlc.counter,
     );
+
     await CrdtDataRow.db.update(
       _session,
       [updatedRow],
       columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
       transaction: transaction,
     );
+
     return updatedRow;
   }
 
@@ -427,6 +427,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         ),
         transaction: transaction,
       );
+
       return insertedField.copyWith(
         row: row,
         column: column,
@@ -442,6 +443,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       hlcDatetime: incomingHlc.datetime,
       hlcCounter: incomingHlc.counter,
     );
+
     await CrdtDataField.db.update(
       _session,
       [updatedField],
@@ -471,6 +473,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         ),
         transaction: transaction,
       );
+
       return insertedTombstone.copyWith(
         row: row,
         node: remoteNode,
@@ -485,12 +488,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       hlcCounter: incomingHlc.counter,
       isDeleted: isDeleted,
     );
+
     await CrdtDataDeleted.db.update(
       _session,
       [updatedTombstone],
       columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter, t.isDeleted],
       transaction: transaction,
     );
+
     return updatedTombstone;
   }
 
@@ -505,44 +510,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       for (final MapEntry(key: columnName, value: value) in data.entries)
         if (columnName != 'id' && columns.containsKey(columnName)) columnName: value,
     };
-  }
-
-  Future<bool> _domainRowExists(
-    String tableName,
-    UuidValue rowId,
-    Transaction transaction,
-  ) async {
-    final result = await _db.unsafeQuery(
-      '''
-SELECT 1
-FROM "${_escapeIdentifier(tableName)}"
-WHERE "id" = ${_sqlLiteral(rowId)}
-LIMIT 1
-''',
-      transaction: transaction,
-    );
-    return result.isNotEmpty;
-  }
-
-  Future<void> _insertDomainRow(
-    String tableName,
-    Map<String, Object?> values,
-    Transaction transaction,
-  ) async {
-    if (values.isEmpty) return;
-
-    final columns = values.keys
-        .map((columnName) => '"${_escapeIdentifier(columnName)}"')
-        .join(', ');
-    final sqlValues = values.values.map(_sqlLiteral).join(', ');
-
-    await _db.unsafeExecute(
-      '''
-INSERT INTO "${_escapeIdentifier(tableName)}" ($columns)
-VALUES ($sqlValues)
-''',
-      transaction: transaction,
-    );
   }
 }
 
