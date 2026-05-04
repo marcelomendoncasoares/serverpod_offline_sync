@@ -12,8 +12,8 @@ void printPerformanceImpact(
     '${runningInCI ? '```' : ''}'
     '\n📊 ${benchmarkResults.operation.name.toUpperCase()} performance impact:',
   );
-  final (baselineTime, _) = benchmarkResults.baseline;
-  final (crdtTime, _) = benchmarkResults.crdt;
+  final baselineTime = benchmarkResults.baseline;
+  final crdtTime = benchmarkResults.crdt;
 
   final runDelayUs = crdtTime - baselineTime;
   final slowdown = runDelayUs / baselineTime * 100;
@@ -32,27 +32,75 @@ void printPerformanceImpact(
 }
 
 void printStorageImpact(
-  BenchmarkResults benchmarkResults, {
+  StorageBenchmarkResults benchmarkResults, {
   required int rowCount,
   bool runningInCI = false,
 }) {
-  print('${runningInCI ? '```' : ''}\n💽 Storage impact:');
-  final (_, baselineSize) = benchmarkResults.baseline;
-  final (_, crdtSize) = benchmarkResults.crdt;
+  final stages = [
+    _StorageStageComparison(
+      title: 'INSERT only',
+      baselineSize: benchmarkResults.baseline.sizeFor(StorageStage.insert),
+      crdtSize: benchmarkResults.crdt.sizeFor(StorageStage.insert),
+      baselineIncrement: benchmarkResults.baseline.sizeFor(StorageStage.insert),
+      crdtIncrement: benchmarkResults.crdt.sizeFor(StorageStage.insert),
+      unitCount: rowCount,
+      unitLabel: 'inserted row',
+    ),
+    _StorageStageComparison(
+      title: 'INSERT + UPDATE',
+      baselineSize: benchmarkResults.baseline.sizeFor(StorageStage.update),
+      crdtSize: benchmarkResults.crdt.sizeFor(StorageStage.update),
+      baselineIncrement:
+          benchmarkResults.baseline.sizeFor(StorageStage.update) -
+          benchmarkResults.baseline.previousSizeFor(StorageStage.update),
+      crdtIncrement:
+          benchmarkResults.crdt.sizeFor(StorageStage.update) -
+          benchmarkResults.crdt.previousSizeFor(StorageStage.update),
+      unitCount: rowCount * TypesTableBenchmark.updatedColumnsPerRow,
+      unitLabel: 'updated column',
+    ),
+    _StorageStageComparison(
+      title: 'INSERT + UPDATE + DELETE',
+      baselineSize: benchmarkResults.baseline.sizeFor(StorageStage.delete),
+      crdtSize: benchmarkResults.crdt.sizeFor(StorageStage.delete),
+      baselineIncrement:
+          benchmarkResults.baseline.sizeFor(StorageStage.delete) -
+          benchmarkResults.baseline.previousSizeFor(StorageStage.delete),
+      crdtIncrement:
+          benchmarkResults.crdt.sizeFor(StorageStage.delete) -
+          benchmarkResults.crdt.previousSizeFor(StorageStage.delete),
+      unitCount: rowCount,
+      unitLabel: 'deleted row',
+    ),
+  ];
 
-  final storageIncrease = crdtSize - baselineSize;
-  final storageIncPercent = storageIncrease / baselineSize * 100;
-  final extraStoragePerRow = storageIncrease / rowCount;
-  final storageIncreaseVolume = storageIncPercent > 100
-      ? '(x${formatter2.format(storageIncPercent / 100)})'
-      : '(+${(crdtSize - baselineSize).toFormattedStorageSize()})';
+  print('${runningInCI ? '```' : ''}\n💽 Storage impact (base footprint removed):');
   print(
-    '  Storage size: ${baselineSize.toFormattedStorageSize()} '
-    '--> ${crdtSize.toFormattedStorageSize()} $storageIncreaseVolume',
+    '  Base database size: '
+    '${benchmarkResults.baseline.baseDatabaseSize.toFormattedStorageSize()} '
+    '--> ${benchmarkResults.crdt.baseDatabaseSize.toFormattedStorageSize()}',
   );
-  print('  CRDT overhead: ${formatter2.format(storageIncPercent)}% increase');
+
+  for (final stage in stages) {
+    print('  ${stage.title}:');
+    print(
+      '    Net storage: ${stage.baselineSize.toFormattedStorageSize()} '
+      '--> ${stage.crdtSize.toFormattedStorageSize()} '
+      '(${_formatSignedStorage(stage.extraBytes)})',
+    );
+    print(
+      '    CRDT overhead: ${_formatPercentageIncrease(stage.overheadPercent)}',
+    );
+    print(
+      '    Extra storage per ${stage.unitLabel}: '
+      '${_formatSignedStorage(stage.extraBytesPerUnit)}',
+    );
+  }
+
   print(
-    '  Extra storage per row: ${extraStoragePerRow.toFormattedStorageSize()}',
+    '  Storage overhead range: '
+    '${_formatPercentageValue(stages.first.overheadPercent)}% '
+    '--> ${_formatPercentageValue(stages.last.overheadPercent)}%',
   );
   if (runningInCI) print('```');
 }
@@ -65,6 +113,66 @@ class BenchmarkResults {
   });
 
   final Operation operation;
-  final (double, int) baseline;
-  final (double, int) crdt;
+  final double baseline;
+  final double crdt;
+}
+
+class StorageBenchmarkResults {
+  const StorageBenchmarkResults({
+    required this.baseline,
+    required this.crdt,
+  });
+
+  final StorageBenchmarkRun baseline;
+  final StorageBenchmarkRun crdt;
+}
+
+class _StorageStageComparison {
+  const _StorageStageComparison({
+    required this.title,
+    required this.baselineSize,
+    required this.crdtSize,
+    required this.baselineIncrement,
+    required this.crdtIncrement,
+    required this.unitCount,
+    required this.unitLabel,
+  });
+
+  final String title;
+  final int baselineSize;
+  final int crdtSize;
+  final int baselineIncrement;
+  final int crdtIncrement;
+  final int unitCount;
+  final String unitLabel;
+
+  int get extraBytes => crdtSize - baselineSize;
+  double? get overheadPercent =>
+      baselineSize == 0 ? null : extraBytes / baselineSize * 100;
+  double get extraBytesPerUnit => (crdtIncrement - baselineIncrement) / unitCount;
+}
+
+String _formatSignedStorage(num size) {
+  if (size == 0) {
+    return '0 B';
+  }
+
+  final prefix = size > 0 ? '+' : '-';
+  return '$prefix${size.abs().toFormattedStorageSize()}';
+}
+
+String _formatPercentageIncrease(double? percent) {
+  if (percent == null) {
+    return 'n/a (baseline storage is zero)';
+  }
+
+  return '${formatter2.format(percent)}% increase';
+}
+
+String _formatPercentageValue(double? percent) {
+  if (percent == null) {
+    return 'n/a';
+  }
+
+  return formatter2.format(percent);
 }

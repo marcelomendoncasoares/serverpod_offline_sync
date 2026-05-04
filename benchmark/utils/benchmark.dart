@@ -13,6 +13,34 @@ import 'tables.dart';
 
 enum Operation { insert, update, delete }
 
+enum StorageStage { insert, update, delete }
+
+class StorageBenchmarkRun {
+  const StorageBenchmarkRun({
+    required this.baseDatabaseSize,
+    required this.insertOnlySize,
+    required this.insertUpdateSize,
+    required this.insertUpdateDeleteSize,
+  });
+
+  final int baseDatabaseSize;
+  final int insertOnlySize;
+  final int insertUpdateSize;
+  final int insertUpdateDeleteSize;
+
+  int sizeFor(StorageStage stage) => switch (stage) {
+    StorageStage.insert => insertOnlySize,
+    StorageStage.update => insertUpdateSize,
+    StorageStage.delete => insertUpdateDeleteSize,
+  };
+
+  int previousSizeFor(StorageStage stage) => switch (stage) {
+    StorageStage.insert => 0,
+    StorageStage.update => insertOnlySize,
+    StorageStage.delete => insertUpdateSize,
+  };
+}
+
 /// Benchmarks plain SQLite writes vs CRDT-wrapped writes using the wide [Types]
 /// row (same shape idea as legacy Drift `TableWithEveryColumnType`).
 class TypesTableBenchmark extends AsyncBenchmarkBase {
@@ -27,6 +55,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   static final ByteData _emptyBlob = ByteData(0);
   static const _warmupMillis = 100;
   static const _measurementMillis = 2000;
+  static const updatedColumnsPerRow = 8;
 
   final bool crdtEnabled;
   final Operation operation;
@@ -188,9 +217,9 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       case Operation.insert:
         return;
       case Operation.update:
-        _seededRows = await _insertTypes(rowCount);
       case Operation.delete:
         _seededRows = await _insertTypes(rowCount);
+        return;
     }
   }
 
@@ -273,13 +302,16 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       case Operation.insert:
         _seededRows = await _insertTypes(rowCount);
         _lastRowsCount = _seededRows.length;
+        return;
       case Operation.update:
         await _updateTypesInPlace();
         _lastRowsCount = _seededRows.length;
+        return;
       case Operation.delete:
         await _deleteTypes(_seededRows);
         _seededRows = [];
         _lastRowsCount = 0;
+        return;
     }
   }
 
@@ -308,6 +340,57 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       );
     }
     return _lastDatabaseSize ~/ (_lastRowsCount / rowCount);
+  }
+}
+
+class TypesTableStorageBenchmark extends TypesTableBenchmark {
+  TypesTableStorageBenchmark(
+    super.name, {
+    required super.crdtEnabled,
+    required super.rowCount,
+  }) : super(operation: Operation.insert);
+
+  Future<StorageBenchmarkRun> reportStorage() async {
+    await setup();
+    try {
+      await _plainSession.db.unsafeExecute('VACUUM');
+      final baseDatabaseSize = await _captureCurrentDatabaseSize();
+
+      _seededRows = await _insertTypes(rowCount);
+      _lastRowsCount = _seededRows.length;
+      final insertOnlySize = await _captureNetDatabaseSize(baseDatabaseSize);
+
+      await _updateTypesInPlace();
+      _lastRowsCount = _seededRows.length;
+      final insertUpdateSize = await _captureNetDatabaseSize(baseDatabaseSize);
+
+      await _deleteTypes(_seededRows);
+      _seededRows = [];
+      _lastRowsCount = 0;
+      final insertUpdateDeleteSize = await _captureNetDatabaseSize(
+        baseDatabaseSize,
+      );
+
+      return StorageBenchmarkRun(
+        baseDatabaseSize: baseDatabaseSize,
+        insertOnlySize: insertOnlySize,
+        insertUpdateSize: insertUpdateSize,
+        insertUpdateDeleteSize: insertUpdateDeleteSize,
+      );
+    } finally {
+      await teardown();
+    }
+  }
+
+  Future<int> _captureCurrentDatabaseSize() async {
+    await _captureDatabaseSize();
+    return _lastDatabaseSize;
+  }
+
+  Future<int> _captureNetDatabaseSize(int baseDatabaseSize) async {
+    final currentDatabaseSize = await _captureCurrentDatabaseSize();
+    final netDatabaseSize = currentDatabaseSize - baseDatabaseSize;
+    return netDatabaseSize < 0 ? 0 : netDatabaseSize;
   }
 }
 
