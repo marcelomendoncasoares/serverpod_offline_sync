@@ -13,7 +13,9 @@ extension FormattedStorageSize on num {
       time /= 1000;
       unit *= 1000;
     }
-    while (unit > Duration.microsecondsPerMinute && time.abs() > 60) {
+    while (unit >= Duration.microsecondsPerSecond &&
+        unit < Duration.microsecondsPerHour &&
+        time.abs() > 60) {
       time /= 60;
       unit *= 60;
     }

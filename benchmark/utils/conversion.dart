@@ -1,13 +1,7 @@
-// Formatter helpers for CLI output only.
-
 import 'package:intl/intl.dart';
 
-final NumberFormat formatter0 = NumberFormat.decimalPatternDigits(
-  decimalDigits: 0,
-);
-final NumberFormat formatter2 = NumberFormat.decimalPatternDigits(
-  decimalDigits: 2,
-);
+final formatter0 = NumberFormat.decimalPatternDigits(decimalDigits: 0);
+final formatter2 = NumberFormat.decimalPatternDigits(decimalDigits: 2);
 
 extension FormattedUnits on num {
   String toFormattedDuration() {
@@ -18,11 +12,13 @@ extension FormattedUnits on num {
       time /= 1000;
       unit *= 1000;
     }
-    while (unit > Duration.microsecondsPerMinute && time.abs() > 60) {
+    while (unit >= Duration.microsecondsPerSecond &&
+        unit < Duration.microsecondsPerHour &&
+        time.abs() > 60) {
       time /= 60;
       unit *= 60;
     }
-    return '${formatter2.format(time)} ${switch (unit) {
+    return '${time.isNegative ? '-' : ''}${formatter2.format(time)} ${switch (unit) {
       1 => 'μs',
       Duration.millisecondsPerSecond => 'ms',
       Duration.microsecondsPerSecond => 's',

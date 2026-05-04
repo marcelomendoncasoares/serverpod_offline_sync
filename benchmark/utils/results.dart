@@ -20,14 +20,15 @@ void printPerformanceImpact(
 
   final baselineDelay = baselineTime.toFormattedDuration();
   final crdtDelay = crdtTime.toFormattedDuration();
-  final runDelay = runDelayUs.toFormattedDuration();
+  final runDelayFormatted = runDelayUs.toFormattedDuration();
   final runDelayPerOperation = (runDelayUs / rowCount).toFormattedDuration();
+  final timeIncreaseVolume = slowdown > 900
+      ? 'x${formatter2.format(slowdown / 100)}'
+      : runDelayFormatted;
 
-  print('  Time: $baselineDelay --> $crdtDelay ($runDelay)');
+  print('  Time: $baselineDelay --> $crdtDelay ($timeIncreaseVolume)');
   print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
-  print(
-    '  Delay per ${benchmarkResults.operation.name}: $runDelayPerOperation',
-  );
+  print('  Delay per ${benchmarkResults.operation.name}: $runDelayPerOperation');
   if (runningInCI) print('```');
 }
 
@@ -46,14 +47,13 @@ void printStorageImpact(
   final storageIncreaseVolume = storageIncPercent > 100
       ? '(x${formatter2.format(storageIncPercent / 100)})'
       : '(+${(crdtSize - baselineSize).toFormattedStorageSize()})';
+
   print(
     '  Storage size: ${baselineSize.toFormattedStorageSize()} '
     '--> ${crdtSize.toFormattedStorageSize()} $storageIncreaseVolume',
   );
   print('  CRDT overhead: ${formatter2.format(storageIncPercent)}% increase');
-  print(
-    '  Extra storage per row: ${extraStoragePerRow.toFormattedStorageSize()}',
-  );
+  print('  Extra storage per row: ${extraStoragePerRow.toFormattedStorageSize()}');
   if (runningInCI) print('```');
 }
 
