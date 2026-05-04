@@ -62,7 +62,7 @@ mixin CrdtMergeRecorderMixin {
       }
 
       switch (operation) {
-        case CrdtMergeInsert insert:
+        case final CrdtMergeInsert insert:
           await _applyMergeInsert(
             insert,
             remoteNodes,
@@ -70,7 +70,7 @@ mixin CrdtMergeRecorderMixin {
             metadata.fields,
             transaction,
           );
-        case CrdtMergeUpdate update:
+        case final CrdtMergeUpdate update:
           await _applyMergeUpdate(
             update,
             remoteNodes,
@@ -78,7 +78,7 @@ mixin CrdtMergeRecorderMixin {
             metadata.fields,
             transaction,
           );
-        case CrdtMergeDelete delete:
+        case final CrdtMergeDelete delete:
           await _applyMergeDelete(
             delete,
             remoteNodes,
