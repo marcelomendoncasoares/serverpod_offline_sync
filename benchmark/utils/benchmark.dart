@@ -217,6 +217,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       case Operation.insert:
         return;
       case Operation.update:
+        _seededRows = await _insertTypes(rowCount);
+        return;
       case Operation.delete:
         _seededRows = await _insertTypes(rowCount);
         return;
