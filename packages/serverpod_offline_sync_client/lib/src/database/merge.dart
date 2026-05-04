@@ -197,8 +197,8 @@ mixin CrdtMergeRecorderMixin {
       final rowPks = loadedRows.map((row) => row.id).whereType<int>().toSet();
       if (rowPks.length != loadedRows.length) {
         throw StateError(
-          'Loaded ${loadedRows.length - rowPks.length} merge metadata rows '
-          'for table $tableName without persisted identifiers.',
+          'Some merge metadata rows for table $tableName are missing '
+          'persisted identifiers.',
         );
       }
       final (_, columnsByName) = _schema[tableName]!;
