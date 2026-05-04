@@ -246,7 +246,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   Future<double> measure() async {
     await setup();
     try {
-      return _measureAverageMicroseconds();
+      return await _measureAverageMicroseconds();
     } finally {
       await teardown();
     }
