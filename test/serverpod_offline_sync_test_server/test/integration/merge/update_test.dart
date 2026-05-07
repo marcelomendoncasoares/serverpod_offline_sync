@@ -172,6 +172,61 @@ void main() {
       });
     },
   );
+
+  group(
+    'Given an empty table and a remote update for a non-existing row, ',
+    () {
+      late UuidValue remoteNodeId;
+      late CrdtMergeUpdate remoteUpdate;
+
+      setUp(() async {
+        remoteNodeId = const Uuid().v7obj();
+
+        remoteUpdate = CrdtMergeUpdate(
+          tableName: Person.t.tableName,
+          uuidRowId: const Uuid().v7obj(),
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: DateTime.now().toUtc(),
+          hlcCounter: 0,
+          columnName: Person.t.name.columnName,
+          value: 'updated remotely',
+        );
+
+        mergeset = CrdtMergeSet(
+          inserts: [],
+          updates: [remoteUpdate],
+          deletes: [],
+        );
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeset,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the remote update is ignored.', () async {
+          final row = await Person.db.findById(session, remoteUpdate.uuidRowId);
+
+          expect(row, isNull);
+        });
+
+        test('then the CRDT field metadata is not inserted.', () async {
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(remoteUpdate.uuidRowId) &
+                t.column.name.equals(Person.t.name.columnName),
+            include: CrdtDataField.include(node: CrdtNode.include()),
+          );
+
+          expect(field, isNull);
+        });
+      });
+    },
+  );
 }
 
 extension on DateTime {

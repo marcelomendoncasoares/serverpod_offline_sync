@@ -228,6 +228,57 @@ void main() {
       });
     });
   });
+
+  group(
+    'Given an empty table and a remote delete for a non-existing row, ',
+    () {
+      late UuidValue remoteNodeId;
+      late CrdtMergeDelete remoteDelete;
+
+      setUp(() async {
+        remoteNodeId = const Uuid().v7obj();
+
+        remoteDelete = CrdtMergeDelete(
+          tableName: Person.t.tableName,
+          uuidRowId: const Uuid().v7obj(),
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: DateTime.now().toUtc(),
+          hlcCounter: 0,
+          isDeleted: true,
+        );
+
+        mergeset = CrdtMergeSet(
+          inserts: [],
+          updates: [],
+          deletes: [remoteDelete],
+        );
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeset,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the remote delete is ignored.', () async {
+          final row = await Person.db.findById(testSession, remoteDelete.uuidRowId);
+
+          expect(row, isNull);
+        });
+
+        test('then the CRDT field metadata is not inserted.', () async {
+          final tombstone = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(remoteDelete.uuidRowId),
+          );
+
+          expect(tombstone, isNull);
+        });
+      });
+    },
+  );
 }
 
 extension on DateTime {
