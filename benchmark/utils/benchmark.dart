@@ -13,6 +13,34 @@ import 'tables.dart';
 
 enum Operation { insert, update, delete }
 
+enum StorageStage { insert, update, delete }
+
+class StorageBenchmarkRun {
+  const StorageBenchmarkRun({
+    required this.baseDatabaseSize,
+    required this.insertOnlySize,
+    required this.insertUpdateSize,
+    required this.insertUpdateDeleteSize,
+  });
+
+  final int baseDatabaseSize;
+  final int insertOnlySize;
+  final int insertUpdateSize;
+  final int insertUpdateDeleteSize;
+
+  int sizeFor(StorageStage stage) => switch (stage) {
+    StorageStage.insert => insertOnlySize,
+    StorageStage.update => insertUpdateSize,
+    StorageStage.delete => insertUpdateDeleteSize,
+  };
+
+  int previousSizeFor(StorageStage stage) => switch (stage) {
+    StorageStage.insert => 0,
+    StorageStage.update => insertOnlySize,
+    StorageStage.delete => insertUpdateSize,
+  };
+}
+
 /// Benchmarks plain SQLite writes vs CRDT-wrapped writes using the wide [Types]
 /// row (same shape idea as legacy Drift `TableWithEveryColumnType`).
 class TypesTableBenchmark extends AsyncBenchmarkBase {
@@ -25,6 +53,9 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   /// Minimal blob column payload (shared; column stays non-null with zero bytes).
   static final ByteData _emptyBlob = ByteData(0);
+  static const _warmupMillis = 100;
+  static const _measurementMillis = 2000;
+  static const updatedColumnsPerRow = 8;
 
   final bool crdtEnabled;
   final Operation operation;
@@ -35,6 +66,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   late final File _dbFile;
   late final ClientDatabaseSession _plainSession;
   CrdtDatabaseSession? _crdtSession;
+  var _hasOpenSession = false;
 
   final UuidValue _userId = const Uuid().v7obj();
 
@@ -158,108 +190,142 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   @override
   Future<void> setup() async {
     _valueSeq = 0;
+    _lastDatabaseSize = 0;
+    _lastRowsCount = 0;
     final dbPath = p.join(
       Directory.systemTemp.path,
       'offline_sync_benchmark_$name.db',
     );
     _dbFile = File(dbPath);
-    if (_dbFile.existsSync()) {
-      _dbFile.deleteSync();
-    }
+    _deleteDatabaseFiles(_dbFile);
 
     _plainSession = await Client(_clientUrl).createSession(
       _dbFile.path,
       isDebugMode: true,
     );
+    _hasOpenSession = true;
 
     await _bootstrapDatabase();
+  }
 
+  Future<void> _prepareCycle() async {
+    if (_seededRows.isNotEmpty) {
+      await _deleteTypes(_seededRows);
+      _seededRows = [];
+    }
     switch (operation) {
       case Operation.insert:
-        _seededRows = [];
+        return;
       case Operation.update:
         _seededRows = await _insertTypes(rowCount);
+        return;
       case Operation.delete:
-        _seededRows = [];
+        _seededRows = await _insertTypes(rowCount);
+        return;
     }
   }
 
-  @override
-  Future<void> warmup() async {}
+  Future<double> _measurePreparedCycles(int minimumMillis) async {
+    final minimumMicros = minimumMillis * 1000;
+    final watch = Stopwatch()..start();
+    var totalTimedMicros = 0.0;
+    var timedIterations = 0;
 
-  @override
-  Future<void> run() async {
-    switch (operation) {
-      case Operation.insert:
-        await _insertTypes(rowCount);
-      case Operation.update:
-        await _updateTypesInPlace();
-      case Operation.delete:
-        await _deleteTypes(_seededRows);
+    while (watch.elapsedMicroseconds < minimumMicros) {
+      await _prepareCycle();
+      final sw = Stopwatch()..start();
+      await run();
+      totalTimedMicros += sw.elapsedMicroseconds;
+      timedIterations++;
     }
+
+    return totalTimedMicros / timedIterations;
   }
 
-  Future<void> _prepareDeleteCycle() async {
-    await _bootstrapDatabase();
-    _seededRows = await _insertTypes(rowCount);
-  }
-
-  Future<void> _timedDeleteBatch() async {
-    await _deleteTypes(_seededRows);
-  }
-
-  @override
-  Future<double> measure() async {
-    if (operation == Operation.delete) {
-      await setup();
-      try {
-        await AsyncBenchmarkBase.measureFor(() async {}, 100);
-        const minimumMicros = 2000 * 1000;
-        final watch = Stopwatch()..start();
-        var totalTimedMicros = 0.0;
-        var timedIterations = 0;
-        while (watch.elapsedMicroseconds < minimumMicros) {
-          await _prepareDeleteCycle();
-          final sw = Stopwatch()..start();
-          await _timedDeleteBatch();
-          totalTimedMicros += sw.elapsedMicroseconds;
-          timedIterations++;
-        }
-        return totalTimedMicros / timedIterations;
-      } finally {
-        await teardown();
-      }
-    }
-    return super.measure();
-  }
-
-  @override
-  Future<(double, int)> report() async {
-    final averageMicroseconds = await measure();
-    return (averageMicroseconds, measureStorage());
-  }
-
-  @override
-  Future<void> teardown() async {
+  Future<void> _captureDatabaseSize() async {
     try {
       await _plainSession.db.unsafeExecute('PRAGMA wal_checkpoint(TRUNCATE)');
     } on Exception {
       // WAL checkpoint is best-effort (e.g. non-SQLite tests).
     }
     _lastDatabaseSize = _sqliteDbFootprintBytes(_dbFile);
-    _lastRowsCount = await Types.db.count(_plainSession);
+  }
+
+  Future<double> _measureAverageMicroseconds() async {
+    await _measurePreparedCycles(_warmupMillis);
+    return _measurePreparedCycles(_measurementMillis);
+  }
+
+  Future<void> _resetForStorageSample() async {
+    _valueSeq = 0;
+    _lastDatabaseSize = 0;
+    _lastRowsCount = 0;
+    _seededRows = [];
+    await clearUserTables(_plainSession);
+    await _plainSession.db.unsafeExecute('VACUUM');
+    CrdtUserManager.clearCache();
+    HlcManager.reset();
+    final wrapped = CrdtDatabaseSession.wraps(
+      _plainSession,
+      syncTables: benchmarkSyncTables,
+    );
+    await wrapped.db.initialize();
+    _crdtSession = crdtEnabled ? wrapped : null;
+  }
+
+  @override
+  Future<double> measure() async {
+    await setup();
+    try {
+      return await _measureAverageMicroseconds();
+    } finally {
+      await teardown();
+    }
+  }
+
+  @override
+  Future<(double, int)> report() async {
+    await setup();
+    try {
+      final averageMicroseconds = await _measureAverageMicroseconds();
+      await _resetForStorageSample();
+      await _prepareCycle();
+      await run();
+      await _captureDatabaseSize();
+      return (averageMicroseconds, measureStorage());
+    } finally {
+      await teardown();
+    }
+  }
+
+  @override
+  Future<void> run() async {
+    switch (operation) {
+      case Operation.insert:
+        _seededRows = await _insertTypes(rowCount);
+        _lastRowsCount = _seededRows.length;
+        return;
+      case Operation.update:
+        await _updateTypesInPlace();
+        _lastRowsCount = _seededRows.length;
+        return;
+      case Operation.delete:
+        await _deleteTypes(_seededRows);
+        _seededRows = [];
+        _lastRowsCount = 0;
+        return;
+    }
+  }
+
+  @override
+  Future<void> teardown() async {
+    if (!_hasOpenSession) {
+      return;
+    }
+    await _captureDatabaseSize();
     await _plainSession.close();
-    if (_dbFile.existsSync()) {
-      _dbFile.deleteSync();
-    }
-    for (final companion in [
-      File('${_dbFile.path}-wal'),
-      File('${_dbFile.path}-shm'),
-    ]) {
-      if (companion.existsSync()) {
-        companion.deleteSync();
-      }
-    }
+    _hasOpenSession = false;
+    _deleteDatabaseFiles(_dbFile);
   }
 
   int measureStorage() {
@@ -279,6 +345,57 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   }
 }
 
+class TypesTableStorageBenchmark extends TypesTableBenchmark {
+  TypesTableStorageBenchmark(
+    super.name, {
+    required super.crdtEnabled,
+    required super.rowCount,
+  }) : super(operation: Operation.insert);
+
+  Future<StorageBenchmarkRun> reportStorage() async {
+    await setup();
+    try {
+      await _plainSession.db.unsafeExecute('VACUUM');
+      final baseDatabaseSize = await _captureCurrentDatabaseSize();
+
+      _seededRows = await _insertTypes(rowCount);
+      _lastRowsCount = _seededRows.length;
+      final insertOnlySize = await _captureNetDatabaseSize(baseDatabaseSize);
+
+      await _updateTypesInPlace();
+      _lastRowsCount = _seededRows.length;
+      final insertUpdateSize = await _captureNetDatabaseSize(baseDatabaseSize);
+
+      await _deleteTypes(_seededRows);
+      _seededRows = [];
+      _lastRowsCount = 0;
+      final insertUpdateDeleteSize = await _captureNetDatabaseSize(
+        baseDatabaseSize,
+      );
+
+      return StorageBenchmarkRun(
+        baseDatabaseSize: baseDatabaseSize,
+        insertOnlySize: insertOnlySize,
+        insertUpdateSize: insertUpdateSize,
+        insertUpdateDeleteSize: insertUpdateDeleteSize,
+      );
+    } finally {
+      await teardown();
+    }
+  }
+
+  Future<int> _captureCurrentDatabaseSize() async {
+    await _captureDatabaseSize();
+    return _lastDatabaseSize;
+  }
+
+  Future<int> _captureNetDatabaseSize(int baseDatabaseSize) async {
+    final currentDatabaseSize = await _captureCurrentDatabaseSize();
+    final netDatabaseSize = currentDatabaseSize - baseDatabaseSize;
+    return netDatabaseSize < 0 ? 0 : netDatabaseSize;
+  }
+}
+
 /// Bytes used by SQLite for [mainDb], including WAL sidecars (often omitted by
 /// `mainDb.lengthSync()` alone).
 int _sqliteDbFootprintBytes(File mainDb) {
@@ -292,4 +409,18 @@ int _sqliteDbFootprintBytes(File mainDb) {
     total += shm.lengthSync();
   }
   return total;
+}
+
+void _deleteDatabaseFiles(File mainDb) {
+  if (mainDb.existsSync()) {
+    mainDb.deleteSync();
+  }
+  for (final companion in [
+    File('${mainDb.path}-wal'),
+    File('${mainDb.path}-shm'),
+  ]) {
+    if (companion.existsSync()) {
+      companion.deleteSync();
+    }
+  }
 }

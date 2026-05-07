@@ -1,0 +1,13 @@
+### A remote CRDT change to merge.
+class: CrdtMergeChange
+sealed: true
+extends: BaseHlc
+fields:
+  ### The table receiving the change.
+  tableName: String
+
+  ### The domain row identifier receiving the change.
+  uuidRowId: UuidValue
+
+  ### The remote node that produced the change.
+  uuidNodeId: UuidValue

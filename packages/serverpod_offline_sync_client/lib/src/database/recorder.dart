@@ -1,12 +1,17 @@
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
+import '../crdt/extensions.dart';
+import '../crdt/merge.dart';
 import '../managers/hlc.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
 import 'database.dart';
 import 'schema.dart';
 import 'session.dart';
+
+part 'merge.dart';
 
 typedef _ReferencingForeignKey = ({
   String childTableName,
@@ -129,7 +134,14 @@ class CrdtMutationRecorder {
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
 
-  late final _syncTablesNames = syncTables.map((t) => t.tableName).toSet();
+  late final _syncTableByName = {
+    for (final t in syncTables) t.tableName: t,
+  };
+
+  late final Map<String, Set<String>> _syncedTableColumnNamesForMerge = {
+    for (final MapEntry(key: k, value: cols) in _columnsByTableAndName.entries)
+      if (_syncTableByName.containsKey(k)) k: cols.keys.toSet(),
+  };
 
   /// Whether the given table is tracked by CRDT.
   bool isCrdtTracked<T extends TableRow>([Table? table]) {
@@ -140,7 +152,7 @@ class CrdtMutationRecorder {
 
   /// Whether the given table name is tracked by CRDT.
   bool _isCrdtTrackedTableName(String tableName) {
-    return _syncTablesNames.contains(tableName);
+    return _syncTableByName.containsKey(tableName);
   }
 
   /// Insert the CRDT metadata for the inserted rows.
@@ -800,7 +812,7 @@ class CrdtMutationRecorder {
           );
         }
 
-        await _updateDomainRow(tableName, rowId, updates, transaction);
+        await _updateDomainRows(tableName, {rowId}, updates, transaction);
         updatedRowIds.add(rowId);
       }
 
@@ -850,15 +862,6 @@ WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
     };
   }
 
-  Future<void> _updateDomainRow(
-    String tableName,
-    UuidValue rowId,
-    Map<String, Object?> updates,
-    Transaction transaction,
-  ) async {
-    await _updateDomainRows(tableName, {rowId}, updates, transaction);
-  }
-
   Future<void> _updateDomainRows(
     String tableName,
     Set<UuidValue> rowIds,
@@ -868,9 +871,7 @@ WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
     if (rowIds.isEmpty || updates.isEmpty) return;
 
     final assignments = updates.entries
-        .map(
-          (entry) => '"${_escapeIdentifier(entry.key)}" = ${_sqlLiteral(entry.value)}',
-        )
+        .map((e) => '"${_escapeIdentifier(e.key)}" = ${_sqlLiteral(e.value)}')
         .join(', ');
 
     await _db.unsafeExecute(
