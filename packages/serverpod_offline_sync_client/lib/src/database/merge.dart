@@ -47,6 +47,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             remoteNodes,
             metadata.rows,
             metadata.fields,
+            metadata.tombstones,
             transaction,
           );
         case final CrdtMergeUpdate update:
@@ -216,61 +217,39 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Map<UuidValue, CrdtNode> remoteNodes,
     Map<_MergeRowKey, CrdtDataRow> rows,
     Map<_MergeFieldKey, CrdtDataField> fields,
+    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
     final rowKey = (insert.tableName, insert.uuidRowId);
     final incomingHlc = insert.hlc;
-    final remoteNode =
-        remoteNodes[insert.uuidNodeId] ??
-        (throw StateError(
-          'Remote node ${insert.uuidNodeId} not found for merge.',
-        ));
+    final remoteNode = _requireRemoteNode(remoteNodes, insert.uuidNodeId);
 
     final currentRow = rows[rowKey];
-    final currentRowHlc = currentRow?.hlc;
-    if (currentRowHlc != null && incomingHlc <= currentRowHlc) {
+    if (currentRow != null && incomingHlc <= currentRow.hlc) {
       return;
     }
 
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
-    final updatedColumns = <String>{};
-    for (final columnName in data.keys) {
-      final currentField = fields[(insert.tableName, insert.uuidRowId, columnName)];
-      final currentColumnHlc = currentField?.hlc ?? currentRowHlc;
-      if (currentColumnHlc == null || incomingHlc > currentColumnHlc) {
-        updatedColumns.add(columnName);
-      }
-    }
 
-    rows[rowKey] = await _upsertMergeRow(
-      insert.tableName,
-      insert.uuidRowId,
-      remoteNode,
-      incomingHlc,
-      currentRow,
-      transaction,
-    );
-
-    if (updatedColumns.isEmpty) return;
-
-    final row = insert.data;
-    if (row is! TableRow) {
-      throw StateError(
-        'Unsupported merge insert payload type for "${insert.tableName}": '
-        '${row.runtimeType}. Expected subclass of TableRow.',
+    if (currentRow == null) {
+      rows[rowKey] = await _applyMergeInsertForMissingRow(
+        insert,
+        remoteNode,
+        incomingHlc,
+        data,
+        transaction,
       );
-    }
-
-    try {
-      await _db.updateRow(
-        row,
-        columns: _syncTableByName[insert.tableName]!.managedColumns
-            .where((c) => updatedColumns.contains(c.columnName))
-            .toList(),
-        transaction: transaction,
+    } else {
+      await _applyMergeInsertForExistingRow(
+        insert,
+        currentRow,
+        remoteNode,
+        incomingHlc,
+        data,
+        fields,
+        tombstones,
+        transaction,
       );
-    } on DatabaseUpdateRowException {
-      await _db.insertRow(row, transaction: transaction);
     }
   }
 
@@ -285,37 +264,22 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final row = rows[rowKey];
     if (row == null) return;
 
-    final (_, columnsByName) = _schema[update.tableName]!;
-    final schemaColumn = columnsByName[update.columnName];
-    if (schemaColumn == null) return;
+    final shouldApply = await _shouldMergeFieldMetadataIfNewer(
+      tableName: update.tableName,
+      rowId: update.uuidRowId,
+      columnName: update.columnName,
+      row: row,
+      remoteNode: _requireRemoteNode(remoteNodes, update.uuidNodeId),
+      incomingHlc: update.hlc,
+      fields: fields,
+      transaction: transaction,
+    );
 
-    final incomingHlc = update.hlc;
-    final fieldKey = (update.tableName, update.uuidRowId, update.columnName);
-    final currentField = fields[fieldKey];
-    final currentHlc = currentField?.hlc ?? row.hlc;
-    if (incomingHlc <= currentHlc) {
-      return;
-    }
-
+    if (!shouldApply) return;
     await _updateDomainRows(
       update.tableName,
       {update.uuidRowId},
       {update.columnName: update.value},
-      transaction,
-    );
-
-    final remoteNode =
-        remoteNodes[update.uuidNodeId] ??
-        (throw StateError(
-          'Remote node ${update.uuidNodeId} not found for merge.',
-        ));
-
-    fields[fieldKey] = await _upsertMergeField(
-      row,
-      schemaColumn,
-      remoteNode,
-      incomingHlc,
-      currentField,
       transaction,
     );
   }
@@ -332,27 +296,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (row == null) return;
 
     final incomingHlc = delete.hlc;
-    final currentRowHlc = row.hlc;
     final currentTombstone = tombstones[rowKey];
-    final currentTombstoneHlc = currentTombstone?.hlc;
-
-    final currentVisibilityHlc =
-        currentTombstoneHlc == null || currentRowHlc > currentTombstoneHlc
-        ? currentRowHlc
-        : currentTombstoneHlc;
-    if (incomingHlc <= currentVisibilityHlc) {
+    if (incomingHlc <= row.hlc.maxBetween(currentTombstone?.hlc)) {
       return;
     }
 
-    final remoteNode =
-        remoteNodes[delete.uuidNodeId] ??
-        (throw StateError(
-          'Remote node ${delete.uuidNodeId} not found for merge.',
-        ));
-
     tombstones[rowKey] = await _upsertMergeTombstone(
       row,
-      remoteNode,
+      _requireRemoteNode(remoteNodes, delete.uuidNodeId),
       incomingHlc,
       delete.isDeleted,
       currentTombstone,
@@ -493,6 +444,144 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
 
     return updatedTombstone;
+  }
+
+  Future<CrdtDataRow> _applyMergeInsertForMissingRow(
+    CrdtMergeInsert insert,
+    CrdtNode remoteNode,
+    Hlc incomingHlc,
+    Map<String, Object?> data,
+    Transaction transaction,
+  ) async {
+    final insertedCrdtRow = await _upsertMergeRow(
+      insert.tableName,
+      insert.uuidRowId,
+      remoteNode,
+      incomingHlc,
+      null,
+      transaction,
+    );
+
+    final row = _requireMergeInsertTableRow(insert);
+    try {
+      await _db.updateRow(
+        row,
+        columns: _syncTableByName[insert.tableName]!.managedColumns
+            .where((c) => data.containsKey(c.columnName))
+            .toList(),
+        transaction: transaction,
+      );
+    } on DatabaseUpdateRowException {
+      await _db.insertRow(row, transaction: transaction);
+    }
+
+    return insertedCrdtRow;
+  }
+
+  Future<void> _applyMergeInsertForExistingRow(
+    CrdtMergeInsert insert,
+    CrdtDataRow currentRow,
+    CrdtNode remoteNode,
+    Hlc incomingHlc,
+    Map<String, Object?> data,
+    Map<_MergeFieldKey, CrdtDataField> fields,
+    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
+    Transaction transaction,
+  ) async {
+    final (_, columnsByName) = _schema[insert.tableName]!;
+    final updatedValues = <String, Object?>{};
+    for (final MapEntry(key: columnName, value: schemaColumn)
+        in columnsByName.entries) {
+      if (columnName == 'id') continue;
+
+      final shouldApply = await _shouldMergeFieldMetadataIfNewer(
+        tableName: insert.tableName,
+        rowId: insert.uuidRowId,
+        columnName: columnName,
+        row: currentRow,
+        remoteNode: remoteNode,
+        incomingHlc: incomingHlc,
+        fields: fields,
+        transaction: transaction,
+        schemaColumn: schemaColumn,
+      );
+
+      if (!shouldApply) continue;
+      updatedValues[columnName] = data[columnName];
+    }
+
+    if (updatedValues.isNotEmpty) {
+      await _updateDomainRows(
+        insert.tableName,
+        {insert.uuidRowId},
+        updatedValues,
+        transaction,
+      );
+    }
+
+    final rowKey = (insert.tableName, insert.uuidRowId);
+    final currentTombstone = tombstones[rowKey];
+    if (currentTombstone == null || incomingHlc > currentTombstone.hlc) {
+      tombstones[rowKey] = await _upsertMergeTombstone(
+        currentRow,
+        remoteNode,
+        incomingHlc,
+        false,
+        currentTombstone,
+        transaction,
+      );
+    }
+  }
+
+  Future<bool> _shouldMergeFieldMetadataIfNewer({
+    required String tableName,
+    required UuidValue rowId,
+    required String columnName,
+    required CrdtDataRow row,
+    required CrdtNode remoteNode,
+    required Hlc incomingHlc,
+    required Map<_MergeFieldKey, CrdtDataField> fields,
+    required Transaction transaction,
+    CrdtSchemaColumn? schemaColumn,
+  }) async {
+    final (_, columnsByName) = _schema[tableName]!;
+    final resolvedSchemaColumn = schemaColumn ?? columnsByName[columnName];
+    if (resolvedSchemaColumn == null) return false;
+
+    final fieldKey = (tableName, rowId, columnName);
+    final currentField = fields[fieldKey];
+    final currentHlc = currentField?.hlc ?? row.hlc;
+    if (incomingHlc <= currentHlc) return false;
+
+    fields[fieldKey] = await _upsertMergeField(
+      row,
+      resolvedSchemaColumn,
+      remoteNode,
+      incomingHlc,
+      currentField,
+      transaction,
+    );
+    return true;
+  }
+
+  TableRow _requireMergeInsertTableRow(CrdtMergeInsert insert) {
+    final row = insert.data;
+    if (row is TableRow) return row;
+
+    throw StateError(
+      'Unsupported merge insert payload type for "${insert.tableName}": '
+      '${row.runtimeType}. Expected subclass of TableRow.',
+    );
+  }
+
+  CrdtNode _requireRemoteNode(
+    Map<UuidValue, CrdtNode> remoteNodes,
+    UuidValue uuidNodeId,
+  ) {
+    return remoteNodes[uuidNodeId] ??
+        (throw StateError(
+          'Remote node $uuidNodeId not found for merge.',
+        ));
   }
 
   Map<String, Object?> _sanitizeMergeRowData(

@@ -278,6 +278,7 @@ void main() {
     () {
       late Person person;
       late Hlc localRowHlc;
+      late Hlc localUpdatedFieldHlc;
       late Person remotePerson;
       late UuidValue remoteNodeId;
       late CrdtMergeInsert remoteInsert;
@@ -321,6 +322,15 @@ void main() {
           ),
         );
 
+        final localNameField = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.row.uuidRowId.equals(person.id) &
+              t.column.name.equals(Person.t.name.columnName),
+          include: CrdtDataField.include(node: CrdtNode.include()),
+        );
+        localUpdatedFieldHlc = localNameField!.hlc;
+
         mergeset = CrdtMergeSet(
           inserts: [remoteInsert],
           updates: [],
@@ -342,11 +352,11 @@ void main() {
         });
 
         test('then the row field value is updated to the remote value.', () async {
-          expect(mergedPerson.name, remotePerson.name);
+          expect(mergedPerson.surname, remotePerson.surname);
         });
 
         test('then the local newer column update is preserved.', () async {
-          expect(mergedPerson.surname, 'original');
+          expect(mergedPerson.name, 'updated locally');
         });
 
         // Local updates that have a newer HLC than the remote insert should still
@@ -363,8 +373,8 @@ void main() {
             );
 
             expect(field, isNotNull);
-            expect(field!.node!.uuidNodeId, localRowHlc.nodeId);
-            expect(field.hlc, localRowHlc);
+            expect(field!.node!.uuidNodeId, localUpdatedFieldHlc.nodeId);
+            expect(field.hlc, localUpdatedFieldHlc);
           },
         );
       });
