@@ -1,5 +1,4 @@
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
@@ -64,9 +63,7 @@ void main() {
           ),
         );
 
-        final fieldHlc = field!.toHlcForNode(field.node!.uuidNodeId);
-        final rowHlc = field.row!.toHlcForNode(field.row!.node!.uuidNodeId);
-        expect(fieldHlc, greaterThan(rowHlc));
+        expect(field!.hlc, greaterThan(field.row!.hlc));
       });
     });
 

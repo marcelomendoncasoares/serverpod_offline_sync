@@ -227,7 +227,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         ));
 
     final currentRow = rows[rowKey];
-    final currentRowHlc = currentRow == null ? null : _rowHlc(currentRow);
+    final currentRowHlc = currentRow?.hlc;
     if (currentRowHlc != null && incomingHlc <= currentRowHlc) {
       return;
     }
@@ -236,9 +236,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final updatedColumns = <String>{};
     for (final columnName in data.keys) {
       final currentField = fields[(insert.tableName, insert.uuidRowId, columnName)];
-      final currentColumnHlc = currentField == null
-          ? currentRowHlc
-          : _fieldHlc(currentField);
+      final currentColumnHlc = currentField?.hlc ?? currentRowHlc;
       if (currentColumnHlc == null || incomingHlc > currentColumnHlc) {
         updatedColumns.add(columnName);
       }
@@ -294,7 +292,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final incomingHlc = update.hlc;
     final fieldKey = (update.tableName, update.uuidRowId, update.columnName);
     final currentField = fields[fieldKey];
-    final currentHlc = currentField == null ? _rowHlc(row) : _fieldHlc(currentField);
+    final currentHlc = currentField?.hlc ?? row.hlc;
     if (incomingHlc <= currentHlc) {
       return;
     }
@@ -334,11 +332,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (row == null) return;
 
     final incomingHlc = delete.hlc;
-    final currentRowHlc = _rowHlc(row);
+    final currentRowHlc = row.hlc;
     final currentTombstone = tombstones[rowKey];
-    final currentTombstoneHlc = currentTombstone == null
-        ? null
-        : _tombstoneHlc(currentTombstone);
+    final currentTombstoneHlc = currentTombstone?.hlc;
 
     final currentVisibilityHlc =
         currentTombstoneHlc == null || currentRowHlc > currentTombstoneHlc
@@ -512,10 +508,3 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     };
   }
 }
-
-Hlc _rowHlc(CrdtDataRow row) => row.toHlcForNode(row.node!.uuidNodeId);
-
-Hlc _fieldHlc(CrdtDataField field) => field.toHlcForNode(field.node!.uuidNodeId);
-
-Hlc _tombstoneHlc(CrdtDataDeleted tombstone) =>
-    tombstone.toHlcForNode(tombstone.node!.uuidNodeId);

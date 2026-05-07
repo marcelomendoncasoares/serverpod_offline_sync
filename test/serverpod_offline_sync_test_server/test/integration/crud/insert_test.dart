@@ -50,7 +50,7 @@ void main() {
       });
 
       test('has the HLC components populated consistently.', () async {
-        final hlc = crdtRow!.toHlcForNode(crdtRow!.node!.uuidNodeId);
+        final hlc = crdtRow!.hlc;
         expect(hlc, greaterThan(Hlc.zero(hlc.nodeId)));
       });
     });
@@ -212,14 +212,7 @@ void main() {
           include: CrdtDataRow.include(node: CrdtNode.include()),
         );
 
-        final firstHlc = firstInsertedCrdtRow.toHlcForNode(
-          firstInsertedCrdtRow.node!.uuidNodeId,
-        );
-        final secondHlc = crdt!.toHlcForNode(
-          crdt.node!.uuidNodeId,
-        );
-
-        expect(secondHlc, greaterThan(firstHlc));
+        expect(crdt!.hlc, greaterThan(firstInsertedCrdtRow.hlc));
       });
     });
   });

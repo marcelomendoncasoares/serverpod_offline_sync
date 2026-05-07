@@ -60,7 +60,7 @@ void main() {
 
         expect(crdtRow, isNotNull);
         expect(crdtRow!.node!.uuidNodeId, remoteNodeId);
-        expect(crdtRow.toHlcForNode(crdtRow.node!.uuidNodeId), remoteInsert.hlc);
+        expect(crdtRow.hlc, remoteInsert.hlc);
       });
     });
   });
@@ -132,7 +132,7 @@ void main() {
 
             expect(field, isNotNull);
             expect(field!.node!.uuidNodeId, remoteNodeId);
-            expect(field.toHlcForNode(field.node!.uuidNodeId), remoteUpdate.hlc);
+            expect(field.hlc, remoteUpdate.hlc);
           },
         );
       });
@@ -181,8 +181,8 @@ void main() {
           ),
         );
 
-        localRowHlc = field!.row!.toHlcForNode(field.row!.node!.uuidNodeId);
-        localFieldHlc = field.toHlcForNode(field.node!.uuidNodeId);
+        localRowHlc = field!.row!.hlc;
+        localFieldHlc = field.hlc;
         remoteNodeId = const Uuid().v7obj();
 
         remotePerson = person.copyWith(name: 'remote');
@@ -226,7 +226,7 @@ void main() {
             include: CrdtDataRow.include(node: CrdtNode.include()),
           );
 
-          expect(row!.toHlcForNode(row.node!.uuidNodeId), localRowHlc);
+          expect(row!.hlc, localRowHlc);
         });
 
         // Since different nodes will have different HLCs for the row, we need to
@@ -244,7 +244,7 @@ void main() {
 
             expect(fields.length, Person.t.columns.length - 1); // -1 for the id column
             expect(
-              fields.map((f) => f.toHlcForNode(f.node!.uuidNodeId)),
+              fields.map((f) => f.hlc),
               everyElement(remoteInsert.hlc),
             );
           },
@@ -264,10 +264,7 @@ void main() {
 
             expect(tombstone, isNotNull);
             expect(tombstone!.isDeleted, isFalse);
-            expect(
-              tombstone.toHlcForNode(tombstone.node!.uuidNodeId),
-              remoteInsert.hlc,
-            );
+            expect(tombstone.hlc, remoteInsert.hlc);
           },
         );
       });
@@ -301,7 +298,7 @@ void main() {
           include: CrdtDataRow.include(node: CrdtNode.include()),
         );
 
-        localRowHlc = row!.toHlcForNode(row.node!.uuidNodeId);
+        localRowHlc = row!.hlc;
         remoteNodeId = const Uuid().v7obj();
 
         remotePerson = person.copyWith(name: 'remote', surname: 'remote');
@@ -367,7 +364,7 @@ void main() {
 
             expect(field, isNotNull);
             expect(field!.node!.uuidNodeId, localRowHlc.nodeId);
-            expect(field.toHlcForNode(field.node!.uuidNodeId), localRowHlc);
+            expect(field.hlc, localRowHlc);
           },
         );
       });
@@ -398,7 +395,7 @@ void main() {
           include: CrdtDataRow.include(node: CrdtNode.include()),
         );
 
-        localFieldHlc = row!.toHlcForNode(row.node!.uuidNodeId);
+        localFieldHlc = row!.hlc;
         remoteNodeId = const Uuid().v7obj();
 
         remoteUpdate = CrdtMergeUpdate(
@@ -444,7 +441,7 @@ void main() {
 
           expect(field, isNotNull);
           expect(field!.node!.uuidNodeId, remoteNodeId);
-          expect(field.toHlcForNode(field.node!.uuidNodeId), remoteUpdate.hlc);
+          expect(field.hlc, remoteUpdate.hlc);
         });
       });
     },
@@ -485,7 +482,7 @@ void main() {
           include: CrdtDataField.include(node: CrdtNode.include()),
         );
 
-        localFieldHlc = field!.toHlcForNode(field.node!.uuidNodeId);
+        localFieldHlc = field!.hlc;
         remoteNodeId = const Uuid().v7obj();
 
         final remoteUpdate = CrdtMergeUpdate(
@@ -531,7 +528,7 @@ void main() {
 
           expect(field, isNotNull);
           expect(field!.node!.uuidNodeId, localFieldHlc.nodeId);
-          expect(field.toHlcForNode(field.node!.uuidNodeId), localFieldHlc);
+          expect(field.hlc, localFieldHlc);
         });
       });
     },
@@ -558,7 +555,7 @@ void main() {
         where: (t) => t.uuidRowId.equals(person.id),
         include: CrdtDataRow.include(node: CrdtNode.include()),
       );
-      rowHlc = crdtRow!.toHlcForNode(crdtRow.node!.uuidNodeId);
+      rowHlc = crdtRow!.hlc;
       remoteNodeId = const Uuid().v7obj();
 
       remoteDelete = CrdtMergeDelete(
@@ -599,7 +596,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, isTrue);
-        expect(tombstone.toHlcForNode(tombstone.node!.uuidNodeId), remoteDelete.hlc);
+        expect(tombstone.hlc, remoteDelete.hlc);
       });
     });
   });
@@ -630,7 +627,7 @@ void main() {
         where: (t) => t.row.uuidRowId.equals(person.id),
         include: CrdtDataDeleted.include(node: CrdtNode.include()),
       );
-      tombstoneHlc = tombstone!.toHlcForNode(tombstone.node!.uuidNodeId);
+      tombstoneHlc = tombstone!.hlc;
       remoteNodeId = const Uuid().v7obj();
 
       remoteRestore = CrdtMergeDelete(
@@ -708,7 +705,7 @@ void main() {
         where: (t) => t.row.uuidRowId.equals(person.id),
         include: CrdtDataDeleted.include(node: CrdtNode.include()),
       );
-      tombstoneHlc = tombstone!.toHlcForNode(tombstone.node!.uuidNodeId);
+      tombstoneHlc = tombstone!.hlc;
       remoteNodeId = const Uuid().v7obj();
 
       remoteRestore = CrdtMergeDelete(
@@ -751,7 +748,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, isFalse);
-        expect(tombstone.toHlcForNode(tombstone.node!.uuidNodeId), tombstoneHlc);
+        expect(tombstone.hlc, tombstoneHlc);
       });
     });
   });
