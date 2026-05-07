@@ -140,6 +140,241 @@ void main() {
   );
 
   group(
+    'Given a table with an existing row updated locally and a newer insert '
+    'with the same row ID but different data, ',
+    () {
+      late Person person;
+      late Hlc localRowHlc;
+      late Hlc localFieldHlc;
+      late Person remotePerson;
+      late UuidValue remoteNodeId;
+      late CrdtMergeInsert remoteInsert;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'original'),
+            transaction: tx,
+          ),
+        );
+
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateRow(
+            session,
+            person.copyWith(name: 'local'),
+            columns: (t) => [t.name],
+            transaction: tx,
+          ),
+        );
+
+        final field = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.row.uuidRowId.equals(person.id) &
+              t.column.name.equals(Person.t.name.columnName),
+          include: CrdtDataField.include(
+            node: CrdtNode.include(),
+            row: CrdtDataRow.include(node: CrdtNode.include()),
+          ),
+        );
+
+        localRowHlc = field!.row!.toHlcForNode(field.row!.node!.uuidNodeId);
+        localFieldHlc = field.toHlcForNode(field.node!.uuidNodeId);
+        remoteNodeId = const Uuid().v7obj();
+
+        remotePerson = person.copyWith(name: 'remote');
+        remoteInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: localFieldHlc.datetime.advance(),
+          hlcCounter: localFieldHlc.counter,
+          data: remotePerson,
+        );
+
+        mergeset = CrdtMergeSet(
+          inserts: [remoteInsert],
+          updates: [],
+          deletes: [],
+        );
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeset,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the row field value is updated to the remote value.', () async {
+          final row = await Person.db.findById(session, person.id!);
+
+          expect(row, isNotNull);
+          expect(row!.name, remotePerson.name);
+        });
+
+        // We can't update the row original HLC because it would break the causal
+        // order of the operations on the node.
+        test('then the CRDT row metadata is not updated.', () async {
+          final row = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(person.id),
+            include: CrdtDataRow.include(node: CrdtNode.include()),
+          );
+
+          expect(row!.toHlcForNode(row.node!.uuidNodeId), localRowHlc);
+        });
+
+        // Since different nodes will have different HLCs for the row, we need to
+        // ensure that no future conflict resolution on the node with the older HLC
+        // will fallback to the row-level HLC. This is done by forcefully touching
+        // all columns of the row with the new HLC.
+        test(
+          'then each column of the table receives a CRDT field metadata record for the remote HLC.',
+          () async {
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.equals(person.id),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+
+            expect(fields.length, Person.t.columns.length - 1); // -1 for the id column
+            expect(
+              fields.map((f) => f.toHlcForNode(f.node!.uuidNodeId)),
+              everyElement(remoteInsert.hlc),
+            );
+          },
+        );
+
+        // For the same reason above, we need to touch the tombstone for the row
+        // to ensure that tombstone conflict resolution never falls back to the
+        // row-level HLC.
+        test(
+          'then a CRDT tombstone record is inserted with deleted set to false.',
+          () async {
+            final tombstone = await CrdtDataDeleted.db.findFirstRow(
+              session,
+              where: (t) => t.row.uuidRowId.equals(person.id),
+              include: CrdtDataDeleted.include(node: CrdtNode.include()),
+            );
+
+            expect(tombstone, isNotNull);
+            expect(tombstone!.isDeleted, isFalse);
+            expect(
+              tombstone.toHlcForNode(tombstone.node!.uuidNodeId),
+              remoteInsert.hlc,
+            );
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a table with an existing row updated locally and a remote insert '
+    'that is after the insert and before the update for the same row ID but '
+    'different data, ',
+    () {
+      late Person person;
+      late Hlc localRowHlc;
+      late Person remotePerson;
+      late UuidValue remoteNodeId;
+      late CrdtMergeInsert remoteInsert;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'original', surname: 'original'),
+            transaction: tx,
+          ),
+        );
+
+        final row = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        localRowHlc = row!.toHlcForNode(row.node!.uuidNodeId);
+        remoteNodeId = const Uuid().v7obj();
+
+        remotePerson = person.copyWith(name: 'remote', surname: 'remote');
+        remoteInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: localRowHlc.datetime.advance(),
+          hlcCounter: localRowHlc.counter,
+          data: remotePerson,
+        );
+
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateRow(
+            session,
+            person.copyWith(name: 'updated locally'),
+            columns: (t) => [t.name],
+            transaction: tx,
+          ),
+        );
+
+        mergeset = CrdtMergeSet(
+          inserts: [remoteInsert],
+          updates: [],
+          deletes: [],
+        );
+      });
+
+      group('when merging, ', () {
+        late Person mergedPerson;
+
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeset,
+            userId: testCrdtUserId,
+          );
+
+          final row = await Person.db.findById(session, person.id!);
+          mergedPerson = row!;
+        });
+
+        test('then the row field value is updated to the remote value.', () async {
+          expect(mergedPerson.name, remotePerson.name);
+        });
+
+        test('then the local newer column update is preserved.', () async {
+          expect(mergedPerson.surname, 'original');
+        });
+
+        // Local updates that have a newer HLC than the remote insert should still
+        // be preserved as in any HLC conflict resolution (last writer wins).
+        test(
+          'then the CRDT field metadata of the local newer column is not updated.',
+          () async {
+            final field = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(person.id) &
+                  t.column.name.equals(Person.t.name.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+
+            expect(field, isNotNull);
+            expect(field!.node!.uuidNodeId, localRowHlc.nodeId);
+            expect(field.toHlcForNode(field.node!.uuidNodeId), localRowHlc);
+          },
+        );
+      });
+    },
+  );
+
+  group(
     'Given a table with an existing unchanged row and a remote update for one of its columns, ',
     () {
       late Person person;
