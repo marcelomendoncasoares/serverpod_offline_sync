@@ -3,21 +3,21 @@
 This benchmark measures the performance impact of using CRDT metadata synchronization on database operations.
 ```
 📊 INSERT performance impact:
-  Time: 328.10 ms --> 447.75 ms (119.65 ms)
-  CRDT overhead: 36.47% slower
-  Delay per insert: 119.65 μs
+  Time: 339.50 ms --> 516.91 ms (177.41 ms)
+  CRDT overhead: 52.26% slower
+  Delay per insert: 177.41 μs
 ```
 ```
 📊 UPDATE performance impact:
-  Time: 223.92 ms --> 2.78 s (2.56 s)
-  CRDT overhead: 1,142.73% slower
-  Delay per update: 2.56 ms
+  Time: 243.27 ms --> 3.14 s (2.90 s)
+  CRDT overhead: 1,191.95% slower
+  Delay per update: 2.90 ms
 ```
 ```
 📊 DELETE performance impact:
-  Time: 10.61 ms --> 191.84 ms (181.23 ms)
-  CRDT overhead: 1,708.23% slower
-  Delay per delete: 181.23 μs
+  Time: 10.86 ms --> 219.66 ms (208.80 ms)
+  CRDT overhead: 1,923.22% slower
+  Delay per delete: 208.80 μs
 ```
 ```
 💽 Storage impact (base footprint removed):
