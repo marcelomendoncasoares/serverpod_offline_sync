@@ -1,0 +1,9 @@
+### A remote field update to merge.
+class: CrdtMergeUpdate
+extends: CrdtMergeChange
+fields:
+  ### The updated database column name.
+  columnName: String
+
+  ### The serialized new value for the column.
+  value: dynamic

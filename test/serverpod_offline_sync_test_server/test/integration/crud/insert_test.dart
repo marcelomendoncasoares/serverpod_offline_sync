@@ -50,7 +50,7 @@ void main() {
       });
 
       test('has the HLC components populated consistently.', () async {
-        final hlc = crdtRow!.toHlcForNode(crdtRow!.node!.uuidNodeId);
+        final hlc = crdtRow!.hlc;
         expect(hlc, greaterThan(Hlc.zero(hlc.nodeId)));
       });
     });
@@ -163,7 +163,7 @@ void main() {
     });
   });
 
-  group('Given a person table with a deleted row, ', () {
+  group('Given a person table with a deleted row,', () {
     late Person person;
     late CrdtDataRow firstInsertedCrdtRow;
 
@@ -212,19 +212,12 @@ void main() {
           include: CrdtDataRow.include(node: CrdtNode.include()),
         );
 
-        final firstHlc = firstInsertedCrdtRow.toHlcForNode(
-          firstInsertedCrdtRow.node!.uuidNodeId,
-        );
-        final secondHlc = crdt!.toHlcForNode(
-          crdt.node!.uuidNodeId,
-        );
-
-        expect(secondHlc, greaterThan(firstHlc));
+        expect(crdt!.hlc, greaterThan(firstInsertedCrdtRow.hlc));
       });
     });
   });
 
-  group('Given a person table with a deleted row that is reinserted, ', () {
+  group('Given a person table with a deleted row that is reinserted,', () {
     late Person person;
 
     setUp(() async {

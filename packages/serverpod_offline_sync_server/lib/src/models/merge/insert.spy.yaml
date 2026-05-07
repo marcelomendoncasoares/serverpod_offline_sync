@@ -1,0 +1,6 @@
+### A remote row insertion to merge.
+class: CrdtMergeInsert
+extends: CrdtMergeChange
+fields:
+  ### The serialized domain row payload for the insert.
+  data: dynamic

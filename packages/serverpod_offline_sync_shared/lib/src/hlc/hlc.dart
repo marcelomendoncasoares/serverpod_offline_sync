@@ -144,6 +144,9 @@ class Hlc implements Comparable<Hlc> {
     nodeId ?? this.nodeId,
   );
 
+  /// Returns the maximum HLC between the two given HLCs.
+  Hlc maxBetween(Hlc? other) => other == null || this > other ? this : other;
+
   @override
   String toString() =>
       '${datetime.toIso8601String()}-'

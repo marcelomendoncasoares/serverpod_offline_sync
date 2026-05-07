@@ -1,0 +1,6 @@
+### A remote tombstone update to merge.
+class: CrdtMergeDelete
+extends: CrdtMergeChange
+fields:
+  ### Whether the row is deleted or restored.
+  isDeleted: bool

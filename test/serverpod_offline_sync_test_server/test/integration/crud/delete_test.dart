@@ -1,5 +1,4 @@
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
@@ -8,7 +7,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  group('Given a person table with an existing row, ', () {
+  group('Given a person table with an existing row,', () {
     late Person person;
 
     setUp(() async {
@@ -52,7 +51,7 @@ void main() {
     });
   });
 
-  group('Given a person table with a deleted row, ', () {
+  group('Given a person table with a deleted row,', () {
     late Person person;
     late CrdtDataDeleted firstDeletedTombstone;
 
@@ -111,15 +110,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
-
-        final firstDeletedTombstoneHlc = firstDeletedTombstone.toHlcForNode(
-          firstDeletedTombstone.node!.uuidNodeId,
-        );
-        final tombstoneHlc = tombstone.toHlcForNode(
-          tombstone.node!.uuidNodeId,
-        );
-
-        expect(tombstoneHlc, equals(firstDeletedTombstoneHlc));
+        expect(tombstone.hlc, equals(firstDeletedTombstone.hlc));
       });
     });
 
@@ -144,15 +135,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
-
-        final firstDeletedTombstoneHlc = firstDeletedTombstone.toHlcForNode(
-          firstDeletedTombstone.node!.uuidNodeId,
-        );
-        final tombstoneHlc = tombstone.toHlcForNode(
-          tombstone.node!.uuidNodeId,
-        );
-
-        expect(tombstoneHlc, equals(firstDeletedTombstoneHlc));
+        expect(tombstone.hlc, equals(firstDeletedTombstone.hlc));
       });
     });
 
@@ -177,15 +160,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
-
-        final firstDeletedTombstoneHlc = firstDeletedTombstone.toHlcForNode(
-          firstDeletedTombstone.node!.uuidNodeId,
-        );
-        final tombstoneHlc = tombstone.toHlcForNode(
-          tombstone.node!.uuidNodeId,
-        );
-
-        expect(tombstoneHlc, equals(firstDeletedTombstoneHlc));
+        expect(tombstone.hlc, equals(firstDeletedTombstone.hlc));
       });
     });
   });
@@ -320,7 +295,7 @@ void main() {
     },
   );
 
-  group('Given a person that was deleted and reinserted, ', () {
+  group('Given a person that was deleted and reinserted,', () {
     late Person person;
 
     setUp(() async {
@@ -520,14 +495,7 @@ void main() {
           include: CrdtDataField.include(node: CrdtNode.include()),
         );
 
-        final attachedCrdtFieldHlc = attachedCrdtField.toHlcForNode(
-          attachedCrdtField.node!.uuidNodeId,
-        );
-        final crdtFieldHlc = crdtField!.toHlcForNode(
-          crdtField.node!.uuidNodeId,
-        );
-
-        expect(crdtFieldHlc, greaterThan(attachedCrdtFieldHlc));
+        expect(crdtField!.hlc, greaterThan(attachedCrdtField.hlc));
       });
     });
   });
@@ -595,14 +563,7 @@ void main() {
           include: CrdtDataField.include(node: CrdtNode.include()),
         );
 
-        final companyCrdtRowHlc = companyCrdtRow.toHlcForNode(
-          companyCrdtRow.node!.uuidNodeId,
-        );
-        final crdtFieldHlc = crdtField!.toHlcForNode(
-          crdtField.node!.uuidNodeId,
-        );
-
-        expect(crdtFieldHlc, greaterThan(companyCrdtRowHlc));
+        expect(crdtField!.hlc, greaterThan(companyCrdtRow.hlc));
       });
     });
   });
