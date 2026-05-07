@@ -235,60 +235,86 @@ class CrdtMutationRecorder {
     if (tableDefinition == null) return;
 
     final updatedColumnNames = columns?.map((column) => column.columnName).toSet();
-    final rowValues = [
-      for (final row in rows) row.toJsonForDatabase() as Map<String, dynamic>,
+    final foreignKeysToCheck = [
+      for (final foreignKey in tableDefinition.foreignKeys)
+        if (foreignKey.columns.length == 1 &&
+            foreignKey.referenceColumns.length == 1 &&
+            (updatedColumnNames == null ||
+                updatedColumnNames.contains(foreignKey.columns.single)) &&
+            _isCrdtTrackedTableName(foreignKey.referenceTable))
+          foreignKey,
     ];
+    if (foreignKeysToCheck.isEmpty) return;
 
-    for (final foreignKey in tableDefinition.foreignKeys) {
-      if (foreignKey.columns.length != 1 || foreignKey.referenceColumns.length != 1) {
-        continue;
-      }
+    final invalid = await _findInvalidForeignKeyReference(
+      childTableName: tableName,
+      childRowIds: rows.uuidRowIds,
+      foreignKeys: foreignKeysToCheck,
+      transaction: transaction,
+    );
+    if (invalid == null) return;
 
-      final childColumn = foreignKey.columns.single;
-      if (updatedColumnNames != null && !updatedColumnNames.contains(childColumn)) {
-        continue;
-      }
-
-      final parentTableName = foreignKey.referenceTable;
-      if (!_isCrdtTrackedTableName(parentTableName)) continue;
-      final parentColumn = foreignKey.referenceColumns.single;
-      final columnDefinition = _columnsByTableAndName[tableName]?[childColumn];
-      final referencedValues = rowValues
-          .map(
-            (values) => _deserializeColumnValue(
-              columnDefinition,
-              values[childColumn],
-            ),
-          )
-          .whereType<Object>()
-          .toSet();
-
-      for (final referencedValue in referencedValues) {
-        final visibleParentIds = await _findVisibleReferencingRowIds(
-          tableName: parentTableName,
-          columnName: parentColumn,
-          value: referencedValue,
-          transaction: transaction,
-        );
-        if (visibleParentIds.isNotEmpty) continue;
-
-        throw Exception(
-          'Cannot reference deleted row $parentTableName.$parentColumn = '
-          '$referencedValue.',
-        );
-      }
-    }
+    final foreignKey = foreignKeysToCheck[invalid.foreignKeyIndex];
+    throw Exception(
+      'Cannot reference deleted row ${foreignKey.referenceTable}.'
+      '${foreignKey.referenceColumns.single} = ${invalid.value}.',
+    );
   }
 
-  Object? _deserializeColumnValue(
-    ColumnDefinition? columnDefinition,
-    Object? value,
-  ) {
-    if (value == null) return null;
-    if (columnDefinition?.columnType == ColumnType.uuid && value is String) {
-      return UuidValueJsonExtension.fromJson(value);
-    }
-    return value;
+  /// Finds the first child row whose foreign key points at a parent row that
+  /// is missing or tombstoned, returning the index of the offending foreign
+  /// key in [foreignKeys] together with the offending value.
+  ///
+  /// All [foreignKeys] are checked in a single round-trip via `UNION ALL`.
+  /// This avoids serializing the just-updated rows to JSON only to extract a
+  /// single column value, and keeps the assertion at one query regardless of
+  /// how many foreign key columns are being updated.
+  Future<({int foreignKeyIndex, Object value})?> _findInvalidForeignKeyReference({
+    required String childTableName,
+    required Set<UuidValue> childRowIds,
+    required List<ForeignKeyDefinition> foreignKeys,
+    required Transaction transaction,
+  }) async {
+    if (foreignKeys.isEmpty) return null;
+
+    final userId = _getHlcManager(transaction).normalizedUserId;
+    final escapedChildTable = _escapeIdentifier(childTableName);
+    final whereRowIds = _sqlLiteralList(childRowIds);
+
+    final foreignKeyBranches = foreignKeys.indexed.map((e) {
+      final (index, foreignKey) = e;
+      final childColumn = _escapeIdentifier(foreignKey.columns.single);
+      final parentTable = _escapeIdentifier(foreignKey.referenceTable);
+      final parentColumn = _escapeIdentifier(
+        foreignKey.referenceColumns.single,
+      );
+      final (parentTableId, _) = _schema[foreignKey.referenceTable]!;
+
+      return '''
+SELECT $index AS fk_idx, c."$childColumn" AS invalid_value
+FROM "$escapedChildTable" c
+LEFT JOIN "$parentTable" p
+  ON p."$parentColumn" = c."$childColumn"
+LEFT JOIN "crdt_data_rows" r
+  ON r."userId" = $userId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
+LEFT JOIN "crdt_data_tombstone" tomb
+  ON tomb."rowId" = r."id"
+WHERE c."id" IN ($whereRowIds)
+  AND c."$childColumn" IS NOT NULL
+  AND (p."id" IS NULL OR tomb."isDeleted" = TRUE)
+''';
+    });
+
+    final result = await _db.unsafeQuery(
+      '${foreignKeyBranches.join('UNION ALL\n')}LIMIT 1',
+      transaction: transaction,
+    );
+    if (result.isEmpty) return null;
+
+    return (
+      foreignKeyIndex: result.first[0] as int,
+      value: result.first[1] as Object,
+    );
   }
 
   Future<void> _forTrackedRows<T extends TableRow>(
