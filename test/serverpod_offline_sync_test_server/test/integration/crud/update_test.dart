@@ -7,7 +7,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  group('Given a person table with an existing row, ', () {
+  group('Given a person table with an existing row,', () {
     late Person person;
 
     setUp(() async {
@@ -135,7 +135,7 @@ void main() {
     });
   });
 
-  group('Given a person table with a deleted row, ', () {
+  group('Given a person table with a deleted row,', () {
     late Person person;
 
     setUp(() async {
@@ -169,7 +169,7 @@ void main() {
   });
 
   group(
-    'Given a person table with an existing row that was inserted and updated from a different node, ',
+    'Given a person table with an existing row that was inserted and updated from a different node,',
     () {
       late Person person;
       late CrdtNode otherNode;
@@ -276,7 +276,7 @@ void main() {
     },
   );
 
-  group('Given a unique table with one visible and one deleted row, ', () {
+  group('Given a unique table with one visible and one deleted row,', () {
     late Unique visibleRow;
     late Unique deletedRow;
 
@@ -297,7 +297,7 @@ void main() {
       );
     });
 
-    group('when updating the table with updateWhere, ', () {
+    group('when updating the table with updateWhere,', () {
       setUp(() async {
         await session.db.transactionForUser(
           testCrdtUserId,
@@ -324,7 +324,7 @@ void main() {
       });
     });
 
-    group('when updating the visible row to the same name as the deleted row, ', () {
+    group('when updating the visible row to the same name as the deleted row,', () {
       setUp(() async {
         await session.db.transactionForUser(
           testCrdtUserId,

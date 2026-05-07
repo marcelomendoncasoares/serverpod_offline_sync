@@ -163,7 +163,7 @@ void main() {
     });
   });
 
-  group('Given a person table with a deleted row, ', () {
+  group('Given a person table with a deleted row,', () {
     late Person person;
     late CrdtDataRow firstInsertedCrdtRow;
 
@@ -217,7 +217,7 @@ void main() {
     });
   });
 
-  group('Given a person table with a deleted row that is reinserted, ', () {
+  group('Given a person table with a deleted row that is reinserted,', () {
     late Person person;
 
     setUp(() async {

@@ -6,7 +6,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  group('Given a person table with a deleted row, ', () {
+  group('Given a person table with a deleted row,', () {
     late Person person;
 
     setUp(() async {

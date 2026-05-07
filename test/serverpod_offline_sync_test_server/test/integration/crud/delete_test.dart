@@ -7,7 +7,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  group('Given a person table with an existing row, ', () {
+  group('Given a person table with an existing row,', () {
     late Person person;
 
     setUp(() async {
@@ -51,7 +51,7 @@ void main() {
     });
   });
 
-  group('Given a person table with a deleted row, ', () {
+  group('Given a person table with a deleted row,', () {
     late Person person;
     late CrdtDataDeleted firstDeletedTombstone;
 
@@ -295,7 +295,7 @@ void main() {
     },
   );
 
-  group('Given a person that was deleted and reinserted, ', () {
+  group('Given a person that was deleted and reinserted,', () {
     late Person person;
 
     setUp(() async {
