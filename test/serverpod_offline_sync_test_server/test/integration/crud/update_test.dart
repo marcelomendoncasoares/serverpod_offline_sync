@@ -169,9 +169,36 @@ void main() {
         reason: 'This should fail due to the person being tombstoned.',
       );
     });
+
+    group('when updating the deleted person with updateWhere,', () {
+      late List<Person> updatedRows;
+
+      setUp(() async {
+        updatedRows = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateWhere(
+            session,
+            columnValues: (t) => [t.name('test2')],
+            where: (t) => t.id.equals(person.id),
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(updatedRows, isEmpty);
+      });
+
+      test('then the deleted row keeps its original value.', () async {
+        final row = await Person.db.findById(testSession, person.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, person.name);
+      });
+    });
   });
 
-  group('Given a person table with a deleted organization row, ', () {
+  group('Given a person table with a row and an organization table with a deleted row,', () {
     late Person person;
     late Organization deletedOrganization;
 
@@ -181,7 +208,7 @@ void main() {
         (tx) => Person.db.insertRow(session, Person(name: 'new'), transaction: tx),
       );
 
-      deletedOrganization = await session.db.transactionForUser(
+      final organization = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Organization.db.insertRow(
           session,
@@ -190,23 +217,23 @@ void main() {
         ),
       );
 
-      await session.db.transactionForUser(
+      deletedOrganization = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Organization.db.deleteRow(
           session,
-          deletedOrganization,
+          organization,
           transaction: tx,
         ),
       );
     });
 
     group(
-      'when updating the organization foreign key with updateWhere to the deleted row id,',
+      'when updating the person with updateWhere to set the organization foreign key to the deleted row id,',
       () {
-        late Future<List<Person>> updateFuture;
+        late List<Person> updatedRows;
 
         setUp(() async {
-          updateFuture = session.db.transactionForUser(
+          updatedRows = await session.db.transactionForUser(
             testCrdtUserId,
             (tx) => Person.db.updateWhere(
               session,
@@ -217,13 +244,45 @@ void main() {
           );
         });
 
-        test('then the row keeps its original foreign key value.', () async {
-          await expectLater(updateFuture, throwsA(isA<Exception>()));
-
-          final row = await Person.db.findById(session, person.id!);
-          expect(row, isNotNull);
-          expect(row!.organizationId, isNull);
+        test('then an empty list is returned.', () async {
+          expect(updatedRows, isEmpty);
         });
+
+        test('then the person row keep its original foreign key value.', () async {
+          final row = await Person.db.findById(testSession, person.id!);
+
+          expect(row, isNotNull);
+          expect(row!.organizationId, person.organizationId);
+        });
+      },
+    );
+
+    group(
+      'when updating the person with updateRow to set the organization foreign key to the deleted row id,',
+      () {
+        late Future<Person> updateFuture;
+
+        setUp(() async {
+          updateFuture = session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.updateRow(
+              session,
+              person.copyWith(organizationId: deletedOrganization.id),
+              transaction: tx,
+            ),
+          );
+        });
+
+        test(
+          'then an exception is thrown and the row keeps its original foreign key value.',
+          () async {
+            await expectLater(updateFuture, throwsA(isA<Exception>()));
+
+            final row = await Person.db.findById(session, person.id!);
+            expect(row, isNotNull);
+            expect(row!.organizationId, person.organizationId);
+          },
+        );
       },
     );
   });
