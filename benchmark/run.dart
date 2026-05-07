@@ -34,7 +34,7 @@ Future<void> main(List<String> args) async {
         crdtEnabled: false,
         operation: operation,
         rowCount: rowCount,
-      ).report(),
+      ).measure(),
       skipProgress: runningInCI,
     );
 
@@ -45,8 +45,8 @@ Future<void> main(List<String> args) async {
         crdtEnabled: true,
         operation: operation,
         rowCount: rowCount,
-      ).report(),
-      validator: (result) => result.$1 > baselineResult.$1,
+      ).measure(),
+      validator: (result) => result > baselineResult,
       skipProgress: runningInCI,
     );
 
@@ -60,7 +60,7 @@ Future<void> main(List<String> args) async {
   }
 
   final spuriousBenchmarks = benchmarkResults.where(
-    (result) => result.baseline.$1 > result.crdt.$1,
+    (result) => result.baseline > result.crdt,
   );
 
   if (spuriousBenchmarks.isNotEmpty) {
@@ -74,8 +74,8 @@ Future<void> main(List<String> args) async {
     );
 
     for (final result in spuriousBenchmarks) {
-      final baselineDelay = result.baseline.$1.toFormattedDuration();
-      final crdtDelay = result.crdt.$1.toFormattedDuration();
+      final baselineDelay = result.baseline.toFormattedDuration();
+      final crdtDelay = result.crdt.toFormattedDuration();
       print(
         '  - ${result.operation.name.toUpperCase()}: $baselineDelay > $crdtDelay',
       );
@@ -89,8 +89,29 @@ Future<void> main(List<String> args) async {
       runningInCI: runningInCI,
     );
   }
+  final baselineStorageResult = await runWithProgress(
+    'Running storage benchmark (baseline)',
+    () => TypesTableStorageBenchmark(
+      'storage (baseline)',
+      crdtEnabled: false,
+      rowCount: rowCount,
+    ).reportStorage(),
+    skipProgress: runningInCI,
+  );
+  final crdtStorageResult = await runWithProgress(
+    'Running storage benchmark (CRDT)',
+    () => TypesTableStorageBenchmark(
+      'storage (CRDT)',
+      crdtEnabled: true,
+      rowCount: rowCount,
+    ).reportStorage(),
+    skipProgress: runningInCI,
+  );
   printStorageImpact(
-    benchmarkResults.first,
+    StorageBenchmarkResults(
+      baseline: baselineStorageResult,
+      crdt: crdtStorageResult,
+    ),
     rowCount: rowCount,
     runningInCI: runningInCI,
   );
