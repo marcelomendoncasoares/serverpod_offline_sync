@@ -1,0 +1,7 @@
+### A sentinel event that signals the end of a CRDT change stream.
+###
+### Both sides send this event after transmitting all changes to indicate that
+### no more changes will be sent. The receiver can then proceed to merge the
+### accumulated changes.
+class: CrdtMergeSyncStop
+extends: CrdtMergeChange

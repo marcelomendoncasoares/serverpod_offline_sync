@@ -1,5 +1,6 @@
 export 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
+export 'src/endpoints/crdt_endpoint.dart';
 export 'src/generated/endpoints.dart';
 
 // The models are exported by the client package to ensure the same class as the

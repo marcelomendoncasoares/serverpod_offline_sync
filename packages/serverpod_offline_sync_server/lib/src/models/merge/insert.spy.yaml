@@ -2,5 +2,8 @@
 class: CrdtMergeInsert
 extends: CrdtMergeChange
 fields:
-  ### The serialized domain row payload for the insert.
-  data: dynamic
+  ### The domain row encoded by the application's serialization manager.
+  ###
+  ### Produced by `serializationManager.encodeWithType(domainRow)` and decoded
+  ### by `serializationManager.decodeWithType(data)` on the receiving side.
+  data: String
