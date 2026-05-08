@@ -2,32 +2,6 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
-import '../generated/protocol.dart';
-
-/// Thrown when the [syncTablesHash] sent by a client does not match the server.
-///
-/// This means the client and server are at different schema versions. The
-/// older side must migrate before a sync can proceed.
-class SyncTablesHashMismatchException implements Exception {
-  /// Creates a new [SyncTablesHashMismatchException].
-  SyncTablesHashMismatchException({
-    required this.received,
-    required this.expected,
-  });
-
-  /// The hash received from the remote peer.
-  final String received;
-
-  /// The hash computed locally from the configured sync tables.
-  final String expected;
-
-  @override
-  String toString() =>
-      'SyncTablesHashMismatchException: schema hash mismatch. '
-      'Received "$received", expected "$expected". '
-      'Ensure both sides are on the same schema version before syncing.';
-}
-
 /// Endpoint for CRDT-based offline-first synchronization.
 ///
 /// Call [configure] once during server startup with the set of tables that
@@ -63,13 +37,16 @@ class CrdtEndpoint extends Endpoint {
   /// The hash is a canonical string built from sorted table names and their
   /// sorted column names. Both sides must produce the same value for a sync
   /// to proceed.
+  // TODO: Should also consider foreign key and unique constraints.
   static String computeSyncTablesHash(List<Table> syncTables) {
     final sortedTables = syncTables.toList()
       ..sort((a, b) => a.tableName.compareTo(b.tableName));
-    return sortedTables.map((table) {
-      final cols = table.columns.map((c) => c.columnName).toList()..sort();
-      return '${table.tableName}:${cols.join(',')}';
-    }).join(';');
+    return sortedTables
+        .map((table) {
+          final cols = table.columns.map((c) => c.columnName).toList()..sort();
+          return '${table.tableName}:${cols.join(',')}';
+        })
+        .join(';');
   }
 
   /// Synchronizes CRDT changes between the server and an authenticated client.
@@ -79,15 +56,15 @@ class CrdtEndpoint extends Endpoint {
   /// telling the client to migrate its schema first.
   ///
   /// The server then streams all changes since [lastSyncHlc] to the caller,
-  /// followed by a [CrdtMergeSyncStop] sentinel. The caller should stream its
-  /// own changes in the [changes] stream and close with its own
-  /// [CrdtMergeSyncStop]. Once the stop sentinel is received the server merges
-  /// all accumulated client changes atomically.
-  Stream<CrdtMergeChange> syncNode(
+  /// followed by a null value as sentinel. The caller should stream its own
+  /// changes in the [changes] stream and close with its own null sentinel.
+  /// Once the null sentinel is received the server merges all accumulated
+  /// client changes atomically.
+  Stream<CrdtMergeChange?> syncNode(
     Session session, {
     required String syncTablesHash,
     required Hlc lastSyncHlc,
-    required Stream<CrdtMergeChange> changes,
+    required Stream<CrdtMergeChange?> changes,
   }) async* {
     final syncTables = _syncTables;
     final serializationManager = _serializationManager;
@@ -106,7 +83,7 @@ class CrdtEndpoint extends Endpoint {
       );
     }
 
-    final authInfo = (await session.authenticated)!;
+    final authInfo = session.authenticated!;
     final userUuid = UuidValue.withValidation(authInfo.userIdentifier);
     final crdtUser = await CrdtUserManager.getOrCreate(session, userUuid);
 
@@ -117,7 +94,7 @@ class CrdtEndpoint extends Endpoint {
       serializationManager,
     );
 
-    yield _syncStop;
+    yield null;
 
     final mergeInserts = <CrdtMergeInsert>[];
     final mergeUpdates = <CrdtMergeUpdate>[];
@@ -125,15 +102,15 @@ class CrdtEndpoint extends Endpoint {
 
     await for (final change in changes) {
       switch (change) {
-        case CrdtMergeSyncStop():
+        case null:
           break;
-        case CrdtMergeInsert insert:
+        case final CrdtMergeInsert insert:
           mergeInserts.add(insert);
           continue;
-        case CrdtMergeUpdate update:
+        case final CrdtMergeUpdate update:
           mergeUpdates.add(update);
           continue;
-        case CrdtMergeDelete delete:
+        case final CrdtMergeDelete delete:
           mergeDeletes.add(delete);
           continue;
       }
@@ -203,7 +180,7 @@ class CrdtEndpoint extends Endpoint {
         tableName: tableName,
         uuidRowId: row.uuidRowId,
         uuidNodeId: row.node!.uuidNodeId,
-        data: serializationManager.encodeWithType(domainRow),
+        data: domainRow,
       );
     }
   }
@@ -281,7 +258,7 @@ class CrdtEndpoint extends Endpoint {
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) =>
-      t.userId.equals(crdtUser.id!) &
+      t.userId.equals(crdtUser.id) &
       ((t.hlcDatetime > lastSyncHlc.datetime) |
           (t.hlcDatetime.equals(lastSyncHlc.datetime) &
               (t.hlcCounter > lastSyncHlc.counter)));
@@ -291,7 +268,7 @@ class CrdtEndpoint extends Endpoint {
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) =>
-      t.row.userId.equals(crdtUser.id!) &
+      t.row.userId.equals(crdtUser.id) &
       ((t.hlcDatetime > lastSyncHlc.datetime) |
           (t.hlcDatetime.equals(lastSyncHlc.datetime) &
               (t.hlcCounter > lastSyncHlc.counter)));
@@ -301,7 +278,7 @@ class CrdtEndpoint extends Endpoint {
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) =>
-      t.row.userId.equals(crdtUser.id!) &
+      t.row.userId.equals(crdtUser.id) &
       ((t.hlcDatetime > lastSyncHlc.datetime) |
           (t.hlcDatetime.equals(lastSyncHlc.datetime) &
               (t.hlcCounter > lastSyncHlc.counter)));
@@ -341,16 +318,26 @@ class CrdtEndpoint extends Endpoint {
   }
 }
 
-/// A zero-value [UuidValue] used for [CrdtMergeSyncStop] placeholder fields.
-final _zeroUuid = UuidValue.withValidation(
-  '00000000-0000-0000-0000-000000000000',
-);
+/// Thrown when the sync tables hash sent by a client does not match the server.
+///
+/// This means the client and server are at different schema versions. The
+/// older side must migrate before a sync can proceed.
+class SyncTablesHashMismatchException implements Exception {
+  /// Creates a new [SyncTablesHashMismatchException].
+  SyncTablesHashMismatchException({
+    required this.received,
+    required this.expected,
+  });
 
-/// A singleton stop sentinel used to signal the end of a sync stream.
-final _syncStop = CrdtMergeSyncStop(
-  hlcDatetime: DateTime.utc(0),
-  hlcCounter: 0,
-  tableName: '',
-  uuidRowId: _zeroUuid,
-  uuidNodeId: _zeroUuid,
-);
+  /// The hash received from the remote peer.
+  final String received;
+
+  /// The hash computed locally from the configured sync tables.
+  final String expected;
+
+  @override
+  String toString() =>
+      'SyncTablesHashMismatchException: schema hash mismatch. '
+      'Received "$received", expected "$expected". '
+      'Ensure both sides are on the same schema version before syncing.';
+}
