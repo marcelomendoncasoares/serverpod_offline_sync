@@ -29,8 +29,11 @@ class CrdtSyncEndpoint extends Endpoint {
     required Hlc lastSyncHlc,
     required Stream<CrdtMergeChange?> changes,
   }) async* {
-    yield* CrdtSync.instance.syncNode(
+    final authInfo = session.authenticated!;
+
+    yield* CrdtSync.instance.syncNodeForUser(
       session,
+      userId: UuidValue.withValidation(authInfo.userIdentifier),
       syncTablesHash: syncTablesHash,
       lastSyncHlc: lastSyncHlc,
       changes: changes,

@@ -57,6 +57,15 @@ class CrdtSync {
       if (def.dartName != null) def.name: def.dartName!,
   };
 
+  /// The map of table names to column definitions for value decoding.
+  late final Map<String, Map<String, ColumnDefinition>> _columnDefinitionsByTableName =
+      {
+        for (final def in _serializationManager.getTargetTableDefinitions())
+          def.name: {
+            for (final column in def.columns) column.name: column,
+          },
+      };
+
   /// The hash of the current sync tables for schema validation.
   late final String _currentSyncTablesHash = computeSyncTablesHash(_syncTables);
 
@@ -99,19 +108,20 @@ class CrdtSync {
         .join(';');
   }
 
-  /// Synchronizes CRDT changes between the server and an authenticated client.
+  /// Synchronizes CRDT changes between two nodes for the given authenticated user.
   ///
   /// First validates [syncTablesHash] against the server's configured tables.
   /// If the hashes differ, a [SyncTablesHashMismatchException] is thrown,
-  /// telling the client to migrate its schema first.
+  /// telling the older node to migrate its schema first.
   ///
-  /// The server then streams all changes since [lastSyncHlc] to the caller,
+  /// The current node then streams all changes since [lastSyncHlc] to the caller,
   /// followed by a null value as sentinel. The caller should stream its own
   /// changes in the [changes] stream and close with its own null sentinel.
   /// Once the null sentinel is received the server merges all accumulated
   /// client changes atomically.
-  Stream<CrdtMergeChange?> syncNode(
-    Session session, {
+  Stream<CrdtMergeChange?> syncNodeForUser(
+    DatabaseSession session, {
+    required UuidValue userId,
     required String syncTablesHash,
     required Hlc lastSyncHlc,
     required Stream<CrdtMergeChange?> changes,
@@ -123,9 +133,7 @@ class CrdtSync {
       );
     }
 
-    final authInfo = session.authenticated!;
-    final userUuid = UuidValue.withValidation(authInfo.userIdentifier);
-    final crdtUser = await CrdtUserManager.getOrCreate(session, userUuid);
+    final crdtUser = await CrdtUserManager.getOrCreate(session, userId);
 
     yield* _streamServerChanges(session, crdtUser, lastSyncHlc);
 
@@ -165,11 +173,11 @@ class CrdtSync {
 
     final crdtDb = CrdtDatabase(session.db, syncTables: _syncTables);
     await crdtDb.initialize();
-    await crdtDb.mergeChanges(mergeSet, userId: userUuid);
+    await crdtDb.mergeChanges(mergeSet, userId: userId);
   }
 
   Stream<CrdtMergeChange> _streamServerChanges(
-    Session session,
+    DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) async* {
@@ -179,7 +187,7 @@ class CrdtSync {
   }
 
   Stream<CrdtMergeInsert> _streamInserts(
-    Session session,
+    DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) async* {
@@ -221,7 +229,7 @@ class CrdtSync {
   }
 
   Stream<CrdtMergeUpdate> _streamUpdates(
-    Session session,
+    DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) async* {
@@ -241,11 +249,7 @@ class CrdtSync {
 
       final columnName = field.column!.name;
 
-      // FIXME: We need to send the decoded value, not the raw value. Because
-      // when the [CrdtDataField] is encoded for transport, it must preserve
-      // the original value type, which require the value to have the original
-      // type at the time of encoding.
-      final rawValue = await _fetchColumnValue(
+      final decodedValue = await _fetchColumnValue(
         session,
         tableName,
         field.row!.uuidRowId,
@@ -259,13 +263,13 @@ class CrdtSync {
         uuidRowId: field.row!.uuidRowId,
         uuidNodeId: field.node!.uuidNodeId,
         columnName: columnName,
-        value: rawValue,
+        value: decodedValue,
       );
     }
   }
 
   Stream<CrdtMergeDelete> _streamDeletes(
-    Session session,
+    DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
   ) async* {
@@ -324,15 +328,16 @@ class CrdtSync {
               (t.hlcCounter > lastSyncHlc.counter)));
 
   Future<dynamic> _fetchDomainRow(
-    Session session,
+    DatabaseSession session,
     String tableName,
     UuidValue rowId,
     Table table,
     String dartName,
   ) async {
     final cols = table.columns.map((c) => '"${c.columnName}"').join(', ');
+    final encodedRowId = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
-      'SELECT $cols FROM "$tableName" WHERE "id" = \'${rowId.uuid}\'',
+      'SELECT $cols FROM "$tableName" WHERE "id" = $encodedRowId',
     );
     if (result.isEmpty) return null;
 
@@ -343,22 +348,46 @@ class CrdtSync {
     });
   }
 
-  // MAYBE: It might not be possible to extract only a single column value
-  // while still preserving the original value type. In this case, we can
-  // return the entire row using the [fetchDomainRow] method until a better
-  // solution is found.
   Future<dynamic> _fetchColumnValue(
-    Session session,
+    DatabaseSession session,
     String tableName,
     UuidValue rowId,
     String columnName,
   ) async {
-    final encodedValue = ValueEncoder.instance.convert(rowId.uuid);
+    final encodedValue = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
       'SELECT "$columnName" FROM "$tableName" WHERE "id" = $encodedValue',
     );
     if (result.isEmpty) return null;
-    return result.first[0];
+    return _decodeColumnValue(tableName, columnName, result.first[0]);
+  }
+
+  dynamic _decodeColumnValue(
+    String tableName,
+    String columnName,
+    Object? value,
+  ) {
+    if (value == null) return null;
+
+    final definition = _columnDefinitionsByTableName[tableName]?[columnName];
+    final dartType = definition?.dartType;
+    if (dartType == null) return value;
+
+    final className = _classNameForDartType(dartType);
+    return switch (className) {
+      'bool' || 'double' || 'int' || 'String' => value,
+      _ => _serializationManager.deserializeByClassName({
+        'className': className,
+        'data': value,
+      }),
+    };
+  }
+
+  String _classNameForDartType(String dartType) {
+    final withoutNullable = dartType.endsWith('?')
+        ? dartType.substring(0, dartType.length - 1)
+        : dartType;
+    return withoutNullable.split(':').last;
   }
 
   static List<String> _canonicalForeignKeys(TableDefinition? definition) {
