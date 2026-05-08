@@ -1,50 +1,100 @@
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
-/// Endpoint for CRDT-based offline-first synchronization.
-///
-/// Call [configure] once during server startup with the set of tables that
-/// participate in sync and the application-level serialization manager (so the
-/// endpoint can encode/decode domain rows such as `Person`).
-class CrdtEndpoint extends Endpoint {
-  @override
-  bool get requireLogin => true;
+/// Extension methods for [Serverpod] to configure the CRDT sync on the server.
+extension CrdtSyncInitialize on Serverpod {
+  /// Configures the CRDT sync on the server.
+  ///
+  /// Must be called during server startup before any sync requests are made.
+  /// Will override any previous initialization.
+  void initializeCrdtSync({required List<Table> syncTables}) {
+    CrdtSync.initialize(
+      syncTables: syncTables,
+      serializationManager: serializationManager,
+    );
+  }
+}
 
-  static List<Table>? _syncTables;
-  static DatabaseSerializationManager? _serializationManager;
-  static Map<String, Table>? _syncTablesByName;
-  static Map<String, String>? _dartNamesByTableName;
+/// The singleton for CRDT-based offline-first synchronization.
+///
+/// Call `pod.initializeCrdtSync(...)` once during server startup before any
+/// sync requests are made.
+class CrdtSync {
+  /// Creates a new instance of [CrdtSync] singleton.
+  CrdtSync._(
+    this._syncTables,
+    this._serializationManager,
+  );
+
+  /// The list of tables to synchronize.
+  final List<Table> _syncTables;
+
+  /// The serialization manager for deserialization.
+  final DatabaseSerializationManager _serializationManager;
+
+  /// The singleton instance of [CrdtSync].
+  static CrdtSync? _instance;
+
+  /// The singleton instance of [CrdtSync]. Throws a [StateError] if the
+  /// singleton is not initialized.
+  static CrdtSync get instance =>
+      _instance ??
+      (throw StateError(
+        'The CrdtSync has not been initialized. Call pod.initializeCrdtSync(...) '
+        'during server startup to configure the CRDT sync.',
+      ));
+
+  /// The map of table names to tables for synchronization.
+  late final Map<String, Table> _syncTablesByName = {
+    for (final t in _syncTables) t.tableName: t,
+  };
+
+  /// The map of table names to class names for deserialization.
+  late final Map<String, String> _classNamesByTableName = {
+    for (final def in _serializationManager.getTargetTableDefinitions())
+      if (def.dartName != null) def.name: def.dartName!,
+  };
+
+  /// The hash of the current sync tables for schema validation.
+  late final String _currentSyncTablesHash = computeSyncTablesHash(_syncTables);
 
   /// Configures the endpoint with the given sync tables and serialization manager.
   ///
   /// Must be called during server startup before any sync requests are made.
-  static void configure({
+  /// Will override any previous initialization.
+  static void initialize({
     required List<Table> syncTables,
     required DatabaseSerializationManager serializationManager,
   }) {
-    _syncTables = syncTables;
-    _serializationManager = serializationManager;
-    _syncTablesByName = {for (final t in syncTables) t.tableName: t};
-    _dartNamesByTableName = {
-      for (final def in serializationManager.getTargetTableDefinitions())
-        if (def.dartName != null) def.name: def.dartName!,
-    };
+    _instance = CrdtSync._(syncTables, serializationManager);
   }
 
   /// Computes a deterministic hash of the sync tables for schema validation.
   ///
   /// The hash is a canonical string built from sorted table names and their
-  /// sorted column names. Both sides must produce the same value for a sync
-  /// to proceed.
-  // TODO: Should also consider foreign key and unique constraints.
+  /// sorted column names, plus foreign key and unique-index constraints. Both
+  /// sides must produce the same value for a sync to proceed.
   static String computeSyncTablesHash(List<Table> syncTables) {
+    final tableDefinitionsByName = {
+      for (final def in instance._serializationManager.getTargetTableDefinitions())
+        def.name: def,
+    };
+
     final sortedTables = syncTables.toList()
       ..sort((a, b) => a.tableName.compareTo(b.tableName));
+
     return sortedTables
         .map((table) {
           final cols = table.columns.map((c) => c.columnName).toList()..sort();
-          return '${table.tableName}:${cols.join(',')}';
+          final definition = tableDefinitionsByName[table.tableName];
+          final foreignKeys = _canonicalForeignKeys(definition);
+          final uniqueIndexes = _canonicalUniqueIndexes(definition);
+          return '${table.tableName}:'
+              '${cols.join(',')}|'
+              'fk[${foreignKeys.join(';')}]|'
+              'uq[${uniqueIndexes.join(';')}]';
         })
         .join(';');
   }
@@ -66,20 +116,10 @@ class CrdtEndpoint extends Endpoint {
     required Hlc lastSyncHlc,
     required Stream<CrdtMergeChange?> changes,
   }) async* {
-    final syncTables = _syncTables;
-    final serializationManager = _serializationManager;
-    if (syncTables == null || serializationManager == null) {
-      throw StateError(
-        'CrdtEndpoint has not been configured. '
-        'Call CrdtEndpoint.configure() during server startup.',
-      );
-    }
-
-    final expectedHash = computeSyncTablesHash(syncTables);
-    if (syncTablesHash != expectedHash) {
+    if (syncTablesHash != _currentSyncTablesHash) {
       throw SyncTablesHashMismatchException(
         received: syncTablesHash,
-        expected: expectedHash,
+        expected: _currentSyncTablesHash,
       );
     }
 
@@ -87,23 +127,19 @@ class CrdtEndpoint extends Endpoint {
     final userUuid = UuidValue.withValidation(authInfo.userIdentifier);
     final crdtUser = await CrdtUserManager.getOrCreate(session, userUuid);
 
-    yield* _streamServerChanges(
-      session,
-      crdtUser,
-      lastSyncHlc,
-      serializationManager,
-    );
+    yield* _streamServerChanges(session, crdtUser, lastSyncHlc);
 
     yield null;
 
     final mergeInserts = <CrdtMergeInsert>[];
     final mergeUpdates = <CrdtMergeUpdate>[];
     final mergeDeletes = <CrdtMergeDelete>[];
+    var receivedStopSentinel = false;
 
     await for (final change in changes) {
       switch (change) {
         case null:
-          break;
+          receivedStopSentinel = true;
         case final CrdtMergeInsert insert:
           mergeInserts.add(insert);
           continue;
@@ -117,6 +153,8 @@ class CrdtEndpoint extends Endpoint {
       break;
     }
 
+    if (!receivedStopSentinel) return;
+
     final mergeSet = CrdtMergeSet(
       inserts: mergeInserts,
       updates: mergeUpdates,
@@ -125,7 +163,7 @@ class CrdtEndpoint extends Endpoint {
 
     if (mergeSet.isEmpty) return;
 
-    final crdtDb = CrdtDatabase(session.db, syncTables: syncTables);
+    final crdtDb = CrdtDatabase(session.db, syncTables: _syncTables);
     await crdtDb.initialize();
     await crdtDb.mergeChanges(mergeSet, userId: userUuid);
   }
@@ -134,9 +172,8 @@ class CrdtEndpoint extends Endpoint {
     Session session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
-    DatabaseSerializationManager serializationManager,
   ) async* {
-    yield* _streamInserts(session, crdtUser, lastSyncHlc, serializationManager);
+    yield* _streamInserts(session, crdtUser, lastSyncHlc);
     yield* _streamUpdates(session, crdtUser, lastSyncHlc);
     yield* _streamDeletes(session, crdtUser, lastSyncHlc);
   }
@@ -145,7 +182,6 @@ class CrdtEndpoint extends Endpoint {
     Session session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
-    DatabaseSerializationManager serializationManager,
   ) async* {
     final rows = await CrdtDataRow.db.find(
       session,
@@ -158,10 +194,10 @@ class CrdtEndpoint extends Endpoint {
 
     for (final row in rows) {
       final tableName = row.tbl!.name;
-      if (!(_syncTablesByName?.containsKey(tableName) ?? false)) continue;
+      if (!_syncTablesByName.containsKey(tableName)) continue;
 
-      final table = _syncTablesByName![tableName]!;
-      final dartName = _dartNamesByTableName?[tableName];
+      final table = _syncTablesByName[tableName]!;
+      final dartName = _classNamesByTableName[tableName];
       if (dartName == null) continue;
 
       final domainRow = await _fetchDomainRow(
@@ -170,7 +206,6 @@ class CrdtEndpoint extends Endpoint {
         row.uuidRowId,
         table,
         dartName,
-        serializationManager,
       );
       if (domainRow == null) continue;
 
@@ -202,9 +237,14 @@ class CrdtEndpoint extends Endpoint {
 
     for (final field in fields) {
       final tableName = field.row!.tbl!.name;
-      if (!(_syncTablesByName?.containsKey(tableName) ?? false)) continue;
+      if (!_syncTablesByName.containsKey(tableName)) continue;
 
       final columnName = field.column!.name;
+
+      // FIXME: We need to send the decoded value, not the raw value. Because
+      // when the [CrdtDataField] is encoded for transport, it must preserve
+      // the original value type, which require the value to have the original
+      // type at the time of encoding.
       final rawValue = await _fetchColumnValue(
         session,
         tableName,
@@ -240,7 +280,7 @@ class CrdtEndpoint extends Endpoint {
 
     for (final tombstone in tombstones) {
       final tableName = tombstone.row!.tbl!.name;
-      if (!(_syncTablesByName?.containsKey(tableName) ?? false)) continue;
+      if (!_syncTablesByName.containsKey(tableName)) continue;
 
       yield CrdtMergeDelete(
         hlcDatetime: tombstone.hlcDatetime,
@@ -289,7 +329,6 @@ class CrdtEndpoint extends Endpoint {
     UuidValue rowId,
     Table table,
     String dartName,
-    DatabaseSerializationManager serializationManager,
   ) async {
     final cols = table.columns.map((c) => '"${c.columnName}"').join(', ');
     final result = await session.db.unsafeQuery(
@@ -298,23 +337,63 @@ class CrdtEndpoint extends Endpoint {
     if (result.isEmpty) return null;
 
     final columnMap = result.first.toColumnMap();
-    return serializationManager.deserializeByClassName({
+    return session.db.serializationManager.deserializeByClassName({
       'className': dartName,
       'data': columnMap,
     });
   }
 
+  // MAYBE: It might not be possible to extract only a single column value
+  // while still preserving the original value type. In this case, we can
+  // return the entire row using the [fetchDomainRow] method until a better
+  // solution is found.
   Future<dynamic> _fetchColumnValue(
     Session session,
     String tableName,
     UuidValue rowId,
     String columnName,
   ) async {
+    final encodedValue = ValueEncoder.instance.convert(rowId.uuid);
     final result = await session.db.unsafeQuery(
-      'SELECT "$columnName" FROM "$tableName" WHERE "id" = \'${rowId.uuid}\'',
+      'SELECT "$columnName" FROM "$tableName" WHERE "id" = $encodedValue',
     );
     if (result.isEmpty) return null;
     return result.first[0];
+  }
+
+  static List<String> _canonicalForeignKeys(TableDefinition? definition) {
+    if (definition == null) return const [];
+    final entries = <String>[
+      for (final fk in definition.foreignKeys)
+        // Each foreign key must map all parameters.
+        // ignore: no_adjacent_strings_in_list
+        '${(fk.columns.toList()..sort()).join(',')}->'
+            '${fk.referenceTableSchema}.${fk.referenceTable}'
+            '(${(fk.referenceColumns.toList()..sort()).join(',')})'
+            '|u:${fk.onUpdate?.toString() ?? '-'}'
+            '|d:${fk.onDelete?.toString() ?? '-'}'
+            '|m:${fk.matchType?.toString() ?? '-'}',
+    ]..sort();
+
+    return entries;
+  }
+
+  static List<String> _canonicalUniqueIndexes(TableDefinition? definition) {
+    if (definition == null) return const [];
+
+    final entries = <String>[
+      for (final index in definition.indexes)
+        if (index.isUnique && !(index.isPrimary))
+          () {
+            final elements = index.elements;
+            final sortedElements = [
+              for (final element in elements) '${element.type}:${element.definition}',
+            ]..sort();
+            return sortedElements.join(',');
+          }(),
+    ]..sort();
+
+    return entries;
   }
 }
 
