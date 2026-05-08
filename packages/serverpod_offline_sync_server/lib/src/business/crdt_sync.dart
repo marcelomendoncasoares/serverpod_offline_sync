@@ -362,6 +362,13 @@ class CrdtSync {
     return _decodeColumnValue(tableName, columnName, result.first[0]);
   }
 
+  /// Decodes a raw database column value back to the original Dart value
+  /// described by the synchronized schema metadata for [tableName].[columnName].
+  ///
+  /// Primitive scalar values are already represented in their wire-safe form and
+  /// can be returned directly. More complex values are reconstructed through the
+  /// serialization manager using the class name extracted from the stored Dart
+  /// type string.
   dynamic _decodeColumnValue(
     String tableName,
     String columnName,
@@ -383,6 +390,12 @@ class CrdtSync {
     };
   }
 
+  /// Extracts the class name portion from a generated Dart type string.
+  ///
+  /// Examples:
+  /// - `String?` -> `String`
+  /// - `dart:typed_data:ByteData` -> `ByteData`
+  /// - `protocol:TypesEnum?` -> `TypesEnum`
   String _classNameForDartType(String dartType) {
     final withoutNullable = dartType.endsWith('?')
         ? dartType.substring(0, dartType.length - 1)

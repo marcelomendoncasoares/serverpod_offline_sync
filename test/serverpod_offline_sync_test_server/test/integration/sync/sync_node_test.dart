@@ -71,7 +71,7 @@ void main() {
             aDateTime: DateTime.utc(2026, 5, 8, 12, 34, 56),
             optionalUuid: const Uuid().v7obj(),
             anInt64: BigInt.parse('9007199254740993'),
-            aBlob: _blob([1, 2, 3, 4]),
+            aBlob: _bytesToBlob([1, 2, 3, 4]),
             anEnum: client.TypesEnum.gamma,
           ),
           transaction: tx,
@@ -98,7 +98,7 @@ void main() {
       expect(streamedRow.optionalUuid, insertedRow.optionalUuid);
       expect(streamedRow.anInt64, insertedRow.anInt64);
       expect(streamedRow.anEnum, client.TypesEnum.gamma);
-      expect(_blobBytes(streamedRow.aBlob), _blobBytes(insertedRow.aBlob));
+      expect(_blobToBytes(streamedRow.aBlob), _blobToBytes(insertedRow.aBlob));
     },
   );
 
@@ -126,7 +126,7 @@ void main() {
         aDateTime: DateTime.utc(2027, 1, 2, 3, 4, 5),
         optionalUuid: const Uuid().v7obj(),
         anInt64: BigInt.parse('12345678901234567890'),
-        aBlob: _blob([7, 8, 9]),
+        aBlob: _bytesToBlob([7, 8, 9]),
         anEnum: client.TypesEnum.beta,
       );
 
@@ -177,8 +177,8 @@ void main() {
         client.TypesEnum.beta,
       );
       expect(
-        _blobBytes(updates[client.Types.t.aBlob.columnName]!.value as ByteData),
-        _blobBytes(updatedRow.aBlob),
+        _blobToBytes(updates[client.Types.t.aBlob.columnName]!.value as ByteData),
+        _blobToBytes(updatedRow.aBlob),
       );
     },
   );
@@ -253,13 +253,14 @@ client.Types _typesRow({
     anInt: 42,
     anInt64: anInt64 ?? BigInt.from(99),
     aReal: 3.14,
-    aBlob: aBlob ?? _blob([0, 1, 2]),
+    aBlob: aBlob ?? _bytesToBlob([0, 1, 2]),
     anEnum: anEnum ?? client.TypesEnum.alpha,
     optionalText: 'optional',
     optionalUuid: optionalUuid,
   );
 }
 
-ByteData _blob(List<int> bytes) => ByteData.sublistView(Uint8List.fromList(bytes));
+ByteData _bytesToBlob(List<int> bytes) =>
+    ByteData.sublistView(Uint8List.fromList(bytes));
 
-List<int> _blobBytes(ByteData value) => value.buffer.asUint8List();
+List<int> _blobToBytes(ByteData value) => value.buffer.asUint8List();
