@@ -23,7 +23,10 @@ class CrdtUserManager {
       _cacheForSession(
         session,
       )[uuidUserId] ??
-      (throw StateError('User $uuidUserId not found for this database session.'));
+      (throw StateError(
+        'User $uuidUserId not found in cache for this database session. '
+        'Ensure getOrCreate() is called before getCached().',
+      ));
 
   /// Clears the in-memory user cache. Used when the database is reset (e.g. tests)
   /// so [getOrCreate] loads fresh rows from the store.
