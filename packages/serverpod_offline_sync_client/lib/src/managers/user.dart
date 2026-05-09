@@ -25,7 +25,7 @@ class CrdtUserManager {
       )[uuidUserId] ??
       (throw StateError(
         'User $uuidUserId not found in cache for this database session. '
-        'Ensure getOrCreate() is called before getCached().',
+        'Ensure CrdtUserManager.getOrCreate() is called before getCached().',
       ));
 
   /// Clears the in-memory user cache. Used when the database is reset (e.g. tests)
