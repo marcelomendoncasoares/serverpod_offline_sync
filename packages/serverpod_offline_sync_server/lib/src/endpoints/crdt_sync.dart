@@ -2,8 +2,6 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
-import '../business/crdt_sync.dart';
-
 /// Endpoint for CRDT-based offline-first synchronization.
 ///
 /// Call `pod.initializeCrdtSync(...)` once during server startup so this

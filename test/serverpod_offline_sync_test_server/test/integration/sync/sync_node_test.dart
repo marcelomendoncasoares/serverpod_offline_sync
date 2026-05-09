@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -235,6 +238,156 @@ void main() {
       expect(mergedClientPerson!.name, clientPerson.name);
     },
   );
+
+  test(
+    'Given two nodes with pending local changes when syncNodeForUser runs on both sides continuously then they converge to the same end state.',
+    () async {
+      final peerDirectory = await Directory.systemTemp.createTemp(
+        'offline_first_peer_',
+      );
+      final peerSession = await client.Client(
+        'http://localhost:8081/',
+      ).createSession('${peerDirectory.path}/peer.db', isDebugMode: true);
+      final peerCrdtSession = CrdtDatabaseSession.wraps(
+        peerSession,
+        syncTables: syncTables,
+      );
+      await peerCrdtSession.db.initialize();
+
+      addTearDown(() async {
+        await peerSession.close();
+        if (peerDirectory.existsSync()) {
+          await peerDirectory.delete(recursive: true);
+        }
+      });
+
+      final syncTablesHash = CrdtSync.computeSyncTablesHash(syncTables);
+      final sharedPersonId = const Uuid().v7obj();
+
+      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+        await client.Person.db.insertRow(
+          crdtSession,
+          client.Person(
+            id: sharedPersonId,
+            name: 'base-name',
+            surname: 'base-surname',
+          ),
+          transaction: tx,
+        );
+      });
+
+      final initialServerChanges = await crdtSync
+          .syncNodeForUser(
+            testSession,
+            userId: testCrdtUserId,
+            syncTablesHash: syncTablesHash,
+            lastSyncHlc: Hlc.zero(const Uuid().v7obj()),
+            changes: Stream<CrdtMergeChange?>.value(null),
+          )
+          .toList();
+
+      await crdtSync
+          .syncNodeForUser(
+            peerSession,
+            userId: testCrdtUserId,
+            syncTablesHash: syncTablesHash,
+            lastSyncHlc: Hlc.zero(const Uuid().v7obj()),
+            changes: Stream<CrdtMergeChange?>.fromIterable(initialServerChanges),
+          )
+          .drain<void>();
+
+      final primarySharedPerson = await client.Person.db.findById(
+        testSession,
+        sharedPersonId,
+      );
+      final peerSharedPerson = await client.Person.db.findById(
+        peerSession,
+        sharedPersonId,
+      );
+
+      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+        await client.Person.db.updateRow(
+          crdtSession,
+          primarySharedPerson!.copyWith(name: 'server-name'),
+          columns: (t) => [t.name],
+          transaction: tx,
+        );
+        await client.Person.db.insertRow(
+          crdtSession,
+          client.Person(id: const Uuid().v7obj(), name: 'server-only'),
+          transaction: tx,
+        );
+      });
+
+      await peerCrdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+        await client.Person.db.updateRow(
+          peerCrdtSession,
+          peerSharedPerson!.copyWith(surname: 'client-surname'),
+          columns: (t) => [t.surname],
+          transaction: tx,
+        );
+        await client.Person.db.insertRow(
+          peerCrdtSession,
+          client.Person(id: const Uuid().v7obj(), name: 'client-only'),
+          transaction: tx,
+        );
+      });
+
+      final primaryInbound = StreamController<CrdtMergeChange?>();
+      final peerInbound = StreamController<CrdtMergeChange?>();
+
+      Future<void> forwardChanges(
+        Stream<CrdtMergeChange?> outbound,
+        StreamController<CrdtMergeChange?> inbound,
+      ) async {
+        await for (final change in outbound) {
+          inbound.add(change);
+        }
+        await inbound.close();
+      }
+
+      final primarySync = crdtSync.syncNodeForUser(
+        testSession,
+        userId: testCrdtUserId,
+        syncTablesHash: syncTablesHash,
+        lastSyncHlc: Hlc.zero(const Uuid().v7obj()),
+        changes: primaryInbound.stream,
+      );
+      final peerSync = crdtSync.syncNodeForUser(
+        peerSession,
+        userId: testCrdtUserId,
+        syncTablesHash: syncTablesHash,
+        lastSyncHlc: Hlc.zero(const Uuid().v7obj()),
+        changes: peerInbound.stream,
+      );
+
+      await Future.wait([
+        forwardChanges(primarySync, peerInbound),
+        forwardChanges(peerSync, primaryInbound),
+      ]);
+
+      final primaryState = await _personState(testSession);
+      final peerState = await _personState(peerSession);
+
+      expect(primaryState, peerState);
+      expect(
+        primaryState,
+        containsAll([
+          '$sharedPersonId:server-name:client-surname',
+          isA<String>().having(
+            (value) => value.contains(':server-only:'),
+            'server-only row',
+            isTrue,
+          ),
+          isA<String>().having(
+            (value) => value.contains(':client-only:'),
+            'client-only row',
+            isTrue,
+          ),
+        ]),
+      );
+    },
+  );
 }
 
 client.Types _typesRow({
@@ -264,3 +417,13 @@ ByteData _bytesToBlob(List<int> bytes) =>
     ByteData.sublistView(Uint8List.fromList(bytes));
 
 List<int> _blobToBytes(ByteData value) => value.buffer.asUint8List();
+
+Future<List<String>> _personState(DatabaseSession session) async {
+  final rows = await client.Person.db.find(
+    session,
+    orderBy: (t) => t.id,
+  );
+  return [
+    for (final row in rows) '${row.id}:${row.name}:${row.surname ?? ''}',
+  ];
+}

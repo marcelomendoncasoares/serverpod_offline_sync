@@ -995,7 +995,7 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 
   HlcManager _getHlcManager(Transaction transaction) {
     final user = _getEffectiveUser(transaction);
-    return HlcManager.forUser(user);
+    return HlcManager.forUser(_db.session, user);
   }
 
   CrdtUser _getEffectiveUser(Transaction transaction) {
@@ -1004,7 +1004,7 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     if (persistentUserId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }
-    return CrdtUserManager.getCached(persistentUserId!);
+    return CrdtUserManager.getCached(_db.session, persistentUserId!);
   }
 }
 
