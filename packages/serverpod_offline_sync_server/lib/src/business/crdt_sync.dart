@@ -1,5 +1,4 @@
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
 /// Extension methods for [Serverpod] to configure the CRDT sync on the server.

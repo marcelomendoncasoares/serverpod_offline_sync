@@ -2,10 +2,10 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:uuid/uuid.dart';
 
-import 'merge.dart';
 import '../database/database.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
+import 'merge.dart';
 
 /// The singleton for CRDT-based offline-first synchronization.
 ///

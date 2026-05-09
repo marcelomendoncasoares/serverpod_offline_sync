@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -340,9 +339,7 @@ void main() {
         Stream<CrdtMergeChange?> outbound,
         StreamController<CrdtMergeChange?> inbound,
       ) async {
-        await for (final change in outbound) {
-          inbound.add(change);
-        }
+        await outbound.forEach(inbound.add);
         await inbound.close();
       }
 
@@ -366,8 +363,12 @@ void main() {
         forwardChanges(peerSync, primaryInbound),
       ]);
 
-      final primaryState = await _personState(testSession);
-      final peerState = await _personState(peerSession);
+      final primaryState = await _personState(
+        () => client.Person.db.find(testSession, orderBy: (t) => t.id),
+      );
+      final peerState = await _personState(
+        () => client.Person.db.find(peerSession, orderBy: (t) => t.id),
+      );
 
       expect(primaryState, peerState);
       expect(
@@ -418,11 +419,10 @@ ByteData _bytesToBlob(List<int> bytes) =>
 
 List<int> _blobToBytes(ByteData value) => value.buffer.asUint8List();
 
-Future<List<String>> _personState(DatabaseSession session) async {
-  final rows = await client.Person.db.find(
-    session,
-    orderBy: (t) => t.id,
-  );
+Future<List<String>> _personState(
+  Future<List<client.Person>> Function() loadRows,
+) async {
+  final rows = await loadRows();
   return [
     for (final row in rows) '${row.id}:${row.name}:${row.surname ?? ''}',
   ];
