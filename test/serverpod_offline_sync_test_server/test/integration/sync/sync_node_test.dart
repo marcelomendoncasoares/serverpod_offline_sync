@@ -242,7 +242,7 @@ void main() {
     'Given two nodes with pending local changes when continuous bidirectional sync runs then they converge to the same end state.',
     () async {
       final peerDirectory = await Directory.systemTemp.createTemp(
-        'offline_first_peer_',
+        'crdt_sync_peer_',
       );
       final peerSession = await client.Client(
         'http://localhost:8081/',
