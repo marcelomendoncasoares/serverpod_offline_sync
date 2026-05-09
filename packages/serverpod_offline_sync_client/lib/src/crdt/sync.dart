@@ -449,11 +449,11 @@ class CrdtSync {
       for (final index in definition.indexes)
         if (index.isUnique && !index.isPrimary)
           () {
-            final elements = [
+            final sortedElements = [
               for (final element in index.elements)
                 '${element.type}:${element.definition}',
             ]..sort();
-            return elements.join(',');
+            return sortedElements.join(',');
           }(),
     ]..sort();
 

@@ -284,15 +284,12 @@ Future<CrdtMergeSet?> _collectMergeSet(Stream<CrdtMergeChange?> changes) async {
         receivedStopSentinel = true;
       case final CrdtMergeInsert insert:
         inserts.add(insert);
-        continue;
       case final CrdtMergeUpdate update:
         updates.add(update);
-        continue;
       case final CrdtMergeDelete delete:
         deletes.add(delete);
-        continue;
     }
-    break;
+    if (change == null) break;
   }
 
   if (!receivedStopSentinel) return null;
