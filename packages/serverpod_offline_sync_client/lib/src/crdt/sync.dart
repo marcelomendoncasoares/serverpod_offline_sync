@@ -125,7 +125,7 @@ class CrdtSync {
 
     final crdtUser = await CrdtUserManager.getOrCreate(session, userId);
 
-    yield* _streamLocalChanges(session, crdtUser, lastSyncHlc);
+    yield* _streamCurrentNodeChanges(session, crdtUser, lastSyncHlc);
 
     yield null;
 
@@ -166,7 +166,7 @@ class CrdtSync {
     await crdtDb.mergeChanges(mergeSet, userId: userId);
   }
 
-  Stream<CrdtMergeChange> _streamLocalChanges(
+  Stream<CrdtMergeChange> _streamCurrentNodeChanges(
     DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,

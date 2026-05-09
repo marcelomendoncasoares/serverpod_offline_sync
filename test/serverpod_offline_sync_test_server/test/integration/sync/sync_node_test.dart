@@ -239,7 +239,7 @@ void main() {
   );
 
   test(
-    'Given two nodes with pending local changes when syncNodeForUser runs on both sides continuously then they converge to the same end state.',
+    'Given two nodes with pending local changes when continuous bidirectional sync runs then they converge to the same end state.',
     () async {
       final peerDirectory = await Directory.systemTemp.createTemp(
         'offline_first_peer_',
