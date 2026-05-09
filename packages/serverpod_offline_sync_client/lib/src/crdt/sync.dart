@@ -73,6 +73,8 @@ class CrdtSync {
       syncTables,
       serializationManager: serializationManager,
     );
+    // Use two deterministic namespace-based UUIDv5 hashes to keep the payload
+    // fixed-size while substantially reducing the practical collision risk.
     const uuid = Uuid();
     return '${uuid.v5(Namespace.url.value, canonicalSignature)}:'
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';

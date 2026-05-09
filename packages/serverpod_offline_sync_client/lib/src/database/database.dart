@@ -132,6 +132,9 @@ class CrdtDatabase implements Database {
       lastSyncHlc: effectiveLastSyncHlc,
       userId: effectiveUserId,
     );
+    // Sync the snapshot captured at the start of this operation. Any newer
+    // local changes created while the remote pull is in flight are left for the
+    // next sync round so they are not mixed with remote merge effects.
     final caller = _requireSyncCaller(syncCaller);
     final remoteStream =
         caller.callStreamingServerEndpoint<CrdtMergeChange, CrdtMergeChange?>(
