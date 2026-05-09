@@ -7,28 +7,22 @@ import '../managers/user.dart';
 import '../protocol/protocol.dart';
 import 'merge.dart';
 
-/// The singleton for CRDT-based offline-first synchronization.
-///
-/// Call `pod.initializeCrdtSync(...)` once during server startup before any
-/// sync requests are made.
+/// The shared CRDT synchronization logic used by both client and server nodes.
 class CrdtSync {
-  /// Creates a new instance of [CrdtSync] singleton.
-  CrdtSync._(
-    this._syncTables,
-    this._serializationManager,
-  );
+  /// Creates a new [CrdtSync] instance.
+  CrdtSync({
+    required List<Table> syncTables,
+    required DatabaseSerializationManager serializationManager,
+  }) : _syncTables = syncTables,
+       _serializationManager = serializationManager;
 
-  /// The list of tables to synchronize.
   final List<Table> _syncTables;
-
-  /// The serialization manager for deserialization.
   final DatabaseSerializationManager _serializationManager;
 
-  /// The singleton instance of [CrdtSync].
   static CrdtSync? _instance;
 
-  /// The singleton instance of [CrdtSync]. Throws a [StateError] if the
-  /// singleton is not initialized.
+  /// The singleton instance of [CrdtSync]. Throws a [StateError] if it is not
+  /// initialized.
   static CrdtSync get instance =>
       _instance ??
       (throw StateError(
@@ -36,102 +30,144 @@ class CrdtSync {
         'during server startup to configure the CRDT sync.',
       ));
 
-  /// The map of table names to tables for synchronization.
-  late final Map<String, Table> _syncTablesByName = {
-    for (final t in _syncTables) t.tableName: t,
-  };
-
-  /// The map of table names to class names for deserialization.
-  late final Map<String, String> _classNamesByTableName = {
-    for (final def in _serializationManager.getTargetTableDefinitions())
-      if (def.dartName != null) def.name: def.dartName!,
-  };
-
-  /// The map of table names to column definitions for value decoding.
-  late final Map<String, Map<String, ColumnDefinition>> _columnDefinitionsByTableName =
-      {
-        for (final def in _serializationManager.getTargetTableDefinitions())
-          def.name: {
-            for (final column in def.columns) column.name: column,
-          },
-      };
-
-  /// The hash of the current sync tables for schema validation.
-  late final String _currentSyncTablesHash = computeSyncTablesHash(_syncTables);
-
-  /// Configures the sync singleton with the given tables and serialization manager.
-  ///
-  /// Must be called before any sync requests are made.
-  /// Will override any previous initialization.
+  /// Configures the shared singleton used by server endpoints.
   static void initialize({
     required List<Table> syncTables,
     required DatabaseSerializationManager serializationManager,
   }) {
-    _instance = CrdtSync._(syncTables, serializationManager);
+    _instance = CrdtSync(
+      syncTables: syncTables,
+      serializationManager: serializationManager,
+    );
   }
 
-  /// Computes a deterministic hash of the sync tables for schema validation.
-  ///
-  /// The hash is a canonical string built from sorted table names and their
-  /// sorted column names, plus foreign key and unique-index constraints. Both
-  /// sides must produce the same value for a sync to proceed.
-  static String computeSyncTablesHash(List<Table> syncTables) {
-    final tableDefinitionsByName = {
-      for (final def in instance._serializationManager.getTargetTableDefinitions())
-        def.name: def,
-    };
+  late final Map<String, Table> _syncTablesByName = {
+    for (final table in _syncTables) table.tableName: table,
+  };
 
-    final sortedTables = syncTables.toList()
-      ..sort((a, b) => a.tableName.compareTo(b.tableName));
+  late final Map<String, String> _classNamesByTableName = {
+    for (final definition in _serializationManager.getTargetTableDefinitions())
+      if (definition.dartName != null) definition.name: definition.dartName!,
+  };
 
-    return sortedTables
-        .map((table) {
-          final cols = table.columns.map((c) => c.columnName).toList()..sort();
-          final definition = tableDefinitionsByName[table.tableName];
-          final foreignKeys = _canonicalForeignKeys(definition);
-          final uniqueIndexes = _canonicalUniqueIndexes(definition);
-          return '${table.tableName}:'
-              '${cols.join(',')}|'
-              'fk[${foreignKeys.join(';')}]|'
-              'uq[${uniqueIndexes.join(';')}]';
-        })
-        .join(';');
+  late final Map<String, Map<String, ColumnDefinition>> _columnDefinitionsByTableName =
+      {
+        for (final definition in _serializationManager.getTargetTableDefinitions())
+          definition.name: {
+            for (final column in definition.columns) column.name: column,
+          },
+      };
+
+  /// The deterministic hash representing the current synchronized schema.
+  late final String currentSyncTablesHash = computeSyncTablesHash(
+    _syncTables,
+    serializationManager: _serializationManager,
+  );
+
+  /// Computes a deterministic fixed-size hash of the synchronized schema.
+  static String computeSyncTablesHash(
+    List<Table> syncTables, {
+    required DatabaseSerializationManager serializationManager,
+  }) {
+    final canonicalSignature = _computeCanonicalSyncTablesSignature(
+      syncTables,
+      serializationManager: serializationManager,
+    );
+    const uuid = Uuid();
+    return '${uuid.v5(Namespace.url.value, canonicalSignature)}:'
+        '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Synchronizes CRDT changes between two nodes for the given authenticated user.
-  ///
-  /// First validates [syncTablesHash] against the server's configured tables.
-  /// If the hashes differ, a [SyncTablesHashMismatchException] is thrown,
-  /// telling the older node to migrate its schema first.
-  ///
-  /// The current node then streams all changes since [lastSyncHlc] to the caller,
-  /// followed by a null value as sentinel. The caller should stream its own
-  /// changes in the [changes] stream and close with its own null sentinel.
-  /// Once the null sentinel is received the current node merges all accumulated
-  /// remote changes atomically.
-  Stream<CrdtMergeChange?> syncNodeForUser(
+  /// Collects local CRDT changes after [lastSyncHlc] for the given [userId].
+  Future<CrdtMergeSet> collectPendingChanges(
+    DatabaseSession session, {
+    required UuidValue userId,
+    required Hlc lastSyncHlc,
+  }) async {
+    final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+    final inserts = await _streamInserts(session, crdtUser, lastSyncHlc).toList();
+    final updates = await _streamUpdates(session, crdtUser, lastSyncHlc).toList();
+    final deletes = await _streamDeletes(session, crdtUser, lastSyncHlc).toList();
+
+    return CrdtMergeSet(
+      inserts: inserts,
+      updates: updates,
+      deletes: deletes,
+    );
+  }
+
+  /// Applies [changes] locally after validating [syncTablesHash].
+  Future<void> syncOnce(
+    DatabaseSession session, {
+    required UuidValue userId,
+    required String syncTablesHash,
+    required CrdtMergeSet changes,
+  }) async {
+    _validateSyncTablesHash(syncTablesHash);
+    if (changes.isEmpty) return;
+
+    final crdtDb = await _openCrdtDatabase(session);
+    await crdtDb.mergeChanges(changes, userId: userId);
+  }
+
+  /// Streams local changes and then applies streamed remote changes.
+  Stream<CrdtMergeChange?> syncStream(
     DatabaseSession session, {
     required UuidValue userId,
     required String syncTablesHash,
     required Hlc lastSyncHlc,
     required Stream<CrdtMergeChange?> changes,
   }) async* {
-    if (syncTablesHash != _currentSyncTablesHash) {
-      throw SyncTablesHashMismatchException(
-        received: syncTablesHash,
-        expected: _currentSyncTablesHash,
-      );
-    }
+    _validateSyncTablesHash(syncTablesHash);
 
-    final crdtUser = await CrdtUserManager.getOrCreate(session, userId);
+    final pendingChanges = await collectPendingChanges(
+      session,
+      userId: userId,
+      lastSyncHlc: lastSyncHlc,
+    );
 
-    yield* _streamNodeChanges(session, crdtUser, lastSyncHlc);
-
+    yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.inserts);
+    yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.updates);
+    yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
     yield null;
 
-    final mergeInserts = <CrdtMergeInsert>[];
-    final mergeUpdates = <CrdtMergeUpdate>[];
-    final mergeDeletes = <CrdtMergeDelete>[];
+    final mergeSet = await _collectMergeSet(changes);
+    if (mergeSet == null) return;
+
+    await syncOnce(
+      session,
+      userId: userId,
+      syncTablesHash: syncTablesHash,
+      changes: mergeSet,
+    );
+  }
+
+  void _validateSyncTablesHash(String syncTablesHash) {
+    if (syncTablesHash != currentSyncTablesHash) {
+      throw SyncTablesHashMismatchException(
+        received: syncTablesHash,
+        expected: currentSyncTablesHash,
+      );
+    }
+  }
+
+  Future<CrdtDatabase> _openCrdtDatabase(DatabaseSession session) async {
+    final db = session.db;
+    if (db is CrdtDatabase) {
+      return db;
+    }
+
+    final crdtDb = CrdtDatabase(db, syncTables: _syncTables);
+    await crdtDb.initialize();
+    return crdtDb;
+  }
+
+  Future<CrdtMergeSet?> _collectMergeSet(
+    Stream<CrdtMergeChange?> changes,
+  ) async {
+    final inserts = <CrdtMergeInsert>[];
+    final updates = <CrdtMergeUpdate>[];
+    final deletes = <CrdtMergeDelete>[];
     var receivedStopSentinel = false;
 
     await for (final change in changes) {
@@ -139,41 +175,25 @@ class CrdtSync {
         case null:
           receivedStopSentinel = true;
         case final CrdtMergeInsert insert:
-          mergeInserts.add(insert);
+          inserts.add(insert);
           continue;
         case final CrdtMergeUpdate update:
-          mergeUpdates.add(update);
+          updates.add(update);
           continue;
         case final CrdtMergeDelete delete:
-          mergeDeletes.add(delete);
+          deletes.add(delete);
           continue;
       }
       break;
     }
 
-    if (!receivedStopSentinel) return;
+    if (!receivedStopSentinel) return null;
 
-    final mergeSet = CrdtMergeSet(
-      inserts: mergeInserts,
-      updates: mergeUpdates,
-      deletes: mergeDeletes,
+    return CrdtMergeSet(
+      inserts: inserts,
+      updates: updates,
+      deletes: deletes,
     );
-
-    if (mergeSet.isEmpty) return;
-
-    final crdtDb = CrdtDatabase(session.db, syncTables: _syncTables);
-    await crdtDb.initialize();
-    await crdtDb.mergeChanges(mergeSet, userId: userId);
-  }
-
-  Stream<CrdtMergeChange> _streamNodeChanges(
-    DatabaseSession session,
-    CrdtUser crdtUser,
-    Hlc lastSyncHlc,
-  ) async* {
-    yield* _streamInserts(session, crdtUser, lastSyncHlc);
-    yield* _streamUpdates(session, crdtUser, lastSyncHlc);
-    yield* _streamDeletes(session, crdtUser, lastSyncHlc);
   }
 
   Stream<CrdtMergeInsert> _streamInserts(
@@ -238,7 +258,6 @@ class CrdtSync {
       if (!_syncTablesByName.containsKey(tableName)) continue;
 
       final columnName = field.column!.name;
-
       final decodedValue = await _fetchColumnValue(
         session,
         tableName,
@@ -324,7 +343,7 @@ class CrdtSync {
     Table table,
     String dartName,
   ) async {
-    final cols = table.columns.map((c) => '"${c.columnName}"').join(', ');
+    final cols = table.columns.map((column) => '"${column.columnName}"').join(', ');
     final encodedRowId = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
       'SELECT $cols FROM "$tableName" WHERE "id" = $encodedRowId',
@@ -352,18 +371,7 @@ class CrdtSync {
     return _decodeColumnValue(tableName, columnName, result.first[0]);
   }
 
-  /// Decodes a raw database column value back to the original Dart value
-  /// described by the synchronized schema metadata for [tableName].[columnName].
-  ///
-  /// Primitive scalar values are already represented in their wire-safe form and
-  /// can be returned directly. More complex values are reconstructed through the
-  /// serialization manager using the class name extracted from the stored Dart
-  /// type string.
-  dynamic _decodeColumnValue(
-    String tableName,
-    String columnName,
-    Object? value,
-  ) {
+  dynamic _decodeColumnValue(String tableName, String columnName, Object? value) {
     if (value == null) return null;
 
     final definition = _columnDefinitionsByTableName[tableName]?[columnName];
@@ -380,17 +388,41 @@ class CrdtSync {
     };
   }
 
-  /// Extracts the class name portion from a generated Dart type string.
-  ///
-  /// Examples:
-  /// - `String?` -> `String`
-  /// - `dart:typed_data:ByteData` -> `ByteData`
-  /// - `protocol:TypesEnum?` -> `TypesEnum`
   String _classNameForDartType(String dartType) {
     final withoutNullable = dartType.endsWith('?')
         ? dartType.substring(0, dartType.length - 1)
         : dartType;
     return withoutNullable.split(':').last;
+  }
+
+  static String _computeCanonicalSyncTablesSignature(
+    List<Table> syncTables, {
+    required DatabaseSerializationManager serializationManager,
+  }) {
+    final tableDefinitionsByName = {
+      for (final definition in serializationManager.getTargetTableDefinitions())
+        definition.name: definition,
+    };
+
+    final sortedTables = syncTables.toList()
+      ..sort((left, right) => left.tableName.compareTo(right.tableName));
+
+    return sortedTables
+        .map((table) {
+          final definition = tableDefinitionsByName[table.tableName];
+          final columns = [
+            for (final column in definition?.columns ?? const <ColumnDefinition>[])
+              column.name,
+            if (definition == null) ...table.columns.map((column) => column.columnName),
+          ]..sort();
+          final foreignKeys = _canonicalForeignKeys(definition);
+          final uniqueIndexes = _canonicalUniqueIndexes(definition);
+          return '${table.tableName}:'
+              '${columns.join(',')}|'
+              'fk[${foreignKeys.join(';')}]|'
+              'uq[${uniqueIndexes.join(';')}]';
+        })
+        .join(';');
   }
 
   static List<String> _canonicalForeignKeys(TableDefinition? definition) {
@@ -415,13 +447,13 @@ class CrdtSync {
 
     final entries = <String>[
       for (final index in definition.indexes)
-        if (index.isUnique && !(index.isPrimary))
+        if (index.isUnique && !index.isPrimary)
           () {
-            final elements = index.elements;
-            final sortedElements = [
-              for (final element in elements) '${element.type}:${element.definition}',
+            final elements = [
+              for (final element in index.elements)
+                '${element.type}:${element.definition}',
             ]..sort();
-            return sortedElements.join(',');
+            return elements.join(',');
           }(),
     ]..sort();
 
@@ -430,9 +462,6 @@ class CrdtSync {
 }
 
 /// Thrown when the sync tables hash sent by a client does not match the server.
-///
-/// This means the client and server are at different schema versions. The
-/// older side must migrate before a sync can proceed.
 class SyncTablesHashMismatchException implements Exception {
   /// Creates a new [SyncTablesHashMismatchException].
   SyncTablesHashMismatchException({

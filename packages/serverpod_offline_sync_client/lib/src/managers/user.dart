@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
@@ -7,65 +5,48 @@ import '../protocol/protocol.dart';
 
 /// A manager for [CrdtUser] instances.
 class CrdtUserManager {
-  CrdtUserManager._();
+  /// Creates a [CrdtUserManager] bound to a database session.
+  CrdtUserManager(this._session);
 
-  /// Map of database to user ID cache for that database.
-  static final Map<Database, Map<UuidValue, CrdtUser>> _instancesByDatabase =
-      HashMap.identity();
+  final DatabaseSession _session;
 
-  /// Returns the [CrdtUser] for the given user ID.
-  ///
-  /// Will create a new [CrdtUser] if no user is found.
-  static CrdtUser getCached(
-    DatabaseSession session,
-    UuidValue uuidUserId,
-  ) =>
-      _cacheForSession(
-        session,
-      )[uuidUserId] ??
+  final Map<UuidValue, CrdtUser> _instances = {};
+
+  /// Returns the cached [CrdtUser] for the given user ID.
+  CrdtUser getCached(UuidValue uuidUserId) =>
+      _instances[uuidUserId] ??
       (throw StateError(
-        'User $uuidUserId not found in cache for this database session. '
+        'User $uuidUserId not found in cache. '
         'Ensure CrdtUserManager.getOrCreate() is called before getCached().',
       ));
 
-  /// Clears the in-memory user cache. Used when the database is reset (e.g. tests)
-  /// so [getOrCreate] loads fresh rows from the store.
-  static void clearCache() {
-    _instancesByDatabase.clear();
+  /// Clears the in-memory cache so state is reloaded from the store.
+  void clearCache() {
+    _instances.clear();
   }
 
   /// Returns the [CrdtUser] for the given user ID.
   ///
   /// Will create a new [CrdtUser] if no user is found.
-  static Future<CrdtUser> getOrCreate(
-    DatabaseSession session,
-    UuidValue uuidUserId,
-  ) async {
-    final cache = _cacheForSession(session);
-    return cache[uuidUserId] ??= await session.db.transaction(
-      (transaction) => _getOrCreate(session, uuidUserId, transaction),
+  Future<CrdtUser> getOrCreate(UuidValue uuidUserId) async {
+    return _instances[uuidUserId] ??= await _session.db.transaction(
+      (transaction) => _getOrCreate(uuidUserId, transaction),
     );
   }
 
-  static Map<UuidValue, CrdtUser> _cacheForSession(DatabaseSession session) {
-    return _instancesByDatabase.putIfAbsent(session.db, () => {});
-  }
-
-  static Future<CrdtUser> _getOrCreate(
-    DatabaseSession session,
+  Future<CrdtUser> _getOrCreate(
     UuidValue uuidUserId,
     Transaction transaction,
   ) async {
     var user = await CrdtUser.db.findFirstRow(
-      session,
+      _session,
       where: (t) => t.uuidUserId.equals(uuidUserId),
       include: CrdtUser.include(currentNode: CrdtNode.include()),
       transaction: transaction,
     );
 
-    // User must be created.
     user ??= await CrdtUser.db.insertRow(
-      session,
+      _session,
       CrdtUser(uuidUserId: uuidUserId),
       transaction: transaction,
     );
@@ -74,15 +55,14 @@ class CrdtUserManager {
       return user;
     }
 
-    // User has no current node and must be created.
     final currentNode = await CrdtNode.db.insertRow(
-      session,
+      _session,
       CrdtNode(userId: user.id!),
       transaction: transaction,
     );
 
     await CrdtUser.db.attachRow.currentNode(
-      session,
+      _session,
       user,
       currentNode,
       transaction: transaction,

@@ -1,12 +1,15 @@
+import 'dart:async';
+
 // The Database type is implemented here as a test-style proxy; some lints
 // flag internal Serverpod APIs used by generated code.
 // ignore_for_file: invalid_use_of_internal_member
 
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:uuid/uuid.dart';
 
 import '../crdt/merge.dart';
-import '../managers/user.dart';
+import '../crdt/sync.dart';
 import '../protocol/protocol.dart';
 import 'recorder.dart';
 import 'session.dart';
@@ -29,19 +32,45 @@ class CrdtDatabase implements Database {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-  }) : _recorder = CrdtMutationRecorder(
+    Caller? syncCaller,
+  }) : _syncTables = syncTables,
+       _syncCaller = syncCaller,
+       _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
          syncTables: syncTables,
        );
 
   final Database _delegate;
+  final List<Table> _syncTables;
+  final Caller? _syncCaller;
 
   final CrdtMutationRecorder _recorder;
+
+  late final CrdtSync _sync = CrdtSync(
+    syncTables: _syncTables,
+    serializationManager: serializationManager,
+  );
 
   /// Initializes the CRDT database.
   Future<void> initialize() async {
     await _recorder.initialize();
+  }
+
+  /// The hash describing the synchronized schema configured for this database.
+  String get syncTablesHash => _sync.currentSyncTablesHash;
+
+  /// Collects local CRDT changes after [lastSyncHlc].
+  Future<CrdtMergeSet> collectPendingChanges({
+    required Hlc lastSyncHlc,
+    UuidValue? userId,
+  }) async {
+    final effectiveUserId = await _requireUserId(userId);
+    return _sync.collectPendingChanges(
+      _delegate.session,
+      userId: effectiveUserId,
+      lastSyncHlc: lastSyncHlc,
+    );
   }
 
   /// Merges remote CRDT changes into the local database for the given user.
@@ -65,6 +94,74 @@ class CrdtDatabase implements Database {
       await _recorder.lockCurrentUser(tx);
       await _recorder.mergeChanges(mergeSet, tx);
     });
+  }
+
+  /// Pushes the local pending changes to the remote sync endpoint in one call.
+  Future<void> syncOnce({
+    Hlc? lastSyncHlc,
+    UuidValue? userId,
+    Caller? syncCaller,
+  }) async {
+    final effectiveUserId = await _requireUserId(userId);
+    final effectiveLastSyncHlc = lastSyncHlc ?? await _zeroSyncHlc(effectiveUserId);
+    final mergeSet = await collectPendingChanges(
+      lastSyncHlc: effectiveLastSyncHlc,
+      userId: effectiveUserId,
+    );
+    if (mergeSet.isEmpty) return;
+
+    await _requireSyncCaller(syncCaller).callServerEndpoint<void>(
+      'serverpod_offline_sync.crdtSync',
+      'syncOnce',
+      {
+        'syncTablesHash': syncTablesHash,
+        'changes': mergeSet,
+      },
+    );
+  }
+
+  /// Performs a bidirectional sync against the remote streaming endpoint.
+  Future<void> syncContinuously({
+    Hlc? lastSyncHlc,
+    UuidValue? userId,
+    Caller? syncCaller,
+  }) async {
+    final effectiveUserId = await _requireUserId(userId);
+    final effectiveLastSyncHlc = lastSyncHlc ?? await _zeroSyncHlc(effectiveUserId);
+    final pendingChanges = await collectPendingChanges(
+      lastSyncHlc: effectiveLastSyncHlc,
+      userId: effectiveUserId,
+    );
+    final caller = _requireSyncCaller(syncCaller);
+    final remoteStream =
+        caller.callStreamingServerEndpoint<CrdtMergeChange, CrdtMergeChange?>(
+              'serverpod_offline_sync.crdtSync',
+              'syncStream',
+              {
+                'syncTablesHash': syncTablesHash,
+                'lastSyncHlc': effectiveLastSyncHlc,
+              },
+              {'changes': Stream<CrdtMergeChange?>.value(null)},
+            )
+            as Stream<CrdtMergeChange?>;
+
+    final remoteChangesFuture = _collectRemoteChanges(remoteStream);
+
+    final remoteChanges = await remoteChangesFuture;
+    if (remoteChanges != null && !remoteChanges.isEmpty) {
+      await mergeChanges(remoteChanges, userId: effectiveUserId);
+    }
+
+    if (pendingChanges.isEmpty) return;
+
+    await caller.callServerEndpoint<void>(
+      'serverpod_offline_sync.crdtSync',
+      'syncOnce',
+      {
+        'syncTablesHash': syncTablesHash,
+        'changes': pendingChanges,
+      },
+    );
   }
 
   @override
@@ -433,7 +530,7 @@ class CrdtDatabase implements Database {
     TransactionSettings? settings,
   }) async {
     // Ensure that the user exists with a node before starting the transaction.
-    final user = await CrdtUserManager.getOrCreate(_delegate.session, userId);
+    final user = await _recorder.getOrCreateUser(userId);
 
     return transaction<R>(
       (tx) async {
@@ -445,6 +542,63 @@ class CrdtDatabase implements Database {
         }
       },
       settings: settings,
+    );
+  }
+
+  Future<UuidValue> _requireUserId(UuidValue? userId) async {
+    return userId ??
+        _recorder.persistentUserId ??
+        (throw StateError(
+          'A user ID is required when syncing without a persistent user.',
+        ));
+  }
+
+  Caller _requireSyncCaller(Caller? syncCaller) {
+    return syncCaller ??
+        _syncCaller ??
+        (throw StateError(
+          'A sync caller is required to use remote sync helpers. '
+          'Pass syncCaller when creating the CRDT database session or when '
+          'calling syncOnce()/syncContinuously().',
+        ));
+  }
+
+  Future<Hlc> _zeroSyncHlc(UuidValue userId) async {
+    final user = await _recorder.getOrCreateUser(userId);
+    return Hlc.zero(user.currentNode!.uuidNodeId);
+  }
+
+  Future<CrdtMergeSet?> _collectRemoteChanges(
+    Stream<CrdtMergeChange?> remoteStream,
+  ) async {
+    final inserts = <CrdtMergeInsert>[];
+    final updates = <CrdtMergeUpdate>[];
+    final deletes = <CrdtMergeDelete>[];
+    var receivedStopSentinel = false;
+
+    await for (final change in remoteStream) {
+      switch (change) {
+        case null:
+          receivedStopSentinel = true;
+        case final CrdtMergeInsert insert:
+          inserts.add(insert);
+          continue;
+        case final CrdtMergeUpdate update:
+          updates.add(update);
+          continue;
+        case final CrdtMergeDelete delete:
+          deletes.add(delete);
+          continue;
+      }
+      break;
+    }
+
+    if (!receivedStopSentinel) return null;
+
+    return CrdtMergeSet(
+      inserts: inserts,
+      updates: updates,
+      deletes: deletes,
     );
   }
 
