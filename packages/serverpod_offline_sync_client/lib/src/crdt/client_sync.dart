@@ -16,6 +16,8 @@ class CrdtSyncClient {
   final Caller _caller;
 
   /// Pushes local pending changes for [session] to the remote peer once.
+  ///
+  /// The [session] must be wrapped in a [CrdtDatabaseSession].
   Future<void> syncOnce(
     DatabaseSession session, {
     required UuidValue otherNodeId,
@@ -50,6 +52,8 @@ class CrdtSyncClient {
   }
 
   /// Keeps synchronizing [session] with the remote peer until the stream closes.
+  ///
+  /// The [session] must be wrapped in a [CrdtDatabaseSession].
   Future<void> syncContinuously(
     DatabaseSession session, {
     required UuidValue otherNodeId,

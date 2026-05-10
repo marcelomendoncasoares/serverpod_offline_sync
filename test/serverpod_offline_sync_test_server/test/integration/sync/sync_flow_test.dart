@@ -14,6 +14,11 @@ import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
 
+// The test drives two full null-delimited sync batches: one to bootstrap the
+// shared row from server to client, and one to exchange the subsequent
+// client/server changes while proving the stream remains alive.
+const streamTestCycles = 2;
+
 void main() {
   initTestClientSession(withPersistentUser: true);
 
@@ -283,7 +288,7 @@ class _DirectSyncCaller extends Caller {
       );
       var cycles = 0;
 
-      while (cycles < 2) {
+      while (cycles < streamTestCycles) {
         final pendingChanges = await sync.collectPendingChanges(
           _serverSession,
           userId: _userId,
