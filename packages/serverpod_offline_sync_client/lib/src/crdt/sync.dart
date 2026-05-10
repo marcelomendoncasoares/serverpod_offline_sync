@@ -165,7 +165,7 @@ class CrdtSync {
         );
       }
 
-      final cycleCheckpoint = _maxHlc(pendingChanges.maxHlc, mergeSet.maxHlc);
+      final cycleCheckpoint = maxHlc(pendingChanges.maxHlc, mergeSet.maxHlc);
       if (cycleCheckpoint != null) {
         await _recordSyncCheckpoint(
           session,
@@ -225,12 +225,6 @@ class CrdtSync {
     final crdtDb = CrdtDatabase(db, syncTables: _syncTables);
     await crdtDb.initialize();
     await crdtDb.recordSyncCheckpoint(otherNodeId, checkpoint, userId: userId);
-  }
-
-  Hlc? _maxHlc(Hlc? left, Hlc? right) {
-    if (left == null) return right;
-    if (right == null) return left;
-    return left > right ? left : right;
   }
 
   Future<CrdtMergeSet?> _collectMergeSet(

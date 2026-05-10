@@ -7,7 +7,6 @@ import 'package:path/path.dart' as p;
 
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as client;
 import 'package:test/test.dart';
@@ -192,7 +191,7 @@ void main() {
           contains('client-surname'),
         );
 
-        _addMergeSetToStream(serverChanges, pendingChanges);
+        addMergeSetWithSentinel(serverChanges.add, pendingChanges);
         final streamedServerChanges = await _collectMergeSet(serverStream);
         await clientCrdtSession.db.mergeChanges(
           streamedServerChanges!,
@@ -310,7 +309,7 @@ class _DirectSyncCaller extends Caller {
           syncTablesHash: syncTablesHash,
           changes: incomingChanges,
         );
-        final cycleCheckpoint = _maxHlc(
+        final cycleCheckpoint = maxHlc(
           pendingChanges.maxHlc,
           incomingChanges.maxHlc,
         );
@@ -357,22 +356,6 @@ Future<CrdtMergeSet?> _collectMergeSet(
     updates: updates,
     deletes: deletes,
   );
-}
-
-void _addMergeSetToStream(
-  StreamController<CrdtMergeChange?> controller,
-  CrdtMergeSet mergeSet,
-) {
-  mergeSet.inserts.forEach(controller.add);
-  mergeSet.updates.forEach(controller.add);
-  mergeSet.deletes.forEach(controller.add);
-  controller.add(null);
-}
-
-Hlc? _maxHlc(Hlc? left, Hlc? right) {
-  if (left == null) return right;
-  if (right == null) return left;
-  return left > right ? left : right;
 }
 
 class _NoopServerpodClient extends ServerpodClientShared {

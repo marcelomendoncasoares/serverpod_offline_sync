@@ -86,7 +86,7 @@ class CrdtSyncClient {
           await crdtDb.mergeChanges(remoteBatch, userId: userId);
         }
 
-        final syncCheckpoint = _maxHlc(
+        final syncCheckpoint = maxHlc(
           pendingAcknowledgedLocalHlc,
           remoteBatch.maxHlc,
         );
@@ -98,7 +98,7 @@ class CrdtSyncClient {
           );
         }
 
-        _addMergeSetToStream(outboundChanges, pendingLocalChanges);
+        addMergeSetWithSentinel(outboundChanges.add, pendingLocalChanges);
         pendingAcknowledgedLocalHlc = pendingLocalChanges.maxHlc;
         pendingLocalChanges = await crdtDb.collectPendingChanges(
           otherNodeId: otherNodeId,
@@ -136,22 +136,6 @@ class CrdtSyncClient {
           deletes.add(delete);
       }
     }
-  }
-
-  void _addMergeSetToStream(
-    StreamController<CrdtMergeChange?> controller,
-    CrdtMergeSet mergeSet,
-  ) {
-    mergeSet.inserts.forEach(controller.add);
-    mergeSet.updates.forEach(controller.add);
-    mergeSet.deletes.forEach(controller.add);
-    controller.add(null);
-  }
-
-  Hlc? _maxHlc(Hlc? left, Hlc? right) {
-    if (left == null) return right;
-    if (right == null) return left;
-    return left > right ? left : right;
   }
 }
 

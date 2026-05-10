@@ -10,6 +10,24 @@ typedef CrdtMergeMetadataLookup = ({
   Map<String, Set<String>> columnNamesByTable,
 });
 
+/// Returns the later HLC between [left] and [right].
+Hlc? maxHlc(Hlc? left, Hlc? right) {
+  if (left == null) return right;
+  if (right == null) return left;
+  return left > right ? left : right;
+}
+
+/// Adds all merge changes from [mergeSet] followed by a null sentinel.
+void addMergeSetWithSentinel(
+  void Function(CrdtMergeChange?) add,
+  CrdtMergeSet mergeSet,
+) {
+  mergeSet.inserts.forEach(add);
+  mergeSet.updates.forEach(add);
+  mergeSet.deletes.forEach(add);
+  add(null);
+}
+
 /// CRDT merge helpers built on top of the generated Serverpod models.
 extension CrdtMergeSetExtension on CrdtMergeSet {
   /// Whether this merge set has no changes.
