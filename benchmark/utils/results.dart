@@ -26,7 +26,8 @@ void printPerformanceImpact(
   print('  Time: $baselineDelay --> $crdtDelay ($runDelay)');
   print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
   print(
-    '  Delay per ${benchmarkResults.operation.name}: $runDelayPerOperation',
+    '  Delay per ${benchmarkResults.operation.delayUnitLabel}: '
+    '$runDelayPerOperation',
   );
   if (runningInCI) print('```');
 }
