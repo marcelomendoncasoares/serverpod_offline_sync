@@ -4,6 +4,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -35,6 +36,7 @@ void main() {
 
   late TestServerpod<_NoopInternalTestEndpoints> testServerpod;
   late String previousWorkingDirectory;
+  late String testServerPackagePath;
   late Session serverSession;
   late CrdtDatabaseSession serverCrdtSession;
   late CrdtDatabaseSession clientCrdtSession;
@@ -43,10 +45,9 @@ void main() {
   late UuidValue serverNodeId;
 
   setUpAll(() async {
+    testServerPackagePath = _findTestServerPackagePath();
     previousWorkingDirectory = Directory.current.path;
-    Directory.current = Directory(
-      '/home/runner/work/serverpod_offline_sync/serverpod_offline_sync/test/serverpod_offline_sync_test_server',
-    );
+    Directory.current = Directory(testServerPackagePath);
     testServerpod = TestServerpod<_NoopInternalTestEndpoints>(
       testEndpoints: _NoopInternalTestEndpoints(),
       endpoints: generated.Endpoints(),
@@ -62,9 +63,7 @@ void main() {
   });
 
   tearDownAll(() async {
-    Directory.current = Directory(
-      '/home/runner/work/serverpod_offline_sync/serverpod_offline_sync/test/serverpod_offline_sync_test_server',
-    );
+    Directory.current = Directory(testServerPackagePath);
     await testServerpod.shutdown();
     Directory.current = previousWorkingDirectory;
   });
@@ -308,6 +307,27 @@ Future<void> _clearServerTables(Session session) async {
     await session.db.unsafeExecute('DELETE FROM "$tableName"');
   }
   await session.db.unsafeExecute('PRAGMA foreign_keys = ON');
+}
+
+String _findTestServerPackagePath() {
+  final candidates = [
+    p.normalize(
+      p.join(
+        Directory.current.path,
+        'test',
+        'serverpod_offline_sync_test_server',
+      ),
+    ),
+    Directory.current.path,
+  ];
+
+  for (final candidate in candidates) {
+    if (File(p.join(candidate, 'config', 'test.yaml')).existsSync()) {
+      return candidate;
+    }
+  }
+
+  throw StateError('Could not locate the test server package directory.');
 }
 
 CrdtMergeSet _toClientMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(

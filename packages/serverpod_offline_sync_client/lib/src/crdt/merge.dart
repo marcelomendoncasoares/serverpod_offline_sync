@@ -24,6 +24,10 @@ void addMergeSetWithSentinel(
 }
 
 /// Builds a [CrdtMergeSet] from the provided change lists.
+///
+/// When [unmodifiable] is `true`, the change lists are wrapped in unmodifiable
+/// views before constructing the merge set so downstream consumers cannot
+/// mutate the collected batch contents.
 CrdtMergeSet buildMergeSet({
   required List<CrdtMergeInsert> inserts,
   required List<CrdtMergeUpdate> updates,
