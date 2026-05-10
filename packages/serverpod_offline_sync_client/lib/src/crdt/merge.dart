@@ -37,18 +37,10 @@ CrdtMergeSet buildMergeSet({
   required List<CrdtMergeDelete> deletes,
   bool unmodifiable = false,
 }) {
-  if (!unmodifiable) {
-    return CrdtMergeSet(
-      inserts: inserts,
-      updates: updates,
-      deletes: deletes,
-    );
-  }
-
   return CrdtMergeSet(
-    inserts: List<CrdtMergeInsert>.unmodifiable(inserts),
-    updates: List<CrdtMergeUpdate>.unmodifiable(updates),
-    deletes: List<CrdtMergeDelete>.unmodifiable(deletes),
+    inserts: unmodifiable ? List<CrdtMergeInsert>.unmodifiable(inserts) : inserts,
+    updates: unmodifiable ? List<CrdtMergeUpdate>.unmodifiable(updates) : updates,
+    deletes: unmodifiable ? List<CrdtMergeDelete>.unmodifiable(deletes) : deletes,
   );
 }
 
