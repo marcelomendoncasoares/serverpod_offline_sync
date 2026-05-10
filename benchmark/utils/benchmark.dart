@@ -13,15 +13,6 @@ import 'tables.dart';
 
 enum Operation { select, insert, update, delete }
 
-extension OperationDelayLabel on Operation {
-  String get delayUnitLabel => switch (this) {
-    Operation.select => 'selected row',
-    Operation.insert => 'inserted row',
-    Operation.update => 'updated row',
-    Operation.delete => 'deleted row',
-  };
-}
-
 enum StorageStage { insert, update, delete }
 
 class StorageBenchmarkRun {

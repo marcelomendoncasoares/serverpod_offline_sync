@@ -4,16 +4,16 @@ import 'benchmark.dart';
 import 'conversion.dart';
 
 void printPerformanceImpact(
-  BenchmarkResults benchmarkResults, {
+  BenchmarkResults results, {
   required int rowCount,
   bool runningInCI = false,
 }) {
   print(
     '${runningInCI ? '```' : ''}'
-    '\n📊 ${benchmarkResults.operation.name.toUpperCase()} performance impact:',
+    '\n📊 ${results.operation.name.toUpperCase()} performance impact:',
   );
-  final baselineTime = benchmarkResults.baseline;
-  final crdtTime = benchmarkResults.crdt;
+  final baselineTime = results.baseline;
+  final crdtTime = results.crdt;
 
   final runDelayUs = crdtTime - baselineTime;
   final slowdown = runDelayUs / baselineTime * 100;
@@ -25,10 +25,9 @@ void printPerformanceImpact(
 
   print('  Time: $baselineDelay --> $crdtDelay ($runDelay)');
   print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
-  print(
-    '  Delay per ${benchmarkResults.operation.delayUnitLabel}: '
-    '$runDelayPerOperation',
-  );
+  if (results.operation != Operation.select) {
+    print('  Delay per ${results.operation.name}: $runDelayPerOperation');
+  }
   if (runningInCI) print('```');
 }
 
