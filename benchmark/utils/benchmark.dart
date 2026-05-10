@@ -11,7 +11,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 import 'tables.dart';
 
-enum Operation { insert, update, delete }
+enum Operation { select, insert, update, delete }
 
 enum StorageStage { insert, update, delete }
 
@@ -175,6 +175,14 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     }
   }
 
+  Future<List<Types>> _selectTypes() async {
+    final rows = await Types.db.find(crdtEnabled ? _crdtSession! : _plainSession);
+    if (rows.length != rowCount) {
+      throw Exception('Rows count is ${rows.length} but expected $rowCount.');
+    }
+    return rows;
+  }
+
   Future<void> _bootstrapDatabase() async {
     await clearUserTables(_plainSession);
     final wrapped = CrdtDatabaseSession.wraps(
@@ -212,6 +220,9 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       _seededRows = [];
     }
     switch (operation) {
+      case Operation.select:
+        _seededRows = await _insertTypes(rowCount);
+        return;
       case Operation.insert:
         return;
       case Operation.update:
@@ -297,6 +308,9 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   @override
   Future<void> run() async {
     switch (operation) {
+      case Operation.select:
+        _lastRowsCount = (await _selectTypes()).length;
+        return;
       case Operation.insert:
         _seededRows = await _insertTypes(rowCount);
         _lastRowsCount = _seededRows.length;
