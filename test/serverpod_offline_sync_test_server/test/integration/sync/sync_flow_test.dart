@@ -69,7 +69,7 @@ void main() {
   });
 
   setUp(() async {
-    serverSession = _authenticatedSession(testServerpod);
+    serverSession = _createAuthenticatedSession(testServerpod);
     await _clearServerTables(serverSession);
 
     serverCrdtSession = CrdtDatabaseSession.wraps(
@@ -140,7 +140,7 @@ void main() {
         final serverChanges = StreamController<CrdtMergeChange?>();
         final serverStream = StreamIterator(
           syncEndpoint.syncStream(
-            _authenticatedSession(testServerpod),
+            _createAuthenticatedSession(testServerpod),
             syncTablesHash: CrdtSync.instance.currentSyncTablesHash,
             otherNodeId: clientNodeId,
             changes: serverChanges.stream,
@@ -281,7 +281,7 @@ Future<List<String>> _serverPersonState(
   ];
 }
 
-Session _authenticatedSession(TestServerpod testServerpod) {
+Session _createAuthenticatedSession(TestServerpod testServerpod) {
   final session =
       testServerpod.createSession(
         rollbackDatabase: RollbackDatabase.disabled,
@@ -327,7 +327,10 @@ String _findTestServerPackagePath() {
     }
   }
 
-  throw StateError('Could not locate the test server package directory.');
+  throw StateError(
+    'Could not locate the test server package directory. '
+    'Checked: ${candidates.join(', ')}',
+  );
 }
 
 CrdtMergeSet _toClientMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
@@ -396,7 +399,7 @@ class _EndpointSyncCaller extends Caller {
   final TestServerpod _testServerpod;
   final CrdtSyncEndpoint _endpoint;
 
-  Session _buildSession() => _authenticatedSession(_testServerpod);
+  Session _buildSession() => _createAuthenticatedSession(_testServerpod);
 
   @override
   Future<T> callServerEndpoint<T>(

@@ -25,7 +25,7 @@ void addMergeSetWithSentinel(
 
 /// Builds a [CrdtMergeSet] from the provided change lists.
 ///
-/// When [unmodifiable] is `true`, the change lists are wrapped in unmodifiable
+/// When [unmodifiable] is `true`, the input lists are wrapped in unmodifiable
 /// views before constructing the merge set so downstream consumers cannot
 /// mutate the collected batch contents. Use it for collected stream batches or
 /// other handoff points where the merge set should be treated as immutable
