@@ -352,7 +352,7 @@ CrdtMergeSet _toServerMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
 );
 
 TableRow _toClientRow(String tableName, dynamic row) {
-  final json = _rowJson(tableName, row);
+  final json = _rowJson(row);
   return switch (tableName) {
     'address' => client.Address.fromJson(json),
     'person' => client.Person.fromJson(json),
@@ -363,7 +363,7 @@ TableRow _toClientRow(String tableName, dynamic row) {
 }
 
 TableRow _toServerRow(String tableName, dynamic row) {
-  final json = _rowJson(tableName, row);
+  final json = _rowJson(row);
   return switch (tableName) {
     'address' => generated.Address.fromJson(json),
     'person' => generated.Person.fromJson(json),
@@ -373,19 +373,18 @@ TableRow _toServerRow(String tableName, dynamic row) {
   };
 }
 
-Map<String, dynamic> _rowJson(String tableName, dynamic row) {
-  final json = switch ((tableName, row)) {
-    ('address', final client.Address value) => value.toJson(),
-    ('address', final generated.Address value) => value.toJson(),
-    ('person', final client.Person value) => value.toJson(),
-    ('person', final generated.Person value) => value.toJson(),
-    ('types', final client.Types value) => value.toJson(),
-    ('types', final generated.Types value) => value.toJson(),
-    ('unique', final client.Unique value) => value.toJson(),
-    ('unique', final generated.Unique value) => value.toJson(),
+Map<String, dynamic> _rowJson(dynamic row) {
+  final json = switch (row) {
+    final client.Address value => value.toJson(),
+    final generated.Address value => value.toJson(),
+    final client.Person value => value.toJson(),
+    final generated.Person value => value.toJson(),
+    final client.Types value => value.toJson(),
+    final generated.Types value => value.toJson(),
+    final client.Unique value => value.toJson(),
+    final generated.Unique value => value.toJson(),
     _ => throw StateError(
-      'Unsupported sync row payload for table $tableName: '
-      '${row.runtimeType}.',
+      'Unsupported sync row payload type: ${row.runtimeType}.',
     ),
   };
 
