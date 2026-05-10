@@ -81,15 +81,14 @@ class CrdtSyncClient {
               )
               as Stream<CrdtMergeChange?>;
 
-      await for (final remoteBatch in _remoteMergeBatches(remoteStream)) {
+      await for (final remoteBatch in collectMergeSetBatches(remoteStream)) {
         if (!remoteBatch.isEmpty) {
           await crdtDb.mergeChanges(remoteBatch, userId: userId);
         }
 
-        final syncCheckpoint = maxHlc(
-          pendingAcknowledgedLocalHlc,
-          remoteBatch.maxHlc,
-        );
+        final syncCheckpoint =
+            pendingAcknowledgedLocalHlc?.maxBetween(remoteBatch.maxHlc) ??
+            remoteBatch.maxHlc;
         if (syncCheckpoint != null) {
           await crdtDb.recordSyncCheckpoint(
             otherNodeId,
@@ -107,34 +106,6 @@ class CrdtSyncClient {
       }
     } finally {
       await outboundChanges.close();
-    }
-  }
-
-  Stream<CrdtMergeSet> _remoteMergeBatches(
-    Stream<CrdtMergeChange?> remoteStream,
-  ) async* {
-    final inserts = <CrdtMergeInsert>[];
-    final updates = <CrdtMergeUpdate>[];
-    final deletes = <CrdtMergeDelete>[];
-
-    await for (final change in remoteStream) {
-      switch (change) {
-        case null:
-          yield CrdtMergeSet(
-            inserts: List<CrdtMergeInsert>.unmodifiable(inserts),
-            updates: List<CrdtMergeUpdate>.unmodifiable(updates),
-            deletes: List<CrdtMergeDelete>.unmodifiable(deletes),
-          );
-          inserts.clear();
-          updates.clear();
-          deletes.clear();
-        case final CrdtMergeInsert insert:
-          inserts.add(insert);
-        case final CrdtMergeUpdate update:
-          updates.add(update);
-        case final CrdtMergeDelete delete:
-          deletes.add(delete);
-      }
     }
   }
 }

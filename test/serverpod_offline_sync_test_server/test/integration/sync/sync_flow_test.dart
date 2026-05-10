@@ -1,77 +1,109 @@
-// Uses serverpod_database types already available transitively from the test setup.
+// Uses serverpod_database and serverpod_test types already available transitively from the test setup.
 // ignore_for_file: depend_on_referenced_packages
 
 import 'dart:async';
 import 'dart:io';
-import 'package:path/path.dart' as p;
 
-import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as client;
+import 'package:serverpod_offline_sync_test_server/src/generated/endpoints.dart'
+    as generated;
+import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
+    as generated;
+import 'package:serverpod_test/serverpod_test.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
 
-// The test drives two full null-delimited sync batches: one to bootstrap the
-// shared row from server to client, and one to exchange the subsequent
-// client/server changes while proving the stream remains alive.
-const streamTestCycles = 2;
-
 void main() {
   initTestClientSession(withPersistentUser: true);
 
-  final syncTables = [
+  final clientSyncTables = [
     client.Address.t,
     client.Person.t,
     client.Types.t,
     client.Unique.t,
   ];
+  final serverSyncTables = [
+    generated.Address.t,
+    generated.Person.t,
+    generated.Types.t,
+    generated.Unique.t,
+  ];
 
-  late Directory serverDirectory;
-  late DatabaseSession serverDataSession;
+  late TestServerpod<_NoopInternalTestEndpoints> testServerpod;
+  late String previousWorkingDirectory;
+  late Session serverSession;
   late CrdtDatabaseSession serverCrdtSession;
   late CrdtDatabaseSession clientCrdtSession;
   late CrdtSyncClient clientSync;
+  late CrdtSyncEndpoint syncEndpoint;
   late UuidValue serverNodeId;
 
-  setUp(() async {
-    serverDirectory = await Directory.systemTemp.createTemp('crdt_sync_server_');
-    serverDataSession = await testClient.createSession(
-      p.join(serverDirectory.path, 'server.db'),
-      isDebugMode: true,
+  setUpAll(() async {
+    previousWorkingDirectory = Directory.current.path;
+    Directory.current = Directory(
+      '/home/runner/work/serverpod_offline_sync/serverpod_offline_sync/test/serverpod_offline_sync_test_server',
     );
+    testServerpod = TestServerpod<_NoopInternalTestEndpoints>(
+      testEndpoints: _NoopInternalTestEndpoints(),
+      endpoints: generated.Endpoints(),
+      serializationManager: generated.Protocol(),
+      isDatabaseEnabled: true,
+      serverpodLoggingMode: ServerpodLoggingMode.normal,
+      runMode: ServerpodRunMode.test,
+      applyMigrations: true,
+      testServerOutputMode: TestServerOutputMode.normal,
+    );
+    await testServerpod.start();
+    Directory.current = previousWorkingDirectory;
+  });
+
+  tearDownAll(() async {
+    Directory.current = Directory(
+      '/home/runner/work/serverpod_offline_sync/serverpod_offline_sync/test/serverpod_offline_sync_test_server',
+    );
+    await testServerpod.shutdown();
+    Directory.current = previousWorkingDirectory;
+  });
+
+  setUp(() async {
+    serverSession = _authenticatedSession(testServerpod);
+    await _clearServerTables(serverSession);
+
     serverCrdtSession = CrdtDatabaseSession.wraps(
-      serverDataSession,
-      syncTables: syncTables,
+      serverSession,
+      syncTables: serverSyncTables,
     );
     await serverCrdtSession.db.initialize();
 
     clientCrdtSession = CrdtDatabaseSession.wraps(
       testSession,
-      syncTables: syncTables,
+      syncTables: clientSyncTables,
       persistentUserId: testCrdtUserId,
     );
     await clientCrdtSession.db.initialize();
-    serverNodeId = await serverCrdtSession.db.currentNodeId(userId: testCrdtUserId);
-    clientSync = CrdtSyncClient(_DirectSyncCaller(serverCrdtSession, testCrdtUserId));
 
     CrdtSync.initialize(
-      syncTables: syncTables,
-      serializationManager: serverDataSession.db.serializationManager,
+      syncTables: serverSyncTables,
+      serializationManager: serverSession.db.serializationManager,
     );
+    syncEndpoint = CrdtSyncEndpoint();
+    clientSync = CrdtSyncClient(
+      _EndpointSyncCaller(testServerpod, syncEndpoint),
+    );
+    serverNodeId = await serverCrdtSession.db.currentNodeId(userId: testCrdtUserId);
   });
 
   tearDown(() async {
-    await (serverDataSession as dynamic).close();
-    if (serverDirectory.existsSync()) {
-      await serverDirectory.delete(recursive: true);
-    }
+    await serverSession.close();
   });
 
   group('Given one-way sync helpers', () {
     test(
-      'when crdtDb syncOnce is called then the server merges the client pending changes.',
+      'when client syncOnce is called then the server merges the client pending changes.',
       () async {
         final personId = const Uuid().v7obj();
 
@@ -88,8 +120,8 @@ void main() {
           otherNodeId: serverNodeId,
         );
 
-        final serverPerson = await client.Person.db.findById(
-          serverDataSession,
+        final serverPerson = await generated.Person.db.findById(
+          serverCrdtSession,
           personId,
         );
         expect(serverPerson, isNotNull);
@@ -108,19 +140,18 @@ void main() {
         );
         final serverChanges = StreamController<CrdtMergeChange?>();
         final serverStream = StreamIterator(
-          CrdtSync.instance.syncStream(
-            serverCrdtSession,
-            userId: testCrdtUserId,
-            otherNodeId: clientNodeId,
+          syncEndpoint.syncStream(
+            _authenticatedSession(testServerpod),
             syncTablesHash: CrdtSync.instance.currentSyncTablesHash,
+            otherNodeId: clientNodeId,
             changes: serverChanges.stream,
           ),
         );
 
         await serverCrdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
-          await client.Person.db.insertRow(
+          await generated.Person.db.insertRow(
             serverCrdtSession,
-            client.Person(
+            generated.Person(
               id: sharedPersonId,
               name: 'base-name',
               surname: 'base-surname',
@@ -129,9 +160,11 @@ void main() {
           );
         });
 
-        final initialServerChanges = await _collectMergeSet(serverStream);
+        final initialServerChanges = await collectMergeSetFromIterator(
+          serverStream,
+        );
         await clientCrdtSession.db.mergeChanges(
-          initialServerChanges!,
+          _toClientMergeSet(initialServerChanges!),
           userId: testCrdtUserId,
         );
 
@@ -155,9 +188,9 @@ void main() {
         });
 
         await serverCrdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
-          await client.Person.db.updateRow(
+          await generated.Person.db.updateRow(
             serverCrdtSession,
-            client.Person(
+            generated.Person(
               id: sharedPersonId,
               name: 'server-name',
               surname: 'base-surname',
@@ -165,9 +198,9 @@ void main() {
             columns: (t) => [t.name],
             transaction: tx,
           );
-          await client.Person.db.insertRow(
+          await generated.Person.db.insertRow(
             serverCrdtSession,
-            client.Person(id: const Uuid().v7obj(), name: 'server-only'),
+            generated.Person(id: const Uuid().v7obj(), name: 'server-only'),
             transaction: tx,
           );
         });
@@ -191,10 +224,12 @@ void main() {
           contains('client-surname'),
         );
 
-        addMergeSetWithSentinel(serverChanges.add, pendingChanges);
-        final streamedServerChanges = await _collectMergeSet(serverStream);
+        addMergeSetWithSentinel(serverChanges.add, _toServerMergeSet(pendingChanges));
+        final streamedServerChanges = await collectMergeSetFromIterator(
+          serverStream,
+        );
         await clientCrdtSession.db.mergeChanges(
-          streamedServerChanges!,
+          _toClientMergeSet(streamedServerChanges!),
           userId: testCrdtUserId,
         );
         await serverStream.cancel();
@@ -203,8 +238,8 @@ void main() {
         final clientState = await _personState(
           () => client.Person.db.find(testSession, orderBy: (t) => t.id),
         );
-        final serverState = await _personState(
-          () => client.Person.db.find(serverDataSession, orderBy: (t) => t.id),
+        final serverState = await _serverPersonState(
+          () => generated.Person.db.find(serverCrdtSession, orderBy: (t) => t.id),
         );
 
         expect(clientState, serverState);
@@ -238,11 +273,91 @@ Future<List<String>> _personState(
   ];
 }
 
-class _DirectSyncCaller extends Caller {
-  _DirectSyncCaller(this._serverSession, this._userId) : super(_NoopServerpodClient());
+Future<List<String>> _serverPersonState(
+  Future<List<generated.Person>> Function() loadRows,
+) async {
+  final rows = await loadRows();
+  return [
+    for (final row in rows) '${row.id}:${row.name}:${row.surname ?? ''}',
+  ];
+}
 
-  final DatabaseSession _serverSession;
-  final UuidValue _userId;
+Session _authenticatedSession(TestServerpod testServerpod) {
+  final session =
+      testServerpod.createSession(
+        rollbackDatabase: RollbackDatabase.disabled,
+      )..updateAuthenticated(
+        AuthenticationInfo(
+          testCrdtUserId.toString(),
+          <Scope>{},
+          authId: const Uuid().v4(),
+        ),
+      );
+  return session;
+}
+
+Future<void> _clearServerTables(Session session) async {
+  await session.db.unsafeExecute('PRAGMA foreign_keys = OFF');
+  final result = await session.db.unsafeQuery('''
+    SELECT name
+    FROM sqlite_master
+    WHERE (type = 'table') AND (name NOT LIKE 'serverpod_%')
+  ''');
+  for (final row in result) {
+    final tableName = row[0] as String;
+    await session.db.unsafeExecute('DELETE FROM "$tableName"');
+  }
+  await session.db.unsafeExecute('PRAGMA foreign_keys = ON');
+}
+
+CrdtMergeSet _toClientMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
+  inserts: [
+    for (final insert in mergeSet.inserts)
+      insert.copyWith(data: _toClientRow(insert.tableName, insert.data)),
+  ],
+  updates: mergeSet.updates,
+  deletes: mergeSet.deletes,
+);
+
+CrdtMergeSet _toServerMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
+  inserts: [
+    for (final insert in mergeSet.inserts)
+      insert.copyWith(data: _toServerRow(insert.tableName, insert.data)),
+  ],
+  updates: mergeSet.updates,
+  deletes: mergeSet.deletes,
+);
+
+TableRow _toClientRow(String tableName, dynamic row) {
+  final json = Map<String, dynamic>.from((row as dynamic).toJson() as Map);
+  return switch (tableName) {
+    'address' => client.Address.fromJson(json),
+    'person' => client.Person.fromJson(json),
+    'types' => client.Types.fromJson(json),
+    'unique' => client.Unique.fromJson(json),
+    _ => throw StateError('Unsupported client sync row table: $tableName'),
+  };
+}
+
+TableRow _toServerRow(String tableName, dynamic row) {
+  final json = Map<String, dynamic>.from((row as dynamic).toJson() as Map);
+  return switch (tableName) {
+    'address' => generated.Address.fromJson(json),
+    'person' => generated.Person.fromJson(json),
+    'types' => generated.Types.fromJson(json),
+    'unique' => generated.Unique.fromJson(json),
+    _ => throw StateError('Unsupported server sync row table: $tableName'),
+  };
+}
+
+class _EndpointSyncCaller extends Caller {
+  _EndpointSyncCaller(this._testServerpod, this._endpoint)
+    : super(_NoopServerpodClient());
+
+  final TestServerpod _testServerpod;
+  final CrdtSyncEndpoint _endpoint;
+
+  Session _buildSession() => _authenticatedSession(_testServerpod);
 
   @override
   Future<T> callServerEndpoint<T>(
@@ -255,13 +370,17 @@ class _DirectSyncCaller extends Caller {
       throw UnsupportedError('Unsupported sync call: $endpoint.$method');
     }
 
-    await CrdtSync.instance.syncOnce(
-      _serverSession,
-      userId: _userId,
-      otherNodeId: args['otherNodeId'] as UuidValue,
-      syncTablesHash: args['syncTablesHash'] as String,
-      changes: args['changes'] as CrdtMergeSet,
-    );
+    final session = _buildSession();
+    try {
+      await _endpoint.syncOnce(
+        session,
+        syncTablesHash: args['syncTablesHash'] as String,
+        otherNodeId: args['otherNodeId'] as UuidValue,
+        changes: _toServerMergeSet(args['changes'] as CrdtMergeSet),
+      );
+    } finally {
+      await session.close();
+    }
 
     return null as T;
   }
@@ -278,84 +397,51 @@ class _DirectSyncCaller extends Caller {
       throw UnsupportedError('Unsupported sync stream: $endpoint.$method');
     }
 
+    final session = _buildSession();
     return (() async* {
-      final sync = CrdtSync.instance;
-      final syncTablesHash = args['syncTablesHash'] as String;
-      final otherNodeId = args['otherNodeId'] as UuidValue;
-      final incomingStream = StreamIterator(
-        streams['changes']!.cast<CrdtMergeChange?>(),
-      );
-      var cycles = 0;
-
-      while (cycles < streamTestCycles) {
-        final pendingChanges = await sync.collectPendingChanges(
-          _serverSession,
-          userId: _userId,
-          otherNodeId: otherNodeId,
-        );
-
-        yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.inserts);
-        yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.updates);
-        yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
-        yield null;
-
-        final incomingChanges = await _collectMergeSet(incomingStream);
-        if (incomingChanges == null) return;
-
-        await sync.syncOnce(
-          _serverSession,
-          userId: _userId,
-          otherNodeId: otherNodeId,
-          syncTablesHash: syncTablesHash,
-          changes: incomingChanges,
-        );
-        final cycleCheckpoint = maxHlc(
-          pendingChanges.maxHlc,
-          incomingChanges.maxHlc,
-        );
-        if (cycleCheckpoint != null) {
-          await (_serverSession.db as CrdtDatabase).recordSyncCheckpoint(
-            otherNodeId,
-            cycleCheckpoint,
-            userId: _userId,
-          );
-        }
-        cycles++;
+      try {
+        yield* _endpoint
+            .syncStream(
+              session,
+              syncTablesHash: args['syncTablesHash'] as String,
+              otherNodeId: args['otherNodeId'] as UuidValue,
+              changes: (() async* {
+                await for (final change
+                    in streams['changes']!.cast<CrdtMergeChange?>()) {
+                  yield switch (change) {
+                    null => null,
+                    final CrdtMergeInsert insert => insert.copyWith(
+                      data: _toServerRow(insert.tableName, insert.data),
+                    ),
+                    final CrdtMergeUpdate update => update,
+                    final CrdtMergeDelete delete => delete,
+                  };
+                }
+              })(),
+            )
+            .map(
+              (change) => switch (change) {
+                null => null,
+                final CrdtMergeInsert insert => insert.copyWith(
+                  data: _toClientRow(insert.tableName, insert.data),
+                ),
+                final CrdtMergeUpdate update => update,
+                final CrdtMergeDelete delete => delete,
+              },
+            );
+      } finally {
+        await session.close();
       }
     })();
   }
 }
 
-Future<CrdtMergeSet?> _collectMergeSet(
-  StreamIterator<CrdtMergeChange?> changes,
-) async {
-  final inserts = <CrdtMergeInsert>[];
-  final updates = <CrdtMergeUpdate>[];
-  final deletes = <CrdtMergeDelete>[];
-  var receivedStopSentinel = false;
-
-  while (await changes.moveNext()) {
-    final change = changes.current;
-    switch (change) {
-      case null:
-        receivedStopSentinel = true;
-      case final CrdtMergeInsert insert:
-        inserts.add(insert);
-      case final CrdtMergeUpdate update:
-        updates.add(update);
-      case final CrdtMergeDelete delete:
-        deletes.add(delete);
-    }
-    if (change == null) break;
-  }
-
-  if (!receivedStopSentinel) return null;
-
-  return CrdtMergeSet(
-    inserts: inserts,
-    updates: updates,
-    deletes: deletes,
-  );
+class _NoopInternalTestEndpoints implements InternalTestEndpoints {
+  @override
+  void initialize(
+    DatabaseSerializationManager serializationManager,
+    EndpointDispatch endpoints,
+  ) {}
 }
 
 class _NoopServerpodClient extends ServerpodClientShared {

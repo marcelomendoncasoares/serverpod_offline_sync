@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:serverpod_client/serverpod_client.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
@@ -10,13 +12,6 @@ typedef CrdtMergeMetadataLookup = ({
   Map<String, Set<String>> columnNamesByTable,
 });
 
-/// Returns the later HLC between [left] and [right].
-Hlc? maxHlc(Hlc? left, Hlc? right) {
-  if (left == null) return right;
-  if (right == null) return left;
-  return left > right ? left : right;
-}
-
 /// Adds all merge changes from [mergeSet] followed by a null sentinel.
 void addMergeSetWithSentinel(
   void Function(CrdtMergeChange?) add,
@@ -28,6 +23,73 @@ void addMergeSetWithSentinel(
   add(null);
 }
 
+/// Builds a [CrdtMergeSet] from the provided change lists.
+CrdtMergeSet buildMergeSet({
+  required List<CrdtMergeInsert> inserts,
+  required List<CrdtMergeUpdate> updates,
+  required List<CrdtMergeDelete> deletes,
+  bool unmodifiable = false,
+}) {
+  if (!unmodifiable) {
+    return CrdtMergeSet(
+      inserts: inserts,
+      updates: updates,
+      deletes: deletes,
+    );
+  }
+
+  return CrdtMergeSet(
+    inserts: List<CrdtMergeInsert>.unmodifiable(inserts),
+    updates: List<CrdtMergeUpdate>.unmodifiable(updates),
+    deletes: List<CrdtMergeDelete>.unmodifiable(deletes),
+  );
+}
+
+/// Collects the next null-delimited [CrdtMergeSet] from [changes].
+Future<CrdtMergeSet?> collectMergeSetFromIterator(
+  StreamIterator<CrdtMergeChange?> changes,
+) async {
+  final inserts = <CrdtMergeInsert>[];
+  final updates = <CrdtMergeUpdate>[];
+  final deletes = <CrdtMergeDelete>[];
+  var receivedStopSentinel = false;
+
+  while (await changes.moveNext()) {
+    final change = changes.current;
+    switch (change) {
+      case null:
+        receivedStopSentinel = true;
+      case final CrdtMergeInsert insert:
+        inserts.add(insert);
+      case final CrdtMergeUpdate update:
+        updates.add(update);
+      case final CrdtMergeDelete delete:
+        deletes.add(delete);
+    }
+    if (change == null) break;
+  }
+
+  if (!receivedStopSentinel) return null;
+
+  return buildMergeSet(
+    inserts: inserts,
+    updates: updates,
+    deletes: deletes,
+  );
+}
+
+/// Splits a null-delimited change stream into [CrdtMergeSet] batches.
+Stream<CrdtMergeSet> collectMergeSetBatches(
+  Stream<CrdtMergeChange?> changes,
+) async* {
+  final iterator = StreamIterator(changes);
+  while (true) {
+    final mergeSet = await collectMergeSetFromIterator(iterator);
+    if (mergeSet == null) return;
+    yield mergeSet;
+  }
+}
+
 /// CRDT merge helpers built on top of the generated Serverpod models.
 extension CrdtMergeSetExtension on CrdtMergeSet {
   /// Whether this merge set has no changes.
@@ -36,7 +98,7 @@ extension CrdtMergeSetExtension on CrdtMergeSet {
   /// The greatest HLC represented by the changes in this merge set.
   Hlc? get maxHlc => changes.fold<Hlc?>(
     null,
-    (current, change) => current == null || change.hlc > current ? change.hlc : current,
+    (current, change) => change.hlc.maxBetween(current),
   );
 
   /// All merge changes in this set.

@@ -98,7 +98,7 @@ class CrdtSync {
     final updates = await _streamUpdates(session, crdtUser, syncCheckpoint).toList();
     final deletes = await _streamDeletes(session, crdtUser, syncCheckpoint).toList();
 
-    return CrdtMergeSet(
+    return buildMergeSet(
       inserts: inserts,
       updates: updates,
       deletes: deletes,
@@ -115,17 +115,14 @@ class CrdtSync {
   }) async {
     _validateSyncTablesHash(syncTablesHash);
     final maxSyncedHlc = changes.maxHlc;
-    if (changes.isEmpty) {
-      if (maxSyncedHlc != null) {
-        await _recordSyncCheckpoint(session, userId, otherNodeId, maxSyncedHlc);
-      }
-      return;
-    }
-
     final crdtDb = await _openCrdtDatabase(session);
     await crdtDb.mergeChanges(changes, userId: userId);
     if (maxSyncedHlc != null) {
-      await _recordSyncCheckpoint(session, userId, otherNodeId, maxSyncedHlc);
+      await crdtDb.recordSyncCheckpoint(
+        otherNodeId,
+        maxSyncedHlc,
+        userId: userId,
+      );
     }
   }
 
@@ -152,26 +149,24 @@ class CrdtSync {
       yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
       yield null;
 
-      final mergeSet = await _collectMergeSet(changeIterator);
+      final mergeSet = await collectMergeSetFromIterator(changeIterator);
       if (mergeSet == null) return;
 
-      if (!mergeSet.isEmpty) {
-        await syncOnce(
-          session,
-          userId: userId,
-          otherNodeId: otherNodeId,
-          syncTablesHash: syncTablesHash,
-          changes: mergeSet,
-        );
-      }
+      await syncOnce(
+        session,
+        userId: userId,
+        otherNodeId: otherNodeId,
+        syncTablesHash: syncTablesHash,
+        changes: mergeSet,
+      );
 
-      final cycleCheckpoint = maxHlc(pendingChanges.maxHlc, mergeSet.maxHlc);
+      final cycleCheckpoint =
+          pendingChanges.maxHlc?.maxBetween(mergeSet.maxHlc) ?? mergeSet.maxHlc;
       if (cycleCheckpoint != null) {
-        await _recordSyncCheckpoint(
-          session,
-          userId,
+        await (await _openCrdtDatabase(session)).recordSyncCheckpoint(
           otherNodeId,
           cycleCheckpoint,
+          userId: userId,
         );
       }
     }
@@ -208,58 +203,6 @@ class CrdtSync {
     );
 
     return otherNode?.lastReceivedHlc ?? Hlc.zero(otherNodeId);
-  }
-
-  Future<void> _recordSyncCheckpoint(
-    DatabaseSession session,
-    UuidValue userId,
-    UuidValue otherNodeId,
-    Hlc checkpoint,
-  ) async {
-    final db = session.db;
-    if (db is CrdtDatabase) {
-      await db.recordSyncCheckpoint(otherNodeId, checkpoint, userId: userId);
-      return;
-    }
-
-    final crdtDb = CrdtDatabase(db, syncTables: _syncTables);
-    await crdtDb.initialize();
-    await crdtDb.recordSyncCheckpoint(otherNodeId, checkpoint, userId: userId);
-  }
-
-  Future<CrdtMergeSet?> _collectMergeSet(
-    StreamIterator<CrdtMergeChange?> changes,
-  ) async {
-    final inserts = <CrdtMergeInsert>[];
-    final updates = <CrdtMergeUpdate>[];
-    final deletes = <CrdtMergeDelete>[];
-    var receivedStopSentinel = false;
-
-    while (await changes.moveNext()) {
-      final change = changes.current;
-      switch (change) {
-        case null:
-          receivedStopSentinel = true;
-        case final CrdtMergeInsert insert:
-          inserts.add(insert);
-          continue;
-        case final CrdtMergeUpdate update:
-          updates.add(update);
-          continue;
-        case final CrdtMergeDelete delete:
-          deletes.add(delete);
-          continue;
-      }
-      break;
-    }
-
-    if (!receivedStopSentinel) return null;
-
-    return CrdtMergeSet(
-      inserts: inserts,
-      updates: updates,
-      deletes: deletes,
-    );
   }
 
   Stream<CrdtMergeInsert> _streamInserts(

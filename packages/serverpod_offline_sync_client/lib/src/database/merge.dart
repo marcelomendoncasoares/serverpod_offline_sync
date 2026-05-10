@@ -83,9 +83,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   ) async {
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
-      (current, change) =>
-          current == null || change.hlc > current ? change.hlc : current,
+      (current, change) => change.hlc.maxBetween(current),
     );
+    final nodesToUpdate = <CrdtNode>[];
+
     if (maxIncomingHlc != null) {
       final hlcManager = _getHlcManager(transaction);
       if (maxIncomingHlc.nodeId == hlcManager.uuidNodeId) {
@@ -96,41 +97,36 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         hlcManager.merge(maxIncomingHlc);
       }
 
-      await CrdtNode.db.updateRow(
-        _session,
-        CrdtNode(
-          id: hlcManager.normalizedNodeId,
-          userId: hlcManager.normalizedUserId,
-          uuidNodeId: hlcManager.uuidNodeId,
-          lastReceivedHlc: hlcManager.lastHlc,
-        ),
-        columns: (t) => [t.lastReceivedHlc],
-        transaction: transaction,
-      );
+      nodesToUpdate.add(hlcManager.toCrdtNode());
     }
 
     final maxIncomingHlcByNode = <UuidValue, Hlc>{};
     for (final operation in operations) {
-      final current = maxIncomingHlcByNode[operation.uuidNodeId];
-      if (current == null || operation.hlc > current) {
-        maxIncomingHlcByNode[operation.uuidNodeId] = operation.hlc;
-      }
+      maxIncomingHlcByNode[operation.uuidNodeId] = operation.hlc.maxBetween(
+        maxIncomingHlcByNode[operation.uuidNodeId],
+      );
     }
 
     for (final MapEntry(key: nodeId, value: incomingHlc)
         in maxIncomingHlcByNode.entries) {
       final remoteNode = remoteNodes[nodeId];
       if (remoteNode == null) continue;
-      final currentSyncHlc = remoteNode.lastReceivedHlc;
-      if (currentSyncHlc != null && currentSyncHlc >= incomingHlc) continue;
+      final updatedNode = remoteNode.copyWith(
+        lastReceivedHlc: incomingHlc.maxBetween(remoteNode.lastReceivedHlc),
+      );
+      if (updatedNode.lastReceivedHlc == remoteNode.lastReceivedHlc) continue;
 
-      await CrdtNode.db.updateRow(
+      nodesToUpdate.add(updatedNode);
+      remoteNodes[nodeId] = updatedNode;
+    }
+
+    if (nodesToUpdate.isNotEmpty) {
+      await CrdtNode.db.update(
         _session,
-        remoteNode.copyWith(lastReceivedHlc: incomingHlc),
+        nodesToUpdate,
         columns: (t) => [t.lastReceivedHlc],
         transaction: transaction,
       );
-      remoteNodes[nodeId] = remoteNode.copyWith(lastReceivedHlc: incomingHlc);
     }
   }
 

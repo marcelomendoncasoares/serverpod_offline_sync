@@ -48,4 +48,12 @@ class HlcManager {
   void merge(Hlc other) {
     lastHlc = lastHlc.merge(other);
   }
+
+  /// Converts this manager state to the persisted current-node model.
+  CrdtNode toCrdtNode() => CrdtNode(
+    id: normalizedNodeId,
+    userId: normalizedUserId,
+    uuidNodeId: uuidNodeId,
+    lastReceivedHlc: lastHlc,
+  );
 }
