@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as client;
 import 'package:test/test.dart';
@@ -29,6 +28,7 @@ void main() {
     test(
       'when pending insert changes are collected then the row payload roundtrips with its original field types.',
       () async {
+        final otherNodeId = const Uuid().v7obj();
         final insertedRow = await crdtSession.db.transactionForUser(
           testCrdtUserId,
           (tx) async {
@@ -53,7 +53,7 @@ void main() {
         );
 
         final mergeSet = await crdtSession.db.collectPendingChanges(
-          lastSyncHlc: Hlc.zero(const Uuid().v7obj()),
+          otherNodeId: otherNodeId,
           userId: testCrdtUserId,
         );
 
@@ -74,6 +74,7 @@ void main() {
     test(
       'when pending update changes are collected then the field values roundtrip with their original Dart types.',
       () async {
+        final otherNodeId = const Uuid().v7obj();
         final row = await crdtSession.db.transactionForUser(testCrdtUserId, (
           tx,
         ) async {
@@ -124,8 +125,14 @@ void main() {
           );
         });
 
+        await crdtSession.db.recordSyncCheckpoint(
+          otherNodeId,
+          rowMetadata!.hlc,
+          userId: testCrdtUserId,
+        );
+
         final mergeSet = await crdtSession.db.collectPendingChanges(
-          lastSyncHlc: rowMetadata!.hlc,
+          otherNodeId: otherNodeId,
           userId: testCrdtUserId,
         );
         final updates = {

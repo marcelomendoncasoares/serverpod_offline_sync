@@ -2,7 +2,6 @@ import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
-import '../protocol/client.dart';
 import 'database.dart';
 
 /// Wraps a [DatabaseSession] to provide a [CrdtDatabase] as [DatabaseSession.db].
@@ -18,12 +17,10 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-    Caller? syncCaller,
   }) : _db = CrdtDatabase(
          db,
          syncTables: syncTables,
          persistentUserId: persistentUserId,
-         syncCaller: syncCaller,
        );
 
   /// Creates a [CrdtDatabaseSession] instance that wraps a [DatabaseSession].
@@ -37,12 +34,10 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-    Caller? syncCaller,
   }) => CrdtDatabaseSession(
     session.db,
     syncTables: syncTables,
     persistentUserId: persistentUserId,
-    syncCaller: syncCaller,
   );
 
   final CrdtDatabase _db;

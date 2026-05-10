@@ -15,6 +15,12 @@ extension CrdtMergeSetExtension on CrdtMergeSet {
   /// Whether this merge set has no changes.
   bool get isEmpty => inserts.isEmpty && updates.isEmpty && deletes.isEmpty;
 
+  /// The greatest HLC represented by the changes in this merge set.
+  Hlc? get maxHlc => changes.fold<Hlc?>(
+    null,
+    (current, change) => current == null || change.hlc > current ? change.hlc : current,
+  );
+
   /// All merge changes in this set.
   Iterable<CrdtMergeChange> get changes sync* {
     yield* inserts;

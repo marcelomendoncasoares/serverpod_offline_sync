@@ -28,6 +28,8 @@ void main() {
   late DatabaseSession serverDataSession;
   late CrdtDatabaseSession serverCrdtSession;
   late CrdtDatabaseSession clientCrdtSession;
+  late CrdtSyncClient clientSync;
+  late UuidValue serverNodeId;
 
   setUp(() async {
     serverDirectory = await Directory.systemTemp.createTemp('crdt_sync_server_');
@@ -45,9 +47,10 @@ void main() {
       testSession,
       syncTables: syncTables,
       persistentUserId: testCrdtUserId,
-      syncCaller: _DirectSyncCaller(serverDataSession, testCrdtUserId),
     );
     await clientCrdtSession.db.initialize();
+    serverNodeId = await serverCrdtSession.db.currentNodeId(userId: testCrdtUserId);
+    clientSync = CrdtSyncClient(_DirectSyncCaller(serverCrdtSession, testCrdtUserId));
 
     CrdtSync.initialize(
       syncTables: syncTables,
@@ -76,7 +79,10 @@ void main() {
           );
         });
 
-        await clientCrdtSession.crdtDb.syncOnce();
+        await clientSync.syncOnce(
+          clientCrdtSession,
+          otherNodeId: serverNodeId,
+        );
 
         final serverPerson = await client.Person.db.findById(
           serverDataSession,
@@ -90,9 +96,22 @@ void main() {
 
   group('Given bidirectional sync helpers', () {
     test(
-      'when crdtDb syncContinuously is called then the client and server reach the same end state.',
+      'when syncStream stays alive across multiple null-delimited batches then the client and server reach the same end state.',
       () async {
         final sharedPersonId = const Uuid().v7obj();
+        final clientNodeId = await clientCrdtSession.db.currentNodeId(
+          userId: testCrdtUserId,
+        );
+        final serverChanges = StreamController<CrdtMergeChange?>();
+        final serverStream = StreamIterator(
+          CrdtSync.instance.syncStream(
+            serverCrdtSession,
+            userId: testCrdtUserId,
+            otherNodeId: clientNodeId,
+            syncTablesHash: CrdtSync.instance.currentSyncTablesHash,
+            changes: serverChanges.stream,
+          ),
+        );
 
         await serverCrdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
           await client.Person.db.insertRow(
@@ -106,12 +125,30 @@ void main() {
           );
         });
 
-        await clientCrdtSession.crdtDb.syncContinuously();
+        final initialServerChanges = await _collectMergeSet(serverStream);
+        await clientCrdtSession.db.mergeChanges(
+          initialServerChanges!,
+          userId: testCrdtUserId,
+        );
 
         final clientSharedPerson = await client.Person.db.findById(
           testSession,
           sharedPersonId,
         );
+
+        await clientCrdtSession.db.transaction((tx) async {
+          await client.Person.db.updateRow(
+            clientCrdtSession,
+            clientSharedPerson!.copyWith(surname: 'client-surname'),
+            columns: (t) => [t.surname],
+            transaction: tx,
+          );
+          await client.Person.db.insertRow(
+            clientCrdtSession,
+            client.Person(id: const Uuid().v7obj(), name: 'client-only'),
+            transaction: tx,
+          );
+        });
 
         await serverCrdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
           await client.Person.db.updateRow(
@@ -131,22 +168,8 @@ void main() {
           );
         });
 
-        await clientCrdtSession.db.transaction((tx) async {
-          await client.Person.db.updateRow(
-            clientCrdtSession,
-            clientSharedPerson!.copyWith(surname: 'client-surname'),
-            columns: (t) => [t.surname],
-            transaction: tx,
-          );
-          await client.Person.db.insertRow(
-            clientCrdtSession,
-            client.Person(id: const Uuid().v7obj(), name: 'client-only'),
-            transaction: tx,
-          );
-        });
-
         final pendingChanges = await clientCrdtSession.db.collectPendingChanges(
-          lastSyncHlc: Hlc.zero(const Uuid().v7obj()),
+          otherNodeId: serverNodeId,
           userId: testCrdtUserId,
         );
         expect(
@@ -164,7 +187,14 @@ void main() {
           contains('client-surname'),
         );
 
-        await clientCrdtSession.crdtDb.syncContinuously();
+        _addMergeSetToStream(serverChanges, pendingChanges);
+        final streamedServerChanges = await _collectMergeSet(serverStream);
+        await clientCrdtSession.db.mergeChanges(
+          streamedServerChanges!,
+          userId: testCrdtUserId,
+        );
+        await serverStream.cancel();
+        unawaited(serverChanges.close());
 
         final clientState = await _personState(
           () => client.Person.db.find(testSession, orderBy: (t) => t.id),
@@ -224,6 +254,7 @@ class _DirectSyncCaller extends Caller {
     await CrdtSync.instance.syncOnce(
       _serverSession,
       userId: _userId,
+      otherNodeId: args['otherNodeId'] as UuidValue,
       syncTablesHash: args['syncTablesHash'] as String,
       changes: args['changes'] as CrdtMergeSet,
     );
@@ -246,39 +277,61 @@ class _DirectSyncCaller extends Caller {
     return (() async* {
       final sync = CrdtSync.instance;
       final syncTablesHash = args['syncTablesHash'] as String;
-      final pendingChanges = await sync.collectPendingChanges(
-        _serverSession,
-        userId: _userId,
-        lastSyncHlc: args['lastSyncHlc'] as Hlc,
-      );
-
-      yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.inserts);
-      yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.updates);
-      yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
-      yield null;
-
-      final incomingChanges = await _collectMergeSet(
+      final otherNodeId = args['otherNodeId'] as UuidValue;
+      final incomingStream = StreamIterator(
         streams['changes']!.cast<CrdtMergeChange?>(),
       );
-      if (incomingChanges == null || incomingChanges.isEmpty) return;
+      var cycles = 0;
 
-      await sync.syncOnce(
-        _serverSession,
-        userId: _userId,
-        syncTablesHash: syncTablesHash,
-        changes: incomingChanges,
-      );
+      while (cycles < 2) {
+        final pendingChanges = await sync.collectPendingChanges(
+          _serverSession,
+          userId: _userId,
+          otherNodeId: otherNodeId,
+        );
+
+        yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.inserts);
+        yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.updates);
+        yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
+        yield null;
+
+        final incomingChanges = await _collectMergeSet(incomingStream);
+        if (incomingChanges == null) return;
+
+        await sync.syncOnce(
+          _serverSession,
+          userId: _userId,
+          otherNodeId: otherNodeId,
+          syncTablesHash: syncTablesHash,
+          changes: incomingChanges,
+        );
+        final cycleCheckpoint = _maxHlc(
+          pendingChanges.maxHlc,
+          incomingChanges.maxHlc,
+        );
+        if (cycleCheckpoint != null) {
+          await (_serverSession.db as CrdtDatabase).recordSyncCheckpoint(
+            otherNodeId,
+            cycleCheckpoint,
+            userId: _userId,
+          );
+        }
+        cycles++;
+      }
     })();
   }
 }
 
-Future<CrdtMergeSet?> _collectMergeSet(Stream<CrdtMergeChange?> changes) async {
+Future<CrdtMergeSet?> _collectMergeSet(
+  StreamIterator<CrdtMergeChange?> changes,
+) async {
   final inserts = <CrdtMergeInsert>[];
   final updates = <CrdtMergeUpdate>[];
   final deletes = <CrdtMergeDelete>[];
   var receivedStopSentinel = false;
 
-  await for (final change in changes) {
+  while (await changes.moveNext()) {
+    final change = changes.current;
     switch (change) {
       case null:
         receivedStopSentinel = true;
@@ -299,6 +352,22 @@ Future<CrdtMergeSet?> _collectMergeSet(Stream<CrdtMergeChange?> changes) async {
     updates: updates,
     deletes: deletes,
   );
+}
+
+void _addMergeSetToStream(
+  StreamController<CrdtMergeChange?> controller,
+  CrdtMergeSet mergeSet,
+) {
+  mergeSet.inserts.forEach(controller.add);
+  mergeSet.updates.forEach(controller.add);
+  mergeSet.deletes.forEach(controller.add);
+  controller.add(null);
+}
+
+Hlc? _maxHlc(Hlc? left, Hlc? right) {
+  if (left == null) return right;
+  if (right == null) return left;
+  return left > right ? left : right;
 }
 
 class _NoopServerpodClient extends ServerpodClientShared {

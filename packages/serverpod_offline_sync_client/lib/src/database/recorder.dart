@@ -167,6 +167,40 @@ class CrdtMutationRecorder {
     return _userManager.getOrCreate(userId);
   }
 
+  /// Records the latest acknowledged sync checkpoint for [otherNodeId].
+  Future<void> recordSyncCheckpoint(
+    UuidValue userId,
+    UuidValue otherNodeId,
+    Hlc syncedHlc,
+  ) async {
+    final user = await _userManager.getOrCreate(userId);
+    await _db.transaction((transaction) async {
+      var node = await CrdtNode.db.findFirstRow(
+        _session,
+        where: (t) => t.userId.equals(user.id) & t.uuidNodeId.equals(otherNodeId),
+        transaction: transaction,
+      );
+
+      node ??= await CrdtNode.db.insertRow(
+        _session,
+        CrdtNode(userId: user.id!, uuidNodeId: otherNodeId),
+        transaction: transaction,
+      );
+
+      final currentSyncHlc = node.lastReceivedHlc;
+      if (currentSyncHlc != null && currentSyncHlc >= syncedHlc) {
+        return;
+      }
+
+      await CrdtNode.db.updateRow(
+        _session,
+        node.copyWith(lastReceivedHlc: syncedHlc),
+        columns: (t) => [t.lastReceivedHlc],
+        transaction: transaction,
+      );
+    });
+  }
+
   /// Insert the CRDT metadata for the inserted rows.
   Future<void> afterInsert<T extends TableRow>(
     List<T> insertedRows,

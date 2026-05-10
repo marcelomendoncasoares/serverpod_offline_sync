@@ -1,3 +1,4 @@
+export 'src/crdt/client_sync.dart';
 export 'src/crdt/merge.dart';
 export 'src/crdt/sync.dart';
 export 'src/database/database.dart';

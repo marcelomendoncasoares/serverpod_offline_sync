@@ -69,13 +69,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
-    _updateHlcFromIncomingOperations(operations, transaction);
+    await _updateHlcFromIncomingOperations(
+      operations,
+      remoteNodes,
+      transaction,
+    );
   }
 
-  void _updateHlcFromIncomingOperations(
+  Future<void> _updateHlcFromIncomingOperations(
     List<CrdtMergeChange> operations,
+    Map<UuidValue, CrdtNode> remoteNodes,
     Transaction transaction,
-  ) {
+  ) async {
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
       (current, change) =>
@@ -90,6 +95,42 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       } else {
         hlcManager.merge(maxIncomingHlc);
       }
+
+      await CrdtNode.db.updateRow(
+        _session,
+        CrdtNode(
+          id: hlcManager.normalizedNodeId,
+          userId: hlcManager.normalizedUserId,
+          uuidNodeId: hlcManager.uuidNodeId,
+          lastReceivedHlc: hlcManager.lastHlc,
+        ),
+        columns: (t) => [t.lastReceivedHlc],
+        transaction: transaction,
+      );
+    }
+
+    final maxIncomingHlcByNode = <UuidValue, Hlc>{};
+    for (final operation in operations) {
+      final current = maxIncomingHlcByNode[operation.uuidNodeId];
+      if (current == null || operation.hlc > current) {
+        maxIncomingHlcByNode[operation.uuidNodeId] = operation.hlc;
+      }
+    }
+
+    for (final MapEntry(key: nodeId, value: incomingHlc)
+        in maxIncomingHlcByNode.entries) {
+      final remoteNode = remoteNodes[nodeId];
+      if (remoteNode == null) continue;
+      final currentSyncHlc = remoteNode.lastReceivedHlc;
+      if (currentSyncHlc != null && currentSyncHlc >= incomingHlc) continue;
+
+      await CrdtNode.db.updateRow(
+        _session,
+        remoteNode.copyWith(lastReceivedHlc: incomingHlc),
+        columns: (t) => [t.lastReceivedHlc],
+        transaction: transaction,
+      );
+      remoteNodes[nodeId] = remoteNode.copyWith(lastReceivedHlc: incomingHlc);
     }
   }
 

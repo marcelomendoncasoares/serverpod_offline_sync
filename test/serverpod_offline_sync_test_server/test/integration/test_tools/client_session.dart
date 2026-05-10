@@ -80,7 +80,6 @@ Future<void> _initialize() async {
       UniqueUuid.t,
     ],
     persistentUserId: _withPersistentUser ? _testCrdtUserId : null,
-    syncCaller: testClient.modules.serverpod_offline_sync,
   );
 
   await _crdtSession.db.initialize();
