@@ -27,7 +27,10 @@ void addMergeSetWithSentinel(
 ///
 /// When [unmodifiable] is `true`, the change lists are wrapped in unmodifiable
 /// views before constructing the merge set so downstream consumers cannot
-/// mutate the collected batch contents.
+/// mutate the collected batch contents. Use it for collected stream batches or
+/// other handoff points where the merge set should be treated as immutable
+/// after creation; leave it as `false` for local builders that still append to
+/// or reuse the underlying lists before returning.
 CrdtMergeSet buildMergeSet({
   required List<CrdtMergeInsert> inserts,
   required List<CrdtMergeUpdate> updates,
@@ -87,10 +90,14 @@ Stream<CrdtMergeSet> collectMergeSetBatches(
   Stream<CrdtMergeChange?> changes,
 ) async* {
   final iterator = StreamIterator(changes);
-  while (true) {
-    final mergeSet = await collectMergeSetFromIterator(iterator);
-    if (mergeSet == null) return;
-    yield mergeSet;
+  try {
+    while (true) {
+      final mergeSet = await collectMergeSetFromIterator(iterator);
+      if (mergeSet == null) return;
+      yield mergeSet;
+    }
+  } finally {
+    await iterator.cancel();
   }
 }
 

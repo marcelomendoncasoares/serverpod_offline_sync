@@ -349,7 +349,7 @@ CrdtMergeSet _toServerMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
 );
 
 TableRow _toClientRow(String tableName, dynamic row) {
-  final json = Map<String, dynamic>.from((row as dynamic).toJson() as Map);
+  final json = _rowJson(tableName, row);
   return switch (tableName) {
     'address' => client.Address.fromJson(json),
     'person' => client.Person.fromJson(json),
@@ -360,7 +360,7 @@ TableRow _toClientRow(String tableName, dynamic row) {
 }
 
 TableRow _toServerRow(String tableName, dynamic row) {
-  final json = Map<String, dynamic>.from((row as dynamic).toJson() as Map);
+  final json = _rowJson(tableName, row);
   return switch (tableName) {
     'address' => generated.Address.fromJson(json),
     'person' => generated.Person.fromJson(json),
@@ -368,6 +368,25 @@ TableRow _toServerRow(String tableName, dynamic row) {
     'unique' => generated.Unique.fromJson(json),
     _ => throw StateError('Unsupported server sync row table: $tableName'),
   };
+}
+
+Map<String, dynamic> _rowJson(String tableName, dynamic row) {
+  final json = switch ((tableName, row)) {
+    ('address', final client.Address value) => value.toJson(),
+    ('address', final generated.Address value) => value.toJson(),
+    ('person', final client.Person value) => value.toJson(),
+    ('person', final generated.Person value) => value.toJson(),
+    ('types', final client.Types value) => value.toJson(),
+    ('types', final generated.Types value) => value.toJson(),
+    ('unique', final client.Unique value) => value.toJson(),
+    ('unique', final generated.Unique value) => value.toJson(),
+    _ => throw StateError(
+      'Unsupported sync row payload for table $tableName: '
+      '${row.runtimeType}.',
+    ),
+  };
+
+  return Map<String, dynamic>.from(json);
 }
 
 class _EndpointSyncCaller extends Caller {
