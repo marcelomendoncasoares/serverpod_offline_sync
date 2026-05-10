@@ -39,7 +39,7 @@ String _capturePrintOutput(void Function() callback) {
   runZoned(
     callback,
     zoneSpecification: ZoneSpecification(
-      print: (_, __, ___, line) => lines.add(line),
+      print: (_, _, _, line) => lines.add(line),
     ),
   );
 
