@@ -1,0 +1,36 @@
+### CRDT field foreign key table.
+###
+### This table holds information on the foreign key for a field to support the
+### merge process. Since this data is required for the merge, even rows that
+### were never updated will have a [CrdtDataField] set for each column that
+### holds a foreign key, with the relation to this table.
+class: CrdtDataForeignKey
+table: crdt_data_foreign_key
+database: all
+fields:
+  ### The field that the foreign key belongs to.
+  field: CrdtDataField?, relation(name=field_foreign_key, field=fieldId, onDelete=Cascade)
+  fieldId: int
+
+  ### The user-defined foreign key value.
+  originalValue: UuidValue
+
+  ### The foreign key value that is currently visible in the actual data row.
+  ###
+  ### If the value is null, the foreign key is the same as the original value.
+  visibleValue: UuidValue?
+
+  ### The causal length of the field foreign key override.
+  ###
+  ### If the value is odd, the foreign key is overridden in the actual data row
+  ### during the merge process, otherwise it is the same as the original value.
+  causalLength: int, default=0
+
+  ### The reason for the foreign key override, if any. This is used mainly for
+  ### debugging purposes.
+  overrideReason: CrdtForeignKeyOverrideReason?
+
+indexes:
+  crdt_data_foreign_key_field_idx:
+    fields: fieldId
+    unique: true
