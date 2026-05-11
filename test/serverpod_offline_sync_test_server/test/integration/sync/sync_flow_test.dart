@@ -159,9 +159,7 @@ void main() {
           );
         });
 
-        final initialServerChanges = await collectMergeSetFromIterator(
-          serverStream,
-        );
+        final initialServerChanges = await serverStream.collectNextMergeSet();
         await clientCrdtSession.db.mergeChanges(
           _toClientMergeSet(initialServerChanges!),
           userId: testCrdtUserId,
@@ -223,10 +221,8 @@ void main() {
           contains('client-surname'),
         );
 
-        addMergeSetWithSentinel(serverChanges.add, _toServerMergeSet(pendingChanges));
-        final streamedServerChanges = await collectMergeSetFromIterator(
-          serverStream,
-        );
+        _toServerMergeSet(pendingChanges).streamTo(serverChanges);
+        final streamedServerChanges = await serverStream.collectNextMergeSet();
         await clientCrdtSession.db.mergeChanges(
           _toClientMergeSet(streamedServerChanges!),
           userId: testCrdtUserId,
@@ -333,7 +329,7 @@ String _findTestServerPackagePath() {
   );
 }
 
-CrdtMergeSet _toClientMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
+CrdtMergeSet _toClientMergeSet(CrdtMergeSet mergeSet) => CrdtMergeSet(
   inserts: [
     for (final insert in mergeSet.inserts)
       insert.copyWith(data: _toClientRow(insert.tableName, insert.data)),
@@ -342,7 +338,7 @@ CrdtMergeSet _toClientMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
   deletes: mergeSet.deletes,
 );
 
-CrdtMergeSet _toServerMergeSet(CrdtMergeSet mergeSet) => buildMergeSet(
+CrdtMergeSet _toServerMergeSet(CrdtMergeSet mergeSet) => CrdtMergeSet(
   inserts: [
     for (final insert in mergeSet.inserts)
       insert.copyWith(data: _toServerRow(insert.tableName, insert.data)),

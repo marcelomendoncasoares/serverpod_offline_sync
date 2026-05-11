@@ -12,84 +12,54 @@ typedef CrdtMergeMetadataLookup = ({
   Map<String, Set<String>> columnNamesByTable,
 });
 
-/// Adds all merge changes from [mergeSet] followed by a null sentinel.
-void addMergeSetWithSentinel(
-  void Function(CrdtMergeChange?) add,
-  CrdtMergeSet mergeSet,
-) {
-  mergeSet.inserts.forEach(add);
-  mergeSet.updates.forEach(add);
-  mergeSet.deletes.forEach(add);
-  add(null);
-}
-
-/// Builds a [CrdtMergeSet] from the provided change lists.
-///
-/// When [unmodifiable] is `true`, the input lists are wrapped in unmodifiable
-/// views before constructing the merge set so downstream consumers cannot
-/// mutate the collected batch contents. Use it for collected stream batches or
-/// other handoff points where the merge set should be treated as immutable
-/// after creation; leave it as `false` for local builders that still append to
-/// or reuse the underlying lists before returning.
-CrdtMergeSet buildMergeSet({
-  required List<CrdtMergeInsert> inserts,
-  required List<CrdtMergeUpdate> updates,
-  required List<CrdtMergeDelete> deletes,
-  bool unmodifiable = false,
-}) {
-  return CrdtMergeSet(
-    inserts: unmodifiable ? List<CrdtMergeInsert>.unmodifiable(inserts) : inserts,
-    updates: unmodifiable ? List<CrdtMergeUpdate>.unmodifiable(updates) : updates,
-    deletes: unmodifiable ? List<CrdtMergeDelete>.unmodifiable(deletes) : deletes,
-  );
-}
-
-/// Collects the next null-delimited [CrdtMergeSet] from [changes].
-Future<CrdtMergeSet?> collectMergeSetFromIterator(
-  StreamIterator<CrdtMergeChange?> changes,
-) async {
-  final inserts = <CrdtMergeInsert>[];
-  final updates = <CrdtMergeUpdate>[];
-  final deletes = <CrdtMergeDelete>[];
-  var receivedStopSentinel = false;
-
-  while (await changes.moveNext()) {
-    final change = changes.current;
-    switch (change) {
-      case null:
-        receivedStopSentinel = true;
-      case final CrdtMergeInsert insert:
-        inserts.add(insert);
-      case final CrdtMergeUpdate update:
-        updates.add(update);
-      case final CrdtMergeDelete delete:
-        deletes.add(delete);
+/// Extensions for streams of [CrdtMergeChange]? to collect a [CrdtMergeSet].
+extension StreamCrdtMergeChangeExtension on Stream<CrdtMergeChange?> {
+  /// Collects all [CrdtMergeSet]s from this stream.
+  Stream<CrdtMergeSet> collectMergeSets() async* {
+    final iterator = StreamIterator(this);
+    try {
+      while (true) {
+        final mergeSet = await iterator.collectNextMergeSet();
+        if (mergeSet == null) return;
+        yield mergeSet;
+      }
+    } finally {
+      await iterator.cancel();
     }
-    if (change == null) break;
   }
-
-  if (!receivedStopSentinel) return null;
-
-  return buildMergeSet(
-    inserts: inserts,
-    updates: updates,
-    deletes: deletes,
-  );
 }
 
-/// Splits a null-delimited change stream into [CrdtMergeSet] batches.
-Stream<CrdtMergeSet> collectMergeSetBatches(
-  Stream<CrdtMergeChange?> changes,
-) async* {
-  final iterator = StreamIterator(changes);
-  try {
-    while (true) {
-      final mergeSet = await collectMergeSetFromIterator(iterator);
-      if (mergeSet == null) return;
-      yield mergeSet;
+/// Extensions for stream iterators of [CrdtMergeChange]? to collect [CrdtMergeSet]s.
+extension StreamIteratorCrdtMergeChangeExtension on StreamIterator<CrdtMergeChange?> {
+  /// Collects the next null-delimited [CrdtMergeSet] from this iterator.
+  Future<CrdtMergeSet?> collectNextMergeSet() async {
+    final inserts = <CrdtMergeInsert>[];
+    final updates = <CrdtMergeUpdate>[];
+    final deletes = <CrdtMergeDelete>[];
+    var receivedStopSentinel = false;
+
+    while (await moveNext()) {
+      final change = current;
+      switch (change) {
+        case null:
+          receivedStopSentinel = true;
+        case final CrdtMergeInsert insert:
+          inserts.add(insert);
+        case final CrdtMergeUpdate update:
+          updates.add(update);
+        case final CrdtMergeDelete delete:
+          deletes.add(delete);
+      }
+      if (change == null) break;
     }
-  } finally {
-    await iterator.cancel();
+
+    if (!receivedStopSentinel) return null;
+
+    return CrdtMergeSet(
+      inserts: inserts,
+      updates: updates,
+      deletes: deletes,
+    );
   }
 }
 
@@ -109,6 +79,12 @@ extension CrdtMergeSetExtension on CrdtMergeSet {
     yield* inserts;
     yield* updates;
     yield* deletes;
+  }
+
+  /// Adds all merge changes from this set followed by a null sentinel.
+  void streamTo(StreamController<CrdtMergeChange?> controller) {
+    changes.forEach(controller.add);
+    controller.add(null);
   }
 
   /// All merge changes in this set sorted by causal order.

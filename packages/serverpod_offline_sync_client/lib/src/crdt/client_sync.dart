@@ -67,7 +67,7 @@ class CrdtSyncClient {
         changes: outboundChanges.stream,
       );
 
-      await for (final remoteBatch in collectMergeSetBatches(remoteStream)) {
+      await for (final remoteBatch in remoteStream.collectMergeSets()) {
         if (!remoteBatch.isEmpty) {
           await crdtDb.mergeChanges(remoteBatch);
         }
@@ -82,7 +82,7 @@ class CrdtSyncClient {
           );
         }
 
-        addMergeSetWithSentinel(outboundChanges.add, pendingLocalChanges);
+        pendingLocalChanges.streamTo(outboundChanges);
         pendingAcknowledgedLocalHlc = pendingLocalChanges.maxHlc;
         pendingLocalChanges = await crdtDb.collectPendingChanges(
           otherNodeId: otherNodeId,

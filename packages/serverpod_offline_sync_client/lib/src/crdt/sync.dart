@@ -98,7 +98,7 @@ class CrdtSync {
     final updates = await _streamUpdates(session, crdtUser, syncCheckpoint).toList();
     final deletes = await _streamDeletes(session, crdtUser, syncCheckpoint).toList();
 
-    return buildMergeSet(
+    return CrdtMergeSet(
       inserts: inserts,
       updates: updates,
       deletes: deletes,
@@ -158,7 +158,7 @@ class CrdtSync {
       yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
       yield null;
 
-      final mergeSet = await collectMergeSetFromIterator(changeIterator);
+      final mergeSet = await changeIterator.collectNextMergeSet();
       if (mergeSet == null) return;
 
       await syncOnce(

@@ -43,28 +43,26 @@ void main() {
         final rowId = const Uuid().v7obj();
         final row = CrdtNode(userId: 1, uuidNodeId: rowId);
 
-        final batches = await collectMergeSetBatches(
-          Stream<CrdtMergeChange?>.fromIterable([
-            CrdtMergeInsert(
-              hlcDatetime: DateTime.utc(2026, 5, 10, 12),
-              hlcCounter: 1,
-              tableName: 'person',
-              uuidRowId: rowId,
-              uuidNodeId: firstNodeId,
-              data: row,
-            ),
-            null,
-            CrdtMergeDelete(
-              hlcDatetime: DateTime.utc(2026, 5, 10, 13),
-              hlcCounter: 2,
-              tableName: 'person',
-              uuidRowId: rowId,
-              uuidNodeId: secondNodeId,
-              isDeleted: true,
-            ),
-            null,
-          ]),
-        ).toList();
+        final batches = await Stream<CrdtMergeChange?>.fromIterable([
+          CrdtMergeInsert(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 12),
+            hlcCounter: 1,
+            tableName: 'person',
+            uuidRowId: rowId,
+            uuidNodeId: firstNodeId,
+            data: row,
+          ),
+          null,
+          CrdtMergeDelete(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 13),
+            hlcCounter: 2,
+            tableName: 'person',
+            uuidRowId: rowId,
+            uuidNodeId: secondNodeId,
+            isDeleted: true,
+          ),
+          null,
+        ]).collectMergeSets().toList();
 
         expect(batches, hasLength(2));
         expect(batches.first.inserts, hasLength(1));
@@ -77,9 +75,9 @@ void main() {
     test(
       'when the stream is empty then no merge sets are emitted.',
       () async {
-        final batches = await collectMergeSetBatches(
-          const Stream<CrdtMergeChange?>.empty(),
-        ).toList();
+        final batches = await const Stream<CrdtMergeChange?>.empty()
+            .collectMergeSets()
+            .toList();
 
         expect(batches, isEmpty);
       },
@@ -90,18 +88,16 @@ void main() {
       () async {
         final nodeId = const Uuid().v7obj();
         final rowId = const Uuid().v7obj();
-        final batches = await collectMergeSetBatches(
-          Stream<CrdtMergeChange?>.fromIterable([
-            CrdtMergeDelete(
-              hlcDatetime: DateTime.utc(2026, 5, 10, 14),
-              hlcCounter: 3,
-              tableName: 'person',
-              uuidRowId: rowId,
-              uuidNodeId: nodeId,
-              isDeleted: true,
-            ),
-          ]),
-        ).toList();
+        final batches = await Stream<CrdtMergeChange?>.fromIterable([
+          CrdtMergeDelete(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+            hlcCounter: 3,
+            tableName: 'person',
+            uuidRowId: rowId,
+            uuidNodeId: nodeId,
+            isDeleted: true,
+          ),
+        ]).collectMergeSets().toList();
 
         expect(batches, isEmpty);
       },
