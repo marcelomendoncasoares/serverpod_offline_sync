@@ -21,24 +21,17 @@ class CrdtSyncClient {
   Future<void> syncOnce(
     DatabaseSession session, {
     required UuidValue otherNodeId,
-    UuidValue? userId,
   }) async {
     final crdtDb = session.crdtDb;
-    final localNodeId = await crdtDb.currentNodeId(userId: userId);
+    final localNodeId = await crdtDb.currentNodeId();
     final pendingChanges = await crdtDb.collectPendingChanges(
       otherNodeId: otherNodeId,
-      userId: userId,
     );
-    if (pendingChanges.isEmpty) return;
 
-    await _caller.callServerEndpoint<void>(
-      'serverpod_offline_sync.crdtSync',
-      'syncOnce',
-      {
-        'syncTablesHash': crdtDb.syncTablesHash,
-        'otherNodeId': localNodeId,
-        'changes': pendingChanges,
-      },
+    await _caller.crdtSync.syncOnce(
+      syncTablesHash: crdtDb.syncTablesHash,
+      otherNodeId: localNodeId,
+      changes: pendingChanges,
     );
 
     final syncedHlc = pendingChanges.maxHlc;
@@ -46,7 +39,6 @@ class CrdtSyncClient {
       await crdtDb.recordSyncCheckpoint(
         otherNodeId,
         syncedHlc,
-        userId: userId,
       );
     }
   }
@@ -57,33 +49,25 @@ class CrdtSyncClient {
   Future<void> syncContinuously(
     DatabaseSession session, {
     required UuidValue otherNodeId,
-    UuidValue? userId,
   }) async {
     final crdtDb = session.crdtDb;
-    final localNodeId = await crdtDb.currentNodeId(userId: userId);
+    final localNodeId = await crdtDb.currentNodeId();
     final outboundChanges = StreamController<CrdtMergeChange?>();
     var pendingLocalChanges = await crdtDb.collectPendingChanges(
       otherNodeId: otherNodeId,
-      userId: userId,
     );
     Hlc? pendingAcknowledgedLocalHlc;
 
     try {
-      final remoteStream =
-          _caller.callStreamingServerEndpoint<CrdtMergeChange, CrdtMergeChange?>(
-                'serverpod_offline_sync.crdtSync',
-                'syncStream',
-                {
-                  'syncTablesHash': crdtDb.syncTablesHash,
-                  'otherNodeId': localNodeId,
-                },
-                {'changes': outboundChanges.stream},
-              )
-              as Stream<CrdtMergeChange?>;
+      final remoteStream = _caller.crdtSync.syncStream(
+        syncTablesHash: crdtDb.syncTablesHash,
+        otherNodeId: localNodeId,
+        changes: outboundChanges.stream,
+      );
 
       await for (final remoteBatch in collectMergeSetBatches(remoteStream)) {
         if (!remoteBatch.isEmpty) {
-          await crdtDb.mergeChanges(remoteBatch, userId: userId);
+          await crdtDb.mergeChanges(remoteBatch);
         }
 
         final syncCheckpoint =
@@ -93,7 +77,6 @@ class CrdtSyncClient {
           await crdtDb.recordSyncCheckpoint(
             otherNodeId,
             syncCheckpoint,
-            userId: userId,
           );
         }
 
@@ -101,7 +84,6 @@ class CrdtSyncClient {
         pendingAcknowledgedLocalHlc = pendingLocalChanges.maxHlc;
         pendingLocalChanges = await crdtDb.collectPendingChanges(
           otherNodeId: otherNodeId,
-          userId: userId,
         );
       }
     } finally {
