@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:serverpod_client/serverpod_client.dart';
 import 'package:serverpod_database/serverpod_database.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
 import '../database/session.dart';
 import '../protocol/protocol.dart';
@@ -23,26 +22,18 @@ class CrdtSyncClient {
     required UuidValue otherNodeId,
   }) async {
     final crdtDb = session.crdtDb;
-    final localNodeId = await crdtDb.currentNodeId();
     final pendingChanges = await crdtDb.collectPendingChanges(
       otherNodeId: otherNodeId,
     );
 
+    final localNodeId = await crdtDb.currentNodeId();
     final receivedChanges = await _caller.crdtSync.syncOnce(
       syncTablesHash: crdtDb.syncTablesHash,
       otherNodeId: localNodeId,
       changes: pendingChanges,
     );
 
-    await crdtDb.mergeChanges(receivedChanges);
-
-    final syncedHlc = pendingChanges.maxHlc;
-    if (syncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(
-        otherNodeId,
-        syncedHlc,
-      );
-    }
+    await _mergeAndRecordCheckpoint(session, receivedChanges, otherNodeId);
   }
 
   /// Keeps synchronizing [session] with the remote peer until the stream closes.
@@ -55,10 +46,6 @@ class CrdtSyncClient {
     final crdtDb = session.crdtDb;
     final localNodeId = await crdtDb.currentNodeId();
     final outboundChanges = StreamController<CrdtMergeChange?>();
-    var pendingLocalChanges = await crdtDb.collectPendingChanges(
-      otherNodeId: otherNodeId,
-    );
-    Hlc? pendingAcknowledgedLocalHlc;
 
     try {
       final remoteStream = _caller.crdtSync.syncStream(
@@ -68,28 +55,31 @@ class CrdtSyncClient {
       );
 
       await for (final remoteBatch in remoteStream.collectMergeSets()) {
-        if (!remoteBatch.isEmpty) {
-          await crdtDb.mergeChanges(remoteBatch);
-        }
-
-        final syncCheckpoint =
-            pendingAcknowledgedLocalHlc?.maxBetween(remoteBatch.maxHlc) ??
-            remoteBatch.maxHlc;
-        if (syncCheckpoint != null) {
-          await crdtDb.recordSyncCheckpoint(
-            otherNodeId,
-            syncCheckpoint,
-          );
-        }
-
-        pendingLocalChanges.streamTo(outboundChanges);
-        pendingAcknowledgedLocalHlc = pendingLocalChanges.maxHlc;
-        pendingLocalChanges = await crdtDb.collectPendingChanges(
+        final pendingLocalChanges = await crdtDb.collectPendingChanges(
           otherNodeId: otherNodeId,
         );
+        pendingLocalChanges.streamTo(outboundChanges);
+        await _mergeAndRecordCheckpoint(session, remoteBatch, otherNodeId);
       }
     } finally {
       await outboundChanges.close();
+    }
+  }
+
+  Future<void> _mergeAndRecordCheckpoint(
+    DatabaseSession session,
+    CrdtMergeSet receivedChanges,
+    UuidValue otherNodeId,
+  ) async {
+    final crdtDb = session.crdtDb;
+    await crdtDb.mergeChanges(receivedChanges);
+
+    final syncedHlc = receivedChanges.maxHlc;
+    if (syncedHlc != null) {
+      await crdtDb.recordSyncCheckpoint(
+        otherNodeId,
+        syncedHlc,
+      );
     }
   }
 }
