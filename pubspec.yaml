@@ -46,8 +46,12 @@ melos:
       exec: dart analyze . --fatal-infos --fatal-warnings
     generate:
       # Must run the module first, or the test project won't have the tables.
-      run: >-
-        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate &&
+      # Runs generate twice on the server package due to a bug in the generator.
+      run: |
+        {
+          melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate ||
+          melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate
+        } &&
         melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
     create-migration:
       # If the module does not run first, the test project will see no module tables.
