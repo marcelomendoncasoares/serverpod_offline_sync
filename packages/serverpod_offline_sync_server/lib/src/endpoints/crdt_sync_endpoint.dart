@@ -11,13 +11,13 @@ class CrdtSyncEndpoint extends Endpoint {
   }
 
   /// Applies a one-way sync operation from the authenticated client.
-  Future<void> syncOnce(
+  Future<CrdtMergeSet> syncOnce(
     Session session, {
     required String syncTablesHash,
     required UuidValue otherNodeId,
     required CrdtMergeSet changes,
   }) async {
-    await CrdtSync.instance.syncOnce(
+    return CrdtSync.instance.syncOnce(
       session,
       userId: _userId(session),
       otherNodeId: otherNodeId,

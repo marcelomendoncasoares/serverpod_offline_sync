@@ -106,7 +106,7 @@ class CrdtSync {
   }
 
   /// Applies [changes] locally after validating [syncTablesHash].
-  Future<void> syncOnce(
+  Future<CrdtMergeSet> syncOnce(
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue otherNodeId,
@@ -114,6 +114,13 @@ class CrdtSync {
     required CrdtMergeSet changes,
   }) async {
     _validateSyncTablesHash(syncTablesHash);
+
+    final pendingChanges = await collectPendingChanges(
+      session,
+      userId: userId,
+      otherNodeId: otherNodeId,
+    );
+
     final maxSyncedHlc = changes.maxHlc;
     final crdtDb = await _openCrdtDatabase(session);
     await crdtDb.mergeChanges(changes, userId: userId);
@@ -124,6 +131,8 @@ class CrdtSync {
         userId: userId,
       );
     }
+
+    return pendingChanges;
   }
 
   /// Streams local changes and applies inbound remote batches until cancelled.

@@ -28,11 +28,13 @@ class CrdtSyncClient {
       otherNodeId: otherNodeId,
     );
 
-    await _caller.crdtSync.syncOnce(
+    final receivedChanges = await _caller.crdtSync.syncOnce(
       syncTablesHash: crdtDb.syncTablesHash,
       otherNodeId: localNodeId,
       changes: pendingChanges,
     );
+
+    await crdtDb.mergeChanges(receivedChanges);
 
     final syncedHlc = pendingChanges.maxHlc;
     if (syncedHlc != null) {
