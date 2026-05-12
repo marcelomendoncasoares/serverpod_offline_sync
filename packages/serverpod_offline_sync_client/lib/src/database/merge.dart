@@ -97,7 +97,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         hlcManager.merge(maxIncomingHlc);
       }
 
-      nodesToUpdate.add(hlcManager.toCrdtNode());
+      nodesToUpdate.add(hlcManager.getNode());
     }
 
     final maxIncomingHlcByNode = <UuidValue, Hlc>{};
@@ -503,7 +503,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     try {
       await _db.updateRow(
         row,
-        columns: _syncTableByName[insert.tableName]!.managedColumns
+        columns: row.table.managedColumns
             .where((c) => data.containsKey(c.columnName))
             .toList(),
         transaction: transaction,

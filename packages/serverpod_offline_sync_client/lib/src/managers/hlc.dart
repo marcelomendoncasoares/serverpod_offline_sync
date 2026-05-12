@@ -50,7 +50,7 @@ class HlcManager {
   }
 
   /// Converts this manager state to the persisted current-node model.
-  CrdtNode toCrdtNode() => CrdtNode(
+  CrdtNode getNode() => CrdtNode(
     id: normalizedNodeId,
     userId: normalizedUserId,
     uuidNodeId: uuidNodeId,
