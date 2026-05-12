@@ -63,17 +63,20 @@ class CrdtSync {
   /// The deterministic hash representing the current synchronized schema.
   late final String currentSyncTablesHash = computeSyncTablesHash(
     _syncTables,
-    serializationManager: _serializationManager,
+    tableDefinitions: _serializationManager.getTargetTableDefinitions(),
   );
 
   /// Computes a deterministic fixed-size hash of the synchronized schema.
+  ///
+  /// The [tableDefinitions] is the list of all table definitions in the
+  /// database, which must include the definitions for all [syncTables].
   static String computeSyncTablesHash(
     List<Table> syncTables, {
-    required DatabaseSerializationManager serializationManager,
+    required List<TableDefinition> tableDefinitions,
   }) {
     final canonicalSignature = _computeCanonicalSyncTablesSignature(
       syncTables,
-      serializationManager: serializationManager,
+      tableDefinitions: tableDefinitions,
     );
     // Use two deterministic namespace-based UUIDv5 hashes to keep the payload
     // fixed-size while substantially reducing the practical collision risk.
@@ -415,11 +418,10 @@ class CrdtSync {
 
   static String _computeCanonicalSyncTablesSignature(
     List<Table> syncTables, {
-    required DatabaseSerializationManager serializationManager,
+    required List<TableDefinition> tableDefinitions,
   }) {
     final tableDefinitionsByName = {
-      for (final definition in serializationManager.getTargetTableDefinitions())
-        definition.name: definition,
+      for (final definition in tableDefinitions) definition.name: definition,
     };
 
     final sortedTables = syncTables.toList()

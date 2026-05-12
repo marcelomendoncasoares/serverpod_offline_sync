@@ -14,3 +14,8 @@ fields:
   anEnum: TypesEnum?
   optionalText: String?
   optionalUuid: UuidValue?
+
+indexes:
+  types_a_text_idx:
+    fields: aText
+    unique: false
