@@ -15,9 +15,6 @@ late Directory _tempDir;
 late UuidValue _testCrdtUserId;
 late bool _withPersistentUser;
 
-/// The generated client used to call the test server.
-Client get testClient => _testClient;
-
 /// A fresh [ClientDatabaseSession] for each test that is automatically closed
 /// and removed once no longer needed.
 ClientDatabaseSession get testSession => _testSession;
@@ -54,7 +51,7 @@ void initTestClientSession({bool withPersistentUser = false}) {
   });
 
   tearDown(() async {
-    await _clearUserTables(_testSession);
+    await _testSession.clearUserTables();
     await _initialize();
   });
 
@@ -85,16 +82,21 @@ Future<void> _initialize() async {
   await _crdtSession.db.initialize();
 }
 
-Future<void> _clearUserTables(DatabaseSession session) async {
-  await session.db.unsafeExecute('PRAGMA foreign_keys = OFF');
-  final result = await session.db.unsafeQuery('''
+extension ClearDatabaseTables on DatabaseSession {
+  /// Clears all user tables from the database for tests teardown.
+  Future<void> clearUserTables() async {
+    await db.unsafeExecute('PRAGMA foreign_keys = OFF');
+    final result = await db.unsafeQuery('''
     SELECT name
     FROM sqlite_master
     WHERE (type = 'table') AND (name NOT LIKE 'serverpod_%')
 ''');
-  for (final row in result) {
-    final tableName = row[0] as String;
-    await session.db.unsafeExecute('DELETE FROM "$tableName"');
+
+    for (final row in result) {
+      final tableName = row[0] as String;
+      await db.unsafeExecute('DELETE FROM "$tableName"');
+    }
+
+    await db.unsafeExecute('PRAGMA foreign_keys = ON');
   }
-  await session.db.unsafeExecute('PRAGMA foreign_keys = ON');
 }
