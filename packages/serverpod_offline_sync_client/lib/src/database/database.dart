@@ -246,6 +246,40 @@ class CrdtDatabase implements Database {
   }
 
   @override
+  Future<List<T>> upsert<T extends TableRow>(
+    List<T> rows, {
+    required List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Expression? updateWhere,
+    Transaction? transaction,
+  }) async {
+    // TODO: Implement CRDT upsert.
+    return _delegate.upsert<T>(
+      rows,
+      conflictColumns: conflictColumns,
+      updateColumns: updateColumns,
+      updateWhere: updateWhere,
+      transaction: transaction,
+    );
+  }
+
+  @override
+  Future<T?> upsertRow<T extends TableRow>(
+    T row, {
+    required List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Expression? updateWhere,
+    Transaction? transaction,
+  }) async {
+    // TODO: Implement CRDT upsert.
+    return _delegate.upsertRow<T>(
+      row,
+      conflictColumns: conflictColumns,
+      transaction: transaction,
+    );
+  }
+
+  @override
   Future<List<T>> update<T extends TableRow>(
     List<T> rows, {
     List<Column>? columns,
