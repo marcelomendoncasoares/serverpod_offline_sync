@@ -246,6 +246,30 @@ class CrdtDatabase implements Database {
   }
 
   @override
+  Future<List<T>> upsert<T extends TableRow>(
+    List<T> rows, {
+    required List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Expression? updateWhere,
+    Transaction? transaction,
+  }) async {
+    // TODO: Implement CRDT upsert.
+    throw UnimplementedError('CRDT upsert is not implemented.');
+  }
+
+  @override
+  Future<T?> upsertRow<T extends TableRow>(
+    T row, {
+    required List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Expression? updateWhere,
+    Transaction? transaction,
+  }) async {
+    // TODO: Implement CRDT upsert.
+    throw UnimplementedError('CRDT upsert is not implemented.');
+  }
+
+  @override
   Future<List<T>> update<T extends TableRow>(
     List<T> rows, {
     List<Column>? columns,
