@@ -97,6 +97,9 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
 
+      - name: Install Melos
+        run: dart pub global activate melos
+
       - name: Download generated code
         uses: actions/download-artifact@v4
         with:
@@ -105,8 +108,8 @@ jobs:
       - name: Run pub get
         run: dart pub get
 
-      - name: Run tests with coverage
-        run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
+      - name: Run tests
+        run: melos test
 
       # TODO: Find a way to make coverage work with the tests running from a
       # test project and not as part of the module.

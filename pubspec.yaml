@@ -92,7 +92,9 @@ melos:
     downgrade:
       exec: dart pub downgrade
     test:
-      run: dart test packages/ test/ --coverage=coverage --reporter=failures-only
+      run: |
+        dart test packages/ --reporter=failures-only
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart test test/ --reporter=failures-only --concurrency=1
     reset:
       exec: rm -f test.db*
     publish-check:
