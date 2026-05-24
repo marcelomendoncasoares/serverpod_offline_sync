@@ -15,9 +15,14 @@ import '../test_tools/serverpod_test_tools.dart';
 void main() {
   initTestClientSession(withPersistentUser: true);
 
-  // NOTE: For some unknown reason, the tests just pass if the sync tables of
-  // the server are used both on the client and server sessions.
-  final syncTables = [
+  final clientSyncTables = [
+    client.Address.t,
+    client.Person.t,
+    client.Types.t,
+    client.Unique.t,
+  ];
+
+  final serverSyncTables = [
     server.Address.t,
     server.Person.t,
     server.Types.t,
@@ -36,7 +41,7 @@ void main() {
       final rawServerSession = sessionBuilder.build();
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: syncTables)
+        ..initializeCrdtSync(syncTables: serverSyncTables)
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
           <Scope>{},
@@ -50,14 +55,14 @@ void main() {
 
         clientSession = CrdtDatabaseSession.wraps(
           testSession,
-          syncTables: syncTables,
+          syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await clientSession.db.initialize();
 
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
-          syncTables: syncTables,
+          syncTables: serverSyncTables,
         );
         await serverSession.db.initialize();
 
