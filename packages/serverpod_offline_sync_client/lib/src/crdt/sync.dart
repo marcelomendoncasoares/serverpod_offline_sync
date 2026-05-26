@@ -85,102 +85,160 @@ class CrdtSync {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Collects local CRDT changes since the last sync checkpoint with [otherNodeId].
-  Future<CrdtMergeSet> collectPendingChanges(
+  /// Streams local CRDT changes since the last sync checkpoint with [otherNodeId].
+  ///
+  /// Changes are emitted in insert, update, then delete order. Domain row and
+  /// column payloads are resolved incrementally as each change is yielded.
+  ///
+  /// When [sinceHlc] is provided, it is used instead of the stored checkpoint.
+  Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue otherNodeId,
+    Hlc? sinceHlc,
+  }) async* {
+    final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+    final syncCheckpoint =
+        sinceHlc ??
+        await _syncCheckpointForNode(
+          session,
+          crdtUser,
+          otherNodeId,
+        );
+
+    yield* _streamInserts(session, crdtUser, syncCheckpoint);
+    yield* _streamUpdates(session, crdtUser, syncCheckpoint);
+    yield* _streamDeletes(session, crdtUser, syncCheckpoint);
+  }
+
+  /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
+  ///
+  /// [CrdtSyncSinceHlc.lastSyncFromPeer] reflects the latest change this node
+  /// has received from [peerNodeId], tagged with the peer's node id.
+  Future<CrdtSyncSinceHlc> createSyncSinceHlc(
+    DatabaseSession session, {
+    required UuidValue userId,
+    required UuidValue peerNodeId,
   }) async {
     final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
-    final syncCheckpoint = await _syncCheckpointForNode(
-      session,
-      crdtUser,
-      otherNodeId,
-    );
-    final inserts = await _streamInserts(session, crdtUser, syncCheckpoint).toList();
-    final updates = await _streamUpdates(session, crdtUser, syncCheckpoint).toList();
-    final deletes = await _streamDeletes(session, crdtUser, syncCheckpoint).toList();
-
-    return CrdtMergeSet(
-      inserts: inserts,
-      updates: updates,
-      deletes: deletes,
-    );
+    final lastSeenHlc = await _syncCheckpointForNode(session, crdtUser, peerNodeId);
+    return CrdtSyncSinceHlc(lastSyncFromPeer: lastSeenHlc);
   }
 
-  /// Applies [changes] locally after validating [syncTablesHash].
-  Future<CrdtMergeSet> syncOnce(
+  /// Merges a remote [mergeSet] and records the sync checkpoint for [otherNodeId].
+  ///
+  /// Throws if the merge fails. The sync stream should be closed so the next
+  /// attempt resumes from the last persisted checkpoint.
+  Future<void> mergeInboundBatch(
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue otherNodeId,
-    required String syncTablesHash,
-    required CrdtMergeSet changes,
+    required CrdtMergeSet mergeSet,
   }) async {
-    _validateSyncTablesHash(syncTablesHash);
+    final maxSyncedHlc = mergeSet.maxHlc;
+    final crdtDb = await _openCrdtDatabase(session);
+    await crdtDb.mergeChanges(mergeSet, userId: userId);
+    if (maxSyncedHlc != null) {
+      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
+    }
+  }
 
-    final pendingChanges = await collectPendingChanges(
+  /// Streams a framed outbound sync batch of merge changes.
+  Stream<CrdtSyncStreamEvent> streamOutboundBatch(
+    DatabaseSession session, {
+    required UuidValue userId,
+    required UuidValue peerNodeId,
+    required Hlc sinceHlc,
+  }) async* {
+    yield* collectPendingChanges(
       session,
       userId: userId,
-      otherNodeId: otherNodeId,
-    );
-
-    final maxSyncedHlc = changes.maxHlc;
-    final crdtDb = await _openCrdtDatabase(session);
-    await crdtDb.mergeChanges(changes, userId: userId);
-    if (maxSyncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(
-        otherNodeId,
-        maxSyncedHlc,
-        userId: userId,
-      );
-    }
-
-    return pendingChanges;
+      otherNodeId: peerNodeId,
+      sinceHlc: sinceHlc,
+    ).map((change) => CrdtSyncMergeChange(change: change));
+    yield CrdtSyncEndOfBatch();
   }
 
-  /// Streams local changes and applies inbound remote batches until cancelled.
-  Stream<CrdtMergeChange?> syncStream(
+  /// Runs a symmetric CRDT sync session over a bidirectional event stream.
+  ///
+  /// Both peers send [CrdtSyncConnect], read the peer connect frame, then send
+  /// and read [CrdtSyncSinceHlc] once. After that, both sides exchange framed
+  /// data batches using (1) the peer's authoritative since HLC for the first
+  /// send, and (2) [CrdtSyncSinceHlc.lastSyncFromPeer] for subsequent sends
+  /// within the session.
+  ///
+  /// If a batch fails to merge, the exception propagates and the stream closes.
+  /// The next sync attempt resumes from the last persisted checkpoint on the
+  /// side that failed to merge.
+  ///
+  /// When [once] is true, each peer sends one batch, reads one batch, sends a
+  /// [CrdtSyncClose] frame and awaits for the other to send its closing event
+  /// to complete the session.
+  Stream<CrdtSyncStreamEvent> sync(
     DatabaseSession session, {
     required UuidValue userId,
-    required UuidValue otherNodeId,
-    required String syncTablesHash,
-    required Stream<CrdtMergeChange?> changes,
+    required Stream<CrdtSyncStreamEvent> inbound,
+    bool once = false,
   }) async* {
-    _validateSyncTablesHash(syncTablesHash);
-    final changeIterator = StreamIterator(changes);
+    final inboundIterator = StreamIterator(inbound);
+    try {
+      final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+      final localNodeId = crdtUser.currentNode!.uuidNodeId;
 
-    while (true) {
-      final pendingChanges = await collectPendingChanges(
-        session,
-        userId: userId,
-        otherNodeId: otherNodeId,
+      yield CrdtSyncConnect(
+        localNodeId: localNodeId,
+        syncTablesHash: currentSyncTablesHash,
       );
 
-      yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.inserts);
-      yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.updates);
-      yield* Stream<CrdtMergeChange>.fromIterable(pendingChanges.deletes);
-      yield null;
+      final peerConnect = await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>();
+      final peerNodeId = peerConnect.localNodeId;
+      _validateSyncTablesHash(peerConnect.syncTablesHash);
 
-      final mergeSet = await changeIterator.collectNextMergeSet();
-      if (mergeSet == null) return;
-
-      await syncOnce(
+      yield await createSyncSinceHlc(
         session,
         userId: userId,
-        otherNodeId: otherNodeId,
-        syncTablesHash: syncTablesHash,
-        changes: mergeSet,
+        peerNodeId: peerNodeId,
       );
 
-      final cycleCheckpoint =
-          pendingChanges.maxHlc?.maxBetween(mergeSet.maxHlc) ?? mergeSet.maxHlc;
-      if (cycleCheckpoint != null) {
-        await (await _openCrdtDatabase(session)).recordSyncCheckpoint(
-          otherNodeId,
-          cycleCheckpoint,
-          userId: userId,
+      final peerSinceHlc = await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
+      if (peerSinceHlc.lastSyncFromPeer.nodeId != localNodeId) {
+        throw StateError(
+          'Peer since HLC node id ${peerSinceHlc.lastSyncFromPeer.nodeId} '
+          'does not match local node id $localNodeId.',
         );
       }
+
+      var lastSentToPeer = peerSinceHlc.lastSyncFromPeer;
+
+      while (true) {
+        final pendingLocalChanges = collectPendingChanges(
+          session,
+          userId: userId,
+          otherNodeId: peerNodeId,
+          sinceHlc: lastSentToPeer,
+        );
+
+        await for (final change in pendingLocalChanges) {
+          lastSentToPeer = lastSentToPeer.maxBetween(change.hlc);
+          yield CrdtSyncMergeChange(change: change);
+        }
+        yield CrdtSyncEndOfBatch();
+
+        await mergeInboundBatch(
+          session,
+          userId: userId,
+          otherNodeId: peerNodeId,
+          mergeSet: await inboundIterator.collectNextBatch(),
+        );
+
+        if (once) {
+          yield CrdtSyncClose();
+          await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
+          return;
+        }
+      }
+    } finally {
+      await inboundIterator.cancel();
     }
   }
 

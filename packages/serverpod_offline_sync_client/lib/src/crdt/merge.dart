@@ -6,90 +6,76 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 
 import '../protocol/protocol.dart';
 
+/// A group of CRDT merge changes collected for one sync batch.
+typedef CrdtMergeSet = List<CrdtMergeChange>;
+
 /// Merge metadata extracted from a [CrdtMergeSet].
 typedef CrdtMergeMetadataLookup = ({
   Map<String, Set<UuidValue>> rowIdsByTable,
   Map<String, Set<String>> columnNamesByTable,
 });
 
-/// Extensions for streams of [CrdtMergeChange]? to collect a [CrdtMergeSet].
-extension StreamCrdtMergeChangeExtension on Stream<CrdtMergeChange?> {
-  /// Collects all [CrdtMergeSet]s from this stream.
-  Stream<CrdtMergeSet> collectMergeSets() async* {
-    final iterator = StreamIterator(this);
-    try {
-      while (true) {
-        final mergeSet = await iterator.collectNextMergeSet();
-        if (mergeSet == null) return;
-        yield mergeSet;
-      }
-    } finally {
-      await iterator.cancel();
-    }
-  }
-}
-
-/// Extensions for stream iterators of [CrdtMergeChange]? to collect [CrdtMergeSet]s.
-extension StreamIteratorCrdtMergeChangeExtension on StreamIterator<CrdtMergeChange?> {
-  /// Collects the next null-delimited [CrdtMergeSet] from this iterator.
-  Future<CrdtMergeSet?> collectNextMergeSet() async {
-    final inserts = <CrdtMergeInsert>[];
-    final updates = <CrdtMergeUpdate>[];
-    final deletes = <CrdtMergeDelete>[];
-    var receivedStopSentinel = false;
+/// Extensions for stream iterators of [CrdtSyncStreamEvent].
+extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEvent> {
+  /// Collects the next framed sync batch from this iterator.
+  ///
+  /// Each batch is zero or more [CrdtSyncMergeChange] events followed by
+  /// [CrdtSyncEndOfBatch].
+  Future<CrdtMergeSet> collectNextBatch() async {
+    final mergeSet = <CrdtMergeChange>[];
 
     while (await moveNext()) {
-      final change = current;
-      switch (change) {
-        case null:
-          receivedStopSentinel = true;
-        case final CrdtMergeInsert insert:
-          inserts.add(insert);
-        case final CrdtMergeUpdate update:
-          updates.add(update);
-        case final CrdtMergeDelete delete:
-          deletes.add(delete);
+      switch (current) {
+        case CrdtSyncMergeChange(change: final change):
+          mergeSet.add(change);
+        case CrdtSyncEndOfBatch():
+          return mergeSet;
+        default:
+          throw StateError(
+            'Expected "CrdtSyncMergeChange" or "CrdtSyncEndOfBatch", but received '
+            '"${current.runtimeType}" instead.',
+          );
       }
-      if (change == null) break;
     }
 
-    if (!receivedStopSentinel) return null;
+    throw StateError('Sync stream closed before end-of-batch event.');
+  }
 
-    return CrdtMergeSet(
-      inserts: inserts,
-      updates: updates,
-      deletes: deletes,
-    );
+  /// Moves the iterator to the next event and throws if the stream is closed or
+  /// the next event is not of type [T].
+  Future<T> moveAndThrowIfNot<T>() async {
+    if (!await moveNext()) {
+      throw StateError('Sync stream closed before $T event.');
+    }
+    if (current is! T) {
+      throw StateError(
+        'Expected $T event, but received ${current.runtimeType} instead.',
+      );
+    }
+    return current as T;
   }
 }
 
-/// CRDT merge helpers built on top of the generated Serverpod models.
+/// CRDT merge helpers for [CrdtMergeSet].
 extension CrdtMergeSetExtension on CrdtMergeSet {
-  /// Whether this merge set has no changes.
-  bool get isEmpty => inserts.isEmpty && updates.isEmpty && deletes.isEmpty;
-
   /// The greatest HLC represented by the changes in this merge set.
-  Hlc? get maxHlc => changes.fold<Hlc?>(
+  Hlc? get maxHlc => fold<Hlc?>(
     null,
     (current, change) => change.hlc.maxBetween(current),
   );
 
-  /// All merge changes in this set.
-  Iterable<CrdtMergeChange> get changes sync* {
-    yield* inserts;
-    yield* updates;
-    yield* deletes;
-  }
+  /// Insert changes in this set.
+  Iterable<CrdtMergeInsert> get inserts => whereType<CrdtMergeInsert>();
 
-  /// Adds all merge changes from this set followed by a null sentinel.
-  void streamTo(StreamController<CrdtMergeChange?> controller) {
-    changes.forEach(controller.add);
-    controller.add(null);
-  }
+  /// Update changes in this set.
+  Iterable<CrdtMergeUpdate> get updates => whereType<CrdtMergeUpdate>();
+
+  /// Delete changes in this set.
+  Iterable<CrdtMergeDelete> get deletes => whereType<CrdtMergeDelete>();
 
   /// All merge changes in this set sorted by causal order.
   List<CrdtMergeChange> get causallyOrderedChanges {
-    final operations = changes.toList()
+    final operations = List<CrdtMergeChange>.from(this)
       ..sort((left, right) => left.hlc.compareTo(right.hlc));
     return operations;
   }
@@ -101,7 +87,7 @@ extension CrdtMergeSetExtension on CrdtMergeSet {
     final rowIdsToLoadByTable = <String, Set<UuidValue>>{};
     final columnNamesToLoadByTable = <String, Set<String>>{};
 
-    for (final change in changes) {
+    for (final change in this) {
       final availableColumnNames = columnNamesByTableName[change.tableName];
       if (availableColumnNames == null) continue;
 

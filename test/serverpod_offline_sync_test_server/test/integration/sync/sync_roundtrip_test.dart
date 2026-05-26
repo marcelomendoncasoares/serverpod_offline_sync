@@ -17,10 +17,16 @@ void main() {
   ];
 
   late CrdtDatabaseSession crdtSession;
+  late CrdtSync crdtSync;
 
   setUp(() async {
     crdtSession = CrdtDatabaseSession.wraps(testSession, syncTables: syncTables);
     await crdtSession.db.initialize();
+
+    crdtSync = CrdtSync(
+      syncTables: syncTables,
+      serializationManager: testSession.db.serializationManager,
+    );
   });
 
   group('Given an inserted typed CRDT row', () {
@@ -55,10 +61,13 @@ void main() {
       'when pending changes are collected '
       'then the row payload roundtrips with its original Dart type.',
       () async {
-        final mergeSet = await crdtSession.db.collectPendingChanges(
-          otherNodeId: const Uuid().v7obj(),
-          userId: testCrdtUserId,
-        );
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              otherNodeId: const Uuid().v7obj(),
+              userId: testCrdtUserId,
+            )
+            .toList();
 
         final insert = mergeSet.inserts.single;
         expect(insert.uuidRowId, insertedRow.id);
@@ -124,10 +133,13 @@ void main() {
       'when pending changes are collected '
       'then the field values roundtrip with their original Dart types.',
       () async {
-        final mergeSet = await crdtSession.db.collectPendingChanges(
-          otherNodeId: const Uuid().v7obj(),
-          userId: testCrdtUserId,
-        );
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              otherNodeId: const Uuid().v7obj(),
+              userId: testCrdtUserId,
+            )
+            .toList();
 
         final updates = {
           for (final update in mergeSet.updates) update.columnName: update,

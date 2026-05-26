@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
@@ -6,39 +8,17 @@ class CrdtSyncEndpoint extends Endpoint {
   @override
   bool get requireLogin => true;
 
-  UuidValue _userId(Session session) {
-    return UuidValue.withValidation(session.authenticated!.userIdentifier);
-  }
-
-  /// Applies a one-way sync operation from the authenticated client.
-  Future<CrdtMergeSet> syncOnce(
+  /// Opens a bidirectional CRDT sync session with the authenticated client.
+  Stream<CrdtSyncStreamEvent> sync(
     Session session, {
-    required String syncTablesHash,
-    required UuidValue otherNodeId,
-    required CrdtMergeSet changes,
-  }) async {
-    return CrdtSync.instance.syncOnce(
-      session,
-      userId: _userId(session),
-      otherNodeId: otherNodeId,
-      syncTablesHash: syncTablesHash,
-      changes: changes,
-    );
-  }
-
-  /// Streams server changes and then applies streamed client changes.
-  Stream<CrdtMergeChange?> syncStream(
-    Session session, {
-    required String syncTablesHash,
-    required UuidValue otherNodeId,
-    required Stream<CrdtMergeChange?> changes,
+    required Stream<CrdtSyncStreamEvent> changes,
+    bool once = false,
   }) async* {
-    yield* CrdtSync.instance.syncStream(
+    yield* CrdtSync.instance.sync(
       session,
-      userId: _userId(session),
-      otherNodeId: otherNodeId,
-      syncTablesHash: syncTablesHash,
-      changes: changes,
+      userId: UuidValue.withValidation(session.authenticated!.userIdentifier),
+      inbound: changes,
+      once: once,
     );
   }
 }

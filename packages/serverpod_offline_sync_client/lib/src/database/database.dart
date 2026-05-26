@@ -62,16 +62,18 @@ class CrdtDatabase implements Database {
     return user.currentNode!.uuidNodeId;
   }
 
-  /// Collects local CRDT changes since the last sync checkpoint with [otherNodeId].
-  Future<CrdtMergeSet> collectPendingChanges({
-    required UuidValue otherNodeId,
+  /// Runs a symmetric CRDT sync session over a bidirectional event stream.
+  Stream<CrdtSyncStreamEvent> sync({
+    required Stream<CrdtSyncStreamEvent> inbound,
     UuidValue? userId,
-  }) async {
+    bool once = false,
+  }) async* {
     final effectiveUserId = await _requireUserId(userId);
-    return _sync.collectPendingChanges(
+    yield* _sync.sync(
       _delegate.session,
       userId: effectiveUserId,
-      otherNodeId: otherNodeId,
+      inbound: inbound,
+      once: once,
     );
   }
 

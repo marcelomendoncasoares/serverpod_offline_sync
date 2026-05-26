@@ -32,7 +32,6 @@ void main() {
   late client.Client testClient;
   late CrdtDatabaseSession serverSession;
   late CrdtDatabaseSession clientSession;
-  late UuidValue serverNodeId;
 
   withServerpod(
     'Given a server and client CRDT session that are initialized with the same sync tables',
@@ -65,8 +64,6 @@ void main() {
           syncTables: serverSyncTables,
         );
         await serverSession.db.initialize();
-
-        serverNodeId = await serverSession.db.currentNodeId(userId: testCrdtUserId);
       });
 
       tearDown(() async {
@@ -89,10 +86,7 @@ void main() {
           'when client syncOnce is called '
           'then the server merges the client pending changes.',
           () async {
-            await testClient.crdt.syncOnce(
-              clientSession,
-              otherNodeId: serverNodeId,
-            );
+            await testClient.crdt.syncOnce(clientSession);
 
             final serverPerson = await server.Person.db.findById(
               serverSession,
@@ -125,10 +119,7 @@ void main() {
           'when client syncOnce is called '
           'then the client merges the server pending changes.',
           () async {
-            await testClient.crdt.syncOnce(
-              clientSession,
-              otherNodeId: serverNodeId,
-            );
+            await testClient.crdt.syncOnce(clientSession);
 
             final clientPerson = await client.Person.db.findById(
               clientSession,
@@ -168,10 +159,7 @@ void main() {
           'when client syncOnce is called '
           'then both the client and server have the two persons.',
           () async {
-            await testClient.crdt.syncOnce(
-              clientSession,
-              otherNodeId: serverNodeId,
-            );
+            await testClient.crdt.syncOnce(clientSession);
 
             final clientPerson = await client.Person.db.find(clientSession);
 

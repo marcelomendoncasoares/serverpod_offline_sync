@@ -5,7 +5,6 @@ import 'package:serverpod_database/serverpod_database.dart';
 
 import '../database/session.dart';
 import '../protocol/protocol.dart';
-import 'merge.dart';
 
 /// High-level client sync helpers built on top of the generated module caller.
 class CrdtSyncClient {
@@ -17,69 +16,30 @@ class CrdtSyncClient {
   /// Pushes local pending changes for [session] to the remote peer once.
   ///
   /// The [session] must be wrapped in a [CrdtDatabaseSession].
-  Future<void> syncOnce(
-    DatabaseSession session, {
-    required UuidValue otherNodeId,
-  }) async {
-    final crdtDb = session.crdtDb;
-    final pendingChanges = await crdtDb.collectPendingChanges(
-      otherNodeId: otherNodeId,
-    );
-
-    final localNodeId = await crdtDb.currentNodeId();
-    final receivedChanges = await _caller.crdtSync.syncOnce(
-      syncTablesHash: crdtDb.syncTablesHash,
-      otherNodeId: localNodeId,
-      changes: pendingChanges,
-    );
-
-    await _mergeAndRecordCheckpoint(session, receivedChanges, otherNodeId);
-  }
+  Future<void> syncOnce(DatabaseSession session) => _sync(session, once: true);
 
   /// Keeps synchronizing [session] with the remote peer until the stream closes.
   ///
   /// The [session] must be wrapped in a [CrdtDatabaseSession].
-  Future<void> syncContinuously(
-    DatabaseSession session, {
-    required UuidValue otherNodeId,
-  }) async {
-    final crdtDb = session.crdtDb;
-    final localNodeId = await crdtDb.currentNodeId();
-    final outboundChanges = StreamController<CrdtMergeChange?>();
+  Future<void> syncContinuously(DatabaseSession session) => _sync(session, once: false);
+
+  Future<void> _sync(DatabaseSession session, {required bool once}) async {
+    final outboundChanges = StreamController<CrdtSyncStreamEvent>();
 
     try {
-      final remoteStream = _caller.crdtSync.syncStream(
-        syncTablesHash: crdtDb.syncTablesHash,
-        otherNodeId: localNodeId,
+      final remoteStream = _caller.crdtSync.sync(
         changes: outboundChanges.stream,
+        once: once,
       );
 
-      await for (final remoteBatch in remoteStream.collectMergeSets()) {
-        final pendingLocalChanges = await crdtDb.collectPendingChanges(
-          otherNodeId: otherNodeId,
-        );
-        pendingLocalChanges.streamTo(outboundChanges);
-        await _mergeAndRecordCheckpoint(session, remoteBatch, otherNodeId);
-      }
+      await session.crdtDb
+          .sync(
+            inbound: remoteStream,
+            once: once,
+          )
+          .forEach(outboundChanges.add);
     } finally {
       await outboundChanges.close();
-    }
-  }
-
-  Future<void> _mergeAndRecordCheckpoint(
-    DatabaseSession session,
-    CrdtMergeSet receivedChanges,
-    UuidValue otherNodeId,
-  ) async {
-    final crdtDb = session.crdtDb;
-    await crdtDb.mergeChanges(receivedChanges);
-
-    final syncedHlc = receivedChanges.maxHlc;
-    if (syncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(
-        otherNodeId,
-        syncedHlc,
-      );
     }
   }
 }

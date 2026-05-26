@@ -8,7 +8,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  late CrdtMergeSet mergeset;
+  late CrdtMergeSet mergeSet;
 
   group('Given an empty table and a remote insert, ', () {
     late UuidValue remoteNodeId;
@@ -29,17 +29,13 @@ void main() {
         data: remotePerson,
       );
 
-      mergeset = CrdtMergeSet(
-        inserts: [remoteInsert],
-        updates: [],
-        deletes: [],
-      );
+      mergeSet = [remoteInsert];
     });
 
     group('when merging, ', () {
       setUp(() async {
         await session.db.mergeChanges(
-          mergeset,
+          mergeSet,
           userId: testCrdtUserId,
         );
       });
@@ -97,17 +93,13 @@ void main() {
           value: 'updated remotely',
         );
 
-        mergeset = CrdtMergeSet(
-          inserts: [remoteInsert],
-          updates: [remoteUpdate],
-          deletes: [],
-        );
+        mergeSet = [remoteInsert, remoteUpdate];
       });
 
       group('when merging, ', () {
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
         });
@@ -195,17 +187,13 @@ void main() {
           data: remotePerson,
         );
 
-        mergeset = CrdtMergeSet(
-          inserts: [remoteInsert],
-          updates: [],
-          deletes: [],
-        );
+        mergeSet = [remoteInsert];
       });
 
       group('when merging, ', () {
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
         });
@@ -331,11 +319,7 @@ void main() {
         );
         localUpdatedFieldHlc = localNameField!.hlc;
 
-        mergeset = CrdtMergeSet(
-          inserts: [remoteInsert],
-          updates: [],
-          deletes: [],
-        );
+        mergeSet = [remoteInsert];
       });
 
       group('when merging, ', () {
@@ -343,7 +327,7 @@ void main() {
 
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
 

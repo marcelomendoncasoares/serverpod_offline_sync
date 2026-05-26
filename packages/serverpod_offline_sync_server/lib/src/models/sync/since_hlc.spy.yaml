@@ -1,0 +1,7 @@
+### One-time checkpoint sent by each peer after connect to exchange required
+### information for the sync session.
+class: CrdtSyncSinceHlc
+extends: CrdtSyncStreamEvent
+fields:
+  ### The last HLC timestamp that the sender has received from the other peer.
+  lastSyncFromPeer: Hlc
