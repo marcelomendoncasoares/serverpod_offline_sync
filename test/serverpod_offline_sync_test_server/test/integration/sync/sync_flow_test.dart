@@ -49,7 +49,7 @@ void main() {
 
       setUp(() async {
         testClient = client.Client(
-          'http://localhost:${Serverpod.instance.server.port}',
+          'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
         clientSession = CrdtDatabaseSession.wraps(
@@ -187,6 +187,56 @@ void main() {
           },
         );
       });
+    },
+  );
+
+  withServerpod(
+    'Given a server and client CRDT session that are initialized with different sync tables',
+    rollbackDatabase: RollbackDatabase.disabled,
+    (sessionBuilder, _) {
+      final rawServerSession = sessionBuilder.build();
+
+      rawServerSession.serverpod
+        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..authenticationHandler = (session, token) async => AuthenticationInfo(
+          testCrdtUserId.toString(),
+          <Scope>{},
+          authId: const Uuid().v4(),
+        );
+
+      setUp(() async {
+        testClient = client.Client(
+          'http://localhost:${rawServerSession.server.port}',
+        )..authKeyProvider = TestClientAuthKeyProvider();
+
+        clientSession = CrdtDatabaseSession.wraps(
+          testSession,
+          syncTables: [client.Address.t, client.Person.t],
+          persistentUserId: testCrdtUserId,
+        );
+        await clientSession.db.initialize();
+
+        serverSession = CrdtDatabaseSession.wraps(
+          rawServerSession,
+          syncTables: serverSyncTables,
+        );
+        await serverSession.db.initialize();
+      });
+
+      tearDown(() async {
+        await serverSession.clearUserTables();
+      });
+
+      test(
+        'when client syncOnce is called '
+        'then SyncTablesHashMismatchException is thrown.',
+        () async {
+          await expectLater(
+            testClient.crdt.syncOnce(clientSession),
+            throwsA(isA<SyncTablesHashMismatchException>()),
+          );
+        },
+      );
     },
   );
 }

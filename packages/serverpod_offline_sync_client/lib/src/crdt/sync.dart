@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../database/database.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
+import 'exceptions.dart';
 import 'merge.dart';
 
 /// The shared CRDT synchronization logic used by both client and server nodes.
@@ -202,9 +203,9 @@ class CrdtSync {
 
       final peerSinceHlc = await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
       if (peerSinceHlc.lastSyncFromPeer.nodeId != localNodeId) {
-        throw StateError(
-          'Peer since HLC node id ${peerSinceHlc.lastSyncFromPeer.nodeId} '
-          'does not match local node id $localNodeId.',
+        throw CrdtSyncInvalidSinceHlcException(
+          receivedNodeId: peerSinceHlc.lastSyncFromPeer.nodeId,
+          expectedNodeId: localNodeId,
         );
       }
 
@@ -537,25 +538,4 @@ class CrdtSync {
 
     return entries;
   }
-}
-
-/// Thrown when the sync tables hash sent by a client does not match the server.
-class SyncTablesHashMismatchException implements Exception {
-  /// Creates a new [SyncTablesHashMismatchException].
-  SyncTablesHashMismatchException({
-    required this.received,
-    required this.expected,
-  });
-
-  /// The hash received from the remote peer.
-  final String received;
-
-  /// The hash computed locally from the configured sync tables.
-  final String expected;
-
-  @override
-  String toString() =>
-      'SyncTablesHashMismatchException: schema hash mismatch. '
-      'Received "$received", expected "$expected". '
-      'Ensure both sides are on the same schema version before syncing.';
 }

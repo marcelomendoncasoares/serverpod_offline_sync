@@ -5,6 +5,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 
 import '../protocol/protocol.dart';
+import 'exceptions.dart';
 
 /// A group of CRDT merge changes collected for one sync batch.
 typedef CrdtMergeSet = List<CrdtMergeChange>;
@@ -31,25 +32,26 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
         case CrdtSyncEndOfBatch():
           return mergeSet;
         default:
-          throw StateError(
-            'Expected "CrdtSyncMergeChange" or "CrdtSyncEndOfBatch", but received '
-            '"${current.runtimeType}" instead.',
+          throw CrdtSyncUnexpectedEventException(
+            expected: '"CrdtSyncMergeChange" or "CrdtSyncEndOfBatch"',
+            received: current,
           );
       }
     }
 
-    throw StateError('Sync stream closed before end-of-batch event.');
+    throw const CrdtSyncStreamClosedException(phase: 'end-of-batch');
   }
 
   /// Moves the iterator to the next event and throws if the stream is closed or
   /// the next event is not of type [T].
-  Future<T> moveAndThrowIfNot<T>() async {
+  Future<T> moveAndThrowIfNot<T extends CrdtSyncStreamEvent>() async {
     if (!await moveNext()) {
-      throw StateError('Sync stream closed before $T event.');
+      throw CrdtSyncStreamClosedException(phase: '"$T"');
     }
     if (current is! T) {
-      throw StateError(
-        'Expected $T event, but received ${current.runtimeType} instead.',
+      throw CrdtSyncUnexpectedEventException(
+        expected: '"$T"',
+        received: current,
       );
     }
     return current as T;

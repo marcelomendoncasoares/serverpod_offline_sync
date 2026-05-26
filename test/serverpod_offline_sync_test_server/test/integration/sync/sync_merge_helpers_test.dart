@@ -78,7 +78,10 @@ void main() {
         expect(firstBatch.deletes, isEmpty);
         expect(secondBatch.inserts, isEmpty);
         expect(secondBatch.deletes, hasLength(1));
-        expect(iterator.collectNextBatch, throwsA(isA<StateError>()));
+        expect(
+          iterator.collectNextBatch,
+          throwsA(isA<CrdtSyncStreamClosedException>()),
+        );
       },
     );
 
@@ -112,7 +115,10 @@ void main() {
       const stream = Stream<CrdtSyncStreamEvent>.empty();
       final iterator = StreamIterator(stream);
 
-      expect(iterator.collectNextBatch, throwsA(isA<StateError>()));
+      expect(
+        iterator.collectNextBatch,
+        throwsA(isA<CrdtSyncStreamClosedException>()),
+      );
     },
   );
 
@@ -135,7 +141,10 @@ void main() {
       ]);
       final iterator = StreamIterator(stream);
 
-      expect(iterator.collectNextBatch, throwsA(isA<StateError>()));
+      expect(
+        iterator.collectNextBatch,
+        throwsA(isA<CrdtSyncStreamClosedException>()),
+      );
     },
   );
 
@@ -152,6 +161,131 @@ void main() {
       final batch = await iterator.collectNextBatch();
 
       expect(batch, isEmpty);
+    },
+  );
+
+  test(
+    'Given a stream with CrdtSyncClose before CrdtSyncEndOfBatch '
+    'when collecting the next batch '
+    'then collection fails with CrdtSyncUnexpectedEventException.',
+    () async {
+      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
+        CrdtSyncMergeChange(
+          change: CrdtMergeDelete(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+            hlcCounter: 3,
+            tableName: 'person',
+            uuidRowId: const Uuid().v7obj(),
+            uuidNodeId: const Uuid().v7obj(),
+            isDeleted: true,
+          ),
+        ),
+        CrdtSyncClose(),
+      ]);
+      final iterator = StreamIterator(stream);
+
+      expect(
+        iterator.collectNextBatch,
+        throwsA(
+          isA<CrdtSyncUnexpectedEventException>()
+              .having(
+                (exception) => exception.received,
+                'received',
+                isA<CrdtSyncClose>(),
+              )
+              .having(
+                (exception) => exception.toString(),
+                'toString',
+                'CrdtSyncUnexpectedEventException: expected "CrdtSyncMergeChange" '
+                    'or "CrdtSyncEndOfBatch", but received "CrdtSyncClose" instead.',
+              ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given an empty stream '
+    'when expecting CrdtSyncConnect '
+    'then it throws a CrdtSyncStreamClosedException.',
+    () async {
+      const stream = Stream<CrdtSyncStreamEvent>.empty();
+      final iterator = StreamIterator(stream);
+
+      expect(
+        () => iterator.moveAndThrowIfNot<CrdtSyncConnect>(),
+        throwsA(
+          isA<CrdtSyncStreamClosedException>().having(
+            (exception) => exception.toString(),
+            'toString',
+            'CrdtSyncStreamClosedException: sync stream closed before '
+                '"CrdtSyncConnect" event.',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a stream starting with CrdtSyncEndOfBatch '
+    'when expecting CrdtSyncConnect '
+    'then it throws a CrdtSyncUnexpectedEventException.',
+    () async {
+      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
+        CrdtSyncEndOfBatch(),
+      ]);
+      final iterator = StreamIterator(stream);
+
+      expect(
+        () => iterator.moveAndThrowIfNot<CrdtSyncConnect>(),
+        throwsA(
+          isA<CrdtSyncUnexpectedEventException>()
+              .having(
+                (exception) => exception.received,
+                'received',
+                isA<CrdtSyncEndOfBatch>(),
+              )
+              .having(
+                (exception) => exception.toString(),
+                'toString',
+                'CrdtSyncUnexpectedEventException: expected "CrdtSyncConnect", but '
+                    'received "CrdtSyncEndOfBatch" instead.',
+              ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a stream starting with CrdtSyncConnect '
+    'when expecting CrdtSyncClose '
+    'then it throws a CrdtSyncUnexpectedEventException.',
+    () async {
+      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
+        CrdtSyncConnect(
+          localNodeId: const Uuid().v7obj(),
+          syncTablesHash: 'hash',
+        ),
+      ]);
+      final iterator = StreamIterator(stream);
+
+      expect(
+        () => iterator.moveAndThrowIfNot<CrdtSyncClose>(),
+        throwsA(
+          isA<CrdtSyncUnexpectedEventException>()
+              .having(
+                (exception) => exception.received,
+                'received',
+                isA<CrdtSyncConnect>(),
+              )
+              .having(
+                (exception) => exception.toString(),
+                'toString',
+                'CrdtSyncUnexpectedEventException: expected "CrdtSyncClose", but '
+                    'received "CrdtSyncConnect" instead.',
+              ),
+        ),
+      );
     },
   );
 }
