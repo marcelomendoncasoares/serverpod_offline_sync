@@ -1,6 +1,0 @@
-### A merge change carried inside a framed sync batch.
-class: CrdtSyncMergeChange
-extends: CrdtSyncStreamEvent
-fields:
-  ### The merge change to apply.
-  change: CrdtMergeChange

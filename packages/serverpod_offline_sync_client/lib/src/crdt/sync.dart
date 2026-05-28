@@ -19,11 +19,21 @@ class CrdtSync {
   CrdtSync({
     required List<Table> syncTables,
     required DatabaseSerializationManager serializationManager,
+    int syncBatchSize = defaultSyncBatchSize,
   }) : _syncTables = syncTables,
-       _serializationManager = serializationManager;
+       _serializationManager = serializationManager,
+       _syncBatchSize = syncBatchSize {
+    if (syncBatchSize < 1) {
+      throw ArgumentError.value(syncBatchSize, 'syncBatchSize', 'Must be >= 1');
+    }
+  }
+
+  /// Default maximum number of merge changes sent in one stream message.
+  static const defaultSyncBatchSize = 100;
 
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
+  final int _syncBatchSize;
 
   static CrdtSync? _instance;
 
@@ -40,10 +50,12 @@ class CrdtSync {
   static void initialize({
     required List<Table> syncTables,
     required DatabaseSerializationManager serializationManager,
+    int syncBatchSize = defaultSyncBatchSize,
   }) {
     _instance = CrdtSync(
       syncTables: syncTables,
       serializationManager: serializationManager,
+      syncBatchSize: syncBatchSize,
     );
   }
 
@@ -160,11 +172,15 @@ class CrdtSync {
     required Hlc sinceHlc,
   }) async* {
     yield* collectPendingChanges(
-      session,
-      userId: userId,
-      otherNodeId: peerNodeId,
-      sinceHlc: sinceHlc,
-    ).map((change) => CrdtSyncMergeChange(change: change));
+          session,
+          userId: userId,
+          otherNodeId: peerNodeId,
+          sinceHlc: sinceHlc,
+        )
+        .chunked(_syncBatchSize)
+        .map(
+          (changes) => CrdtSyncMergeChunk(changes: changes),
+        );
     yield CrdtSyncEndOfBatch();
   }
 
@@ -239,10 +255,10 @@ class CrdtSync {
         );
 
         var hasChanges = false;
-        await for (final change in pendingLocalChanges) {
+        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
           hasChanges = true;
-          lastSentToPeer = lastSentToPeer.maxBetween(change.hlc);
-          yield CrdtSyncMergeChange(change: change);
+          lastSentToPeer = lastSentToPeer.maxBetween(changes.maxHlc);
+          yield CrdtSyncMergeChunk(changes: changes);
         }
         if (hasChanges || once) {
           yield CrdtSyncEndOfBatch();

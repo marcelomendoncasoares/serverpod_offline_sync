@@ -43,26 +43,30 @@ void main() {
     final row = CrdtNode(userId: 1, uuidNodeId: rowId);
 
     final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-      CrdtSyncMergeChange(
-        change: CrdtMergeInsert(
-          hlcDatetime: DateTime.utc(2026, 5, 10, 12),
-          hlcCounter: 1,
-          tableName: 'person',
-          uuidRowId: rowId,
-          uuidNodeId: requesterNodeId,
-          data: row,
-        ),
+      CrdtSyncMergeChunk(
+        changes: [
+          CrdtMergeInsert(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 12),
+            hlcCounter: 1,
+            tableName: 'person',
+            uuidRowId: rowId,
+            uuidNodeId: requesterNodeId,
+            data: row,
+          ),
+        ],
       ),
       CrdtSyncEndOfBatch(),
-      CrdtSyncMergeChange(
-        change: CrdtMergeDelete(
-          hlcDatetime: DateTime.utc(2026, 5, 10, 13),
-          hlcCounter: 2,
-          tableName: 'person',
-          uuidRowId: rowId,
-          uuidNodeId: requesterNodeId,
-          isDeleted: true,
-        ),
+      CrdtSyncMergeChunk(
+        changes: [
+          CrdtMergeDelete(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 13),
+            hlcCounter: 2,
+            tableName: 'person',
+            uuidRowId: rowId,
+            uuidNodeId: requesterNodeId,
+            isDeleted: true,
+          ),
+        ],
       ),
       CrdtSyncEndOfBatch(),
     ]);
@@ -88,18 +92,28 @@ void main() {
     );
 
     test(
-      'when collecting the next batch then merge changes are preserved.',
+      'when collecting the next batch then batched merge changes are preserved.',
       () async {
         final singleBatchStream = Stream<CrdtSyncStreamEvent>.fromIterable([
-          CrdtSyncMergeChange(
-            change: CrdtMergeInsert(
-              hlcDatetime: DateTime.utc(2026, 5, 10, 16),
-              hlcCounter: 1,
-              tableName: 'person',
-              uuidRowId: rowId,
-              uuidNodeId: requesterNodeId,
-              data: row,
-            ),
+          CrdtSyncMergeChunk(
+            changes: [
+              CrdtMergeInsert(
+                hlcDatetime: DateTime.utc(2026, 5, 10, 16),
+                hlcCounter: 1,
+                tableName: 'person',
+                uuidRowId: rowId,
+                uuidNodeId: requesterNodeId,
+                data: row,
+              ),
+              CrdtMergeDelete(
+                hlcDatetime: DateTime.utc(2026, 5, 10, 17),
+                hlcCounter: 2,
+                tableName: 'person',
+                uuidRowId: rowId,
+                uuidNodeId: requesterNodeId,
+                isDeleted: true,
+              ),
+            ],
           ),
           CrdtSyncEndOfBatch(),
         ]);
@@ -107,7 +121,7 @@ void main() {
         final batch = await StreamIterator(singleBatchStream).collectNextBatch();
 
         expect(batch, isNotNull);
-        expect(batch, hasLength(1));
+        expect(batch, hasLength(2));
       },
     );
   });
@@ -145,15 +159,17 @@ void main() {
     'then collection fails.',
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChange(
-          change: CrdtMergeDelete(
-            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
-            hlcCounter: 3,
-            tableName: 'person',
-            uuidRowId: const Uuid().v7obj(),
-            uuidNodeId: const Uuid().v7obj(),
-            isDeleted: true,
-          ),
+        CrdtSyncMergeChunk(
+          changes: [
+            CrdtMergeDelete(
+              hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+              hlcCounter: 3,
+              tableName: 'person',
+              uuidRowId: const Uuid().v7obj(),
+              uuidNodeId: const Uuid().v7obj(),
+              isDeleted: true,
+            ),
+          ],
         ),
       ]);
       final iterator = StreamIterator(stream);
@@ -166,20 +182,22 @@ void main() {
   );
 
   test(
-    'Given a stream that ends after a merge change without CrdtSyncEndOfBatch '
+    'Given a stream that ends after a merge batch without CrdtSyncEndOfBatch '
     'when collecting the next batch allowing close before batch '
     'then collection fails.',
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChange(
-          change: CrdtMergeDelete(
-            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
-            hlcCounter: 3,
-            tableName: 'person',
-            uuidRowId: const Uuid().v7obj(),
-            uuidNodeId: const Uuid().v7obj(),
-            isDeleted: true,
-          ),
+        CrdtSyncMergeChunk(
+          changes: [
+            CrdtMergeDelete(
+              hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+              hlcCounter: 3,
+              tableName: 'person',
+              uuidRowId: const Uuid().v7obj(),
+              uuidNodeId: const Uuid().v7obj(),
+              isDeleted: true,
+            ),
+          ],
         ),
       ]);
       final iterator = StreamIterator(stream);
@@ -226,22 +244,24 @@ void main() {
   );
 
   test(
-    'Given a stream that is idle after a merge change '
+    'Given a stream that is idle after a merge batch '
     'when collecting the next batch '
     'then the idle event does not end the batch.',
     () async {
       final rowId = const Uuid().v7obj();
       final requesterNodeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChange(
-          change: CrdtMergeDelete(
-            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
-            hlcCounter: 3,
-            tableName: 'person',
-            uuidRowId: rowId,
-            uuidNodeId: requesterNodeId,
-            isDeleted: true,
-          ),
+        CrdtSyncMergeChunk(
+          changes: [
+            CrdtMergeDelete(
+              hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+              hlcCounter: 3,
+              tableName: 'person',
+              uuidRowId: rowId,
+              uuidNodeId: requesterNodeId,
+              isDeleted: true,
+            ),
+          ],
         ),
         CrdtSyncIdleTimeout(),
         CrdtSyncEndOfBatch(),
@@ -261,15 +281,17 @@ void main() {
     'then collection fails with CrdtSyncUnexpectedEventException.',
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChange(
-          change: CrdtMergeDelete(
-            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
-            hlcCounter: 3,
-            tableName: 'person',
-            uuidRowId: const Uuid().v7obj(),
-            uuidNodeId: const Uuid().v7obj(),
-            isDeleted: true,
-          ),
+        CrdtSyncMergeChunk(
+          changes: [
+            CrdtMergeDelete(
+              hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+              hlcCounter: 3,
+              tableName: 'person',
+              uuidRowId: const Uuid().v7obj(),
+              uuidNodeId: const Uuid().v7obj(),
+              isDeleted: true,
+            ),
+          ],
         ),
         CrdtSyncClose(),
       ]);
@@ -287,8 +309,9 @@ void main() {
               .having(
                 (exception) => exception.toString(),
                 'toString',
-                'CrdtSyncUnexpectedEventException: expected "CrdtSyncMergeChange" '
-                    'or "CrdtSyncEndOfBatch", but received "CrdtSyncClose" instead.',
+                'CrdtSyncUnexpectedEventException: expected "CrdtSyncMergeChunk" '
+                    'or "CrdtSyncEndOfBatch", but '
+                    'received "CrdtSyncClose" instead.',
               ),
         ),
       );

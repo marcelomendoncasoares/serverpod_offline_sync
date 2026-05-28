@@ -106,7 +106,7 @@ void main() {
 
         test(
           'when client syncContinuously runs '
-          'then neither side sends merge or batch events over the stream.',
+          'then neither side sends merge chunk or batch boundary events over the stream.',
           () async {
             final clientToServer = StreamController<CrdtSyncStreamEvent>();
             final serverToClient = StreamController<CrdtSyncStreamEvent>();
@@ -155,7 +155,7 @@ void main() {
             await serverSubscription.cancel();
 
             for (final events in [clientOutboundEvents, serverOutboundEvents]) {
-              expect(events.whereType<CrdtSyncMergeChange>(), isEmpty);
+              expect(events.whereType<CrdtSyncMergeChunk>(), isEmpty);
               expect(events.whereType<CrdtSyncEndOfBatch>(), isEmpty);
               expect(events.whereType<CrdtSyncClose>(), isEmpty);
               expect(events.whereType<CrdtSyncIdleTimeout>(), isEmpty);

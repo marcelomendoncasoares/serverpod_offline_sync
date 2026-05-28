@@ -20,7 +20,7 @@ typedef CrdtMergeMetadataLookup = ({
 extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEvent> {
   /// Collects the next framed sync batch from this iterator.
   ///
-  /// Each batch is zero or more [CrdtSyncMergeChange] events followed by
+  /// Each batch is zero or more [CrdtSyncMergeChunk] events followed by
   /// [CrdtSyncEndOfBatch]. If the stream is idle before a batch starts, an
   /// empty batch is returned.
   ///
@@ -37,15 +37,15 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
 
     while (await moveNext()) {
       switch (current) {
-        case CrdtSyncMergeChange(change: final change):
-          mergeSet.add(change);
+        case CrdtSyncMergeChunk(changes: final changes):
+          mergeSet.addAll(changes);
         case CrdtSyncIdleTimeout():
           if (mergeSet.isEmpty) return mergeSet;
         case CrdtSyncEndOfBatch():
           return mergeSet;
         default:
           throw CrdtSyncUnexpectedEventException(
-            expected: '"CrdtSyncMergeChange" or "CrdtSyncEndOfBatch"',
+            expected: '"CrdtSyncMergeChunk" or "CrdtSyncEndOfBatch"',
             received: current,
           );
       }
@@ -67,6 +67,21 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
       );
     }
     throw CrdtSyncStreamClosedException(phase: '"$T"');
+  }
+}
+
+/// Helpers for grouping merge changes into stream payload batches.
+extension CrdtMergeChangeStreamExtension on Stream<CrdtMergeChange> {
+  /// Emits lists with at most [batchSize] changes from this stream.
+  Stream<CrdtMergeSet> chunked(int batchSize) async* {
+    var batch = <CrdtMergeChange>[];
+    await for (final change in this) {
+      batch.add(change);
+      if (batch.length < batchSize) continue;
+      yield batch;
+      batch = <CrdtMergeChange>[];
+    }
+    if (batch.isNotEmpty) yield batch;
   }
 }
 

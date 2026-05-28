@@ -26,11 +26,15 @@ class CrdtDatabase implements Database {
     /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
 
+    /// Maximum number of merge changes sent in one sync stream message.
+    int syncBatchSize = CrdtSync.defaultSyncBatchSize,
+
     /// The user ID to use for all CRDT operations. This should only be used for
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
   }) : _syncTables = syncTables,
+       _syncBatchSize = syncBatchSize,
        _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
@@ -39,12 +43,14 @@ class CrdtDatabase implements Database {
 
   final Database _delegate;
   final List<Table> _syncTables;
+  final int _syncBatchSize;
 
   final CrdtMutationRecorder _recorder;
 
   late final CrdtSync _sync = CrdtSync(
     syncTables: _syncTables,
     serializationManager: serializationManager,
+    syncBatchSize: _syncBatchSize,
   );
 
   /// Initializes the CRDT database.

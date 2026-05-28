@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
@@ -79,6 +80,52 @@ void main() {
         expect(recoveredData.anInt64, insertedRow.anInt64);
         expect(recoveredData.anEnum, TypesEnum.gamma);
         expect(recoveredData.aBlob.toBytes(), insertedRow.aBlob.toBytes());
+      },
+    );
+  });
+
+  group('Given inserted CRDT rows and a sync batch size of two', () {
+    late CrdtSync batchingCrdtSync;
+
+    setUp(() async {
+      batchingCrdtSync = CrdtSync(
+        syncTables: syncTables,
+        serializationManager: testSession.db.serializationManager,
+        syncBatchSize: 2,
+      );
+
+      for (var i = 0; i < 3; i++) {
+        await crdtSession.db.transactionForUser(
+          testCrdtUserId,
+          (tx) async {
+            await Person.db.insertRow(
+              crdtSession,
+              Person(id: const Uuid().v7obj(), name: 'person-$i'),
+              transaction: tx,
+            );
+          },
+        );
+      }
+    });
+
+    test(
+      'when streaming an outbound sync batch '
+      'then pending changes are chunked into merge chunk events.',
+      () async {
+        final events = await batchingCrdtSync
+            .streamOutboundBatch(
+              testSession,
+              userId: testCrdtUserId,
+              peerNodeId: const Uuid().v7obj(),
+              sinceHlc: Hlc.zero(const Uuid().v7obj()),
+            )
+            .toList();
+
+        final mergeChunks = events.whereType<CrdtSyncMergeChunk>().toList();
+
+        expect(mergeChunks, hasLength(2));
+        expect(mergeChunks.map((chunk) => chunk.changes.length), [2, 1]);
+        expect(events.last, isA<CrdtSyncEndOfBatch>());
       },
     );
   });
