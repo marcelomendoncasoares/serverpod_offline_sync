@@ -190,7 +190,16 @@ class CrdtSync {
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
-    final inboundIterator = StreamIterator(inbound);
+    final inboundIterator = StreamIterator(
+      // Inject a timeout event if the inbound stream is idle for too long to
+      // allow returning an empty batch and waiting for a change without closing
+      // the stream.
+      inbound.timeout(
+        const Duration(seconds: 1),
+        onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
+      ),
+    );
+
     try {
       final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
       final localNodeId = crdtUser.currentNode!.uuidNodeId;
@@ -228,13 +237,21 @@ class CrdtSync {
           sinceHlc: lastSentToPeer,
         );
 
+        var hasChanges = false;
         await for (final change in pendingLocalChanges) {
+          hasChanges = true;
           lastSentToPeer = lastSentToPeer.maxBetween(change.hlc);
           yield CrdtSyncMergeChange(change: change);
         }
-        yield CrdtSyncEndOfBatch();
+        if (hasChanges || once) {
+          yield CrdtSyncEndOfBatch();
+        }
 
-        final inboundMergeSet = await inboundIterator.collectNextBatch();
+        final inboundMergeSet = await inboundIterator.collectNextBatch(
+          allowCloseBeforeBatch: !once,
+        );
+        if (inboundMergeSet == null) return;
+
         final lastReceivedFromPeer = await mergeInboundBatch(
           session,
           userId: userId,
@@ -242,15 +259,21 @@ class CrdtSync {
           mergeSet: inboundMergeSet,
         );
 
-        await onMergeSuccess?.call(
-          lastSentToPeer.maxBetween(lastReceivedFromPeer),
-        );
+        if (hasChanges || inboundMergeSet.isNotEmpty) {
+          await onMergeSuccess?.call(
+            lastSentToPeer.maxBetween(lastReceivedFromPeer),
+          );
+        }
 
         if (once) {
           yield CrdtSyncClose();
           await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
           return;
         }
+
+        // Wait for 200ms to allow the peer to send a change before checking
+        // for idleness again.
+        await Future<void>.delayed(const Duration(milliseconds: 200));
       }
     } finally {
       await inboundIterator.cancel();

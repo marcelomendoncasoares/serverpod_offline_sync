@@ -1,0 +1,7 @@
+### Marks a timeout of an idle sync session.
+###
+### This is a synthetic event that will be injected in the inbound stream
+### being awaited if it does not emit any events for a given timeout. It is
+### what allows both sides to stay silent if they have nothing to send.
+class: CrdtSyncIdleTimeout
+extends: CrdtSyncStreamEvent

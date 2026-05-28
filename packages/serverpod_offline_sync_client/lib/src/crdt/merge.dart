@@ -21,14 +21,26 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
   /// Collects the next framed sync batch from this iterator.
   ///
   /// Each batch is zero or more [CrdtSyncMergeChange] events followed by
-  /// [CrdtSyncEndOfBatch].
-  Future<CrdtMergeSet> collectNextBatch() async {
+  /// [CrdtSyncEndOfBatch]. If the stream is idle before a batch starts, an
+  /// empty batch is returned.
+  ///
+  /// When [allowCloseBeforeBatch] is true, returns `null` if the stream closes
+  /// before the next batch starts. Otherwise, closing before a batch starts is
+  /// treated as a [CrdtSyncStreamClosedException].
+  ///
+  /// If the stream closes after a merge change was already received, the
+  /// partial batch is still treated as an error.
+  Future<CrdtMergeSet?> collectNextBatch({
+    bool allowCloseBeforeBatch = false,
+  }) async {
     final mergeSet = <CrdtMergeChange>[];
 
     while (await moveNext()) {
       switch (current) {
         case CrdtSyncMergeChange(change: final change):
           mergeSet.add(change);
+        case CrdtSyncIdleTimeout():
+          if (mergeSet.isEmpty) return mergeSet;
         case CrdtSyncEndOfBatch():
           return mergeSet;
         default:
@@ -39,22 +51,22 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
       }
     }
 
+    if (mergeSet.isEmpty && allowCloseBeforeBatch) return null;
     throw const CrdtSyncStreamClosedException(phase: 'end-of-batch');
   }
 
   /// Moves the iterator to the next event and throws if the stream is closed or
   /// the next event is not of type [T].
   Future<T> moveAndThrowIfNot<T extends CrdtSyncStreamEvent>() async {
-    if (!await moveNext()) {
-      throw CrdtSyncStreamClosedException(phase: '"$T"');
-    }
-    if (current is! T) {
+    while (await moveNext()) {
+      if (current is CrdtSyncIdleTimeout) continue;
+      if (current is T) return current as T;
       throw CrdtSyncUnexpectedEventException(
         expected: '"$T"',
         received: current,
       );
     }
-    return current as T;
+    throw CrdtSyncStreamClosedException(phase: '"$T"');
   }
 }
 

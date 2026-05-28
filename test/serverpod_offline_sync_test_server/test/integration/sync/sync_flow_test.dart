@@ -73,6 +73,97 @@ void main() {
         await serverSession.clearUserTables();
       });
 
+      group('and no local or remote pending changes exist', () {
+        test(
+          'when client syncOnce is called '
+          'then the sync completes.',
+          () async {
+            await expectLater(
+              testClient.crdt
+                  .syncOnce(clientSession)
+                  .timeout(const Duration(seconds: 3)),
+              completes,
+            );
+          },
+        );
+
+        test(
+          'when client syncContinuously is called '
+          'then neither side reports a successful merge.',
+          () async {
+            var mergeSuccessCount = 0;
+            final syncSession = testClient.crdt.syncContinuously(
+              clientSession,
+              onMergeSuccess: (_) => mergeSuccessCount++,
+            );
+            addTearDown(syncSession.cancel);
+
+            await Future<void>.delayed(const Duration(seconds: 2));
+
+            expect(mergeSuccessCount, 0);
+          },
+        );
+
+        test(
+          'when client syncContinuously runs '
+          'then neither side sends merge or batch events over the stream.',
+          () async {
+            final clientToServer = StreamController<CrdtSyncStreamEvent>();
+            final serverToClient = StreamController<CrdtSyncStreamEvent>();
+            final clientOutboundEvents = <CrdtSyncStreamEvent>[];
+            final serverOutboundEvents = <CrdtSyncStreamEvent>[];
+
+            addTearDown(() async {
+              await clientToServer.close();
+              await serverToClient.close();
+            });
+
+            final clientSync = CrdtSync(
+              syncTables: clientSyncTables,
+              serializationManager: testSession.db.serializationManager,
+            );
+
+            final clientSubscription = clientSync
+                .sync(
+                  testSession,
+                  userId: testCrdtUserId,
+                  inbound: serverToClient.stream,
+                  once: false,
+                )
+                .listen((event) {
+                  clientOutboundEvents.add(event);
+                  clientToServer.add(event);
+                });
+
+            final serverSubscription = CrdtSync.instance
+                .sync(
+                  serverSession,
+                  userId: testCrdtUserId,
+                  inbound: clientToServer.stream,
+                  once: false,
+                )
+                .listen((event) {
+                  serverOutboundEvents.add(event);
+                  serverToClient.add(event);
+                });
+
+            await Future<void>.delayed(const Duration(seconds: 2));
+
+            await clientToServer.close();
+            await serverToClient.close();
+            await clientSubscription.cancel();
+            await serverSubscription.cancel();
+
+            for (final events in [clientOutboundEvents, serverOutboundEvents]) {
+              expect(events.whereType<CrdtSyncMergeChange>(), isEmpty);
+              expect(events.whereType<CrdtSyncEndOfBatch>(), isEmpty);
+              expect(events.whereType<CrdtSyncClose>(), isEmpty);
+              expect(events.whereType<CrdtSyncIdleTimeout>(), isEmpty);
+            }
+          },
+        );
+      });
+
       group('and an inserted client person', () {
         late UuidValue personId;
 
@@ -303,6 +394,16 @@ void main() {
           'when the session is cancelled '
           'then done completes without hanging.',
           () async {
+            await syncSession.cancel();
+            await expectLater(syncSession.done, completes);
+          },
+        );
+
+        test(
+          'when no local or remote changes exist '
+          'then the idle session can still be cancelled cleanly.',
+          () async {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
             await syncSession.cancel();
             await expectLater(syncSession.done, completes);
           },

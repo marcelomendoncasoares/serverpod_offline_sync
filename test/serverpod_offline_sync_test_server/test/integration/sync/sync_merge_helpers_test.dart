@@ -74,9 +74,11 @@ void main() {
         final firstBatch = await iterator.collectNextBatch();
         final secondBatch = await iterator.collectNextBatch();
 
-        expect(firstBatch.inserts, hasLength(1));
+        expect(firstBatch, isNotNull);
+        expect(secondBatch, isNotNull);
+        expect(firstBatch!.inserts, hasLength(1));
         expect(firstBatch.deletes, isEmpty);
-        expect(secondBatch.inserts, isEmpty);
+        expect(secondBatch!.inserts, isEmpty);
         expect(secondBatch.deletes, hasLength(1));
         expect(
           iterator.collectNextBatch,
@@ -104,6 +106,7 @@ void main() {
 
         final batch = await StreamIterator(singleBatchStream).collectNextBatch();
 
+        expect(batch, isNotNull);
         expect(batch, hasLength(1));
       },
     );
@@ -119,6 +122,20 @@ void main() {
         iterator.collectNextBatch,
         throwsA(isA<CrdtSyncStreamClosedException>()),
       );
+    },
+  );
+
+  test(
+    'Given an empty stream '
+    'when collecting the next batch allowing close before batch '
+    'then null is returned.',
+    () async {
+      const stream = Stream<CrdtSyncStreamEvent>.empty();
+      final iterator = StreamIterator(stream);
+
+      final batch = await iterator.collectNextBatch(allowCloseBeforeBatch: true);
+
+      expect(batch, isNull);
     },
   );
 
@@ -149,6 +166,32 @@ void main() {
   );
 
   test(
+    'Given a stream that ends after a merge change without CrdtSyncEndOfBatch '
+    'when collecting the next batch allowing close before batch '
+    'then collection fails.',
+    () async {
+      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
+        CrdtSyncMergeChange(
+          change: CrdtMergeDelete(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+            hlcCounter: 3,
+            tableName: 'person',
+            uuidRowId: const Uuid().v7obj(),
+            uuidNodeId: const Uuid().v7obj(),
+            isDeleted: true,
+          ),
+        ),
+      ]);
+      final iterator = StreamIterator(stream);
+
+      expect(
+        () => iterator.collectNextBatch(allowCloseBeforeBatch: true),
+        throwsA(isA<CrdtSyncStreamClosedException>()),
+      );
+    },
+  );
+
+  test(
     'Given a stream that starts with CrdtSyncEndOfBatch '
     'when collecting the next batch '
     'then an empty merge set is returned.',
@@ -160,7 +203,55 @@ void main() {
 
       final batch = await iterator.collectNextBatch();
 
+      expect(batch, isNotNull);
       expect(batch, isEmpty);
+    },
+  );
+
+  test(
+    'Given a stream that is idle before a batch starts '
+    'when collecting the next batch '
+    'then an empty merge set is returned.',
+    () async {
+      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
+        CrdtSyncIdleTimeout(),
+      ]);
+      final iterator = StreamIterator(stream);
+
+      final batch = await iterator.collectNextBatch();
+
+      expect(batch, isNotNull);
+      expect(batch, isEmpty);
+    },
+  );
+
+  test(
+    'Given a stream that is idle after a merge change '
+    'when collecting the next batch '
+    'then the idle event does not end the batch.',
+    () async {
+      final rowId = const Uuid().v7obj();
+      final requesterNodeId = const Uuid().v7obj();
+      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
+        CrdtSyncMergeChange(
+          change: CrdtMergeDelete(
+            hlcDatetime: DateTime.utc(2026, 5, 10, 14),
+            hlcCounter: 3,
+            tableName: 'person',
+            uuidRowId: rowId,
+            uuidNodeId: requesterNodeId,
+            isDeleted: true,
+          ),
+        ),
+        CrdtSyncIdleTimeout(),
+        CrdtSyncEndOfBatch(),
+      ]);
+      final iterator = StreamIterator(stream);
+
+      final batch = await iterator.collectNextBatch();
+
+      expect(batch, isNotNull);
+      expect(batch!.deletes, hasLength(1));
     },
   );
 
