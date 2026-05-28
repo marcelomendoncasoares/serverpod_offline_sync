@@ -200,6 +200,7 @@ class CrdtSync {
       ),
     );
 
+    var sessionCompleted = false;
     try {
       final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
       final localNodeId = crdtUser.currentNode!.uuidNodeId;
@@ -250,7 +251,10 @@ class CrdtSync {
         final inboundMergeSet = await inboundIterator.collectNextBatch(
           allowCloseBeforeBatch: !once,
         );
-        if (inboundMergeSet == null) return;
+        if (inboundMergeSet == null) {
+          sessionCompleted = true;
+          return;
+        }
 
         final lastReceivedFromPeer = await mergeInboundBatch(
           session,
@@ -268,6 +272,7 @@ class CrdtSync {
         if (once) {
           yield CrdtSyncClose();
           await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
+          sessionCompleted = true;
           return;
         }
 
@@ -276,7 +281,14 @@ class CrdtSync {
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
     } finally {
-      await inboundIterator.cancel();
+      // Cancelling inbound on normal completion races with WebSocket stream
+      // teardown and produces "connection closed" errors on the peer. Keep
+      // cleanup for abnormal exits so listener cancellation can unblock.
+      if (!sessionCompleted) {
+        // Best-effort cleanup, since the transport will close the socket anyway.
+        const waitTimeout = Duration(milliseconds: 200);
+        await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
+      }
     }
   }
 

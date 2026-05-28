@@ -56,6 +56,7 @@ class CrdtSyncClient {
     // ignore: close_sinks
     final outboundChanges = StreamController<CrdtSyncStreamEvent>();
     final doneCompleter = Completer<void>();
+    var cancelled = false;
 
     try {
       final remoteStream = _caller.crdtSync.sync(
@@ -75,8 +76,16 @@ class CrdtSyncClient {
       return CrdtSyncSession._(
         done: doneCompleter.future.whenComplete(outboundChanges.closeOrSkip),
         cancel: () async {
-          await outboundChanges.closeOrSkip();
-          await subscription.cancel();
+          if (cancelled) return;
+          cancelled = true;
+
+          unawaited(outboundChanges.closeOrSkip());
+          if (doneCompleter.isCompleted) return;
+          const waitTimeout = Duration(milliseconds: 200);
+          // Prefer graceful shutdown: closing outbound lets the server finish
+          // and complete [done] via [subscription.onDone].
+          await doneCompleter.future.timeout(waitTimeout, onTimeout: () {});
+          await subscription.cancel().timeout(waitTimeout, onTimeout: () {});
           doneCompleter.completeOrSkip();
         },
       );
