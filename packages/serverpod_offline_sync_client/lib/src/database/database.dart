@@ -67,6 +67,7 @@ class CrdtDatabase implements Database {
     required Stream<CrdtSyncStreamEvent> inbound,
     UuidValue? userId,
     bool once = false,
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
     final effectiveUserId = await _requireUserId(userId);
     yield* _sync.sync(
@@ -74,6 +75,7 @@ class CrdtDatabase implements Database {
       userId: effectiveUserId,
       inbound: inbound,
       once: once,
+      onMergeSuccess: onMergeSuccess,
     );
   }
 

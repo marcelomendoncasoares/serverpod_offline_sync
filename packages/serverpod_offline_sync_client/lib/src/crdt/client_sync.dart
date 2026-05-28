@@ -5,6 +5,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 
 import '../database/session.dart';
 import '../protocol/protocol.dart';
+import 'sync.dart';
 
 /// A running continuous CRDT sync session.
 class CrdtSyncSession {
@@ -41,12 +42,15 @@ class CrdtSyncClient {
   /// [CrdtSyncSession.cancel] or the remote stream closes.
   ///
   /// The [session] must be wrapped in a [CrdtDatabaseSession].
-  CrdtSyncSession syncContinuously(DatabaseSession session) =>
-      _startSyncSession(session, once: false);
+  CrdtSyncSession syncContinuously(
+    DatabaseSession session, {
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
+  }) => _startSyncSession(session, once: false, onMergeSuccess: onMergeSuccess);
 
   CrdtSyncSession _startSyncSession(
     DatabaseSession session, {
     required bool once,
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) {
     // The stream will be closed using [outboundChanges.closeOrSkip].
     // ignore: close_sinks
@@ -60,7 +64,7 @@ class CrdtSyncClient {
       );
 
       final subscription = session.crdtDb
-          .sync(inbound: remoteStream, once: once)
+          .sync(inbound: remoteStream, once: once, onMergeSuccess: onMergeSuccess)
           .listen(
             outboundChanges.addIfNotClosed,
             onDone: doneCompleter.completeOrSkip,

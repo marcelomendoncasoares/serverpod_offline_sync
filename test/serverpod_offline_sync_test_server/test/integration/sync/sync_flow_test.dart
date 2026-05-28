@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as client;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
@@ -381,6 +382,57 @@ void main() {
           },
         );
       });
+
+      group(
+        'and a running client syncContinuously session with a merge success callback',
+        () {
+          late CrdtSyncSession syncSession;
+          late Completer<Hlc> mergeSuccessCompleter;
+
+          setUp(() async {
+            mergeSuccessCompleter = Completer<Hlc>();
+
+            syncSession = testClient.crdt.syncContinuously(
+              clientSession,
+              onMergeSuccess: mergeSuccessCompleter.complete,
+            );
+          });
+
+          tearDown(() async {
+            await syncSession.cancel();
+          });
+
+          test(
+            'when a new person is inserted into the client '
+            'then the merge success callback is called.',
+            () async {
+              await client.Person.db.insertRow(
+                clientSession,
+                client.Person(name: 'client-person'),
+              );
+
+              await expectLater(mergeSuccessCompleter.future, completes);
+            },
+          );
+
+          test(
+            'when a new person is inserted into the server for the same user '
+            'then the merge success callback is called.',
+            () async {
+              await serverSession.db.transactionForUser(
+                testCrdtUserId,
+                (tx) async => server.Person.db.insertRow(
+                  serverSession,
+                  server.Person(name: 'server-person'),
+                  transaction: tx,
+                ),
+              );
+
+              await expectLater(mergeSuccessCompleter.future, completes);
+            },
+          );
+        },
+      );
     },
   );
 

@@ -10,6 +10,9 @@ import '../protocol/protocol.dart';
 import 'exceptions.dart';
 import 'merge.dart';
 
+/// Callback function for when a merge is successful.
+typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
+
 /// The shared CRDT synchronization logic used by both client and server nodes.
 class CrdtSync {
   /// Creates a new [CrdtSync] instance.
@@ -130,18 +133,23 @@ class CrdtSync {
   ///
   /// Throws if the merge fails. The sync stream should be closed so the next
   /// attempt resumes from the last persisted checkpoint.
-  Future<void> mergeInboundBatch(
+  ///
+  /// Returns the greatest HLC synced in the batch, or `null` if the batch is
+  /// empty.
+  Future<Hlc?> mergeInboundBatch(
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue otherNodeId,
     required CrdtMergeSet mergeSet,
   }) async {
+    if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final crdtDb = await _openCrdtDatabase(session);
     await crdtDb.mergeChanges(mergeSet, userId: userId);
     if (maxSyncedHlc != null) {
       await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
     }
+    return maxSyncedHlc;
   }
 
   /// Streams a framed outbound sync batch of merge changes.
@@ -180,6 +188,7 @@ class CrdtSync {
     required UuidValue userId,
     required Stream<CrdtSyncStreamEvent> inbound,
     bool once = false,
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
     final inboundIterator = StreamIterator(inbound);
     try {
@@ -225,11 +234,16 @@ class CrdtSync {
         }
         yield CrdtSyncEndOfBatch();
 
-        await mergeInboundBatch(
+        final inboundMergeSet = await inboundIterator.collectNextBatch();
+        final lastReceivedFromPeer = await mergeInboundBatch(
           session,
           userId: userId,
           otherNodeId: peerNodeId,
-          mergeSet: await inboundIterator.collectNextBatch(),
+          mergeSet: inboundMergeSet,
+        );
+
+        await onMergeSuccess?.call(
+          lastSentToPeer.maxBetween(lastReceivedFromPeer),
         );
 
         if (once) {
