@@ -120,12 +120,12 @@ void main() {
 
             final clientSync = CrdtSync(
               syncTables: clientSyncTables,
-              serializationManager: testSession.db.serializationManager,
+              serializationManager: clientSession.db.serializationManager,
             );
 
             final clientSubscription = clientSync
                 .sync(
-                  testSession,
+                  clientSession,
                   userId: testCrdtUserId,
                   inbound: serverToClient.stream,
                   once: false,
@@ -532,6 +532,99 @@ void main() {
               await expectLater(mergeSuccessCompleter.future, completes);
             },
           );
+        },
+      );
+    },
+  );
+
+  withServerpod(
+    'Given a server and client CRDT session that are initialized with the same sync tables and a continuous sync interval',
+    rollbackDatabase: RollbackDatabase.disabled,
+    (sessionBuilder, _) {
+      final rawServerSession = sessionBuilder.build();
+      const syncInterval = Duration(milliseconds: 400);
+
+      rawServerSession.serverpod
+        ..initializeCrdtSync(
+          syncTables: serverSyncTables,
+          continuousSyncInterval: syncInterval,
+        )
+        ..authenticationHandler = (session, token) async => AuthenticationInfo(
+          testCrdtUserId.toString(),
+          <Scope>{},
+          authId: const Uuid().v4(),
+        );
+
+      setUp(() async {
+        testClient = client.Client(
+          'http://localhost:${rawServerSession.server.port}',
+        )..authKeyProvider = TestClientAuthKeyProvider();
+
+        clientSession = CrdtDatabaseSession.wraps(
+          testSession,
+          syncTables: clientSyncTables,
+          persistentUserId: testCrdtUserId,
+          continuousSyncInterval: syncInterval,
+        );
+        await clientSession.db.initialize();
+      });
+
+      test(
+        'when a client change is inserted after a sync round '
+        'then the next merge chunk waits for the configured interval.',
+        () async {
+          var mergeSuccessCount = 0;
+          final firstMergeCompleter = Completer<void>();
+          final secondMergeCompleter = Completer<void>();
+
+          final syncSession = testClient.crdt.syncContinuously(
+            clientSession,
+            onMergeSuccess: (_) {
+              switch (++mergeSuccessCount) {
+                case 1:
+                  firstMergeCompleter.complete();
+                case 2:
+                  secondMergeCompleter.complete();
+                default:
+                  throw Exception('Unexpected merge success count: $mergeSuccessCount');
+              }
+            },
+          );
+
+          addTearDown(syncSession.cancel);
+
+          await client.Person.db.insertRow(
+            clientSession,
+            client.Person(
+              id: const Uuid().v7obj(),
+              name: 'first-person',
+            ),
+          );
+
+          await expectLater(
+            firstMergeCompleter.future.timeout(const Duration(seconds: 3)),
+            completes,
+          );
+
+          final stopwatch = Stopwatch()..start();
+          await client.Person.db.insertRow(
+            clientSession,
+            client.Person(
+              id: const Uuid().v7obj(),
+              name: 'second-person',
+            ),
+          );
+
+          await Future<void>.delayed(syncInterval * 0.8);
+
+          expect(secondMergeCompleter.isCompleted, isFalse);
+
+          await expectLater(
+            secondMergeCompleter.future.timeout(const Duration(seconds: 3)),
+            completes,
+          );
+
+          expect(stopwatch.elapsed, greaterThanOrEqualTo(syncInterval));
         },
       );
     },

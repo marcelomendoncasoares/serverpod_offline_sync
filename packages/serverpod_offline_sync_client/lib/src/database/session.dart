@@ -17,6 +17,9 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
 
+    /// Delay between continuous sync rounds.
+    Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
+
     /// The user ID to use for all CRDT operations. This should only be used for
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
@@ -25,6 +28,7 @@ class CrdtDatabaseSession implements DatabaseSession {
          db,
          syncTables: syncTables,
          syncBatchSize: syncBatchSize,
+         continuousSyncInterval: continuousSyncInterval,
          persistentUserId: persistentUserId,
        );
 
@@ -38,6 +42,9 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
 
+    /// Delay between continuous sync rounds.
+    Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
+
     /// The user ID to use for all CRDT operations. This should only be used for
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
@@ -46,6 +53,7 @@ class CrdtDatabaseSession implements DatabaseSession {
     session.db,
     syncTables: syncTables,
     syncBatchSize: syncBatchSize,
+    continuousSyncInterval: continuousSyncInterval,
     persistentUserId: persistentUserId,
   );
 

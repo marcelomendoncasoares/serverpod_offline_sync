@@ -29,12 +29,16 @@ class CrdtDatabase implements Database {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
 
+    /// Delay between continuous sync rounds.
+    Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
+
     /// The user ID to use for all CRDT operations. This should only be used for
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
+       _continuousSyncInterval = continuousSyncInterval,
        _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
@@ -44,6 +48,7 @@ class CrdtDatabase implements Database {
   final Database _delegate;
   final List<Table> _syncTables;
   final int _syncBatchSize;
+  final Duration _continuousSyncInterval;
 
   final CrdtMutationRecorder _recorder;
 
@@ -51,6 +56,7 @@ class CrdtDatabase implements Database {
     syncTables: _syncTables,
     serializationManager: serializationManager,
     syncBatchSize: _syncBatchSize,
+    continuousSyncInterval: _continuousSyncInterval,
   );
 
   /// Initializes the CRDT database.

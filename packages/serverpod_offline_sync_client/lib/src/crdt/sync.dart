@@ -17,12 +17,21 @@ typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
 class CrdtSync {
   /// Creates a new [CrdtSync] instance.
   CrdtSync({
+    /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
+
+    /// The serialization manager to use for deserializing merge changes.
     required DatabaseSerializationManager serializationManager,
+
+    /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = defaultSyncBatchSize,
+
+    /// Delay between continuous sync rounds.
+    Duration continuousSyncInterval = defaultContinuousSyncInterval,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
-       _syncBatchSize = syncBatchSize {
+       _syncBatchSize = syncBatchSize,
+       _continuousSyncInterval = continuousSyncInterval {
     if (syncBatchSize < 1) {
       throw ArgumentError.value(syncBatchSize, 'syncBatchSize', 'Must be >= 1');
     }
@@ -31,9 +40,13 @@ class CrdtSync {
   /// Default maximum number of merge changes sent in one stream message.
   static const defaultSyncBatchSize = 100;
 
+  /// Default delay between continuous sync rounds.
+  static const defaultContinuousSyncInterval = Duration(milliseconds: 200);
+
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
   final int _syncBatchSize;
+  final Duration _continuousSyncInterval;
 
   static CrdtSync? _instance;
 
@@ -47,15 +60,23 @@ class CrdtSync {
       ));
 
   /// Configures the shared singleton used by server endpoints.
+  ///
+  /// Use [syncBatchSize] to control the maximum number of merge changes carried
+  /// by each [CrdtSyncMergeChunk] stream event.
+  ///
+  /// The [continuousSyncInterval] controls how long a continuous sync session
+  /// waits after completing one sync round before checking for local changes.
   static void initialize({
     required List<Table> syncTables,
     required DatabaseSerializationManager serializationManager,
     int syncBatchSize = defaultSyncBatchSize,
+    Duration continuousSyncInterval = defaultContinuousSyncInterval,
   }) {
     _instance = CrdtSync(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
+      continuousSyncInterval: continuousSyncInterval,
     );
   }
 
@@ -292,9 +313,8 @@ class CrdtSync {
           return;
         }
 
-        // Wait for 200ms to allow the peer to send a change before checking
-        // for idleness again.
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        // Wait for the configured interval before checking for local changes again.
+        await Future<void>.delayed(_continuousSyncInterval);
       }
     } finally {
       // Cancelling inbound on normal completion races with WebSocket stream
