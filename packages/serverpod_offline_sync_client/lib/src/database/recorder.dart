@@ -54,11 +54,17 @@ class CrdtMutationRecorder {
 
   final Database _db;
 
+  late final DatabaseSession _dbSession = _db.session;
+
   late final _session = CrdtDatabaseSession(
     _db,
     syncTables: syncTables,
     persistentUserId: persistentUserId,
   );
+
+  late final CrdtUserManager _userManager = CrdtUserManager(_dbSession);
+
+  final Map<UuidValue, HlcManager> _hlcManagers = {};
 
   late Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
 
@@ -103,13 +109,14 @@ class CrdtMutationRecorder {
   /// Safe to call again after the database was wiped (e.g. test `tearDown`)
   /// for in-memory schema ids to match new rows.
   Future<void> initialize() async {
-    final session = _db.session;
+    _userManager.clearCache();
+    _hlcManagers.clear();
 
     if (persistentUserId != null) {
-      await CrdtUserManager.getOrCreate(session, persistentUserId!);
+      await _userManager.getOrCreate(persistentUserId!);
     }
 
-    final schemaRegistry = CrdtSchemaRegistry(session, syncTables: syncTables);
+    final schemaRegistry = CrdtSchemaRegistry(_dbSession, syncTables: syncTables);
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
@@ -153,6 +160,45 @@ class CrdtMutationRecorder {
   /// Whether the given table name is tracked by CRDT.
   bool _isCrdtTrackedTableName(String tableName) {
     return _syncTableByName.containsKey(tableName);
+  }
+
+  /// Returns the [CrdtUser] for the given user ID, creating it when needed.
+  Future<CrdtUser> getOrCreateUser(UuidValue userId) {
+    return _userManager.getOrCreate(userId);
+  }
+
+  /// Records the latest acknowledged sync checkpoint for [otherNodeId].
+  Future<void> recordSyncCheckpoint(
+    UuidValue userId,
+    UuidValue otherNodeId,
+    Hlc syncedHlc,
+  ) async {
+    final user = await _userManager.getOrCreate(userId);
+    await _db.transaction((transaction) async {
+      var node = await CrdtNode.db.findFirstRow(
+        _session,
+        where: (t) => t.userId.equals(user.id) & t.uuidNodeId.equals(otherNodeId),
+        transaction: transaction,
+      );
+
+      node ??= await CrdtNode.db.insertRow(
+        _session,
+        CrdtNode(userId: user.id!, uuidNodeId: otherNodeId),
+        transaction: transaction,
+      );
+
+      final currentSyncHlc = node.lastReceivedHlc;
+      if (currentSyncHlc != null && currentSyncHlc >= syncedHlc) {
+        return;
+      }
+
+      await CrdtNode.db.updateRow(
+        _session,
+        node.copyWith(lastReceivedHlc: syncedHlc),
+        columns: (t) => [t.lastReceivedHlc],
+        transaction: transaction,
+      );
+    });
   }
 
   /// Insert the CRDT metadata for the inserted rows.
@@ -995,7 +1041,10 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 
   HlcManager _getHlcManager(Transaction transaction) {
     final user = _getEffectiveUser(transaction);
-    return HlcManager.forUser(user);
+    return _hlcManagers.putIfAbsent(
+      user.uuidUserId,
+      () => HlcManager.forUser(user),
+    );
   }
 
   CrdtUser _getEffectiveUser(Transaction transaction) {
@@ -1004,7 +1053,7 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     if (persistentUserId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }
-    return CrdtUserManager.getCached(persistentUserId!);
+    return _userManager.getCached(persistentUserId!);
   }
 }
 

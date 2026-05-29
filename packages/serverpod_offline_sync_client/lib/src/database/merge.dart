@@ -69,18 +69,24 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
-    _updateHlcFromIncomingOperations(operations, transaction);
+    await _updateHlcFromIncomingOperations(
+      operations,
+      remoteNodes,
+      transaction,
+    );
   }
 
-  void _updateHlcFromIncomingOperations(
+  Future<void> _updateHlcFromIncomingOperations(
     List<CrdtMergeChange> operations,
+    Map<UuidValue, CrdtNode> remoteNodes,
     Transaction transaction,
-  ) {
+  ) async {
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
-      (current, change) =>
-          current == null || change.hlc > current ? change.hlc : current,
+      (current, change) => change.hlc.maxBetween(current),
     );
+    final nodesToUpdate = <CrdtNode>[];
+
     if (maxIncomingHlc != null) {
       final hlcManager = _getHlcManager(transaction);
       if (maxIncomingHlc.nodeId == hlcManager.uuidNodeId) {
@@ -90,6 +96,37 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       } else {
         hlcManager.merge(maxIncomingHlc);
       }
+
+      nodesToUpdate.add(hlcManager.getNode());
+    }
+
+    final maxIncomingHlcByNode = <UuidValue, Hlc>{};
+    for (final operation in operations) {
+      maxIncomingHlcByNode[operation.uuidNodeId] = operation.hlc.maxBetween(
+        maxIncomingHlcByNode[operation.uuidNodeId],
+      );
+    }
+
+    for (final MapEntry(key: nodeId, value: incomingHlc)
+        in maxIncomingHlcByNode.entries) {
+      final remoteNode = remoteNodes[nodeId];
+      if (remoteNode == null) continue;
+      final updatedNode = remoteNode.copyWith(
+        lastReceivedHlc: incomingHlc.maxBetween(remoteNode.lastReceivedHlc),
+      );
+      if (updatedNode.lastReceivedHlc == remoteNode.lastReceivedHlc) continue;
+
+      nodesToUpdate.add(updatedNode);
+      remoteNodes[nodeId] = updatedNode;
+    }
+
+    if (nodesToUpdate.isNotEmpty) {
+      await CrdtNode.db.update(
+        _session,
+        nodesToUpdate,
+        columns: (t) => [t.lastReceivedHlc],
+        transaction: transaction,
+      );
     }
   }
 
@@ -466,7 +503,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     try {
       await _db.updateRow(
         row,
-        columns: _syncTableByName[insert.tableName]!.managedColumns
+        columns: row.table.managedColumns
             .where((c) => data.containsKey(c.columnName))
             .toList(),
         transaction: transaction,

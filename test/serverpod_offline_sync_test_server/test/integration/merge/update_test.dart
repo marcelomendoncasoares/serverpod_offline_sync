@@ -8,7 +8,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  late CrdtMergeSet mergeset;
+  late CrdtMergeSet mergeSet;
 
   group(
     'Given a table with an existing unchanged row and a remote update for one of its columns, ',
@@ -47,17 +47,13 @@ void main() {
           value: 'updated remotely',
         );
 
-        mergeset = CrdtMergeSet(
-          inserts: [],
-          updates: [remoteUpdate],
-          deletes: [],
-        );
+        mergeSet = [remoteUpdate];
       });
 
       group('when merging, ', () {
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
         });
@@ -134,17 +130,13 @@ void main() {
           value: 'older remote',
         );
 
-        mergeset = CrdtMergeSet(
-          inserts: [],
-          updates: [remoteUpdate],
-          deletes: [],
-        );
+        mergeSet = [remoteUpdate];
       });
 
       group('when merging, ', () {
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
         });
@@ -192,17 +184,13 @@ void main() {
           value: 'updated remotely',
         );
 
-        mergeset = CrdtMergeSet(
-          inserts: [],
-          updates: [remoteUpdate],
-          deletes: [],
-        );
+        mergeSet = [remoteUpdate];
       });
 
       group('when merging, ', () {
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
         });

@@ -185,8 +185,6 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   Future<void> _bootstrapDatabase() async {
     await clearUserTables(_plainSession);
-    CrdtUserManager.clearCache();
-    HlcManager.reset();
     final wrapped = CrdtDatabaseSession.wraps(
       _plainSession,
       syncTables: benchmarkSyncTables,
@@ -274,8 +272,6 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     _seededRows = [];
     await clearUserTables(_plainSession);
     await _plainSession.db.unsafeExecute('VACUUM');
-    CrdtUserManager.clearCache();
-    HlcManager.reset();
     final wrapped = CrdtDatabaseSession.wraps(
       _plainSession,
       syncTables: benchmarkSyncTables,

@@ -3,10 +3,11 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:uuid/uuid.dart';
 
 import '../crdt/merge.dart';
-import '../managers/user.dart';
+import '../crdt/sync.dart';
 import '../protocol/protocol.dart';
 import 'recorder.dart';
 import 'session.dart';
@@ -25,23 +26,83 @@ class CrdtDatabase implements Database {
     /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
 
+    /// Maximum number of merge changes sent in one sync stream message.
+    int syncBatchSize = CrdtSync.defaultSyncBatchSize,
+
+    /// Delay between continuous sync rounds.
+    Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
+
     /// The user ID to use for all CRDT operations. This should only be used for
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-  }) : _recorder = CrdtMutationRecorder(
+  }) : _syncTables = syncTables,
+       _syncBatchSize = syncBatchSize,
+       _continuousSyncInterval = continuousSyncInterval,
+       _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
          syncTables: syncTables,
        );
 
   final Database _delegate;
+  final List<Table> _syncTables;
+  final int _syncBatchSize;
+  final Duration _continuousSyncInterval;
 
   final CrdtMutationRecorder _recorder;
+
+  late final CrdtSync _sync = CrdtSync(
+    syncTables: _syncTables,
+    serializationManager: serializationManager,
+    syncBatchSize: _syncBatchSize,
+    continuousSyncInterval: _continuousSyncInterval,
+  );
 
   /// Initializes the CRDT database.
   Future<void> initialize() async {
     await _recorder.initialize();
+  }
+
+  /// The hash describing the synchronized schema configured for this database.
+  String get syncTablesHash => _sync.currentSyncTablesHash;
+
+  /// Returns the current node identifier for the effective user.
+  Future<UuidValue> currentNodeId({UuidValue? userId}) async {
+    final effectiveUserId = await _requireUserId(userId);
+    final user = await _recorder.getOrCreateUser(effectiveUserId);
+    return user.currentNode!.uuidNodeId;
+  }
+
+  /// Runs a symmetric CRDT sync session over a bidirectional event stream.
+  Stream<CrdtSyncStreamEvent> sync({
+    required Stream<CrdtSyncStreamEvent> inbound,
+    UuidValue? userId,
+    bool once = false,
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
+  }) async* {
+    final effectiveUserId = await _requireUserId(userId);
+    yield* _sync.sync(
+      _delegate.session,
+      userId: effectiveUserId,
+      inbound: inbound,
+      once: once,
+      onMergeSuccess: onMergeSuccess,
+    );
+  }
+
+  /// Records the latest acknowledged sync checkpoint for [otherNodeId].
+  Future<void> recordSyncCheckpoint(
+    UuidValue otherNodeId,
+    Hlc syncedHlc, {
+    UuidValue? userId,
+  }) async {
+    final effectiveUserId = await _requireUserId(userId);
+    await _recorder.recordSyncCheckpoint(
+      effectiveUserId,
+      otherNodeId,
+      syncedHlc,
+    );
   }
 
   /// Merges remote CRDT changes into the local database for the given user.
@@ -198,6 +259,30 @@ class CrdtDatabase implements Database {
         return result;
       },
     );
+  }
+
+  @override
+  Future<List<T>> upsert<T extends TableRow>(
+    List<T> rows, {
+    required List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Expression? updateWhere,
+    Transaction? transaction,
+  }) async {
+    // TODO: Implement CRDT upsert.
+    throw UnimplementedError('CRDT upsert is not implemented.');
+  }
+
+  @override
+  Future<T?> upsertRow<T extends TableRow>(
+    T row, {
+    required List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Expression? updateWhere,
+    Transaction? transaction,
+  }) async {
+    // TODO: Implement CRDT upsert.
+    throw UnimplementedError('CRDT upsert is not implemented.');
   }
 
   @override
@@ -433,7 +518,7 @@ class CrdtDatabase implements Database {
     TransactionSettings? settings,
   }) async {
     // Ensure that the user exists with a node before starting the transaction.
-    final user = await CrdtUserManager.getOrCreate(_delegate.session, userId);
+    final user = await _recorder.getOrCreateUser(userId);
 
     return transaction<R>(
       (tx) async {
@@ -446,6 +531,14 @@ class CrdtDatabase implements Database {
       },
       settings: settings,
     );
+  }
+
+  Future<UuidValue> _requireUserId(UuidValue? userId) async {
+    return userId ??
+        _recorder.persistentUserId ??
+        (throw StateError(
+          'A user ID is required when syncing without a persistent user.',
+        ));
   }
 
   @override

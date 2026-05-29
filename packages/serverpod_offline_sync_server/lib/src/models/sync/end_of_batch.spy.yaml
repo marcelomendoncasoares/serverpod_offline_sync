@@ -1,0 +1,3 @@
+### Marks the end of a framed sync batch.
+class: CrdtSyncEndOfBatch
+extends: CrdtSyncStreamEvent

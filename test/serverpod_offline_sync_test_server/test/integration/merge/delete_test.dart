@@ -8,7 +8,7 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  late CrdtMergeSet mergeset;
+  late CrdtMergeSet mergeSet;
 
   group('Given a table with an existing row and a newer remote delete, ', () {
     late Person person;
@@ -43,17 +43,13 @@ void main() {
         isDeleted: true,
       );
 
-      mergeset = CrdtMergeSet(
-        inserts: [],
-        updates: [],
-        deletes: [remoteDelete],
-      );
+      mergeSet = [remoteDelete];
     });
 
     group('when merging, ', () {
       setUp(() async {
         await session.db.mergeChanges(
-          mergeset,
+          mergeSet,
           userId: testCrdtUserId,
         );
       });
@@ -115,17 +111,13 @@ void main() {
         isDeleted: false,
       );
 
-      mergeset = CrdtMergeSet(
-        inserts: [],
-        updates: [],
-        deletes: [remoteRestore],
-      );
+      mergeSet = [remoteRestore];
     });
 
     group('when merging, ', () {
       setUp(() async {
         await session.db.mergeChanges(
-          mergeset,
+          mergeSet,
           userId: testCrdtUserId,
         );
       });
@@ -193,17 +185,13 @@ void main() {
         isDeleted: true,
       );
 
-      mergeset = CrdtMergeSet(
-        inserts: [],
-        updates: [],
-        deletes: [remoteRestore],
-      );
+      mergeSet = [remoteRestore];
     });
 
     group('when merging, ', () {
       setUp(() async {
         await session.db.mergeChanges(
-          mergeset,
+          mergeSet,
           userId: testCrdtUserId,
         );
       });
@@ -247,17 +235,13 @@ void main() {
           isDeleted: true,
         );
 
-        mergeset = CrdtMergeSet(
-          inserts: [],
-          updates: [],
-          deletes: [remoteDelete],
-        );
+        mergeSet = [remoteDelete];
       });
 
       group('when merging, ', () {
         setUp(() async {
           await session.db.mergeChanges(
-            mergeset,
+            mergeSet,
             userId: testCrdtUserId,
           );
         });
