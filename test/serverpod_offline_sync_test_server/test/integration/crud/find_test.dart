@@ -84,17 +84,16 @@ void main() {
 
         // Manually tombstone the person row, since a delete will apply the
         // ON DELETE RESTRICT constraint on the town row.
-        await CrdtDataDeleted.db.insert(
+        await CrdtDataDeleted.db.updateWhere(
           session,
-          [
-            CrdtDataDeleted(
-              rowId: personCrdtRow!.id!,
-              nodeId: 1,
-              hlcDatetime: DateTime.now().toUtc(),
-              hlcCounter: 1,
-              isDeleted: true,
-            ),
+          columnValues: (t) => [
+            t.nodeId(1),
+            t.hlcDatetime(DateTime.now().toUtc()),
+            t.hlcCounter(1),
+            t.clFlag(2),
+            t.reason(CrdtDataDeletedReason.userDelete),
           ],
+          where: (t) => t.rowId.equals(personCrdtRow!.id),
         );
       });
 

@@ -5,7 +5,7 @@ import '../protocol/protocol.dart';
 
 /// Merges [where] with CRDT tombstone predicates and mutates [include] in place.
 ///
-/// This method ensures that no rows marked as deleted on the tombstone are
+/// This method ensures that no rows marked as deleted by the CLFlag are
 /// returned for queries with [where] clauses or [include] graphs. If [include]
 /// is null, only the root table and [where] are merged.
 ///
@@ -85,7 +85,7 @@ extension on Table {
   ///   - [CrdtDataRow.id] = [CrdtDataDeleted.rowId].
   ///
   /// Returns null when [Table] does not use a UUID primary key. Keeps rows
-  /// when there is no tombstone row or [CrdtDataDeleted.isDeleted] is false
+  /// when there is no tombstone row or [CrdtDataDeleted.clFlag] is odd
   /// (LEFT JOIN null-safe).
   Expression? get whereNotDeletedOnTombstone {
     if (id is! ColumnUuid) return null;
@@ -98,6 +98,6 @@ extension on Table {
           CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
     final tomb = crdtRowTable.deleted;
-    return (tomb.id.equals(null)) | (tomb.isDeleted.equals(false));
+    return (tomb.id.equals(null)) | Expression('${tomb.clFlag} % 2 = 1');
   }
 }

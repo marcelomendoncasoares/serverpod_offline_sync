@@ -47,7 +47,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             remoteNodes,
             metadata.rows,
             metadata.fields,
-            metadata.tombstones,
             transaction,
           );
         case final CrdtMergeUpdate update:
@@ -254,7 +253,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Map<UuidValue, CrdtNode> remoteNodes,
     Map<_MergeRowKey, CrdtDataRow> rows,
     Map<_MergeFieldKey, CrdtDataField> fields,
-    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
     final rowKey = (insert.tableName, insert.uuidRowId);
@@ -284,7 +282,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         incomingHlc,
         data,
         fields,
-        tombstones,
         transaction,
       );
     }
@@ -332,17 +329,15 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final row = rows[rowKey];
     if (row == null) return;
 
-    final incomingHlc = delete.hlc;
     final currentTombstone = tombstones[rowKey];
-    if (incomingHlc <= row.hlc.maxBetween(currentTombstone?.hlc)) {
-      return;
-    }
+    if (delete.clFlag <= (currentTombstone?.clFlag ?? 0)) return;
 
     tombstones[rowKey] = await _upsertMergeTombstone(
       row,
       _requireRemoteNode(remoteNodes, delete.uuidNodeId),
-      incomingHlc,
-      delete.isDeleted,
+      delete.hlc,
+      delete.clFlag,
+      delete.reason,
       currentTombstone,
       transaction,
     );
@@ -441,7 +436,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     CrdtDataRow row,
     CrdtNode remoteNode,
     Hlc incomingHlc,
-    bool isDeleted,
+    int clFlag,
+    CrdtDataDeletedReason reason,
     CrdtDataDeleted? currentTombstone,
     Transaction transaction,
   ) async {
@@ -453,7 +449,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           nodeId: remoteNode.id!,
           hlcDatetime: incomingHlc.datetime,
           hlcCounter: incomingHlc.counter,
-          isDeleted: isDeleted,
+          clFlag: clFlag,
+          reason: reason,
         ),
         transaction: transaction,
       );
@@ -470,13 +467,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       node: remoteNode,
       hlcDatetime: incomingHlc.datetime,
       hlcCounter: incomingHlc.counter,
-      isDeleted: isDeleted,
+      clFlag: clFlag,
+      reason: reason,
     );
 
     await CrdtDataDeleted.db.update(
       _session,
       [updatedTombstone],
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter, t.isDeleted],
+      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter, t.clFlag, t.reason],
       transaction: transaction,
     );
 
@@ -522,7 +520,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Hlc incomingHlc,
     Map<String, Object?> data,
     Map<_MergeFieldKey, CrdtDataField> fields,
-    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
     final (_, columnsByName) = _schema[insert.tableName]!;
@@ -552,19 +549,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         insert.tableName,
         {insert.uuidRowId},
         updatedValues,
-        transaction,
-      );
-    }
-
-    final rowKey = (insert.tableName, insert.uuidRowId);
-    final currentTombstone = tombstones[rowKey];
-    if (currentTombstone == null || incomingHlc > currentTombstone.hlc) {
-      tombstones[rowKey] = await _upsertMergeTombstone(
-        currentRow,
-        remoteNode,
-        incomingHlc,
-        false,
-        currentTombstone,
         transaction,
       );
     }

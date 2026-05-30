@@ -24,10 +24,13 @@ extension CrdtDataRowExtension on CrdtDataRow {
 
 /// Extensions for the [CrdtDataDeleted] class.
 extension CrdtDataDeletedExtension on CrdtDataDeleted {
-  /// The HLC represented by this tombstone.
+  /// Whether this visibility generation hides the row.
+  bool get isDeleted => clFlag.isEven;
+
+  /// The HLC represented by this visibility generation.
   Hlc get hlc => node == null
       ? (throw StateError(
-          'Fetch the CRDT tombstone with the node included to get the HLC.',
+          'Fetch the CRDT visibility generation with the node included to get the HLC.',
         ))
       : toHlcForNode(node!.uuidNodeId);
 }

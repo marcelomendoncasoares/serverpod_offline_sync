@@ -123,8 +123,11 @@ void main() {
 
         final mergeChunks = events.whereType<CrdtSyncMergeChunk>().toList();
 
-        expect(mergeChunks, hasLength(2));
-        expect(mergeChunks.map((chunk) => chunk.changes.length), [2, 1]);
+        expect(mergeChunks, hasLength(3));
+        expect(mergeChunks.map((chunk) => chunk.changes.length), [2, 2, 2]);
+        final changes = mergeChunks.expand((chunk) => chunk.changes).toList();
+        expect(changes.whereType<CrdtMergeInsert>(), hasLength(3));
+        expect(changes.whereType<CrdtMergeDelete>(), hasLength(3));
         expect(events.last, isA<CrdtSyncEndOfBatch>());
       },
     );

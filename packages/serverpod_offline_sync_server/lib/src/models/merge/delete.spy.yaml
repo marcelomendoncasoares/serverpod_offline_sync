@@ -1,6 +1,9 @@
-### A remote tombstone update to merge.
+### A remote visibility CLFlag update to merge.
 class: CrdtMergeDelete
 extends: CrdtMergeChange
 fields:
-  ### Whether the row is deleted or restored.
-  isDeleted: bool
+  ### Monotone causal-length flag. Odd values are visible and even values are deleted.
+  clFlag: int
+
+  ### Why the row entered its current visibility generation.
+  reason: CrdtDataDeletedReason

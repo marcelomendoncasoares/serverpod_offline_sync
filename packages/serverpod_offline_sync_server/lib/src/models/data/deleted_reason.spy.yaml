@@ -1,0 +1,10 @@
+### Why a CRDT row entered its current visibility generation.
+enum: CrdtDataDeletedReason
+serialized: byIndex
+values:
+  - userInsert
+  - userDelete
+  - userReinsert
+  - restrictRestore
+  - cascadeDelete
+  - uniqueLoser

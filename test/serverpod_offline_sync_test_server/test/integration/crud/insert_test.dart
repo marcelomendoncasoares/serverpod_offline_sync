@@ -63,13 +63,15 @@ void main() {
       expect(fieldCount, 0);
     });
 
-    test('then no CRDT tombstone is created for the row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+    test('then a visible CRDT CLFlag record is created for the row.', () async {
+      final clFlag = await CrdtDataDeleted.db.findFirstRow(
         session,
         where: (t) => t.row.uuidRowId.equals(person.id),
       );
 
-      expect(tombstone, isNull);
+      expect(clFlag, isNotNull);
+      expect(clFlag!.clFlag, 1);
+      expect(clFlag.reason, CrdtDataDeletedReason.userInsert);
     });
   });
 

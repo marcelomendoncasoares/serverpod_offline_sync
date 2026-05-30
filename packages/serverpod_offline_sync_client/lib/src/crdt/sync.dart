@@ -466,7 +466,8 @@ class CrdtSync {
         tableName: tableName,
         uuidRowId: tombstone.row!.uuidRowId,
         uuidNodeId: tombstone.node!.uuidNodeId,
-        isDeleted: tombstone.isDeleted,
+        clFlag: tombstone.clFlag,
+        reason: tombstone.reason,
       );
     }
   }

@@ -37,6 +37,8 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
+        expect(tombstone.clFlag, 2);
+        expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
       });
 
       test('then the row still exist on the person table.', () async {
@@ -110,6 +112,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
+        expect(tombstone.clFlag, 2);
         expect(tombstone.hlc, equals(firstDeletedTombstone.hlc));
       });
     });
@@ -311,7 +314,10 @@ void main() {
 
       final tombstones = await CrdtDataDeleted.db.updateWhere(
         session,
-        columnValues: (t) => [t.isDeleted(false)],
+        columnValues: (t) => [
+          t.clFlag(3),
+          t.reason(CrdtDataDeletedReason.userReinsert),
+        ],
         where: (t) => t.row.uuidRowId.equals(person.id),
       );
 
@@ -333,6 +339,8 @@ void main() {
         );
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, true);
+        expect(tombstone.clFlag, 4);
+        expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
       });
     });
   });
@@ -385,6 +393,7 @@ void main() {
 
       expect(tombstone, isNotNull);
       expect(tombstone!.isDeleted, true);
+      expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
     });
 
     test('then the organization row still exist on the organization table.', () async {
@@ -405,6 +414,7 @@ void main() {
 
       expect(tombstone, isNotNull);
       expect(tombstone!.isDeleted, true);
+      expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
     });
   });
 

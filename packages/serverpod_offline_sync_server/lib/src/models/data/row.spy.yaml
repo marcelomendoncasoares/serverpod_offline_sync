@@ -22,7 +22,7 @@ fields:
   ### The node that inserted the row with the HLC timestamp.
   node: CrdtNode?, relation
 
-  ### The tombstone for this row.
+  ### The visibility CLFlag for this row.
   deleted: CrdtDataDeleted?, relation(name=row_deleted, optional)
 
   ### The fields for this row.
