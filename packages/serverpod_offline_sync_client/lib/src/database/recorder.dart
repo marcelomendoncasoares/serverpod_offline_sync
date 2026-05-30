@@ -213,17 +213,11 @@ class CrdtMutationRecorder {
     ) async {
       final (tableId, _) = _schema[tableName]!;
 
-      final crdtDataRows = await CrdtDataRow.db.insert(
+      await CrdtDataRow.db.insert(
         _session,
         [for (final rowId in rowIds) _newCrdtDataRow(tableId, rowId, hlcManager)],
         transaction: transaction,
         ignoreConflicts: true,
-      );
-      await _markCrdtRowsDeleted(
-        crdtDataRows,
-        false,
-        CrdtDataDeletedReason.userInsert,
-        transaction,
       );
     });
   }
@@ -1078,7 +1072,7 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
 
 int _nextClFlag(CrdtDataDeleted? current, bool isDeleted) {
-  var next = (current?.clFlag ?? 0) + 1;
+  var next = (current?.clFlag ?? 1) + 1;
   if (next.isEven != isDeleted) next++;
   return next;
 }

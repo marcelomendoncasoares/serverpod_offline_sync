@@ -1,6 +1,7 @@
 ### CRDT visibility generation table.
 ###
-### This table stores the monotone CLFlag for each tracked row.
+### This table stores materialized monotone CLFlag metadata after a visibility
+### change event has been recorded.
 class: CrdtDataDeleted
 extends: BaseHlc
 table: crdt_data_tombstone

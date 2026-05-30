@@ -23,6 +23,9 @@ fields:
   node: CrdtNode?, relation
 
   ### The visibility CLFlag for this row.
+  ###
+  ### Only present after the first visibility change event has been recorded.
+  ### If null, the row is visible and has never been deleted/hidden.
   deleted: CrdtDataDeleted?, relation(name=row_deleted, optional)
 
   ### The fields for this row.

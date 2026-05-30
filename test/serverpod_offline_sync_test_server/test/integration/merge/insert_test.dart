@@ -138,7 +138,6 @@ void main() {
       late Person person;
       late Hlc localRowHlc;
       late Hlc localFieldHlc;
-      late Hlc localClFlagHlc;
       late Person remotePerson;
       late UuidValue remoteNodeId;
       late CrdtMergeInsert remoteInsert;
@@ -176,12 +175,6 @@ void main() {
 
         localRowHlc = field!.row!.hlc;
         localFieldHlc = field.hlc;
-        final clFlag = await CrdtDataDeleted.db.findFirstRow(
-          session,
-          where: (t) => t.row.uuidRowId.equals(person.id),
-          include: CrdtDataDeleted.include(node: CrdtNode.include()),
-        );
-        localClFlagHlc = clFlag!.hlc;
         remoteNodeId = const Uuid().v7obj();
 
         remotePerson = person.copyWith(name: 'remote');
@@ -246,7 +239,7 @@ void main() {
         );
 
         test(
-          'then the visible CRDT CLFlag record is unchanged.',
+          'then the initial visible generation metadata is lazily touched.',
           () async {
             final tombstone = await CrdtDataDeleted.db.findFirstRow(
               session,
@@ -258,7 +251,8 @@ void main() {
             expect(tombstone!.isDeleted, isFalse);
             expect(tombstone.clFlag, 1);
             expect(tombstone.reason, CrdtDataDeletedReason.userInsert);
-            expect(tombstone.hlc, localClFlagHlc);
+            expect(tombstone.hlc, remoteInsert.hlc);
+            expect(tombstone.node!.uuidNodeId, remoteNodeId);
           },
         );
       });

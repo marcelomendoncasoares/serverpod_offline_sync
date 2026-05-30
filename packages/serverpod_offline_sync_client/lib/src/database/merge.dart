@@ -47,6 +47,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             remoteNodes,
             metadata.rows,
             metadata.fields,
+            metadata.tombstones,
             transaction,
           );
         case final CrdtMergeUpdate update:
@@ -253,6 +254,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Map<UuidValue, CrdtNode> remoteNodes,
     Map<_MergeRowKey, CrdtDataRow> rows,
     Map<_MergeFieldKey, CrdtDataField> fields,
+    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
     final rowKey = (insert.tableName, insert.uuidRowId);
@@ -282,6 +284,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         incomingHlc,
         data,
         fields,
+        tombstones,
         transaction,
       );
     }
@@ -330,7 +333,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (row == null) return;
 
     final currentTombstone = tombstones[rowKey];
-    if (delete.clFlag <= (currentTombstone?.clFlag ?? 0)) return;
+    final currentClFlag = currentTombstone?.clFlag ?? 1;
+    if (delete.clFlag < currentClFlag) return;
+    if (delete.clFlag == currentClFlag &&
+        (currentTombstone == null || delete.hlc <= currentTombstone.hlc)) {
+      return;
+    }
 
     tombstones[rowKey] = await _upsertMergeTombstone(
       row,
@@ -520,6 +528,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Hlc incomingHlc,
     Map<String, Object?> data,
     Map<_MergeFieldKey, CrdtDataField> fields,
+    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
     final (_, columnsByName) = _schema[insert.tableName]!;
@@ -552,6 +561,21 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
     }
+
+    final rowKey = (insert.tableName, insert.uuidRowId);
+    final currentTombstone = tombstones[rowKey];
+    if ((currentTombstone?.clFlag ?? 1) != 1) return;
+    if (incomingHlc <= (currentTombstone?.hlc ?? currentRow.hlc)) return;
+
+    tombstones[rowKey] = await _upsertMergeTombstone(
+      currentRow,
+      remoteNode,
+      incomingHlc,
+      1,
+      CrdtDataDeletedReason.userInsert,
+      currentTombstone,
+      transaction,
+    );
   }
 
   Future<bool> _shouldMergeFieldMetadataIfNewer({

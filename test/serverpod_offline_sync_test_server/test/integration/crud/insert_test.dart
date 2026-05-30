@@ -63,15 +63,13 @@ void main() {
       expect(fieldCount, 0);
     });
 
-    test('then a visible CRDT CLFlag record is created for the row.', () async {
+    test('then no CRDT visibility generation is created for the row.', () async {
       final clFlag = await CrdtDataDeleted.db.findFirstRow(
         session,
         where: (t) => t.row.uuidRowId.equals(person.id),
       );
 
-      expect(clFlag, isNotNull);
-      expect(clFlag!.clFlag, 1);
-      expect(clFlag.reason, CrdtDataDeletedReason.userInsert);
+      expect(clFlag, isNull);
     });
   });
 
