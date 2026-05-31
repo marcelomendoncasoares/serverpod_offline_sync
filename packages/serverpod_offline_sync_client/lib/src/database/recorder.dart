@@ -240,7 +240,12 @@ class CrdtMutationRecorder {
       );
 
       await _touchCrdtRows(crdtDataRows, hlcManager, transaction);
-      await _markCrdtRowsDeleted(crdtDataRows, false, transaction);
+      await _markCrdtRowsDeleted(
+        crdtDataRows,
+        false,
+        CrdtDataDeletedReason.userReinsert,
+        transaction,
+      );
       await _recordUpdatedFields(reinsertedRows, crdtDataRows, null, transaction);
     });
   }
@@ -347,7 +352,7 @@ LEFT JOIN "crdt_data_tombstone" tomb
   ON tomb."rowId" = r."id"
 WHERE c."id" IN ($whereRowIds)
   AND c."$childColumn" IS NOT NULL
-  AND (p."id" IS NULL OR tomb."isDeleted" = TRUE)
+  AND (p."id" IS NULL OR tomb."clFlag" % 2 = 0)
 ''';
     });
 
@@ -543,6 +548,7 @@ WHERE c."id" IN ($whereRowIds)
       deletedRows.uuidRowIds,
       transaction,
       null,
+      CrdtDataDeletedReason.userDelete,
     );
   }
 
@@ -551,6 +557,7 @@ WHERE c."id" IN ($whereRowIds)
     Set<UuidValue> rowIds,
     Transaction transaction,
     Set<String>? processedRowIds,
+    CrdtDataDeletedReason reason,
   ) async {
     if (rowIds.isEmpty) return;
     if (!_isCrdtTrackedTableName(tableName)) return;
@@ -585,7 +592,7 @@ WHERE c."id" IN ($whereRowIds)
         processing,
       );
       await _releaseUniqueConflicts(tableName, visibleRowIds, transaction);
-      await _markCrdtRowsDeleted(visibleCrdtRows, true, transaction);
+      await _markCrdtRowsDeleted(visibleCrdtRows, true, reason, transaction);
     } finally {
       for (final rowId in unprocessedRowIds) {
         processing.remove('$tableName:$rowId');
@@ -665,6 +672,7 @@ WHERE c."id" IN ($whereRowIds)
   Future<void> _markCrdtRowsDeleted(
     List<CrdtDataRow> crdtDataRows,
     bool isDeleted,
+    CrdtDataDeletedReason reason,
     Transaction transaction,
   ) async {
     final existingTombs = await CrdtDataDeleted.db.find(
@@ -682,6 +690,7 @@ WHERE c."id" IN ($whereRowIds)
       final rowPk = row.id!;
       final hlc = hlcManager.increment();
       final existing = tombByCrdtRowPk[rowPk];
+      final clFlag = _nextClFlag(existing, isDeleted);
 
       if (existing == null) {
         toInsert.add(
@@ -690,7 +699,8 @@ WHERE c."id" IN ($whereRowIds)
             nodeId: hlcManager.normalizedNodeId,
             hlcDatetime: hlc.datetime,
             hlcCounter: hlc.counter,
-            isDeleted: isDeleted,
+            clFlag: clFlag,
+            reason: reason,
           ),
         );
       } else {
@@ -699,7 +709,8 @@ WHERE c."id" IN ($whereRowIds)
             nodeId: hlcManager.normalizedNodeId,
             hlcDatetime: hlc.datetime,
             hlcCounter: hlc.counter,
-            isDeleted: isDeleted,
+            clFlag: clFlag,
+            reason: reason,
           ),
         );
       }
@@ -843,6 +854,7 @@ WHERE c."id" IN ($whereRowIds)
               childIds,
               transaction,
               processing,
+              CrdtDataDeletedReason.cascadeDelete,
             );
         }
       }
@@ -925,7 +937,7 @@ LEFT JOIN "crdt_data_rows" r
 LEFT JOIN "crdt_data_tombstone" tomb
   ON tomb."rowId" = r."id"
 WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
-  AND (tomb."id" IS NULL OR tomb."isDeleted" = FALSE)
+  AND (tomb."id" IS NULL OR tomb."clFlag" % 2 = 1)
 ''',
       transaction: transaction,
     );
@@ -1058,6 +1070,12 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
 }
 
 String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
+
+int _nextClFlag(CrdtDataDeleted? current, bool isDeleted) {
+  var next = (current?.clFlag ?? 1) + 1;
+  if (next.isEven != isDeleted) next++;
+  return next;
+}
 
 List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
   TableDefinition table,

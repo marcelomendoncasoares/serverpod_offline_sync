@@ -242,7 +242,7 @@ void main() {
         // to ensure that tombstone conflict resolution never falls back to the
         // row-level HLC.
         test(
-          'then a CRDT tombstone record is inserted with deleted set to false.',
+          'then the initial visible generation metadata is lazily touched.',
           () async {
             final tombstone = await CrdtDataDeleted.db.findFirstRow(
               session,
@@ -252,7 +252,10 @@ void main() {
 
             expect(tombstone, isNotNull);
             expect(tombstone!.isDeleted, isFalse);
+            expect(tombstone.clFlag, 1);
+            expect(tombstone.reason, CrdtDataDeletedReason.userInsert);
             expect(tombstone.hlc, remoteInsert.hlc);
+            expect(tombstone.node!.uuidNodeId, remoteNodeId);
           },
         );
       });
@@ -361,6 +364,77 @@ void main() {
             expect(field.hlc, localUpdatedFieldHlc);
           },
         );
+      });
+    },
+  );
+
+  group(
+    'Given a table with a row deleted in generation four and a newer remote insert payload, ',
+    () {
+      late Person person;
+      late CrdtMergeInsert remoteInsert;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'deleted locally'),
+            transaction: tx,
+          ),
+        );
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.deleteRow(session, person, transaction: tx),
+        );
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(session, person, transaction: tx),
+        );
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.deleteRow(session, person, transaction: tx),
+        );
+
+        final clFlag = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataDeleted.include(node: CrdtNode.include()),
+        );
+
+        remoteInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: clFlag!.hlc.datetime.advance(),
+          hlcCounter: clFlag.hlc.counter,
+          data: person.copyWith(name: 'remote payload'),
+        );
+        mergeSet = [remoteInsert];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the row stays hidden.', () async {
+          expect(await Person.db.findById(session, person.id!), isNull);
+        });
+
+        test('then the CRDT CLFlag stays at generation four.', () async {
+          final clFlag = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+          );
+
+          expect(clFlag, isNotNull);
+          expect(clFlag!.clFlag, 4);
+          expect(clFlag.reason, CrdtDataDeletedReason.userDelete);
+        });
       });
     },
   );

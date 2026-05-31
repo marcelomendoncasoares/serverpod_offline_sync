@@ -40,7 +40,8 @@ void main() {
         uuidNodeId: remoteNodeId,
         hlcDatetime: rowHlc.datetime.advance(),
         hlcCounter: 0,
-        isDeleted: true,
+        clFlag: 2,
+        reason: CrdtDataDeletedReason.userDelete,
       );
 
       mergeSet = [remoteDelete];
@@ -68,7 +69,141 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, isTrue);
+        expect(tombstone.clFlag, 2);
+        expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
         expect(tombstone.hlc, remoteDelete.hlc);
+      });
+    });
+  });
+
+  group(
+    'Given a table with an implicitly visible row and an older remote delete, ',
+    () {
+      late Person person;
+      late Hlc rowHlc;
+      late UuidValue remoteNodeId;
+      late CrdtMergeDelete remoteDelete;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'older remote delete'),
+            transaction: tx,
+          ),
+        );
+
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+        rowHlc = crdtRow!.hlc;
+        remoteNodeId = const Uuid().v7obj();
+
+        remoteDelete = CrdtMergeDelete(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: rowHlc.datetime.retreat(),
+          hlcCounter: 0,
+          clFlag: 2,
+          reason: CrdtDataDeletedReason.userDelete,
+        );
+        mergeSet = [remoteDelete];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the row is hidden by the later generation.', () async {
+          expect(await Person.db.findById(session, person.id!), isNull);
+        });
+
+        test('then the winning generation keeps its event HLC and node.', () async {
+          final tombstone = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+            include: CrdtDataDeleted.include(node: CrdtNode.include()),
+          );
+
+          expect(tombstone, isNotNull);
+          expect(tombstone!.clFlag, 2);
+          expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
+          expect(tombstone.hlc, remoteDelete.hlc);
+          expect(tombstone.node!.uuidNodeId, remoteNodeId);
+        });
+      });
+    },
+  );
+
+  group('Given a table with a deleted row and a same-generation newer event, ', () {
+    late Person person;
+    late Hlc tombstoneHlc;
+    late UuidValue remoteNodeId;
+    late CrdtMergeDelete remoteDelete;
+
+    setUp(() async {
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'same generation'),
+          transaction: tx,
+        ),
+      );
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.deleteRow(session, person, transaction: tx),
+      );
+
+      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+        session,
+        where: (t) => t.row.uuidRowId.equals(person.id),
+        include: CrdtDataDeleted.include(node: CrdtNode.include()),
+      );
+      tombstoneHlc = tombstone!.hlc;
+      remoteNodeId = const Uuid().v7obj();
+
+      remoteDelete = CrdtMergeDelete(
+        tableName: Person.t.tableName,
+        uuidRowId: person.id!,
+        uuidNodeId: remoteNodeId,
+        hlcDatetime: tombstoneHlc.datetime.advance(),
+        hlcCounter: 0,
+        clFlag: 2,
+        reason: CrdtDataDeletedReason.cascadeDelete,
+      );
+      mergeSet = [remoteDelete];
+    });
+
+    group('when merging, ', () {
+      setUp(() async {
+        await session.db.mergeChanges(
+          mergeSet,
+          userId: testCrdtUserId,
+        );
+      });
+
+      test('then the same-generation metadata tie-break uses the newer HLC.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataDeleted.include(node: CrdtNode.include()),
+        );
+
+        expect(tombstone, isNotNull);
+        expect(tombstone!.clFlag, 2);
+        expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
+        expect(tombstone.hlc, remoteDelete.hlc);
+        expect(tombstone.node!.uuidNodeId, remoteNodeId);
       });
     });
   });
@@ -108,7 +243,8 @@ void main() {
         uuidNodeId: remoteNodeId,
         hlcDatetime: tombstoneHlc.datetime.advance(),
         hlcCounter: 0,
-        isDeleted: false,
+        clFlag: 3,
+        reason: CrdtDataDeletedReason.userReinsert,
       );
 
       mergeSet = [remoteRestore];
@@ -137,6 +273,8 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.isDeleted, isFalse);
+        expect(tombstone.clFlag, 3);
+        expect(tombstone.reason, CrdtDataDeletedReason.userReinsert);
       });
     });
   });
@@ -182,7 +320,8 @@ void main() {
         uuidNodeId: remoteNodeId,
         hlcDatetime: tombstoneHlc.datetime.retreat(),
         hlcCounter: 0,
-        isDeleted: true,
+        clFlag: 2,
+        reason: CrdtDataDeletedReason.userDelete,
       );
 
       mergeSet = [remoteRestore];
@@ -218,6 +357,82 @@ void main() {
   });
 
   group(
+    'Given a table with a restored row and an older remote delete from a later generation, ',
+    () {
+      late Person person;
+      late Hlc tombstoneHlc;
+      late UuidValue remoteNodeId;
+      late CrdtMergeDelete remoteDelete;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'deleted later'),
+            transaction: tx,
+          ),
+        );
+
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.deleteRow(session, person, transaction: tx),
+        );
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(session, person, transaction: tx),
+        );
+
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataDeleted.include(node: CrdtNode.include()),
+        );
+        tombstoneHlc = tombstone!.hlc;
+        remoteNodeId = const Uuid().v7obj();
+
+        remoteDelete = CrdtMergeDelete(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: tombstoneHlc.datetime.retreat(),
+          hlcCounter: 0,
+          clFlag: 4,
+          reason: CrdtDataDeletedReason.userDelete,
+        );
+        mergeSet = [remoteDelete];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the row is hidden by the later generation.', () async {
+          expect(await Person.db.findById(session, person.id!), isNull);
+        });
+
+        test('then the tombstone records the later generation.', () async {
+          final tombstone = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+            include: CrdtDataDeleted.include(node: CrdtNode.include()),
+          );
+
+          expect(tombstone, isNotNull);
+          expect(tombstone!.clFlag, 4);
+          expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
+          expect(tombstone.hlc, remoteDelete.hlc);
+          expect(tombstone.node!.uuidNodeId, remoteNodeId);
+        });
+      });
+    },
+  );
+
+  group(
     'Given an empty table and a remote delete for a non-existing row, ',
     () {
       late UuidValue remoteNodeId;
@@ -232,7 +447,8 @@ void main() {
           uuidNodeId: remoteNodeId,
           hlcDatetime: DateTime.now().toUtc(),
           hlcCounter: 0,
-          isDeleted: true,
+          clFlag: 2,
+          reason: CrdtDataDeletedReason.userDelete,
         );
 
         mergeSet = [remoteDelete];

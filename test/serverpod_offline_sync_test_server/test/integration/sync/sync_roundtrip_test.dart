@@ -125,6 +125,8 @@ void main() {
 
         expect(mergeChunks, hasLength(2));
         expect(mergeChunks.map((chunk) => chunk.changes.length), [2, 1]);
+        final changes = mergeChunks.expand((chunk) => chunk.changes).toList();
+        expect(changes.whereType<CrdtMergeInsert>(), hasLength(3));
         expect(events.last, isA<CrdtSyncEndOfBatch>());
       },
     );

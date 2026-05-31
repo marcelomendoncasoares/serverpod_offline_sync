@@ -92,7 +92,8 @@ void main() {
               nodeId: 1,
               hlcDatetime: DateTime.now().toUtc(),
               hlcCounter: 1,
-              isDeleted: true,
+              clFlag: 2,
+              reason: CrdtDataDeletedReason.userDelete,
             ),
           ],
         );
