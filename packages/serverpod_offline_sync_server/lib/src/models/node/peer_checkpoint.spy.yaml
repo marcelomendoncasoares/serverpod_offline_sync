@@ -1,0 +1,24 @@
+### Per-peer, per-source-node sync checkpoint table.
+###
+### Stores which changes a given peer node is known to have, per source node.
+### This enables efficient diff queries without issuing one query per node.
+class: CrdtPeerCheckpoint
+extends: BaseHlc
+table: crdt_peer_checkpoints
+database: all
+fields:
+  ### The user that owns the sync graph.
+  user: CrdtUser?, relation(onDelete=Cascade)
+
+  ### The peer node that will receive diffs.
+  peerNode: CrdtNode?, relation(onDelete=Cascade)
+
+  ### The source node whose changes are being checkpointed.
+  sourceNode: CrdtNode?, relation(onDelete=Cascade)
+
+indexes:
+  crdt_peer_checkpoints_user_peer_source_idx:
+    fields: userId, peerNodeId, sourceNodeId
+    unique: true
+  crdt_peer_checkpoints_user_peer_idx:
+    fields: userId, peerNodeId

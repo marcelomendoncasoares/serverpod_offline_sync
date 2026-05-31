@@ -61,6 +61,21 @@ final class CrdtSyncInvalidSinceHlcException extends CrdtSyncException {
       '"$receivedNodeId" does not match local node id "$expectedNodeId".';
 }
 
+/// Thrown when a peer's since-HLC frame does not include a checkpoint for the
+/// local node id.
+final class CrdtSyncMissingSinceHlcException extends CrdtSyncException {
+  /// Creates a [CrdtSyncMissingSinceHlcException].
+  const CrdtSyncMissingSinceHlcException({required this.expectedNodeId});
+
+  /// The local node id that was expected in the peer checkpoint list.
+  final UuidValue expectedNodeId;
+
+  @override
+  String toString() =>
+      'CrdtSyncMissingSinceHlcException: peer since HLC does not include '
+      'checkpoint for local node id "$expectedNodeId".';
+}
+
 /// Thrown when the sync tables hash sent by a peer does not match locally.
 final class SyncTablesHashMismatchException extends CrdtSyncException {
   /// Creates a [SyncTablesHashMismatchException].

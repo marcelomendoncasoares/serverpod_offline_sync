@@ -122,44 +122,67 @@ class CrdtSync {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Streams local CRDT changes since the last sync checkpoint with [otherNodeId].
+  /// Streams local CRDT changes that a peer node has not seen yet.
   ///
   /// Changes are emitted in insert, update, then delete order. Domain row and
   /// column payloads are resolved incrementally as each change is yielded.
   ///
-  /// When [sinceHlc] is provided, it is used instead of the stored checkpoint.
+  /// When [sinceHlc] is provided, it is used instead of peer checkpoint state.
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
     required UuidValue userId,
-    required UuidValue otherNodeId,
+    required UuidValue peerNodeId,
     Hlc? sinceHlc,
   }) async* {
     final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
-    final syncCheckpoint =
-        sinceHlc ??
-        await _syncCheckpointForNode(
-          session,
-          crdtUser,
-          otherNodeId,
-        );
+    if (sinceHlc != null) {
+      yield* _streamInsertsSinceHlc(session, crdtUser, sinceHlc);
+      yield* _streamUpdatesSinceHlc(session, crdtUser, sinceHlc);
+      yield* _streamDeletesSinceHlc(session, crdtUser, sinceHlc);
+      return;
+    }
 
-    yield* _streamInserts(session, crdtUser, syncCheckpoint);
-    yield* _streamUpdates(session, crdtUser, syncCheckpoint);
-    yield* _streamDeletes(session, crdtUser, syncCheckpoint);
+    final peerNodeRowId = await _getOrCreateNodeRowId(
+      session,
+      userDbId: crdtUser.id!,
+      uuidNodeId: peerNodeId,
+    );
+
+    yield* _streamInsertsForPeer(session, crdtUser, peerNodeRowId);
+    yield* _streamUpdatesForPeer(session, crdtUser, peerNodeRowId);
+    yield* _streamDeletesForPeer(session, crdtUser, peerNodeRowId);
   }
 
   /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
   ///
-  /// [CrdtSyncSinceHlc.lastSyncFromPeer] reflects the latest change this node
-  /// has received from [peerNodeId], tagged with the peer's node id.
+  /// [CrdtSyncSinceHlc.nodeCheckpoints] reflects the latest change this node
+  /// has received from each known node, tagged with the source node id.
   Future<CrdtSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue peerNodeId,
   }) async {
     final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
-    final lastSeenHlc = await _syncCheckpointForNode(session, crdtUser, peerNodeId);
-    return CrdtSyncSinceHlc(lastSyncFromPeer: lastSeenHlc);
+    await _ensureNodesExist(
+      session,
+      userDbId: crdtUser.id!,
+      nodeIds: {peerNodeId},
+    );
+
+    final nodes = await CrdtNode.db.find(
+      session,
+      where: (t) => t.userId.equals(crdtUser.id),
+    );
+
+    final checkpoints = <Hlc>[
+      for (final node in nodes) node.lastReceivedHlc ?? Hlc.zero(node.uuidNodeId),
+    ];
+
+    if (_findCheckpoint(checkpoints, peerNodeId) == null) {
+      checkpoints.add(Hlc.zero(peerNodeId));
+    }
+
+    return CrdtSyncSinceHlc(nodeCheckpoints: checkpoints);
   }
 
   /// Merges a remote [mergeSet] and records the sync checkpoint for [otherNodeId].
@@ -179,9 +202,6 @@ class CrdtSync {
     final maxSyncedHlc = mergeSet.maxHlc;
     final crdtDb = await _openCrdtDatabase(session);
     await crdtDb.mergeChanges(mergeSet, userId: userId);
-    if (maxSyncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
-    }
     return maxSyncedHlc;
   }
 
@@ -195,7 +215,7 @@ class CrdtSync {
     yield* collectPendingChanges(
           session,
           userId: userId,
-          otherNodeId: peerNodeId,
+          peerNodeId: peerNodeId,
           sinceHlc: sinceHlc,
         )
         .chunked(_syncBatchSize)
@@ -209,9 +229,8 @@ class CrdtSync {
   ///
   /// Both peers send [CrdtSyncConnect], read the peer connect frame, then send
   /// and read [CrdtSyncSinceHlc] once. After that, both sides exchange framed
-  /// data batches using (1) the peer's authoritative since HLC for the first
-  /// send, and (2) [CrdtSyncSinceHlc.lastSyncFromPeer] for subsequent sends
-  /// within the session.
+  /// data batches using the peer's per-node checkpoints carried by
+  /// [CrdtSyncSinceHlc.nodeCheckpoints].
   ///
   /// If a batch fails to merge, the exception propagates and the stream closes.
   /// The next sync attempt resumes from the last persisted checkpoint on the
@@ -258,31 +277,52 @@ class CrdtSync {
       );
 
       final peerSinceHlc = await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
-      if (peerSinceHlc.lastSyncFromPeer.nodeId != localNodeId) {
-        throw CrdtSyncInvalidSinceHlcException(
-          receivedNodeId: peerSinceHlc.lastSyncFromPeer.nodeId,
-          expectedNodeId: localNodeId,
-        );
+      final peerLocalCheckpoint = _findCheckpoint(
+        peerSinceHlc.nodeCheckpoints,
+        localNodeId,
+      );
+      if (peerLocalCheckpoint == null) {
+        throw CrdtSyncMissingSinceHlcException(expectedNodeId: localNodeId);
       }
 
-      var lastSentToPeer = peerSinceHlc.lastSyncFromPeer;
+      await _replacePeerCheckpoints(
+        session,
+        userDbId: crdtUser.id!,
+        peerNodeId: peerNodeId,
+        checkpoints: peerSinceHlc.nodeCheckpoints,
+      );
 
       while (true) {
         final pendingLocalChanges = collectPendingChanges(
           session,
           userId: userId,
-          otherNodeId: peerNodeId,
-          sinceHlc: lastSentToPeer,
+          peerNodeId: peerNodeId,
         );
 
         var hasChanges = false;
+        Hlc? maxSentHlc;
+        final maxSentHlcByNode = <UuidValue, Hlc>{};
         await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
           hasChanges = true;
-          lastSentToPeer = lastSentToPeer.maxBetween(changes.maxHlc);
+          for (final change in changes) {
+            final hlc = change.hlc;
+            maxSentHlc = hlc.maxBetween(maxSentHlc);
+            maxSentHlcByNode[change.uuidNodeId] = hlc.maxBetween(
+              maxSentHlcByNode[change.uuidNodeId],
+            );
+          }
           yield CrdtSyncMergeChunk(changes: changes);
         }
         if (hasChanges || once) {
           yield CrdtSyncEndOfBatch();
+        }
+        if (hasChanges) {
+          await _advancePeerCheckpoints(
+            session,
+            userDbId: crdtUser.id!,
+            peerNodeId: peerNodeId,
+            maxHlcByNode: maxSentHlcByNode,
+          );
         }
 
         final inboundMergeSet = await inboundIterator.collectNextBatch(
@@ -301,8 +341,11 @@ class CrdtSync {
         );
 
         if (hasChanges || inboundMergeSet.isNotEmpty) {
+          final syncedHlc = (maxSentHlc ?? peerLocalCheckpoint).maxBetween(
+            lastReceivedFromPeer,
+          );
           await onMergeSuccess?.call(
-            lastSentToPeer.maxBetween(lastReceivedFromPeer),
+            syncedHlc,
           );
         }
 
@@ -348,20 +391,7 @@ class CrdtSync {
     return crdtDb;
   }
 
-  Future<Hlc> _syncCheckpointForNode(
-    DatabaseSession session,
-    CrdtUser crdtUser,
-    UuidValue otherNodeId,
-  ) async {
-    final otherNode = await CrdtNode.db.findFirstRow(
-      session,
-      where: (t) => t.userId.equals(crdtUser.id) & t.uuidNodeId.equals(otherNodeId),
-    );
-
-    return otherNode?.lastReceivedHlc ?? Hlc.zero(otherNodeId);
-  }
-
-  Stream<CrdtMergeInsert> _streamInserts(
+  Stream<CrdtMergeInsert> _streamInsertsSinceHlc(
     DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
@@ -375,6 +405,37 @@ class CrdtSync {
       ),
     );
 
+    yield* _toInsertChanges(session, rows);
+  }
+
+  Stream<CrdtMergeInsert> _streamInsertsForPeer(
+    DatabaseSession session,
+    CrdtUser crdtUser,
+    int peerNodeRowId,
+  ) async* {
+    final rowIds = await _pendingInsertRowIdsForPeer(
+      session,
+      userDbId: crdtUser.id!,
+      peerNodeRowId: peerNodeRowId,
+    );
+    if (rowIds.isEmpty) return;
+
+    final rows = await CrdtDataRow.db.find(
+      session,
+      where: (t) => t.id.inSet(rowIds.toSet()),
+      include: CrdtDataRow.include(
+        tbl: CrdtSchemaTable.include(),
+        node: CrdtNode.include(),
+      ),
+    );
+
+    yield* _toInsertChanges(session, rows);
+  }
+
+  Stream<CrdtMergeInsert> _toInsertChanges(
+    DatabaseSession session,
+    List<CrdtDataRow> rows,
+  ) async* {
     for (final row in rows) {
       final tableName = row.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
@@ -403,7 +464,7 @@ class CrdtSync {
     }
   }
 
-  Stream<CrdtMergeUpdate> _streamUpdates(
+  Stream<CrdtMergeUpdate> _streamUpdatesSinceHlc(
     DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
@@ -418,6 +479,38 @@ class CrdtSync {
       ),
     );
 
+    yield* _toUpdateChanges(session, fields);
+  }
+
+  Stream<CrdtMergeUpdate> _streamUpdatesForPeer(
+    DatabaseSession session,
+    CrdtUser crdtUser,
+    int peerNodeRowId,
+  ) async* {
+    final fieldIds = await _pendingUpdateFieldIdsForPeer(
+      session,
+      userDbId: crdtUser.id!,
+      peerNodeRowId: peerNodeRowId,
+    );
+    if (fieldIds.isEmpty) return;
+
+    final fields = await CrdtDataField.db.find(
+      session,
+      where: (t) => t.id.inSet(fieldIds.toSet()),
+      include: CrdtDataField.include(
+        row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
+        column: CrdtSchemaColumn.include(),
+        node: CrdtNode.include(),
+      ),
+    );
+
+    yield* _toUpdateChanges(session, fields);
+  }
+
+  Stream<CrdtMergeUpdate> _toUpdateChanges(
+    DatabaseSession session,
+    List<CrdtDataField> fields,
+  ) async* {
     for (final field in fields) {
       final tableName = field.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
@@ -442,7 +535,7 @@ class CrdtSync {
     }
   }
 
-  Stream<CrdtMergeDelete> _streamDeletes(
+  Stream<CrdtMergeDelete> _streamDeletesSinceHlc(
     DatabaseSession session,
     CrdtUser crdtUser,
     Hlc lastSyncHlc,
@@ -456,6 +549,34 @@ class CrdtSync {
       ),
     );
 
+    yield* _toDeleteChanges(tombstones);
+  }
+
+  Stream<CrdtMergeDelete> _streamDeletesForPeer(
+    DatabaseSession session,
+    CrdtUser crdtUser,
+    int peerNodeRowId,
+  ) async* {
+    final tombstoneIds = await _pendingDeleteTombstoneIdsForPeer(
+      session,
+      userDbId: crdtUser.id!,
+      peerNodeRowId: peerNodeRowId,
+    );
+    if (tombstoneIds.isEmpty) return;
+
+    final tombstones = await CrdtDataDeleted.db.find(
+      session,
+      where: (t) => t.id.inSet(tombstoneIds.toSet()),
+      include: CrdtDataDeleted.include(
+        row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
+        node: CrdtNode.include(),
+      ),
+    );
+
+    yield* _toDeleteChanges(tombstones);
+  }
+
+  Stream<CrdtMergeDelete> _toDeleteChanges(List<CrdtDataDeleted> tombstones) async* {
     for (final tombstone in tombstones) {
       final tableName = tombstone.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
@@ -501,6 +622,297 @@ class CrdtSync {
       ((t.hlcDatetime > lastSyncHlc.datetime) |
           (t.hlcDatetime.equals(lastSyncHlc.datetime) &
               (t.hlcCounter > lastSyncHlc.counter)));
+
+  Future<void> _ensureNodesExist(
+    DatabaseSession session, {
+    required int userDbId,
+    required Set<UuidValue> nodeIds,
+  }) async {
+    if (nodeIds.isEmpty) return;
+
+    await session.db.transaction((transaction) async {
+      final existing = await CrdtNode.db.find(
+        session,
+        where: (t) => t.userId.equals(userDbId) & t.uuidNodeId.inSet(nodeIds),
+        transaction: transaction,
+      );
+      final existingIds = existing.map((node) => node.uuidNodeId).toSet();
+      final missing = nodeIds.difference(existingIds);
+      if (missing.isEmpty) return;
+
+      await CrdtNode.db.insert(
+        session,
+        [
+          for (final uuidNodeId in missing)
+            CrdtNode(
+              userId: userDbId,
+              uuidNodeId: uuidNodeId,
+            ),
+        ],
+        transaction: transaction,
+        ignoreConflicts: true,
+      );
+    });
+  }
+
+  Future<int> _getOrCreateNodeRowId(
+    DatabaseSession session, {
+    required int userDbId,
+    required UuidValue uuidNodeId,
+  }) async {
+    final node = await session.db.transaction((transaction) async {
+      var existing = await CrdtNode.db.findFirstRow(
+        session,
+        where: (t) => t.userId.equals(userDbId) & t.uuidNodeId.equals(uuidNodeId),
+        transaction: transaction,
+      );
+      existing ??= await CrdtNode.db.insertRow(
+        session,
+        CrdtNode(userId: userDbId, uuidNodeId: uuidNodeId),
+        transaction: transaction,
+      );
+      return existing;
+    });
+
+    return node.id!;
+  }
+
+  Hlc? _findCheckpoint(List<Hlc> checkpoints, UuidValue nodeId) {
+    for (final checkpoint in checkpoints) {
+      if (checkpoint.nodeId == nodeId) return checkpoint;
+    }
+    return null;
+  }
+
+  Future<void> _replacePeerCheckpoints(
+    DatabaseSession session, {
+    required int userDbId,
+    required UuidValue peerNodeId,
+    required List<Hlc> checkpoints,
+  }) async {
+    final checkpointByNodeId = <UuidValue, Hlc>{};
+    for (final checkpoint in checkpoints) {
+      checkpointByNodeId[checkpoint.nodeId] = checkpoint.maxBetween(
+        checkpointByNodeId[checkpoint.nodeId],
+      );
+    }
+
+    final nodeIds = {peerNodeId, ...checkpointByNodeId.keys};
+    await _ensureNodesExist(session, userDbId: userDbId, nodeIds: nodeIds);
+
+    await session.db.transaction((transaction) async {
+      final nodes = await CrdtNode.db.find(
+        session,
+        where: (t) => t.userId.equals(userDbId) & t.uuidNodeId.inSet(nodeIds),
+        transaction: transaction,
+      );
+      final nodeDbIds = {for (final node in nodes) node.uuidNodeId: node.id!};
+      final peerNodeDbId = nodeDbIds[peerNodeId]!;
+
+      await CrdtPeerCheckpoint.db.deleteWhere(
+        session,
+        where: (t) => t.userId.equals(userDbId) & t.peerNodeId.equals(peerNodeDbId),
+        transaction: transaction,
+      );
+
+      if (checkpointByNodeId.isEmpty) return;
+      await CrdtPeerCheckpoint.db.insert(
+        session,
+        [
+          for (final MapEntry(key: sourceNodeId, value: hlc)
+              in checkpointByNodeId.entries)
+            CrdtPeerCheckpoint(
+              userId: userDbId,
+              peerNodeId: peerNodeDbId,
+              sourceNodeId: nodeDbIds[sourceNodeId]!,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
+            ),
+        ],
+        transaction: transaction,
+      );
+    });
+  }
+
+  Future<void> _advancePeerCheckpoints(
+    DatabaseSession session, {
+    required int userDbId,
+    required UuidValue peerNodeId,
+    required Map<UuidValue, Hlc> maxHlcByNode,
+  }) async {
+    if (maxHlcByNode.isEmpty) return;
+
+    final nodeIds = {peerNodeId, ...maxHlcByNode.keys};
+    await _ensureNodesExist(session, userDbId: userDbId, nodeIds: nodeIds);
+
+    await session.db.transaction((transaction) async {
+      final nodes = await CrdtNode.db.find(
+        session,
+        where: (t) => t.userId.equals(userDbId) & t.uuidNodeId.inSet(nodeIds),
+        transaction: transaction,
+      );
+      final nodeDbIds = {for (final node in nodes) node.uuidNodeId: node.id!};
+      final peerNodeDbId = nodeDbIds[peerNodeId]!;
+
+      final sourceNodeDbIds = {
+        for (final uuidNodeId in maxHlcByNode.keys) nodeDbIds[uuidNodeId]!,
+      };
+
+      final existing = await CrdtPeerCheckpoint.db.find(
+        session,
+        where: (t) =>
+            t.userId.equals(userDbId) &
+            t.peerNodeId.equals(peerNodeDbId) &
+            t.sourceNodeId.inSet(sourceNodeDbIds),
+        transaction: transaction,
+      );
+      final existingBySourceNodeDbId = {
+        for (final row in existing) row.sourceNodeId: row,
+      };
+
+      final toInsert = <CrdtPeerCheckpoint>[];
+      final toUpdate = <CrdtPeerCheckpoint>[];
+
+      for (final MapEntry(key: sourceNodeUuid, value: maxHlc) in maxHlcByNode.entries) {
+        final sourceNodeDbId = nodeDbIds[sourceNodeUuid]!;
+        final current = existingBySourceNodeDbId[sourceNodeDbId];
+        if (current == null) {
+          toInsert.add(
+            CrdtPeerCheckpoint(
+              userId: userDbId,
+              peerNodeId: peerNodeDbId,
+              sourceNodeId: sourceNodeDbId,
+              hlcDatetime: maxHlc.datetime,
+              hlcCounter: maxHlc.counter,
+            ),
+          );
+          continue;
+        }
+
+        final isAfter =
+            maxHlc.datetime.isAfter(current.hlcDatetime) ||
+            (maxHlc.datetime.isAtSameMomentAs(current.hlcDatetime) &&
+                maxHlc.counter > current.hlcCounter);
+        if (!isAfter) continue;
+
+        toUpdate.add(
+          current.copyWith(
+            hlcDatetime: maxHlc.datetime,
+            hlcCounter: maxHlc.counter,
+          ),
+        );
+      }
+
+      if (toInsert.isNotEmpty) {
+        await CrdtPeerCheckpoint.db.insert(
+          session,
+          toInsert,
+          transaction: transaction,
+          ignoreConflicts: true,
+        );
+      }
+      if (toUpdate.isNotEmpty) {
+        await CrdtPeerCheckpoint.db.update(
+          session,
+          toUpdate,
+          columns: (t) => [t.hlcDatetime, t.hlcCounter],
+          transaction: transaction,
+        );
+      }
+    });
+  }
+
+  Future<List<int>> _pendingInsertRowIdsForPeer(
+    DatabaseSession session, {
+    required int userDbId,
+    required int peerNodeRowId,
+  }) async {
+    final encodedUserId = ValueEncoder.instance.convert(userDbId);
+    final encodedPeerNodeId = ValueEncoder.instance.convert(peerNodeRowId);
+    final result = await session.db.unsafeQuery(
+      'SELECT r."id" '
+      'FROM "crdt_data_rows" r '
+      'LEFT JOIN "crdt_peer_checkpoints" c '
+      '  ON c."userId" = r."userId" '
+      ' AND c."peerNodeId" = $encodedPeerNodeId '
+      ' AND c."sourceNodeId" = r."nodeId" '
+      'WHERE r."userId" = $encodedUserId '
+      '  AND ('
+      '    c."id" IS NULL OR '
+      '    r."hlcDatetime" > c."hlcDatetime" OR '
+      '    (r."hlcDatetime" = c."hlcDatetime" AND r."hlcCounter" > c."hlcCounter")'
+      '  )',
+    );
+    return _decodeIntColumn(result);
+  }
+
+  Future<List<int>> _pendingUpdateFieldIdsForPeer(
+    DatabaseSession session, {
+    required int userDbId,
+    required int peerNodeRowId,
+  }) async {
+    final encodedUserId = ValueEncoder.instance.convert(userDbId);
+    final encodedPeerNodeId = ValueEncoder.instance.convert(peerNodeRowId);
+    final result = await session.db.unsafeQuery(
+      'SELECT f."id" '
+      'FROM "crdt_data_fields" f '
+      'JOIN "crdt_data_rows" r ON r."id" = f."rowId" '
+      'LEFT JOIN "crdt_peer_checkpoints" c '
+      '  ON c."userId" = r."userId" '
+      ' AND c."peerNodeId" = $encodedPeerNodeId '
+      ' AND c."sourceNodeId" = f."nodeId" '
+      'WHERE r."userId" = $encodedUserId '
+      '  AND ('
+      '    c."id" IS NULL OR '
+      '    f."hlcDatetime" > c."hlcDatetime" OR '
+      '    (f."hlcDatetime" = c."hlcDatetime" AND f."hlcCounter" > c."hlcCounter")'
+      '  )',
+    );
+    return _decodeIntColumn(result);
+  }
+
+  Future<List<int>> _pendingDeleteTombstoneIdsForPeer(
+    DatabaseSession session, {
+    required int userDbId,
+    required int peerNodeRowId,
+  }) async {
+    final encodedUserId = ValueEncoder.instance.convert(userDbId);
+    final encodedPeerNodeId = ValueEncoder.instance.convert(peerNodeRowId);
+    final result = await session.db.unsafeQuery(
+      'SELECT d."id" '
+      'FROM "crdt_data_tombstone" d '
+      'JOIN "crdt_data_rows" r ON r."id" = d."rowId" '
+      'LEFT JOIN "crdt_peer_checkpoints" c '
+      '  ON c."userId" = r."userId" '
+      ' AND c."peerNodeId" = $encodedPeerNodeId '
+      ' AND c."sourceNodeId" = d."nodeId" '
+      'WHERE r."userId" = $encodedUserId '
+      '  AND ('
+      '    c."id" IS NULL OR '
+      '    d."hlcDatetime" > c."hlcDatetime" OR '
+      '    (d."hlcDatetime" = c."hlcDatetime" AND d."hlcCounter" > c."hlcCounter")'
+      '  )',
+    );
+    return _decodeIntColumn(result);
+  }
+
+  List<int> _decodeIntColumn(List<dynamic> result) {
+    final ids = <int>[];
+    for (final row in result) {
+      final value = row[0];
+      ids.add(
+        switch (value) {
+          final int v => v,
+          final BigInt v => v.toInt(),
+          _ => throw StateError(
+            'Unexpected id value type "${value.runtimeType}" while decoding '
+            'pending change ids.',
+          ),
+        },
+      );
+    }
+    return ids;
+  }
 
   Future<dynamic> _fetchDomainRow(
     DatabaseSession session,

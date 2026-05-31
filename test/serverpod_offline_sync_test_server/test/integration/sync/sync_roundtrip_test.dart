@@ -65,7 +65,7 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              otherNodeId: const Uuid().v7obj(),
+              peerNodeId: const Uuid().v7obj(),
               userId: testCrdtUserId,
             )
             .toList();
@@ -185,7 +185,7 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              otherNodeId: const Uuid().v7obj(),
+              peerNodeId: const Uuid().v7obj(),
               userId: testCrdtUserId,
             )
             .toList();
