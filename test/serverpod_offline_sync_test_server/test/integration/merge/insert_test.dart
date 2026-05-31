@@ -238,6 +238,9 @@ void main() {
           },
         );
 
+        // For the same reason above, we need to touch the tombstone for the row
+        // to ensure that tombstone conflict resolution never falls back to the
+        // row-level HLC.
         test(
           'then the initial visible generation metadata is lazily touched.',
           () async {

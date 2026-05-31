@@ -334,11 +334,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     final currentTombstone = tombstones[rowKey];
     final currentClFlag = currentTombstone?.clFlag ?? 1;
+    final currentHlc = currentTombstone?.hlc ?? row.hlc;
     if (delete.clFlag < currentClFlag) return;
-    if (delete.clFlag == currentClFlag &&
-        (currentTombstone == null || delete.hlc <= currentTombstone.hlc)) {
-      return;
-    }
+    if (delete.clFlag == currentClFlag && delete.hlc <= currentHlc) return;
 
     tombstones[rowKey] = await _upsertMergeTombstone(
       row,
@@ -564,18 +562,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     final rowKey = (insert.tableName, insert.uuidRowId);
     final currentTombstone = tombstones[rowKey];
-    if ((currentTombstone?.clFlag ?? 1) != 1) return;
-    if (incomingHlc <= (currentTombstone?.hlc ?? currentRow.hlc)) return;
-
-    tombstones[rowKey] = await _upsertMergeTombstone(
-      currentRow,
-      remoteNode,
-      incomingHlc,
-      1,
-      CrdtDataDeletedReason.userInsert,
-      currentTombstone,
-      transaction,
-    );
+    if ((currentTombstone?.clFlag ?? 1) == 1 &&
+        incomingHlc > (currentTombstone?.hlc ?? currentRow.hlc)) {
+      tombstones[rowKey] = await _upsertMergeTombstone(
+        currentRow,
+        remoteNode,
+        incomingHlc,
+        1,
+        CrdtDataDeletedReason.userInsert,
+        currentTombstone,
+        transaction,
+      );
+    }
   }
 
   Future<bool> _shouldMergeFieldMetadataIfNewer({
