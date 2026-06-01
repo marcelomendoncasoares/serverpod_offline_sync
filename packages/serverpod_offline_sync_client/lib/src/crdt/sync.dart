@@ -122,7 +122,7 @@ class CrdtSync {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Streams local CRDT changes since the last sync checkpoint with [otherNodeId].
+  /// Streams local CRDT changes that a peer node has not seen yet.
   ///
   /// Changes are emitted in insert, update, then delete order. Domain row and
   /// column payloads are resolved incrementally as each change is yielded.
@@ -131,7 +131,7 @@ class CrdtSync {
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
     required UuidValue userId,
-    required UuidValue otherNodeId,
+    required UuidValue peerNodeId,
     Hlc? sinceHlc,
   }) async* {
     final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
@@ -140,7 +140,7 @@ class CrdtSync {
         await _syncCheckpointForNode(
           session,
           crdtUser,
-          otherNodeId,
+          peerNodeId,
         );
 
     yield* _streamInserts(session, crdtUser, syncCheckpoint);
@@ -195,7 +195,7 @@ class CrdtSync {
     yield* collectPendingChanges(
           session,
           userId: userId,
-          otherNodeId: peerNodeId,
+          peerNodeId: peerNodeId,
           sinceHlc: sinceHlc,
         )
         .chunked(_syncBatchSize)
@@ -271,7 +271,7 @@ class CrdtSync {
         final pendingLocalChanges = collectPendingChanges(
           session,
           userId: userId,
-          otherNodeId: peerNodeId,
+          peerNodeId: peerNodeId,
           sinceHlc: lastSentToPeer,
         );
 
