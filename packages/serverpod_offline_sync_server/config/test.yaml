@@ -21,7 +21,12 @@ webServer:
 
 # This is the database setup for your test server.
 database:
-  filePath: test.db
+  host: localhost
+  port: 5432
+  name: serverpod_offline_sync_server
+  user: postgres
+  requireSsl: true
+  dataPath: .serverpod/test/pgdata
 
 sessionLogs:
   persistentEnabled: false

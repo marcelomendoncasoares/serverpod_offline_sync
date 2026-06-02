@@ -14,6 +14,7 @@ doc/api/
 
 # Test database file
 **/test.db*
+.serverpod
 
 # Migrations do not need to be committed, as they are only for testing
 migrations/
