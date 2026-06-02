@@ -65,8 +65,9 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              otherNodeId: const Uuid().v7obj(),
+              peerNodeId: const Uuid().v7obj(),
               userId: testCrdtUserId,
+              nodeCheckpoints: const [],
             )
             .toList();
 
@@ -117,7 +118,7 @@ void main() {
               testSession,
               userId: testCrdtUserId,
               peerNodeId: const Uuid().v7obj(),
-              sinceHlc: Hlc.zero(const Uuid().v7obj()),
+              nodeCheckpoints: const [],
             )
             .toList();
 
@@ -185,8 +186,9 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              otherNodeId: const Uuid().v7obj(),
+              peerNodeId: const Uuid().v7obj(),
               userId: testCrdtUserId,
+              nodeCheckpoints: const [],
             )
             .toList();
 
@@ -208,6 +210,27 @@ void main() {
       },
     );
   });
+
+  test(
+    'Given a CRDT node without local changes '
+    'when synchronization checkpoints are created '
+    'then one fresh checkpoint for the local node is included.',
+    () async {
+      final user = await CrdtUserManager(testSession).getOrCreate(testCrdtUserId);
+      final sinceHlc = await crdtSync.createSyncSinceHlc(
+        testSession,
+        userId: testCrdtUserId,
+        peerNodeId: const Uuid().v7obj(),
+      );
+
+      expect(sinceHlc.nodeCheckpoints, hasLength(1));
+      expect(sinceHlc.nodeCheckpoints.single.nodeId, user.currentNode!.uuidNodeId);
+      expect(
+        sinceHlc.nodeCheckpoints.single,
+        greaterThan(Hlc.zero(sinceHlc.nodeCheckpoints.single.nodeId)),
+      );
+    },
+  );
 }
 
 extension on List<int> {

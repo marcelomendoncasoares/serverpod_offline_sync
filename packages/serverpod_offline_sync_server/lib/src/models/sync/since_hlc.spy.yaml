@@ -3,5 +3,10 @@
 class: CrdtSyncSinceHlc
 extends: CrdtSyncStreamEvent
 fields:
-  ### The last HLC timestamp that the sender has received from the other peer.
-  lastSyncFromPeer: Hlc
+  ### Per-node checkpoints that describe which changes the sender already has.
+  ###
+  ### Each checkpoint is an [Hlc] whose `nodeId` is the source node being
+  ### checkpointed. The receiver uses this list to compute a diff without
+  ### relying on a single global HLC, which would miss concurrent changes from
+  ### nodes unknown at the time of the previous sync.
+  nodeCheckpoints: List<Hlc>

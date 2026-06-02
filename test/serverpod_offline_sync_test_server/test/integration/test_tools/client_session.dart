@@ -14,6 +14,7 @@ late CrdtDatabaseSession _crdtSession;
 late Directory _tempDir;
 late UuidValue _testCrdtUserId;
 late bool _withPersistentUser;
+var _additionalTestSessionCount = 0;
 
 /// A fresh [ClientDatabaseSession] for each test that is automatically closed
 /// and removed once no longer needed.
@@ -61,6 +62,17 @@ void initTestClientSession({bool withPersistentUser = false}) {
       await _tempDir.delete(recursive: true);
     }
   });
+}
+
+/// Creates an additional client database session in the shared test temporary
+/// directory and closes it when the current test completes.
+Future<ClientDatabaseSession> createAdditionalTestSession() async {
+  final additionalSession = await _testClient.createSession(
+    p.join(_tempDir.path, 'test-${++_additionalTestSessionCount}.db'),
+    isDebugMode: true,
+  );
+  addTearDown(additionalSession.close);
+  return additionalSession;
 }
 
 Future<void> _initialize() async {

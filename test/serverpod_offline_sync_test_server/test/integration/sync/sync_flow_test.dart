@@ -538,6 +538,88 @@ void main() {
   );
 
   withServerpod(
+    'Given a server and two client CRDT sessions for the same user that are initialized with the same sync tables',
+    rollbackDatabase: RollbackDatabase.disabled,
+    (sessionBuilder, _) {
+      final rawServerSession = sessionBuilder.build();
+      late CrdtDatabaseSession secondClientSession;
+
+      rawServerSession.serverpod
+        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..authenticationHandler = (session, token) async => AuthenticationInfo(
+          testCrdtUserId.toString(),
+          <Scope>{},
+          authId: const Uuid().v4(),
+        );
+
+      setUp(() async {
+        testClient = client.Client(
+          'http://localhost:${rawServerSession.server.port}',
+        )..authKeyProvider = TestClientAuthKeyProvider();
+
+        clientSession = CrdtDatabaseSession.wraps(
+          testSession,
+          syncTables: clientSyncTables,
+          persistentUserId: testCrdtUserId,
+        );
+        await clientSession.db.initialize();
+
+        secondClientSession = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: clientSyncTables,
+          persistentUserId: testCrdtUserId,
+        );
+        await secondClientSession.db.initialize();
+
+        serverSession = CrdtDatabaseSession.wraps(
+          rawServerSession,
+          syncTables: serverSyncTables,
+        );
+        await serverSession.db.initialize();
+      });
+
+      tearDown(() async {
+        await serverSession.clearUserTables();
+      });
+
+      test(
+        'when the first node uploads an offline deletion after the second node synchronized a newer change '
+        'then the second node receives the deletion on its next sync.',
+        () async {
+          final rowToDelete = await client.Unique.db.insertRow(
+            clientSession,
+            client.Unique(name: 'deleted-by-first-node'),
+          );
+          await testClient.crdt.syncOnce(clientSession);
+          await testClient.crdt.syncOnce(secondClientSession);
+
+          // After both nodes have synchronized, the first node deletes the row.
+          await client.Unique.db.deleteRow(clientSession, rowToDelete);
+
+          // The second node inserts a new row and synchronizes it.
+          await client.Unique.db.insertRow(
+            secondClientSession,
+            client.Unique(name: 'inserted-by-second-node'),
+          );
+          await testClient.crdt.syncOnce(secondClientSession);
+
+          // The first node synchronizes the deletion with the server.
+          await testClient.crdt.syncOnce(clientSession);
+
+          // This last sync from the second node will only receive the deletion
+          // from the first node if checkpoints are tracked per known node.
+          await testClient.crdt.syncOnce(secondClientSession);
+          final deletedRow = await client.Unique.db.findById(
+            secondClientSession,
+            rowToDelete.id!,
+          );
+          expect(deletedRow, isNull);
+        },
+      );
+    },
+  );
+
+  withServerpod(
     'Given a server and client CRDT session that are initialized with the same sync tables and a continuous sync interval',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {

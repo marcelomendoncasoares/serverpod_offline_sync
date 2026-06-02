@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../database/database.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
+import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
 import 'merge.dart';
 
@@ -122,44 +123,50 @@ class CrdtSync {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Streams local CRDT changes since the last sync checkpoint with [otherNodeId].
+  /// Streams local CRDT changes that a peer node has not seen yet.
   ///
   /// Changes are emitted in insert, update, then delete order. Domain row and
   /// column payloads are resolved incrementally as each change is yielded.
   ///
-  /// When [sinceHlc] is provided, it is used instead of the stored checkpoint.
+  /// All changes for nodes that are not present in the [nodeCheckpoints] list
+  /// are collected and emitted. Passing an empty list will collect all changes.
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
     required UuidValue userId,
-    required UuidValue otherNodeId,
-    Hlc? sinceHlc,
+    required UuidValue peerNodeId,
+    required List<Hlc> nodeCheckpoints,
   }) async* {
     final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
-    final syncCheckpoint =
-        sinceHlc ??
-        await _syncCheckpointForNode(
-          session,
-          crdtUser,
-          otherNodeId,
-        );
-
-    yield* _streamInserts(session, crdtUser, syncCheckpoint);
-    yield* _streamUpdates(session, crdtUser, syncCheckpoint);
-    yield* _streamDeletes(session, crdtUser, syncCheckpoint);
+    yield* _streamInserts(session, crdtUser, nodeCheckpoints);
+    yield* _streamUpdates(session, crdtUser, nodeCheckpoints);
+    yield* _streamDeletes(session, crdtUser, nodeCheckpoints);
   }
 
   /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
   ///
-  /// [CrdtSyncSinceHlc.lastSyncFromPeer] reflects the latest change this node
-  /// has received from [peerNodeId], tagged with the peer's node id.
+  /// [CrdtSyncSinceHlc.nodeCheckpoints] reflects the latest change this node
+  /// has received from each known node, tagged with the source node id.
   Future<CrdtSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue peerNodeId,
   }) async {
     final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
-    final lastSeenHlc = await _syncCheckpointForNode(session, crdtUser, peerNodeId);
-    return CrdtSyncSinceHlc(lastSyncFromPeer: lastSeenHlc);
+
+    final nodes = await CrdtNode.db.find(
+      session,
+      where: (t) =>
+          t.userId.equals(crdtUser.id) &
+          t.uuidNodeId.notEquals(crdtUser.currentNode!.uuidNodeId),
+    );
+
+    return CrdtSyncSinceHlc(
+      nodeCheckpoints: [
+        // The local node is always included to avoid collecting its own changes.
+        Hlc.now(crdtUser.currentNode!.uuidNodeId),
+        for (final node in nodes) node.lastReceivedHlc ?? Hlc.zero(node.uuidNodeId),
+      ],
+    );
   }
 
   /// Merges a remote [mergeSet] and records the sync checkpoint for [otherNodeId].
@@ -190,13 +197,13 @@ class CrdtSync {
     DatabaseSession session, {
     required UuidValue userId,
     required UuidValue peerNodeId,
-    required Hlc sinceHlc,
+    required List<Hlc> nodeCheckpoints,
   }) async* {
     yield* collectPendingChanges(
           session,
           userId: userId,
-          otherNodeId: peerNodeId,
-          sinceHlc: sinceHlc,
+          peerNodeId: peerNodeId,
+          nodeCheckpoints: nodeCheckpoints,
         )
         .chunked(_syncBatchSize)
         .map(
@@ -209,9 +216,9 @@ class CrdtSync {
   ///
   /// Both peers send [CrdtSyncConnect], read the peer connect frame, then send
   /// and read [CrdtSyncSinceHlc] once. After that, both sides exchange framed
-  /// data batches using (1) the peer's authoritative since HLC for the first
-  /// send, and (2) [CrdtSyncSinceHlc.lastSyncFromPeer] for subsequent sends
-  /// within the session.
+  /// data batches using the peer's per-node checkpoints. Sent changes advance
+  /// the corresponding in-memory checkpoints for subsequent sends within the
+  /// session.
   ///
   /// If a batch fails to merge, the exception propagates and the stream closes.
   /// The next sync attempt resumes from the last persisted checkpoint on the
@@ -258,27 +265,26 @@ class CrdtSync {
       );
 
       final peerSinceHlc = await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
-      if (peerSinceHlc.lastSyncFromPeer.nodeId != localNodeId) {
-        throw CrdtSyncInvalidSinceHlcException(
-          receivedNodeId: peerSinceHlc.lastSyncFromPeer.nodeId,
-          expectedNodeId: localNodeId,
-        );
-      }
-
-      var lastSentToPeer = peerSinceHlc.lastSyncFromPeer;
+      final nodeCheckpoints = {
+        for (final checkpoint in peerSinceHlc.nodeCheckpoints)
+          checkpoint.nodeId: checkpoint,
+      };
 
       while (true) {
         final pendingLocalChanges = collectPendingChanges(
           session,
           userId: userId,
-          otherNodeId: peerNodeId,
-          sinceHlc: lastSentToPeer,
+          peerNodeId: peerNodeId,
+          nodeCheckpoints: nodeCheckpoints.values.toList(),
         );
 
         var hasChanges = false;
         await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
           hasChanges = true;
-          lastSentToPeer = lastSentToPeer.maxBetween(changes.maxHlc);
+          for (final change in changes) {
+            final lastCheckpoint = nodeCheckpoints[change.uuidNodeId];
+            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(lastCheckpoint);
+          }
           yield CrdtSyncMergeChunk(changes: changes);
         }
         if (hasChanges || once) {
@@ -302,7 +308,7 @@ class CrdtSync {
 
         if (hasChanges || inboundMergeSet.isNotEmpty) {
           await onMergeSuccess?.call(
-            lastSentToPeer.maxBetween(lastReceivedFromPeer),
+            nodeCheckpoints.values.max.maxBetween(lastReceivedFromPeer),
           );
         }
 
@@ -348,27 +354,14 @@ class CrdtSync {
     return crdtDb;
   }
 
-  Future<Hlc> _syncCheckpointForNode(
-    DatabaseSession session,
-    CrdtUser crdtUser,
-    UuidValue otherNodeId,
-  ) async {
-    final otherNode = await CrdtNode.db.findFirstRow(
-      session,
-      where: (t) => t.userId.equals(crdtUser.id) & t.uuidNodeId.equals(otherNodeId),
-    );
-
-    return otherNode?.lastReceivedHlc ?? Hlc.zero(otherNodeId);
-  }
-
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     CrdtUser crdtUser,
-    Hlc lastSyncHlc,
+    List<Hlc> nodeCheckpoints,
   ) async* {
     final rows = await CrdtDataRow.db.find(
       session,
-      where: (t) => _rowHlcAfterFilter(t, crdtUser, lastSyncHlc),
+      where: (t) => _rowHlcAfterFilter(t, crdtUser, nodeCheckpoints),
       include: CrdtDataRow.include(
         tbl: CrdtSchemaTable.include(),
         node: CrdtNode.include(),
@@ -406,11 +399,11 @@ class CrdtSync {
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
     CrdtUser crdtUser,
-    Hlc lastSyncHlc,
+    List<Hlc> nodeCheckpoints,
   ) async* {
     final fields = await CrdtDataField.db.find(
       session,
-      where: (t) => _fieldHlcAfterFilter(t, crdtUser, lastSyncHlc),
+      where: (t) => _fieldHlcAfterFilter(t, crdtUser, nodeCheckpoints),
       include: CrdtDataField.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         column: CrdtSchemaColumn.include(),
@@ -445,11 +438,11 @@ class CrdtSync {
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
     CrdtUser crdtUser,
-    Hlc lastSyncHlc,
+    List<Hlc> nodeCheckpoints,
   ) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
-      where: (t) => _tombstoneHlcAfterFilter(t, crdtUser, lastSyncHlc),
+      where: (t) => _tombstoneHlcAfterFilter(t, crdtUser, nodeCheckpoints),
       include: CrdtDataDeleted.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         node: CrdtNode.include(),
@@ -475,32 +468,41 @@ class CrdtSync {
   Expression _rowHlcAfterFilter(
     CrdtDataRowTable t,
     CrdtUser crdtUser,
-    Hlc lastSyncHlc,
+    List<Hlc> nodeCheckpoints,
   ) =>
       t.userId.equals(crdtUser.id) &
-      ((t.hlcDatetime > lastSyncHlc.datetime) |
-          (t.hlcDatetime.equals(lastSyncHlc.datetime) &
-              (t.hlcCounter > lastSyncHlc.counter)));
+      t.node.afterAnyCheckpointFilter(
+        t.node.uuidNodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        nodeCheckpoints,
+      );
 
   Expression _fieldHlcAfterFilter(
     CrdtDataFieldTable t,
     CrdtUser crdtUser,
-    Hlc lastSyncHlc,
+    List<Hlc> nodeCheckpoints,
   ) =>
       t.row.userId.equals(crdtUser.id) &
-      ((t.hlcDatetime > lastSyncHlc.datetime) |
-          (t.hlcDatetime.equals(lastSyncHlc.datetime) &
-              (t.hlcCounter > lastSyncHlc.counter)));
+      t.node.afterAnyCheckpointFilter(
+        t.node.uuidNodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        nodeCheckpoints,
+      );
 
   Expression _tombstoneHlcAfterFilter(
     CrdtDataDeletedTable t,
     CrdtUser crdtUser,
-    Hlc lastSyncHlc,
+    List<Hlc> nodeCheckpoints,
   ) =>
       t.row.userId.equals(crdtUser.id) &
-      ((t.hlcDatetime > lastSyncHlc.datetime) |
-          (t.hlcDatetime.equals(lastSyncHlc.datetime) &
-              (t.hlcCounter > lastSyncHlc.counter)));
+      t.node.afterAnyCheckpointFilter(
+        t.node.uuidNodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        nodeCheckpoints,
+      );
 
   Future<dynamic> _fetchDomainRow(
     DatabaseSession session,
@@ -623,5 +625,28 @@ class CrdtSync {
     ]..sort();
 
     return entries;
+  }
+}
+
+extension on CrdtNodeTable {
+  Expression afterAnyCheckpointFilter(
+    ColumnUuid uuidNodeId,
+    ColumnDateTime hlcDatetime,
+    ColumnInt hlcCounter,
+    List<Hlc> nodeCheckpoints,
+  ) {
+    if (nodeCheckpoints.isEmpty) return Constant.bool(true);
+
+    final caseExpression = Case();
+    for (final checkpoint in nodeCheckpoints) {
+      caseExpression.when(
+        uuidNodeId.equals(checkpoint.nodeId),
+        then:
+            (hlcDatetime > checkpoint.datetime) |
+            (hlcDatetime.equals(checkpoint.datetime) &
+                (hlcCounter > checkpoint.counter)),
+      );
+    }
+    return caseExpression.orElse(Constant.bool(true));
   }
 }
