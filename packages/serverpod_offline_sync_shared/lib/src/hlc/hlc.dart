@@ -196,3 +196,9 @@ extension BaseHlcToHlc on BaseHlc {
   /// Converts the [BaseHlc] to an [Hlc] with the given [nodeId].
   Hlc toHlcForNode(UuidValue nodeId) => Hlc(hlcDatetime, hlcCounter, nodeId);
 }
+
+/// Extensions for an [Iterable] of [Hlc].
+extension HlcMax on Iterable<Hlc> {
+  /// The greatest HLC represented by the HLCs in this iterable.
+  Hlc get max => reduce((a, b) => a > b ? a : b);
+}
