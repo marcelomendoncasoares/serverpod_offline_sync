@@ -12,6 +12,7 @@ import 'schema.dart';
 import 'session.dart';
 
 part 'merge.dart';
+part 'merge_utils/unique_resolver.dart';
 
 typedef _ReferencingForeignKey = ({
   String childTableName,
@@ -926,6 +927,18 @@ WHERE c."id" IN ($whereRowIds)
     required Object? value,
     required Transaction transaction,
   }) async {
+    return _findVisibleDomainRowIdsWhere(
+      tableName: tableName,
+      predicates: ['d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}'],
+      transaction: transaction,
+    );
+  }
+
+  Future<Set<UuidValue>> _findVisibleDomainRowIdsWhere({
+    required String tableName,
+    required List<String> predicates,
+    required Transaction transaction,
+  }) async {
     final (tableId, _) = _schema[tableName]!;
     final userId = _getHlcManager(transaction).normalizedUserId;
     final result = await _db.unsafeQuery(
@@ -936,7 +949,7 @@ LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 LEFT JOIN "crdt_data_tombstone" tomb
   ON tomb."rowId" = r."id"
-WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
+WHERE ${predicates.join(' AND ')}
   AND (tomb."id" IS NULL OR tomb."clFlag" % 2 = 1)
 ''',
       transaction: transaction,
