@@ -2,6 +2,10 @@ part of 'recorder.dart';
 
 typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
+typedef _UniqueConflict = ({
+  CrdtDataRow row,
+  _UniqueIndexConflictRelease uniqueIndex,
+});
 
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
@@ -327,18 +331,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     if (!shouldApply) return;
 
-    final rowStillVisible = await _resolveUniqueConflictsForIncomingUpdate(
+    final uniqueResolution = await _resolveUniqueConflictsForIncomingUpdate(
       update,
       row,
+      fields,
       tombstones,
       transaction,
     );
-    if (!rowStillVisible) return;
 
     await _updateDomainRows(
       update.tableName,
       {update.uuidRowId},
-      {update.columnName: update.value},
+      uniqueResolution.updates,
       transaction,
     );
   }
@@ -575,18 +579,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     var rowStillVisible = true;
     if (updatedValues.isNotEmpty) {
-      rowStillVisible = await _resolveUniqueConflictsForIncomingUpdates(
+      final uniqueResolution = await _resolveUniqueConflictsForIncomingUpdates(
         tableName: insert.tableName,
         row: currentRow,
         updates: updatedValues,
+        fields: fields,
         tombstones: tombstones,
         transaction: transaction,
       );
-      if (!rowStillVisible) {
-        updatedValues.removeWhere(
-          (columnName, _) => _isUniqueIndexedColumn(insert.tableName, columnName),
-        );
-      }
+      rowStillVisible = uniqueResolution.rowStillVisible;
+      updatedValues
+        ..clear()
+        ..addAll(uniqueResolution.updates);
     }
 
     if (updatedValues.isNotEmpty) {
@@ -710,8 +714,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       if (!_leftUniqueRowWins(
         leftRowId: insert.uuidRowId,
         leftHlc: incomingHlc,
-        rightRowId: conflict.uuidRowId,
-        rightHlc: conflict.hlc,
+        rightRowId: conflict.row.uuidRowId,
+        rightHlc: conflict.row.hlc,
       )) {
         rows[(
           insert.tableName,
@@ -729,15 +733,22 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     for (final conflict in conflicts) {
-      await _hideUniqueLoser(insert.tableName, conflict, tombstones, transaction);
+      await _hideUniqueLoser(
+        insert.tableName,
+        conflict.row,
+        tombstones,
+        transaction,
+      );
     }
 
     return true;
   }
 
-  Future<bool> _resolveUniqueConflictsForIncomingUpdate(
+  Future<({bool rowStillVisible, Map<String, Object?> updates})>
+  _resolveUniqueConflictsForIncomingUpdate(
     CrdtMergeUpdate update,
     CrdtDataRow row,
+    Map<_MergeFieldKey, CrdtDataField> fields,
     Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) {
@@ -745,35 +756,39 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       tableName: update.tableName,
       row: row,
       updates: {update.columnName: update.value},
+      fields: fields,
       tombstones: tombstones,
       transaction: transaction,
     );
   }
 
-  Future<bool> _resolveUniqueConflictsForIncomingUpdates({
+  Future<({bool rowStillVisible, Map<String, Object?> updates})>
+  _resolveUniqueConflictsForIncomingUpdates({
     required String tableName,
     required CrdtDataRow row,
     required Map<String, Object?> updates,
+    required Map<_MergeFieldKey, CrdtDataField> fields,
     required Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     required Transaction transaction,
   }) async {
     if (updates.keys.every(
       (columnName) => !_isUniqueIndexedColumn(tableName, columnName),
     )) {
-      return true;
+      return (rowStillVisible: true, updates: updates);
     }
 
     final tableDefinition = _tableDefinitionsByName[tableName];
-    if (tableDefinition == null) return true;
+    if (tableDefinition == null) {
+      return (rowStillVisible: true, updates: updates);
+    }
 
     final uniqueColumnNamesToRead = {
       for (final uniqueIndex in _uniqueIndexesForTable(tableDefinition))
-        if (uniqueIndex.columns.any(
-          (column) => updates.containsKey(column.columnName),
-        ))
-          for (final column in uniqueIndex.columns) column.columnName,
+        for (final column in uniqueIndex.columns) column.columnName,
     };
-    if (uniqueColumnNamesToRead.isEmpty) return true;
+    if (uniqueColumnNamesToRead.isEmpty) {
+      return (rowStillVisible: true, updates: updates);
+    }
 
     final currentValues = await _readDomainColumnValues(
       tableName,
@@ -794,22 +809,56 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
 
     for (final conflict in conflicts) {
+      final rowUniqueHlc = await _uniqueIndexHlc(
+        tableName: tableName,
+        row: row,
+        uniqueIndex: conflict.uniqueIndex,
+        fields: fields,
+        transaction: transaction,
+      );
+      final conflictUniqueHlc = await _uniqueIndexHlc(
+        tableName: tableName,
+        row: conflict.row,
+        uniqueIndex: conflict.uniqueIndex,
+        fields: fields,
+        transaction: transaction,
+      );
+
       if (!_leftUniqueRowWins(
         leftRowId: row.uuidRowId,
-        leftHlc: row.hlc,
-        rightRowId: conflict.uuidRowId,
-        rightHlc: conflict.hlc,
+        leftHlc: rowUniqueHlc,
+        rightRowId: conflict.row.uuidRowId,
+        rightHlc: conflictUniqueHlc,
       )) {
-        await _hideUniqueLoser(tableName, row, tombstones, transaction);
-        return false;
+        final releasedValues = _releaseUniqueValuesForData(
+          tableName,
+          row.uuidRowId,
+          values,
+        );
+        final releasedUpdates = Map<String, Object?>.from(updates);
+        for (final columnName in uniqueColumnNamesToRead) {
+          if (releasedValues.containsKey(columnName)) {
+            releasedUpdates[columnName] = releasedValues[columnName];
+          }
+        }
+
+        await _hideUniqueLoser(
+          tableName,
+          row,
+          tombstones,
+          transaction,
+          releaseUniqueValues: false,
+        );
+
+        return (rowStillVisible: false, updates: releasedUpdates);
       }
     }
 
     for (final conflict in conflicts) {
-      await _hideUniqueLoser(tableName, conflict, tombstones, transaction);
+      await _hideUniqueLoser(tableName, conflict.row, tombstones, transaction);
     }
 
-    return true;
+    return (rowStillVisible: true, updates: updates);
   }
 
   Future<CrdtDataRow> _applyMergeInsertForMissingUniqueLoser(
@@ -930,7 +979,7 @@ VALUES ($values)
     }
   }
 
-  Future<List<CrdtDataRow>> _findVisibleUniqueConflicts({
+  Future<List<_UniqueConflict>> _findVisibleUniqueConflicts({
     required String tableName,
     required UuidValue rowId,
     required Map<String, Object?> values,
@@ -943,6 +992,7 @@ VALUES ($values)
     if (uniqueIndexes.isEmpty) return const [];
 
     final conflictIds = <UuidValue>{};
+    final uniqueIndexesByConflictId = <UuidValue, _UniqueIndexConflictRelease>{};
     for (final uniqueIndex in uniqueIndexes) {
       final columnValues = {
         for (final column in uniqueIndex.columns)
@@ -952,18 +1002,20 @@ VALUES ($values)
       if (columnValues.length != uniqueIndex.columns.length) continue;
       if (columnValues.values.any((value) => value == null)) continue;
 
-      conflictIds.addAll(
-        await _findVisibleRowsByUniqueValues(
-          tableName: tableName,
-          rowId: rowId,
-          values: columnValues,
-          transaction: transaction,
-        ),
+      final uniqueConflictIds = await _findVisibleRowsByUniqueValues(
+        tableName: tableName,
+        rowId: rowId,
+        values: columnValues,
+        transaction: transaction,
       );
+      conflictIds.addAll(uniqueConflictIds);
+      for (final conflictId in uniqueConflictIds) {
+        uniqueIndexesByConflictId[conflictId] = uniqueIndex;
+      }
     }
 
     if (conflictIds.isEmpty) return const [];
-    return _findCrdtRows(
+    final conflictRows = await _findCrdtRows(
       tableName,
       conflictIds,
       transaction,
@@ -972,6 +1024,60 @@ VALUES ($values)
         deleted: CrdtDataDeleted.include(node: CrdtNode.include()),
       ),
     );
+    return [
+      for (final conflictRow in conflictRows)
+        (
+          row: conflictRow,
+          uniqueIndex: uniqueIndexesByConflictId[conflictRow.uuidRowId]!,
+        ),
+    ];
+  }
+
+  Future<Hlc> _uniqueIndexHlc({
+    required String tableName,
+    required CrdtDataRow row,
+    required _UniqueIndexConflictRelease uniqueIndex,
+    required Map<_MergeFieldKey, CrdtDataField> fields,
+    required Transaction transaction,
+  }) async {
+    final (_, columnsByName) = _schema[tableName]!;
+    final uniqueColumnNames = {
+      for (final column in uniqueIndex.columns) column.columnName,
+    };
+    final missingColumnIds = <int>{};
+    final maxFieldHlc = <Hlc>[];
+    for (final columnName in uniqueColumnNames) {
+      final field = fields[(tableName, row.uuidRowId, columnName)];
+      if (field == null) {
+        final columnId = columnsByName[columnName]?.id;
+        if (columnId != null) missingColumnIds.add(columnId);
+        continue;
+      }
+
+      maxFieldHlc.add(field.hlc);
+    }
+
+    if (missingColumnIds.isNotEmpty && row.id != null) {
+      final loadedFields = await CrdtDataField.db.find(
+        _session,
+        where: (t) => t.rowId.equals(row.id) & t.columnId.inSet(missingColumnIds),
+        include: CrdtDataField.include(
+          column: CrdtSchemaColumn.include(),
+          node: CrdtNode.include(),
+        ),
+        transaction: transaction,
+      );
+
+      for (final field in loadedFields) {
+        final columnName = field.column?.name;
+        if (columnName == null) continue;
+        fields[(tableName, row.uuidRowId, columnName)] = field;
+        maxFieldHlc.add(field.hlc);
+      }
+    }
+
+    if (maxFieldHlc.isEmpty) return row.hlc;
+    return maxFieldHlc.reduce((left, right) => left.maxBetween(right));
   }
 
   Future<Set<UuidValue>> _findVisibleRowsByUniqueValues({
