@@ -30,6 +30,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (mergeSet.isEmpty) return;
 
     final operations = mergeSet.causallyOrderedChanges;
+    final incomingFieldHlcs = {
+      for (final update in operations.whereType<CrdtMergeUpdate>())
+        (update.tableName, update.uuidRowId, update.columnName): update.hlc,
+    };
     final currentUser = _getEffectiveUser(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
@@ -50,6 +54,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             remoteNodes,
             metadata.rows,
             metadata.fields,
+            incomingFieldHlcs,
             metadata.tombstones,
             transaction,
           );
@@ -258,6 +263,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Map<UuidValue, CrdtNode> remoteNodes,
     Map<_MergeRowKey, CrdtDataRow> rows,
     Map<_MergeFieldKey, CrdtDataField> fields,
+    Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
     Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
@@ -279,6 +285,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         incomingHlc,
         data,
         rows,
+        fields,
+        incomingFieldHlcs,
         tombstones,
         transaction,
       );

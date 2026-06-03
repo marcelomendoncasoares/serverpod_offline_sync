@@ -208,6 +208,60 @@ void main() {
           );
         },
       );
+
+      group(
+        'and an older incoming insert conflicts with a newer server update,',
+        () {
+          late client.Unique insertedRow;
+          late client.Unique updatedRow;
+
+          setUp(() async {
+            updatedRow = await client.Unique.db.insertRow(
+              firstClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+            insertedRow = await client.Unique.db.insertRow(
+              secondClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+            await client.Unique.db.updateRow(
+              firstClientSession,
+              updatedRow.copyWith(name: 'shared-name'),
+            );
+
+            await syncHttpClient.crdt.syncOnce(firstClientSession);
+          });
+
+          test(
+            'when the incoming insert synchronizes, '
+            'then exactly the row with the older unique value remains visible on every node.',
+            () async {
+              await _syncIncomingConflictToAllNodes(
+                syncHttpClient,
+                secondClientSession,
+                firstClientSession,
+              );
+              await _expectOnlyVisibleUniqueRowOnAllNodes(
+                firstClientSession: firstClientSession,
+                secondClientSession: secondClientSession,
+                serverSession: serverSession,
+                visibleId: insertedRow.id!,
+                hiddenId: updatedRow.id!,
+              );
+              await _expectHiddenUniqueRowNameOnAllNodes(
+                firstClientSession: firstClientSession,
+                secondClientSession: secondClientSession,
+                serverSession: serverSession,
+                rowId: updatedRow.id!,
+                name: 'shared-name__deleted__${updatedRow.id!.uuid}',
+              );
+            },
+            timeout: const Timeout(Duration(seconds: 60)),
+          );
+        },
+      );
     },
   );
 }

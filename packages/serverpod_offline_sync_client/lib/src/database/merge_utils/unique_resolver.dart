@@ -19,6 +19,8 @@ class CrdtUniqueConflictResolver {
     Hlc incomingHlc,
     Map<String, Object?> data,
     Map<_MergeRowKey, CrdtDataRow> rows,
+    Map<_MergeFieldKey, CrdtDataField> fields,
+    Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
     Map<_MergeRowKey, CrdtDataDeleted> tombstones,
     Transaction transaction,
   ) async {
@@ -30,11 +32,24 @@ class CrdtUniqueConflictResolver {
     );
 
     for (final conflict in conflicts) {
+      final incomingUniqueHlc = _incomingInsertUniqueIndexHlc(
+        insert: insert,
+        uniqueIndex: conflict.uniqueIndex,
+        incomingFieldHlcs: incomingFieldHlcs,
+      );
+      final conflictUniqueHlc = await _uniqueIndexHlc(
+        tableName: insert.tableName,
+        row: conflict.row,
+        uniqueIndex: conflict.uniqueIndex,
+        fields: fields,
+        transaction: transaction,
+      );
+
       if (!_leftUniqueRowWins(
         leftRowId: insert.uuidRowId,
-        leftHlc: incomingHlc,
+        leftHlc: incomingUniqueHlc,
         rightRowId: conflict.row.uuidRowId,
-        rightHlc: conflict.row.hlc,
+        rightHlc: conflictUniqueHlc,
       )) {
         rows[(
           insert.tableName,
@@ -61,6 +76,20 @@ class CrdtUniqueConflictResolver {
     }
 
     return true;
+  }
+
+  Hlc _incomingInsertUniqueIndexHlc({
+    required CrdtMergeInsert insert,
+    required _UniqueIndexConflictRelease uniqueIndex,
+    required Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
+  }) {
+    var uniqueHlc = insert.hlc;
+    for (final column in uniqueIndex.columns) {
+      uniqueHlc = uniqueHlc.maxBetween(
+        incomingFieldHlcs[(insert.tableName, insert.uuidRowId, column.columnName)],
+      );
+    }
+    return uniqueHlc;
   }
 
   /// Resolves unique conflicts for a single incoming field update.
