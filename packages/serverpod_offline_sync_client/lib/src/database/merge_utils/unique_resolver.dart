@@ -5,6 +5,11 @@ typedef _UniqueConflict = ({
   _UniqueIndexConflictRelease uniqueIndex,
 });
 
+typedef _UniqueClaim = ({
+  UuidValue rowId,
+  Hlc hlc,
+});
+
 /// Resolves unique constraint conflicts that appear while merging CRDT changes.
 class CrdtUniqueConflictResolver {
   /// Creates a resolver for the merge recorder.
@@ -18,10 +23,7 @@ class CrdtUniqueConflictResolver {
     CrdtNode remoteNode,
     Hlc incomingHlc,
     Map<String, Object?> data,
-    Map<_MergeRowKey, CrdtDataRow> rows,
-    Map<_MergeFieldKey, CrdtDataField> fields,
-    Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
-    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
+    _MergeContext context,
     Transaction transaction,
   ) async {
     final conflicts = await _findVisibleUniqueConflicts(
@@ -32,26 +34,21 @@ class CrdtUniqueConflictResolver {
     );
 
     for (final conflict in conflicts) {
-      final incomingUniqueHlc = _incomingInsertUniqueIndexHlc(
+      final incomingClaim = _incomingInsertUniqueClaim(
         insert: insert,
         uniqueIndex: conflict.uniqueIndex,
-        incomingFieldHlcs: incomingFieldHlcs,
+        context: context,
       );
-      final conflictUniqueHlc = await _uniqueIndexHlc(
+      final conflictClaim = await _rowUniqueClaim(
         tableName: insert.tableName,
         row: conflict.row,
         uniqueIndex: conflict.uniqueIndex,
-        fields: fields,
+        fields: context.fields,
         transaction: transaction,
       );
 
-      if (!_leftUniqueRowWins(
-        leftRowId: insert.uuidRowId,
-        leftHlc: incomingUniqueHlc,
-        rightRowId: conflict.row.uuidRowId,
-        rightHlc: conflictUniqueHlc,
-      )) {
-        rows[(
+      if (!_leftUniqueClaimWins(incomingClaim, conflictClaim)) {
+        context.rows[(
           insert.tableName,
           insert.uuidRowId,
         )] = await _applyMergeInsertForMissingUniqueLoser(
@@ -59,7 +56,7 @@ class CrdtUniqueConflictResolver {
           remoteNode,
           incomingHlc,
           data,
-          tombstones,
+          context.tombstones,
           transaction,
         );
         return false;
@@ -70,7 +67,7 @@ class CrdtUniqueConflictResolver {
       await _hideUniqueLoser(
         insert.tableName,
         conflict.row,
-        tombstones,
+        context.tombstones,
         transaction,
       );
     }
@@ -78,18 +75,22 @@ class CrdtUniqueConflictResolver {
     return true;
   }
 
-  Hlc _incomingInsertUniqueIndexHlc({
+  _UniqueClaim _incomingInsertUniqueClaim({
     required CrdtMergeInsert insert,
     required _UniqueIndexConflictRelease uniqueIndex,
-    required Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
+    required _MergeContext context,
   }) {
     var uniqueHlc = insert.hlc;
     for (final column in uniqueIndex.columns) {
       uniqueHlc = uniqueHlc.maxBetween(
-        incomingFieldHlcs[(insert.tableName, insert.uuidRowId, column.columnName)],
+        context.incomingFieldHlcs[(
+          insert.tableName,
+          insert.uuidRowId,
+          column.columnName,
+        )],
       );
     }
-    return uniqueHlc;
+    return (rowId: insert.uuidRowId, hlc: uniqueHlc);
   }
 
   /// Resolves unique conflicts for a single incoming field update.
@@ -97,16 +98,14 @@ class CrdtUniqueConflictResolver {
   _resolveForIncomingUpdate(
     CrdtMergeUpdate update,
     CrdtDataRow row,
-    Map<_MergeFieldKey, CrdtDataField> fields,
-    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
+    _MergeContext context,
     Transaction transaction,
   ) {
     return _resolveForIncomingUpdates(
       tableName: update.tableName,
       row: row,
       updates: {update.columnName: update.value},
-      fields: fields,
-      tombstones: tombstones,
+      context: context,
       transaction: transaction,
     );
   }
@@ -117,8 +116,7 @@ class CrdtUniqueConflictResolver {
     required String tableName,
     required CrdtDataRow row,
     required Map<String, Object?> updates,
-    required Map<_MergeFieldKey, CrdtDataField> fields,
-    required Map<_MergeRowKey, CrdtDataDeleted> tombstones,
+    required _MergeContext context,
     required Transaction transaction,
   }) async {
     if (updates.keys.every(
@@ -159,27 +157,22 @@ class CrdtUniqueConflictResolver {
     );
 
     for (final conflict in conflicts) {
-      final rowUniqueHlc = await _uniqueIndexHlc(
+      final rowClaim = await _rowUniqueClaim(
         tableName: tableName,
         row: row,
         uniqueIndex: conflict.uniqueIndex,
-        fields: fields,
+        fields: context.fields,
         transaction: transaction,
       );
-      final conflictUniqueHlc = await _uniqueIndexHlc(
+      final conflictClaim = await _rowUniqueClaim(
         tableName: tableName,
         row: conflict.row,
         uniqueIndex: conflict.uniqueIndex,
-        fields: fields,
+        fields: context.fields,
         transaction: transaction,
       );
 
-      if (!_leftUniqueRowWins(
-        leftRowId: row.uuidRowId,
-        leftHlc: rowUniqueHlc,
-        rightRowId: conflict.row.uuidRowId,
-        rightHlc: conflictUniqueHlc,
-      )) {
+      if (!_leftUniqueClaimWins(rowClaim, conflictClaim)) {
         final releasedValues = _releaseUniqueValuesForData(
           tableName,
           row.uuidRowId,
@@ -195,7 +188,7 @@ class CrdtUniqueConflictResolver {
         await _hideUniqueLoser(
           tableName,
           row,
-          tombstones,
+          context.tombstones,
           transaction,
           releaseUniqueValues: false,
         );
@@ -204,8 +197,17 @@ class CrdtUniqueConflictResolver {
       }
     }
 
-    for (final conflict in conflicts) {
-      await _hideUniqueLoser(tableName, conflict.row, tombstones, transaction);
+    if (conflicts.isNotEmpty) {
+      await _restoreUniqueWinner(tableName, row, context, transaction);
+
+      for (final conflict in conflicts) {
+        await _hideUniqueLoser(
+          tableName,
+          conflict.row,
+          context.tombstones,
+          transaction,
+        );
+      }
     }
 
     return (rowStillVisible: true, updates: updates);
@@ -330,6 +332,7 @@ VALUES ($values)
     );
     if (tombstone != null) {
       tombstones[(tableName, loser.uuidRowId)] = tombstone;
+      loser.deleted = tombstone;
     }
   }
 
@@ -345,8 +348,7 @@ VALUES ($values)
     final uniqueIndexes = _recorder._uniqueIndexesForTable(tableDefinition);
     if (uniqueIndexes.isEmpty) return const [];
 
-    final conflictIds = <UuidValue>{};
-    final uniqueIndexesByConflictId = <UuidValue, _UniqueIndexConflictRelease>{};
+    final uniqueIndexesByConflictId = <UuidValue, Set<_UniqueIndexConflictRelease>>{};
     for (final uniqueIndex in uniqueIndexes) {
       final columnValues = {
         for (final column in uniqueIndex.columns)
@@ -362,16 +364,15 @@ VALUES ($values)
         values: columnValues,
         transaction: transaction,
       );
-      conflictIds.addAll(uniqueConflictIds);
       for (final conflictId in uniqueConflictIds) {
-        uniqueIndexesByConflictId[conflictId] = uniqueIndex;
+        uniqueIndexesByConflictId.putIfAbsent(conflictId, () => {}).add(uniqueIndex);
       }
     }
 
-    if (conflictIds.isEmpty) return const [];
+    if (uniqueIndexesByConflictId.isEmpty) return const [];
     final conflictRows = await _recorder._findCrdtRows(
       tableName,
-      conflictIds,
+      uniqueIndexesByConflictId.keys.toSet(),
       transaction,
       include: CrdtDataRow.include(
         node: CrdtNode.include(),
@@ -380,11 +381,31 @@ VALUES ($values)
     );
     return [
       for (final conflictRow in conflictRows)
-        (
-          row: conflictRow,
-          uniqueIndex: uniqueIndexesByConflictId[conflictRow.uuidRowId]!,
-        ),
+        for (final uniqueIndex in uniqueIndexesByConflictId[conflictRow.uuidRowId]!)
+          (
+            row: conflictRow,
+            uniqueIndex: uniqueIndex,
+          ),
     ];
+  }
+
+  Future<_UniqueClaim> _rowUniqueClaim({
+    required String tableName,
+    required CrdtDataRow row,
+    required _UniqueIndexConflictRelease uniqueIndex,
+    required Map<_MergeFieldKey, CrdtDataField> fields,
+    required Transaction transaction,
+  }) async {
+    return (
+      rowId: row.uuidRowId,
+      hlc: await _uniqueIndexHlc(
+        tableName: tableName,
+        row: row,
+        uniqueIndex: uniqueIndex,
+        fields: fields,
+        transaction: transaction,
+      ),
+    );
   }
 
   Future<Hlc> _uniqueIndexHlc({
@@ -471,5 +492,45 @@ VALUES ($values)
     final hlcComparison = leftHlc.compareTo(rightHlc);
     if (hlcComparison != 0) return hlcComparison < 0;
     return leftRowId.uuid.compareTo(rightRowId.uuid) < 0;
+  }
+
+  bool _leftUniqueClaimWins(_UniqueClaim left, _UniqueClaim right) {
+    return _leftUniqueRowWins(
+      leftRowId: left.rowId,
+      leftHlc: left.hlc,
+      rightRowId: right.rowId,
+      rightHlc: right.hlc,
+    );
+  }
+
+  Future<void> _restoreUniqueWinner(
+    String tableName,
+    CrdtDataRow winner,
+    _MergeContext context,
+    Transaction transaction,
+  ) async {
+    final tombstone = context.tombstones[(tableName, winner.uuidRowId)];
+    if (tombstone?.isDeleted != true ||
+        tombstone?.reason != CrdtDataDeletedReason.uniqueLoser) {
+      return;
+    }
+
+    await _recorder._markCrdtRowsDeleted(
+      [winner],
+      false,
+      CrdtDataDeletedReason.userReinsert,
+      transaction,
+    );
+
+    final restoredTombstone = await CrdtDataDeleted.db.findFirstRow(
+      _recorder._session,
+      where: (t) => t.rowId.equals(winner.id),
+      include: CrdtDataDeleted.include(node: CrdtNode.include()),
+      transaction: transaction,
+    );
+    if (restoredTombstone != null) {
+      context.tombstones[(tableName, winner.uuidRowId)] = restoredTombstone;
+      winner.deleted = restoredTombstone;
+    }
   }
 }
