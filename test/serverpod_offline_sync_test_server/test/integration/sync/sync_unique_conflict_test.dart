@@ -14,6 +14,7 @@ void main() {
 
   final clientSyncTables = [client.Unique.t];
   final serverSyncTables = [server.Unique.t];
+  const syncBatchSize = 1;
 
   late client.Client syncHttpClient;
   late CrdtDatabaseSession serverSession;
@@ -27,7 +28,10 @@ void main() {
       final rawServerSession = sessionBuilder.build();
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..initializeCrdtSync(
+          syncTables: serverSyncTables,
+          syncBatchSize: syncBatchSize,
+        )
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
           <Scope>{},
@@ -42,6 +46,7 @@ void main() {
         firstClientSession = CrdtDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
+          syncBatchSize: syncBatchSize,
           persistentUserId: testCrdtUserId,
         );
         await firstClientSession.db.initialize();
@@ -49,6 +54,7 @@ void main() {
         secondClientSession = CrdtDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: clientSyncTables,
+          syncBatchSize: syncBatchSize,
           persistentUserId: testCrdtUserId,
         );
         await secondClientSession.db.initialize();
@@ -56,6 +62,7 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
+          syncBatchSize: syncBatchSize,
         );
         await serverSession.db.initialize();
       });
