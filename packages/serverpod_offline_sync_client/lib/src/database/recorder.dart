@@ -1167,6 +1167,20 @@ UuidValue _syntheticDeletedUuid(
   );
 }
 
+UuidValue _syntheticUniqueConflictUuid(
+  String tableName,
+  String columnName,
+  UuidValue value,
+  UuidValue conflictingId,
+) {
+  return UuidValue.withValidation(
+    const Uuid().v5(
+      Namespace.oid.value,
+      'unique-conflict:$tableName.$columnName:${value.uuid}:${conflictingId.uuid}',
+    ),
+  );
+}
+
 String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);
 
 String _sqlLiteralList(Iterable<Object?> values) =>

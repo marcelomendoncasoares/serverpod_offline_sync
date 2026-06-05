@@ -270,23 +270,28 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
 
     if (currentRow == null) {
-      final incomingRowWins = await _uniqueConflictResolver._resolveForIncomingInsert(
+      final resolvedInsert = await _uniqueConflictResolver._resolveForIncomingInsert(
         insert,
-        remoteNode,
-        incomingHlc,
         data,
         context,
         transaction,
       );
-      if (!incomingRowWins) return;
 
-      context.rows[rowKey] = await _applyMergeInsertForMissingRow(
-        insert,
-        remoteNode,
-        incomingHlc,
-        data,
-        transaction,
-      );
+      context.rows[rowKey] = resolvedInsert.changed
+          ? await _applyMergeInsertForMissingRowFromValues(
+              insert,
+              remoteNode,
+              incomingHlc,
+              resolvedInsert.data,
+              transaction,
+            )
+          : await _applyMergeInsertForMissingRow(
+              insert,
+              remoteNode,
+              incomingHlc,
+              resolvedInsert.data,
+              transaction,
+            );
     } else {
       await _applyMergeInsertForExistingRow(
         insert,
@@ -323,7 +328,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     if (!shouldApply) return;
 
-    final uniqueResolution = await _uniqueConflictResolver._resolveForIncomingUpdate(
+    final resolvedUpdates = await _uniqueConflictResolver._resolveForIncomingUpdate(
       update,
       row,
       context,
@@ -333,7 +338,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     await _updateDomainRows(
       update.tableName,
       {update.uuidRowId},
-      uniqueResolution.updates,
+      resolvedUpdates,
       transaction,
     );
   }
@@ -535,6 +540,85 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     return insertedCrdtRow;
   }
 
+  Future<CrdtDataRow> _applyMergeInsertForMissingRowFromValues(
+    CrdtMergeInsert insert,
+    CrdtNode remoteNode,
+    Hlc incomingHlc,
+    Map<String, Object?> data,
+    Transaction transaction,
+  ) async {
+    final insertedCrdtRow = await _upsertMergeRow(
+      insert.tableName,
+      insert.uuidRowId,
+      remoteNode,
+      incomingHlc,
+      null,
+      transaction,
+    );
+
+    await _upsertDomainRowFromValues(
+      insert.tableName,
+      insert.uuidRowId,
+      data,
+      transaction,
+    );
+
+    return insertedCrdtRow;
+  }
+
+  Future<void> _upsertDomainRowFromValues(
+    String tableName,
+    UuidValue rowId,
+    Map<String, Object?> data,
+    Transaction transaction,
+  ) async {
+    await _updateDomainRows(tableName, {rowId}, data, transaction);
+    if (await _domainRowExists(tableName, rowId, transaction)) return;
+
+    await _insertDomainRowFromValues(tableName, rowId, data, transaction);
+  }
+
+  Future<void> _insertDomainRowFromValues(
+    String tableName,
+    UuidValue rowId,
+    Map<String, Object?> data,
+    Transaction transaction,
+  ) async {
+    final columns = ['id', ...data.keys];
+    final escapedColumns = columns
+        .map((columnName) => '"${_escapeIdentifier(columnName)}"')
+        .join(', ');
+    final values = [
+      _sqlLiteral(rowId),
+      for (final columnName in data.keys) _sqlLiteral(data[columnName]),
+    ].join(', ');
+
+    await _db.unsafeExecute(
+      '''
+INSERT INTO "${_escapeIdentifier(tableName)}" ($escapedColumns)
+VALUES ($values)
+''',
+      transaction: transaction,
+    );
+  }
+
+  Future<bool> _domainRowExists(
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    final result = await _db.unsafeQuery(
+      '''
+SELECT 1
+FROM "${_escapeIdentifier(tableName)}"
+WHERE "id" = ${_sqlLiteral(rowId)}
+LIMIT 1
+''',
+      transaction: transaction,
+    );
+    return result.isNotEmpty;
+  }
+
   Future<void> _applyMergeInsertForExistingRow(
     CrdtMergeInsert insert,
     CrdtDataRow currentRow,
@@ -566,17 +650,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       updatedValues[columnName] = data[columnName];
     }
 
-    var rowStillVisible = true;
     if (updatedValues.isNotEmpty) {
-      final uniqueResolution = await _uniqueConflictResolver._resolveForIncomingUpdates(
-        tableName: insert.tableName,
-        row: currentRow,
-        updates: updatedValues,
-        context: context,
-        transaction: transaction,
+      final resolvedUpdates = Map<String, Object?>.from(
+        await _uniqueConflictResolver._resolveForIncomingUpdates(
+          tableName: insert.tableName,
+          row: currentRow,
+          updates: updatedValues,
+          context: context,
+          transaction: transaction,
+        ),
       );
-      final resolvedUpdates = Map<String, Object?>.from(uniqueResolution.updates);
-      rowStillVisible = uniqueResolution.rowStillVisible;
       updatedValues
         ..clear()
         ..addAll(resolvedUpdates);
@@ -590,7 +673,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
     }
-    if (!rowStillVisible) return;
 
     final rowKey = (insert.tableName, insert.uuidRowId);
     final currentTombstone = context.tombstones[rowKey];

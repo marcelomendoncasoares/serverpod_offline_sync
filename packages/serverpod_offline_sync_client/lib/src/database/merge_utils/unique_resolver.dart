@@ -18,14 +18,14 @@ class CrdtUniqueConflictResolver {
   final CrdtMutationRecorder _recorder;
 
   /// Resolves unique conflicts for an incoming insert.
-  Future<bool> _resolveForIncomingInsert(
+  Future<({Map<String, Object?> data, bool changed})> _resolveForIncomingInsert(
     CrdtMergeInsert insert,
-    CrdtNode remoteNode,
-    Hlc incomingHlc,
     Map<String, Object?> data,
     _MergeContext context,
     Transaction transaction,
   ) async {
+    final resolvedData = Map<String, Object?>.from(data);
+    var changed = false;
     final conflicts = await _findVisibleUniqueConflicts(
       tableName: insert.tableName,
       rowId: insert.uuidRowId,
@@ -48,31 +48,26 @@ class CrdtUniqueConflictResolver {
       );
 
       if (!_leftUniqueClaimWins(incomingClaim, conflictClaim)) {
-        context.rows[(
-          insert.tableName,
-          insert.uuidRowId,
-        )] = await _applyMergeInsertForMissingUniqueLoser(
-          insert,
-          remoteNode,
-          incomingHlc,
-          data,
-          context.tombstones,
-          transaction,
+        resolvedData.addAll(
+          _uniqueConflictFreeValuesForData(
+            insert.tableName,
+            insert.uuidRowId,
+            resolvedData,
+            conflict.uniqueIndex,
+          ),
         );
-        return false;
+        changed = true;
+      } else {
+        await _releaseUniqueConflictForRow(
+          tableName: insert.tableName,
+          rowId: conflict.row.uuidRowId,
+          uniqueIndex: conflict.uniqueIndex,
+          transaction: transaction,
+        );
       }
     }
 
-    for (final conflict in conflicts) {
-      await _hideUniqueLoser(
-        insert.tableName,
-        conflict.row,
-        context.tombstones,
-        transaction,
-      );
-    }
-
-    return true;
+    return (data: resolvedData, changed: changed);
   }
 
   _UniqueClaim _incomingInsertUniqueClaim({
@@ -94,8 +89,7 @@ class CrdtUniqueConflictResolver {
   }
 
   /// Resolves unique conflicts for a single incoming field update.
-  Future<({bool rowStillVisible, Map<String, Object?> updates})>
-  _resolveForIncomingUpdate(
+  Future<Map<String, Object?>> _resolveForIncomingUpdate(
     CrdtMergeUpdate update,
     CrdtDataRow row,
     _MergeContext context,
@@ -111,8 +105,7 @@ class CrdtUniqueConflictResolver {
   }
 
   /// Resolves unique conflicts for one or more incoming field updates.
-  Future<({bool rowStillVisible, Map<String, Object?> updates})>
-  _resolveForIncomingUpdates({
+  Future<Map<String, Object?>> _resolveForIncomingUpdates({
     required String tableName,
     required CrdtDataRow row,
     required Map<String, Object?> updates,
@@ -122,12 +115,12 @@ class CrdtUniqueConflictResolver {
     if (updates.keys.every(
       (columnName) => !_isUniqueIndexedColumn(tableName, columnName),
     )) {
-      return (rowStillVisible: true, updates: updates);
+      return updates;
     }
 
     final tableDefinition = _recorder._tableDefinitionsByName[tableName];
     if (tableDefinition == null) {
-      return (rowStillVisible: true, updates: updates);
+      return updates;
     }
 
     final uniqueColumnNamesToRead = {
@@ -135,7 +128,7 @@ class CrdtUniqueConflictResolver {
         for (final column in uniqueIndex.columns) column.columnName,
     };
     if (uniqueColumnNamesToRead.isEmpty) {
-      return (rowStillVisible: true, updates: updates);
+      return updates;
     }
 
     final currentValues = await _recorder._readDomainColumnValues(
@@ -156,6 +149,7 @@ class CrdtUniqueConflictResolver {
       transaction: transaction,
     );
 
+    final resolvedUpdates = Map<String, Object?>.from(updates);
     for (final conflict in conflicts) {
       final rowClaim = await _rowUniqueClaim(
         tableName: tableName,
@@ -173,167 +167,117 @@ class CrdtUniqueConflictResolver {
       );
 
       if (!_leftUniqueClaimWins(rowClaim, conflictClaim)) {
-        final releasedValues = _releaseUniqueValuesForData(
+        final releasedValues = _uniqueConflictFreeValuesForData(
           tableName,
           row.uuidRowId,
           values,
+          conflict.uniqueIndex,
         );
-        final releasedUpdates = Map<String, Object?>.from(updates);
-        for (final columnName in uniqueColumnNamesToRead) {
+        for (final columnName in _uniqueIndexColumnNames(conflict.uniqueIndex)) {
           if (releasedValues.containsKey(columnName)) {
-            releasedUpdates[columnName] = releasedValues[columnName];
+            resolvedUpdates[columnName] = releasedValues[columnName];
+            values[columnName] = releasedValues[columnName];
           }
         }
-
-        await _hideUniqueLoser(
-          tableName,
-          row,
-          context.tombstones,
-          transaction,
-          releaseUniqueValues: false,
-        );
-
-        return (rowStillVisible: false, updates: releasedUpdates);
-      }
-    }
-
-    if (conflicts.isNotEmpty) {
-      await _restoreUniqueWinner(tableName, row, context, transaction);
-
-      for (final conflict in conflicts) {
-        await _hideUniqueLoser(
-          tableName,
-          conflict.row,
-          context.tombstones,
-          transaction,
+      } else {
+        await _releaseUniqueConflictForRow(
+          tableName: tableName,
+          rowId: conflict.row.uuidRowId,
+          uniqueIndex: conflict.uniqueIndex,
+          transaction: transaction,
         );
       }
     }
 
-    return (rowStillVisible: true, updates: updates);
+    return resolvedUpdates;
   }
 
-  Future<CrdtDataRow> _applyMergeInsertForMissingUniqueLoser(
-    CrdtMergeInsert insert,
-    CrdtNode remoteNode,
-    Hlc incomingHlc,
-    Map<String, Object?> data,
-    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
-    Transaction transaction,
-  ) async {
-    final insertedCrdtRow = await _recorder._upsertMergeRow(
-      insert.tableName,
-      insert.uuidRowId,
-      remoteNode,
-      incomingHlc,
-      null,
-      transaction,
-    );
-
-    await _insertDomainRowFromValues(
-      insert.tableName,
-      insert.uuidRowId,
-      _releaseUniqueValuesForData(insert.tableName, insert.uuidRowId, data),
-      transaction,
-    );
-
-    await _hideUniqueLoser(
-      insert.tableName,
-      insertedCrdtRow,
-      tombstones,
-      transaction,
-      releaseUniqueValues: false,
-    );
-
-    return insertedCrdtRow;
-  }
-
-  Future<void> _insertDomainRowFromValues(
+  Map<String, Object?> _uniqueConflictFreeValuesForData(
     String tableName,
     UuidValue rowId,
     Map<String, Object?> data,
-    Transaction transaction,
-  ) async {
-    final columns = ['id', ...data.keys];
-    final escapedColumns = columns
-        .map((columnName) => '"${_escapeIdentifier(columnName)}"')
-        .join(', ');
-    final values = [
-      _sqlLiteral(rowId),
-      for (final columnName in data.keys) _sqlLiteral(data[columnName]),
-    ].join(', ');
-
-    await _recorder._db.unsafeExecute(
-      '''
-INSERT INTO "${_escapeIdentifier(tableName)}" ($escapedColumns)
-VALUES ($values)
-''',
-      transaction: transaction,
-    );
-  }
-
-  Map<String, Object?> _releaseUniqueValuesForData(
-    String tableName,
-    UuidValue rowId,
-    Map<String, Object?> data,
+    _UniqueIndexConflictRelease uniqueIndex,
   ) {
     final tableDefinition = _recorder._tableDefinitionsByName[tableName];
     if (tableDefinition == null) return data;
 
     final released = Map<String, Object?>.from(data);
-    for (final uniqueIndex in _recorder._uniqueIndexesForTable(tableDefinition)) {
-      final values = {
-        for (final column in uniqueIndex.columns)
-          column.columnName: released[column.columnName],
-      };
-      if (values.values.any((value) => value == null)) continue;
+    final values = {
+      for (final column in uniqueIndex.columns)
+        column.columnName: released[column.columnName],
+    };
+    if (values.values.any((value) => value == null)) return released;
 
-      for (final column in uniqueIndex.columns) {
-        released[column.columnName] = _recorder._conflictFreeValue(
-          column,
-          values[column.columnName],
-          tableDefinition.name,
-          rowId,
-        );
-      }
+    for (final column in uniqueIndex.columns) {
+      released[column.columnName] = _uniqueConflictFreeValue(
+        column,
+        values[column.columnName],
+        tableDefinition.name,
+        rowId,
+      );
     }
     return released;
   }
 
-  Future<void> _hideUniqueLoser(
-    String tableName,
-    CrdtDataRow loser,
-    Map<_MergeRowKey, CrdtDataDeleted> tombstones,
-    Transaction transaction, {
-    bool releaseUniqueValues = true,
+  Future<void> _releaseUniqueConflictForRow({
+    required String tableName,
+    required UuidValue rowId,
+    required _UniqueIndexConflictRelease uniqueIndex,
+    required Transaction transaction,
   }) async {
-    if (loser.deleted?.isDeleted ?? false) return;
-
-    if (releaseUniqueValues) {
-      await _recorder._releaseUniqueConflicts(
-        tableName,
-        {loser.uuidRowId},
-        transaction,
-      );
-    }
-
-    await _recorder._markCrdtRowsDeleted(
-      [loser],
-      true,
-      CrdtDataDeletedReason.uniqueLoser,
+    final columnNames = _uniqueIndexColumnNames(uniqueIndex).toList();
+    final valuesByRowId = await _recorder._readDomainColumnValues(
+      tableName,
+      {rowId},
+      columnNames,
       transaction,
     );
+    final values = valuesByRowId[rowId];
+    if (values == null || values.values.any((value) => value == null)) return;
 
-    final tombstone = await CrdtDataDeleted.db.findFirstRow(
-      _recorder._session,
-      where: (t) => t.rowId.equals(loser.id),
-      include: CrdtDataDeleted.include(node: CrdtNode.include()),
-      transaction: transaction,
+    final releasedValues = _uniqueConflictFreeValuesForData(
+      tableName,
+      rowId,
+      values,
+      uniqueIndex,
     );
-    if (tombstone != null) {
-      tombstones[(tableName, loser.uuidRowId)] = tombstone;
-      loser.deleted = tombstone;
+    await _recorder._updateDomainRows(tableName, {rowId}, releasedValues, transaction);
+    await _recorder.recordFieldsUpdatedByTable(
+      tableName,
+      {rowId},
+      columnNames,
+      transaction,
+    );
+  }
+
+  Object? _uniqueConflictFreeValue(
+    _UniqueColumnConflictRelease column,
+    Object? value,
+    String tableName,
+    UuidValue conflictingId,
+  ) {
+    switch (column.kind) {
+      case _UniqueConflictReleaseKind.setNull:
+        return null;
+      case _UniqueConflictReleaseKind.textSuffix:
+        if (value is String) {
+          return '${value}__conflict__${conflictingId.uuid}';
+        }
+      case _UniqueConflictReleaseKind.syntheticUuid:
+        if (value != null) {
+          return _syntheticUniqueConflictUuid(
+            tableName,
+            column.columnName,
+            UuidValueJsonExtension.fromJson(value),
+            conflictingId,
+          );
+        }
     }
+
+    throw StateError(
+      'Unexpected value for $tableName.${column.columnName} while making '
+      'unique conflict value conflict-free: ${value.runtimeType}.',
+    );
   }
 
   Future<List<_UniqueConflict>> _findVisibleUniqueConflicts({
@@ -503,34 +447,9 @@ VALUES ($values)
     );
   }
 
-  Future<void> _restoreUniqueWinner(
-    String tableName,
-    CrdtDataRow winner,
-    _MergeContext context,
-    Transaction transaction,
-  ) async {
-    final tombstone = context.tombstones[(tableName, winner.uuidRowId)];
-    if (tombstone?.isDeleted != true ||
-        tombstone?.reason != CrdtDataDeletedReason.uniqueLoser) {
-      return;
-    }
-
-    await _recorder._markCrdtRowsDeleted(
-      [winner],
-      false,
-      CrdtDataDeletedReason.userReinsert,
-      transaction,
-    );
-
-    final restoredTombstone = await CrdtDataDeleted.db.findFirstRow(
-      _recorder._session,
-      where: (t) => t.rowId.equals(winner.id),
-      include: CrdtDataDeleted.include(node: CrdtNode.include()),
-      transaction: transaction,
-    );
-    if (restoredTombstone != null) {
-      context.tombstones[(tableName, winner.uuidRowId)] = restoredTombstone;
-      winner.deleted = restoredTombstone;
-    }
+  Set<String> _uniqueIndexColumnNames(_UniqueIndexConflictRelease uniqueIndex) {
+    return {
+      for (final column in uniqueIndex.columns) column.columnName,
+    };
   }
 }
