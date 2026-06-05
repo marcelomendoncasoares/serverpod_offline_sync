@@ -1,0 +1,12 @@
+class: UniqueComposite
+table: unique_composite
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  scope: String
+  value: String
+
+indexes:
+  unique_composite_scope_value_idx:
+    fields: scope, value
+    unique: true
