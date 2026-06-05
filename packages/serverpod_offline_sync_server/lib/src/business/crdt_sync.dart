@@ -13,16 +13,21 @@ extension CrdtSyncInitialize on Serverpod {
   ///
   /// [continuousSyncInterval] controls how long a continuous sync session waits
   /// after completing one sync round before checking for local changes again.
+  ///
+  /// [onUniqueConflicts] is called after a merge transaction commits and one or
+  /// more unique conflicts were materialized.
   void initializeCrdtSync({
     required List<Table> syncTables,
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
     Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
+    CrdtUniqueConflictCallback? onUniqueConflicts,
   }) {
     CrdtSync.initialize(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
+      onUniqueConflicts: onUniqueConflicts,
     );
   }
 }

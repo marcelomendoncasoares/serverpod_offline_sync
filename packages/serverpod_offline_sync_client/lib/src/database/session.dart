@@ -3,6 +3,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../crdt/sync.dart';
+import '../crdt/unique_conflict.dart';
 import 'database.dart';
 
 /// Wraps a [DatabaseSession] to provide a [CrdtDatabase] as [DatabaseSession.db].
@@ -24,12 +25,16 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
+
+    /// Called after a merge materializes unique conflicts.
+    CrdtUniqueConflictCallback? onUniqueConflicts,
   }) : _db = CrdtDatabase(
          db,
          syncTables: syncTables,
          syncBatchSize: syncBatchSize,
          continuousSyncInterval: continuousSyncInterval,
          persistentUserId: persistentUserId,
+         onUniqueConflicts: onUniqueConflicts,
        );
 
   /// Creates a [CrdtDatabaseSession] instance that wraps a [DatabaseSession].
@@ -49,12 +54,16 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
+
+    /// Called after a merge materializes unique conflicts.
+    CrdtUniqueConflictCallback? onUniqueConflicts,
   }) => CrdtDatabaseSession(
     session.db,
     syncTables: syncTables,
     syncBatchSize: syncBatchSize,
     continuousSyncInterval: continuousSyncInterval,
     persistentUserId: persistentUserId,
+    onUniqueConflicts: onUniqueConflicts,
   );
 
   final CrdtDatabase _db;

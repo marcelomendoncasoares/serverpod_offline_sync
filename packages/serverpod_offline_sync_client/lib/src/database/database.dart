@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../crdt/merge.dart';
 import '../crdt/sync.dart';
+import '../crdt/unique_conflict.dart';
 import '../protocol/protocol.dart';
 import 'recorder.dart';
 import 'session.dart';
@@ -36,9 +37,13 @@ class CrdtDatabase implements Database {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
+
+    /// Called after a merge materializes unique conflicts.
+    CrdtUniqueConflictCallback? onUniqueConflicts,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval,
+       _onUniqueConflicts = onUniqueConflicts,
        _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
@@ -49,6 +54,7 @@ class CrdtDatabase implements Database {
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
+  final CrdtUniqueConflictCallback? _onUniqueConflicts;
 
   final CrdtMutationRecorder _recorder;
 
@@ -57,6 +63,7 @@ class CrdtDatabase implements Database {
     serializationManager: serializationManager,
     syncBatchSize: _syncBatchSize,
     continuousSyncInterval: _continuousSyncInterval,
+    onUniqueConflicts: _onUniqueConflicts,
   );
 
   /// Initializes the CRDT database.
@@ -122,10 +129,40 @@ class CrdtDatabase implements Database {
         (throw StateError(
           'A user ID is required when merging changes without a persistent user.',
         ));
-    await transactionForUser<void>(effectiveUserId, (tx) async {
-      await _recorder.lockCurrentUser(tx);
-      await _recorder.mergeChanges(mergeSet, tx);
-    });
+    final uniqueConflicts = await transactionForUser<List<CrdtUniqueConflict>>(
+      effectiveUserId,
+      (tx) async {
+        await _recorder.lockCurrentUser(tx);
+        return _recorder.mergeChanges(mergeSet, tx);
+      },
+    );
+
+    await _runUniqueConflictCallback(effectiveUserId, uniqueConflicts);
+  }
+
+  Future<void> _runUniqueConflictCallback(
+    UuidValue userId,
+    List<CrdtUniqueConflict> conflicts,
+  ) async {
+    final callback = _onUniqueConflicts;
+    if (callback == null || conflicts.isEmpty) return;
+
+    final callbackSession = CrdtDatabaseSession(
+      _delegate,
+      syncTables: _syncTables,
+      syncBatchSize: _syncBatchSize,
+      continuousSyncInterval: _continuousSyncInterval,
+      persistentUserId: userId,
+      onUniqueConflicts: callback,
+    );
+
+    try {
+      await callbackSession.db.initialize();
+      await callback(callbackSession, userId, List.unmodifiable(conflicts));
+    } on Object {
+      // Post-merge callbacks are best-effort user work and must not undo a
+      // successful CRDT merge.
+    }
   }
 
   @override

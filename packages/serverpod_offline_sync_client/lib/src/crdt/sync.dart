@@ -10,6 +10,7 @@ import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
 import 'merge.dart';
+import 'unique_conflict.dart';
 
 /// Callback function for when a merge is successful.
 typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
@@ -29,10 +30,14 @@ class CrdtSync {
 
     /// Delay between continuous sync rounds.
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
+
+    /// Called after a merge materializes unique conflicts.
+    CrdtUniqueConflictCallback? onUniqueConflicts,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
        _syncBatchSize = syncBatchSize,
-       _continuousSyncInterval = continuousSyncInterval {
+       _continuousSyncInterval = continuousSyncInterval,
+       _onUniqueConflicts = onUniqueConflicts {
     if (syncBatchSize < 1) {
       throw ArgumentError.value(syncBatchSize, 'syncBatchSize', 'Must be >= 1');
     }
@@ -48,6 +53,7 @@ class CrdtSync {
   final DatabaseSerializationManager _serializationManager;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
+  final CrdtUniqueConflictCallback? _onUniqueConflicts;
 
   static CrdtSync? _instance;
 
@@ -72,12 +78,14 @@ class CrdtSync {
     required DatabaseSerializationManager serializationManager,
     int syncBatchSize = defaultSyncBatchSize,
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
+    CrdtUniqueConflictCallback? onUniqueConflicts,
   }) {
     _instance = CrdtSync(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
+      onUniqueConflicts: onUniqueConflicts,
     );
   }
 
@@ -349,7 +357,11 @@ class CrdtSync {
       return db;
     }
 
-    final crdtDb = CrdtDatabase(db, syncTables: _syncTables);
+    final crdtDb = CrdtDatabase(
+      db,
+      syncTables: _syncTables,
+      onUniqueConflicts: _onUniqueConflicts,
+    );
     await crdtDb.initialize();
     return crdtDb;
   }

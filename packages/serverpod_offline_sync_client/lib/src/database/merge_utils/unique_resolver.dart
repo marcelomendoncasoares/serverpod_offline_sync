@@ -48,22 +48,36 @@ class CrdtUniqueConflictResolver {
       );
 
       if (!_leftUniqueClaimWins(incomingClaim, conflictClaim)) {
-        resolvedData.addAll(
-          _uniqueConflictFreeValuesForData(
-            insert.tableName,
-            insert.uuidRowId,
-            resolvedData,
-            conflict.uniqueIndex,
+        final claimedValues = _uniqueIndexValues(resolvedData, conflict.uniqueIndex);
+        final releasedValues = _uniqueConflictFreeValuesForData(
+          insert.tableName,
+          insert.uuidRowId,
+          resolvedData,
+          conflict.uniqueIndex,
+        );
+        resolvedData.addAll(releasedValues);
+        context.uniqueConflicts.add(
+          _uniqueConflict(
+            tableName: insert.tableName,
+            winningRowId: conflict.row.uuidRowId,
+            losingRowId: insert.uuidRowId,
+            uniqueIndex: conflict.uniqueIndex,
+            claimedValues: claimedValues,
+            releasedValues: releasedValues,
           ),
         );
         changed = true;
       } else {
-        await _releaseUniqueConflictForRow(
+        final uniqueConflict = await _releaseUniqueConflictForRow(
           tableName: insert.tableName,
+          winningRowId: insert.uuidRowId,
           rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
           transaction: transaction,
         );
+        if (uniqueConflict != null) {
+          context.uniqueConflicts.add(uniqueConflict);
+        }
       }
     }
 
@@ -167,6 +181,7 @@ class CrdtUniqueConflictResolver {
       );
 
       if (!_leftUniqueClaimWins(rowClaim, conflictClaim)) {
+        final claimedValues = _uniqueIndexValues(values, conflict.uniqueIndex);
         final releasedValues = _uniqueConflictFreeValuesForData(
           tableName,
           row.uuidRowId,
@@ -179,13 +194,25 @@ class CrdtUniqueConflictResolver {
             values[columnName] = releasedValues[columnName];
           }
         }
+        context.uniqueConflicts.add(
+          _uniqueConflict(
+            tableName: tableName,
+            winningRowId: conflict.row.uuidRowId,
+            losingRowId: row.uuidRowId,
+            uniqueIndex: conflict.uniqueIndex,
+            claimedValues: claimedValues,
+            releasedValues: releasedValues,
+          ),
+        );
       } else {
-        await _releaseUniqueConflictForRow(
+        final uniqueConflict = await _releaseUniqueConflictForRow(
           tableName: tableName,
+          winningRowId: row.uuidRowId,
           rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
           transaction: transaction,
         );
+        if (uniqueConflict != null) context.uniqueConflicts.add(uniqueConflict);
       }
     }
 
@@ -219,8 +246,9 @@ class CrdtUniqueConflictResolver {
     return released;
   }
 
-  Future<void> _releaseUniqueConflictForRow({
+  Future<CrdtUniqueConflict?> _releaseUniqueConflictForRow({
     required String tableName,
+    required UuidValue winningRowId,
     required UuidValue rowId,
     required _UniqueIndexConflictRelease uniqueIndex,
     required Transaction transaction,
@@ -233,7 +261,7 @@ class CrdtUniqueConflictResolver {
       transaction,
     );
     final values = valuesByRowId[rowId];
-    if (values == null || values.values.any((value) => value == null)) return;
+    if (values == null || values.values.any((value) => value == null)) return null;
 
     final releasedValues = _uniqueConflictFreeValuesForData(
       tableName,
@@ -247,6 +275,14 @@ class CrdtUniqueConflictResolver {
       {rowId},
       columnNames,
       transaction,
+    );
+    return _uniqueConflict(
+      tableName: tableName,
+      winningRowId: winningRowId,
+      losingRowId: rowId,
+      uniqueIndex: uniqueIndex,
+      claimedValues: values,
+      releasedValues: releasedValues,
     );
   }
 
@@ -278,6 +314,39 @@ class CrdtUniqueConflictResolver {
       'Unexpected value for $tableName.${column.columnName} while making '
       'unique conflict value conflict-free: ${value.runtimeType}.',
     );
+  }
+
+  CrdtUniqueConflict _uniqueConflict({
+    required String tableName,
+    required UuidValue winningRowId,
+    required UuidValue losingRowId,
+    required _UniqueIndexConflictRelease uniqueIndex,
+    required Map<String, Object?> claimedValues,
+    required Map<String, Object?> releasedValues,
+  }) {
+    final columnNames = _uniqueIndexColumnNames(uniqueIndex).toList();
+    return CrdtUniqueConflict(
+      tableName: tableName,
+      winningRowId: winningRowId,
+      losingRowId: losingRowId,
+      columnNames: columnNames,
+      claimedValues: {
+        for (final columnName in columnNames) columnName: claimedValues[columnName],
+      },
+      releasedValues: {
+        for (final columnName in columnNames) columnName: releasedValues[columnName],
+      },
+    );
+  }
+
+  Map<String, Object?> _uniqueIndexValues(
+    Map<String, Object?> values,
+    _UniqueIndexConflictRelease uniqueIndex,
+  ) {
+    return {
+      for (final columnName in _uniqueIndexColumnNames(uniqueIndex))
+        columnName: values[columnName],
+    };
   }
 
   Future<List<_UniqueConflict>> _findVisibleUniqueConflicts({

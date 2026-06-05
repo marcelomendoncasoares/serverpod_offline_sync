@@ -2,6 +2,7 @@ export 'src/crdt/client_sync.dart';
 export 'src/crdt/exceptions.dart';
 export 'src/crdt/merge.dart';
 export 'src/crdt/sync.dart';
+export 'src/crdt/unique_conflict.dart';
 export 'src/database/database.dart';
 export 'src/database/recorder.dart';
 export 'src/database/schema.dart';

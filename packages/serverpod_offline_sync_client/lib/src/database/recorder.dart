@@ -4,6 +4,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../crdt/extensions.dart';
 import '../crdt/merge.dart';
+import '../crdt/unique_conflict.dart';
 import '../managers/hlc.dart';
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
