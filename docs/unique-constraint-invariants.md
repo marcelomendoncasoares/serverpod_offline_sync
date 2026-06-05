@@ -27,8 +27,9 @@ For each unique index conflict group:
 1. Compute each row's unique claim timestamp from the HLC of the unique-indexed
    field or fields. For an insert, use the insert HLC and any incoming field HLCs
    for the indexed fields.
-2. Pick the winner deterministically by oldest unique-claim HLC, with row id as
-   the stable tie-break.
+2. Pick the winner deterministically by oldest unique-claim HLC, using the same
+   full HLC ordering as the rest of CRDT merge. This includes node id as the HLC
+   tie-break. Row id is only a final fallback for identical HLCs.
 3. Leave the winner's unique value unchanged.
 4. Rewrite each loser's visible unique-indexed value to a deterministic
    conflict-free value:

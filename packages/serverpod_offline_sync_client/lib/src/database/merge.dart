@@ -334,6 +334,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       context,
       transaction,
     );
+    final projectedColumnNames = [
+      for (final MapEntry(key: columnName, value: resolvedValue)
+          in resolvedUpdates.entries)
+        if (columnName != update.columnName || resolvedValue != update.value)
+          columnName,
+    ];
 
     await _updateDomainRows(
       update.tableName,
@@ -341,6 +347,15 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       resolvedUpdates,
       transaction,
     );
+
+    if (projectedColumnNames.isNotEmpty) {
+      await recordFieldsUpdatedByTable(
+        update.tableName,
+        {update.uuidRowId},
+        projectedColumnNames,
+        transaction,
+      );
+    }
   }
 
   Future<void> _applyMergeDelete(
