@@ -56,23 +56,32 @@ class CrdtUniqueConflictResolver {
           conflict.uniqueIndex,
         );
         resolvedData.addAll(releasedValues);
-        context.uniqueConflicts.add(
-          _uniqueConflict(
-            tableName: insert.tableName,
-            winningRowId: conflict.row.uuidRowId,
-            losingRowId: insert.uuidRowId,
-            uniqueIndex: conflict.uniqueIndex,
-            claimedValues: claimedValues,
-            releasedValues: releasedValues,
+        final uniqueConflict = await _uniqueConflict(
+          tableName: insert.tableName,
+          losingRowId: insert.uuidRowId,
+          uniqueIndex: conflict.uniqueIndex,
+          conflictingValues: claimedValues,
+          replacementValues: releasedValues,
+          losingRowData: resolvedData,
+          existingRow: await _recorder._readRequiredDomainRow(
+            insert.tableName,
+            conflict.row.uuidRowId,
+            transaction,
           ),
+          transaction: transaction,
         );
+        context.uniqueConflicts.add(uniqueConflict);
         changed = true;
       } else {
         final uniqueConflict = await _releaseUniqueConflictForRow(
           tableName: insert.tableName,
-          winningRowId: insert.uuidRowId,
           rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
+          existingRow: _recorder._domainRowFromData(
+            insert.tableName,
+            insert.uuidRowId,
+            data,
+          ),
           transaction: transaction,
         );
         if (uniqueConflict != null) {
@@ -155,6 +164,13 @@ class CrdtUniqueConflictResolver {
       ...?currentValues[row.uuidRowId],
       ...updates,
     };
+    final rowData =
+        await _recorder._readDomainRowData(
+          tableName,
+          row.uuidRowId,
+          transaction,
+        ) ??
+        (throw StateError('Domain row $tableName.${row.uuidRowId} was not found.'));
 
     final conflicts = await _findVisibleUniqueConflicts(
       tableName: tableName,
@@ -194,22 +210,37 @@ class CrdtUniqueConflictResolver {
             values[columnName] = releasedValues[columnName];
           }
         }
-        context.uniqueConflicts.add(
-          _uniqueConflict(
-            tableName: tableName,
-            winningRowId: conflict.row.uuidRowId,
-            losingRowId: row.uuidRowId,
-            uniqueIndex: conflict.uniqueIndex,
-            claimedValues: claimedValues,
-            releasedValues: releasedValues,
+        final uniqueConflict = await _uniqueConflict(
+          tableName: tableName,
+          losingRowId: row.uuidRowId,
+          uniqueIndex: conflict.uniqueIndex,
+          conflictingValues: claimedValues,
+          replacementValues: releasedValues,
+          losingRowData: {
+            ...rowData,
+            ...resolvedUpdates,
+          },
+          existingRow: await _recorder._readRequiredDomainRow(
+            tableName,
+            conflict.row.uuidRowId,
+            transaction,
           ),
+          transaction: transaction,
         );
+        context.uniqueConflicts.add(uniqueConflict);
       } else {
         final uniqueConflict = await _releaseUniqueConflictForRow(
           tableName: tableName,
-          winningRowId: row.uuidRowId,
           rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
+          existingRow: _recorder._domainRowFromData(
+            tableName,
+            row.uuidRowId,
+            {
+              ...rowData,
+              ...updates,
+            },
+          ),
           transaction: transaction,
         );
         if (uniqueConflict != null) context.uniqueConflicts.add(uniqueConflict);
@@ -246,11 +277,11 @@ class CrdtUniqueConflictResolver {
     return released;
   }
 
-  Future<CrdtUniqueConflict?> _releaseUniqueConflictForRow({
+  Future<UniqueConflictContext?> _releaseUniqueConflictForRow({
     required String tableName,
-    required UuidValue winningRowId,
     required UuidValue rowId,
     required _UniqueIndexConflictRelease uniqueIndex,
+    required TableRow existingRow,
     required Transaction transaction,
   }) async {
     final columnNames = _uniqueIndexColumnNames(uniqueIndex).toList();
@@ -278,11 +309,12 @@ class CrdtUniqueConflictResolver {
     );
     return _uniqueConflict(
       tableName: tableName,
-      winningRowId: winningRowId,
       losingRowId: rowId,
       uniqueIndex: uniqueIndex,
-      claimedValues: values,
-      releasedValues: releasedValues,
+      conflictingValues: values,
+      replacementValues: releasedValues,
+      existingRow: existingRow,
+      transaction: transaction,
     );
   }
 
@@ -316,26 +348,30 @@ class CrdtUniqueConflictResolver {
     );
   }
 
-  CrdtUniqueConflict _uniqueConflict({
+  Future<UniqueConflictContext> _uniqueConflict({
     required String tableName,
-    required UuidValue winningRowId,
     required UuidValue losingRowId,
     required _UniqueIndexConflictRelease uniqueIndex,
-    required Map<String, Object?> claimedValues,
-    required Map<String, Object?> releasedValues,
-  }) {
+    required Map<String, Object?> conflictingValues,
+    required Map<String, Object?> replacementValues,
+    required Transaction transaction,
+    required TableRow existingRow,
+    Map<String, Object?>? losingRowData,
+  }) async {
     final columnNames = _uniqueIndexColumnNames(uniqueIndex).toList();
-    return CrdtUniqueConflict(
-      tableName: tableName,
-      winningRowId: winningRowId,
-      losingRowId: losingRowId,
-      columnNames: columnNames,
-      claimedValues: {
-        for (final columnName in columnNames) columnName: claimedValues[columnName],
+    final row = losingRowData == null
+        ? await _recorder._readRequiredDomainRow(tableName, losingRowId, transaction)
+        : _recorder._domainRowFromData(tableName, losingRowId, losingRowData);
+
+    return UniqueConflictContext(
+      row: row,
+      conflictingValues: {
+        for (final columnName in columnNames) columnName: conflictingValues[columnName],
       },
-      releasedValues: {
-        for (final columnName in columnNames) columnName: releasedValues[columnName],
+      replacementValues: {
+        for (final columnName in columnNames) columnName: replacementValues[columnName],
       },
+      existingRow: existingRow,
     );
   }
 

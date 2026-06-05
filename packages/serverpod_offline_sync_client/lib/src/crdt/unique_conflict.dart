@@ -7,41 +7,36 @@ import 'package:uuid/uuid.dart';
 ///
 /// The callback runs after the merge transaction has committed. Throwing from
 /// the callback does not roll back or fail the merge.
-typedef CrdtUniqueConflictCallback =
+typedef UniqueConflictCallback =
     FutureOr<void> Function(
       DatabaseSession session,
       UuidValue userId,
-      List<CrdtUniqueConflict> conflicts,
+      List<UniqueConflictContext> conflicts,
     );
 
-/// A unique conflict that was materialized by rewriting the losing row's
-/// visible unique value.
-class CrdtUniqueConflict {
-  /// Creates a unique conflict payload.
-  const CrdtUniqueConflict({
-    required this.tableName,
-    required this.winningRowId,
-    required this.losingRowId,
-    required this.columnNames,
-    required this.claimedValues,
-    required this.releasedValues,
+/// Context for a unique conflict that was materialized by rewriting the losing
+/// row's visible unique value.
+class UniqueConflictContext<T extends TableRow> {
+  /// Creates a unique conflict context.
+  const UniqueConflictContext({
+    required this.row,
+    required this.conflictingValues,
+    required this.replacementValues,
+    required this.existingRow,
   });
 
-  /// The table containing the conflicting rows.
-  final String tableName;
+  /// The domain row that lost the unique collision and was rewritten.
+  final T row;
 
-  /// The row that kept the claimed unique value.
-  final UuidValue winningRowId;
+  /// Columns in the unique index that collided.
+  Set<String> get columns => conflictingValues.keys.toSet();
 
-  /// The row whose visible unique value was rewritten.
-  final UuidValue losingRowId;
+  /// Values [row] tried to claim.
+  final Map<String, Object?> conflictingValues;
 
-  /// Unique-indexed columns that participated in the conflict.
-  final List<String> columnNames;
+  /// Values written to keep [row] visible and constraint-safe.
+  final Map<String, Object?> replacementValues;
 
-  /// Values the losing row claimed before conflict release.
-  final Map<String, Object?> claimedValues;
-
-  /// Conflict-free values materialized for the losing row.
-  final Map<String, Object?> releasedValues;
+  /// The row that kept the original unique value.
+  final T existingRow;
 }

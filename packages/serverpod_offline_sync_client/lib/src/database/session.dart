@@ -27,7 +27,7 @@ class CrdtDatabaseSession implements DatabaseSession {
     UuidValue? persistentUserId,
 
     /// Called after a merge materializes unique conflicts.
-    CrdtUniqueConflictCallback? onUniqueConflicts,
+    UniqueConflictCallback? onUniqueConflicts,
   }) : _db = CrdtDatabase(
          db,
          syncTables: syncTables,
@@ -56,7 +56,7 @@ class CrdtDatabaseSession implements DatabaseSession {
     UuidValue? persistentUserId,
 
     /// Called after a merge materializes unique conflicts.
-    CrdtUniqueConflictCallback? onUniqueConflicts,
+    UniqueConflictCallback? onUniqueConflicts,
   }) => CrdtDatabaseSession(
     session.db,
     syncTables: syncTables,

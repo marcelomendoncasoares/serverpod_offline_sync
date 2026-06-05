@@ -75,6 +75,11 @@ class CrdtMutationRecorder {
       table.name: table,
   };
 
+  late final _classNamesByTableName = {
+    for (final table in _tableDefinitionsByName.values)
+      if (table.dartName != null) table.name: table.dartName!,
+  };
+
   late final Map<String, List<_ReferencingForeignKey>> _foreignKeysByReferencedTable =
       () {
         final result = <String, List<_ReferencingForeignKey>>{};
@@ -1011,6 +1016,72 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
             columnName: row[index + 1],
         },
     };
+  }
+
+  Future<TableRow?> _readDomainRow(
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    final data = await _readDomainRowData(tableName, rowId, transaction);
+    if (data == null) return null;
+
+    return _domainRowFromData(tableName, rowId, data);
+  }
+
+  Future<TableRow> _readRequiredDomainRow(
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    return await _readDomainRow(tableName, rowId, transaction) ??
+        (throw StateError('Domain row $tableName.$rowId was not found.'));
+  }
+
+  Future<Map<String, Object?>?> _readDomainRowData(
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    final table = _tableDefinitionsByName[tableName];
+    if (table == null) return null;
+
+    final columns = [
+      for (final column in table.columns) '"${_escapeIdentifier(column.name)}"',
+    ].join(', ');
+
+    final result = await _db.unsafeQuery(
+      '''
+SELECT $columns
+FROM "${_escapeIdentifier(tableName)}"
+WHERE "id" = ${_sqlLiteral(rowId)}
+''',
+      transaction: transaction,
+    );
+    if (result.isEmpty) return null;
+
+    return result.first.toColumnMap();
+  }
+
+  TableRow _domainRowFromData(
+    String tableName,
+    UuidValue rowId,
+    Map<String, Object?> data,
+  ) {
+    final dartName = _classNamesByTableName[tableName]!;
+
+    final row = _db.serializationManager.deserializeByClassName({
+      'className': dartName,
+      'data': {
+        ...data,
+        'id': rowId,
+      },
+    });
+    if (row is TableRow) return row;
+
+    throw StateError(
+      'Deserialized $tableName as ${row.runtimeType}, expected TableRow.',
+    );
   }
 
   Object? _defaultValueForColumn(String tableName, String columnName) {

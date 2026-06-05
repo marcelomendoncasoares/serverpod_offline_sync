@@ -21,7 +21,7 @@ void main() {
       'when a merge materializes multiple unique conflicts, '
       'then the callback is invoked once with all conflicts.',
       () async {
-        final callbackConflicts = <CrdtUniqueConflict>[];
+        final callbackConflicts = <UniqueConflictContext>[];
         UuidValue? callbackUserId;
         var callbackCount = 0;
         final crdtSession = CrdtDatabaseSession.wraps(
@@ -51,7 +51,8 @@ void main() {
         expect(callbackUserId, testCrdtUserId);
         expect(callbackConflicts, hasLength(2));
         final conflictsByLosingRowId = {
-          for (final conflict in callbackConflicts) conflict.losingRowId: conflict,
+          for (final conflict in callbackConflicts)
+            (conflict.row as client.Unique).id!: conflict,
         };
         expect(conflictsByLosingRowId.keys, {
           firstLosingRowId,
@@ -60,14 +61,18 @@ void main() {
 
         for (final losingRowId in [firstLosingRowId, secondLosingRowId]) {
           final conflict = conflictsByLosingRowId[losingRowId]!;
+          final row = conflict.row as client.Unique;
+          final existingRow = conflict.existingRow as client.Unique;
 
-          expect(conflict.tableName, client.Unique.t.tableName);
-          expect(conflict.winningRowId, winningRowId);
-          expect(conflict.columnNames, [client.Unique.t.name.columnName]);
-          expect(conflict.claimedValues, {
+          expect(row.id, losingRowId);
+          expect(row.name, _conflictName(losingRowId));
+          expect(existingRow.id, winningRowId);
+          expect(existingRow.name, 'shared-name');
+          expect(conflict.columns, {client.Unique.t.name.columnName});
+          expect(conflict.conflictingValues, {
             client.Unique.t.name.columnName: 'shared-name',
           });
-          expect(conflict.releasedValues, {
+          expect(conflict.replacementValues, {
             client.Unique.t.name.columnName: _conflictName(losingRowId),
           });
         }
@@ -123,13 +128,10 @@ void main() {
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
           onUniqueConflicts: (callbackSession, _, conflicts) async {
-            final row = await client.Unique.db.findById(
-              callbackSession,
-              conflicts.single.losingRowId,
-            );
+            final row = conflicts.single.row as client.Unique;
             await client.Unique.db.updateRow(
               callbackSession,
-              row!.copyWith(name: _callbackName(conflicts.single.losingRowId)),
+              row.copyWith(name: _callbackName(row.id!)),
               columns: (t) => [t.name],
             );
           },
@@ -280,14 +282,13 @@ CrdtMergeSet _uniqueInsertMergeSet({
 Future<void> _resolveLosingUniqueRows(
   DatabaseSession session,
   UuidValue _,
-  List<CrdtUniqueConflict> conflicts,
+  List<UniqueConflictContext> conflicts,
 ) async {
   for (final conflict in conflicts) {
-    final row = await client.Unique.db.findById(session, conflict.losingRowId);
-    if (row == null) continue;
+    final row = conflict.row as client.Unique;
     await client.Unique.db.updateRow(
       session,
-      row.copyWith(name: _callbackName(conflict.losingRowId)),
+      row.copyWith(name: _callbackName(row.id!)),
       columns: (t) => [t.name],
     );
   }

@@ -39,7 +39,7 @@ class CrdtDatabase implements Database {
     UuidValue? persistentUserId,
 
     /// Called after a merge materializes unique conflicts.
-    CrdtUniqueConflictCallback? onUniqueConflicts,
+    UniqueConflictCallback? onUniqueConflicts,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval,
@@ -54,7 +54,7 @@ class CrdtDatabase implements Database {
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
-  final CrdtUniqueConflictCallback? _onUniqueConflicts;
+  final UniqueConflictCallback? _onUniqueConflicts;
 
   final CrdtMutationRecorder _recorder;
 
@@ -129,7 +129,7 @@ class CrdtDatabase implements Database {
         (throw StateError(
           'A user ID is required when merging changes without a persistent user.',
         ));
-    final uniqueConflicts = await transactionForUser<List<CrdtUniqueConflict>>(
+    final uniqueConflicts = await transactionForUser<List<UniqueConflictContext>>(
       effectiveUserId,
       (tx) async {
         await _recorder.lockCurrentUser(tx);
@@ -142,7 +142,7 @@ class CrdtDatabase implements Database {
 
   Future<void> _runUniqueConflictCallback(
     UuidValue userId,
-    List<CrdtUniqueConflict> conflicts,
+    List<UniqueConflictContext> conflicts,
   ) async {
     final callback = _onUniqueConflicts;
     if (callback == null || conflicts.isEmpty) return;

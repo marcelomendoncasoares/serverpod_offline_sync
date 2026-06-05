@@ -7,7 +7,7 @@ typedef _MergeContext = ({
   Map<_MergeFieldKey, CrdtDataField> fields,
   Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
   Map<_MergeRowKey, CrdtDataDeleted> tombstones,
-  List<CrdtUniqueConflict> uniqueConflicts,
+  List<UniqueConflictContext> uniqueConflicts,
 });
 
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
@@ -30,7 +30,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   }
 
   /// Merges remote CRDT changes into the current database.
-  Future<List<CrdtUniqueConflict>> mergeChanges(
+  Future<List<UniqueConflictContext>> mergeChanges(
     CrdtMergeSet mergeSet,
     Transaction transaction,
   ) async {
@@ -251,7 +251,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       fields: fields,
       incomingFieldHlcs: incomingFieldHlcs,
       tombstones: tombstones,
-      uniqueConflicts: <CrdtUniqueConflict>[],
+      uniqueConflicts: <UniqueConflictContext>[],
     );
   }
 

@@ -32,7 +32,7 @@ class CrdtSync {
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
 
     /// Called after a merge materializes unique conflicts.
-    CrdtUniqueConflictCallback? onUniqueConflicts,
+    UniqueConflictCallback? onUniqueConflicts,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
        _syncBatchSize = syncBatchSize,
@@ -53,7 +53,7 @@ class CrdtSync {
   final DatabaseSerializationManager _serializationManager;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
-  final CrdtUniqueConflictCallback? _onUniqueConflicts;
+  final UniqueConflictCallback? _onUniqueConflicts;
 
   static CrdtSync? _instance;
 
@@ -78,7 +78,7 @@ class CrdtSync {
     required DatabaseSerializationManager serializationManager,
     int syncBatchSize = defaultSyncBatchSize,
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
-    CrdtUniqueConflictCallback? onUniqueConflicts,
+    UniqueConflictCallback? onUniqueConflicts,
   }) {
     _instance = CrdtSync(
       syncTables: syncTables,

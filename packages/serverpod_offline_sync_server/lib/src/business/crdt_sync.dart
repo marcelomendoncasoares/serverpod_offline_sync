@@ -20,7 +20,7 @@ extension CrdtSyncInitialize on Serverpod {
     required List<Table> syncTables,
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
     Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
-    CrdtUniqueConflictCallback? onUniqueConflicts,
+    UniqueConflictCallback? onUniqueConflicts,
   }) {
     CrdtSync.initialize(
       syncTables: syncTables,
