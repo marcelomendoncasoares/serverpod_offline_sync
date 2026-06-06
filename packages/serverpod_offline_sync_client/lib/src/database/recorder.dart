@@ -166,8 +166,6 @@ class CrdtMutationRecorder {
           columnsByTableId[t.id!] ?? {},
         ),
     };
-
-    await _ensureForeignKeyProjectionTable(null);
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for

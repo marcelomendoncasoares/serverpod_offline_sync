@@ -45,66 +45,6 @@ class _ForeignKeyProjectionState {
 }
 
 extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
-  Future<void> _ensureForeignKeyProjectionTable(
-    Transaction? transaction,
-  ) async {
-    final columns = await _db.unsafeQuery(
-      'PRAGMA table_info("crdt_data_foreign_key")',
-      transaction: transaction,
-    );
-    final columnTypes = {
-      for (final column in columns) column[1] as String: column[2] as String,
-    };
-    if (columnTypes.isNotEmpty &&
-        (!columnTypes.containsKey('attemptedValue') ||
-            columnTypes['attemptedValue']?.toUpperCase() != 'BLOB')) {
-      await _db.unsafeExecute(
-        'DROP TABLE "crdt_data_foreign_key"',
-        transaction: transaction,
-      );
-    }
-
-    await _db.unsafeExecute(
-      '''
-CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key" (
-  "id" INTEGER PRIMARY KEY,
-  "fieldId" INTEGER NOT NULL,
-  "attemptedValue" BLOB,
-  "visibleValue" BLOB,
-  "hasOverride" INTEGER NOT NULL DEFAULT 0,
-  "overrideReason" TEXT,
-  CONSTRAINT "crdt_data_foreign_key_fk_0"
-    FOREIGN KEY ("fieldId") REFERENCES "crdt_data_fields" ("id")
-    ON DELETE CASCADE ON UPDATE NO ACTION
-) STRICT
-''',
-      transaction: transaction,
-    );
-    await _db.unsafeExecute(
-      '''
-CREATE UNIQUE INDEX IF NOT EXISTS "crdt_data_foreign_key_field_idx"
-  ON "crdt_data_foreign_key" ("fieldId")
-''',
-      transaction: transaction,
-    );
-    await _db.unsafeExecute(
-      '''
-CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
-  "rowId" INTEGER PRIMARY KEY,
-  "nodeId" INTEGER NOT NULL,
-  "hlcDatetime" TEXT NOT NULL,
-  "hlcCounter" INTEGER NOT NULL,
-  "clFlag" INTEGER NOT NULL,
-  "reason" INTEGER NOT NULL,
-  CONSTRAINT "crdt_data_foreign_key_base_tombstone_fk_0"
-    FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id")
-    ON DELETE CASCADE ON UPDATE NO ACTION
-) STRICT
-''',
-      transaction: transaction,
-    );
-  }
-
   Future<void> _recordForeignKeyAttemptsForRows(
     String tableName,
     Set<UuidValue> rowIds,
@@ -122,7 +62,6 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
     };
     if (foreignKeyColumns.isEmpty) return;
 
-    await _ensureForeignKeyProjectionTable(transaction);
     final valuesByRowId = await _readDomainColumnValues(
       tableName,
       rowIds,
@@ -256,7 +195,6 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
     };
     if (foreignKeyColumns.isEmpty) return const {};
 
-    await _ensureForeignKeyProjectionTable(transaction);
     final fieldIds = await _findForeignKeyFieldIds(
       tableName: tableName,
       rowIds: rowIds,
@@ -297,7 +235,6 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
   Future<void> _projectForeignKeys(Transaction transaction) async {
     if (_foreignKeyEdges.isEmpty) return;
 
-    await _ensureForeignKeyProjectionTable(transaction);
     final state = await _loadForeignKeyProjectionState(transaction);
     if (state.rows.isEmpty) return;
 

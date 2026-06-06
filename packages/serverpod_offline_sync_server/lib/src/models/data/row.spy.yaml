@@ -28,6 +28,9 @@ fields:
   ### If null, the row is visible and has never been deleted/hidden.
   deleted: CrdtDataDeleted?, relation(name=row_deleted, optional)
 
+  ### Preserved base tombstone used by foreign key projection.
+  foreignKeyBaseTombstone: CrdtDataForeignKeyBaseTombstone?, relation(name=row_foreign_key_base_tombstone, optional)
+
   ### The fields for this row.
   fields: List<CrdtDataField>?, relation(name=row_fields)
 
