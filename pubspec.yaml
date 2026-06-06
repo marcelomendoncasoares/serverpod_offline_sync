@@ -74,6 +74,10 @@ melos:
       - packages/*
 
   scripts:
+    cleanup: |
+        find . -type d \( -name generated -o -name protocol \) -print0 |
+        xargs -0 -I@ find @ -mindepth 1 -maxdepth 1 ! -name analysis_options.yaml -print0 |
+        xargs -0 rm -rf
     setup:
       run: dart pub get && melos generate && melos create-migration
     lint:
