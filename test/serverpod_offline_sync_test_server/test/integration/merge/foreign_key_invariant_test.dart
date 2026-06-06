@@ -72,6 +72,71 @@ void main() {
   );
 
   group(
+    'Given a blocked restrict parent delete was restored by projection, ',
+    () {
+      late Person parent;
+      late Address child;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          parent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'blocked parent'),
+            transaction: tx,
+          );
+          child = await Address.db.insertRow(
+            session,
+            Address(
+              id: const Uuid().v7obj(),
+              street: 'blocking child',
+              inhabitantId: parent.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        final parentHlc = await _rowHlc(parent.id!);
+        await session.db.mergeChanges(
+          [
+            _deleteChange(
+              tableName: Person.t.tableName,
+              rowId: parent.id!,
+              after: parentHlc,
+            ),
+          ],
+          userId: testCrdtUserId,
+        );
+      });
+
+      group('when the restrict child is detached, ', () {
+        setUp(() async {
+          final visibleChild = await Address.db.findById(session, child.id!);
+          await session.db.transactionForUser(testCrdtUserId, (tx) async {
+            child = await Address.db.updateRow(
+              session,
+              visibleChild!.copyWith(inhabitantId: null),
+              columns: (t) => [t.inhabitantId],
+              transaction: tx,
+            );
+          });
+        });
+
+        test(
+          'then the parent is hidden by the preserved base delete fact.',
+          () async {
+            final hiddenParent = await Person.db.findById(session, parent.id!);
+            final visibleChild = await Address.db.findById(session, child.id!);
+
+            expect(hiddenParent, isNull);
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.inhabitantId, isNull);
+          },
+        );
+      });
+    },
+  );
+
+  group(
     'Given a company with a visible no-action child and a concurrent child update, ',
     () {
       late Town town;
@@ -510,6 +575,102 @@ void main() {
             final visibleChild = await Company.db.findById(session, child.id!);
 
             expect(visibleParent, isNotNull);
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.townId, attemptedTown.id);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a set-default foreign key whose default target is cascade-hidden by another root delete, ',
+    () {
+      late City city;
+      late Town defaultTown;
+      late Town attemptedTown;
+      late Company child;
+      late CrdtMergeDelete remoteCityDelete;
+      late CrdtMergeDelete remoteAttemptedTownDelete;
+
+      setUp(() async {
+        defaultTown = Town(
+          id: _defaultTownId,
+          name: 'cascade-hidden default town',
+        );
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          city = await City.db.insertRow(
+            session,
+            City(id: const Uuid().v7obj(), name: 'default target city'),
+            transaction: tx,
+          );
+          defaultTown = await Town.db.insertRow(
+            session,
+            defaultTown.copyWith(cityId: city.id),
+            transaction: tx,
+          );
+          attemptedTown = await Town.db.insertRow(
+            session,
+            Town(id: const Uuid().v7obj(), name: 'attempted town'),
+            transaction: tx,
+          );
+          child = await Company.db.insertRow(
+            session,
+            Company(
+              id: const Uuid().v7obj(),
+              name: 'fixed point company',
+              townId: attemptedTown.id,
+            ),
+            transaction: tx,
+          );
+          child = await Company.db.updateRow(
+            session,
+            child.copyWith(townId: attemptedTown.id),
+            columns: (t) => [t.townId],
+            transaction: tx,
+          );
+        });
+
+        final cityHlc = await _rowHlc(city.id!);
+        remoteCityDelete = _deleteChange(
+          tableName: City.t.tableName,
+          rowId: city.id!,
+          after: cityHlc,
+        );
+        final attemptedTownHlc = await _rowHlc(attemptedTown.id!);
+        remoteAttemptedTownDelete = _deleteChange(
+          tableName: Town.t.tableName,
+          rowId: attemptedTown.id!,
+          after: attemptedTownHlc.maxBetween(remoteCityDelete.hlc),
+        );
+      });
+
+      group('when both root deletes are merged in the same batch, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remoteCityDelete, remoteAttemptedTownDelete],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the attempted parent remains visible because the full hidden fixed point hides the default target.',
+          () async {
+            final hiddenCity = await City.db.findById(session, city.id!);
+            final hiddenDefaultTown = await Town.db.findById(
+              session,
+              defaultTown.id!,
+            );
+            final visibleAttemptedTown = await Town.db.findById(
+              session,
+              attemptedTown.id!,
+            );
+            final visibleChild = await Company.db.findById(session, child.id!);
+
+            expect(hiddenCity, isNull);
+            expect(hiddenDefaultTown, isNull);
+            expect(visibleAttemptedTown, isNotNull);
             expect(visibleChild, isNotNull);
             expect(visibleChild!.townId, attemptedTown.id);
           },
@@ -975,10 +1136,16 @@ WHERE lower(hex(r."uuidRowId")) = '${rowId.uuid.replaceAll('-', '')}'
   if (result.isEmpty) return null;
   final row = result.single;
   return (
-    attemptedValue: row[0]?.toString(),
-    visibleValue: row[1]?.toString(),
+    attemptedValue: _uuidStringFromDatabase(row[0]),
+    visibleValue: _uuidStringFromDatabase(row[1]),
     hasOverride: row[2] == true || row[2] == 1,
   );
+}
+
+String? _uuidStringFromDatabase(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  return UuidValueJsonExtension.fromJson(value).uuid;
 }
 
 Future<List<String>> _tombstoneSnapshot() async {

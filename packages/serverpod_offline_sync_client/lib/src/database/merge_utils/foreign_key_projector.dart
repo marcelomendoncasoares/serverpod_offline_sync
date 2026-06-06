@@ -6,6 +6,7 @@ class _ProjectedForeignKeyRow {
     required this.crdtRowId,
     required this.isHidden,
     required this.deletedReason,
+    required this.preservedBaseDeletedReason,
     required this.values,
   });
 
@@ -13,6 +14,7 @@ class _ProjectedForeignKeyRow {
   final int crdtRowId;
   final bool isHidden;
   final CrdtDataDeletedReason? deletedReason;
+  final CrdtDataDeletedReason? preservedBaseDeletedReason;
   final Map<String, Object?> values;
 }
 
@@ -50,8 +52,12 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       'PRAGMA table_info("crdt_data_foreign_key")',
       transaction: transaction,
     );
-    final columnNames = {for (final column in columns) column[1] as String};
-    if (columnNames.isNotEmpty && !columnNames.contains('attemptedValue')) {
+    final columnTypes = {
+      for (final column in columns) column[1] as String: column[2] as String,
+    };
+    if (columnTypes.isNotEmpty &&
+        (!columnTypes.containsKey('attemptedValue') ||
+            columnTypes['attemptedValue']?.toUpperCase() != 'BLOB')) {
       await _db.unsafeExecute(
         'DROP TABLE "crdt_data_foreign_key"',
         transaction: transaction,
@@ -63,8 +69,8 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
 CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key" (
   "id" INTEGER PRIMARY KEY,
   "fieldId" INTEGER NOT NULL,
-  "attemptedValue" TEXT,
-  "visibleValue" TEXT,
+  "attemptedValue" BLOB,
+  "visibleValue" BLOB,
   "hasOverride" INTEGER NOT NULL DEFAULT 0,
   "overrideReason" TEXT,
   CONSTRAINT "crdt_data_foreign_key_fk_0"
@@ -78,6 +84,22 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key" (
       '''
 CREATE UNIQUE INDEX IF NOT EXISTS "crdt_data_foreign_key_field_idx"
   ON "crdt_data_foreign_key" ("fieldId")
+''',
+      transaction: transaction,
+    );
+    await _db.unsafeExecute(
+      '''
+CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
+  "rowId" INTEGER PRIMARY KEY,
+  "nodeId" INTEGER NOT NULL,
+  "hlcDatetime" TEXT NOT NULL,
+  "hlcCounter" INTEGER NOT NULL,
+  "clFlag" INTEGER NOT NULL,
+  "reason" INTEGER NOT NULL,
+  CONSTRAINT "crdt_data_foreign_key_base_tombstone_fk_0"
+    FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id")
+    ON DELETE CASCADE ON UPDATE NO ACTION
+) STRICT
 ''',
       transaction: transaction,
     );
@@ -237,6 +259,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "crdt_data_foreign_key_field_idx"
     final finalHidden = _computeForeignKeyHiddenRows(state, baseHidden);
 
     await _materializeForeignKeyVisibility(
+      state: state,
       currentHidden: currentHidden,
       finalHidden: finalHidden,
       transaction: transaction,
@@ -276,9 +299,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS "crdt_data_foreign_key_field_idx"
       final userId = _getHlcManager(transaction).normalizedUserId;
       final crdtRows = await _db.unsafeQuery(
         '''
-SELECT r."id", r."uuidRowId", tomb."clFlag", tomb."reason"
+SELECT r."id", r."uuidRowId", tomb."clFlag", tomb."reason", base."reason"
 FROM "crdt_data_rows" r
 LEFT JOIN "crdt_data_tombstone" tomb ON tomb."rowId" = r."id"
+LEFT JOIN "crdt_data_foreign_key_base_tombstone" base
+  ON base."rowId" = r."id"
 WHERE r."userId" = $userId
   AND r."tblId" = $tableId
 ORDER BY r."uuidRowId"
@@ -308,6 +333,9 @@ ORDER BY r."uuidRowId"
           deletedReason: row[3] == null
               ? null
               : CrdtDataDeletedReason.fromJson(row[3] as int),
+          preservedBaseDeletedReason: row[4] == null
+              ? null
+              : CrdtDataDeletedReason.fromJson(row[4] as int),
           values: valuesByRowId[rowId] ?? const {},
         );
       }
@@ -348,9 +376,23 @@ ORDER BY r."uuidRowId"
     _ProjectedForeignKeyRow row,
     _ForeignKeyProjectionState state,
   ) {
+    final preservedBaseReason = _projectionRestoredBaseReason(row);
+    if (preservedBaseReason != null) {
+      if (preservedBaseReason != CrdtDataDeletedReason.cascadeDelete) return true;
+      return !_hasCascadeParentReference(row, state);
+    }
+
     if (!row.isHidden) return false;
     if (row.deletedReason != CrdtDataDeletedReason.cascadeDelete) return true;
     return !_hasCascadeParentReference(row, state);
+  }
+
+  CrdtDataDeletedReason? _projectionRestoredBaseReason(
+    _ProjectedForeignKeyRow row,
+  ) {
+    if (row.isHidden) return null;
+    if (row.deletedReason != CrdtDataDeletedReason.restrictRestore) return null;
+    return row.preservedBaseDeletedReason;
   }
 
   bool _hasCascadeParentReference(
@@ -434,29 +476,35 @@ WHERE "fieldId" IN (${_sqlLiteralList(fieldIds)})
     _ForeignKeyProjectionState state,
     Set<_MergeRowKey> userHidden,
   ) {
-    final finalHidden = <_MergeRowKey>{};
+    final acceptedRoots = userHidden.toSet();
 
-    for (final root in userHidden.toList()..sort(_compareRowKeys)) {
-      if (finalHidden.contains(root)) continue;
+    while (true) {
+      final closures = <_MergeRowKey, Set<_MergeRowKey>>{};
+      final finalHidden = <_MergeRowKey>{};
 
-      final closure = _cascadeClosureForDelete(
-        root,
-        state,
-        userHidden,
-        <_MergeRowKey>{},
-      );
-      if (closure != null) {
+      for (final root in acceptedRoots.toList()..sort(_compareRowKeys)) {
+        if (finalHidden.contains(root)) continue;
+
+        final closure = _cascadeClosureForDelete(root, state, <_MergeRowKey>{});
+        closures[root] = closure;
         finalHidden.addAll(closure);
       }
-    }
 
-    return finalHidden;
+      final invalidRoots = <_MergeRowKey>{};
+      for (final MapEntry(key: root, value: closure) in closures.entries) {
+        if (_closureBlockedByForeignKeys(closure, state, finalHidden)) {
+          invalidRoots.add(root);
+        }
+      }
+
+      if (invalidRoots.isEmpty) return finalHidden;
+      acceptedRoots.removeAll(invalidRoots);
+    }
   }
 
-  Set<_MergeRowKey>? _cascadeClosureForDelete(
+  Set<_MergeRowKey> _cascadeClosureForDelete(
     _MergeRowKey rowKey,
     _ForeignKeyProjectionState state,
-    Set<_MergeRowKey> userHidden,
     Set<_MergeRowKey> stack,
   ) {
     if (stack.contains(rowKey)) return <_MergeRowKey>{};
@@ -481,80 +529,170 @@ WHERE "fieldId" IN (${_sqlLiteralList(fieldIds)})
       for (final child in children) {
         if (closure.contains(child.key)) continue;
 
-        switch (edge.action) {
-          case ForeignKeyAction.cascade:
-            final childClosure = _cascadeClosureForDelete(
-              child.key,
-              state,
-              userHidden,
-              nextStack,
-            );
-            if (childClosure == null) return null;
-            closure.addAll(childClosure);
-          case ForeignKeyAction.restrict:
-          case ForeignKeyAction.noAction:
-            if (!_isAlreadyHidden(child.key, userHidden, closure)) {
-              return null;
-            }
-          case ForeignKeyAction.setNull:
-            if (!_isAlreadyHidden(child.key, userHidden, closure) &&
-                !edge.childNullable) {
-              return null;
-            }
-          case ForeignKeyAction.setDefault:
-            if (!_isAlreadyHidden(child.key, userHidden, closure) &&
-                !_defaultIsVisibleForDelete(edge, state, userHidden, closure)) {
-              return null;
-            }
-        }
+        if (edge.action != ForeignKeyAction.cascade) continue;
+
+        final childClosure = _cascadeClosureForDelete(
+          child.key,
+          state,
+          nextStack,
+        );
+        closure.addAll(childClosure);
       }
     }
 
     return closure;
   }
 
-  bool _isAlreadyHidden(
-    _MergeRowKey rowKey,
-    Set<_MergeRowKey> userHidden,
-    Set<_MergeRowKey> cascadeClosure,
-  ) {
-    return userHidden.contains(rowKey) || cascadeClosure.contains(rowKey);
-  }
-
-  bool _defaultIsVisibleForDelete(
-    _ForeignKeyEdge edge,
+  bool _closureBlockedByForeignKeys(
+    Set<_MergeRowKey> closure,
     _ForeignKeyProjectionState state,
-    Set<_MergeRowKey> userHidden,
-    Set<_MergeRowKey> cascadeClosure,
+    Set<_MergeRowKey> finalHidden,
   ) {
-    final defaultValue = _uuidValueFromDatabase(edge.defaultValue);
-    if (defaultValue == null) return edge.childNullable;
+    for (final rowKey in closure) {
+      final row = state.rows[rowKey];
+      if (row == null) continue;
 
-    final target = _parentRowForValue(edge, defaultValue, state);
-    if (target == null) return false;
-    return !_isAlreadyHidden(target.key, userHidden, cascadeClosure);
+      for (final edge in _foreignKeyEdges.where(
+        (edge) => edge.parentTableName == rowKey.$1,
+      )) {
+        final parentValue = _parentReferenceValue(row, edge);
+        if (parentValue == null) continue;
+
+        final children = _childrenReferencingParent(
+          edge,
+          parentValue,
+          state,
+        );
+        for (final child in children) {
+          if (finalHidden.contains(child.key)) continue;
+
+          switch (edge.action) {
+            case ForeignKeyAction.cascade:
+              return true;
+            case ForeignKeyAction.restrict:
+            case ForeignKeyAction.noAction:
+              return true;
+            case ForeignKeyAction.setNull:
+              if (!edge.childNullable) return true;
+            case ForeignKeyAction.setDefault:
+              if (!_defaultProjectionValue(edge, state, finalHidden).valid) {
+                return true;
+              }
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   Future<void> _materializeForeignKeyVisibility({
+    required _ForeignKeyProjectionState state,
     required Set<_MergeRowKey> currentHidden,
     required Set<_MergeRowKey> finalHidden,
     required Transaction transaction,
   }) async {
     final rowsToHide = finalHidden.difference(currentHidden);
     final rowsToRestore = currentHidden.difference(finalHidden);
+    final rowsToRestoreWithBase = <_MergeRowKey>{};
+    for (final rowKey in rowsToRestore) {
+      final row = state.rows[rowKey];
+      if (row != null && _isBaseHiddenRow(row, state)) {
+        rowsToRestoreWithBase.add(rowKey);
+      }
+    }
+    final rowsToHideByReason = <CrdtDataDeletedReason, Set<_MergeRowKey>>{};
+    for (final rowKey in rowsToHide) {
+      final row = state.rows[rowKey];
+      final reason = row == null ? null : _projectionRestoredBaseReason(row);
+      rowsToHideByReason
+          .putIfAbsent(reason ?? CrdtDataDeletedReason.cascadeDelete, () => {})
+          .add(rowKey);
+    }
 
-    await _markProjectionRowsDeleted(
-      rowsToHide,
-      isDeleted: true,
-      reason: CrdtDataDeletedReason.cascadeDelete,
-      transaction: transaction,
-    );
+    await _preserveBaseTombstones(rowsToRestoreWithBase, transaction);
+    for (final MapEntry(key: reason, value: rowKeys) in rowsToHideByReason.entries) {
+      await _markProjectionRowsDeleted(
+        rowKeys,
+        isDeleted: true,
+        reason: reason,
+        transaction: transaction,
+      );
+    }
+    await _deletePreservedBaseTombstones(rowsToHide, transaction);
     await _markProjectionRowsDeleted(
       rowsToRestore,
       isDeleted: false,
       reason: CrdtDataDeletedReason.restrictRestore,
       transaction: transaction,
     );
+  }
+
+  Future<void> _preserveBaseTombstones(
+    Set<_MergeRowKey> rowKeys,
+    Transaction transaction,
+  ) async {
+    if (rowKeys.isEmpty) return;
+
+    final rowIdsByTable = <String, Set<UuidValue>>{};
+    for (final rowKey in rowKeys) {
+      rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
+    }
+
+    final userId = _getHlcManager(transaction).normalizedUserId;
+    for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
+      final (tableId, _) = _schema[tableName]!;
+      await _db.unsafeExecute(
+        '''
+INSERT INTO "crdt_data_foreign_key_base_tombstone"
+  ("rowId", "nodeId", "hlcDatetime", "hlcCounter", "clFlag", "reason")
+SELECT tomb."rowId", tomb."nodeId", tomb."hlcDatetime", tomb."hlcCounter",
+       tomb."clFlag", tomb."reason"
+FROM "crdt_data_rows" r
+JOIN "crdt_data_tombstone" tomb ON tomb."rowId" = r."id"
+WHERE r."userId" = $userId
+  AND r."tblId" = $tableId
+  AND r."uuidRowId" IN (${_sqlLiteralList(rowIds)})
+ON CONFLICT("rowId") DO UPDATE SET
+  "nodeId" = excluded."nodeId",
+  "hlcDatetime" = excluded."hlcDatetime",
+  "hlcCounter" = excluded."hlcCounter",
+  "clFlag" = excluded."clFlag",
+  "reason" = excluded."reason"
+''',
+        transaction: transaction,
+      );
+    }
+  }
+
+  Future<void> _deletePreservedBaseTombstones(
+    Set<_MergeRowKey> rowKeys,
+    Transaction transaction,
+  ) async {
+    if (rowKeys.isEmpty) return;
+
+    final rowIdsByTable = <String, Set<UuidValue>>{};
+    for (final rowKey in rowKeys) {
+      rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
+    }
+
+    final userId = _getHlcManager(transaction).normalizedUserId;
+    for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
+      final (tableId, _) = _schema[tableName]!;
+      await _db.unsafeExecute(
+        '''
+DELETE FROM "crdt_data_foreign_key_base_tombstone"
+WHERE "rowId" IN (
+  SELECT r."id"
+  FROM "crdt_data_rows" r
+  WHERE r."userId" = $userId
+    AND r."tblId" = $tableId
+    AND r."uuidRowId" IN (${_sqlLiteralList(rowIds)})
+)
+''',
+        transaction: transaction,
+      );
+    }
   }
 
   Future<void> _markProjectionRowsDeleted(
@@ -818,8 +956,8 @@ WHERE "fieldId" IN (${_sqlLiteralList(fieldIds)})
     required String? overrideReason,
     required Transaction transaction,
   }) async {
-    final attemptedSql = _uuidTextLiteral(attemptedValue);
-    final visibleSql = _uuidTextLiteral(visibleValue);
+    final attemptedSql = _uuidLiteral(attemptedValue);
+    final visibleSql = _uuidLiteral(visibleValue);
     final hasOverrideSql = hasOverride ? 1 : 0;
     final reasonSql = overrideReason == null ? 'NULL' : _sqlLiteral(overrideReason);
 
@@ -842,8 +980,8 @@ WHERE "attemptedValue" IS NOT excluded."attemptedValue"
     );
   }
 
-  String _uuidTextLiteral(UuidValue? value) {
-    return value == null ? 'NULL' : _sqlLiteral(value.uuid);
+  String _uuidLiteral(UuidValue? value) {
+    return value == null ? 'NULL' : _sqlLiteral(value);
   }
 
   UuidValue? _uuidValueFromDatabase(Object? value) {
