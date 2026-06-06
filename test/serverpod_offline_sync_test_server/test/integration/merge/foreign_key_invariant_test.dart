@@ -351,7 +351,7 @@ void main() {
         });
 
         test(
-          'then the projection override becomes inactive and the new user value is visible.',
+          'then the projection override becomes inactive and foreign key tracking records the new visible user value.',
           () async {
             final visibleChild = await Town.db.findById(session, child.id!);
             final projection = await _findForeignKeyProjection(
@@ -364,6 +364,88 @@ void main() {
             expect(projection, isNotNull);
             expect(projection!.attemptedValue, newParent.id!.uuid);
             expect(projection.visibleValue, newParent.id!.uuid);
+            expect(projection.hasOverride, isFalse);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a set-null projection has materialized a null foreign key from a merged parent delete, ',
+    () {
+      late Person attemptedParent;
+      late Town child;
+      late CrdtMergeDelete remoteParentRestore;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          attemptedParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'restored mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'restored set null town',
+              mayorId: attemptedParent.id,
+            ),
+            transaction: tx,
+          );
+          child = await Town.db.updateRow(
+            session,
+            child.copyWith(mayorId: attemptedParent.id),
+            columns: (t) => [t.mayorId],
+            transaction: tx,
+          );
+        });
+
+        final parentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: attemptedParent.id!,
+          after: await _rowHlc(attemptedParent.id!),
+        );
+        remoteParentRestore = _restoreChange(
+          tableName: Person.t.tableName,
+          rowId: attemptedParent.id!,
+          after: parentDelete.hlc,
+        );
+
+        await session.db.mergeChanges(
+          [parentDelete],
+          userId: testCrdtUserId,
+        );
+      });
+
+      group('when a later merge restores the attempted parent, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remoteParentRestore],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the child foreign key is restored and projection metadata records the visible attempted value.',
+          () async {
+            final visibleParent = await Person.db.findById(
+              session,
+              attemptedParent.id!,
+            );
+            final visibleChild = await Town.db.findById(session, child.id!);
+            final projection = await _findForeignKeyProjection(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+            );
+
+            expect(visibleParent, isNotNull);
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.mayorId, attemptedParent.id);
+            expect(projection, isNotNull);
+            expect(projection!.attemptedValue, attemptedParent.id!.uuid);
+            expect(projection.visibleValue, attemptedParent.id!.uuid);
             expect(projection.hasOverride, isFalse);
           },
         );
@@ -490,18 +572,26 @@ void main() {
         });
 
         test(
-          'then the inserted attempted value is preserved in projection metadata.',
+          'then the inserted child remains visible with a materialized null foreign key.',
           () async {
             final visibleChild = await Town.db.findById(session, child.id!);
+
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.mayorId, isNull);
+          },
+        );
+
+        test(
+          'then the inserted attempted value is preserved in projection metadata.',
+          () async {
             final projection = await _findForeignKeyProjection(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
 
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.mayorId, isNull);
             expect(projection, isNotNull);
             expect(projection!.attemptedValue, attemptedParent.id!.uuid);
+            expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
           },
         );
@@ -656,6 +746,21 @@ void main() {
             expect(visibleChild!.townId, attemptedTown.id);
           },
         );
+
+        test(
+          'then no set-default projection override is materialized for the unrepairable delete.',
+          () async {
+            final projection = await _findForeignKeyProjection(
+              rowId: child.id!,
+              columnName: Company.t.townId.columnName,
+            );
+
+            expect(projection, isNotNull);
+            expect(projection!.attemptedValue, attemptedTown.id!.uuid);
+            expect(projection.visibleValue, attemptedTown.id!.uuid);
+            expect(projection.hasOverride, isFalse);
+          },
+        );
       });
     },
   );
@@ -763,6 +868,8 @@ void main() {
       late Organization organization;
       late Person person;
       late CrdtMergeDelete remoteCityDelete;
+      late List<String> tombstonesAfterMerge;
+      late List<String> tombstonesAfterReplay;
 
       setUp(() async {
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -818,20 +925,28 @@ void main() {
             expect(await Person.db.findById(session, person.id!), isNull);
           },
         );
+      });
+
+      group('when the root delete is merged and replayed, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remoteCityDelete],
+            userId: testCrdtUserId,
+          );
+          tombstonesAfterMerge = await _tombstoneSnapshot();
+
+          await session.db.mergeChanges(
+            [remoteCityDelete],
+            userId: testCrdtUserId,
+          );
+          tombstonesAfterReplay = await _tombstoneSnapshot();
+        });
 
         test(
-          'then replaying the same delete facts does not change cascade metadata.',
+          'then the cascade metadata does not change.',
           () async {
-            final tombstonesBeforeReplay = await _tombstoneSnapshot();
-            expect(tombstonesBeforeReplay, hasLength(3));
-
-            await session.db.mergeChanges(
-              [remoteCityDelete],
-              userId: testCrdtUserId,
-            );
-
-            final tombstonesAfterReplay = await _tombstoneSnapshot();
-            expect(tombstonesAfterReplay, tombstonesBeforeReplay);
+            expect(tombstonesAfterMerge, hasLength(3));
+            expect(tombstonesAfterReplay, tombstonesAfterMerge);
           },
         );
       });
@@ -928,6 +1043,7 @@ void main() {
       late Person person;
       late Address restrictChild;
       late CrdtMergeDelete remoteCityDelete;
+      late CrdtMergeDelete remoteRestrictChildDelete;
 
       setUp(() async {
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -977,6 +1093,12 @@ void main() {
           rowId: city.id!,
           after: cityHlc,
         );
+        final restrictChildHlc = await _rowHlc(restrictChild.id!);
+        remoteRestrictChildDelete = _deleteChange(
+          tableName: Address.t.tableName,
+          rowId: restrictChild.id!,
+          after: restrictChildHlc.maxBetween(remoteCityDelete.hlc),
+        );
       });
 
       group('when the root delete is merged, ', () {
@@ -1011,6 +1133,38 @@ void main() {
           },
         );
       });
+
+      group(
+        'when the root delete is merged and the restrict child delete is merged, ',
+        () {
+          setUp(() async {
+            await session.db.mergeChanges(
+              [remoteCityDelete],
+              userId: testCrdtUserId,
+            );
+            await session.db.mergeChanges(
+              [remoteRestrictChildDelete],
+              userId: testCrdtUserId,
+            );
+          });
+
+          test(
+            'then every row in the mixed chain is hidden.',
+            () async {
+              expect(await City.db.findById(session, city.id!), isNull);
+              expect(
+                await Organization.db.findById(session, organization.id!),
+                isNull,
+              );
+              expect(await Person.db.findById(session, person.id!), isNull);
+              expect(
+                await Address.db.findById(session, restrictChild.id!),
+                isNull,
+              );
+            },
+          );
+        },
+      );
     },
   );
 
@@ -1122,20 +1276,35 @@ void main() {
           test(
             'then both databases converge to the same repaired visible rows and foreign key projection.',
             () async {
-              final singleBatchSnapshot = await _setNullBatchingSnapshot(
+              final singleBatchChild = await Town.db.findById(
                 singleBatchSession,
                 child.id!,
               );
-              final splitBatchSnapshot = await _setNullBatchingSnapshot(
+              final splitBatchChild = await Town.db.findById(
                 splitBatchSession,
                 child.id!,
               );
+              final singleBatchProjection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Town.t.mayorId.columnName,
+                databaseSession: singleBatchSession,
+              );
+              final splitBatchProjection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Town.t.mayorId.columnName,
+                databaseSession: splitBatchSession,
+              );
 
-              expect(singleBatchSnapshot, splitBatchSnapshot);
-              expect(singleBatchSnapshot.childName, 'updated batching town');
-              expect(singleBatchSnapshot.visibleMayorId, isNull);
-              expect(singleBatchSnapshot.attemptedMayorId, attemptedParent.id!.uuid);
-              expect(singleBatchSnapshot.hasOverride, isTrue);
+              expect(singleBatchChild?.name, splitBatchChild?.name);
+              expect(
+                singleBatchChild?.mayorId?.uuid,
+                splitBatchChild?.mayorId?.uuid,
+              );
+              expect(singleBatchProjection, splitBatchProjection);
+              expect(singleBatchChild?.name, 'updated batching town');
+              expect(singleBatchChild?.mayorId, isNull);
+              expect(singleBatchProjection?.attemptedValue, attemptedParent.id!.uuid);
+              expect(singleBatchProjection?.hasOverride, isTrue);
             },
           );
         },
@@ -1198,81 +1367,49 @@ Future<_ForeignKeyProjection?> _findForeignKeyProjection({
   required String columnName,
   CrdtDatabaseSession? databaseSession,
 }) async {
-  final result = await (databaseSession ?? session).db.unsafeQuery(
-    '''
-SELECT fk."attemptedValue", fk."visibleValue", fk."hasOverride"
-FROM "crdt_data_foreign_key" fk
-JOIN "crdt_data_fields" f ON f."id" = fk."fieldId"
-JOIN "crdt_data_rows" r ON r."id" = f."rowId"
-JOIN "crdt_schema_columns" c ON c."id" = f."columnId"
-WHERE lower(hex(r."uuidRowId")) = '${rowId.uuid.replaceAll('-', '')}'
-  AND c."name" = '$columnName'
-''',
+  final projection = await CrdtDataForeignKey.db.findFirstRow(
+    databaseSession ?? session,
+    where: (t) =>
+        t.field.row.uuidRowId.equals(rowId) & t.field.column.name.equals(columnName),
   );
 
-  if (result.isEmpty) return null;
-  final row = result.single;
+  if (projection == null) return null;
   return (
-    attemptedValue: _uuidStringFromDatabase(row[0]),
-    visibleValue: _uuidStringFromDatabase(row[1]),
-    hasOverride: row[2] == true || row[2] == 1,
+    attemptedValue: projection.attemptedValue?.uuid,
+    visibleValue: projection.visibleValue?.uuid,
+    hasOverride: projection.hasOverride,
   );
-}
-
-String? _uuidStringFromDatabase(Object? value) {
-  if (value == null) return null;
-  if (value is String) return value;
-  return UuidValueJsonExtension.fromJson(value).uuid;
 }
 
 Future<List<String>> _tombstoneSnapshot() async {
-  final rows = await session.db.unsafeQuery(
-    '''
-SELECT r."uuidRowId", tomb."clFlag", tomb."reason", tomb."hlcDatetime",
-       tomb."hlcCounter", n."uuidNodeId"
-FROM "crdt_data_tombstone" tomb
-JOIN "crdt_data_rows" r ON r."id" = tomb."rowId"
-JOIN "crdt_nodes" n ON n."id" = tomb."nodeId"
-ORDER BY r."uuidRowId"
-''',
+  final tombstones = await CrdtDataDeleted.db.find(
+    session,
+    include: CrdtDataDeleted.include(
+      row: CrdtDataRow.include(),
+      node: CrdtNode.include(),
+    ),
+  );
+  tombstones.sort(
+    (left, right) => left.row!.uuidRowId.uuid.compareTo(right.row!.uuidRowId.uuid),
   );
 
   return [
-    for (final row in rows)
-      '${row[0]}|${row[1]}|${row[2]}|${row[3]}|${row[4]}|${row[5]}',
+    for (final tombstone in tombstones)
+      [
+        tombstone.row!.uuidRowId.uuid,
+        tombstone.clFlag,
+        tombstone.reason.toJson(),
+        tombstone.hlcDatetime,
+        tombstone.hlcCounter,
+        tombstone.node!.uuidNodeId.uuid,
+      ].join('|'),
   ];
-}
-
-Future<_SetNullBatchingSnapshot> _setNullBatchingSnapshot(
-  CrdtDatabaseSession databaseSession,
-  UuidValue childId,
-) async {
-  final child = await Town.db.findById(databaseSession, childId);
-  final projection = await _findForeignKeyProjection(
-    rowId: childId,
-    columnName: Town.t.mayorId.columnName,
-    databaseSession: databaseSession,
-  );
-
-  return (
-    childName: child?.name,
-    visibleMayorId: child?.mayorId?.uuid,
-    attemptedMayorId: projection?.attemptedValue,
-    hasOverride: projection?.hasOverride,
-  );
 }
 
 typedef _ForeignKeyProjection = ({
   String? attemptedValue,
   String? visibleValue,
   bool hasOverride,
-});
-
-typedef _SetNullBatchingSnapshot = ({
-  String? childName,
-  String? visibleMayorId,
-  String? attemptedMayorId,
-  bool? hasOverride,
 });
 
 extension on DateTime {

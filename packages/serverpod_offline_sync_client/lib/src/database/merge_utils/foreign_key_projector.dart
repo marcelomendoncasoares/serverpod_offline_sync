@@ -505,22 +505,19 @@ WHERE r."userId" = $userId
   ) async {
     if (fieldIds.isEmpty) return {};
 
-    final result = await _db.unsafeQuery(
-      '''
-SELECT "fieldId", "attemptedValue", "visibleValue", "hasOverride"
-FROM "crdt_data_foreign_key"
-WHERE "fieldId" IN (${_sqlLiteralList(fieldIds)})
-''',
+    final projections = await CrdtDataForeignKey.db.find(
+      _session,
+      where: (t) => t.fieldId.inSet(fieldIds),
       transaction: transaction,
     );
 
     return {
-      for (final row in result)
-        row[0] as int: _ForeignKeyProjectionRow(
-          fieldId: row[0] as int,
-          attemptedValue: _uuidValueFromDatabase(row[1]),
-          visibleValue: _uuidValueFromDatabase(row[2]),
-          hasOverride: row[3] == true || row[3] == 1,
+      for (final projection in projections)
+        projection.fieldId: _ForeignKeyProjectionRow(
+          fieldId: projection.fieldId,
+          attemptedValue: projection.attemptedValue,
+          visibleValue: projection.visibleValue,
+          hasOverride: projection.hasOverride,
         ),
     };
   }
