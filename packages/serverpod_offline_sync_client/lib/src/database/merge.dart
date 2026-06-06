@@ -515,46 +515,21 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       transaction,
     );
 
-    await _upsertDomainRowById(
-      insert.tableName,
-      insert.uuidRowId,
-      data,
-      transaction,
-    );
+    final tableRow = _requireMergeInsertTableRow(insert);
+    final patchedRow = _db.serializationManager.patchTableRow(tableRow, data);
+    try {
+      await _db.updateRow(
+        patchedRow,
+        columns: patchedRow.table.managedColumns
+            .where((c) => data.containsKey(c.columnName))
+            .toList(),
+        transaction: transaction,
+      );
+    } on DatabaseUpdateRowException {
+      await _db.insertRow(patchedRow, transaction: transaction);
+    }
 
     return insertedCrdtRow;
-  }
-
-  Future<void> _upsertDomainRowById(
-    String tableName,
-    UuidValue rowId,
-    Map<String, Object?> data,
-    Transaction transaction,
-  ) async {
-    final columns = ['id', ...data.keys];
-    final escapedColumns = columns
-        .map((columnName) => '"${_escapeIdentifier(columnName)}"')
-        .join(', ');
-    final values = [
-      _sqlLiteral(rowId),
-      for (final columnName in data.keys) _sqlLiteral(data[columnName]),
-    ].join(', ');
-
-    final conflictAction = data.isEmpty
-        ? 'DO NOTHING'
-        : 'DO UPDATE SET ${data.keys.map((columnName) {
-            final escapedColumn = _escapeIdentifier(columnName);
-            return '"$escapedColumn" = EXCLUDED."$escapedColumn"';
-          }).join(', ')}';
-
-    await _db.unsafeExecute(
-      '''
-INSERT INTO "${_escapeIdentifier(tableName)}" ($escapedColumns)
-VALUES ($values)
-ON CONFLICT ("id") $conflictAction
-''',
-      transaction: transaction,
-    );
   }
 
   Future<void> _applyMergeInsertForExistingRow(
@@ -656,6 +631,16 @@ ON CONFLICT ("id") $conflictAction
     return true;
   }
 
+  TableRow _requireMergeInsertTableRow(CrdtMergeInsert insert) {
+    final row = insert.data;
+    if (row is TableRow) return row;
+
+    throw StateError(
+      'Unsupported merge insert payload type for "${insert.tableName}": '
+      '${row.runtimeType}. Expected subclass of TableRow.',
+    );
+  }
+
   CrdtNode _requireRemoteNode(
     Map<UuidValue, CrdtNode> remoteNodes,
     UuidValue uuidNodeId,
@@ -677,5 +662,18 @@ ON CONFLICT ("id") $conflictAction
       for (final MapEntry(key: columnName, value: value) in data.entries)
         if (columnName != 'id' && columns.containsKey(columnName)) columnName: value,
     };
+  }
+}
+
+extension on DatabaseSerializationManager {
+  /// Patches a [TableRow] with the given data.
+  T patchTableRow<T extends TableRow>(T row, Map<String, Object?> data) {
+    final rowJson = Map<String, dynamic>.from(row.toJson() as Map);
+    for (final column in row.table.managedColumns) {
+      if (column.columnName != 'id' && data.containsKey(column.columnName)) {
+        rowJson[column.fieldName] = data[column.columnName];
+      }
+    }
+    return deserialize<T>(rowJson);
   }
 }
