@@ -316,12 +316,26 @@ class CrdtMutationRecorder {
         'updated',
         transaction,
       );
-      await _recordUpdatedFields(updatedRows, crdtDataRows, columns, transaction);
+      final implicitForeignKeyRepairFields = columns == null
+          ? await _findImplicitForeignKeyRepairFields(
+              tableName: tableName,
+              rowIds: rowIds,
+              transaction: transaction,
+            )
+          : const <_MergeFieldKey>{};
+      await _recordUpdatedFields(
+        updatedRows,
+        crdtDataRows,
+        columns,
+        transaction,
+        skippedFields: implicitForeignKeyRepairFields,
+      );
       await _recordForeignKeyAttemptsForRows(
         tableName,
         rowIds,
         columns?.map((column) => column.columnName).toSet(),
         transaction,
+        skippedFields: implicitForeignKeyRepairFields,
       );
       await _projectForeignKeys(transaction);
     });
@@ -504,8 +518,9 @@ WHERE c."id" IN ($whereRowIds)
     List<T> updatedRows,
     List<CrdtDataRow> crdtDataRows,
     List<Column>? columns,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    Set<_MergeFieldKey> skippedFields = const {},
+  }) async {
     if (updatedRows.isEmpty || crdtDataRows.isEmpty) return;
 
     final crdtDataRowByUuid = {
@@ -545,6 +560,14 @@ WHERE c."id" IN ($whereRowIds)
       final crdtDataRow = crdtDataRowByUuid[row.id as UuidValue]!;
 
       for (final schemaCol in schemaColumns) {
+        if (skippedFields.contains((
+          table.tableName,
+          row.id as UuidValue,
+          schemaCol.name,
+        ))) {
+          continue;
+        }
+
         final hlc = hlcManager.increment();
         final rowPk = crdtDataRow.id!;
         final colPk = schemaCol.id!;

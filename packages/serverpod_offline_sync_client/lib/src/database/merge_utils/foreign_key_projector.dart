@@ -109,8 +109,9 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
     String tableName,
     Set<UuidValue> rowIds,
     Set<String>? columnNames,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    Set<_MergeFieldKey> skippedFields = const {},
+  }) async {
     if (rowIds.isEmpty) return;
 
     final foreignKeyColumns = {
@@ -142,6 +143,7 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
       for (final columnName in foreignKeyColumns) {
         final fieldId = fieldIds[(tableName, rowId, columnName)];
         if (fieldId == null) continue;
+        if (skippedFields.contains((tableName, rowId, columnName))) continue;
 
         final attemptedValue = _uuidValueFromDatabase(values[columnName]);
         await _upsertForeignKeyProjection(
@@ -239,6 +241,55 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
       columnIds.keys.toSet(),
       transaction,
     );
+  }
+
+  Future<Set<_MergeFieldKey>> _findImplicitForeignKeyRepairFields({
+    required String tableName,
+    required Set<UuidValue> rowIds,
+    required Transaction transaction,
+  }) async {
+    if (rowIds.isEmpty) return const {};
+
+    final foreignKeyColumns = {
+      for (final edge in _foreignKeyEdges)
+        if (edge.childTableName == tableName) edge.childColumn,
+    };
+    if (foreignKeyColumns.isEmpty) return const {};
+
+    await _ensureForeignKeyProjectionTable(transaction);
+    final fieldIds = await _findForeignKeyFieldIds(
+      tableName: tableName,
+      rowIds: rowIds,
+      columnNames: foreignKeyColumns,
+      transaction: transaction,
+    );
+    if (fieldIds.isEmpty) return const {};
+
+    final projections = await _loadForeignKeyProjections(
+      fieldIds.values.toSet(),
+      transaction,
+    );
+    final activeOverrideFields = {
+      for (final MapEntry(key: fieldKey, value: fieldId) in fieldIds.entries)
+        if (projections[fieldId]?.hasOverride == true) fieldKey: projections[fieldId]!,
+    };
+    if (activeOverrideFields.isEmpty) return const {};
+
+    final valuesByRowId = await _readDomainColumnValues(
+      tableName,
+      rowIds,
+      foreignKeyColumns.toList(),
+      transaction,
+    );
+    return {
+      for (final MapEntry(key: fieldKey, value: projection)
+          in activeOverrideFields.entries)
+        if (_sameUuidValue(
+          _uuidValueFromDatabase(valuesByRowId[fieldKey.$2]?[fieldKey.$3]),
+          projection.visibleValue,
+        ))
+          fieldKey,
+    };
   }
 
   Future<void> _projectForeignKeys(Transaction transaction) async {

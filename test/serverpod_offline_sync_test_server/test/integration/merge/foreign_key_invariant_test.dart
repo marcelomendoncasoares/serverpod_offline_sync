@@ -372,6 +372,83 @@ void main() {
   );
 
   group(
+    'Given a set-null projection is active on a row, ',
+    () {
+      late Person attemptedParent;
+      late Town child;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          attemptedParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'deleted mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'projected town',
+              mayorId: attemptedParent.id,
+            ),
+            transaction: tx,
+          );
+          child = await Town.db.updateRow(
+            session,
+            child.copyWith(mayorId: attemptedParent.id),
+            columns: (t) => [t.mayorId],
+            transaction: tx,
+          );
+        });
+
+        final parentHlc = await _rowHlc(attemptedParent.id!);
+        await session.db.mergeChanges(
+          [
+            _deleteChange(
+              tableName: Person.t.tableName,
+              rowId: attemptedParent.id!,
+              after: parentHlc,
+            ),
+          ],
+          userId: testCrdtUserId,
+        );
+      });
+
+      group('when the row is updated without narrowing columns, ', () {
+        setUp(() async {
+          final visibleChild = await Town.db.findById(session, child.id!);
+          await session.db.transactionForUser(testCrdtUserId, (tx) async {
+            child = await Town.db.updateRow(
+              session,
+              visibleChild!.copyWith(name: 'renamed projected town'),
+              transaction: tx,
+            );
+          });
+        });
+
+        test(
+          'then the non-foreign-key update does not promote the materialized repair to an attempted value.',
+          () async {
+            final visibleChild = await Town.db.findById(session, child.id!);
+            final projection = await _findForeignKeyProjection(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+            );
+
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.name, 'renamed projected town');
+            expect(visibleChild.mayorId, isNull);
+            expect(projection, isNotNull);
+            expect(projection!.attemptedValue, attemptedParent.id!.uuid);
+            expect(projection.visibleValue, isNull);
+            expect(projection.hasOverride, isTrue);
+          },
+        );
+      });
+    },
+  );
+
+  group(
     'Given a nullable foreign key with set-null whose attempted value only exists on insert, ',
     () {
       late Person attemptedParent;
