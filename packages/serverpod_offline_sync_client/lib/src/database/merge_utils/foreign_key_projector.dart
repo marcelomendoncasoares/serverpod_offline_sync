@@ -269,10 +269,12 @@ CREATE TABLE IF NOT EXISTS "crdt_data_foreign_key_base_tombstone" (
       fieldIds.values.toSet(),
       transaction,
     );
-    final activeOverrideFields = {
-      for (final MapEntry(key: fieldKey, value: fieldId) in fieldIds.entries)
-        if (projections[fieldId]?.hasOverride == true) fieldKey: projections[fieldId]!,
-    };
+    final activeOverrideFields = <_MergeFieldKey, _ForeignKeyProjectionRow>{};
+    for (final MapEntry(key: fieldKey, value: fieldId) in fieldIds.entries) {
+      final projection = projections[fieldId];
+      if (projection == null || !projection.hasOverride) continue;
+      activeOverrideFields[fieldKey] = projection;
+    }
     if (activeOverrideFields.isEmpty) return const {};
 
     final valuesByRowId = await _readDomainColumnValues(
