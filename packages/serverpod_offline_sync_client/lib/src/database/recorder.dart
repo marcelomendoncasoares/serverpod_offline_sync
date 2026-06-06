@@ -602,24 +602,24 @@ WHERE c."id" IN ($whereRowIds)
   }
 
   /// Records field updates by table name and UUID ids.
-  Future<void> recordFieldsUpdatedByTable(
+  Future<List<CrdtDataField>> recordFieldsUpdatedByTable(
     String tableName,
     Set<UuidValue> rowIds,
     List<String> columnNames,
     Transaction transaction,
   ) async {
-    if (rowIds.isEmpty || columnNames.isEmpty) return;
-    if (!_isCrdtTrackedTableName(tableName)) return;
+    if (rowIds.isEmpty || columnNames.isEmpty) return const [];
+    if (!_isCrdtTrackedTableName(tableName)) return const [];
 
     final crdtDataRows = await _findCrdtRows(tableName, rowIds, transaction);
-    if (crdtDataRows.isEmpty) return;
+    if (crdtDataRows.isEmpty) return const [];
 
     final (_, colMap) = _schema[tableName]!;
     final schemaColumns = [
       for (final columnName in columnNames)
         if (colMap[columnName] != null) colMap[columnName]!,
     ];
-    if (schemaColumns.isEmpty) return;
+    if (schemaColumns.isEmpty) return const [];
 
     final rowPks = crdtDataRows.map((r) => r.id!).toSet();
     final columnPks = schemaColumns.map((c) => c.id!).toSet();
@@ -662,12 +662,28 @@ WHERE c."id" IN ($whereRowIds)
       }
     }
 
+    final changedFields = <CrdtDataField>[];
+    final localNode = hlcManager.getNode();
     if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(_session, toInsert, transaction: transaction);
+      changedFields.addAll(
+        (await CrdtDataField.db.insert(
+          _session,
+          toInsert,
+          transaction: transaction,
+        )).map((field) => field.copyWith(node: localNode)),
+      );
     }
     if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(_session, toUpdate, transaction: transaction);
+      changedFields.addAll(
+        (await CrdtDataField.db.update(
+          _session,
+          toUpdate,
+          transaction: transaction,
+        )).map((field) => field.copyWith(node: localNode)),
+      );
     }
+
+    return changedFields;
   }
 
   Future<void> _markCrdtRowsDeleted(

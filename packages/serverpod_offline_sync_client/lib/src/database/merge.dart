@@ -277,21 +277,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
 
-      context.rows[rowKey] = resolvedInsert.changed
-          ? await _applyMergeInsertForMissingRowFromValues(
-              insert,
-              remoteNode,
-              incomingHlc,
-              resolvedInsert.data,
-              transaction,
-            )
-          : await _applyMergeInsertForMissingRow(
-              insert,
-              remoteNode,
-              incomingHlc,
-              resolvedInsert.data,
-              transaction,
-            );
+      context.rows[rowKey] = await _applyMergeInsertForMissingRow(
+        insert,
+        remoteNode,
+        incomingHlc,
+        resolvedInsert.data,
+        transaction,
+      );
     } else {
       await _applyMergeInsertForExistingRow(
         insert,
@@ -334,12 +326,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       context,
       transaction,
     );
-    final projectedColumnNames = [
-      for (final MapEntry(key: columnName, value: resolvedValue)
-          in resolvedUpdates.entries)
-        if (columnName != update.columnName || resolvedValue != update.value)
-          columnName,
-    ];
+    final conflictResolutionColumnNames = _columnsChangedByConflictResolution(
+      originalUpdates: {update.columnName: update.value},
+      resolvedUpdates: resolvedUpdates,
+    );
 
     await _updateDomainRows(
       update.tableName,
@@ -348,11 +338,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       transaction,
     );
 
-    if (projectedColumnNames.isNotEmpty) {
+    if (conflictResolutionColumnNames.isNotEmpty) {
       await recordFieldsUpdatedByTable(
         update.tableName,
         {update.uuidRowId},
-        projectedColumnNames,
+        conflictResolutionColumnNames,
         transaction,
       );
     }
@@ -539,39 +529,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       transaction,
     );
 
-    final row = _requireMergeInsertTableRow(insert);
-    try {
-      await _db.updateRow(
-        row,
-        columns: row.table.managedColumns
-            .where((c) => data.containsKey(c.columnName))
-            .toList(),
-        transaction: transaction,
-      );
-    } on DatabaseUpdateRowException {
-      await _db.insertRow(row, transaction: transaction);
-    }
-
-    return insertedCrdtRow;
-  }
-
-  Future<CrdtDataRow> _applyMergeInsertForMissingRowFromValues(
-    CrdtMergeInsert insert,
-    CrdtNode remoteNode,
-    Hlc incomingHlc,
-    Map<String, Object?> data,
-    Transaction transaction,
-  ) async {
-    final insertedCrdtRow = await _upsertMergeRow(
-      insert.tableName,
-      insert.uuidRowId,
-      remoteNode,
-      incomingHlc,
-      null,
-      transaction,
-    );
-
-    await _upsertDomainRowFromValues(
+    await _upsertDomainRowById(
       insert.tableName,
       insert.uuidRowId,
       data,
@@ -581,19 +539,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     return insertedCrdtRow;
   }
 
-  Future<void> _upsertDomainRowFromValues(
-    String tableName,
-    UuidValue rowId,
-    Map<String, Object?> data,
-    Transaction transaction,
-  ) async {
-    await _updateDomainRows(tableName, {rowId}, data, transaction);
-    if (await _domainRowExists(tableName, rowId, transaction)) return;
-
-    await _insertDomainRowFromValues(tableName, rowId, data, transaction);
-  }
-
-  Future<void> _insertDomainRowFromValues(
+  Future<void> _upsertDomainRowById(
     String tableName,
     UuidValue rowId,
     Map<String, Object?> data,
@@ -608,30 +554,21 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       for (final columnName in data.keys) _sqlLiteral(data[columnName]),
     ].join(', ');
 
+    final conflictAction = data.isEmpty
+        ? 'DO NOTHING'
+        : 'DO UPDATE SET ${data.keys.map((columnName) {
+            final escapedColumn = _escapeIdentifier(columnName);
+            return '"$escapedColumn" = EXCLUDED."$escapedColumn"';
+          }).join(', ')}';
+
     await _db.unsafeExecute(
       '''
 INSERT INTO "${_escapeIdentifier(tableName)}" ($escapedColumns)
 VALUES ($values)
+ON CONFLICT ("id") $conflictAction
 ''',
       transaction: transaction,
     );
-  }
-
-  Future<bool> _domainRowExists(
-    String tableName,
-    UuidValue rowId,
-    Transaction transaction,
-  ) async {
-    final result = await _db.unsafeQuery(
-      '''
-SELECT 1
-FROM "${_escapeIdentifier(tableName)}"
-WHERE "id" = ${_sqlLiteral(rowId)}
-LIMIT 1
-''',
-      transaction: transaction,
-    );
-    return result.isNotEmpty;
   }
 
   Future<void> _applyMergeInsertForExistingRow(
@@ -665,26 +602,22 @@ LIMIT 1
       updatedValues[columnName] = data[columnName];
     }
 
-    if (updatedValues.isNotEmpty) {
-      final resolvedUpdates = Map<String, Object?>.from(
-        await _uniqueConflictResolver._resolveForIncomingUpdates(
-          tableName: insert.tableName,
-          row: currentRow,
-          updates: updatedValues,
-          context: context,
-          transaction: transaction,
-        ),
+    var updatesToApply = updatedValues;
+    if (updatesToApply.isNotEmpty) {
+      updatesToApply = await _uniqueConflictResolver._resolveForIncomingUpdates(
+        tableName: insert.tableName,
+        row: currentRow,
+        updates: updatesToApply,
+        context: context,
+        transaction: transaction,
       );
-      updatedValues
-        ..clear()
-        ..addAll(resolvedUpdates);
     }
 
-    if (updatedValues.isNotEmpty) {
+    if (updatesToApply.isNotEmpty) {
       await _updateDomainRows(
         insert.tableName,
         {insert.uuidRowId},
-        updatedValues,
+        updatesToApply,
         transaction,
       );
     }
@@ -721,17 +654,7 @@ LIMIT 1
     if (resolvedSchemaColumn == null) return false;
 
     final fieldKey = (tableName, rowId, columnName);
-    var currentField = fields[fieldKey];
-    if (currentField == null) {
-      currentField = await CrdtDataField.db.findFirstRow(
-        _session,
-        where: (t) =>
-            t.rowId.equals(row.id) & t.columnId.equals(resolvedSchemaColumn.id),
-        include: CrdtDataField.include(node: CrdtNode.include()),
-        transaction: transaction,
-      );
-      if (currentField != null) fields[fieldKey] = currentField;
-    }
+    final currentField = fields[fieldKey];
 
     final currentHlc = currentField?.hlc ?? row.hlc;
     if (incomingHlc <= currentHlc) return false;
@@ -745,16 +668,6 @@ LIMIT 1
       transaction,
     );
     return true;
-  }
-
-  TableRow _requireMergeInsertTableRow(CrdtMergeInsert insert) {
-    final row = insert.data;
-    if (row is TableRow) return row;
-
-    throw StateError(
-      'Unsupported merge insert payload type for "${insert.tableName}": '
-      '${row.runtimeType}. Expected subclass of TableRow.',
-    );
   }
 
   CrdtNode _requireRemoteNode(
@@ -778,5 +691,18 @@ LIMIT 1
       for (final MapEntry(key: columnName, value: value) in data.entries)
         if (columnName != 'id' && columns.containsKey(columnName)) columnName: value,
     };
+  }
+
+  List<String> _columnsChangedByConflictResolution({
+    required Map<String, Object?> originalUpdates,
+    required Map<String, Object?> resolvedUpdates,
+  }) {
+    return [
+      for (final MapEntry(key: columnName, value: resolvedValue)
+          in resolvedUpdates.entries)
+        if (!originalUpdates.containsKey(columnName) ||
+            originalUpdates[columnName] != resolvedValue)
+          columnName,
+    ];
   }
 }
