@@ -616,7 +616,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     final fieldKey = (tableName, rowId, columnName);
     final currentField = fields[fieldKey];
-
     final currentHlc = currentField?.hlc ?? row.hlc;
     if (incomingHlc <= currentHlc) return false;
 

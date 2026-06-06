@@ -663,18 +663,10 @@ WHERE c."id" IN ($whereRowIds)
     }
 
     if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(
-        _session,
-        toInsert,
-        transaction: transaction,
-      );
+      await CrdtDataField.db.insert(_session, toInsert, transaction: transaction);
     }
     if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(
-        _session,
-        toUpdate,
-        transaction: transaction,
-      );
+      await CrdtDataField.db.update(_session, toUpdate, transaction: transaction);
     }
   }
 
@@ -902,6 +894,7 @@ WHERE c."id" IN ($whereRowIds)
             values[column.columnName],
             tableDefinition.name,
             rowId,
+            'deleted',
           );
         }
 
@@ -957,7 +950,7 @@ LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 LEFT JOIN "crdt_data_tombstone" tomb
   ON tomb."rowId" = r."id"
-WHERE ${predicates.join(' AND ')}
+WHERE (${predicates.join(') AND (')})
   AND (tomb."id" IS NULL OR tomb."clFlag" % 2 = 1)
 ''',
       transaction: transaction,
@@ -1038,21 +1031,20 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     Object? value,
     String tableName,
     UuidValue conflictingId,
+    String releaseSuffix,
   ) {
     switch (column.kind) {
       case _UniqueConflictReleaseKind.setNull:
         return null;
       case _UniqueConflictReleaseKind.textSuffix:
         if (value is String) {
-          return '${value}__deleted__${conflictingId.uuid}';
+          return '${value}__${releaseSuffix}__${conflictingId.uuid}';
         }
       case _UniqueConflictReleaseKind.syntheticUuid:
         if (value != null) {
-          return _syntheticDeletedUuid(
-            tableName,
-            column.columnName,
-            UuidValueJsonExtension.fromJson(value),
-            conflictingId,
+          return const Uuid().v5obj(
+            Namespace.oid.value,
+            '$tableName.${column.columnName}:${value}__${releaseSuffix}__$conflictingId',
           );
         }
     }
@@ -1158,34 +1150,6 @@ _UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
 bool _isForeignKeyColumn(TableDefinition table, String columnName) {
   return table.foreignKeys.any(
     (fk) => fk.columns.length == 1 && fk.columns.single == columnName,
-  );
-}
-
-UuidValue _syntheticDeletedUuid(
-  String tableName,
-  String columnName,
-  UuidValue value,
-  UuidValue conflictingId,
-) {
-  return UuidValue.withValidation(
-    const Uuid().v5(
-      Namespace.oid.value,
-      '$tableName.$columnName:${value.uuid}:${conflictingId.uuid}',
-    ),
-  );
-}
-
-UuidValue _syntheticUniqueConflictUuid(
-  String tableName,
-  String columnName,
-  UuidValue value,
-  UuidValue conflictingId,
-) {
-  return UuidValue.withValidation(
-    const Uuid().v5(
-      Namespace.oid.value,
-      'unique-conflict:$tableName.$columnName:${value.uuid}:${conflictingId.uuid}',
-    ),
   );
 }
 

@@ -14,6 +14,7 @@ void main() {
     Address.t,
     Person.t,
     Types.t,
+    Unique.t,
   ];
 
   late CrdtDatabaseSession crdtSession;

@@ -14,7 +14,6 @@ void main() {
 
   final clientSyncTables = [client.Unique.t];
   final serverSyncTables = [server.Unique.t];
-  const syncBatchSize = 1;
 
   late client.Client syncHttpClient;
   late CrdtDatabaseSession serverSession;
@@ -30,7 +29,6 @@ void main() {
       rawServerSession.serverpod
         ..initializeCrdtSync(
           syncTables: serverSyncTables,
-          syncBatchSize: syncBatchSize,
         )
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
@@ -46,7 +44,6 @@ void main() {
         firstClientSession = CrdtDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
-          syncBatchSize: syncBatchSize,
           persistentUserId: testCrdtUserId,
         );
         await firstClientSession.db.initialize();
@@ -54,7 +51,6 @@ void main() {
         secondClientSession = CrdtDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: clientSyncTables,
-          syncBatchSize: syncBatchSize,
           persistentUserId: testCrdtUserId,
         );
         await secondClientSession.db.initialize();
@@ -62,7 +58,6 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
-          syncBatchSize: syncBatchSize,
         );
         await serverSession.db.initialize();
       });
@@ -71,33 +66,34 @@ void main() {
         await serverSession.clearUserTables();
       });
 
-      group(
-        'and an older server row conflicts with a newer incoming row,',
-        () {
-          late client.Unique olderRow;
-          late client.Unique newerRow;
+      group('and an older server row conflicts with a newer incoming row,', () {
+        late client.Unique olderRow;
+        late client.Unique newerRow;
 
+        setUp(() async {
+          olderRow = await client.Unique.db.insertRow(
+            firstClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+          );
+
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          newerRow = await client.Unique.db.insertRow(
+            secondClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+          );
+
+          await syncHttpClient.crdt.syncOnce(firstClientSession);
+        });
+
+        group('when the incoming row synchronizes,', () {
           setUp(() async {
-            olderRow = await client.Unique.db.insertRow(
-              firstClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
-            );
-            await Future<void>.delayed(const Duration(milliseconds: 2));
-            newerRow = await client.Unique.db.insertRow(
-              secondClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
-            );
-
+            await syncHttpClient.crdt.syncOnce(secondClientSession);
             await syncHttpClient.crdt.syncOnce(firstClientSession);
           });
 
           test(
-            'when the incoming row synchronizes, '
             'then both rows remain visible and the older row keeps the unique value.',
             () async {
-              await syncHttpClient.crdt.syncOnce(secondClientSession);
-              await syncHttpClient.crdt.syncOnce(firstClientSession);
-
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -107,36 +103,37 @@ void main() {
               );
             },
           );
-        },
-      );
+        });
+      });
 
-      group(
-        'and a newer server row conflicts with an older incoming row,',
-        () {
-          late client.Unique olderRow;
-          late client.Unique newerRow;
+      group('and a newer server row conflicts with an older incoming row,', () {
+        late client.Unique olderRow;
+        late client.Unique newerRow;
 
+        setUp(() async {
+          olderRow = await client.Unique.db.insertRow(
+            secondClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+          );
+
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          newerRow = await client.Unique.db.insertRow(
+            firstClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+          );
+
+          await syncHttpClient.crdt.syncOnce(firstClientSession);
+        });
+
+        group('when the incoming row synchronizes,', () {
           setUp(() async {
-            olderRow = await client.Unique.db.insertRow(
-              secondClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
-            );
-            await Future<void>.delayed(const Duration(milliseconds: 2));
-            newerRow = await client.Unique.db.insertRow(
-              firstClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
-            );
-
+            await syncHttpClient.crdt.syncOnce(secondClientSession);
             await syncHttpClient.crdt.syncOnce(firstClientSession);
           });
 
           test(
-            'when the incoming row synchronizes, '
             'then both rows remain visible and the older row keeps the unique value.',
             () async {
-              await syncHttpClient.crdt.syncOnce(secondClientSession);
-              await syncHttpClient.crdt.syncOnce(firstClientSession);
-
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -146,51 +143,54 @@ void main() {
               );
             },
           );
-        },
-      );
+        });
+      });
 
-      group(
-        'and a newer server update conflicts with an older incoming update,',
-        () {
-          late client.Unique olderUpdatedRow;
-          late client.Unique newerUpdatedRow;
+      group('and a newer server update conflicts with an older incoming update,', () {
+        late client.Unique olderUpdatedRow;
+        late client.Unique newerUpdatedRow;
 
+        setUp(() async {
+          olderUpdatedRow = await client.Unique.db.insertRow(
+            firstClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
+          );
+          newerUpdatedRow = await client.Unique.db.insertRow(
+            firstClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'second-name'),
+          );
+
+          // Ensures the row and update are visible on all nodes.
+          await syncHttpClient.crdt.syncOnce(firstClientSession);
+          await syncHttpClient.crdt.syncOnce(secondClientSession);
+
+          // The `firstClientSession` holds the older update.
+          await client.Unique.db.updateRow(
+            firstClientSession,
+            olderUpdatedRow.copyWith(name: 'shared-name'),
+          );
+
+          // The `secondClientSession` holds the newer update.
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          await client.Unique.db.updateRow(
+            secondClientSession,
+            newerUpdatedRow.copyWith(name: 'shared-name'),
+          );
+
+          // The `secondClientSession` syncs first, so the newer update
+          // reaches the server first.
+          await syncHttpClient.crdt.syncOnce(secondClientSession);
+        });
+
+        group('when the incoming update synchronizes,', () {
           setUp(() async {
-            olderUpdatedRow = await client.Unique.db.insertRow(
-              firstClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
-            );
-            newerUpdatedRow = await client.Unique.db.insertRow(
-              firstClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'second-name'),
-            );
             await syncHttpClient.crdt.syncOnce(firstClientSession);
-            await syncHttpClient.crdt.syncOnce(secondClientSession);
-
-            // The `firstClientSession` holds the older update.
-            await client.Unique.db.updateRow(
-              firstClientSession,
-              olderUpdatedRow.copyWith(name: 'shared-name'),
-            );
-            await Future<void>.delayed(const Duration(milliseconds: 2));
-            // The `secondClientSession` holds the newer update.
-            await client.Unique.db.updateRow(
-              secondClientSession,
-              newerUpdatedRow.copyWith(name: 'shared-name'),
-            );
-
-            // The `secondClientSession` syncs first, so the newer update
-            // reaches the server first.
             await syncHttpClient.crdt.syncOnce(secondClientSession);
           });
 
           test(
-            'when the incoming update synchronizes, '
             'then both rows remain visible and the row with the older unique update keeps the unique value.',
             () async {
-              await syncHttpClient.crdt.syncOnce(firstClientSession);
-              await syncHttpClient.crdt.syncOnce(secondClientSession);
-
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -201,41 +201,43 @@ void main() {
             },
             timeout: const Timeout(Duration(seconds: 60)),
           );
-        },
-      );
+        });
+      });
 
-      group(
-        'and an older incoming insert conflicts with a newer server update,',
-        () {
-          late client.Unique insertedRow;
-          late client.Unique updatedRow;
+      group('and an older incoming insert conflicts with a newer server update,', () {
+        late client.Unique insertedRow;
+        late client.Unique updatedRow;
 
+        setUp(() async {
+          updatedRow = await client.Unique.db.insertRow(
+            firstClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
+          );
+
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          insertedRow = await client.Unique.db.insertRow(
+            secondClientSession,
+            client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+          );
+
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          await client.Unique.db.updateRow(
+            firstClientSession,
+            updatedRow.copyWith(name: 'shared-name'),
+          );
+
+          await syncHttpClient.crdt.syncOnce(firstClientSession);
+        });
+
+        group('when the incoming insert synchronizes,', () {
           setUp(() async {
-            updatedRow = await client.Unique.db.insertRow(
-              firstClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
-            );
-            await Future<void>.delayed(const Duration(milliseconds: 2));
-            insertedRow = await client.Unique.db.insertRow(
-              secondClientSession,
-              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
-            );
-            await Future<void>.delayed(const Duration(milliseconds: 2));
-            await client.Unique.db.updateRow(
-              firstClientSession,
-              updatedRow.copyWith(name: 'shared-name'),
-            );
-
+            await syncHttpClient.crdt.syncOnce(secondClientSession);
             await syncHttpClient.crdt.syncOnce(firstClientSession);
           });
 
           test(
-            'when the incoming insert synchronizes, '
             'then both rows remain visible and the row with the older unique value keeps it on every node.',
             () async {
-              await syncHttpClient.crdt.syncOnce(secondClientSession);
-              await syncHttpClient.crdt.syncOnce(firstClientSession);
-
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -246,8 +248,8 @@ void main() {
             },
             timeout: const Timeout(Duration(seconds: 60)),
           );
-        },
-      );
+        });
+      });
     },
   );
 }
