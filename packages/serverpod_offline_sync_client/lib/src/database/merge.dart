@@ -74,6 +74,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
+    await _projectForeignKeys(transaction);
     await _updateHlcFromIncomingOperations(
       operations,
       remoteNodes,
@@ -284,6 +285,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         resolvedInsert.data,
         transaction,
       );
+      await _recordForeignKeyInsertAttempts(
+        insert.tableName,
+        {insert.uuidRowId},
+        transaction,
+      );
     } else {
       await _applyMergeInsertForExistingRow(
         insert,
@@ -330,6 +336,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       update.tableName,
       {update.uuidRowId},
       resolvedUpdates,
+      transaction,
+    );
+    await _recordForeignKeyAttemptsForRows(
+      update.tableName,
+      {update.uuidRowId},
+      resolvedUpdates.keys.toSet(),
       transaction,
     );
   }
@@ -579,6 +591,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         insert.tableName,
         {insert.uuidRowId},
         updatesToApply,
+        transaction,
+      );
+      await _recordForeignKeyAttemptsForRows(
+        insert.tableName,
+        {insert.uuidRowId},
+        updatesToApply.keys.toSet(),
         transaction,
       );
     }

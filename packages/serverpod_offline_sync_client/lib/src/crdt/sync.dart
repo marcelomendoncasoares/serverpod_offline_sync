@@ -380,6 +380,7 @@ class CrdtSync {
         session,
         tableName,
         row.uuidRowId,
+        row.id!,
         table,
         dartName,
       );
@@ -414,10 +415,16 @@ class CrdtSync {
     for (final field in fields) {
       final tableName = field.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
+      if (field.hlcDatetime == field.row!.hlcDatetime &&
+          field.hlcCounter == field.row!.hlcCounter &&
+          field.nodeId == field.row!.nodeId) {
+        continue;
+      }
 
       final columnName = field.column!.name;
-      final decodedValue = await _fetchColumnValue(
+      final decodedValue = await _fetchColumnValueForField(
         session,
+        field.id!,
         tableName,
         field.row!.uuidRowId,
         columnName,
@@ -508,21 +515,48 @@ class CrdtSync {
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
+    int crdtRowId,
     Table table,
     String dartName,
   ) async {
-    final cols = table.columns.map((column) => '"${column.columnName}"').join(', ');
+    final cols = table.columns
+        .map((column) => '"${_escapeIdentifier(column.columnName)}"')
+        .join(', ');
     final encodedRowId = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
-      'SELECT $cols FROM "$tableName" WHERE "id" = $encodedRowId',
+      'SELECT $cols FROM "${_escapeIdentifier(tableName)}" '
+      'WHERE "id" = $encodedRowId',
     );
     if (result.isEmpty) return null;
 
     final columnMap = result.first.toColumnMap();
+    await _applyProjectedForeignKeyAttempts(
+      session,
+      crdtRowId,
+      columnMap,
+    );
     return session.db.serializationManager.deserializeByClassName({
       'className': dartName,
       'data': columnMap,
     });
+  }
+
+  Future<dynamic> _fetchColumnValueForField(
+    DatabaseSession session,
+    int fieldId,
+    String tableName,
+    UuidValue rowId,
+    String columnName,
+  ) async {
+    final projectedValue = await _fetchProjectedForeignKeyAttempt(
+      session,
+      fieldId,
+    );
+    if (projectedValue != null) {
+      return _decodeColumnValue(tableName, columnName, projectedValue);
+    }
+
+    return _fetchColumnValue(session, tableName, rowId, columnName);
   }
 
   Future<dynamic> _fetchColumnValue(
@@ -533,10 +567,68 @@ class CrdtSync {
   ) async {
     final encodedValue = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
-      'SELECT "$columnName" FROM "$tableName" WHERE "id" = $encodedValue',
+      'SELECT "${_escapeIdentifier(columnName)}" '
+      'FROM "${_escapeIdentifier(tableName)}" '
+      'WHERE "id" = $encodedValue',
     );
     if (result.isEmpty) return null;
     return _decodeColumnValue(tableName, columnName, result.first[0]);
+  }
+
+  Future<void> _applyProjectedForeignKeyAttempts(
+    DatabaseSession session,
+    int crdtRowId,
+    Map<String, dynamic> columnMap,
+  ) async {
+    if (!await _hasForeignKeyProjectionTable(session)) return;
+
+    final projections = await session.db.unsafeQuery(
+      '''
+SELECT c."name", fk."attemptedValue"
+FROM "crdt_data_foreign_key" fk
+JOIN "crdt_data_fields" f ON f."id" = fk."fieldId"
+JOIN "crdt_schema_columns" c ON c."id" = f."columnId"
+WHERE f."rowId" = $crdtRowId
+  AND fk."hasOverride" != 0
+''',
+    );
+
+    for (final projection in projections) {
+      columnMap[projection[0] as String] = projection[1];
+    }
+  }
+
+  Future<Object?> _fetchProjectedForeignKeyAttempt(
+    DatabaseSession session,
+    int fieldId,
+  ) async {
+    if (!await _hasForeignKeyProjectionTable(session)) return null;
+
+    final projection = await session.db.unsafeQuery(
+      '''
+SELECT "attemptedValue"
+FROM "crdt_data_foreign_key"
+WHERE "fieldId" = $fieldId
+  AND "hasOverride" != 0
+LIMIT 1
+''',
+    );
+
+    if (projection.isEmpty) return null;
+    return projection.first[0];
+  }
+
+  Future<bool> _hasForeignKeyProjectionTable(DatabaseSession session) async {
+    final result = await session.db.unsafeQuery(
+      '''
+SELECT 1
+FROM "sqlite_master"
+WHERE "type" = 'table'
+  AND "name" = 'crdt_data_foreign_key'
+LIMIT 1
+''',
+    );
+    return result.isNotEmpty;
   }
 
   dynamic _decodeColumnValue(String tableName, String columnName, Object? value) {
@@ -562,6 +654,8 @@ class CrdtSync {
         : dartType;
     return withoutNullable.split(':').last;
   }
+
+  String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
 
   static String _computeCanonicalSyncTablesSignature(
     List<Table> syncTables, {

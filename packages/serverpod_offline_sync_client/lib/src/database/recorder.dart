@@ -12,6 +12,7 @@ import 'schema.dart';
 import 'session.dart';
 
 part 'merge.dart';
+part 'merge_utils/foreign_key_projector.dart';
 part 'merge_utils/unique_resolver.dart';
 
 typedef _ReferencingForeignKey = ({
@@ -19,6 +20,16 @@ typedef _ReferencingForeignKey = ({
   String childColumn,
   String parentColumn,
   ForeignKeyAction action,
+});
+
+typedef _ForeignKeyEdge = ({
+  String childTableName,
+  String childColumn,
+  String parentTableName,
+  String parentColumn,
+  ForeignKeyAction action,
+  bool childNullable,
+  Object? defaultValue,
 });
 
 typedef _UniqueIndexConflictRelease = ({
@@ -98,6 +109,29 @@ class CrdtMutationRecorder {
         return result;
       }();
 
+  late final List<_ForeignKeyEdge> _foreignKeyEdges = [
+    for (final table in _tableDefinitionsByName.values)
+      if (_isCrdtTrackedTableName(table.name))
+        for (final foreignKey in table.foreignKeys)
+          if (foreignKey.columns.length == 1 &&
+              foreignKey.referenceColumns.length == 1 &&
+              _isCrdtTrackedTableName(foreignKey.referenceTable))
+            (
+              childTableName: table.name,
+              childColumn: foreignKey.columns.single,
+              parentTableName: foreignKey.referenceTable,
+              parentColumn: foreignKey.referenceColumns.single,
+              action: foreignKey.onDelete ?? ForeignKeyAction.noAction,
+              childNullable:
+                  _columnsByTableAndName[table.name]![foreignKey.columns.single]!
+                      .isNullable,
+              defaultValue: _defaultValueForColumn(
+                table.name,
+                foreignKey.columns.single,
+              ),
+            ),
+  ];
+
   final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
   late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
@@ -132,6 +166,8 @@ class CrdtMutationRecorder {
           columnsByTableId[t.id!] ?? {},
         ),
     };
+
+    await _ensureForeignKeyProjectionTable(null);
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for
@@ -220,6 +256,9 @@ class CrdtMutationRecorder {
         transaction: transaction,
         ignoreConflicts: true,
       );
+
+      await _recordForeignKeyInsertAttempts(tableName, rowIds, transaction);
+      await _projectForeignKeys(transaction);
     });
   }
 
@@ -248,6 +287,13 @@ class CrdtMutationRecorder {
         transaction,
       );
       await _recordUpdatedFields(reinsertedRows, crdtDataRows, null, transaction);
+      await _recordForeignKeyAttemptsForRows(
+        tableName,
+        rowIds,
+        null,
+        transaction,
+      );
+      await _projectForeignKeys(transaction);
     });
   }
 
@@ -271,6 +317,13 @@ class CrdtMutationRecorder {
         transaction,
       );
       await _recordUpdatedFields(updatedRows, crdtDataRows, columns, transaction);
+      await _recordForeignKeyAttemptsForRows(
+        tableName,
+        rowIds,
+        columns?.map((column) => column.columnName).toSet(),
+        transaction,
+      );
+      await _projectForeignKeys(transaction);
     });
   }
 
