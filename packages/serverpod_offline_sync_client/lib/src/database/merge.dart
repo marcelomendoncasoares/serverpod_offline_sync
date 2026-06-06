@@ -326,26 +326,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       context,
       transaction,
     );
-    final conflictResolutionColumnNames = _columnsChangedByConflictResolution(
-      originalUpdates: {update.columnName: update.value},
-      resolvedUpdates: resolvedUpdates,
-    );
-
     await _updateDomainRows(
       update.tableName,
       {update.uuidRowId},
       resolvedUpdates,
       transaction,
     );
-
-    if (conflictResolutionColumnNames.isNotEmpty) {
-      await recordFieldsUpdatedByTable(
-        update.tableName,
-        {update.uuidRowId},
-        conflictResolutionColumnNames,
-        transaction,
-      );
-    }
   }
 
   Future<void> _applyMergeDelete(
@@ -691,18 +677,5 @@ ON CONFLICT ("id") $conflictAction
       for (final MapEntry(key: columnName, value: value) in data.entries)
         if (columnName != 'id' && columns.containsKey(columnName)) columnName: value,
     };
-  }
-
-  List<String> _columnsChangedByConflictResolution({
-    required Map<String, Object?> originalUpdates,
-    required Map<String, Object?> resolvedUpdates,
-  }) {
-    return [
-      for (final MapEntry(key: columnName, value: resolvedValue)
-          in resolvedUpdates.entries)
-        if (!originalUpdates.containsKey(columnName) ||
-            originalUpdates[columnName] != resolvedValue)
-          columnName,
-    ];
   }
 }

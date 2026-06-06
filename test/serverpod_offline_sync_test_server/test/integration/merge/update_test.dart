@@ -220,7 +220,7 @@ void main() {
     'Given a remote update that loses a composite unique conflict, ',
     () {
       late UniqueComposite loser;
-      late Hlc localCheckpoint;
+      late CrdtMergeUpdate remoteUpdate;
 
       setUp(() async {
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -244,17 +244,13 @@ void main() {
           );
         });
 
-        localCheckpoint = Hlc.now(
-          await session.db.currentNodeId(userId: testCrdtUserId),
-        );
-
         final loserCrdtRow = await CrdtDataRow.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(loser.id),
           include: CrdtDataRow.include(node: CrdtNode.include()),
         );
 
-        final remoteUpdate = CrdtMergeUpdate(
+        remoteUpdate = CrdtMergeUpdate(
           tableName: UniqueComposite.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -287,7 +283,7 @@ void main() {
         );
 
         test(
-          'then every released unique column receives fresh CRDT field metadata.',
+          'then the silently released unique column does not receive CRDT field metadata.',
           () async {
             final fields = await CrdtDataField.db.find(
               session,
@@ -304,15 +300,10 @@ void main() {
 
             expect(releasedFields.keys, {
               UniqueComposite.t.scope.columnName,
-              UniqueComposite.t.value.columnName,
             });
             expect(
               releasedFields[UniqueComposite.t.scope.columnName]!.hlc,
-              greaterThan(localCheckpoint),
-            );
-            expect(
-              releasedFields[UniqueComposite.t.value.columnName]!.hlc,
-              greaterThan(localCheckpoint),
+              remoteUpdate.hlc,
             );
           },
         );

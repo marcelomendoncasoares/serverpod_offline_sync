@@ -62,7 +62,6 @@ class CrdtUniqueConflictResolver {
           tableName: insert.tableName,
           rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
-          context: context,
           transaction: transaction,
         );
       }
@@ -185,7 +184,6 @@ class CrdtUniqueConflictResolver {
           tableName: tableName,
           rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
-          context: context,
           transaction: transaction,
         );
       }
@@ -225,7 +223,6 @@ class CrdtUniqueConflictResolver {
     required String tableName,
     required UuidValue rowId,
     required _UniqueIndexConflictRelease uniqueIndex,
-    required _MergeContext context,
     required Transaction transaction,
   }) async {
     final columnNames = _uniqueIndexColumnNames(uniqueIndex).toList();
@@ -245,37 +242,6 @@ class CrdtUniqueConflictResolver {
       uniqueIndex,
     );
     await _recorder._updateDomainRows(tableName, {rowId}, releasedValues, transaction);
-    final changedFields = await _recorder.recordFieldsUpdatedByTable(
-      tableName,
-      {rowId},
-      columnNames,
-      transaction,
-    );
-    _cacheFieldMetadata(
-      tableName: tableName,
-      rowId: rowId,
-      fields: changedFields,
-      context: context,
-    );
-  }
-
-  void _cacheFieldMetadata({
-    required String tableName,
-    required UuidValue rowId,
-    required List<CrdtDataField> fields,
-    required _MergeContext context,
-  }) {
-    final (_, columnsByName) = _recorder._schema[tableName]!;
-    final columnNamesById = {
-      for (final MapEntry(key: columnName, value: column) in columnsByName.entries)
-        if (column.id != null) column.id!: columnName,
-    };
-
-    for (final field in fields) {
-      final columnName = columnNamesById[field.columnId];
-      if (columnName == null) continue;
-      context.fields[(tableName, rowId, columnName)] = field;
-    }
   }
 
   Object? _uniqueConflictFreeValue(
