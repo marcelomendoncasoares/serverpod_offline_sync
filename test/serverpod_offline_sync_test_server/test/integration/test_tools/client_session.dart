@@ -86,6 +86,7 @@ Future<void> _initialize() async {
       Person.t,
       Town.t,
       Unique.t,
+      UniqueComposite.t,
       UniqueUuid.t,
     ],
     persistentUserId: _withPersistentUser ? _testCrdtUserId : null,

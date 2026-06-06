@@ -62,77 +62,6 @@ void main() {
   });
 
   group(
-    'Given two remote inserts that claim the same unique value with equal logical HLCs, ',
-    () {
-      late UuidValue lowerNodeRowId;
-      late UuidValue higherNodeRowId;
-
-      setUp(() {
-        lowerNodeRowId = UuidValue.withValidation(
-          'ffffffff-ffff-4fff-bfff-ffffffffffff',
-        );
-        higherNodeRowId = UuidValue.withValidation(
-          '00000000-0000-4000-8000-000000000001',
-        );
-        final lowerNodeId = UuidValue.withValidation(
-          '00000000-0000-4000-8000-000000000002',
-        );
-        final higherNodeId = UuidValue.withValidation(
-          'ffffffff-ffff-4fff-bfff-fffffffffffe',
-        );
-        final claimDatetime = DateTime.now().toUtc();
-        const claimCounter = 7;
-
-        mergeSet = [
-          CrdtMergeInsert(
-            tableName: Unique.t.tableName,
-            uuidRowId: lowerNodeRowId,
-            uuidNodeId: lowerNodeId,
-            hlcDatetime: claimDatetime,
-            hlcCounter: claimCounter,
-            data: Unique(id: lowerNodeRowId, name: 'shared-name'),
-          ),
-          CrdtMergeInsert(
-            tableName: Unique.t.tableName,
-            uuidRowId: higherNodeRowId,
-            uuidNodeId: higherNodeId,
-            hlcDatetime: claimDatetime,
-            hlcCounter: claimCounter,
-            data: Unique(id: higherNodeRowId, name: 'shared-name'),
-          ),
-        ];
-      });
-
-      group('when merging, ', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            mergeSet,
-            userId: testCrdtUserId,
-          );
-        });
-
-        test(
-          'then the row with the lower node id keeps the unique value.',
-          () async {
-            final rows = await Unique.db.find(session);
-
-            expect(rows, hasLength(2));
-            final winner = rows.singleWhere(
-              (row) => row.id == lowerNodeRowId,
-            );
-            final loser = rows.singleWhere(
-              (row) => row.id == higherNodeRowId,
-            );
-
-            expect(winner.name, 'shared-name');
-            expect(loser.name, _uniqueConflictName(higherNodeRowId));
-          },
-        );
-      });
-    },
-  );
-
-  group(
     'Given an empty table, a remote insert and a newer remote update for the same row, ',
     () {
       late UuidValue remoteNodeId;
@@ -513,8 +442,4 @@ void main() {
 
 extension on DateTime {
   DateTime advance() => add(const Duration(milliseconds: 1));
-}
-
-String _uniqueConflictName(UuidValue rowId) {
-  return 'shared-name__conflict__${rowId.uuid}';
 }

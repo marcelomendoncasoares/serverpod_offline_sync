@@ -78,9 +78,15 @@ void main() {
           late client.Unique newerRow;
 
           setUp(() async {
-            olderRow = await _insertUniqueRow(firstClientSession, 'shared-name');
-            await _allowNextHlc();
-            newerRow = await _insertUniqueRow(secondClientSession, 'shared-name');
+            olderRow = await client.Unique.db.insertRow(
+              firstClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+            newerRow = await client.Unique.db.insertRow(
+              secondClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+            );
 
             await syncHttpClient.crdt.syncOnce(firstClientSession);
           });
@@ -89,11 +95,9 @@ void main() {
             'when the incoming row synchronizes, '
             'then both rows remain visible and the older row keeps the unique value.',
             () async {
-              await _syncIncomingConflictToAllNodes(
-                syncHttpClient,
-                secondClientSession,
-                firstClientSession,
-              );
+              await syncHttpClient.crdt.syncOnce(secondClientSession);
+              await syncHttpClient.crdt.syncOnce(firstClientSession);
+
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -113,9 +117,15 @@ void main() {
           late client.Unique newerRow;
 
           setUp(() async {
-            olderRow = await _insertUniqueRow(secondClientSession, 'shared-name');
-            await _allowNextHlc();
-            newerRow = await _insertUniqueRow(firstClientSession, 'shared-name');
+            olderRow = await client.Unique.db.insertRow(
+              secondClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+            newerRow = await client.Unique.db.insertRow(
+              firstClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+            );
 
             await syncHttpClient.crdt.syncOnce(firstClientSession);
           });
@@ -124,11 +134,9 @@ void main() {
             'when the incoming row synchronizes, '
             'then both rows remain visible and the older row keeps the unique value.',
             () async {
-              await _syncIncomingConflictToAllNodes(
-                syncHttpClient,
-                secondClientSession,
-                firstClientSession,
-              );
+              await syncHttpClient.crdt.syncOnce(secondClientSession);
+              await syncHttpClient.crdt.syncOnce(firstClientSession);
+
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -148,24 +156,31 @@ void main() {
           late client.Unique newerUpdatedRow;
 
           setUp(() async {
-            olderUpdatedRow = await _insertUniqueRow(firstClientSession, 'first-name');
-            newerUpdatedRow = await _insertUniqueRow(firstClientSession, 'second-name');
-            await _syncRowsToAllNodes(
-              syncHttpClient,
+            olderUpdatedRow = await client.Unique.db.insertRow(
               firstClientSession,
-              secondClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
             );
+            newerUpdatedRow = await client.Unique.db.insertRow(
+              firstClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'second-name'),
+            );
+            await syncHttpClient.crdt.syncOnce(firstClientSession);
+            await syncHttpClient.crdt.syncOnce(secondClientSession);
 
+            // The `firstClientSession` holds the older update.
             await client.Unique.db.updateRow(
               firstClientSession,
               olderUpdatedRow.copyWith(name: 'shared-name'),
             );
-            await _allowNextHlc();
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+            // The `secondClientSession` holds the newer update.
             await client.Unique.db.updateRow(
               secondClientSession,
               newerUpdatedRow.copyWith(name: 'shared-name'),
             );
 
+            // The `secondClientSession` syncs first, so the newer update
+            // reaches the server first.
             await syncHttpClient.crdt.syncOnce(secondClientSession);
           });
 
@@ -173,11 +188,9 @@ void main() {
             'when the incoming update synchronizes, '
             'then both rows remain visible and the row with the older unique update keeps the unique value.',
             () async {
-              await _syncIncomingConflictToAllNodes(
-                syncHttpClient,
-                firstClientSession,
-                secondClientSession,
-              );
+              await syncHttpClient.crdt.syncOnce(firstClientSession);
+              await syncHttpClient.crdt.syncOnce(secondClientSession);
+
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -198,10 +211,16 @@ void main() {
           late client.Unique updatedRow;
 
           setUp(() async {
-            updatedRow = await _insertUniqueRow(firstClientSession, 'first-name');
-            await _allowNextHlc();
-            insertedRow = await _insertUniqueRow(secondClientSession, 'shared-name');
-            await _allowNextHlc();
+            updatedRow = await client.Unique.db.insertRow(
+              firstClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'first-name'),
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+            insertedRow = await client.Unique.db.insertRow(
+              secondClientSession,
+              client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 2));
             await client.Unique.db.updateRow(
               firstClientSession,
               updatedRow.copyWith(name: 'shared-name'),
@@ -214,11 +233,9 @@ void main() {
             'when the incoming insert synchronizes, '
             'then both rows remain visible and the row with the older unique value keeps it on every node.',
             () async {
-              await _syncIncomingConflictToAllNodes(
-                syncHttpClient,
-                secondClientSession,
-                firstClientSession,
-              );
+              await syncHttpClient.crdt.syncOnce(secondClientSession);
+              await syncHttpClient.crdt.syncOnce(firstClientSession);
+
               await _expectVisibleUniqueRowsOnAllNodes(
                 firstClientSession: firstClientSession,
                 secondClientSession: secondClientSession,
@@ -235,42 +252,6 @@ void main() {
   );
 }
 
-Future<client.Unique> _insertUniqueRow(
-  CrdtDatabaseSession session,
-  String name,
-) {
-  return client.Unique.db.insertRow(
-    session,
-    client.Unique(id: const Uuid().v7obj(), name: name),
-  );
-}
-
-Future<void> _allowNextHlc() {
-  return Future<void>.delayed(const Duration(milliseconds: 2));
-}
-
-Future<void> _syncRowsToAllNodes(
-  client.Client syncHttpClient,
-  CrdtDatabaseSession firstClientSession,
-  CrdtDatabaseSession secondClientSession,
-) async {
-  await syncHttpClient.crdt.syncOnce(firstClientSession);
-  await syncHttpClient.crdt.syncOnce(secondClientSession);
-  await syncHttpClient.crdt.syncOnce(firstClientSession);
-  await syncHttpClient.crdt.syncOnce(secondClientSession);
-}
-
-Future<void> _syncIncomingConflictToAllNodes(
-  client.Client syncHttpClient,
-  CrdtDatabaseSession incomingClientSession,
-  CrdtDatabaseSession existingClientSession,
-) async {
-  await syncHttpClient.crdt.syncOnce(incomingClientSession);
-  await syncHttpClient.crdt.syncOnce(existingClientSession);
-  await syncHttpClient.crdt.syncOnce(incomingClientSession);
-  await syncHttpClient.crdt.syncOnce(existingClientSession);
-}
-
 Future<void> _expectVisibleUniqueRowsOnAllNodes({
   required CrdtDatabaseSession firstClientSession,
   required CrdtDatabaseSession secondClientSession,
@@ -278,53 +259,38 @@ Future<void> _expectVisibleUniqueRowsOnAllNodes({
   required UuidValue originalValueId,
   required UuidValue conflictValueId,
 }) async {
-  await _expectVisibleClientUniqueRows(
-    firstClientSession,
-    originalValueId: originalValueId,
-    conflictValueId: conflictValueId,
+  final firstClientRows = await client.Unique.db.find(firstClientSession);
+  expect(firstClientRows, hasLength(2));
+  expect(
+    firstClientRows.singleWhere((row) => row.id == originalValueId).name,
+    'shared-name',
   );
-  await _expectVisibleClientUniqueRows(
-    secondClientSession,
-    originalValueId: originalValueId,
-    conflictValueId: conflictValueId,
+  expect(
+    firstClientRows.singleWhere((row) => row.id == conflictValueId).name,
+    'shared-name__conflict__${conflictValueId.uuid}',
   );
-  await _expectVisibleServerUniqueRows(
-    serverSession,
-    originalValueId: originalValueId,
-    conflictValueId: conflictValueId,
+
+  final secondClientRows = await client.Unique.db.find(secondClientSession);
+  expect(secondClientRows, hasLength(2));
+  expect(
+    secondClientRows.singleWhere((row) => row.id == originalValueId).name,
+    'shared-name',
   );
-}
+  expect(
+    secondClientRows.singleWhere((row) => row.id == conflictValueId).name,
+    'shared-name__conflict__${conflictValueId.uuid}',
+  );
 
-Future<void> _expectVisibleClientUniqueRows(
-  CrdtDatabaseSession session, {
-  required UuidValue originalValueId,
-  required UuidValue conflictValueId,
-}) async {
-  final rows = await client.Unique.db.find(session);
-
-  expect(rows, hasLength(2));
-  final originalValueRow = rows.singleWhere((row) => row.id == originalValueId);
-  final conflictValueRow = rows.singleWhere((row) => row.id == conflictValueId);
-  expect(originalValueRow.name, 'shared-name');
-  expect(conflictValueRow.name, _conflictName(conflictValueId));
-}
-
-Future<void> _expectVisibleServerUniqueRows(
-  CrdtDatabaseSession session, {
-  required UuidValue originalValueId,
-  required UuidValue conflictValueId,
-}) async {
-  final rows = await server.Unique.db.find(session);
-
-  expect(rows, hasLength(2));
-  final originalValueRow = rows.singleWhere((row) => row.id == originalValueId);
-  final conflictValueRow = rows.singleWhere((row) => row.id == conflictValueId);
-  expect(originalValueRow.name, 'shared-name');
-  expect(conflictValueRow.name, _conflictName(conflictValueId));
-}
-
-String _conflictName(UuidValue rowId) {
-  return 'shared-name__conflict__${rowId.uuid}';
+  final serverRows = await server.Unique.db.find(serverSession);
+  expect(serverRows, hasLength(2));
+  expect(
+    serverRows.singleWhere((row) => row.id == originalValueId).name,
+    'shared-name',
+  );
+  expect(
+    serverRows.singleWhere((row) => row.id == conflictValueId).name,
+    'shared-name__conflict__${conflictValueId.uuid}',
+  );
 }
 
 class TestClientAuthKeyProvider implements ClientAuthKeyProvider {

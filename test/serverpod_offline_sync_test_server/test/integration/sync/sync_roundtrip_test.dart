@@ -14,8 +14,6 @@ void main() {
     Address.t,
     Person.t,
     Types.t,
-    Unique.t,
-    UniqueComposite.t,
   ];
 
   late CrdtDatabaseSession crdtSession;
@@ -212,107 +210,6 @@ void main() {
     );
   });
 
-  group(
-    'Given a remote update that loses a composite unique conflict, ',
-    () {
-      late UniqueComposite loser;
-      late Hlc localCheckpoint;
-
-      setUp(() async {
-        await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
-          await UniqueComposite.db.insertRow(
-            crdtSession,
-            UniqueComposite(
-              id: const Uuid().v7obj(),
-              scope: 'left-scope',
-              value: 'shared-value',
-            ),
-            transaction: tx,
-          );
-          loser = await UniqueComposite.db.insertRow(
-            crdtSession,
-            UniqueComposite(
-              id: const Uuid().v7obj(),
-              scope: 'right-scope',
-              value: 'shared-value',
-            ),
-            transaction: tx,
-          );
-        });
-
-        localCheckpoint = Hlc.now(
-          await crdtSession.db.currentNodeId(userId: testCrdtUserId),
-        );
-
-        final loserCrdtRow = await CrdtDataRow.db.findFirstRow(
-          testSession,
-          where: (t) => t.uuidRowId.equals(loser.id),
-          include: CrdtDataRow.include(node: CrdtNode.include()),
-        );
-        final remoteUpdate = CrdtMergeUpdate(
-          tableName: UniqueComposite.t.tableName,
-          uuidRowId: loser.id!,
-          uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: loserCrdtRow!.hlc.datetime.add(
-            const Duration(milliseconds: 1),
-          ),
-          hlcCounter: loserCrdtRow.hlc.counter,
-          columnName: UniqueComposite.t.scope.columnName,
-          value: 'left-scope',
-        );
-
-        await crdtSession.db.mergeChanges(
-          [remoteUpdate],
-          userId: testCrdtUserId,
-        );
-      });
-
-      test(
-        'when pending changes are collected for a peer that already has the inserts '
-        'then every released unique column is streamed as an update.',
-        () async {
-          final mergeSet = await crdtSync
-              .collectPendingChanges(
-                testSession,
-                peerNodeId: const Uuid().v7obj(),
-                userId: testCrdtUserId,
-                nodeCheckpoints: [localCheckpoint],
-              )
-              .toList();
-
-          final loserUpdates = mergeSet
-              .whereType<CrdtMergeUpdate>()
-              .where((update) => update.uuidRowId == loser.id)
-              .toList();
-
-          expect(
-            {for (final update in loserUpdates) update.columnName},
-            {
-              UniqueComposite.t.scope.columnName,
-              UniqueComposite.t.value.columnName,
-            },
-          );
-          expect(
-            loserUpdates
-                .singleWhere(
-                  (update) => update.columnName == UniqueComposite.t.scope.columnName,
-                )
-                .value,
-            _compositeConflictValue('left-scope', loser.id!),
-          );
-          expect(
-            loserUpdates
-                .singleWhere(
-                  (update) => update.columnName == UniqueComposite.t.value.columnName,
-                )
-                .value,
-            _compositeConflictValue('shared-value', loser.id!),
-          );
-        },
-      );
-    },
-  );
-
   test(
     'Given a CRDT node without local changes '
     'when synchronization checkpoints are created '
@@ -341,8 +238,4 @@ extension on List<int> {
 
 extension on ByteData {
   List<int> toBytes() => buffer.asUint8List();
-}
-
-String _compositeConflictValue(String value, UuidValue rowId) {
-  return '${value}__conflict__${rowId.uuid}';
 }

@@ -215,6 +215,110 @@ void main() {
       });
     },
   );
+
+  group(
+    'Given a remote update that loses a composite unique conflict, ',
+    () {
+      late UniqueComposite loser;
+      late Hlc localCheckpoint;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueComposite.db.insertRow(
+            session,
+            UniqueComposite(
+              id: const Uuid().v7obj(),
+              scope: 'left-scope',
+              value: 'shared-value',
+            ),
+            transaction: tx,
+          );
+          loser = await UniqueComposite.db.insertRow(
+            session,
+            UniqueComposite(
+              id: const Uuid().v7obj(),
+              scope: 'right-scope',
+              value: 'shared-value',
+            ),
+            transaction: tx,
+          );
+        });
+
+        localCheckpoint = Hlc.now(
+          await session.db.currentNodeId(userId: testCrdtUserId),
+        );
+
+        final loserCrdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(loser.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        final remoteUpdate = CrdtMergeUpdate(
+          tableName: UniqueComposite.t.tableName,
+          uuidRowId: loser.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: loserCrdtRow!.hlc.datetime.advance(),
+          hlcCounter: loserCrdtRow.hlc.counter,
+          columnName: UniqueComposite.t.scope.columnName,
+          value: 'left-scope',
+        );
+
+        mergeSet = [remoteUpdate];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the losing row receives conflict-free composite unique values.',
+          () async {
+            final row = await UniqueComposite.db.findById(session, loser.id!);
+
+            expect(row, isNotNull);
+            expect(row!.scope, 'left-scope__conflict__${loser.id!.uuid}');
+            expect(row.value, 'shared-value__conflict__${loser.id!.uuid}');
+          },
+        );
+
+        test(
+          'then every released unique column receives fresh CRDT field metadata.',
+          () async {
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.equals(loser.id),
+              include: CrdtDataField.include(
+                column: CrdtSchemaColumn.include(),
+                node: CrdtNode.include(),
+              ),
+            );
+
+            final releasedFields = {
+              for (final field in fields) field.column!.name: field,
+            };
+
+            expect(releasedFields.keys, {
+              UniqueComposite.t.scope.columnName,
+              UniqueComposite.t.value.columnName,
+            });
+            expect(
+              releasedFields[UniqueComposite.t.scope.columnName]!.hlc,
+              greaterThan(localCheckpoint),
+            );
+            expect(
+              releasedFields[UniqueComposite.t.value.columnName]!.hlc,
+              greaterThan(localCheckpoint),
+            );
+          },
+        );
+      });
+    },
+  );
 }
 
 extension on DateTime {
