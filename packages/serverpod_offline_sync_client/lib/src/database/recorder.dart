@@ -12,6 +12,7 @@ import 'schema.dart';
 import 'session.dart';
 
 part 'merge.dart';
+part 'merge_utils/unique_resolver.dart';
 
 typedef _ReferencingForeignKey = ({
   String childTableName,
@@ -893,6 +894,7 @@ WHERE c."id" IN ($whereRowIds)
             values[column.columnName],
             tableDefinition.name,
             rowId,
+            'deleted',
           );
         }
 
@@ -926,6 +928,18 @@ WHERE c."id" IN ($whereRowIds)
     required Object? value,
     required Transaction transaction,
   }) async {
+    return _findVisibleDomainRowIdsWhere(
+      tableName: tableName,
+      predicates: ['d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}'],
+      transaction: transaction,
+    );
+  }
+
+  Future<Set<UuidValue>> _findVisibleDomainRowIdsWhere({
+    required String tableName,
+    required List<String> predicates,
+    required Transaction transaction,
+  }) async {
     final (tableId, _) = _schema[tableName]!;
     final userId = _getHlcManager(transaction).normalizedUserId;
     final result = await _db.unsafeQuery(
@@ -936,7 +950,7 @@ LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 LEFT JOIN "crdt_data_tombstone" tomb
   ON tomb."rowId" = r."id"
-WHERE d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}
+WHERE (${predicates.join(') AND (')})
   AND (tomb."id" IS NULL OR tomb."clFlag" % 2 = 1)
 ''',
       transaction: transaction,
@@ -1017,21 +1031,20 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     Object? value,
     String tableName,
     UuidValue conflictingId,
+    String releaseSuffix,
   ) {
     switch (column.kind) {
       case _UniqueConflictReleaseKind.setNull:
         return null;
       case _UniqueConflictReleaseKind.textSuffix:
         if (value is String) {
-          return '${value}__deleted__${conflictingId.uuid}';
+          return '${value}__${releaseSuffix}__${conflictingId.uuid}';
         }
       case _UniqueConflictReleaseKind.syntheticUuid:
         if (value != null) {
-          return _syntheticDeletedUuid(
-            tableName,
-            column.columnName,
-            UuidValueJsonExtension.fromJson(value),
-            conflictingId,
+          return const Uuid().v5obj(
+            Namespace.oid.value,
+            '$tableName.${column.columnName}:${value}__${releaseSuffix}__$conflictingId',
           );
         }
     }
@@ -1137,20 +1150,6 @@ _UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
 bool _isForeignKeyColumn(TableDefinition table, String columnName) {
   return table.foreignKeys.any(
     (fk) => fk.columns.length == 1 && fk.columns.single == columnName,
-  );
-}
-
-UuidValue _syntheticDeletedUuid(
-  String tableName,
-  String columnName,
-  UuidValue value,
-  UuidValue conflictingId,
-) {
-  return UuidValue.withValidation(
-    const Uuid().v5(
-      Namespace.oid.value,
-      '$tableName.$columnName:${value.uuid}:${conflictingId.uuid}',
-    ),
   );
 }
 

@@ -215,6 +215,159 @@ void main() {
       });
     },
   );
+
+  group(
+    'Given a remote update that loses a composite unique conflict, ',
+    () {
+      late UniqueComposite loser;
+      late CrdtMergeUpdate remoteUpdate;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueComposite.db.insertRow(
+            session,
+            UniqueComposite(
+              id: const Uuid().v7obj(),
+              scope: 'left-scope',
+              value: 'shared-value',
+            ),
+            transaction: tx,
+          );
+          loser = await UniqueComposite.db.insertRow(
+            session,
+            UniqueComposite(
+              id: const Uuid().v7obj(),
+              scope: 'right-scope',
+              value: 'shared-value',
+            ),
+            transaction: tx,
+          );
+        });
+
+        final loserCrdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(loser.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        remoteUpdate = CrdtMergeUpdate(
+          tableName: UniqueComposite.t.tableName,
+          uuidRowId: loser.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: loserCrdtRow!.hlc.datetime.advance(),
+          hlcCounter: loserCrdtRow.hlc.counter,
+          columnName: UniqueComposite.t.scope.columnName,
+          value: 'left-scope',
+        );
+
+        mergeSet = [remoteUpdate];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the losing row receives conflict-free composite unique values.',
+          () async {
+            final row = await UniqueComposite.db.findById(session, loser.id!);
+
+            expect(row, isNotNull);
+            expect(row!.scope, 'left-scope__conflict__${loser.id!.uuid}');
+            expect(row.value, 'shared-value__conflict__${loser.id!.uuid}');
+          },
+        );
+
+        test(
+          'then the silently released unique column does not receive CRDT field metadata.',
+          () async {
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.equals(loser.id),
+              include: CrdtDataField.include(
+                column: CrdtSchemaColumn.include(),
+                node: CrdtNode.include(),
+              ),
+            );
+
+            expect(fields, hasLength(1));
+            expect(fields.first.column!.name, UniqueComposite.t.scope.columnName);
+            expect(fields.first.hlc, remoteUpdate.hlc);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a remote update that loses a UUID unique conflict, ',
+    () {
+      final sharedValue = const Uuid().v7obj();
+      final originalLoserValue = const Uuid().v7obj();
+      late UniqueUuid loser;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueUuid.db.insertRow(
+            session,
+            UniqueUuid(id: const Uuid().v7obj(), value: sharedValue),
+            transaction: tx,
+          );
+          loser = await UniqueUuid.db.insertRow(
+            session,
+            UniqueUuid(id: const Uuid().v7obj(), value: originalLoserValue),
+            transaction: tx,
+          );
+        });
+
+        final loserCrdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(loser.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        final remoteUpdate = CrdtMergeUpdate(
+          tableName: UniqueUuid.t.tableName,
+          uuidRowId: loser.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: loserCrdtRow!.hlc.datetime.advance(),
+          hlcCounter: loserCrdtRow.hlc.counter,
+          columnName: UniqueUuid.t.value.columnName,
+          value: sharedValue,
+        );
+
+        mergeSet = [remoteUpdate];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the losing row receives a deterministic conflict-free UUID unique value.',
+          () async {
+            final row = await UniqueUuid.db.findById(session, loser.id!);
+            final expectedConflictValue = const Uuid().v5obj(
+              Namespace.oid.value,
+              '${UniqueUuid.t.tableName}.${UniqueUuid.t.value.columnName}:'
+              '${sharedValue.uuid}__conflict__${loser.id!.uuid}',
+            );
+
+            expect(row, isNotNull);
+            expect(row!.value, expectedConflictValue);
+          },
+        );
+      });
+    },
+  );
 }
 
 extension on DateTime {
