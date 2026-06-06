@@ -1,0 +1,46 @@
+## Performance Benchmark (1,000 rows)
+
+This benchmark measures the performance impact of using CRDT metadata synchronization on database operations.
+```
+📊 SELECT performance impact:
+  Time: 10.80 ms --> 12.52 ms (1.72 ms)
+  CRDT overhead: 15.97% slower
+```
+```
+📊 INSERT performance impact:
+  Time: 243.04 ms --> 457.70 ms (214.66 ms)
+  CRDT overhead: 88.32% slower
+  Delay per insert: 214.66 μs
+```
+```
+📊 UPDATE performance impact:
+  Time: 250.77 ms --> 3.19 s (2.94 s)
+  CRDT overhead: 1,173.66% slower
+  Delay per update: 2.94 ms
+```
+```
+📊 DELETE performance impact:
+  Time: 10.78 ms --> 225.85 ms (215.07 ms)
+  CRDT overhead: 1,994.72% slower
+  Delay per delete: 215.07 μs
+```
+```
+💽 Storage impact (base footprint removed):
+  Base database size: 348.00 KB --> 348.00 KB
+  INSERT only:
+    Net storage: 116.00 KB --> 184.00 KB (+68.00 KB)
+    CRDT overhead: 58.62% increase
+    Extra storage per inserted row: +69.63 B
+  INSERT + UPDATE:
+    Net storage: 128.00 KB --> 468.00 KB (+340.00 KB)
+    CRDT overhead: 265.63% increase
+    Extra storage per updated column: +34.82 B
+  INSERT + UPDATE + DELETE:
+    Net storage: 128.00 KB --> 504.00 KB (+376.00 KB)
+    CRDT overhead: 293.75% increase
+    Extra storage per deleted row: +36.86 B
+  Storage overhead range: 58.62% --> 293.75%
+```
+
+------------------------------------------------------------
+✅ Benchmark complete!
