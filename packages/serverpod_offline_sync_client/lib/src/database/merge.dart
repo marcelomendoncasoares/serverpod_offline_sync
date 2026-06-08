@@ -355,6 +355,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final rowKey = (delete.tableName, delete.uuidRowId);
     final row = context.rows[rowKey];
     if (row == null) return;
+    if (!syncedUserTombstoneReasons.contains(delete.reason)) return;
 
     final currentTombstone = context.tombstones[rowKey];
     final currentClFlag = currentTombstone?.clFlag ?? 1;
@@ -371,6 +372,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       currentTombstone,
       transaction,
     );
+
+    if (syncedUserTombstoneReasons.contains(delete.reason)) {
+      await _applyRowVisibilityFromUserTombstone(
+        row,
+        context.tombstones[rowKey]!,
+        transaction,
+      );
+    }
   }
 
   Future<CrdtDataRow> _upsertMergeRow(
@@ -612,6 +621,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         1,
         CrdtDataDeletedReason.userInsert,
         currentTombstone,
+        transaction,
+      );
+      await _applyRowVisibilityFromUserTombstone(
+        currentRow,
+        context.tombstones[rowKey]!,
         transaction,
       );
     }

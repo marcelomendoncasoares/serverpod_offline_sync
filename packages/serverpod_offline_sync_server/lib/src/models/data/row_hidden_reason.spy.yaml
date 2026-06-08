@@ -1,0 +1,8 @@
+### Why a CRDT row is currently hidden or visibly restored by projection.
+enum: CrdtDataRowHiddenReason
+serialized: byIndex
+values:
+  - userDelete
+  - userReinsert
+  - fkRestrictRestore
+  - fkCascade

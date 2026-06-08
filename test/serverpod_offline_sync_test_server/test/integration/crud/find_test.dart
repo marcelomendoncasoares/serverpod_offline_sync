@@ -97,6 +97,14 @@ void main() {
             ),
           ],
         );
+        await CrdtDataRow.db.updateRow(
+          session,
+          personCrdtRow.copyWith(
+            isHidden: true,
+            hiddenReason: CrdtDataRowHiddenReason.userDelete,
+          ),
+          columns: (t) => [t.isHidden, t.hiddenReason],
+        );
       });
 
       test(

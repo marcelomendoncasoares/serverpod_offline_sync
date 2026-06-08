@@ -41,6 +41,13 @@ typedef _UniqueColumnConflictRelease = ({
   _UniqueConflictReleaseKind kind,
 });
 
+/// User tombstone reasons that are synced across replicas.
+const syncedUserTombstoneReasons = {
+  CrdtDataDeletedReason.userInsert,
+  CrdtDataDeletedReason.userDelete,
+  CrdtDataDeletedReason.userReinsert,
+};
+
 enum _UniqueConflictReleaseKind {
   setNull,
   textSuffix,
@@ -414,11 +421,9 @@ LEFT JOIN "$parentTable" p
   ON p."$parentColumn" = c."$childColumn"
 LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
-LEFT JOIN "crdt_data_tombstone" tomb
-  ON tomb."rowId" = r."id"
 WHERE c."id" IN ($whereRowIds)
   AND c."$childColumn" IS NOT NULL
-  AND (p."id" IS NULL OR tomb."clFlag" % 2 = 0)
+  AND (p."id" IS NULL OR r."isHidden" != 0)
 ''';
     });
 
@@ -625,6 +630,7 @@ WHERE c."id" IN ($whereRowIds)
       null,
       CrdtDataDeletedReason.userDelete,
     );
+    await _projectForeignKeys(transaction);
   }
 
   Future<void> _softDeleteRowsByTable(
@@ -653,9 +659,7 @@ WHERE c."id" IN ($whereRowIds)
     );
 
     try {
-      final visibleCrdtRows = crdtDataRows
-          .where((row) => row.deleted?.isDeleted != true)
-          .toList();
+      final visibleCrdtRows = crdtDataRows.where((row) => !row.isHidden).toList();
 
       if (visibleCrdtRows.isEmpty) return;
       final visibleRowIds = visibleCrdtRows.map((row) => row.uuidRowId).toSet();
@@ -805,6 +809,63 @@ WHERE c."id" IN ($whereRowIds)
         transaction: transaction,
       );
     }
+
+    await _applyRowVisibility(
+      crdtDataRows,
+      isHidden: isDeleted,
+      hiddenReason: isDeleted
+          ? _rowHiddenReasonFromDeletedReason(reason)
+          : (reason == CrdtDataDeletedReason.userReinsert
+                ? CrdtDataRowHiddenReason.userReinsert
+                : null),
+      transaction: transaction,
+    );
+  }
+
+  Future<void> _applyRowVisibility(
+    List<CrdtDataRow> rows, {
+    required bool isHidden,
+    required CrdtDataRowHiddenReason? hiddenReason,
+    required Transaction transaction,
+  }) async {
+    final toUpdate = rows
+        .where(
+          (row) => row.isHidden != isHidden || row.hiddenReason != hiddenReason,
+        )
+        .map(
+          (row) => row.copyWith(
+            isHidden: isHidden,
+            hiddenReason: hiddenReason,
+          ),
+        )
+        .toList();
+    if (toUpdate.isEmpty) return;
+
+    await CrdtDataRow.db.update(
+      _session,
+      toUpdate,
+      columns: (t) => [t.isHidden, t.hiddenReason],
+      transaction: transaction,
+    );
+  }
+
+  Future<void> _applyRowVisibilityFromUserTombstone(
+    CrdtDataRow row,
+    CrdtDataDeleted tombstone,
+    Transaction transaction,
+  ) async {
+    final isHidden = tombstone.isDeleted;
+    final hiddenReason = isHidden
+        ? _rowHiddenReasonFromDeletedReason(tombstone.reason)
+        : (tombstone.reason == CrdtDataDeletedReason.userReinsert
+              ? CrdtDataRowHiddenReason.userReinsert
+              : null);
+    await _applyRowVisibility(
+      [row],
+      isHidden: isHidden,
+      hiddenReason: hiddenReason,
+      transaction: transaction,
+    );
   }
 
   /// Whether the given row is soft-deleted.
@@ -822,12 +883,7 @@ WHERE c."id" IN ($whereRowIds)
     );
     if (crdtRows.isEmpty) return false;
 
-    final tombstone = await CrdtDataDeleted.db.findFirstRow(
-      _session,
-      where: (t) => t.rowId.equals(crdtRows.single.id),
-      transaction: transaction,
-    );
-    return tombstone?.isDeleted ?? false;
+    return crdtRows.single.isHidden;
   }
 
   Future<List<CrdtDataRow>> _findCrdtRows(
@@ -924,13 +980,7 @@ WHERE c."id" IN ($whereRowIds)
               transaction,
             );
           case ForeignKeyAction.cascade:
-            await _softDeleteRowsByTable(
-              reference.childTableName,
-              childIds,
-              transaction,
-              processing,
-              CrdtDataDeletedReason.cascadeDelete,
-            );
+            break;
         }
       }
     }
@@ -1022,10 +1072,8 @@ SELECT d."id"
 FROM "${_escapeIdentifier(tableName)}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
-LEFT JOIN "crdt_data_tombstone" tomb
-  ON tomb."rowId" = r."id"
 WHERE (${predicates.join(') AND (')})
-  AND (tomb."id" IS NULL OR tomb."clFlag" % 2 = 1)
+  AND (r."id" IS NULL OR r."isHidden" = 0)
 ''',
       transaction: transaction,
     );
@@ -1162,6 +1210,17 @@ int _nextClFlag(CrdtDataDeleted? current, bool isDeleted) {
   var next = (current?.clFlag ?? 1) + 1;
   if (next.isEven != isDeleted) next++;
   return next;
+}
+
+CrdtDataRowHiddenReason _rowHiddenReasonFromDeletedReason(
+  CrdtDataDeletedReason reason,
+) {
+  return switch (reason) {
+    CrdtDataDeletedReason.userDelete => CrdtDataRowHiddenReason.userDelete,
+    CrdtDataDeletedReason.userReinsert => CrdtDataRowHiddenReason.userReinsert,
+    CrdtDataDeletedReason.userInsert => CrdtDataRowHiddenReason.userReinsert,
+    CrdtDataDeletedReason.uniqueLoser => CrdtDataRowHiddenReason.userDelete,
+  };
 }
 
 List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(

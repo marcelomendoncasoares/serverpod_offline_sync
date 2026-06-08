@@ -3,14 +3,14 @@ import 'package:serverpod_database/serverpod_database.dart';
 
 import '../protocol/protocol.dart';
 
-/// Merges [where] with CRDT tombstone predicates and mutates [include] in place.
+/// Merges [where] with CRDT visibility predicates and mutates [include] in place.
 ///
-/// This method ensures that no rows marked as deleted by the CLFlag are
-/// returned for queries with [where] clauses or [include] graphs. If [include]
-/// is null, only the root table and [where] are merged.
+/// This method ensures that no rows marked as hidden on their CRDT row metadata
+/// are returned for queries with [where] clauses or [include] graphs. If
+/// [include] is null, only the root table and [where] are merged.
 ///
 /// We do **not** add a root predicate for keys whose nested include is an
-/// [IncludeList] - tombstone filtering for that path is already handled via the
+/// [IncludeList] - visibility filtering for that path is already handled via the
 /// list subquery [where] (and many-relations are not the same join shape as a
 /// single [IncludeObject]).
 @internal
@@ -24,7 +24,7 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   final rootTable = serializationManager.getTableForType(T);
   var merged = _mergeWhereOptional(
     where,
-    rootTable?.whereNotDeletedOnTombstone,
+    rootTable?.whereNotHiddenOnCrdtRow,
   );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -41,7 +41,7 @@ Expression? _walkIncludeGraphForTombstone(
     // List relation: filter inside the list subquery only.
     inc.where = _mergeWhereOptional(
       inc.where,
-      inc.table.whereNotDeletedOnTombstone,
+      inc.table.whereNotHiddenOnCrdtRow,
     );
     return _walkIncludeGraphForTombstone(inc.include, includeObjectPredicates);
   }
@@ -51,7 +51,7 @@ Expression? _walkIncludeGraphForTombstone(
   for (final entry in obj.includes.entries) {
     final nested = entry.value;
     if (nested is IncludeList) {
-      // e.g. one-to-many: tombstone applies via IncludeList.where, not the main WHERE.
+      // e.g. one-to-many: visibility applies via IncludeList.where, not the main WHERE.
       acc = _walkIncludeGraphForTombstone(nested, acc);
       continue;
     }
@@ -61,7 +61,7 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          childTable.whereNotDeletedOnTombstone,
+          childTable.whereNotHiddenOnCrdtRow,
         );
       }
       acc = _walkIncludeGraphForTombstone(nested, acc);
@@ -77,17 +77,16 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
 }
 
 extension on Table {
-  /// Creates a predicate that filters out tombstone rows for the given [Table]
-  /// similarly to the generated field [CrdtDataRow.deleted].
+  /// Creates a predicate that filters out hidden rows for the given [Table]
+  /// using materialized [CrdtDataRow.isHidden] metadata.
   ///
   /// Join path:
-  ///   - UserModel.[id] = [CrdtDataRow.uuidRowId],
-  ///   - [CrdtDataRow.id] = [CrdtDataDeleted.rowId].
+  ///   - UserModel.[id] = [CrdtDataRow.uuidRowId].
   ///
-  /// Returns null when [Table] does not use a UUID primary key. Keeps rows
-  /// when there is no tombstone row or [CrdtDataDeleted.clFlag] is odd
-  /// (LEFT JOIN null-safe).
-  Expression? get whereNotDeletedOnTombstone {
+  /// Returns null when [Table] does not use a UUID primary key. Keeps rows when
+  /// there is no CRDT row or [CrdtDataRow.isHidden] is false (LEFT JOIN
+  /// null-safe).
+  Expression? get whereNotHiddenOnCrdtRow {
     if (id is! ColumnUuid) return null;
     final crdtRowTable = createRelationTable<CrdtDataRowTable>(
       relationFieldName: '${tableName}_crdt_row',
@@ -97,7 +96,6 @@ extension on Table {
       createTable: (foreignTableRelation) =>
           CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
-    final tomb = crdtRowTable.deleted;
-    return (tomb.id.equals(null)) | Expression('${tomb.clFlag} % 2 = 1');
+    return (crdtRowTable.id.equals(null)) | crdtRowTable.isHidden.equals(false);
   }
 }

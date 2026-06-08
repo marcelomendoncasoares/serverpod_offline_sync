@@ -5,16 +5,16 @@ class _ProjectedForeignKeyRow {
     required this.key,
     required this.crdtRowId,
     required this.isHidden,
-    required this.deletedReason,
-    required this.preservedBaseDeletedReason,
+    required this.userHidden,
+    required this.userDeletedReason,
     required this.values,
   });
 
   final _MergeRowKey key;
   final int crdtRowId;
   final bool isHidden;
-  final CrdtDataDeletedReason? deletedReason;
-  final CrdtDataDeletedReason? preservedBaseDeletedReason;
+  final bool userHidden;
+  final CrdtDataDeletedReason? userDeletedReason;
   final Map<String, Object?> values;
 }
 
@@ -242,11 +242,11 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       for (final row in state.rows.values)
         if (row.isHidden) row.key,
     };
-    final baseHidden = {
+    final userHidden = {
       for (final row in state.rows.values)
-        if (_isBaseHiddenRow(row, state)) row.key,
+        if (row.userHidden) row.key,
     };
-    final finalHidden = _computeForeignKeyHiddenRows(state, baseHidden);
+    final finalHidden = _computeForeignKeyHiddenRows(state, userHidden);
 
     await _materializeForeignKeyVisibility(
       state: state,
@@ -290,10 +290,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       final crdtRows = await CrdtDataRow.db.find(
         _session,
         where: (t) => t.userId.equals(userId) & t.tblId.equals(tableId),
-        include: CrdtDataRow.include(
-          deleted: CrdtDataDeleted.include(),
-          foreignKeyBaseTombstone: CrdtDataForeignKeyBaseTombstone.include(),
-        ),
+        include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
         orderBy: (t) => t.uuidRowId,
         transaction: transaction,
       );
@@ -314,9 +311,9 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         rows[key] = _ProjectedForeignKeyRow(
           key: key,
           crdtRowId: row.id!,
-          isHidden: row.deleted?.isDeleted ?? false,
-          deletedReason: row.deleted?.reason,
-          preservedBaseDeletedReason: row.foreignKeyBaseTombstone?.reason,
+          isHidden: row.isHidden,
+          userHidden: row.deleted?.isDeleted ?? false,
+          userDeletedReason: row.deleted?.reason,
           values: valuesByRowId[rowId] ?? const {},
         );
       }
@@ -351,46 +348,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       fieldIds: fieldIds,
       projections: projections,
     );
-  }
-
-  bool _isBaseHiddenRow(
-    _ProjectedForeignKeyRow row,
-    _ForeignKeyProjectionState state,
-  ) {
-    final preservedBaseReason = _projectionRestoredBaseReason(row);
-    if (preservedBaseReason != null) {
-      if (preservedBaseReason != CrdtDataDeletedReason.cascadeDelete) return true;
-      return !_hasCascadeParentReference(row, state);
-    }
-
-    if (!row.isHidden) return false;
-    if (row.deletedReason != CrdtDataDeletedReason.cascadeDelete) return true;
-    return !_hasCascadeParentReference(row, state);
-  }
-
-  CrdtDataDeletedReason? _projectionRestoredBaseReason(
-    _ProjectedForeignKeyRow row,
-  ) {
-    if (row.isHidden) return null;
-    if (row.deletedReason != CrdtDataDeletedReason.restrictRestore) return null;
-    return row.preservedBaseDeletedReason;
-  }
-
-  bool _hasCascadeParentReference(
-    _ProjectedForeignKeyRow row,
-    _ForeignKeyProjectionState state,
-  ) {
-    for (final edge in _foreignKeyEdges.where(
-      (edge) =>
-          edge.action == ForeignKeyAction.cascade && edge.childTableName == row.key.$1,
-    )) {
-      final attemptedValue = _attemptedForeignKeyValue(row, edge, state);
-      if (attemptedValue == null) continue;
-      if (_parentRowForValue(edge, attemptedValue, state) != null) {
-        return true;
-      }
-    }
-    return false;
   }
 
   Future<Map<_MergeFieldKey, int>> _findForeignKeyFieldIds({
@@ -571,157 +528,36 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     required Transaction transaction,
   }) async {
     final rowsToHide = finalHidden.difference(currentHidden);
-    final rowsToRestore = currentHidden.difference(finalHidden);
-    final rowsToRestoreWithBase = <_MergeRowKey>{};
-    for (final rowKey in rowsToRestore) {
-      final row = state.rows[rowKey];
-      if (row != null && _isBaseHiddenRow(row, state)) {
-        rowsToRestoreWithBase.add(rowKey);
-      }
-    }
-    final rowsToHideByReason = <CrdtDataDeletedReason, Set<_MergeRowKey>>{};
-    for (final rowKey in rowsToHide) {
-      final row = state.rows[rowKey];
-      final reason = row == null ? null : _projectionRestoredBaseReason(row);
-      rowsToHideByReason
-          .putIfAbsent(reason ?? CrdtDataDeletedReason.cascadeDelete, () => {})
-          .add(rowKey);
-    }
+    final rowsToShow = currentHidden.difference(finalHidden);
 
-    await _preserveBaseTombstones(rowsToRestoreWithBase, transaction);
-    for (final MapEntry(key: reason, value: rowKeys) in rowsToHideByReason.entries) {
-      await _markProjectionRowsDeleted(
-        rowKeys,
-        isDeleted: true,
-        reason: reason,
-        transaction: transaction,
-      );
-    }
-    await _deletePreservedBaseTombstones(rowsToHide, transaction);
-    await _markProjectionRowsDeleted(
-      rowsToRestore,
-      isDeleted: false,
-      reason: CrdtDataDeletedReason.restrictRestore,
+    await _setProjectedRowVisibility(
+      rowsToHide,
+      state: state,
+      isHidden: true,
+      hiddenReasonFor: (row) => row.userHidden
+          ? _rowHiddenReasonFromDeletedReason(
+              row.userDeletedReason ?? CrdtDataDeletedReason.userDelete,
+            )
+          : CrdtDataRowHiddenReason.fkCascade,
+      transaction: transaction,
+    );
+    await _setProjectedRowVisibility(
+      rowsToShow,
+      state: state,
+      isHidden: false,
+      hiddenReasonFor: (row) => row.userHidden
+          ? CrdtDataRowHiddenReason.fkRestrictRestore
+          : null,
       transaction: transaction,
     );
   }
 
-  Future<void> _preserveBaseTombstones(
-    Set<_MergeRowKey> rowKeys,
-    Transaction transaction,
-  ) async {
-    if (rowKeys.isEmpty) return;
-
-    final rowIdsByTable = <String, Set<UuidValue>>{};
-    for (final rowKey in rowKeys) {
-      rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
-    }
-
-    final toInsert = <CrdtDataForeignKeyBaseTombstone>[];
-    final toUpdate = <CrdtDataForeignKeyBaseTombstone>[];
-
-    for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
-      final crdtRows = await _findCrdtRows(
-        tableName,
-        rowIds,
-        transaction,
-        include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
-      );
-      if (crdtRows.isEmpty) continue;
-
-      final rowPks = crdtRows.map((row) => row.id!).toSet();
-      final existingByRowId = {
-        for (final tombstone in await CrdtDataForeignKeyBaseTombstone.db.find(
-          _session,
-          where: (t) => t.rowId.inSet(rowPks),
-          transaction: transaction,
-        ))
-          tombstone.rowId: tombstone,
-      };
-
-      for (final row in crdtRows) {
-        final tombstone = row.deleted;
-        if (tombstone == null) continue;
-
-        final candidate = CrdtDataForeignKeyBaseTombstone(
-          rowId: row.id!,
-          nodeId: tombstone.nodeId,
-          hlcDatetime: tombstone.hlcDatetime,
-          hlcCounter: tombstone.hlcCounter,
-          clFlag: tombstone.clFlag,
-          reason: tombstone.reason,
-        );
-        final existing = existingByRowId[row.id];
-        if (existing == null) {
-          toInsert.add(candidate);
-          continue;
-        }
-
-        if (existing.nodeId != candidate.nodeId ||
-            existing.hlcDatetime != candidate.hlcDatetime ||
-            existing.hlcCounter != candidate.hlcCounter ||
-            existing.clFlag != candidate.clFlag ||
-            existing.reason != candidate.reason) {
-          toUpdate.add(candidate.copyWith(id: existing.id));
-        }
-      }
-    }
-
-    if (toInsert.isNotEmpty) {
-      await CrdtDataForeignKeyBaseTombstone.db.insert(
-        _session,
-        toInsert,
-        transaction: transaction,
-      );
-    }
-    if (toUpdate.isNotEmpty) {
-      await CrdtDataForeignKeyBaseTombstone.db.update(
-        _session,
-        toUpdate,
-        transaction: transaction,
-      );
-    }
-  }
-
-  Future<void> _deletePreservedBaseTombstones(
-    Set<_MergeRowKey> rowKeys,
-    Transaction transaction,
-  ) async {
-    if (rowKeys.isEmpty) return;
-
-    final rowIdsByTable = <String, Set<UuidValue>>{};
-    for (final rowKey in rowKeys) {
-      rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
-    }
-
-    final toDelete = <CrdtDataForeignKeyBaseTombstone>[];
-    for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
-      final crdtRows = await _findCrdtRows(tableName, rowIds, transaction);
-      if (crdtRows.isEmpty) continue;
-
-      final rowPks = crdtRows.map((row) => row.id!).toSet();
-      toDelete.addAll(
-        await CrdtDataForeignKeyBaseTombstone.db.find(
-          _session,
-          where: (t) => t.rowId.inSet(rowPks),
-          transaction: transaction,
-        ),
-      );
-    }
-
-    if (toDelete.isNotEmpty) {
-      await CrdtDataForeignKeyBaseTombstone.db.delete(
-        _session,
-        toDelete,
-        transaction: transaction,
-      );
-    }
-  }
-
-  Future<void> _markProjectionRowsDeleted(
+  Future<void> _setProjectedRowVisibility(
     Set<_MergeRowKey> rowKeys, {
-    required bool isDeleted,
-    required CrdtDataDeletedReason reason,
+    required _ForeignKeyProjectionState state,
+    required bool isHidden,
+    required CrdtDataRowHiddenReason? Function(_ProjectedForeignKeyRow row)
+    hiddenReasonFor,
     required Transaction transaction,
   }) async {
     if (rowKeys.isEmpty) return;
@@ -731,18 +567,35 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
     }
 
+    final toUpdate = <CrdtDataRow>[];
     for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
-      final crdtRows = await _findCrdtRows(
-        tableName,
-        rowIds,
-        transaction,
-        include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
-      );
-      final rowsToUpdate = crdtRows
-          .where((row) => row.deleted?.isDeleted != isDeleted)
-          .toList();
-      await _markCrdtRowsDeleted(rowsToUpdate, isDeleted, reason, transaction);
+      final crdtRows = await _findCrdtRows(tableName, rowIds, transaction);
+      for (final crdtRow in crdtRows) {
+        final projectedRow = state.rows[(tableName, crdtRow.uuidRowId)];
+        if (projectedRow == null) continue;
+
+        final hiddenReason = hiddenReasonFor(projectedRow);
+        if (crdtRow.isHidden == isHidden && crdtRow.hiddenReason == hiddenReason) {
+          continue;
+        }
+
+        toUpdate.add(
+          crdtRow.copyWith(
+            isHidden: isHidden,
+            hiddenReason: hiddenReason,
+          ),
+        );
+      }
     }
+
+    if (toUpdate.isEmpty) return;
+
+    await CrdtDataRow.db.update(
+      _session,
+      toUpdate,
+      columns: (t) => [t.isHidden, t.hiddenReason],
+      transaction: transaction,
+    );
   }
 
   Future<void> _materializeForeignKeyValues({

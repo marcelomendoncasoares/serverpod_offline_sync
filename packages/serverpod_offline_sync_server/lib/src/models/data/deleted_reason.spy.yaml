@@ -1,10 +1,8 @@
-### Why a CRDT row entered its current visibility generation.
+### Why a synced user tombstone changed row visibility.
 enum: CrdtDataDeletedReason
 serialized: byIndex
 values:
   - userInsert
   - userDelete
   - userReinsert
-  - restrictRestore
-  - cascadeDelete
   - uniqueLoser

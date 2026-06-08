@@ -5,6 +5,7 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../database/recorder.dart' show syncedUserTombstoneReasons;
 import '../managers/user.dart';
 import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
@@ -457,6 +458,8 @@ class CrdtSync {
     );
 
     for (final tombstone in tombstones) {
+      if (!syncedUserTombstoneReasons.contains(tombstone.reason)) continue;
+
       final tableName = tombstone.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
 

@@ -868,8 +868,8 @@ void main() {
       late Organization organization;
       late Person person;
       late CrdtMergeDelete remoteCityDelete;
-      late List<String> tombstonesAfterMerge;
-      late List<String> tombstonesAfterReplay;
+      late List<String> visibilityAfterMerge;
+      late List<String> visibilityAfterReplay;
 
       setUp(() async {
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -933,20 +933,20 @@ void main() {
             [remoteCityDelete],
             userId: testCrdtUserId,
           );
-          tombstonesAfterMerge = await _tombstoneSnapshot();
+          visibilityAfterMerge = await _visibilitySnapshot();
 
           await session.db.mergeChanges(
             [remoteCityDelete],
             userId: testCrdtUserId,
           );
-          tombstonesAfterReplay = await _tombstoneSnapshot();
+          visibilityAfterReplay = await _visibilitySnapshot();
         });
 
         test(
-          'then the cascade metadata does not change.',
+          'then the projected visibility metadata does not change.',
           () async {
-            expect(tombstonesAfterMerge, hasLength(3));
-            expect(tombstonesAfterReplay, tombstonesAfterMerge);
+            expect(visibilityAfterMerge, hasLength(3));
+            expect(visibilityAfterReplay, visibilityAfterMerge);
           },
         );
       });
@@ -1015,7 +1015,7 @@ void main() {
         });
 
         test(
-          'then the cascade-derived descendant tombstones are restored.',
+          'then the cascade-derived descendant visibility is restored.',
           () async {
             final visibleCity = await City.db.findById(session, city.id!);
             final visibleOrganization = await Organization.db.findById(
@@ -1381,27 +1381,19 @@ Future<_ForeignKeyProjection?> _findForeignKeyProjection({
   );
 }
 
-Future<List<String>> _tombstoneSnapshot() async {
-  final tombstones = await CrdtDataDeleted.db.find(
+Future<List<String>> _visibilitySnapshot() async {
+  final rows = await CrdtDataRow.db.find(
     session,
-    include: CrdtDataDeleted.include(
-      row: CrdtDataRow.include(),
-      node: CrdtNode.include(),
-    ),
-  );
-  tombstones.sort(
-    (left, right) => left.row!.uuidRowId.uuid.compareTo(right.row!.uuidRowId.uuid),
+    where: (t) => t.isHidden.equals(true),
+    orderBy: (t) => t.uuidRowId,
   );
 
   return [
-    for (final tombstone in tombstones)
+    for (final row in rows)
       [
-        tombstone.row!.uuidRowId.uuid,
-        tombstone.clFlag,
-        tombstone.reason.toJson(),
-        tombstone.hlcDatetime,
-        tombstone.hlcCounter,
-        tombstone.node!.uuidNodeId.uuid,
+        row.uuidRowId.uuid,
+        row.isHidden,
+        row.hiddenReason?.toJson(),
       ].join('|'),
   ];
 }

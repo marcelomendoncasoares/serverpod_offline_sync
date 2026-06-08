@@ -322,6 +322,15 @@ void main() {
       );
 
       expect(tombstones.single.isDeleted, isFalse);
+
+      await CrdtDataRow.db.updateWhere(
+        session,
+        columnValues: (t) => [
+          t.isHidden(false),
+          t.hiddenReason(CrdtDataRowHiddenReason.userReinsert),
+        ],
+        where: (t) => t.uuidRowId.equals(person.id),
+      );
     });
 
     group('when deleting the person again,', () {
@@ -385,15 +394,15 @@ void main() {
       );
     });
 
-    test('then a CRDT tombstone is created for the organization row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+    test('then the organization CRDT row is hidden by foreign key projection.', () async {
+      final crdtRow = await CrdtDataRow.db.findFirstRow(
         session,
-        where: (t) => t.row.uuidRowId.equals(organization.id),
+        where: (t) => t.uuidRowId.equals(organization.id),
       );
 
-      expect(tombstone, isNotNull);
-      expect(tombstone!.isDeleted, true);
-      expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
+      expect(crdtRow, isNotNull);
+      expect(crdtRow!.isHidden, isTrue);
+      expect(crdtRow.hiddenReason, CrdtDataRowHiddenReason.fkCascade);
     });
 
     test('then the organization row still exist on the organization table.', () async {
@@ -406,15 +415,15 @@ void main() {
       expect(row!.name, organization.name);
     });
 
-    test('then a CRDT tombstone is also created for the person row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+    test('then the person CRDT row is also hidden by foreign key projection.', () async {
+      final crdtRow = await CrdtDataRow.db.findFirstRow(
         session,
-        where: (t) => t.row.uuidRowId.equals(person.id),
+        where: (t) => t.uuidRowId.equals(person.id),
       );
 
-      expect(tombstone, isNotNull);
-      expect(tombstone!.isDeleted, true);
-      expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
+      expect(crdtRow, isNotNull);
+      expect(crdtRow!.isHidden, isTrue);
+      expect(crdtRow.hiddenReason, CrdtDataRowHiddenReason.fkCascade);
     });
   });
 
