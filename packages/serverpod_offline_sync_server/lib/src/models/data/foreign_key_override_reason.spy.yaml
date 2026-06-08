@@ -1,6 +1,6 @@
 ### Why a foreign key projection override is active.
 enum: CrdtForeignKeyOverrideReason
-serialized: byName
+serialized: byIndex
 values:
   - setNull
   - setDefault

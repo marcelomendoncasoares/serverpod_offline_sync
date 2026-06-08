@@ -735,7 +735,7 @@ WHERE "rowId" IN (
 
         var desiredVisibleValue = attemptedValue;
         var hasOverride = false;
-        String? overrideReason;
+        CrdtForeignKeyOverrideReason? overrideReason;
 
         if (attemptedValue != null &&
             _foreignKeyTargetHiddenOrMissing(
@@ -749,7 +749,7 @@ WHERE "rowId" IN (
               if (edge.childNullable) {
                 desiredVisibleValue = null;
                 hasOverride = true;
-                overrideReason = 'setNull';
+                overrideReason = CrdtForeignKeyOverrideReason.setNull;
               }
             case ForeignKeyAction.setDefault:
               final defaultProjection = _defaultProjectionValue(
@@ -760,7 +760,7 @@ WHERE "rowId" IN (
               if (defaultProjection.valid) {
                 desiredVisibleValue = defaultProjection.value;
                 hasOverride = true;
-                overrideReason = 'setDefault';
+                overrideReason = CrdtForeignKeyOverrideReason.setDefault;
               }
             case ForeignKeyAction.restrict:
             case ForeignKeyAction.noAction:
@@ -940,13 +940,13 @@ WHERE "rowId" IN (
     required UuidValue? attemptedValue,
     required UuidValue? visibleValue,
     required bool hasOverride,
-    required String? overrideReason,
+    required CrdtForeignKeyOverrideReason? overrideReason,
     required Transaction transaction,
   }) async {
     final attemptedSql = _uuidLiteral(attemptedValue);
     final visibleSql = _uuidLiteral(visibleValue);
     final hasOverrideSql = hasOverride ? 1 : 0;
-    final reasonSql = overrideReason == null ? 'NULL' : _sqlLiteral(overrideReason);
+    final reasonSql = _sqlLiteral(overrideReason);
 
     await _db.unsafeExecute(
       '''
