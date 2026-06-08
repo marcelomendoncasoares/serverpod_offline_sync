@@ -100,10 +100,9 @@ void main() {
         await CrdtDataRow.db.updateRow(
           session,
           personCrdtRow.copyWith(
-            isHidden: true,
-            hiddenReason: CrdtDataRowHiddenReason.userDelete,
+            visibility: CrdtDataRowVisibility.userDelete,
           ),
-          columns: (t) => [t.isHidden, t.hiddenReason],
+          columns: (t) => [t.visibility],
         );
       });
 

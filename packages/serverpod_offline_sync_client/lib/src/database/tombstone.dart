@@ -1,13 +1,14 @@
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 
+import '../crdt/extensions.dart';
 import '../protocol/protocol.dart';
 
 /// Merges [where] with CRDT visibility predicates and mutates [include] in place.
 ///
-/// This method ensures that no rows marked as hidden on their CRDT row metadata
-/// are returned for queries with [where] clauses or [include] graphs. If
-/// [include] is null, only the root table and [where] are merged.
+/// This method ensures that no rows with a hidden [CrdtDataRow.visibility] are
+/// returned for queries with [where] clauses or [include] graphs. If [include]
+/// is null, only the root table and [where] are merged.
 ///
 /// We do **not** add a root predicate for keys whose nested include is an
 /// [IncludeList] - visibility filtering for that path is already handled via the
@@ -24,7 +25,7 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   final rootTable = serializationManager.getTableForType(T);
   var merged = _mergeWhereOptional(
     where,
-    rootTable?.whereNotHiddenOnCrdtRow,
+    rootTable?.whereVisibleOnCrdtRow,
   );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -41,7 +42,7 @@ Expression? _walkIncludeGraphForTombstone(
     // List relation: filter inside the list subquery only.
     inc.where = _mergeWhereOptional(
       inc.where,
-      inc.table.whereNotHiddenOnCrdtRow,
+      inc.table.whereVisibleOnCrdtRow,
     );
     return _walkIncludeGraphForTombstone(inc.include, includeObjectPredicates);
   }
@@ -61,7 +62,7 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          childTable.whereNotHiddenOnCrdtRow,
+          childTable.whereVisibleOnCrdtRow,
         );
       }
       acc = _walkIncludeGraphForTombstone(nested, acc);
@@ -78,15 +79,15 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
 
 extension on Table {
   /// Creates a predicate that filters out hidden rows for the given [Table]
-  /// using materialized [CrdtDataRow.isHidden] metadata.
+  /// using materialized [CrdtDataRow.visibility] metadata.
   ///
   /// Join path:
   ///   - UserModel.[id] = [CrdtDataRow.uuidRowId].
   ///
   /// Returns null when [Table] does not use a UUID primary key. Keeps rows when
-  /// there is no CRDT row or [CrdtDataRow.isHidden] is false (LEFT JOIN
+  /// there is no CRDT row or [CrdtDataRow.visibility] is visible (LEFT JOIN
   /// null-safe).
-  Expression? get whereNotHiddenOnCrdtRow {
+  Expression? get whereVisibleOnCrdtRow {
     if (id is! ColumnUuid) return null;
     final crdtRowTable = createRelationTable<CrdtDataRowTable>(
       relationFieldName: '${tableName}_crdt_row',
@@ -96,6 +97,9 @@ extension on Table {
       createTable: (foreignTableRelation) =>
           CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
-    return (crdtRowTable.id.equals(null)) | crdtRowTable.isHidden.equals(false);
+    return (crdtRowTable.id.equals(null)) |
+        Expression(
+          '${crdtRowTable.visibility} <= $crdtRowLastVisibleVisibilityIndex',
+        );
   }
 }

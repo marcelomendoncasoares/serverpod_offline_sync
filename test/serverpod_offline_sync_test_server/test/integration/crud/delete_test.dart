@@ -325,10 +325,7 @@ void main() {
 
       await CrdtDataRow.db.updateWhere(
         session,
-        columnValues: (t) => [
-          t.isHidden(false),
-          t.hiddenReason(CrdtDataRowHiddenReason.userReinsert),
-        ],
+        columnValues: (t) => [t.visibility(CrdtDataRowVisibility.userReinsert)],
         where: (t) => t.uuidRowId.equals(person.id),
       );
     });
@@ -394,16 +391,19 @@ void main() {
       );
     });
 
-    test('then the organization CRDT row is hidden by foreign key projection.', () async {
-      final crdtRow = await CrdtDataRow.db.findFirstRow(
-        session,
-        where: (t) => t.uuidRowId.equals(organization.id),
-      );
+    test(
+      'then the organization CRDT row is hidden by foreign key projection.',
+      () async {
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(organization.id),
+        );
 
-      expect(crdtRow, isNotNull);
-      expect(crdtRow!.isHidden, isTrue);
-      expect(crdtRow.hiddenReason, CrdtDataRowHiddenReason.fkCascade);
-    });
+        expect(crdtRow, isNotNull);
+        expect(crdtRow!.isHidden, isTrue);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+      },
+    );
 
     test('then the organization row still exist on the organization table.', () async {
       final row = await Organization.db.findFirstRow(
@@ -415,16 +415,19 @@ void main() {
       expect(row!.name, organization.name);
     });
 
-    test('then the person CRDT row is also hidden by foreign key projection.', () async {
-      final crdtRow = await CrdtDataRow.db.findFirstRow(
-        session,
-        where: (t) => t.uuidRowId.equals(person.id),
-      );
+    test(
+      'then the person CRDT row is also hidden by foreign key projection.',
+      () async {
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+        );
 
-      expect(crdtRow, isNotNull);
-      expect(crdtRow!.isHidden, isTrue);
-      expect(crdtRow.hiddenReason, CrdtDataRowHiddenReason.fkCascade);
-    });
+        expect(crdtRow, isNotNull);
+        expect(crdtRow!.isHidden, isTrue);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+      },
+    );
   });
 
   group('Given an address row with an ON DELETE RESTRICT related person, '

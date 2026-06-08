@@ -1384,7 +1384,10 @@ Future<_ForeignKeyProjection?> _findForeignKeyProjection({
 Future<List<String>> _visibilitySnapshot() async {
   final rows = await CrdtDataRow.db.find(
     session,
-    where: (t) => t.isHidden.equals(true),
+    where: (t) => t.visibility.inSet({
+      CrdtDataRowVisibility.userDelete,
+      CrdtDataRowVisibility.foreignKeyCascade,
+    }),
     orderBy: (t) => t.uuidRowId,
   );
 
@@ -1392,8 +1395,7 @@ Future<List<String>> _visibilitySnapshot() async {
     for (final row in rows)
       [
         row.uuidRowId.uuid,
-        row.isHidden,
-        row.hiddenReason?.toJson(),
+        row.visibility.toJson(),
       ].join('|'),
   ];
 }

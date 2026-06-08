@@ -423,7 +423,7 @@ LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
 WHERE c."id" IN ($whereRowIds)
   AND c."$childColumn" IS NOT NULL
-  AND (p."id" IS NULL OR r."isHidden" != 0)
+  AND (p."id" IS NULL OR r."visibility" > $crdtRowLastVisibleVisibilityIndex)
 ''';
     });
 
@@ -812,39 +812,26 @@ WHERE c."id" IN ($whereRowIds)
 
     await _applyRowVisibility(
       crdtDataRows,
-      isHidden: isDeleted,
-      hiddenReason: isDeleted
-          ? _rowHiddenReasonFromDeletedReason(reason)
-          : (reason == CrdtDataDeletedReason.userReinsert
-                ? CrdtDataRowHiddenReason.userReinsert
-                : null),
+      visibility: reason.toVisibility(isDeleted: isDeleted),
       transaction: transaction,
     );
   }
 
   Future<void> _applyRowVisibility(
     List<CrdtDataRow> rows, {
-    required bool isHidden,
-    required CrdtDataRowHiddenReason? hiddenReason,
+    required CrdtDataRowVisibility visibility,
     required Transaction transaction,
   }) async {
     final toUpdate = rows
-        .where(
-          (row) => row.isHidden != isHidden || row.hiddenReason != hiddenReason,
-        )
-        .map(
-          (row) => row.copyWith(
-            isHidden: isHidden,
-            hiddenReason: hiddenReason,
-          ),
-        )
+        .where((row) => row.visibility != visibility)
+        .map((row) => row.copyWith(visibility: visibility))
         .toList();
     if (toUpdate.isEmpty) return;
 
     await CrdtDataRow.db.update(
       _session,
       toUpdate,
-      columns: (t) => [t.isHidden, t.hiddenReason],
+      columns: (t) => [t.visibility],
       transaction: transaction,
     );
   }
@@ -854,16 +841,9 @@ WHERE c."id" IN ($whereRowIds)
     CrdtDataDeleted tombstone,
     Transaction transaction,
   ) async {
-    final isHidden = tombstone.isDeleted;
-    final hiddenReason = isHidden
-        ? _rowHiddenReasonFromDeletedReason(tombstone.reason)
-        : (tombstone.reason == CrdtDataDeletedReason.userReinsert
-              ? CrdtDataRowHiddenReason.userReinsert
-              : null);
     await _applyRowVisibility(
       [row],
-      isHidden: isHidden,
-      hiddenReason: hiddenReason,
+      visibility: tombstone.reason.toVisibility(isDeleted: tombstone.isDeleted),
       transaction: transaction,
     );
   }
@@ -1073,7 +1053,7 @@ FROM "${_escapeIdentifier(tableName)}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 WHERE (${predicates.join(') AND (')})
-  AND (r."id" IS NULL OR r."isHidden" = 0)
+  AND (r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex)
 ''',
       transaction: transaction,
     );
@@ -1212,17 +1192,6 @@ int _nextClFlag(CrdtDataDeleted? current, bool isDeleted) {
   return next;
 }
 
-CrdtDataRowHiddenReason _rowHiddenReasonFromDeletedReason(
-  CrdtDataDeletedReason reason,
-) {
-  return switch (reason) {
-    CrdtDataDeletedReason.userDelete => CrdtDataRowHiddenReason.userDelete,
-    CrdtDataDeletedReason.userReinsert => CrdtDataRowHiddenReason.userReinsert,
-    CrdtDataDeletedReason.userInsert => CrdtDataRowHiddenReason.userReinsert,
-    CrdtDataDeletedReason.uniqueLoser => CrdtDataRowHiddenReason.userDelete,
-  };
-}
-
 List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
   TableDefinition table,
 ) {
@@ -1290,6 +1259,23 @@ String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);
 
 String _sqlLiteralList(Iterable<Object?> values) =>
     values.map(ValueEncoder.instance.convert).join(', ');
+
+extension on CrdtDataDeletedReason {
+  CrdtDataRowVisibility toVisibility({required bool isDeleted}) {
+    if (!isDeleted) {
+      return switch (this) {
+        CrdtDataDeletedReason.userReinsert => CrdtDataRowVisibility.userReinsert,
+        _ => CrdtDataRowVisibility.userInsert,
+      };
+    }
+
+    return switch (this) {
+      CrdtDataDeletedReason.userDelete => CrdtDataRowVisibility.userDelete,
+      CrdtDataDeletedReason.uniqueLoser => CrdtDataRowVisibility.userDelete,
+      _ => CrdtDataRowVisibility.userDelete,
+    };
+  }
+}
 
 extension on List<TableRow> {
   Set<UuidValue> get uuidRowIds {

@@ -533,21 +533,17 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     await _setProjectedRowVisibility(
       rowsToHide,
       state: state,
-      isHidden: true,
-      hiddenReasonFor: (row) => row.userHidden
-          ? _rowHiddenReasonFromDeletedReason(
-              row.userDeletedReason ?? CrdtDataDeletedReason.userDelete,
-            )
-          : CrdtDataRowHiddenReason.fkCascade,
+      visibilityFor: (row) => row.userHidden
+          ? CrdtDataRowVisibility.userDelete
+          : CrdtDataRowVisibility.foreignKeyCascade,
       transaction: transaction,
     );
     await _setProjectedRowVisibility(
       rowsToShow,
       state: state,
-      isHidden: false,
-      hiddenReasonFor: (row) => row.userHidden
-          ? CrdtDataRowHiddenReason.fkRestrictRestore
-          : null,
+      visibilityFor: (row) => row.userHidden
+          ? CrdtDataRowVisibility.foreignKeyRestrictRestore
+          : CrdtDataRowVisibility.userInsert,
       transaction: transaction,
     );
   }
@@ -555,9 +551,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   Future<void> _setProjectedRowVisibility(
     Set<_MergeRowKey> rowKeys, {
     required _ForeignKeyProjectionState state,
-    required bool isHidden,
-    required CrdtDataRowHiddenReason? Function(_ProjectedForeignKeyRow row)
-    hiddenReasonFor,
+    required CrdtDataRowVisibility Function(_ProjectedForeignKeyRow row) visibilityFor,
     required Transaction transaction,
   }) async {
     if (rowKeys.isEmpty) return;
@@ -574,17 +568,10 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         final projectedRow = state.rows[(tableName, crdtRow.uuidRowId)];
         if (projectedRow == null) continue;
 
-        final hiddenReason = hiddenReasonFor(projectedRow);
-        if (crdtRow.isHidden == isHidden && crdtRow.hiddenReason == hiddenReason) {
-          continue;
-        }
+        final visibility = visibilityFor(projectedRow);
+        if (crdtRow.visibility == visibility) continue;
 
-        toUpdate.add(
-          crdtRow.copyWith(
-            isHidden: isHidden,
-            hiddenReason: hiddenReason,
-          ),
-        );
+        toUpdate.add(crdtRow.copyWith(visibility: visibility));
       }
     }
 
@@ -593,7 +580,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     await CrdtDataRow.db.update(
       _session,
       toUpdate,
-      columns: (t) => [t.isHidden, t.hiddenReason],
+      columns: (t) => [t.visibility],
       transaction: transaction,
     );
   }
