@@ -287,24 +287,19 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     for (final tableName in _syncTableByName.keys) {
       final (tableId, _) = _schema[tableName]!;
       final userId = _getHlcManager(transaction).normalizedUserId;
-      final crdtRows = await _db.unsafeQuery(
-        '''
-SELECT r."id", r."uuidRowId", tomb."clFlag", tomb."reason", base."reason"
-FROM "crdt_data_rows" r
-LEFT JOIN "crdt_data_tombstone" tomb ON tomb."rowId" = r."id"
-LEFT JOIN "crdt_data_foreign_key_base_tombstone" base
-  ON base."rowId" = r."id"
-WHERE r."userId" = $userId
-  AND r."tblId" = $tableId
-ORDER BY r."uuidRowId"
-''',
+      final crdtRows = await CrdtDataRow.db.find(
+        _session,
+        where: (t) => t.userId.equals(userId) & t.tblId.equals(tableId),
+        include: CrdtDataRow.include(
+          deleted: CrdtDataDeleted.include(),
+          foreignKeyBaseTombstone: CrdtDataForeignKeyBaseTombstone.include(),
+        ),
+        orderBy: (t) => t.uuidRowId,
         transaction: transaction,
       );
       if (crdtRows.isEmpty) continue;
 
-      final rowIds = {
-        for (final row in crdtRows) UuidValueJsonExtension.fromJson(row[1]),
-      };
+      final rowIds = {for (final row in crdtRows) row.uuidRowId};
       final columnNames = fkColumnsByTable[tableName] ?? const <String>{};
       final valuesByRowId = await _readDomainColumnValues(
         tableName,
@@ -314,18 +309,14 @@ ORDER BY r."uuidRowId"
       );
 
       for (final row in crdtRows) {
-        final rowId = UuidValueJsonExtension.fromJson(row[1]);
+        final rowId = row.uuidRowId;
         final key = (tableName, rowId);
         rows[key] = _ProjectedForeignKeyRow(
           key: key,
-          crdtRowId: row[0] as int,
-          isHidden: ((row[2] as int?) ?? 1).isEven,
-          deletedReason: row[3] == null
-              ? null
-              : CrdtDataDeletedReason.fromJson(row[3] as int),
-          preservedBaseDeletedReason: row[4] == null
-              ? null
-              : CrdtDataDeletedReason.fromJson(row[4] as int),
+          crdtRowId: row.id!,
+          isHidden: row.deleted?.isDeleted ?? false,
+          deletedReason: row.deleted?.reason,
+          preservedBaseDeletedReason: row.foreignKeyBaseTombstone?.reason,
           values: valuesByRowId[rowId] ?? const {},
         );
       }
@@ -412,27 +403,27 @@ ORDER BY r."uuidRowId"
 
     final (tableId, _) = _schema[tableName]!;
     final userId = _getHlcManager(transaction).normalizedUserId;
-    final result = await _db.unsafeQuery(
-      '''
-SELECT f."id", r."uuidRowId", c."name"
-FROM "crdt_data_fields" f
-JOIN "crdt_data_rows" r ON r."id" = f."rowId"
-JOIN "crdt_schema_columns" c ON c."id" = f."columnId"
-WHERE r."userId" = $userId
-  AND r."tblId" = $tableId
-  AND r."uuidRowId" IN (${_sqlLiteralList(rowIds)})
-  AND c."name" IN (${_sqlLiteralList(columnNames)})
-''',
+    final fields = await CrdtDataField.db.find(
+      _session,
+      where: (t) =>
+          t.row.userId.equals(userId) &
+          t.row.tblId.equals(tableId) &
+          t.row.uuidRowId.inSet(rowIds) &
+          t.column.name.inSet(columnNames),
+      include: CrdtDataField.include(
+        row: CrdtDataRow.include(),
+        column: CrdtSchemaColumn.include(),
+      ),
       transaction: transaction,
     );
 
     return {
-      for (final row in result)
+      for (final field in fields)
         (
           tableName,
-          UuidValueJsonExtension.fromJson(row[1]),
-          row[2] as String,
-        ): row[0] as int,
+          field.row!.uuidRowId,
+          field.column!.name,
+        ): field.id!,
     };
   }
 
@@ -626,27 +617,67 @@ WHERE r."userId" = $userId
       rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
     }
 
-    final userId = _getHlcManager(transaction).normalizedUserId;
+    final toInsert = <CrdtDataForeignKeyBaseTombstone>[];
+    final toUpdate = <CrdtDataForeignKeyBaseTombstone>[];
+
     for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
-      final (tableId, _) = _schema[tableName]!;
-      await _db.unsafeExecute(
-        '''
-INSERT INTO "crdt_data_foreign_key_base_tombstone"
-  ("rowId", "nodeId", "hlcDatetime", "hlcCounter", "clFlag", "reason")
-SELECT tomb."rowId", tomb."nodeId", tomb."hlcDatetime", tomb."hlcCounter",
-       tomb."clFlag", tomb."reason"
-FROM "crdt_data_rows" r
-JOIN "crdt_data_tombstone" tomb ON tomb."rowId" = r."id"
-WHERE r."userId" = $userId
-  AND r."tblId" = $tableId
-  AND r."uuidRowId" IN (${_sqlLiteralList(rowIds)})
-ON CONFLICT("rowId") DO UPDATE SET
-  "nodeId" = excluded."nodeId",
-  "hlcDatetime" = excluded."hlcDatetime",
-  "hlcCounter" = excluded."hlcCounter",
-  "clFlag" = excluded."clFlag",
-  "reason" = excluded."reason"
-''',
+      final crdtRows = await _findCrdtRows(
+        tableName,
+        rowIds,
+        transaction,
+        include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
+      );
+      if (crdtRows.isEmpty) continue;
+
+      final rowPks = crdtRows.map((row) => row.id!).toSet();
+      final existingByRowId = {
+        for (final tombstone in await CrdtDataForeignKeyBaseTombstone.db.find(
+          _session,
+          where: (t) => t.rowId.inSet(rowPks),
+          transaction: transaction,
+        ))
+          tombstone.rowId: tombstone,
+      };
+
+      for (final row in crdtRows) {
+        final tombstone = row.deleted;
+        if (tombstone == null) continue;
+
+        final candidate = CrdtDataForeignKeyBaseTombstone(
+          rowId: row.id!,
+          nodeId: tombstone.nodeId,
+          hlcDatetime: tombstone.hlcDatetime,
+          hlcCounter: tombstone.hlcCounter,
+          clFlag: tombstone.clFlag,
+          reason: tombstone.reason,
+        );
+        final existing = existingByRowId[row.id];
+        if (existing == null) {
+          toInsert.add(candidate);
+          continue;
+        }
+
+        if (existing.nodeId != candidate.nodeId ||
+            existing.hlcDatetime != candidate.hlcDatetime ||
+            existing.hlcCounter != candidate.hlcCounter ||
+            existing.clFlag != candidate.clFlag ||
+            existing.reason != candidate.reason) {
+          toUpdate.add(candidate.copyWith(id: existing.id));
+        }
+      }
+    }
+
+    if (toInsert.isNotEmpty) {
+      await CrdtDataForeignKeyBaseTombstone.db.insert(
+        _session,
+        toInsert,
+        transaction: transaction,
+      );
+    }
+    if (toUpdate.isNotEmpty) {
+      await CrdtDataForeignKeyBaseTombstone.db.update(
+        _session,
+        toUpdate,
         transaction: transaction,
       );
     }
@@ -663,20 +694,25 @@ ON CONFLICT("rowId") DO UPDATE SET
       rowIdsByTable.putIfAbsent(rowKey.$1, () => {}).add(rowKey.$2);
     }
 
-    final userId = _getHlcManager(transaction).normalizedUserId;
+    final toDelete = <CrdtDataForeignKeyBaseTombstone>[];
     for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
-      final (tableId, _) = _schema[tableName]!;
-      await _db.unsafeExecute(
-        '''
-DELETE FROM "crdt_data_foreign_key_base_tombstone"
-WHERE "rowId" IN (
-  SELECT r."id"
-  FROM "crdt_data_rows" r
-  WHERE r."userId" = $userId
-    AND r."tblId" = $tableId
-    AND r."uuidRowId" IN (${_sqlLiteralList(rowIds)})
-)
-''',
+      final crdtRows = await _findCrdtRows(tableName, rowIds, transaction);
+      if (crdtRows.isEmpty) continue;
+
+      final rowPks = crdtRows.map((row) => row.id!).toSet();
+      toDelete.addAll(
+        await CrdtDataForeignKeyBaseTombstone.db.find(
+          _session,
+          where: (t) => t.rowId.inSet(rowPks),
+          transaction: transaction,
+        ),
+      );
+    }
+
+    if (toDelete.isNotEmpty) {
+      await CrdtDataForeignKeyBaseTombstone.db.delete(
+        _session,
+        toDelete,
         transaction: transaction,
       );
     }
@@ -943,32 +979,41 @@ WHERE "rowId" IN (
     required CrdtForeignKeyOverrideReason? overrideReason,
     required Transaction transaction,
   }) async {
-    final attemptedSql = _uuidLiteral(attemptedValue);
-    final visibleSql = _uuidLiteral(visibleValue);
-    final hasOverrideSql = hasOverride ? 1 : 0;
-    final reasonSql = _sqlLiteral(overrideReason);
-
-    await _db.unsafeExecute(
-      '''
-INSERT INTO "crdt_data_foreign_key"
-  ("fieldId", "attemptedValue", "visibleValue", "hasOverride", "overrideReason")
-VALUES ($fieldId, $attemptedSql, $visibleSql, $hasOverrideSql, $reasonSql)
-ON CONFLICT("fieldId") DO UPDATE SET
-  "attemptedValue" = excluded."attemptedValue",
-  "visibleValue" = excluded."visibleValue",
-  "hasOverride" = excluded."hasOverride",
-  "overrideReason" = excluded."overrideReason"
-WHERE "attemptedValue" IS NOT excluded."attemptedValue"
-   OR "visibleValue" IS NOT excluded."visibleValue"
-   OR "hasOverride" IS NOT excluded."hasOverride"
-   OR "overrideReason" IS NOT excluded."overrideReason"
-''',
+    final existing = await CrdtDataForeignKey.db.findFirstRow(
+      _session,
+      where: (t) => t.fieldId.equals(fieldId),
       transaction: transaction,
     );
-  }
 
-  String _uuidLiteral(UuidValue? value) {
-    return value == null ? 'NULL' : _sqlLiteral(value);
+    final projection = CrdtDataForeignKey(
+      fieldId: fieldId,
+      attemptedValue: attemptedValue,
+      visibleValue: visibleValue,
+      hasOverride: hasOverride,
+      overrideReason: overrideReason,
+    );
+
+    if (existing == null) {
+      await CrdtDataForeignKey.db.insertRow(
+        _session,
+        projection,
+        transaction: transaction,
+      );
+      return;
+    }
+
+    if (_sameUuidValue(existing.attemptedValue, attemptedValue) &&
+        _sameUuidValue(existing.visibleValue, visibleValue) &&
+        existing.hasOverride == hasOverride &&
+        existing.overrideReason == overrideReason) {
+      return;
+    }
+
+    await CrdtDataForeignKey.db.updateRow(
+      _session,
+      projection.copyWith(id: existing.id),
+      transaction: transaction,
+    );
   }
 
   UuidValue? _uuidValueFromDatabase(Object? value) {
