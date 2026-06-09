@@ -7,23 +7,53 @@ foreign key violations. The merge result must be associative, commutative, and
 idempotent: the same merged CRDT facts must produce the same visible rows and
 visible FK values regardless of arrival order, batching, or replay.
 
-The safe model is projection-based. User rows, fields, and tombstones remain the
-CRDT facts. FK repairs are deterministic materialized projections over those
-facts, not new user field updates emitted opportunistically during merge.
+The safe merge model is projection-based. Local ORM operations are still
+authored user actions: when a local delete is intercepted for soft delete, the
+database-style `ON DELETE` side effects are materialized as CRDT facts in the
+same local transaction. FK repairs created only because independently authored
+facts were merged are deterministic materialized projections over those facts,
+not new user field updates emitted opportunistically during merge.
 
 ## Core Policy
 
 - Keep every row as a CRDT fact. Visibility is derived from row tombstones and
   schema-driven FK projection.
-- Keep the user/attempted FK value as the CRDT field value.
-- Materialize a separate visible FK value only when FK repair requires it. Use
-  `CrdtDataForeignKey` as projection metadata, not as a business conflict class.
+- Local `ON DELETE` actions are authored CRDT facts. `RESTRICT` and `NO ACTION`
+  reject the local delete while visible children exist; `SET NULL` and
+  `SET DEFAULT` update child FK fields and their ordinary `CrdtDataField` HLCs;
+  `CASCADE` records user-delete tombstones for the visible cascade descendants.
+- Keep the user/attempted FK value as the CRDT field value for authored
+  operations.
+- During merge projection, materialize a separate visible FK value only when FK
+  repair requires it. Use `CrdtDataForeignKey` as projection metadata, not as a
+  business conflict class.
 - Do not create ordinary user field updates for `SET NULL` or `SET DEFAULT`
-  repairs during merge. Doing so makes repair HLCs depend on merge timing.
+  repairs during merge. Doing so makes repair HLCs depend on merge timing. This
+  does not apply to locally initiated `SET NULL` or `SET DEFAULT` actions,
+  which are authored user field updates.
 - Recompute FK projection from merged facts over the affected FK closure. The
   incremental closure result must match a full recomputation oracle.
 
-## Action Semantics
+## Local Action Semantics
+
+Local deletes preserve database action semantics even though the physical row is
+soft-deleted instead of removed:
+
+- `ON DELETE RESTRICT` and `NO ACTION`: the delete fails if any visible child
+  still references the parent. No parent tombstone is recorded for the failed
+  operation.
+- `ON DELETE SET NULL`: visible child FK columns are updated to `null` when the
+  FK is nullable, and those child FK fields receive ordinary CRDT field updates.
+- `ON DELETE SET DEFAULT`: visible child FK columns are updated to the column
+  default when the default is legal, and those child FK fields receive ordinary
+  CRDT field updates.
+- `ON DELETE CASCADE`: visible cascade descendants receive synced
+  user-delete tombstones. Local cascade descendants are not hidden only as
+  `foreignKeyCascade` projection rows.
+
+These local side effects are the facts that other replicas merge.
+
+## Merge-Time Action Semantics
 
 For each child FK whose attempted value points to a hidden or missing parent:
 
@@ -89,7 +119,11 @@ the authority is the deterministic resolver over merged CRDT facts.
 
 - No visible row references a hidden or missing parent.
 - No cascade delete is partially applied across a blocked nested relation.
-- `SET NULL` and `SET DEFAULT` repairs are pure functions of merged facts.
+- Merge-time `SET NULL` and `SET DEFAULT` repairs are pure functions of merged
+  facts. Local `SET NULL` and `SET DEFAULT` actions are authored field facts.
+- Local cascade deletes produce synced user-delete tombstones for cascade
+  descendants; merge-time cascade projection may derive `foreignKeyCascade`
+  visibility for descendants without authored tombstones.
 - Replaying the same merge batch produces no metadata churn.
 - Splitting a merge into smaller batches converges to the same final projection
   as merging the same operations in one batch.
@@ -97,6 +131,17 @@ the authority is the deterministic resolver over merged CRDT facts.
   recomputation.
 
 ## Test Cases
+
+### Local CRUD Actions
+
+- Given a visible `RESTRICT` or `NO ACTION` child, when the parent is deleted
+  locally, then the delete fails and no parent tombstone is recorded.
+- Given a nullable `SET NULL` child, when the parent is deleted locally, then the
+  child FK is set to `null` as an authored field update.
+- Given a valid `SET DEFAULT` child, when the parent is deleted locally, then
+  the child FK is set to the default as an authored field update.
+- Given a valid cascade chain, when the root is deleted locally, then every
+  visible cascade descendant receives a user-delete tombstone.
 
 ### Restrict and No Action
 
@@ -132,9 +177,9 @@ the authority is the deterministic resolver over merged CRDT facts.
 
 ### Cascade
 
-8. Given a parent with children under `ON DELETE CASCADE`, when the parent is
-   deleted, then all cascade descendants in the valid cascade closure become
-   hidden and no visible descendant references a hidden ancestor.
+8. Given a parent delete fact merged from another replica with children under
+   `ON DELETE CASCADE`, then all cascade descendants in the valid cascade
+   closure become hidden and no visible descendant references a hidden ancestor.
 
 9. Given a child already hidden by a cascade projection, when the same delete
    facts are merged again, then no additional metadata churn occurs.
@@ -176,5 +221,7 @@ the authority is the deterministic resolver over merged CRDT facts.
 - ACI merge behavior: batching, replay, and merge order do not change the final
   visible result.
 - Nested safety: cascade cannot bypass restrict/no-action descendants.
-- Projection discipline: `SET NULL` and `SET DEFAULT` do not become ordinary
-  user CRDT writes.
+- Local action fidelity: local deletes preserve database-style FK side effects
+  as authored CRDT facts.
+- Projection discipline: merge-time `SET NULL` and `SET DEFAULT` repairs do not
+  become ordinary user CRDT writes.
