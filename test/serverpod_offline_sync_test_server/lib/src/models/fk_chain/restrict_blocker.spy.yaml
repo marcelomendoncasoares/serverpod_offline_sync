@@ -1,0 +1,8 @@
+class: FkChainRestrictBlocker
+table: fk_chain_restrict_blocker
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  cascadeMiddle: FkChainCascadeMiddle?, relation(field=cascadeMiddleId, onDelete=Restrict)
+  cascadeMiddleId: UuidValue?

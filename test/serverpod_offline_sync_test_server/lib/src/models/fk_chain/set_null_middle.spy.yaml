@@ -1,0 +1,8 @@
+class: FkChainSetNullMiddle
+table: fk_chain_set_null_middle
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  cascadeMiddle: FkChainCascadeMiddle?, relation(field=cascadeMiddleId, onDelete=SetNull)
+  cascadeMiddleId: UuidValue?
