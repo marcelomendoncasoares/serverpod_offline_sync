@@ -52,3 +52,10 @@ extension CrdtDataDeletedExtension on CrdtDataDeleted {
         ))
       : toHlcForNode(node!.uuidNodeId);
 }
+
+/// Extensions for the [CrdtDataDeletedReason] enum.
+extension CrdtDataDeletedReasonExtension on CrdtDataDeletedReason {
+  /// Whether this tombstone reason is synced across replicas. All reasons that
+  /// start with 'user' are synced.
+  bool get isSynced => name.startsWith('user');
+}

@@ -9,13 +9,6 @@ typedef _MergeContext = ({
   Map<_MergeRowKey, CrdtDataDeleted> tombstones,
 });
 
-/// User tombstone reasons that are synced across replicas.
-const syncedUserTombstoneReasons = {
-  CrdtDataDeletedReason.userInsert,
-  CrdtDataDeletedReason.userDelete,
-  CrdtDataDeletedReason.userReinsert,
-};
-
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   CrdtUniqueConflictResolver get _uniqueConflictResolver =>
@@ -382,7 +375,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final rowKey = (delete.tableName, delete.uuidRowId);
     final row = context.rows[rowKey];
     if (row == null) return;
-    if (!syncedUserTombstoneReasons.contains(delete.reason)) return;
+    if (!delete.reason.isSynced) return;
 
     final currentTombstone = context.tombstones[rowKey];
     final currentClFlag = currentTombstone?.clFlag ?? 1;
@@ -400,7 +393,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       transaction,
     );
 
-    if (syncedUserTombstoneReasons.contains(delete.reason)) {
+    if (delete.reason.isSynced) {
       await _applyRowVisibilityFromUserTombstone(
         row,
         context.tombstones[rowKey]!,

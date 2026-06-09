@@ -391,21 +391,28 @@ void main() {
       );
     });
 
+    test('then a CRDT tombstone is created for the organization row.', () async {
+      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+        session,
+        where: (t) => t.row.uuidRowId.equals(organization.id),
+      );
+
+      expect(tombstone, isNotNull);
+      expect(tombstone!.isDeleted, true);
+      expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
+    });
+
     test(
-      'then the organization CRDT row is hidden by a user-delete tombstone.',
+      'then the organization CRDT row is hidden by the cascade-delete tombstone.',
       () async {
         final crdtRow = await CrdtDataRow.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(organization.id),
-          include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
         );
 
         expect(crdtRow, isNotNull);
         expect(crdtRow!.isHidden, isTrue);
-        expect(crdtRow.visibility, CrdtDataRowVisibility.userDelete);
-        expect(crdtRow.deleted, isNotNull);
-        expect(crdtRow.deleted!.isDeleted, isTrue);
-        expect(crdtRow.deleted!.reason, CrdtDataDeletedReason.userDelete);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
       },
     );
 
@@ -419,21 +426,28 @@ void main() {
       expect(row!.name, organization.name);
     });
 
+    test('then a CRDT tombstone is also created for the person row.', () async {
+      final tombstone = await CrdtDataDeleted.db.findFirstRow(
+        session,
+        where: (t) => t.row.uuidRowId.equals(person.id),
+      );
+
+      expect(tombstone, isNotNull);
+      expect(tombstone!.isDeleted, true);
+      expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
+    });
+
     test(
-      'then the person CRDT row is also hidden by a user-delete tombstone.',
+      'then the person CRDT row is also hidden by the cascade-delete tombstone.',
       () async {
         final crdtRow = await CrdtDataRow.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(person.id),
-          include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
         );
 
         expect(crdtRow, isNotNull);
         expect(crdtRow!.isHidden, isTrue);
-        expect(crdtRow.visibility, CrdtDataRowVisibility.userDelete);
-        expect(crdtRow.deleted, isNotNull);
-        expect(crdtRow.deleted!.isDeleted, isTrue);
-        expect(crdtRow.deleted!.reason, CrdtDataDeletedReason.userDelete);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
       },
     );
   });

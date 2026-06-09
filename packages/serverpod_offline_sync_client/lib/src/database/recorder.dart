@@ -708,7 +708,7 @@ WHERE c."id" IN ($whereRowIds)
           childIds,
           transaction,
           processing,
-          reason,
+          CrdtDataDeletedReason.userCascadeDelete,
         );
       }
     } finally {
@@ -1274,7 +1274,8 @@ extension on CrdtDataDeletedReason {
 
     return switch (this) {
       CrdtDataDeletedReason.userDelete => CrdtDataRowVisibility.userDelete,
-      CrdtDataDeletedReason.uniqueLoser => CrdtDataRowVisibility.userDelete,
+      CrdtDataDeletedReason.userCascadeDelete =>
+        CrdtDataRowVisibility.userCascadeDelete,
       _ => CrdtDataRowVisibility.userDelete,
     };
   }

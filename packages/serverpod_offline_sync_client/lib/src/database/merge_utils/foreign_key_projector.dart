@@ -798,7 +798,9 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       rowsToHide,
       state: state,
       visibilityFor: (row) => row.userHidden
-          ? CrdtDataRowVisibility.userDelete
+          ? (row.userDeletedReason == CrdtDataDeletedReason.userCascadeDelete)
+                ? CrdtDataRowVisibility.userCascadeDelete
+                : CrdtDataRowVisibility.userDelete
           : CrdtDataRowVisibility.foreignKeyCascade,
       transaction: transaction,
     );

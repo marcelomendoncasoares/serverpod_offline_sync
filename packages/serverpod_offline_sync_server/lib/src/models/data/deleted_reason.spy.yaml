@@ -3,6 +3,7 @@ enum: CrdtDataDeletedReason
 serialized: byIndex
 values:
   - userInsert
-  - userDelete
   - userReinsert
+  - userDelete
+  - userCascadeDelete
   - uniqueLoser

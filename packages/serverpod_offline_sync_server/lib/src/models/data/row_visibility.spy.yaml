@@ -9,4 +9,5 @@ values:
   - userReinsert
   - foreignKeyRestrictRestore
   - userDelete
+  - userCascadeDelete
   - foreignKeyCascade

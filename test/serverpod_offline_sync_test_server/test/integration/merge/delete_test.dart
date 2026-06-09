@@ -179,7 +179,7 @@ void main() {
         hlcDatetime: tombstoneHlc.datetime.advance(),
         hlcCounter: 0,
         clFlag: 2,
-        reason: CrdtDataDeletedReason.userDelete,
+        reason: CrdtDataDeletedReason.userCascadeDelete,
       );
       mergeSet = [remoteDelete];
     });
@@ -201,7 +201,7 @@ void main() {
 
         expect(tombstone, isNotNull);
         expect(tombstone!.clFlag, 2);
-        expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
+        expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
         expect(tombstone.hlc, remoteDelete.hlc);
         expect(tombstone.node!.uuidNodeId, remoteNodeId);
       });
