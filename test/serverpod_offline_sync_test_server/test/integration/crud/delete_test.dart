@@ -392,16 +392,20 @@ void main() {
     });
 
     test(
-      'then the organization CRDT row is hidden by foreign key projection.',
+      'then the organization CRDT row is hidden by a user-delete tombstone.',
       () async {
         final crdtRow = await CrdtDataRow.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(organization.id),
+          include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
         );
 
         expect(crdtRow, isNotNull);
         expect(crdtRow!.isHidden, isTrue);
-        expect(crdtRow.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.userDelete);
+        expect(crdtRow.deleted, isNotNull);
+        expect(crdtRow.deleted!.isDeleted, isTrue);
+        expect(crdtRow.deleted!.reason, CrdtDataDeletedReason.userDelete);
       },
     );
 
@@ -416,16 +420,20 @@ void main() {
     });
 
     test(
-      'then the person CRDT row is also hidden by foreign key projection.',
+      'then the person CRDT row is also hidden by a user-delete tombstone.',
       () async {
         final crdtRow = await CrdtDataRow.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
         );
 
         expect(crdtRow, isNotNull);
         expect(crdtRow!.isHidden, isTrue);
-        expect(crdtRow.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.userDelete);
+        expect(crdtRow.deleted, isNotNull);
+        expect(crdtRow.deleted!.isDeleted, isTrue);
+        expect(crdtRow.deleted!.reason, CrdtDataDeletedReason.userDelete);
       },
     );
   });
