@@ -36,6 +36,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (mergeSet.isEmpty) return;
 
     final operations = mergeSet.causallyOrderedChanges;
+    final shouldProjectForeignKeys = _mergeOperationsMayAffectForeignKeys(
+      operations,
+    );
     final currentUser = _getEffectiveUser(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
@@ -74,7 +77,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
-    await _projectForeignKeys(transaction);
+    if (shouldProjectForeignKeys) {
+      await _projectForeignKeys(transaction);
+    }
     await _updateHlcFromIncomingOperations(
       operations,
       remoteNodes,
@@ -278,17 +283,25 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
 
+      final safeInsert = await _safeIncomingForeignKeyData(
+        insert.tableName,
+        insert.uuidRowId,
+        resolvedInsert.data,
+        transaction,
+      );
+
       context.rows[rowKey] = await _applyMergeInsertForMissingRow(
         insert,
         remoteNode,
         incomingHlc,
-        resolvedInsert.data,
+        safeInsert.data,
         transaction,
       );
       await _recordForeignKeyInsertAttempts(
         insert.tableName,
         {insert.uuidRowId},
         transaction,
+        safeInsert.attempts,
       );
     } else {
       await _applyMergeInsertForExistingRow(
@@ -332,10 +345,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       context,
       transaction,
     );
+    final safeUpdate = await _safeIncomingForeignKeyData(
+      update.tableName,
+      update.uuidRowId,
+      resolvedUpdates,
+      transaction,
+    );
     await _updateDomainRows(
       update.tableName,
       {update.uuidRowId},
-      resolvedUpdates,
+      safeUpdate.data,
       transaction,
     );
     await _recordForeignKeyAttemptsForRows(
@@ -343,6 +362,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       {update.uuidRowId},
       resolvedUpdates.keys.toSet(),
       transaction,
+      attemptedValues: safeUpdate.attempts,
     );
   }
 
@@ -596,10 +616,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     if (updatesToApply.isNotEmpty) {
+      final safeUpdate = await _safeIncomingForeignKeyData(
+        insert.tableName,
+        insert.uuidRowId,
+        updatesToApply,
+        transaction,
+      );
       await _updateDomainRows(
         insert.tableName,
         {insert.uuidRowId},
-        updatesToApply,
+        safeUpdate.data,
         transaction,
       );
       await _recordForeignKeyAttemptsForRows(
@@ -607,6 +633,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         {insert.uuidRowId},
         updatesToApply.keys.toSet(),
         transaction,
+        attemptedValues: safeUpdate.attempts,
       );
     }
 

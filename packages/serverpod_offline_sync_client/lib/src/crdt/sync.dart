@@ -368,6 +368,10 @@ class CrdtSync {
         node: CrdtNode.include(),
       ),
     );
+    final foreignKeyAttemptFieldsByRowId = await _loadProjectedForeignKeyAttemptFields(
+      session,
+      rows,
+    );
 
     for (final row in rows) {
       final tableName = row.tbl!.name;
@@ -384,6 +388,7 @@ class CrdtSync {
         row.id!,
         table,
         dartName,
+        foreignKeyAttemptFieldsByRowId[row.id!] ?? const <CrdtDataField>[],
       );
       if (domainRow == null) continue;
 
@@ -410,6 +415,7 @@ class CrdtSync {
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         column: CrdtSchemaColumn.include(),
         node: CrdtNode.include(),
+        foreignKey: CrdtDataForeignKey.include(),
       ),
     );
 
@@ -425,7 +431,7 @@ class CrdtSync {
       final columnName = field.column!.name;
       final decodedValue = await _fetchColumnValueForField(
         session,
-        field.id!,
+        field.foreignKey,
         tableName,
         field.row!.uuidRowId,
         columnName,
@@ -521,6 +527,7 @@ class CrdtSync {
     int crdtRowId,
     Table table,
     String dartName,
+    List<CrdtDataField> foreignKeyAttemptFields,
   ) async {
     final cols = table.columns
         .map((column) => '"${_escapeIdentifier(column.columnName)}"')
@@ -534,8 +541,7 @@ class CrdtSync {
 
     final columnMap = result.first.toColumnMap();
     await _applyProjectedForeignKeyAttempts(
-      session,
-      crdtRowId,
+      foreignKeyAttemptFields,
       columnMap,
     );
     return session.db.serializationManager.deserializeByClassName({
@@ -546,17 +552,13 @@ class CrdtSync {
 
   Future<dynamic> _fetchColumnValueForField(
     DatabaseSession session,
-    int fieldId,
+    CrdtDataForeignKey? projection,
     String tableName,
     UuidValue rowId,
     String columnName,
   ) async {
-    final projectedValue = await _fetchProjectedForeignKeyAttempt(
-      session,
-      fieldId,
-    );
-    if (projectedValue != null) {
-      return _decodeColumnValue(tableName, columnName, projectedValue);
+    if (projection != null && projection.hasOverride) {
+      return _decodeColumnValue(tableName, columnName, projection.attemptedValue);
     }
 
     return _fetchColumnValue(session, tableName, rowId, columnName);
@@ -578,37 +580,42 @@ class CrdtSync {
     return _decodeColumnValue(tableName, columnName, result.first[0]);
   }
 
-  Future<void> _applyProjectedForeignKeyAttempts(
+  Future<Map<int, List<CrdtDataField>>> _loadProjectedForeignKeyAttemptFields(
     DatabaseSession session,
-    int crdtRowId,
-    Map<String, dynamic> columnMap,
+    List<CrdtDataRow> rows,
   ) async {
+    final rowIds = {
+      for (final row in rows)
+        if (row.id != null) row.id!,
+    };
+    if (rowIds.isEmpty) return {};
+
     final fields = await CrdtDataField.db.find(
       session,
-      where: (t) => t.rowId.equals(crdtRowId),
+      where: (t) => t.rowId.inSet(rowIds) & t.foreignKey.hasOverride.equals(true),
       include: CrdtDataField.include(
         column: CrdtSchemaColumn.include(),
         foreignKey: CrdtDataForeignKey.include(),
       ),
     );
 
+    final fieldsByRowId = <int, List<CrdtDataField>>{};
     for (final field in fields) {
+      fieldsByRowId.putIfAbsent(field.rowId, () => []).add(field);
+    }
+
+    return fieldsByRowId;
+  }
+
+  Future<void> _applyProjectedForeignKeyAttempts(
+    List<CrdtDataField> foreignKeyAttemptFields,
+    Map<String, dynamic> columnMap,
+  ) async {
+    for (final field in foreignKeyAttemptFields) {
       final projection = field.foreignKey;
       if (projection == null || !projection.hasOverride) continue;
       columnMap[field.column!.name] = projection.attemptedValue;
     }
-  }
-
-  Future<UuidValue?> _fetchProjectedForeignKeyAttempt(
-    DatabaseSession session,
-    int fieldId,
-  ) async {
-    final projection = await CrdtDataForeignKey.db.findFirstRow(
-      session,
-      where: (t) => t.fieldId.equals(fieldId) & t.hasOverride.equals(true),
-    );
-
-    return projection?.attemptedValue;
   }
 
   dynamic _decodeColumnValue(String tableName, String columnName, Object? value) {

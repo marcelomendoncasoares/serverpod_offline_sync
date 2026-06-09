@@ -296,10 +296,18 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        return [
-          for (final row in rows)
-            await updateRow<T>(row, columns: columns, transaction: tx),
-        ];
+        final updatedRows = <T>[];
+        for (final row in rows) {
+          final updatedRow = await _updateRowWithoutRecording(
+            row,
+            columns: columns,
+            transaction: tx,
+          );
+          updatedRows.add(updatedRow);
+        }
+
+        await _recorder.afterUpdate(updatedRows, columns, tx);
+        return updatedRows;
       },
     );
   }
@@ -310,31 +318,42 @@ class CrdtDatabase implements Database {
     List<Column>? columns,
     Transaction? transaction,
   }) async {
-    final updatedRows = await DatabaseUtil.runInTransactionOrSavepoint(
+    return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
-        final values = row.toJsonForDatabase() as Map<String, dynamic>;
-        final columnValues = (columns ?? row.table.managedColumns)
-            .where((c) => c.columnName != 'id')
-            .map((c) => ColumnValue(c, values[c.columnName]))
-            .toList();
-
-        final updatedRows = await _delegate.updateWhere<T>(
-          columnValues: columnValues,
-          where: mergeWhereWithTombstone<T>(
-            serializationManager,
-            row.table.id.equals(row.id),
-            null,
-          )!,
+        final updatedRow = await _updateRowWithoutRecording(
+          row,
+          columns: columns,
           transaction: tx,
         );
 
-        await _recorder.afterUpdate(updatedRows, columns, tx);
-        return updatedRows;
+        await _recorder.afterUpdate([updatedRow], columns, tx);
+        return updatedRow;
       },
     );
+  }
 
+  Future<T> _updateRowWithoutRecording<T extends TableRow>(
+    T row, {
+    required Transaction transaction,
+    List<Column>? columns,
+  }) async {
+    final values = row.toJsonForDatabase() as Map<String, dynamic>;
+    final columnValues = (columns ?? row.table.managedColumns)
+        .where((c) => c.columnName != 'id')
+        .map((c) => ColumnValue(c, values[c.columnName]))
+        .toList();
+
+    final updatedRows = await _delegate.updateWhere<T>(
+      columnValues: columnValues,
+      where: mergeWhereWithTombstone<T>(
+        serializationManager,
+        row.table.id.equals(row.id),
+        null,
+      )!,
+      transaction: transaction,
+    );
     if (updatedRows.isEmpty) {
       // FIXME: We can't use the proper `DatabaseUpdateRowException` because
       // it is declared as a base type on the `serverpod_database` package.

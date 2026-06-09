@@ -26,3 +26,4 @@ database:
 sessionLogs:
   persistentEnabled: false
   consoleEnabled: true
+  consoleLogFormat: text

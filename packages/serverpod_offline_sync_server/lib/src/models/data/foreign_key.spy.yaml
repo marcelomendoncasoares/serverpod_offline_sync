@@ -1,12 +1,13 @@
-### CRDT field foreign key projection table.
+### CRDT field foreign key value and projection table.
 ###
-### This table stores the materialized foreign key projection for a CRDT field.
-### The user/attempted value remains the CRDT field value; this row records the
-### currently visible database value when FK repair requires it to differ.
+### This table stores the user/attempted foreign key value for a CRDT field and
+### the materialized foreign key projection for that value. CrdtDataField stores
+### only HLC metadata, so FK columns store their durable attempted value here.
 ###
 ### Repairs must be recomputable from merged CRDT row, field, and tombstone
-### facts. This table records what was materialized into the domain row; it does
-### not decide business semantics or create user field updates during merge.
+### facts plus this attempted FK value. The projection columns record what was
+### materialized into the domain row; they do not decide business semantics or
+### create user field updates during merge.
 class: CrdtDataForeignKey
 table: crdt_data_foreign_key
 database: all
@@ -17,9 +18,8 @@ fields:
 
   ### The user-attempted foreign key value that the CRDT field currently carries.
   ###
-  ### This may be null for nullable foreign keys. The resolver compares this
-  ### value with the materialized domain value to decide whether an override row
-  ### is still needed.
+  ### This may be null for nullable foreign keys. This is durable FK field-value
+  ### storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
   attemptedValue: UuidValue?, required
 
   ### The foreign key value that is currently visible in the actual data row.

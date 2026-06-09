@@ -13,6 +13,7 @@ void main() {
   final syncTables = [
     Address.t,
     Person.t,
+    Town.t,
     Types.t,
     Unique.t,
   ];
@@ -211,6 +212,131 @@ void main() {
     );
   });
 
+  group('Given an inserted row with an active set-null projection', () {
+    late Person attemptedParent;
+    late Town child;
+
+    setUp(() async {
+      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+        attemptedParent = await Person.db.insertRow(
+          crdtSession,
+          Person(id: const Uuid().v7obj(), name: 'sync attempted mayor'),
+          transaction: tx,
+        );
+        child = await Town.db.insertRow(
+          crdtSession,
+          Town(
+            id: const Uuid().v7obj(),
+            name: 'sync projected town',
+            mayorId: attemptedParent.id,
+          ),
+          transaction: tx,
+        );
+      });
+
+      await crdtSession.db.mergeChanges(
+        [
+          _deleteChange(
+            tableName: Person.t.tableName,
+            rowId: attemptedParent.id!,
+            after: await _rowHlc(attemptedParent.id!),
+          ),
+        ],
+        userId: testCrdtUserId,
+      );
+    });
+
+    test(
+      'when pending changes are collected '
+      'then the insert payload carries the attempted foreign key value.',
+      () async {
+        final visibleChild = await Town.db.findById(crdtSession, child.id!);
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              peerNodeId: const Uuid().v7obj(),
+              userId: testCrdtUserId,
+              nodeCheckpoints: const [],
+            )
+            .toList();
+
+        final childInsert = mergeSet.inserts
+            .where(
+              (insert) =>
+                  insert.tableName == Town.t.tableName && insert.uuidRowId == child.id,
+            )
+            .single;
+        final childPayload = childInsert.data as Town;
+
+        expect(visibleChild, isNotNull);
+        expect(visibleChild!.mayorId, isNull);
+        expect(childPayload.mayorId, attemptedParent.id);
+      },
+    );
+  });
+
+  group('Given an updated row with an active set-null projection', () {
+    late Town child;
+    late UuidValue missingParentId;
+
+    setUp(() async {
+      missingParentId = const Uuid().v7obj();
+      child = await crdtSession.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Town.db.insertRow(
+          crdtSession,
+          Town(id: const Uuid().v7obj(), name: 'sync projected update town'),
+          transaction: tx,
+        ),
+      );
+
+      final childHlc = await _rowHlc(child.id!);
+      await crdtSession.db.mergeChanges(
+        [
+          CrdtMergeUpdate(
+            tableName: Town.t.tableName,
+            uuidRowId: child.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: childHlc.datetime.advance(),
+            hlcCounter: 0,
+            columnName: Town.t.mayorId.columnName,
+            value: missingParentId,
+          ),
+        ],
+        userId: testCrdtUserId,
+      );
+    });
+
+    test(
+      'when pending changes are collected '
+      'then the update payload carries the attempted foreign key value.',
+      () async {
+        final visibleChild = await Town.db.findById(crdtSession, child.id!);
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              peerNodeId: const Uuid().v7obj(),
+              userId: testCrdtUserId,
+              nodeCheckpoints: const [],
+            )
+            .toList();
+
+        final mayorUpdate = mergeSet.updates
+            .where(
+              (update) =>
+                  update.tableName == Town.t.tableName &&
+                  update.uuidRowId == child.id &&
+                  update.columnName == Town.t.mayorId.columnName,
+            )
+            .single;
+
+        expect(visibleChild, isNotNull);
+        expect(visibleChild!.mayorId, isNull);
+        expect(mayorUpdate.value, missingParentId);
+      },
+    );
+  });
+
   test(
     'Given a CRDT node without local changes '
     'when synchronization checkpoints are created '
@@ -233,10 +359,40 @@ void main() {
   );
 }
 
+CrdtMergeDelete _deleteChange({
+  required String tableName,
+  required UuidValue rowId,
+  required Hlc after,
+}) {
+  return CrdtMergeDelete(
+    tableName: tableName,
+    uuidRowId: rowId,
+    uuidNodeId: const Uuid().v7obj(),
+    hlcDatetime: after.datetime.advance(),
+    hlcCounter: 0,
+    clFlag: 2,
+    reason: CrdtDataDeletedReason.userDelete,
+  );
+}
+
+Future<Hlc> _rowHlc(UuidValue rowId) async {
+  final crdtRow = await CrdtDataRow.db.findFirstRow(
+    testSession,
+    where: (t) => t.uuidRowId.equals(rowId),
+    include: CrdtDataRow.include(node: CrdtNode.include()),
+  );
+
+  return crdtRow!.hlc;
+}
+
 extension on List<int> {
   ByteData toBlob() => ByteData.sublistView(Uint8List.fromList(this));
 }
 
 extension on ByteData {
   List<int> toBytes() => buffer.asUint8List();
+}
+
+extension on DateTime {
+  DateTime advance() => add(const Duration(milliseconds: 1));
 }

@@ -32,6 +32,8 @@ typedef _ForeignKeyEdge = ({
   Object? defaultValue,
 });
 
+typedef _ForeignKeyValueKey = (String tableName, String columnName, String value);
+
 typedef _UniqueIndexConflictRelease = ({
   List<_UniqueColumnConflictRelease> columns,
 });
@@ -138,6 +140,22 @@ class CrdtMutationRecorder {
               ),
             ),
   ];
+
+  late final Map<String, List<_ForeignKeyEdge>> _foreignKeyEdgesByParentTable = {
+    for (final tableName in _tableDefinitionsByName.keys)
+      tableName: [
+        for (final edge in _foreignKeyEdges)
+          if (edge.parentTableName == tableName) edge,
+      ],
+  };
+
+  late final Map<String, List<_ForeignKeyEdge>> _foreignKeyEdgesByChildTable = {
+    for (final tableName in _tableDefinitionsByName.keys)
+      tableName: [
+        for (final edge in _foreignKeyEdges)
+          if (edge.childTableName == tableName) edge,
+      ],
+  };
 
   final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
@@ -262,8 +280,10 @@ class CrdtMutationRecorder {
         ignoreConflicts: true,
       );
 
-      await _recordForeignKeyInsertAttempts(tableName, rowIds, transaction);
-      await _projectForeignKeys(transaction);
+      await _recordForeignKeyInsertAttempts(tableName, rowIds, transaction, {});
+      if (_tableColumnsMayAffectForeignKeys(tableName, null)) {
+        await _projectForeignKeys(transaction);
+      }
     });
   }
 
@@ -298,7 +318,9 @@ class CrdtMutationRecorder {
         null,
         transaction,
       );
-      await _projectForeignKeys(transaction);
+      if (_tableColumnsMayAffectForeignKeys(tableName, null)) {
+        await _projectForeignKeys(transaction);
+      }
     });
   }
 
@@ -342,7 +364,12 @@ class CrdtMutationRecorder {
         transaction,
         skippedFields: implicitForeignKeyRepairFields,
       );
-      await _projectForeignKeys(transaction);
+      if (_tableColumnsMayAffectForeignKeys(
+        tableName,
+        columns?.map((column) => column.columnName).toSet(),
+      )) {
+        await _projectForeignKeys(transaction);
+      }
     });
   }
 
@@ -544,6 +571,26 @@ WHERE c."id" IN ($whereRowIds)
               'No CRDT schema column for ${table.tableName}.${column.columnName}',
             )),
     ];
+    await _upsertCrdtFieldsForRows(
+      table.tableName,
+      [
+        for (final row in updatedRows) crdtDataRowByUuid[row.id as UuidValue]!,
+      ],
+      schemaColumns,
+      transaction,
+      skippedFields: skippedFields,
+    );
+  }
+
+  Future<void> _upsertCrdtFieldsForRows(
+    String tableName,
+    List<CrdtDataRow> crdtDataRows,
+    List<CrdtSchemaColumn> schemaColumns,
+    Transaction transaction, {
+    Set<_MergeFieldKey> skippedFields = const {},
+  }) async {
+    if (crdtDataRows.isEmpty || schemaColumns.isEmpty) return;
+
     final rowPks = crdtDataRows.map((r) => r.id!).toSet();
     final columnPks = schemaColumns.map((c) => c.id!).toSet();
     final existingFields = await CrdtDataField.db.find(
@@ -559,28 +606,20 @@ WHERE c."id" IN ($whereRowIds)
     final hlcManager = _getHlcManager(transaction);
     final toInsert = <CrdtDataField>[];
     final toUpdate = <CrdtDataField>[];
-    for (final row in updatedRows) {
-      final crdtDataRow = crdtDataRowByUuid[row.id as UuidValue]!;
 
+    for (final row in crdtDataRows) {
       for (final schemaCol in schemaColumns) {
-        if (skippedFields.contains((
-          table.tableName,
-          row.id as UuidValue,
-          schemaCol.name,
-        ))) {
+        if (skippedFields.contains((tableName, row.uuidRowId, schemaCol.name))) {
           continue;
         }
 
         final hlc = hlcManager.increment();
-        final rowPk = crdtDataRow.id!;
-        final colPk = schemaCol.id!;
-        final existing = fieldByRowAndColumn[(rowPk, colPk)];
-
+        final existing = fieldByRowAndColumn[(row.id!, schemaCol.id!)];
         if (existing == null) {
           toInsert.add(
             CrdtDataField(
-              rowId: rowPk,
-              columnId: colPk,
+              rowId: row.id!,
+              columnId: schemaCol.id!,
               nodeId: hlcManager.normalizedNodeId,
               hlcDatetime: hlc.datetime,
               hlcCounter: hlc.counter,
@@ -599,18 +638,10 @@ WHERE c."id" IN ($whereRowIds)
     }
 
     if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(
-        _session,
-        toInsert,
-        transaction: transaction,
-      );
+      await CrdtDataField.db.insert(_session, toInsert, transaction: transaction);
     }
     if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(
-        _session,
-        toUpdate,
-        transaction: transaction,
-      );
+      await CrdtDataField.db.update(_session, toUpdate, transaction: transaction);
     }
   }
 
@@ -630,7 +661,12 @@ WHERE c."id" IN ($whereRowIds)
       null,
       CrdtDataDeletedReason.userDelete,
     );
-    await _projectForeignKeys(transaction);
+    if (_tableColumnsMayAffectForeignKeys(
+      deletedRows.first.table.tableName,
+      null,
+    )) {
+      await _projectForeignKeys(transaction);
+    }
   }
 
   Future<void> _softDeleteRowsByTable(
@@ -664,7 +700,7 @@ WHERE c."id" IN ($whereRowIds)
       if (visibleCrdtRows.isEmpty) return;
       final visibleRowIds = visibleCrdtRows.map((row) => row.uuidRowId).toSet();
 
-      await _applyForeignKeyDeleteActions(
+      final cascadeDeletes = await _applyForeignKeyDeleteActions(
         tableName,
         visibleRowIds,
         transaction,
@@ -672,6 +708,16 @@ WHERE c."id" IN ($whereRowIds)
       );
       await _releaseUniqueConflicts(tableName, visibleRowIds, transaction);
       await _markCrdtRowsDeleted(visibleCrdtRows, true, reason, transaction);
+      for (final MapEntry(key: childTableName, value: childIds)
+          in cascadeDeletes.entries) {
+        await _softDeleteRowsByTable(
+          childTableName,
+          childIds,
+          transaction,
+          processing,
+          reason,
+        );
+      }
     } finally {
       for (final rowId in unprocessedRowIds) {
         processing.remove('$tableName:$rowId');
@@ -699,53 +745,12 @@ WHERE c."id" IN ($whereRowIds)
     ];
     if (schemaColumns.isEmpty) return;
 
-    final rowPks = crdtDataRows.map((r) => r.id!).toSet();
-    final columnPks = schemaColumns.map((c) => c.id!).toSet();
-    final existingFields = await CrdtDataField.db.find(
-      _session,
-      where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnPks),
-      transaction: transaction,
+    await _upsertCrdtFieldsForRows(
+      tableName,
+      crdtDataRows,
+      schemaColumns,
+      transaction,
     );
-    final fieldByRowAndColumn = {
-      for (final f in existingFields) (f.rowId, f.columnId): f,
-    };
-
-    final hlcManager = _getHlcManager(transaction);
-    final toInsert = <CrdtDataField>[];
-    final toUpdate = <CrdtDataField>[];
-
-    for (final row in crdtDataRows) {
-      for (final schemaCol in schemaColumns) {
-        final hlc = hlcManager.increment();
-        final existing = fieldByRowAndColumn[(row.id!, schemaCol.id!)];
-        if (existing == null) {
-          toInsert.add(
-            CrdtDataField(
-              rowId: row.id!,
-              columnId: schemaCol.id!,
-              nodeId: hlcManager.normalizedNodeId,
-              hlcDatetime: hlc.datetime,
-              hlcCounter: hlc.counter,
-            ),
-          );
-        } else {
-          toUpdate.add(
-            existing.copyWith(
-              nodeId: hlcManager.normalizedNodeId,
-              hlcDatetime: hlc.datetime,
-              hlcCounter: hlc.counter,
-            ),
-          );
-        }
-      }
-    }
-
-    if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(_session, toInsert, transaction: transaction);
-    }
-    if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(_session, toUpdate, transaction: transaction);
-    }
   }
 
   Future<void> _markCrdtRowsDeleted(
@@ -883,14 +888,15 @@ WHERE c."id" IN ($whereRowIds)
     );
   }
 
-  Future<void> _applyForeignKeyDeleteActions(
+  Future<Map<String, Set<UuidValue>>> _applyForeignKeyDeleteActions(
     String parentTableName,
     Set<UuidValue> parentIds,
     Transaction transaction,
     Set<String> processing,
   ) async {
-    if (parentIds.isEmpty) return;
+    if (parentIds.isEmpty) return {};
 
+    final cascadeDeletes = <String, Set<UuidValue>>{};
     final foreignKeys =
         _foreignKeysByReferencedTable[parentTableName] ??
         const <_ReferencingForeignKey>[];
@@ -960,10 +966,14 @@ WHERE c."id" IN ($whereRowIds)
               transaction,
             );
           case ForeignKeyAction.cascade:
-            break;
+            cascadeDeletes
+                .putIfAbsent(reference.childTableName, () => {})
+                .addAll(childIds);
         }
       }
     }
+
+    return cascadeDeletes;
   }
 
   Future<void> _releaseUniqueConflicts(

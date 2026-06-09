@@ -18,6 +18,9 @@ not new user field updates emitted opportunistically during merge.
 
 - Keep every row as a CRDT fact. Visibility is derived from row tombstones and
   schema-driven FK projection.
+- Supported foreign keys are single-column child references to single-column
+  parent references. Schemas with composite foreign keys must fail recorder
+  initialization instead of silently bypassing projection.
 - Local `ON DELETE` actions are authored CRDT facts. `RESTRICT` and `NO ACTION`
   reject the local delete while visible children exist; `SET NULL` and
   `SET DEFAULT` update child FK fields and their ordinary `CrdtDataField` HLCs;
@@ -25,14 +28,19 @@ not new user field updates emitted opportunistically during merge.
 - Keep the user/attempted FK value as the CRDT field value for authored
   operations.
 - During merge projection, materialize a separate visible FK value only when FK
-  repair requires it. Use `CrdtDataForeignKey` as projection metadata, not as a
-  business conflict class.
+  repair requires it. `CrdtDataForeignKey.attemptedValue` is the durable FK
+  field-value payload for FK columns because `CrdtDataField` stores only HLC
+  metadata. `visibleValue`, `hasOverride`, and `overrideReason` are projection
+  metadata, not business conflict classes.
 - Do not create ordinary user field updates for `SET NULL` or `SET DEFAULT`
   repairs during merge. Doing so makes repair HLCs depend on merge timing. This
   does not apply to locally initiated `SET NULL` or `SET DEFAULT` actions,
   which are authored user field updates.
-- Recompute FK projection from merged facts over the affected FK closure. The
-  incremental closure result must match a full recomputation oracle.
+- For FK-affecting operations, recompute FK projection to the same fixed point
+  as the affected FK closure. A full graph recomputation is a valid
+  implementation strategy and oracle as long as it produces the same projection.
+  Operations that touch no child FK column, parent reference column, insert, or
+  tombstone must not trigger FK projection.
 
 ## Local Action Semantics
 
@@ -79,11 +87,12 @@ restrict edges are evaluated first internally.
 
 ## Projection Metadata
 
-`CrdtDataForeignKey` should represent the materialized FK projection for one
-`CrdtDataField`:
+`CrdtDataForeignKey` should represent the FK field payload and materialized FK
+projection for one `CrdtDataField`:
 
 - `attemptedValue`: the current user-attempted FK value carried by the CRDT
-  field. It may be null for nullable FKs.
+  field. It may be null for nullable FKs. This is durable FK field-value storage
+  and is part of the CRDT facts for FK columns.
 - `visibleValue`: the value currently materialized into the domain row when an
   override is active.
 - `hasOverride`: whether the projection overrides `attemptedValue` and
@@ -93,18 +102,22 @@ restrict edges are evaluated first internally.
 `hasOverride` is false it means "same as attempted"; when `hasOverride` is true
 it means "materialize null".
 
-The resolver may use this metadata for efficient materialization and write
-deduplication. It must not use it as the authority for FK conflict decisions;
-the authority is the deterministic resolver over merged CRDT facts.
+The resolver may use `visibleValue`, `hasOverride`, and `overrideReason` for
+efficient materialization and write deduplication. It must not use those
+projection fields as the authority for FK conflict decisions; the authority is
+the deterministic resolver over merged CRDT row, field, tombstone, and FK
+attempt facts.
 
 ## Merge Pipeline
 
 1. Merge CRDT row, field, and tombstone facts by their existing HLC/CLFlag
    rules.
-2. Identify rows touched by inserts, updates, deletes, FK columns, and existing
-   FK projection records.
-3. Expand to the FK closure in both directions: parents needed by children and
-   children affected by parent visibility.
+2. Identify whether inserts, updates, deletes, FK columns, parent reference
+   columns, or existing FK projection records can affect FK state. Skip FK
+   projection when the merge touches none of them.
+3. For FK-affecting work, expand to the FK closure in both directions: parents
+   needed by children and children affected by parent visibility. A full graph
+   recomputation may be used instead of the minimal closure.
 4. Compute effective row visibility and visible FK values to a fixed point.
 5. Apply only the materialized differences:
    - update domain FK columns when projection differs from attempted value;
@@ -127,8 +140,8 @@ the authority is the deterministic resolver over merged CRDT facts.
 - Replaying the same merge batch produces no metadata churn.
 - Splitting a merge into smaller batches converges to the same final projection
   as merging the same operations in one batch.
-- Incremental recomputation over the affected closure matches full global
-  recomputation.
+- FK-affecting recomputation over the affected closure matches full global
+  recomputation; unrelated non-FK updates do not trigger FK projection.
 
 ## Test Cases
 
@@ -191,9 +204,9 @@ the authority is the deterministic resolver over merged CRDT facts.
     `B`, and `C` remain visible.
 
 11. Given a fourth-degree chain with alternating cascade, restrict, set-null,
-    and set-default edges, when a merge touches both a root and a leaf, then
-    incremental recomputation produces the same visible graph and FK projection
-    as full recomputation.
+    and set-default edges, when a merge touches both a root and a leaf, then the
+    affected-closure result and a full fixed-point recomputation produce the
+    same visible graph and FK projection.
 
 12. Given an FK cycle that the engine permits, when concurrent deletes and
     updates happen around the cycle, then fixed-point evaluation terminates and
@@ -210,9 +223,9 @@ the authority is the deterministic resolver over merged CRDT facts.
     values, FK projection metadata, unique projection, and tombstones are the
     same.
 
-15. Given a merge touches only a non-indexed, non-FK field, when FK projection
-    runs, then unrelated rows are not reconsidered and the visible state outside
-    the affected closure remains unchanged.
+15. Given a merge touches only a non-indexed, non-FK field that is not a parent
+    reference column, then FK projection is skipped and the visible FK graph is
+    unchanged.
 
 ## What These Tests Prove
 
