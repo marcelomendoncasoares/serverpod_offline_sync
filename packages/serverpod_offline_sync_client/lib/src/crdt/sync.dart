@@ -129,6 +129,11 @@ class CrdtSync {
   /// Changes are emitted in insert, update, then delete order. Domain row and
   /// column payloads are resolved incrementally as each change is yielded.
   ///
+  /// Foreign-key columns with an active projection override are sent with their
+  /// durable [CrdtDataForeignKey.attemptedValue], not the visible value stored
+  /// in the domain table. Peers need the attempted fact to converge; local FK
+  /// projection materializes only the safe visible value into domain tables.
+  ///
   /// All changes for nodes that are not present in the [nodeCheckpoints] list
   /// are collected and emitted. Passing an empty list will collect all changes.
   Stream<CrdtMergeChange> collectPendingChanges(
@@ -171,6 +176,9 @@ class CrdtSync {
   }
 
   /// Merges a remote [mergeSet] and records the sync checkpoint for [otherNodeId].
+  ///
+  /// Inbound merge applies each remote change, then materializes foreign-key
+  /// projection into domain tables via [CrdtDatabase.mergeChanges].
   ///
   /// Throws if the merge fails. The sync stream should be closed so the next
   /// attempt resumes from the last persisted checkpoint.
@@ -368,6 +376,7 @@ class CrdtSync {
         node: CrdtNode.include(),
       ),
     );
+
     final foreignKeyAttemptFieldsByRowId = await _loadProjectedForeignKeyAttemptFields(
       session,
       rows,
@@ -385,10 +394,9 @@ class CrdtSync {
         session,
         tableName,
         row.uuidRowId,
-        row.id!,
         table,
         dartName,
-        foreignKeyAttemptFieldsByRowId[row.id!] ?? const <CrdtDataField>[],
+        foreignKeyAttemptFieldsByRowId[row.id!],
       );
       if (domainRow == null) continue;
 
@@ -429,12 +437,12 @@ class CrdtSync {
       }
 
       final columnName = field.column!.name;
-      final decodedValue = await _fetchColumnValueForField(
+      final decodedValue = await _fetchColumnValue(
         session,
-        field.foreignKey,
         tableName,
         field.row!.uuidRowId,
         columnName,
+        field.foreignKey,
       );
 
       yield CrdtMergeUpdate(
@@ -520,14 +528,19 @@ class CrdtSync {
         nodeCheckpoints,
       );
 
+  /// Loads a domain row for outbound insert sync.
+  ///
+  /// Reads the materialized row from the domain table, then swaps any FK columns
+  /// with an active override back to [CrdtDataForeignKey.attemptedValue] before
+  /// deserializing. This is the inverse of inbound FK materialization: the wire
+  /// payload carries attempted facts, not locally projected visible values.
   Future<dynamic> _fetchDomainRow(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
-    int crdtRowId,
     Table table,
     String dartName,
-    List<CrdtDataField> foreignKeyAttemptFields,
+    List<CrdtDataField>? foreignKeyAttemptFields,
   ) async {
     final cols = table.columns
         .map((column) => '"${_escapeIdentifier(column.columnName)}"')
@@ -539,37 +552,34 @@ class CrdtSync {
     );
     if (result.isEmpty) return null;
 
-    final columnMap = result.first.toColumnMap();
-    await _applyProjectedForeignKeyAttempts(
-      foreignKeyAttemptFields,
-      columnMap,
-    );
+    final columnMap = result.first.toColumnMap()
+      // Domain columns hold visible/materialized FK values; restore attempted
+      // values for override columns before building the outbound merge payload.
+      ..applyProjectedForeignKeyAttempts(foreignKeyAttemptFields);
+
     return session.db.serializationManager.deserializeByClassName({
       'className': dartName,
       'data': columnMap,
     });
   }
 
-  Future<dynamic> _fetchColumnValueForField(
-    DatabaseSession session,
-    CrdtDataForeignKey? projection,
-    String tableName,
-    UuidValue rowId,
-    String columnName,
-  ) async {
-    if (projection != null && projection.hasOverride) {
-      return _decodeColumnValue(tableName, columnName, projection.attemptedValue);
-    }
-
-    return _fetchColumnValue(session, tableName, rowId, columnName);
-  }
-
+  /// Resolves a column value for outbound update sync.
+  ///
+  /// When [projection] has an active override, returns the attempted value
+  /// from [CrdtDataForeignKey.attemptedValue] instead of the materialized
+  /// domain column value. Non-FK columns and FK columns without an override
+  /// are read directly from the domain table.
   Future<dynamic> _fetchColumnValue(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
     String columnName,
+    CrdtDataForeignKey? projection,
   ) async {
+    if (projection != null && projection.hasOverride) {
+      return _decodeColumnValue(tableName, columnName, projection.attemptedValue);
+    }
+
     final encodedValue = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
       'SELECT "${_escapeIdentifier(columnName)}" '
@@ -580,14 +590,16 @@ class CrdtSync {
     return _decodeColumnValue(tableName, columnName, result.first[0]);
   }
 
+  /// Loads FK projection metadata for outbound insert sync.
+  ///
+  /// Returns only fields whose [CrdtDataForeignKey.hasOverride] is true, keyed
+  /// by CRDT row id. These are the columns whose domain-table value differs from
+  /// the durable attempted FK fact.
   Future<Map<int, List<CrdtDataField>>> _loadProjectedForeignKeyAttemptFields(
     DatabaseSession session,
     List<CrdtDataRow> rows,
   ) async {
-    final rowIds = {
-      for (final row in rows)
-        if (row.id != null) row.id!,
-    };
+    final rowIds = {for (final row in rows) ?row.id};
     if (rowIds.isEmpty) return {};
 
     final fields = await CrdtDataField.db.find(
@@ -605,17 +617,6 @@ class CrdtSync {
     }
 
     return fieldsByRowId;
-  }
-
-  Future<void> _applyProjectedForeignKeyAttempts(
-    List<CrdtDataField> foreignKeyAttemptFields,
-    Map<String, dynamic> columnMap,
-  ) async {
-    for (final field in foreignKeyAttemptFields) {
-      final projection = field.foreignKey;
-      if (projection == null || !projection.hasOverride) continue;
-      columnMap[field.column!.name] = projection.attemptedValue;
-    }
   }
 
   dynamic _decodeColumnValue(String tableName, String columnName, Object? value) {
@@ -729,5 +730,23 @@ extension on CrdtNodeTable {
       );
     }
     return caseExpression.orElse(Constant.bool(true));
+  }
+}
+
+extension on Map<String, dynamic> {
+  /// Replaces materialized FK column values with attempted values for sync.
+  ///
+  /// After local FK projection (for example `SET NULL` or `SET DEFAULT`), the
+  /// domain table stores the safe visible value while
+  /// [CrdtDataForeignKey.attemptedValue] preserves what was actually tried.
+  /// Outbound sync must send the attempted value so peers can apply their own
+  /// projection from the same fact.
+  void applyProjectedForeignKeyAttempts(List<CrdtDataField>? foreignKeyAttemptFields) {
+    if (foreignKeyAttemptFields == null) return;
+    for (final field in foreignKeyAttemptFields) {
+      final projection = field.foreignKey;
+      if (projection == null || !projection.hasOverride) continue;
+      this[field.column!.name] = projection.attemptedValue;
+    }
   }
 }

@@ -9,6 +9,13 @@ typedef _MergeContext = ({
   Map<_MergeRowKey, CrdtDataDeleted> tombstones,
 });
 
+/// User tombstone reasons that are synced across replicas.
+const syncedUserTombstoneReasons = {
+  CrdtDataDeletedReason.userInsert,
+  CrdtDataDeletedReason.userDelete,
+  CrdtDataDeletedReason.userReinsert,
+};
+
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   CrdtUniqueConflictResolver get _uniqueConflictResolver =>

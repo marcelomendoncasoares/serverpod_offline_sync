@@ -43,13 +43,6 @@ typedef _UniqueColumnConflictRelease = ({
   _UniqueConflictReleaseKind kind,
 });
 
-/// User tombstone reasons that are synced across replicas.
-const syncedUserTombstoneReasons = {
-  CrdtDataDeletedReason.userInsert,
-  CrdtDataDeletedReason.userDelete,
-  CrdtDataDeletedReason.userReinsert,
-};
-
 enum _UniqueConflictReleaseKind {
   setNull,
   textSuffix,

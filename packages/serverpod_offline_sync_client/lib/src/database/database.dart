@@ -296,15 +296,10 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        final updatedRows = <T>[];
-        for (final row in rows) {
-          final updatedRow = await _updateRowWithoutRecording(
-            row,
-            columns: columns,
-            transaction: tx,
-          );
-          updatedRows.add(updatedRow);
-        }
+        final updatedRows = [
+          for (final row in rows)
+            await _updateRowWithoutRecording(row, columns: columns, transaction: tx),
+        ];
 
         await _recorder.afterUpdate(updatedRows, columns, tx);
         return updatedRows;
@@ -345,15 +340,13 @@ class CrdtDatabase implements Database {
         .map((c) => ColumnValue(c, values[c.columnName]))
         .toList();
 
+    final where = row.table.id.equals(row.id);
     final updatedRows = await _delegate.updateWhere<T>(
       columnValues: columnValues,
-      where: mergeWhereWithTombstone<T>(
-        serializationManager,
-        row.table.id.equals(row.id),
-        null,
-      )!,
+      where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
       transaction: transaction,
     );
+
     if (updatedRows.isEmpty) {
       // FIXME: We can't use the proper `DatabaseUpdateRowException` because
       // it is declared as a base type on the `serverpod_database` package.

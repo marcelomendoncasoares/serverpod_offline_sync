@@ -365,6 +365,12 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     };
   }
 
+  /// Recomputes FK projection and materializes it into domain tables.
+  ///
+  /// Updates row visibility for cascade/restrict semantics, writes visible FK
+  /// values to domain columns, and upserts [CrdtDataForeignKey] metadata with
+  /// the durable attempted values. Called after inbound merge and local
+  /// FK-affecting mutations.
   Future<void> _projectForeignKeys(Transaction transaction) async {
     if (_foreignKeyEdges.isEmpty) return;
 

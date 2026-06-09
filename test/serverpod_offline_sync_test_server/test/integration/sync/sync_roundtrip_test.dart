@@ -236,21 +236,28 @@ void main() {
 
       await crdtSession.db.mergeChanges(
         [
-          _deleteChange(
+          CrdtMergeDelete(
             tableName: Person.t.tableName,
-            rowId: attemptedParent.id!,
-            after: await _rowHlc(attemptedParent.id!),
+            uuidRowId: attemptedParent.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: DateTime.now().toUtc(),
+            hlcCounter: 100, // Advanced to avoid tie-break with the insert.
+            clFlag: 2,
+            reason: CrdtDataDeletedReason.userDelete,
           ),
         ],
         userId: testCrdtUserId,
       );
+
+      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      expect(visibleChild, isNotNull);
+      expect(visibleChild!.mayorId, isNull);
     });
 
     test(
       'when pending changes are collected '
       'then the insert payload carries the attempted foreign key value.',
       () async {
-        final visibleChild = await Town.db.findById(crdtSession, child.id!);
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
@@ -261,15 +268,10 @@ void main() {
             .toList();
 
         final childInsert = mergeSet.inserts
-            .where(
-              (insert) =>
-                  insert.tableName == Town.t.tableName && insert.uuidRowId == child.id,
-            )
+            .where((i) => i.tableName == Town.t.tableName && i.uuidRowId == child.id)
             .single;
         final childPayload = childInsert.data as Town;
 
-        expect(visibleChild, isNotNull);
-        expect(visibleChild!.mayorId, isNull);
         expect(childPayload.mayorId, attemptedParent.id);
       },
     );
@@ -290,28 +292,30 @@ void main() {
         ),
       );
 
-      final childHlc = await _rowHlc(child.id!);
       await crdtSession.db.mergeChanges(
         [
           CrdtMergeUpdate(
             tableName: Town.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: const Uuid().v7obj(),
-            hlcDatetime: childHlc.datetime.advance(),
-            hlcCounter: 0,
+            hlcDatetime: DateTime.now().toUtc(),
+            hlcCounter: 100, // Advanced to avoid tie-break with the update.
             columnName: Town.t.mayorId.columnName,
             value: missingParentId,
           ),
         ],
         userId: testCrdtUserId,
       );
+
+      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      expect(visibleChild, isNotNull);
+      expect(visibleChild!.mayorId, isNull);
     });
 
     test(
       'when pending changes are collected '
       'then the update payload carries the attempted foreign key value.',
       () async {
-        final visibleChild = await Town.db.findById(crdtSession, child.id!);
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
@@ -323,15 +327,13 @@ void main() {
 
         final mayorUpdate = mergeSet.updates
             .where(
-              (update) =>
-                  update.tableName == Town.t.tableName &&
-                  update.uuidRowId == child.id &&
-                  update.columnName == Town.t.mayorId.columnName,
+              (u) =>
+                  u.tableName == Town.t.tableName &&
+                  u.uuidRowId == child.id &&
+                  u.columnName == Town.t.mayorId.columnName,
             )
             .single;
 
-        expect(visibleChild, isNotNull);
-        expect(visibleChild!.mayorId, isNull);
         expect(mayorUpdate.value, missingParentId);
       },
     );
@@ -359,40 +361,10 @@ void main() {
   );
 }
 
-CrdtMergeDelete _deleteChange({
-  required String tableName,
-  required UuidValue rowId,
-  required Hlc after,
-}) {
-  return CrdtMergeDelete(
-    tableName: tableName,
-    uuidRowId: rowId,
-    uuidNodeId: const Uuid().v7obj(),
-    hlcDatetime: after.datetime.advance(),
-    hlcCounter: 0,
-    clFlag: 2,
-    reason: CrdtDataDeletedReason.userDelete,
-  );
-}
-
-Future<Hlc> _rowHlc(UuidValue rowId) async {
-  final crdtRow = await CrdtDataRow.db.findFirstRow(
-    testSession,
-    where: (t) => t.uuidRowId.equals(rowId),
-    include: CrdtDataRow.include(node: CrdtNode.include()),
-  );
-
-  return crdtRow!.hlc;
-}
-
 extension on List<int> {
   ByteData toBlob() => ByteData.sublistView(Uint8List.fromList(this));
 }
 
 extension on ByteData {
   List<int> toBytes() => buffer.asUint8List();
-}
-
-extension on DateTime {
-  DateTime advance() => add(const Duration(milliseconds: 1));
 }
