@@ -1,5 +1,6 @@
 import 'utils/benchmark.dart';
 import 'utils/conversion.dart';
+import 'utils/merge.dart';
 import 'utils/results.dart';
 import 'utils/runner.dart';
 
@@ -115,6 +116,37 @@ Future<void> main(List<String> args) async {
     rowCount: rowCount,
     runningInCI: runningInCI,
   );
+
+  if (!runningInCI) print('\n${'=' * 60}');
+  print('\n## Merge Benchmark ($rowsString changes)\n');
+  print(
+    [
+      'This benchmark measures the time to apply remote CRDT changes to ',
+      'the local database through the sync merge path.',
+    ].join(runningInCI ? '' : '\n'),
+  );
+  if (!runningInCI) print('-' * 60);
+
+  for (final operation in MergeOperation.values) {
+    final mergeResult = await runWithProgress(
+      'Running merge ${operation.name} benchmark',
+      () => TypesMergeBenchmark(
+        'merge (${operation.name})',
+        operation: operation,
+        changeCount: rowCount,
+      ).measure(),
+      skipProgress: runningInCI,
+    );
+
+    printMergeImpact(
+      MergeBenchmarkResults(
+        operation: operation,
+        average: mergeResult,
+        changeCount: rowCount,
+      ),
+      runningInCI: runningInCI,
+    );
+  }
 
   print('\n${'-' * 60}');
   print('✅ Benchmark complete!\n');

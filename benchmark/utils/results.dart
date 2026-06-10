@@ -2,6 +2,7 @@
 
 import 'benchmark.dart';
 import 'conversion.dart';
+import 'merge.dart';
 
 void printPerformanceImpact(
   BenchmarkResults results, {
@@ -105,6 +106,31 @@ void printStorageImpact(
   if (runningInCI) print('```');
 }
 
+void printMergeImpact(
+  MergeBenchmarkResults results, {
+  bool runningInCI = false,
+}) {
+  final timePerChangeUs = results.average / results.changeCount;
+  final changesPerSecond = Duration.microsecondsPerSecond / timePerChangeUs;
+
+  print(
+    '${runningInCI ? '```' : ''}'
+    '\n🔀 MERGE ${results.operation.name.toUpperCase()} performance:',
+  );
+  if (results.operation == MergeOperation.mixed) {
+    final composition = mixedMergeComposition(results.changeCount);
+    print(
+      '  Batch: ${formatter0.format(composition.inserts)} inserts + '
+      '${formatter0.format(composition.updates)} updates + '
+      '${formatter0.format(composition.deletes)} deletes',
+    );
+  }
+  print('  Merge time: ${results.average.toFormattedDuration()}');
+  print('  Time per change: ${timePerChangeUs.toFormattedDuration()}');
+  print('  Throughput: ${formatter0.format(changesPerSecond)} changes/s');
+  if (runningInCI) print('```');
+}
+
 class BenchmarkResults {
   const BenchmarkResults({
     required this.operation,
@@ -115,6 +141,20 @@ class BenchmarkResults {
   final Operation operation;
   final double baseline;
   final double crdt;
+}
+
+class MergeBenchmarkResults {
+  const MergeBenchmarkResults({
+    required this.operation,
+    required this.average,
+    required this.changeCount,
+  });
+
+  final MergeOperation operation;
+
+  /// Average microseconds to merge one batch of [changeCount] changes.
+  final double average;
+  final int changeCount;
 }
 
 class StorageBenchmarkResults {
