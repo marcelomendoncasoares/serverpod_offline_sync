@@ -97,6 +97,13 @@ void main() {
             ),
           ],
         );
+        await CrdtDataRow.db.updateRow(
+          session,
+          personCrdtRow.copyWith(
+            visibility: CrdtDataRowVisibility.userDelete,
+          ),
+          columns: (t) => [t.visibility],
+        );
       });
 
       test(

@@ -217,6 +217,114 @@ void main() {
   );
 
   group(
+    'Given a table with a row hidden by a remote delete and a newer remote update, ',
+    () {
+      late Person person;
+      late CrdtMergeDelete remoteDelete;
+      late CrdtMergeUpdate remoteUpdate;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'hidden row'),
+            transaction: tx,
+          ),
+        );
+
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        remoteDelete = CrdtMergeDelete(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: crdtRow!.hlc.datetime.advance(),
+          hlcCounter: 0,
+          clFlag: 2,
+          reason: CrdtDataDeletedReason.userDelete,
+        );
+        await session.db.mergeChanges(
+          [remoteDelete],
+          userId: testCrdtUserId,
+        );
+
+        remoteUpdate = CrdtMergeUpdate(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: remoteDelete.hlc.datetime.advance(),
+          hlcCounter: 0,
+          columnName: Person.t.name.columnName,
+          value: 'updated while hidden',
+        );
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remoteUpdate],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the update does not resurrect the hidden row.', () async {
+          expect(await Person.db.findById(session, person.id!), isNull);
+        });
+
+        test('then the field value is merged into the hidden row.', () async {
+          final hiddenRow = await Person.db.findById(testSession, person.id!);
+          final field = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(person.id) &
+                t.column.name.equals(Person.t.name.columnName),
+            include: CrdtDataField.include(node: CrdtNode.include()),
+          );
+
+          expect(hiddenRow, isNotNull);
+          expect(hiddenRow!.name, remoteUpdate.value);
+          expect(field, isNotNull);
+          expect(field!.hlc, remoteUpdate.hlc);
+        });
+      });
+
+      group('when merging together with a newer remote restore, ', () {
+        setUp(() async {
+          final remoteRestore = CrdtMergeDelete(
+            tableName: Person.t.tableName,
+            uuidRowId: person.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: remoteUpdate.hlc.datetime.advance(),
+            hlcCounter: 0,
+            clFlag: 3,
+            reason: CrdtDataDeletedReason.userReinsert,
+          );
+
+          await session.db.mergeChanges(
+            [remoteUpdate, remoteRestore],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the restored row becomes visible with the merged update value.',
+          () async {
+            final row = await Person.db.findById(session, person.id!);
+
+            expect(row, isNotNull);
+            expect(row!.name, remoteUpdate.value);
+          },
+        );
+      });
+    },
+  );
+
+  group(
     'Given a remote update that loses a composite unique conflict, ',
     () {
       late UniqueComposite loser;

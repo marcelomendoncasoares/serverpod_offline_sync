@@ -1,0 +1,8 @@
+class: FkChainCascadeMiddle
+table: fk_chain_cascade_middle
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  root: FkChainRoot?, relation(field=rootId, onDelete=Cascade)
+  rootId: UuidValue?

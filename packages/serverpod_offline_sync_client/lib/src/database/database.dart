@@ -296,10 +296,13 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        return [
+        final updatedRows = [
           for (final row in rows)
-            await updateRow<T>(row, columns: columns, transaction: tx),
+            await _updateRowWithoutRecording(row, columns: columns, transaction: tx),
         ];
+
+        await _recorder.afterUpdate(updatedRows, columns, tx);
+        return updatedRows;
       },
     );
   }
@@ -310,15 +313,37 @@ class CrdtDatabase implements Database {
     List<Column>? columns,
     Transaction? transaction,
   }) async {
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final updatedRow = await _updateRowWithoutRecording(
+          row,
+          columns: columns,
+          transaction: tx,
+        );
+
+        await _recorder.afterUpdate([updatedRow], columns, tx);
+        return updatedRow;
+      },
+    );
+  }
+
+  Future<T> _updateRowWithoutRecording<T extends TableRow>(
+    T row, {
+    required Transaction transaction,
+    List<Column>? columns,
+  }) async {
     final values = row.toJsonForDatabase() as Map<String, dynamic>;
     final columnValues = (columns ?? row.table.managedColumns)
         .where((c) => c.columnName != 'id')
         .map((c) => ColumnValue(c, values[c.columnName]))
         .toList();
 
-    final updatedRows = await updateWhere<T>(
+    final where = row.table.id.equals(row.id);
+    final updatedRows = await _delegate.updateWhere<T>(
       columnValues: columnValues,
-      where: row.table.id.equals(row.id),
+      where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
       transaction: transaction,
     );
 

@@ -13,6 +13,7 @@ void main() {
   final syncTables = [
     Address.t,
     Person.t,
+    Town.t,
     Types.t,
     Unique.t,
   ];
@@ -207,6 +208,133 @@ void main() {
         expect(anInt64.value, updatedRow.anInt64);
         expect(anEnum.value, TypesEnum.beta);
         expect((aBlob.value as ByteData).toBytes(), updatedRow.aBlob.toBytes());
+      },
+    );
+  });
+
+  group('Given an inserted row with an active set-null projection', () {
+    late Person attemptedParent;
+    late Town child;
+
+    setUp(() async {
+      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+        attemptedParent = await Person.db.insertRow(
+          crdtSession,
+          Person(id: const Uuid().v7obj(), name: 'sync attempted mayor'),
+          transaction: tx,
+        );
+        child = await Town.db.insertRow(
+          crdtSession,
+          Town(
+            id: const Uuid().v7obj(),
+            name: 'sync projected town',
+            mayorId: attemptedParent.id,
+          ),
+          transaction: tx,
+        );
+      });
+
+      await crdtSession.db.mergeChanges(
+        [
+          CrdtMergeDelete(
+            tableName: Person.t.tableName,
+            uuidRowId: attemptedParent.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: DateTime.now().toUtc(),
+            hlcCounter: 100, // Advanced to avoid tie-break with the insert.
+            clFlag: 2,
+            reason: CrdtDataDeletedReason.userDelete,
+          ),
+        ],
+        userId: testCrdtUserId,
+      );
+
+      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      expect(visibleChild, isNotNull);
+      expect(visibleChild!.mayorId, isNull);
+    });
+
+    test(
+      'when pending changes are collected '
+      'then the insert payload carries the attempted foreign key value.',
+      () async {
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              peerNodeId: const Uuid().v7obj(),
+              userId: testCrdtUserId,
+              nodeCheckpoints: const [],
+            )
+            .toList();
+
+        final childInsert = mergeSet.inserts
+            .where((i) => i.tableName == Town.t.tableName && i.uuidRowId == child.id)
+            .single;
+        final childPayload = childInsert.data as Town;
+
+        expect(childPayload.mayorId, attemptedParent.id);
+      },
+    );
+  });
+
+  group('Given an updated row with an active set-null projection', () {
+    late Town child;
+    late UuidValue missingParentId;
+
+    setUp(() async {
+      missingParentId = const Uuid().v7obj();
+      child = await crdtSession.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Town.db.insertRow(
+          crdtSession,
+          Town(id: const Uuid().v7obj(), name: 'sync projected update town'),
+          transaction: tx,
+        ),
+      );
+
+      await crdtSession.db.mergeChanges(
+        [
+          CrdtMergeUpdate(
+            tableName: Town.t.tableName,
+            uuidRowId: child.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: DateTime.now().toUtc(),
+            hlcCounter: 100, // Advanced to avoid tie-break with the update.
+            columnName: Town.t.mayorId.columnName,
+            value: missingParentId,
+          ),
+        ],
+        userId: testCrdtUserId,
+      );
+
+      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      expect(visibleChild, isNotNull);
+      expect(visibleChild!.mayorId, isNull);
+    });
+
+    test(
+      'when pending changes are collected '
+      'then the update payload carries the attempted foreign key value.',
+      () async {
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              peerNodeId: const Uuid().v7obj(),
+              userId: testCrdtUserId,
+              nodeCheckpoints: const [],
+            )
+            .toList();
+
+        final mayorUpdate = mergeSet.updates
+            .where(
+              (u) =>
+                  u.tableName == Town.t.tableName &&
+                  u.uuidRowId == child.id &&
+                  u.columnName == Town.t.mayorId.columnName,
+            )
+            .single;
+
+        expect(mayorUpdate.value, missingParentId);
       },
     );
   });

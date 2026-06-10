@@ -306,7 +306,6 @@ class CrdtUniqueConflictResolver {
     required Map<_MergeFieldKey, CrdtDataField> fields,
     required Transaction transaction,
   }) async {
-    final (_, columnsByName) = _recorder._schema[tableName]!;
     final uniqueColumnNames = {
       for (final column in uniqueIndex.columns) column.columnName,
     };
@@ -315,7 +314,7 @@ class CrdtUniqueConflictResolver {
     for (final columnName in uniqueColumnNames) {
       final field = fields[(tableName, row.uuidRowId, columnName)];
       if (field == null) {
-        final columnId = columnsByName[columnName]?.id;
+        final columnId = _schemaColumn(_recorder._schema, tableName, columnName)?.id;
         if (columnId != null) missingColumnIds.add(columnId);
         continue;
       }
@@ -356,8 +355,8 @@ class CrdtUniqueConflictResolver {
       tableName: tableName,
       predicates: [
         for (final MapEntry(key: columnName, value: value) in values.entries)
-          'd."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}',
-        'd."id" <> ${_sqlLiteral(rowId)}',
+          _domainColumnPredicate(columnName, value),
+        _domainColumnNotPredicate('id', rowId),
       ],
       transaction: transaction,
     );

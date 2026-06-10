@@ -1,0 +1,15 @@
+### Why a foreign key projection override is active.
+enum: CrdtForeignKeyOverrideReason
+serialized: byIndex
+values:
+  ### The attempted parent target is hidden or missing and the FK projection
+  ### set the column to null.
+  - setNull
+  ### The attempted parent target is hidden or missing and the FK projection
+  ### set the column to the default value.
+  - setDefault
+  ### The attempted parent target is hidden or missing and the FK projection
+  ### cannot repair the value (restrict, no action, cascade, or the column is
+  ### non-nullable), so the row is hidden by projection while the attempt is
+  ### preserved.
+  - missingParent

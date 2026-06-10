@@ -1,0 +1,8 @@
+class: RequiredSetNullChild
+table: required_set_null_child
+database: all
+fields:
+  id: UuidValue?, defaultPersist=random_v7
+  name: String
+  parent: Person?, relation(field=parentId, onDelete=SetNull)
+  parentId: UuidValue

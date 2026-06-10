@@ -22,10 +22,16 @@ fields:
   ### The node that inserted the row with the HLC timestamp.
   node: CrdtNode?, relation
 
-  ### The visibility CLFlag for this row.
+  ### Materialized visibility state for domain queries.
   ###
-  ### Only present after the first visibility change event has been recorded.
-  ### If null, the row is visible and has never been deleted/hidden.
+  ### Updated by user tombstone writes and foreign key projection. Visible
+  ### states are listed before hidden states in CrdtDataRowVisibility.
+  visibility: CrdtDataRowVisibility, default=userInsert
+
+  ### The synced user tombstone for this row.
+  ###
+  ### Only present after the first user visibility change event has been recorded.
+  ### Projection may keep a visible [visibility] while a user delete tombstone exists.
   deleted: CrdtDataDeleted?, relation(name=row_deleted, optional)
 
   ### The fields for this row.

@@ -16,6 +16,10 @@ fields:
   ### The node that updated the field.
   node: CrdtNode?, relation
 
+  ### The foreign key information for the field, if this field holds a
+  ### reference to another row.
+  foreignKey: CrdtDataForeignKey?, relation(optional, name=field_foreign_key)
+
 indexes:
   crdt_data_fields_row_column_idx:
     fields: rowId, columnId

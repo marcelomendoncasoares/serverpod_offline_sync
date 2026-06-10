@@ -36,6 +36,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (mergeSet.isEmpty) return;
 
     final operations = mergeSet.causallyOrderedChanges;
+    final shouldProjectForeignKeys = _mergeOperationsMayAffectForeignKeys(
+      operations,
+    );
     final currentUser = _getEffectiveUser(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
@@ -74,6 +77,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
+    if (shouldProjectForeignKeys) {
+      await _projectForeignKeys(transaction);
+    }
     await _updateHlcFromIncomingOperations(
       operations,
       remoteNodes,
@@ -221,16 +227,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         );
       }
 
-      final (_, columnsByName) = _schema[tableName]!;
-      final columnIds = <int>{
-        for (final columnName in columnNames)
-          if (columnsByName[columnName] != null) columnsByName[columnName]!.id!,
-      };
-      if (columnIds.isEmpty) continue;
+      final columnIdsByName = _schemaColumnIds(_schema, tableName, columnNames);
+      if (columnIdsByName.isEmpty) continue;
 
       final loadedFields = await CrdtDataField.db.find(
         _session,
-        where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnIds),
+        where: (t) =>
+            t.rowId.inSet(rowPks) & t.columnId.inSet(columnIdsByName.values.toSet()),
         include: CrdtDataField.include(
           column: CrdtSchemaColumn.include(),
           node: CrdtNode.include(),
@@ -277,12 +280,25 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
 
+      final safeInsert = await _safeIncomingForeignKeyData(
+        insert.tableName,
+        insert.uuidRowId,
+        resolvedInsert.data,
+        transaction,
+      );
+
       context.rows[rowKey] = await _applyMergeInsertForMissingRow(
         insert,
         remoteNode,
         incomingHlc,
-        resolvedInsert.data,
+        safeInsert.data,
         transaction,
+      );
+      await _recordForeignKeyInsertAttempts(
+        insert.tableName,
+        {insert.uuidRowId},
+        transaction,
+        safeInsert.attempts,
       );
     } else {
       await _applyMergeInsertForExistingRow(
@@ -326,11 +342,24 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       context,
       transaction,
     );
+    final safeUpdate = await _safeIncomingForeignKeyData(
+      update.tableName,
+      update.uuidRowId,
+      resolvedUpdates,
+      transaction,
+    );
     await _updateDomainRows(
       update.tableName,
       {update.uuidRowId},
-      resolvedUpdates,
+      safeUpdate.data,
       transaction,
+    );
+    await _recordForeignKeyAttemptsForRows(
+      update.tableName,
+      {update.uuidRowId},
+      resolvedUpdates.keys.toSet(),
+      transaction,
+      attemptedValues: safeUpdate.attempts,
     );
   }
 
@@ -343,6 +372,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final rowKey = (delete.tableName, delete.uuidRowId);
     final row = context.rows[rowKey];
     if (row == null) return;
+    if (!delete.reason.isSynced) return;
 
     final currentTombstone = context.tombstones[rowKey];
     final currentClFlag = currentTombstone?.clFlag ?? 1;
@@ -359,6 +389,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       currentTombstone,
       transaction,
     );
+
+    if (delete.reason.isSynced) {
+      await _applyRowVisibilityFromUserTombstone(
+        row,
+        context.tombstones[rowKey]!,
+        transaction,
+      );
+    }
   }
 
   Future<CrdtDataRow> _upsertMergeRow(
@@ -575,11 +613,24 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     if (updatesToApply.isNotEmpty) {
+      final safeUpdate = await _safeIncomingForeignKeyData(
+        insert.tableName,
+        insert.uuidRowId,
+        updatesToApply,
+        transaction,
+      );
       await _updateDomainRows(
         insert.tableName,
         {insert.uuidRowId},
-        updatesToApply,
+        safeUpdate.data,
         transaction,
+      );
+      await _recordForeignKeyAttemptsForRows(
+        insert.tableName,
+        {insert.uuidRowId},
+        updatesToApply.keys.toSet(),
+        transaction,
+        attemptedValues: safeUpdate.attempts,
       );
     }
 
@@ -596,6 +647,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         currentTombstone,
         transaction,
       );
+      await _applyRowVisibilityFromUserTombstone(
+        currentRow,
+        context.tombstones[rowKey]!,
+        transaction,
+      );
     }
   }
 
@@ -610,8 +666,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     required Transaction transaction,
     CrdtSchemaColumn? schemaColumn,
   }) async {
-    final (_, columnsByName) = _schema[tableName]!;
-    final resolvedSchemaColumn = schemaColumn ?? columnsByName[columnName];
+    final resolvedSchemaColumn =
+        schemaColumn ?? _schemaColumn(_schema, tableName, columnName);
     if (resolvedSchemaColumn == null) return false;
 
     final fieldKey = (tableName, rowId, columnName);
@@ -659,7 +715,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     return {
       for (final MapEntry(key: columnName, value: value) in data.entries)
-        if (columnName != 'id' && columns.containsKey(columnName)) columnName: value,
+        if (columnName != 'id' && columns.containsKey(columnName))
+          columnName: columns[columnName]!.columnType == ColumnType.uuid
+              ? _uuidValueFromDatabase(value)
+              : value,
     };
   }
 }

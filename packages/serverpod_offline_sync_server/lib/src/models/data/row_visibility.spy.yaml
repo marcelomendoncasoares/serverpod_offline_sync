@@ -1,0 +1,13 @@
+### Materialized visibility state for a CRDT row.
+###
+### Visible states are listed first, hidden states last. A row is visible when
+### its serialized index is less than or equal to [foreignKeyRestrictRestore].
+enum: CrdtDataRowVisibility
+serialized: byIndex
+values:
+  - userInsert
+  - userReinsert
+  - foreignKeyRestrictRestore
+  - userDelete
+  - userCascadeDelete
+  - foreignKeyCascade

@@ -12,6 +12,7 @@ import 'schema.dart';
 import 'session.dart';
 
 part 'merge.dart';
+part 'merge_utils/foreign_key_projector.dart';
 part 'merge_utils/unique_resolver.dart';
 
 typedef _ReferencingForeignKey = ({
@@ -20,6 +21,18 @@ typedef _ReferencingForeignKey = ({
   String parentColumn,
   ForeignKeyAction action,
 });
+
+typedef _ForeignKeyEdge = ({
+  String childTableName,
+  String childColumn,
+  String parentTableName,
+  String parentColumn,
+  ForeignKeyAction action,
+  bool childNullable,
+  Object? defaultValue,
+});
+
+typedef _ForeignKeyValueKey = (String tableName, String columnName, String value);
 
 typedef _UniqueIndexConflictRelease = ({
   List<_UniqueColumnConflictRelease> columns,
@@ -97,6 +110,45 @@ class CrdtMutationRecorder {
         }
         return result;
       }();
+
+  late final List<_ForeignKeyEdge> _foreignKeyEdges = [
+    for (final table in _tableDefinitionsByName.values)
+      if (_isCrdtTrackedTableName(table.name))
+        for (final foreignKey in table.foreignKeys)
+          if (foreignKey.columns.length == 1 &&
+              foreignKey.referenceColumns.length == 1 &&
+              _isCrdtTrackedTableName(foreignKey.referenceTable))
+            (
+              childTableName: table.name,
+              childColumn: foreignKey.columns.single,
+              parentTableName: foreignKey.referenceTable,
+              parentColumn: foreignKey.referenceColumns.single,
+              action: foreignKey.onDelete ?? ForeignKeyAction.noAction,
+              childNullable:
+                  _columnsByTableAndName[table.name]![foreignKey.columns.single]!
+                      .isNullable,
+              defaultValue: _defaultValueForColumn(
+                table.name,
+                foreignKey.columns.single,
+              ),
+            ),
+  ];
+
+  late final Map<String, List<_ForeignKeyEdge>> _foreignKeyEdgesByParentTable = {
+    for (final tableName in _tableDefinitionsByName.keys)
+      tableName: [
+        for (final edge in _foreignKeyEdges)
+          if (edge.parentTableName == tableName) edge,
+      ],
+  };
+
+  late final Map<String, List<_ForeignKeyEdge>> _foreignKeyEdgesByChildTable = {
+    for (final tableName in _tableDefinitionsByName.keys)
+      tableName: [
+        for (final edge in _foreignKeyEdges)
+          if (edge.childTableName == tableName) edge,
+      ],
+  };
 
   final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
@@ -220,6 +272,11 @@ class CrdtMutationRecorder {
         transaction: transaction,
         ignoreConflicts: true,
       );
+
+      await _recordForeignKeyInsertAttempts(tableName, rowIds, transaction, {});
+      if (_tableColumnsMayAffectForeignKeys(tableName, null)) {
+        await _projectForeignKeys(transaction);
+      }
     });
   }
 
@@ -248,6 +305,15 @@ class CrdtMutationRecorder {
         transaction,
       );
       await _recordUpdatedFields(reinsertedRows, crdtDataRows, null, transaction);
+      await _recordForeignKeyAttemptsForRows(
+        tableName,
+        rowIds,
+        null,
+        transaction,
+      );
+      if (_tableColumnsMayAffectForeignKeys(tableName, null)) {
+        await _projectForeignKeys(transaction);
+      }
     });
   }
 
@@ -270,7 +336,33 @@ class CrdtMutationRecorder {
         'updated',
         transaction,
       );
-      await _recordUpdatedFields(updatedRows, crdtDataRows, columns, transaction);
+      final implicitForeignKeyRepairFields = columns == null
+          ? await _findImplicitForeignKeyRepairFields(
+              tableName: tableName,
+              rowIds: rowIds,
+              transaction: transaction,
+            )
+          : const <_MergeFieldKey>{};
+      await _recordUpdatedFields(
+        updatedRows,
+        crdtDataRows,
+        columns,
+        transaction,
+        skippedFields: implicitForeignKeyRepairFields,
+      );
+      await _recordForeignKeyAttemptsForRows(
+        tableName,
+        rowIds,
+        columns?.map((column) => column.columnName).toSet(),
+        transaction,
+        skippedFields: implicitForeignKeyRepairFields,
+      );
+      if (_tableColumnsMayAffectForeignKeys(
+        tableName,
+        columns?.map((column) => column.columnName).toSet(),
+      )) {
+        await _projectForeignKeys(transaction);
+      }
     });
   }
 
@@ -349,11 +441,9 @@ LEFT JOIN "$parentTable" p
   ON p."$parentColumn" = c."$childColumn"
 LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
-LEFT JOIN "crdt_data_tombstone" tomb
-  ON tomb."rowId" = r."id"
 WHERE c."id" IN ($whereRowIds)
   AND c."$childColumn" IS NOT NULL
-  AND (p."id" IS NULL OR tomb."clFlag" % 2 = 0)
+  AND (p."id" IS NULL OR r."visibility" > $crdtRowLastVisibleVisibilityIndex)
 ''';
     });
 
@@ -451,8 +541,9 @@ WHERE c."id" IN ($whereRowIds)
     List<T> updatedRows,
     List<CrdtDataRow> crdtDataRows,
     List<Column>? columns,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    Set<_MergeFieldKey> skippedFields = const {},
+  }) async {
     if (updatedRows.isEmpty || crdtDataRows.isEmpty) return;
 
     final crdtDataRowByUuid = {
@@ -473,6 +564,26 @@ WHERE c."id" IN ($whereRowIds)
               'No CRDT schema column for ${table.tableName}.${column.columnName}',
             )),
     ];
+    await _upsertCrdtFieldsForRows(
+      table.tableName,
+      [
+        for (final row in updatedRows) crdtDataRowByUuid[row.id as UuidValue]!,
+      ],
+      schemaColumns,
+      transaction,
+      skippedFields: skippedFields,
+    );
+  }
+
+  Future<void> _upsertCrdtFieldsForRows(
+    String tableName,
+    List<CrdtDataRow> crdtDataRows,
+    List<CrdtSchemaColumn> schemaColumns,
+    Transaction transaction, {
+    Set<_MergeFieldKey> skippedFields = const {},
+  }) async {
+    if (crdtDataRows.isEmpty || schemaColumns.isEmpty) return;
+
     final rowPks = crdtDataRows.map((r) => r.id!).toSet();
     final columnPks = schemaColumns.map((c) => c.id!).toSet();
     final existingFields = await CrdtDataField.db.find(
@@ -481,153 +592,6 @@ WHERE c."id" IN ($whereRowIds)
       transaction: transaction,
     );
 
-    final fieldByRowAndColumn = {
-      for (final f in existingFields) (f.rowId, f.columnId): f,
-    };
-
-    final hlcManager = _getHlcManager(transaction);
-    final toInsert = <CrdtDataField>[];
-    final toUpdate = <CrdtDataField>[];
-    for (final row in updatedRows) {
-      final crdtDataRow = crdtDataRowByUuid[row.id as UuidValue]!;
-
-      for (final schemaCol in schemaColumns) {
-        final hlc = hlcManager.increment();
-        final rowPk = crdtDataRow.id!;
-        final colPk = schemaCol.id!;
-        final existing = fieldByRowAndColumn[(rowPk, colPk)];
-
-        if (existing == null) {
-          toInsert.add(
-            CrdtDataField(
-              rowId: rowPk,
-              columnId: colPk,
-              nodeId: hlcManager.normalizedNodeId,
-              hlcDatetime: hlc.datetime,
-              hlcCounter: hlc.counter,
-            ),
-          );
-        } else {
-          toUpdate.add(
-            existing.copyWith(
-              nodeId: hlcManager.normalizedNodeId,
-              hlcDatetime: hlc.datetime,
-              hlcCounter: hlc.counter,
-            ),
-          );
-        }
-      }
-    }
-
-    if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(
-        _session,
-        toInsert,
-        transaction: transaction,
-      );
-    }
-    if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(
-        _session,
-        toUpdate,
-        transaction: transaction,
-      );
-    }
-  }
-
-  /// Soft-deletes rows by recording a tombstone instead of removing them.
-  ///
-  /// Expects a matching [CrdtDataRow] per domain row (`uuidRowId` = domain id).
-  Future<void> insteadOfDelete<T extends TableRow>(
-    List<T> deletedRows,
-    Transaction transaction,
-  ) async {
-    if (deletedRows.isEmpty) return;
-    if (!isCrdtTracked<T>(deletedRows.first.table)) return;
-    await _softDeleteRowsByTable(
-      deletedRows.first.table.tableName,
-      deletedRows.uuidRowIds,
-      transaction,
-      null,
-      CrdtDataDeletedReason.userDelete,
-    );
-  }
-
-  Future<void> _softDeleteRowsByTable(
-    String tableName,
-    Set<UuidValue> rowIds,
-    Transaction transaction,
-    Set<String>? processedRowIds,
-    CrdtDataDeletedReason reason,
-  ) async {
-    if (rowIds.isEmpty) return;
-    if (!_isCrdtTrackedTableName(tableName)) return;
-
-    final processing = processedRowIds ?? {};
-    final unprocessedRowIds = rowIds
-        .where((rowId) => processing.add('$tableName:$rowId'))
-        .toSet();
-
-    if (unprocessedRowIds.isEmpty) return;
-
-    final crdtDataRows = await _findRequiredCrdtRows(
-      tableName,
-      unprocessedRowIds,
-      'deleted',
-      transaction,
-      includeDeleted: true,
-    );
-
-    try {
-      final visibleCrdtRows = crdtDataRows
-          .where((row) => row.deleted?.isDeleted != true)
-          .toList();
-
-      if (visibleCrdtRows.isEmpty) return;
-      final visibleRowIds = visibleCrdtRows.map((row) => row.uuidRowId).toSet();
-
-      await _applyForeignKeyDeleteActions(
-        tableName,
-        visibleRowIds,
-        transaction,
-        processing,
-      );
-      await _releaseUniqueConflicts(tableName, visibleRowIds, transaction);
-      await _markCrdtRowsDeleted(visibleCrdtRows, true, reason, transaction);
-    } finally {
-      for (final rowId in unprocessedRowIds) {
-        processing.remove('$tableName:$rowId');
-      }
-    }
-  }
-
-  /// Records field updates by table name and UUID ids.
-  Future<void> recordFieldsUpdatedByTable(
-    String tableName,
-    Set<UuidValue> rowIds,
-    List<String> columnNames,
-    Transaction transaction,
-  ) async {
-    if (rowIds.isEmpty || columnNames.isEmpty) return;
-    if (!_isCrdtTrackedTableName(tableName)) return;
-
-    final crdtDataRows = await _findCrdtRows(tableName, rowIds, transaction);
-    if (crdtDataRows.isEmpty) return;
-
-    final (_, colMap) = _schema[tableName]!;
-    final schemaColumns = [
-      for (final columnName in columnNames)
-        if (colMap[columnName] != null) colMap[columnName]!,
-    ];
-    if (schemaColumns.isEmpty) return;
-
-    final rowPks = crdtDataRows.map((r) => r.id!).toSet();
-    final columnPks = schemaColumns.map((c) => c.id!).toSet();
-    final existingFields = await CrdtDataField.db.find(
-      _session,
-      where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnPks),
-      transaction: transaction,
-    );
     final fieldByRowAndColumn = {
       for (final f in existingFields) (f.rowId, f.columnId): f,
     };
@@ -638,6 +602,10 @@ WHERE c."id" IN ($whereRowIds)
 
     for (final row in crdtDataRows) {
       for (final schemaCol in schemaColumns) {
+        if (skippedFields.contains((tableName, row.uuidRowId, schemaCol.name))) {
+          continue;
+        }
+
         final hlc = hlcManager.increment();
         final existing = fieldByRowAndColumn[(row.id!, schemaCol.id!)];
         if (existing == null) {
@@ -668,6 +636,114 @@ WHERE c."id" IN ($whereRowIds)
     if (toUpdate.isNotEmpty) {
       await CrdtDataField.db.update(_session, toUpdate, transaction: transaction);
     }
+  }
+
+  /// Soft-deletes rows by recording a tombstone instead of removing them.
+  ///
+  /// Expects a matching [CrdtDataRow] per domain row (`uuidRowId` = domain id).
+  Future<void> insteadOfDelete<T extends TableRow>(
+    List<T> deletedRows,
+    Transaction transaction,
+  ) async {
+    if (deletedRows.isEmpty) return;
+    if (!isCrdtTracked<T>(deletedRows.first.table)) return;
+    await _softDeleteRowsByTable(
+      deletedRows.first.table.tableName,
+      deletedRows.uuidRowIds,
+      transaction,
+      null,
+      CrdtDataDeletedReason.userDelete,
+    );
+    if (_tableColumnsMayAffectForeignKeys(
+      deletedRows.first.table.tableName,
+      null,
+    )) {
+      await _projectForeignKeys(transaction);
+    }
+  }
+
+  Future<void> _softDeleteRowsByTable(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Transaction transaction,
+    Set<String>? processedRowIds,
+    CrdtDataDeletedReason reason,
+  ) async {
+    if (rowIds.isEmpty) return;
+    if (!_isCrdtTrackedTableName(tableName)) return;
+
+    final processing = processedRowIds ?? {};
+    final unprocessedRowIds = rowIds
+        .where((rowId) => processing.add('$tableName:$rowId'))
+        .toSet();
+
+    if (unprocessedRowIds.isEmpty) return;
+
+    final crdtDataRows = await _findRequiredCrdtRows(
+      tableName,
+      unprocessedRowIds,
+      'deleted',
+      transaction,
+      includeDeleted: true,
+    );
+
+    try {
+      final visibleCrdtRows = crdtDataRows.where((row) => !row.isHidden).toList();
+
+      if (visibleCrdtRows.isEmpty) return;
+      final visibleRowIds = visibleCrdtRows.map((row) => row.uuidRowId).toSet();
+
+      final cascadeDeletes = await _applyForeignKeyDeleteActions(
+        tableName,
+        visibleRowIds,
+        transaction,
+        processing,
+      );
+      await _releaseUniqueConflicts(tableName, visibleRowIds, transaction);
+      await _markCrdtRowsDeleted(visibleCrdtRows, true, reason, transaction);
+      for (final MapEntry(key: childTableName, value: childIds)
+          in cascadeDeletes.entries) {
+        await _softDeleteRowsByTable(
+          childTableName,
+          childIds,
+          transaction,
+          processing,
+          CrdtDataDeletedReason.userCascadeDelete,
+        );
+      }
+    } finally {
+      for (final rowId in unprocessedRowIds) {
+        processing.remove('$tableName:$rowId');
+      }
+    }
+  }
+
+  /// Records field updates by table name and UUID ids.
+  Future<void> recordFieldsUpdatedByTable(
+    String tableName,
+    Set<UuidValue> rowIds,
+    List<String> columnNames,
+    Transaction transaction,
+  ) async {
+    if (rowIds.isEmpty || columnNames.isEmpty) return;
+    if (!_isCrdtTrackedTableName(tableName)) return;
+
+    final crdtDataRows = await _findCrdtRows(tableName, rowIds, transaction);
+    if (crdtDataRows.isEmpty) return;
+
+    final (_, colMap) = _schema[tableName]!;
+    final schemaColumns = [
+      for (final columnName in columnNames)
+        if (colMap[columnName] != null) colMap[columnName]!,
+    ];
+    if (schemaColumns.isEmpty) return;
+
+    await _upsertCrdtFieldsForRows(
+      tableName,
+      crdtDataRows,
+      schemaColumns,
+      transaction,
+    );
   }
 
   Future<void> _markCrdtRowsDeleted(
@@ -731,6 +807,43 @@ WHERE c."id" IN ($whereRowIds)
         transaction: transaction,
       );
     }
+
+    await _applyRowVisibility(
+      crdtDataRows,
+      visibility: reason.toVisibility(isDeleted: isDeleted),
+      transaction: transaction,
+    );
+  }
+
+  Future<void> _applyRowVisibility(
+    List<CrdtDataRow> rows, {
+    required CrdtDataRowVisibility visibility,
+    required Transaction transaction,
+  }) async {
+    final toUpdate = rows
+        .where((row) => row.visibility != visibility)
+        .map((row) => row.copyWith(visibility: visibility))
+        .toList();
+    if (toUpdate.isEmpty) return;
+
+    await CrdtDataRow.db.update(
+      _session,
+      toUpdate,
+      columns: (t) => [t.visibility],
+      transaction: transaction,
+    );
+  }
+
+  Future<void> _applyRowVisibilityFromUserTombstone(
+    CrdtDataRow row,
+    CrdtDataDeleted tombstone,
+    Transaction transaction,
+  ) async {
+    await _applyRowVisibility(
+      [row],
+      visibility: tombstone.reason.toVisibility(isDeleted: tombstone.isDeleted),
+      transaction: transaction,
+    );
   }
 
   /// Whether the given row is soft-deleted.
@@ -748,12 +861,7 @@ WHERE c."id" IN ($whereRowIds)
     );
     if (crdtRows.isEmpty) return false;
 
-    final tombstone = await CrdtDataDeleted.db.findFirstRow(
-      _session,
-      where: (t) => t.rowId.equals(crdtRows.single.id),
-      transaction: transaction,
-    );
-    return tombstone?.isDeleted ?? false;
+    return crdtRows.single.isHidden;
   }
 
   Future<List<CrdtDataRow>> _findCrdtRows(
@@ -773,14 +881,15 @@ WHERE c."id" IN ($whereRowIds)
     );
   }
 
-  Future<void> _applyForeignKeyDeleteActions(
+  Future<Map<String, Set<UuidValue>>> _applyForeignKeyDeleteActions(
     String parentTableName,
     Set<UuidValue> parentIds,
     Transaction transaction,
     Set<String> processing,
   ) async {
-    if (parentIds.isEmpty) return;
+    if (parentIds.isEmpty) return {};
 
+    final cascadeDeletes = <String, Set<UuidValue>>{};
     final foreignKeys =
         _foreignKeysByReferencedTable[parentTableName] ??
         const <_ReferencingForeignKey>[];
@@ -850,16 +959,14 @@ WHERE c."id" IN ($whereRowIds)
               transaction,
             );
           case ForeignKeyAction.cascade:
-            await _softDeleteRowsByTable(
-              reference.childTableName,
-              childIds,
-              transaction,
-              processing,
-              CrdtDataDeletedReason.cascadeDelete,
-            );
+            cascadeDeletes
+                .putIfAbsent(reference.childTableName, () => {})
+                .addAll(childIds);
         }
       }
     }
+
+    return cascadeDeletes;
   }
 
   Future<void> _releaseUniqueConflicts(
@@ -930,7 +1037,7 @@ WHERE c."id" IN ($whereRowIds)
   }) async {
     return _findVisibleDomainRowIdsWhere(
       tableName: tableName,
-      predicates: ['d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}'],
+      predicates: [_domainColumnPredicate(columnName, value)],
       transaction: transaction,
     );
   }
@@ -948,10 +1055,8 @@ SELECT d."id"
 FROM "${_escapeIdentifier(tableName)}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
-LEFT JOIN "crdt_data_tombstone" tomb
-  ON tomb."rowId" = r."id"
 WHERE (${predicates.join(') AND (')})
-  AND (tomb."id" IS NULL OR tomb."clFlag" % 2 = 1)
+  AND (r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex)
 ''',
       transaction: transaction,
     );
@@ -1157,6 +1262,58 @@ String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);
 
 String _sqlLiteralList(Iterable<Object?> values) =>
     values.map(ValueEncoder.instance.convert).join(', ');
+
+String _domainColumnPredicate(
+  String columnName,
+  Object? value, {
+  String alias = 'd',
+}) => '$alias."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}';
+
+String _domainColumnNotPredicate(
+  String columnName,
+  Object? value, {
+  String alias = 'd',
+}) => '$alias."${_escapeIdentifier(columnName)}" <> ${_sqlLiteral(value)}';
+
+UuidValue? _uuidValueFromDatabase(Object? value) {
+  if (value == null) return null;
+  if (value is UuidValue) return value;
+  if (value is String) return UuidValue.withValidation(value);
+  return UuidValueJsonExtension.fromJson(value);
+}
+
+CrdtSchemaColumn? _schemaColumn(
+  Map<String, (int, Map<String, CrdtSchemaColumn>)> schema,
+  String tableName,
+  String columnName,
+) => schema[tableName]?.$2[columnName];
+
+Map<String, int> _schemaColumnIds(
+  Map<String, (int, Map<String, CrdtSchemaColumn>)> schema,
+  String tableName,
+  Iterable<String> columnNames,
+) => {
+  for (final columnName in columnNames)
+    columnName: ?_schemaColumn(schema, tableName, columnName)?.id,
+};
+
+extension on CrdtDataDeletedReason {
+  CrdtDataRowVisibility toVisibility({required bool isDeleted}) {
+    if (!isDeleted) {
+      return switch (this) {
+        CrdtDataDeletedReason.userReinsert => CrdtDataRowVisibility.userReinsert,
+        _ => CrdtDataRowVisibility.userInsert,
+      };
+    }
+
+    return switch (this) {
+      CrdtDataDeletedReason.userDelete => CrdtDataRowVisibility.userDelete,
+      CrdtDataDeletedReason.userCascadeDelete =>
+        CrdtDataRowVisibility.userCascadeDelete,
+      _ => CrdtDataRowVisibility.userDelete,
+    };
+  }
+}
 
 extension on List<TableRow> {
   Set<UuidValue> get uuidRowIds {

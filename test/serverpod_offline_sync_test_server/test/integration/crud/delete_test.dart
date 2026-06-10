@@ -322,6 +322,12 @@ void main() {
       );
 
       expect(tombstones.single.isDeleted, isFalse);
+
+      await CrdtDataRow.db.updateWhere(
+        session,
+        columnValues: (t) => [t.visibility(CrdtDataRowVisibility.userReinsert)],
+        where: (t) => t.uuidRowId.equals(person.id),
+      );
     });
 
     group('when deleting the person again,', () {
@@ -393,8 +399,22 @@ void main() {
 
       expect(tombstone, isNotNull);
       expect(tombstone!.isDeleted, true);
-      expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
+      expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
     });
+
+    test(
+      'then the organization CRDT row is hidden by the cascade-delete tombstone.',
+      () async {
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(organization.id),
+        );
+
+        expect(crdtRow, isNotNull);
+        expect(crdtRow!.isHidden, isTrue);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
+      },
+    );
 
     test('then the organization row still exist on the organization table.', () async {
       final row = await Organization.db.findFirstRow(
@@ -414,8 +434,22 @@ void main() {
 
       expect(tombstone, isNotNull);
       expect(tombstone!.isDeleted, true);
-      expect(tombstone.reason, CrdtDataDeletedReason.cascadeDelete);
+      expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
     });
+
+    test(
+      'then the person CRDT row is also hidden by the cascade-delete tombstone.',
+      () async {
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+        );
+
+        expect(crdtRow, isNotNull);
+        expect(crdtRow!.isHidden, isTrue);
+        expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
+      },
+    );
   });
 
   group('Given an address row with an ON DELETE RESTRICT related person, '
