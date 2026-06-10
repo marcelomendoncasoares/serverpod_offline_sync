@@ -22,23 +22,16 @@ fields:
   ### storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
   attemptedValue: UuidValue?, required
 
-  ### The foreign key value that is currently visible in the actual data row.
-  ###
-  ### Interpretation depends on [hasOverride]:
-  ###
-  ### - false: no override is active; the visible value is [attemptedValue].
-  ### - true and null: the active override materializes a null FK value.
-  ### - true and non-null: the active override materializes this FK value.
+  ### The foreign key value that is currently visible in the actual data row
+  ### when an override is active (overrideReason is non-null).
   visibleValue: UuidValue?
 
-  ### Whether the foreign key projection overrides the attempted value.
+  ### The authoritative indicator and reason for an active projection override.
   ###
-  ### This is internal projection metadata, not CRDT conflict state. The FK
-  ### resolver recomputes it from merged row, field, and tombstone facts.
-  hasOverride: bool, default=false
-
-  ### The reason for the foreign key override, if any. This is used mainly for
-  ### debugging purposes.
+  ### This is the single source of truth for whether an override is active:
+  ### non-null means an override is active; null means no override. It also
+  ### names the cause of the override. The FK resolver recomputes it from merged
+  ### row, field, and tombstone facts.
   overrideReason: CrdtForeignKeyOverrideReason?
 
 indexes:

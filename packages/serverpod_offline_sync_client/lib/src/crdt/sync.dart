@@ -592,9 +592,9 @@ class CrdtSync {
 
   /// Loads FK projection metadata for outbound insert sync.
   ///
-  /// Returns only fields whose [CrdtDataForeignKey.hasOverride] is true, keyed
-  /// by CRDT row id. These are the columns whose domain-table value differs from
-  /// the durable attempted FK fact.
+  /// Returns only fields whose [CrdtDataForeignKey.overrideReason] is non-null,
+  /// keyed by CRDT row id. These are the columns whose domain-table value
+  /// differs from the durable attempted FK fact.
   Future<Map<int, List<CrdtDataField>>> _loadProjectedForeignKeyAttemptFields(
     DatabaseSession session,
     List<CrdtDataRow> rows,
@@ -604,7 +604,7 @@ class CrdtSync {
 
     final fields = await CrdtDataField.db.find(
       session,
-      where: (t) => t.rowId.inSet(rowIds) & t.foreignKey.hasOverride.equals(true),
+      where: (t) => t.rowId.inSet(rowIds) & t.foreignKey.overrideReason.notEquals(null),
       include: CrdtDataField.include(
         column: CrdtSchemaColumn.include(),
         foreignKey: CrdtDataForeignKey.include(),

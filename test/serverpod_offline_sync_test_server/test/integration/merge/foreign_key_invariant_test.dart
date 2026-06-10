@@ -572,6 +572,7 @@ void main() {
             expect(projection!.attemptedValue, attemptedParent.id);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
           },
         );
 
@@ -1251,6 +1252,7 @@ void main() {
             expect(projection!.attemptedValue, missingParentId);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
           },
         );
       });
@@ -1317,6 +1319,7 @@ void main() {
             expect(projection!.attemptedValue, missingParentId);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
           },
         );
       });
@@ -1403,6 +1406,7 @@ void main() {
             expect(projection!.attemptedValue, attemptedTown.id);
             expect(projection.visibleValue, defaultTown.id);
             expect(projection.hasOverride, isTrue);
+            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setDefault);
           },
         );
       });
@@ -1609,6 +1613,7 @@ void main() {
             expect(projection!.attemptedValue, missingTownId);
             expect(projection.visibleValue, defaultTown.id);
             expect(projection.hasOverride, isTrue);
+            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setDefault);
           },
         );
       });
@@ -1689,6 +1694,7 @@ void main() {
             expect(projection!.attemptedValue, attemptedTown.id);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isFalse);
+            expect(projection.overrideReason, isNull);
           },
         );
       });
@@ -1759,6 +1765,10 @@ void main() {
             expect(projection!.attemptedValue, missingParentId);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+            expect(
+              projection.overrideReason,
+              CrdtForeignKeyOverrideReason.missingParent,
+            );
           },
         );
       });
@@ -1835,6 +1845,10 @@ void main() {
             expect(projection!.attemptedValue, missingParentId);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+            expect(
+              projection.overrideReason,
+              CrdtForeignKeyOverrideReason.missingParent,
+            );
           },
         );
       });

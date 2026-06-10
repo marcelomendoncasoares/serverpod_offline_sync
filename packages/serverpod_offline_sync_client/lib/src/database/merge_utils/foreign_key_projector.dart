@@ -4,7 +4,6 @@ typedef _ForeignKeyProjectionWrite = ({
   int fieldId,
   UuidValue? attemptedValue,
   UuidValue? visibleValue,
-  bool hasOverride,
   CrdtForeignKeyOverrideReason? overrideReason,
 });
 
@@ -36,7 +35,6 @@ class _ForeignKeyProjectionRow {
     required this.fieldId,
     required this.attemptedValue,
     required this.visibleValue,
-    required this.hasOverride,
     required this.overrideReason,
   });
 
@@ -44,8 +42,13 @@ class _ForeignKeyProjectionRow {
   final int fieldId;
   final UuidValue? attemptedValue;
   final UuidValue? visibleValue;
-  final bool hasOverride;
   final CrdtForeignKeyOverrideReason? overrideReason;
+
+  /// Whether an active projection override exists for this FK field.
+  ///
+  /// Derived from [overrideReason]: an override is active if and only if
+  /// [overrideReason] is non-null.
+  bool get hasOverride => overrideReason != null;
 }
 
 class _ForeignKeyProjectionState {
@@ -115,7 +118,11 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     Set<String>? columnNames,
     Transaction transaction, {
     Set<_MergeFieldKey> skippedFields = const {},
-    Map<_MergeFieldKey, UuidValue?> attemptedValues = const {},
+    Map<
+          _MergeFieldKey,
+          ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})
+        >
+        attemptedValues = const {},
   }) async {
     if (rowIds.isEmpty) return;
 
@@ -152,16 +159,27 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
 
         final fieldKey = (tableName, rowId, columnName);
         final visibleValue = _uuidValueFromDatabase(values[columnName]);
-        final attemptedValue = attemptedValues.containsKey(fieldKey)
-            ? attemptedValues[fieldKey]
-            : visibleValue;
-        final hasOverride = !_sameUuidValue(attemptedValue, visibleValue);
+        final attempt = attemptedValues[fieldKey];
+        final attemptedValue = attempt != null ? attempt.value : visibleValue;
+        final overrideActive = !_sameUuidValue(attemptedValue, visibleValue);
+
+        CrdtForeignKeyOverrideReason? overrideReason;
+        if (overrideActive) {
+          overrideReason = attempt?.reason;
+          if (overrideReason == null) {
+            throw StateError(
+              'FK projection override active for $tableName.$columnName '
+              'on row $rowId but no reason was provided. All override-producing '
+              'paths must supply a reason via _safeIncomingForeignKeyData.',
+            );
+          }
+        }
+
         projectionWrites.add((
           fieldId: fieldId,
           attemptedValue: attemptedValue,
-          visibleValue: hasOverride ? visibleValue : null,
-          hasOverride: hasOverride,
-          overrideReason: null,
+          visibleValue: overrideActive ? visibleValue : null,
+          overrideReason: overrideReason,
         ));
       }
     }
@@ -173,7 +191,10 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     String tableName,
     Set<UuidValue> rowIds,
     Transaction transaction,
-    Map<_MergeFieldKey, UuidValue?> attemptedValues,
+    Map<
+      _MergeFieldKey,
+      ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})
+    > attemptedValues,
   ) async {
     if (rowIds.isEmpty) return;
 
@@ -195,7 +216,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         rowId: {
           for (final columnName in foreignKeyColumns)
             columnName: attemptedValues.containsKey((tableName, rowId, columnName))
-                ? attemptedValues[(tableName, rowId, columnName)]
+                ? attemptedValues[(tableName, rowId, columnName)]!.value
                 : visibleValuesByRowId[rowId]?[columnName],
         },
     };
@@ -266,7 +287,15 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     );
   }
 
-  Future<({Map<String, Object?> data, Map<_MergeFieldKey, UuidValue?> attempts})>
+  Future<
+    ({
+      Map<String, Object?> data,
+      Map<
+        _MergeFieldKey,
+        ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})
+      > attempts,
+    })
+  >
   _safeIncomingForeignKeyData(
     String tableName,
     UuidValue rowId,
@@ -274,7 +303,8 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     final safeData = {...data};
-    final attempts = <_MergeFieldKey, UuidValue?>{};
+    final attempts =
+        <_MergeFieldKey, ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})>{};
 
     for (final edge
         in _foreignKeyEdgesByChildTable[tableName] ?? const <_ForeignKeyEdge>[]) {
@@ -282,7 +312,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
 
       final fieldKey = (tableName, rowId, edge.childColumn);
       final attemptedValue = _uuidValueFromDatabase(data[edge.childColumn]);
-      attempts[fieldKey] = attemptedValue;
+      attempts[fieldKey] = (value: attemptedValue, reason: null);
       if (attemptedValue == null) continue;
 
       if (await _foreignKeyTargetVisible(edge, attemptedValue, transaction)) {
@@ -293,6 +323,10 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         case ForeignKeyAction.setNull:
           if (edge.childNullable) {
             safeData[edge.childColumn] = null;
+            attempts[fieldKey] = (
+              value: attemptedValue,
+              reason: CrdtForeignKeyOverrideReason.setNull,
+            );
           }
         case ForeignKeyAction.setDefault:
           final defaultProjection = await _defaultProjectionValueFromDatabase(
@@ -301,6 +335,10 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
           );
           if (defaultProjection.valid) {
             safeData[edge.childColumn] = defaultProjection.value;
+            attempts[fieldKey] = (
+              value: attemptedValue,
+              reason: CrdtForeignKeyOverrideReason.setDefault,
+            );
           }
         case ForeignKeyAction.restrict:
         case ForeignKeyAction.noAction:
@@ -308,6 +346,10 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
           if (edge.childNullable) {
             safeData[edge.childColumn] = null;
           }
+          attempts[fieldKey] = (
+            value: attemptedValue,
+            reason: CrdtForeignKeyOverrideReason.missingParent,
+          );
       }
     }
 
@@ -584,7 +626,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
           fieldId: projection.fieldId,
           attemptedValue: projection.attemptedValue,
           visibleValue: projection.visibleValue,
-          hasOverride: projection.hasOverride,
           overrideReason: projection.overrideReason,
         ),
     };
@@ -869,7 +910,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         final existingProjection = state.projections[projectionKey];
 
         var desiredVisibleValue = attemptedValue;
-        var hasOverride = false;
         CrdtForeignKeyOverrideReason? overrideReason;
 
         if (attemptedValue != null &&
@@ -883,7 +923,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
             case ForeignKeyAction.setNull:
               if (edge.childNullable) {
                 desiredVisibleValue = null;
-                hasOverride = true;
                 overrideReason = CrdtForeignKeyOverrideReason.setNull;
               }
             case ForeignKeyAction.setDefault:
@@ -894,7 +933,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
               );
               if (defaultProjection.valid) {
                 desiredVisibleValue = defaultProjection.value;
-                hasOverride = true;
                 overrideReason = CrdtForeignKeyOverrideReason.setDefault;
               }
             case ForeignKeyAction.restrict:
@@ -911,15 +949,14 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         }
 
         final fieldId = state.fieldIds[projectionKey];
-        if (fieldId == null || (!hasOverride && existingProjection == null)) {
+        if (fieldId == null || (overrideReason == null && existingProjection == null)) {
           continue;
         }
 
         projectionWrites.add((
           fieldId: fieldId,
           attemptedValue: attemptedValue,
-          visibleValue: hasOverride ? desiredVisibleValue : null,
-          hasOverride: hasOverride,
+          visibleValue: overrideReason != null ? desiredVisibleValue : null,
           overrideReason: overrideReason,
         ));
       }
@@ -1188,7 +1225,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
         fieldId: write.fieldId,
         attemptedValue: write.attemptedValue,
         visibleValue: write.visibleValue,
-        hasOverride: write.hasOverride,
         overrideReason: write.overrideReason,
       );
 
@@ -1221,7 +1257,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   ) {
     return _sameUuidValue(existing.attemptedValue, write.attemptedValue) &&
         _sameUuidValue(existing.visibleValue, write.visibleValue) &&
-        existing.hasOverride == write.hasOverride &&
         existing.overrideReason == write.overrideReason;
   }
 

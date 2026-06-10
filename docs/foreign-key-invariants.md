@@ -100,19 +100,25 @@ projection for one `CrdtDataField`:
   field. It may be null for nullable FKs. This is durable FK field-value storage
   and is part of the CRDT facts for FK columns.
 - `visibleValue`: the value currently materialized into the domain row when an
-  override is active.
-- `hasOverride`: whether the projection overrides `attemptedValue` and
-  materializes `visibleValue` instead.
+  override is active (`overrideReason` is non-null).
+- `overrideReason`: the authoritative stored indicator that an override is
+  active, and the cause. Non-null means an override is active; null means no
+  override (the domain row carries `attemptedValue`). Values: `setNull` — the
+  parent was hidden/deleted and the column was set null by the FK action;
+  `setDefault` — the column was set to a default FK value; `missingParent` —
+  the parent is hidden or missing and cannot be repaired, so the row is hidden
+  by projection. The derived `hasOverride` bool (`overrideReason != null`) is
+  available as a convenience getter.
 
-`visibleValue == null` is meaningful only with `hasOverride`. When
-`hasOverride` is false it means "same as attempted"; when `hasOverride` is true
-it means "materialize null".
+`visibleValue` is meaningful only when `overrideReason` is non-null. When
+`overrideReason` is null the domain row carries `attemptedValue` directly; when
+`overrideReason` is non-null and `visibleValue` is null it means "materialize
+null".
 
-The resolver may use `visibleValue`, `hasOverride`, and `overrideReason` for
-efficient materialization and write deduplication. It must not use those
-projection fields as the authority for FK conflict decisions; the authority is
-the deterministic resolver over merged CRDT row, field, tombstone, and FK
-attempt facts.
+The resolver may use `visibleValue` and `overrideReason` for efficient
+materialization and write deduplication. It must not use those projection fields
+as the authority for FK conflict decisions; the authority is the deterministic
+resolver over merged CRDT row, field, tombstone, and FK attempt facts.
 
 A local full-row update (no column narrowing) that writes an FK value equal to
 the materialized projected value is a passthrough of the repair, not an authored
@@ -120,8 +126,8 @@ FK change: the existing override and attempted value are preserved and the FK
 field HLC does not advance. Writing a different FK value, or updating the FK
 column with narrowed columns (even when the written value equals the projected
 value), authors the change as an ordinary user field fact: the FK field HLC
-advances, `attemptedValue` becomes the new value, and `hasOverride` becomes
-false.
+advances, `attemptedValue` becomes the new value, and `overrideReason` becomes
+null.
 
 ## Merge Pipeline
 
