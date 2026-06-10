@@ -172,12 +172,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     final crdtRows = await _findCrdtRows(tableName, rowIds, transaction);
     if (crdtRows.isEmpty) return;
 
-    final (_, columnsByName) = _schema[tableName]!;
-    final columnIds = {
-      for (final columnName in attemptedColumns)
-        if (columnsByName[columnName]?.id != null)
-          columnName: columnsByName[columnName]!.id!,
-    };
+    final columnIds = _schemaColumnIds(_schema, tableName, attemptedColumns);
     if (columnIds.isEmpty) return;
 
     final existingFields = await _findForeignKeyFieldIds(
@@ -1062,12 +1057,9 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     UuidValue value,
     Transaction transaction,
   ) async {
-    final predicate = edge.parentColumn == 'id'
-        ? 'd."id" = ${_sqlLiteral(value)}'
-        : 'd."${_escapeIdentifier(edge.parentColumn)}" = ${_sqlLiteral(value)}';
     final rowIds = await _findVisibleDomainRowIdsWhere(
       tableName: edge.parentTableName,
-      predicates: [predicate],
+      predicates: [_domainColumnPredicate(edge.parentColumn, value)],
       transaction: transaction,
     );
     return rowIds.isNotEmpty;
@@ -1193,13 +1185,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     return _sameUuidValue(existing.attemptedValue, write.attemptedValue) &&
         _sameUuidValue(existing.visibleValue, write.visibleValue) &&
         existing.overrideReason == write.overrideReason;
-  }
-
-  UuidValue? _uuidValueFromDatabase(Object? value) {
-    if (value == null) return null;
-    if (value is UuidValue) return value;
-    if (value is String) return UuidValue.withValidation(value);
-    return UuidValueJsonExtension.fromJson(value);
   }
 
   bool _sameUuidValue(UuidValue? left, UuidValue? right) {

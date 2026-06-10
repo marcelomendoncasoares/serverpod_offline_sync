@@ -227,16 +227,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         );
       }
 
-      final (_, columnsByName) = _schema[tableName]!;
-      final columnIds = <int>{
-        for (final columnName in columnNames)
-          if (columnsByName[columnName] != null) columnsByName[columnName]!.id!,
-      };
-      if (columnIds.isEmpty) continue;
+      final columnIdsByName = _schemaColumnIds(_schema, tableName, columnNames);
+      if (columnIdsByName.isEmpty) continue;
 
       final loadedFields = await CrdtDataField.db.find(
         _session,
-        where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnIds),
+        where: (t) =>
+            t.rowId.inSet(rowPks) & t.columnId.inSet(columnIdsByName.values.toSet()),
         include: CrdtDataField.include(
           column: CrdtSchemaColumn.include(),
           node: CrdtNode.include(),
@@ -669,8 +666,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     required Transaction transaction,
     CrdtSchemaColumn? schemaColumn,
   }) async {
-    final (_, columnsByName) = _schema[tableName]!;
-    final resolvedSchemaColumn = schemaColumn ?? columnsByName[columnName];
+    final resolvedSchemaColumn =
+        schemaColumn ?? _schemaColumn(_schema, tableName, columnName);
     if (resolvedSchemaColumn == null) return false;
 
     final fieldKey = (tableName, rowId, columnName);

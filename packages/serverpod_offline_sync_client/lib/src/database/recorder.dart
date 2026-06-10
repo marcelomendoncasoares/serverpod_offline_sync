@@ -1037,7 +1037,7 @@ WHERE c."id" IN ($whereRowIds)
   }) async {
     return _findVisibleDomainRowIdsWhere(
       tableName: tableName,
-      predicates: ['d."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}'],
+      predicates: [_domainColumnPredicate(columnName, value)],
       transaction: transaction,
     );
   }
@@ -1262,6 +1262,40 @@ String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);
 
 String _sqlLiteralList(Iterable<Object?> values) =>
     values.map(ValueEncoder.instance.convert).join(', ');
+
+String _domainColumnPredicate(
+  String columnName,
+  Object? value, {
+  String alias = 'd',
+}) => '$alias."${_escapeIdentifier(columnName)}" = ${_sqlLiteral(value)}';
+
+String _domainColumnNotPredicate(
+  String columnName,
+  Object? value, {
+  String alias = 'd',
+}) => '$alias."${_escapeIdentifier(columnName)}" <> ${_sqlLiteral(value)}';
+
+UuidValue? _uuidValueFromDatabase(Object? value) {
+  if (value == null) return null;
+  if (value is UuidValue) return value;
+  if (value is String) return UuidValue.withValidation(value);
+  return UuidValueJsonExtension.fromJson(value);
+}
+
+CrdtSchemaColumn? _schemaColumn(
+  Map<String, (int, Map<String, CrdtSchemaColumn>)> schema,
+  String tableName,
+  String columnName,
+) => schema[tableName]?.$2[columnName];
+
+Map<String, int> _schemaColumnIds(
+  Map<String, (int, Map<String, CrdtSchemaColumn>)> schema,
+  String tableName,
+  Iterable<String> columnNames,
+) => {
+  for (final columnName in columnNames)
+    columnName: ?_schemaColumn(schema, tableName, columnName)?.id,
+};
 
 extension on CrdtDataDeletedReason {
   CrdtDataRowVisibility toVisibility({required bool isDeleted}) {
