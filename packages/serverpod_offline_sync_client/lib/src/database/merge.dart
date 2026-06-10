@@ -718,7 +718,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     return {
       for (final MapEntry(key: columnName, value: value) in data.entries)
-        if (columnName != 'id' && columns.containsKey(columnName)) columnName: value,
+        if (columnName != 'id' && columns.containsKey(columnName))
+          columnName: columns[columnName]!.columnType == ColumnType.uuid
+              ? _uuidValueFromDatabase(value)
+              : value,
     };
   }
 }

@@ -408,6 +408,70 @@ void main() {
   );
 
   group(
+    'Given a visible UniqueUuid row claiming a UUID unique value and a newer '
+    'remote insert that claims the same value, ',
+    () {
+      final sharedValue = const Uuid().v7obj();
+      late UniqueUuid winner;
+      late UniqueUuid loser;
+      late CrdtMergeInsert remoteInsert;
+
+      setUp(() async {
+        winner = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => UniqueUuid.db.insertRow(
+            session,
+            UniqueUuid(id: const Uuid().v7obj(), value: sharedValue),
+            transaction: tx,
+          ),
+        );
+
+        loser = UniqueUuid(id: const Uuid().v7obj(), value: sharedValue);
+        remoteInsert = CrdtMergeInsert(
+          tableName: UniqueUuid.t.tableName,
+          uuidRowId: loser.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: (await _rowHlc(winner.id!)).datetime.advance(),
+          hlcCounter: 0,
+          data: loser,
+        );
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remoteInsert],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then both rows remain visible and the incoming insert receives a '
+          'deterministic conflict-free UUID unique value.',
+          () async {
+            final rows = await UniqueUuid.db.find(session);
+            final expectedConflictValue = const Uuid().v5obj(
+              Namespace.oid.value,
+              '${UniqueUuid.t.tableName}.${UniqueUuid.t.value.columnName}:'
+              '${sharedValue.uuid}__conflict__${loser.id!.uuid}',
+            );
+
+            expect(rows, hasLength(2));
+            expect(
+              rows.singleWhere((row) => row.id == winner.id).value,
+              sharedValue,
+            );
+            expect(
+              rows.singleWhere((row) => row.id == loser.id).value,
+              expectedConflictValue,
+            );
+          },
+        );
+      });
+    },
+  );
+
+  group(
     'Given a unique value previously claimed by a locally deleted row and a '
     'remote insert that claims it, ',
     () {
