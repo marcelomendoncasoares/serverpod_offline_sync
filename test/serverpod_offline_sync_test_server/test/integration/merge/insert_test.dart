@@ -369,6 +369,251 @@ void main() {
   );
 
   group(
+    'Given a table with an existing row and an older remote insert for the same row ID, ',
+    () {
+      late Person person;
+      late Hlc localRowHlc;
+      late CrdtMergeInsert remoteInsert;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'local'),
+            transaction: tx,
+          ),
+        );
+
+        final row = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+        localRowHlc = row!.hlc;
+
+        remoteInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: localRowHlc.datetime.retreat(),
+          hlcCounter: localRowHlc.counter,
+          data: person.copyWith(name: 'older remote'),
+        );
+        mergeSet = [remoteInsert];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the local row data is preserved.', () async {
+          final row = await Person.db.findById(session, person.id!);
+
+          expect(row, isNotNull);
+          expect(row!.name, 'local');
+        });
+
+        test('then the CRDT row metadata is not updated.', () async {
+          final row = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(person.id),
+            include: CrdtDataRow.include(node: CrdtNode.include()),
+          );
+
+          expect(row!.hlc, localRowHlc);
+          expect(row.node!.uuidNodeId, localRowHlc.nodeId);
+        });
+
+        test(
+          'then no CRDT field metadata is recorded for the ignored insert.',
+          () async {
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.equals(person.id),
+            );
+
+            expect(fields, isEmpty);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given an empty table and a merge set that lists a newer remote update '
+    'before its remote insert, ',
+    () {
+      late Person remotePerson;
+      late CrdtMergeInsert remoteInsert;
+      late CrdtMergeUpdate remoteUpdate;
+
+      setUp(() {
+        final remoteNodeId = const Uuid().v7obj();
+        remotePerson = Person(id: const Uuid().v7obj(), name: 'remote');
+
+        final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+        remoteInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: remotePerson.id!,
+          uuidNodeId: hlc.nodeId,
+          hlcDatetime: hlc.datetime,
+          hlcCounter: hlc.counter,
+          data: remotePerson,
+        );
+        remoteUpdate = CrdtMergeUpdate(
+          tableName: Person.t.tableName,
+          uuidRowId: remotePerson.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: remoteInsert.hlc.datetime.advance(),
+          hlcCounter: 0,
+          columnName: Person.t.name.columnName,
+          value: 'updated remotely',
+        );
+
+        mergeSet = [remoteUpdate, remoteInsert];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the operations are applied causally and the row holds the '
+          'updated value.',
+          () async {
+            final row = await Person.db.findById(session, remotePerson.id!);
+
+            expect(row, isNotNull);
+            expect(row!.name, remoteUpdate.value);
+          },
+        );
+
+        test(
+          'then the CRDT field metadata records the update HLC.',
+          () async {
+            final field = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(remotePerson.id) &
+                  t.column.name.equals(Person.t.name.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+
+            expect(field, isNotNull);
+            expect(field!.hlc, remoteUpdate.hlc);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a remote insert and a newer remote update that were already merged, ',
+    () {
+      late Person remotePerson;
+      late CrdtMergeUpdate remoteUpdate;
+      late Hlc rowHlcAfterFirstMerge;
+      late List<Hlc> fieldHlcsAfterFirstMerge;
+
+      setUp(() async {
+        final remoteNodeId = const Uuid().v7obj();
+        remotePerson = Person(id: const Uuid().v7obj(), name: 'remote');
+
+        final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+        final remoteInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: remotePerson.id!,
+          uuidNodeId: hlc.nodeId,
+          hlcDatetime: hlc.datetime,
+          hlcCounter: hlc.counter,
+          data: remotePerson,
+        );
+        remoteUpdate = CrdtMergeUpdate(
+          tableName: Person.t.tableName,
+          uuidRowId: remotePerson.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: remoteInsert.hlc.datetime.advance(),
+          hlcCounter: 0,
+          columnName: Person.t.name.columnName,
+          value: 'updated remotely',
+        );
+        mergeSet = [remoteInsert, remoteUpdate];
+
+        await session.db.mergeChanges(
+          mergeSet,
+          userId: testCrdtUserId,
+        );
+
+        final row = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(remotePerson.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+        rowHlcAfterFirstMerge = row!.hlc;
+
+        final fields = await CrdtDataField.db.find(
+          session,
+          where: (t) => t.row.uuidRowId.equals(remotePerson.id),
+          include: CrdtDataField.include(node: CrdtNode.include()),
+          orderBy: (t) => t.columnId,
+        );
+        fieldHlcsAfterFirstMerge = [for (final field in fields) field.hlc];
+      });
+
+      group('when the same merge set is replayed, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test('then the row data does not change.', () async {
+          final row = await Person.db.findById(session, remotePerson.id!);
+
+          expect(row, isNotNull);
+          expect(row!.name, remoteUpdate.value);
+        });
+
+        test('then the CRDT row and field metadata do not change.', () async {
+          final row = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(remotePerson.id),
+            include: CrdtDataRow.include(node: CrdtNode.include()),
+          );
+          final fields = await CrdtDataField.db.find(
+            session,
+            where: (t) => t.row.uuidRowId.equals(remotePerson.id),
+            include: CrdtDataField.include(node: CrdtNode.include()),
+            orderBy: (t) => t.columnId,
+          );
+
+          expect(row!.hlc, rowHlcAfterFirstMerge);
+          expect([for (final field in fields) field.hlc], fieldHlcsAfterFirstMerge);
+        });
+
+        test('then no tombstone metadata is created by the replay.', () async {
+          final tombstone = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(remotePerson.id),
+          );
+
+          expect(tombstone, isNull);
+        });
+      });
+    },
+  );
+
+  group(
     'Given a table with a row deleted in generation four and a newer remote insert payload, ',
     () {
       late Person person;
@@ -442,4 +687,5 @@ void main() {
 
 extension on DateTime {
   DateTime advance() => add(const Duration(milliseconds: 1));
+  DateTime retreat() => subtract(const Duration(milliseconds: 1));
 }

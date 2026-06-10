@@ -1,3 +1,4 @@
+import 'package:serverpod/serverpod.dart' show DatabaseQueryException;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
@@ -222,6 +223,137 @@ void main() {
             expect(hiddenParent, isNull);
             expect(visibleChild, isNotNull);
             expect(visibleChild!.inhabitantId, isNull);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a parent with two visible restrict children and a merged parent delete, ',
+    () {
+      late Person parent;
+      late RestrictChild firstChild;
+      late RestrictChild secondChild;
+      late CrdtMergeDelete remoteParentDelete;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          parent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'two restrict children parent'),
+            transaction: tx,
+          );
+          firstChild = await RestrictChild.db.insertRow(
+            session,
+            RestrictChild(
+              id: const Uuid().v7obj(),
+              name: 'first restrict child',
+              parentId: parent.id,
+            ),
+            transaction: tx,
+          );
+          secondChild = await RestrictChild.db.insertRow(
+            session,
+            RestrictChild(
+              id: const Uuid().v7obj(),
+              name: 'second restrict child',
+              parentId: parent.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: parent.id!,
+          after: await _rowHlc(parent.id!),
+        );
+        await session.db.mergeChanges(
+          [remoteParentDelete],
+          userId: testCrdtUserId,
+        );
+      });
+
+      group('when one restrict child is detached by a merged update, ', () {
+        setUp(() async {
+          final firstChildDetach = _updateChange(
+            tableName: RestrictChild.t.tableName,
+            rowId: firstChild.id!,
+            columnName: RestrictChild.t.parentId.columnName,
+            value: null,
+            after: (await _rowHlc(firstChild.id!)).maxBetween(
+              remoteParentDelete.hlc,
+            ),
+          );
+
+          await session.db.mergeChanges(
+            [firstChildDetach],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the remaining visible restrict child keeps the parent visible.',
+          () async {
+            final visibleParent = await Person.db.findById(session, parent.id!);
+            final detachedChild = await RestrictChild.db.findById(
+              session,
+              firstChild.id!,
+            );
+            final blockingChild = await RestrictChild.db.findById(
+              session,
+              secondChild.id!,
+            );
+
+            expect(visibleParent, isNotNull);
+            expect(detachedChild, isNotNull);
+            expect(detachedChild!.parentId, isNull);
+            expect(blockingChild, isNotNull);
+            expect(blockingChild!.parentId, parent.id);
+          },
+        );
+      });
+
+      group('when both restrict children are detached by merged updates, ', () {
+        setUp(() async {
+          final firstChildDetach = _updateChange(
+            tableName: RestrictChild.t.tableName,
+            rowId: firstChild.id!,
+            columnName: RestrictChild.t.parentId.columnName,
+            value: null,
+            after: (await _rowHlc(firstChild.id!)).maxBetween(
+              remoteParentDelete.hlc,
+            ),
+          );
+          final secondChildDetach = _updateChange(
+            tableName: RestrictChild.t.tableName,
+            rowId: secondChild.id!,
+            columnName: RestrictChild.t.parentId.columnName,
+            value: null,
+            after: (await _rowHlc(secondChild.id!)).maxBetween(
+              remoteParentDelete.hlc,
+            ),
+          );
+
+          await session.db.mergeChanges(
+            [firstChildDetach, secondChildDetach],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the parent is hidden by the preserved base delete fact.',
+          () async {
+            final hiddenParent = await Person.db.findById(session, parent.id!);
+            final detachedChildren = await RestrictChild.db.find(session);
+
+            expect(hiddenParent, isNull);
+            expect(detachedChildren, hasLength(2));
+            expect(
+              detachedChildren.map((child) => child.parentId),
+              everyElement(isNull),
+            );
           },
         );
       });
@@ -688,6 +820,86 @@ void main() {
             expect(projection!.attemptedValue, attemptedParent.id);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a set-null projection is active after a merged parent delete and a '
+    'remote update that touches only a non-foreign-key column, ',
+    () {
+      late Person attemptedParent;
+      late Town child;
+      late CrdtMergeUpdate remoteNameUpdate;
+      late List<String> projectionBeforeUpdate;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          attemptedParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'projected mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'projected town',
+              mayorId: attemptedParent.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        final remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: attemptedParent.id!,
+          after: await _rowHlc(attemptedParent.id!),
+        );
+        await session.db.mergeChanges(
+          [remoteParentDelete],
+          userId: testCrdtUserId,
+        );
+        projectionBeforeUpdate = await _foreignKeyProjectionSnapshot();
+
+        remoteNameUpdate = _updateChange(
+          tableName: Town.t.tableName,
+          rowId: child.id!,
+          columnName: Town.t.name.columnName,
+          value: 'renamed remotely',
+          after: (await _rowHlc(child.id!)).maxBetween(remoteParentDelete.hlc),
+        );
+      });
+
+      group('when the remote update is merged, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remoteNameUpdate],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the non-foreign-key update is applied and the materialized '
+          'repair is preserved.',
+          () async {
+            final visibleChild = await Town.db.findById(session, child.id!);
+
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.name, 'renamed remotely');
+            expect(visibleChild.mayorId, isNull);
+          },
+        );
+
+        test(
+          'then the foreign key projection metadata does not change.',
+          () async {
+            expect(
+              await _foreignKeyProjectionSnapshot(),
+              projectionBeforeUpdate,
+            );
           },
         );
       });
@@ -1197,6 +1409,154 @@ void main() {
   );
 
   group(
+    'Given a remote insert with a cascade foreign key that points to a missing parent, ',
+    () {
+      late UuidValue missingParentId;
+      late Organization child;
+
+      setUp(() {
+        missingParentId = const Uuid().v7obj();
+        child = Organization(
+          id: const Uuid().v7obj(),
+          name: 'missing cascade parent child',
+          cityId: missingParentId,
+        );
+      });
+
+      group('when the remote insert is merged, ', () {
+        setUp(() async {
+          final remoteNodeId = const Uuid().v7obj();
+          final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+          await session.db.mergeChanges(
+            [
+              CrdtMergeInsert(
+                tableName: Organization.t.tableName,
+                uuidRowId: child.id!,
+                uuidNodeId: remoteNodeId,
+                hlcDatetime: hlc.datetime,
+                hlcCounter: hlc.counter,
+                data: child,
+              ),
+            ],
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the child is hidden so no visible orphan remains.',
+          () async {
+            final visibleChild = await Organization.db.findById(
+              session,
+              child.id!,
+            );
+            final hiddenChild = await Organization.db.findById(
+              testSession,
+              child.id!,
+            );
+            final crdtRow = await CrdtDataRow.db.findFirstRow(
+              session,
+              where: (t) => t.uuidRowId.equals(child.id),
+            );
+
+            expect(visibleChild, isNull);
+            expect(hiddenChild, isNotNull);
+            expect(hiddenChild!.cityId, isNull);
+            expect(crdtRow, isNotNull);
+            expect(crdtRow!.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+          },
+        );
+
+        test(
+          'then the missing attempted parent value remains recorded in projection metadata.',
+          () async {
+            final projection = await _findForeignKeyProjection(
+              rowId: child.id!,
+              columnName: Organization.t.cityId.columnName,
+            );
+
+            expect(projection, isNotNull);
+            expect(projection!.attemptedValue, missingParentId);
+            expect(projection.visibleValue, isNull);
+            expect(projection.hasOverride, isTrue);
+          },
+        );
+      });
+    },
+  );
+
+  // Merge sets are causally complete by protocol: a sync batch is a full causal
+  // snapshot, so the parent facts needed by its foreign key attempts always
+  // precede or accompany the child fact. A non-nullable set-default attempt
+  // whose parent fact is absent and whose default target is missing is outside
+  // the merge contract, so the database constraint backstop must fail the merge
+  // transaction atomically instead of applying partial state.
+  group(
+    'Given a causally incomplete remote insert with a set-default foreign key '
+    'whose attempted parent and default target are both missing, ',
+    () {
+      late UuidValue missingTownId;
+      late Company child;
+      late CrdtMergeInsert remoteInsert;
+
+      setUp(() {
+        missingTownId = const Uuid().v7obj();
+        child = Company(
+          id: const Uuid().v7obj(),
+          name: 'unrepairable set-default child',
+          townId: missingTownId,
+        );
+
+        final remoteNodeId = const Uuid().v7obj();
+        final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+        remoteInsert = CrdtMergeInsert(
+          tableName: Company.t.tableName,
+          uuidRowId: child.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: hlc.datetime,
+          hlcCounter: hlc.counter,
+          data: child,
+        );
+      });
+
+      group('when the remote insert is merged, ', () {
+        late Object? mergeError;
+
+        setUp(() async {
+          mergeError = null;
+          try {
+            await session.db.mergeChanges(
+              [remoteInsert],
+              userId: testCrdtUserId,
+            );
+          } on Exception catch (error) {
+            mergeError = error;
+          }
+        });
+
+        test('then the merge fails at the database constraint backstop.', () {
+          expect(mergeError, isA<DatabaseQueryException>());
+        });
+
+        test('then the failed merge leaves no partial state behind.', () async {
+          final domainRow = await Company.db.findById(testSession, child.id!);
+          final crdtRow = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(child.id),
+          );
+          final projection = await _findForeignKeyProjection(
+            rowId: child.id!,
+            columnName: Company.t.townId.columnName,
+          );
+
+          expect(domainRow, isNull);
+          expect(crdtRow, isNull);
+          expect(projection, isNull);
+        });
+      });
+    },
+  );
+
+  group(
     'Given a set-default foreign key whose default target is cascade-attached to another parent and a concurrent delete that hides the default target first, ',
     () {
       late City city;
@@ -1435,6 +1795,74 @@ void main() {
           },
         );
       });
+
+      group(
+        'when a newer remote update for a cascade-hidden descendant is merged '
+        'after the root delete, ',
+        () {
+          late CrdtMergeUpdate remoteOrganizationUpdate;
+
+          setUp(() async {
+            await session.db.mergeChanges(
+              [remoteCityDelete],
+              userId: testCrdtUserId,
+            );
+
+            remoteOrganizationUpdate = _updateChange(
+              tableName: Organization.t.tableName,
+              rowId: organization.id!,
+              columnName: Organization.t.name.columnName,
+              value: 'renamed while hidden',
+              after: (await _rowHlc(organization.id!)).maxBetween(
+                remoteCityDelete.hlc,
+              ),
+            );
+            await session.db.mergeChanges(
+              [remoteOrganizationUpdate],
+              userId: testCrdtUserId,
+            );
+          });
+
+          test(
+            'then the update does not resurrect the cascade-hidden descendant.',
+            () async {
+              expect(
+                await Organization.db.findById(session, organization.id!),
+                isNull,
+              );
+              expect(await Person.db.findById(session, person.id!), isNull);
+            },
+          );
+
+          group('when the root restore is merged afterwards, ', () {
+            setUp(() async {
+              final remoteCityRestore = _restoreChange(
+                tableName: City.t.tableName,
+                rowId: city.id!,
+                after: remoteOrganizationUpdate.hlc,
+              );
+              await session.db.mergeChanges(
+                [remoteCityRestore],
+                userId: testCrdtUserId,
+              );
+            });
+
+            test(
+              'then the descendant becomes visible with the merged update value.',
+              () async {
+                final visibleOrganization = await Organization.db.findById(
+                  session,
+                  organization.id!,
+                );
+
+                expect(visibleOrganization, isNotNull);
+                expect(visibleOrganization!.name, 'renamed while hidden');
+                expect(visibleOrganization.cityId, city.id);
+              },
+            );
+          });
+        },
+      );
     },
   );
 
@@ -1615,6 +2043,68 @@ void main() {
 
           test(
             'then the set-null grandchild remains visible with a materialized null foreign key.',
+            () async {
+              final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
+                  .findById(session, setNullGrandchild.id!);
+              final projection = await _findForeignKeyProjection(
+                rowId: setNullGrandchild.id!,
+                columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
+              );
+
+              expect(visibleSetNullGrandchild, isNotNull);
+              expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
+              expect(projection, isNotNull);
+              expect(projection!.attemptedValue, restrictBlocker.id);
+              expect(projection.visibleValue, isNull);
+              expect(projection.hasOverride, isTrue);
+            },
+          );
+        },
+      );
+
+      group(
+        'when the root delete and the restrict blocker delete are merged in '
+        'the same batch, ',
+        () {
+          setUp(() async {
+            final restrictBlockerHlc = await _rowHlc(restrictBlocker.id!);
+            final remoteRestrictBlockerDelete = _deleteChange(
+              tableName: FkChainRestrictBlocker.t.tableName,
+              rowId: restrictBlocker.id!,
+              after: restrictBlockerHlc.maxBetween(remoteRootDelete.hlc),
+            );
+
+            await session.db.mergeChanges(
+              [remoteRestrictBlockerDelete, remoteRootDelete],
+              userId: testCrdtUserId,
+            );
+          });
+
+          test(
+            'then the single batch converges to the same hidden closure as '
+            'the sequential merges.',
+            () async {
+              expect(await FkChainRoot.db.findById(session, root.id!), isNull);
+              expect(
+                await FkChainCascadeMiddle.db.findById(session, cascadeMiddle.id!),
+                isNull,
+              );
+              expect(
+                await FkChainRestrictBlocker.db.findById(session, restrictBlocker.id!),
+                isNull,
+              );
+              expect(
+                await FkChainMiddleCascadeChild.db.findById(
+                  session,
+                  cascadeGrandchild.id!,
+                ),
+                isNull,
+              );
+            },
+          );
+
+          test(
+            'then the set-null grandchild remains visible with the same materialized repair.',
             () async {
               final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                   .findById(session, setNullGrandchild.id!);
@@ -2113,6 +2603,116 @@ void main() {
       );
     },
   );
+
+  group(
+    'Given two databases with the same visible parent and a remote restrict '
+    'child insert concurrent with the parent delete, ',
+    () {
+      late CrdtDatabaseSession singleBatchSession;
+      late CrdtDatabaseSession splitBatchSession;
+      late Person parent;
+      late RestrictChild child;
+      late CrdtMergeInsert remoteChildInsert;
+      late CrdtMergeDelete remoteParentDelete;
+
+      setUp(() async {
+        singleBatchSession = session;
+        splitBatchSession = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: [
+            Person.t,
+            RestrictChild.t,
+          ],
+        );
+        await splitBatchSession.db.initialize();
+
+        parent = Person(id: const Uuid().v7obj(), name: 'concurrent parent');
+        for (final databaseSession in [singleBatchSession, splitBatchSession]) {
+          await databaseSession.db.transactionForUser(testCrdtUserId, (tx) async {
+            await Person.db.insertRow(
+              databaseSession,
+              parent,
+              transaction: tx,
+            );
+          });
+        }
+
+        final singleBatchParentHlc = await _rowHlc(
+          parent.id!,
+          databaseSession: singleBatchSession,
+        );
+        final splitBatchParentHlc = await _rowHlc(
+          parent.id!,
+          databaseSession: splitBatchSession,
+        );
+        final parentHlc = singleBatchParentHlc.maxBetween(splitBatchParentHlc);
+
+        child = RestrictChild(
+          id: const Uuid().v7obj(),
+          name: 'concurrent restrict child',
+          parentId: parent.id,
+        );
+        remoteChildInsert = CrdtMergeInsert(
+          tableName: RestrictChild.t.tableName,
+          uuidRowId: child.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: parentHlc.datetime.advance(),
+          hlcCounter: 0,
+          data: child,
+        );
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: parent.id!,
+          after: remoteChildInsert.hlc,
+        );
+      });
+
+      group(
+        'when one database merges one batch and the other merges the delete '
+        'before the child insert, ',
+        () {
+          setUp(() async {
+            await singleBatchSession.db.mergeChanges(
+              [remoteChildInsert, remoteParentDelete],
+              userId: testCrdtUserId,
+            );
+            await splitBatchSession.db.mergeChanges(
+              [remoteParentDelete],
+              userId: testCrdtUserId,
+            );
+            await splitBatchSession.db.mergeChanges(
+              [remoteChildInsert],
+              userId: testCrdtUserId,
+            );
+          });
+
+          test(
+            'then both databases keep the parent visible because the visible '
+            'restrict child blocks the delete.',
+            () async {
+              for (final databaseSession in [
+                singleBatchSession,
+                splitBatchSession,
+              ]) {
+                final visibleParent = await Person.db.findById(
+                  databaseSession,
+                  parent.id!,
+                );
+                final visibleChild = await RestrictChild.db.findById(
+                  databaseSession,
+                  child.id!,
+                );
+
+                expect(visibleParent, isNotNull);
+                expect(visibleChild, isNotNull);
+                expect(visibleChild!.parentId, parent.id);
+              }
+            },
+          );
+        },
+      );
+    },
+  );
 }
 
 final _defaultTownId = UuidValue.withValidation(
@@ -2132,6 +2732,24 @@ CrdtMergeDelete _deleteChange({
     hlcCounter: 0,
     clFlag: 2,
     reason: CrdtDataDeletedReason.userDelete,
+  );
+}
+
+CrdtMergeUpdate _updateChange({
+  required String tableName,
+  required UuidValue rowId,
+  required String columnName,
+  required Object? value,
+  required Hlc after,
+}) {
+  return CrdtMergeUpdate(
+    tableName: tableName,
+    uuidRowId: rowId,
+    uuidNodeId: const Uuid().v7obj(),
+    hlcDatetime: after.datetime.advance(),
+    hlcCounter: 0,
+    columnName: columnName,
+    value: value,
   );
 }
 

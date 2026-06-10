@@ -433,6 +433,72 @@ void main() {
   );
 
   group(
+    'Given a table with an existing row and a newer remote delete with a '
+    'non-synced projection reason, ',
+    () {
+      late Person person;
+      late CrdtMergeDelete remoteDelete;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'projection reason delete'),
+            transaction: tx,
+          ),
+        );
+
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        remoteDelete = CrdtMergeDelete(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: crdtRow!.hlc.datetime.advance(),
+          hlcCounter: 0,
+          clFlag: 2,
+          reason: CrdtDataDeletedReason.uniqueLoser,
+        );
+
+        mergeSet = [remoteDelete];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            userId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the non-synced delete is ignored and the row stays visible.',
+          () async {
+            final row = await Person.db.findById(session, person.id!);
+
+            expect(row, isNotNull);
+            expect(row!.name, person.name);
+          },
+        );
+
+        test('then no tombstone metadata is recorded.', () async {
+          final tombstone = await CrdtDataDeleted.db.findFirstRow(
+            session,
+            where: (t) => t.row.uuidRowId.equals(person.id),
+          );
+
+          expect(tombstone, isNull);
+        });
+      });
+    },
+  );
+
+  group(
     'Given an empty table and a remote delete for a non-existing row, ',
     () {
       late UuidValue remoteNodeId;
