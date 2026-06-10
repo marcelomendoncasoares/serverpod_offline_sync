@@ -114,6 +114,15 @@ projection fields as the authority for FK conflict decisions; the authority is
 the deterministic resolver over merged CRDT row, field, tombstone, and FK
 attempt facts.
 
+A local full-row update (no column narrowing) that writes an FK value equal to
+the materialized projected value is a passthrough of the repair, not an authored
+FK change: the existing override and attempted value are preserved and the FK
+field HLC does not advance. Writing a different FK value, or updating the FK
+column with narrowed columns (even when the written value equals the projected
+value), authors the change as an ordinary user field fact: the FK field HLC
+advances, `attemptedValue` becomes the new value, and `hasOverride` becomes
+false.
+
 ## Merge Pipeline
 
 1. Merge CRDT row, field, and tombstone facts by their existing HLC/CLFlag

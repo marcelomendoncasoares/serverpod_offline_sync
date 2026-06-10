@@ -667,6 +667,94 @@ void main() {
   );
 
   group(
+    'Given a child with a visible parent foreign key and no active projection override, ',
+    () {
+      late Person parent;
+      late Town child;
+      late Hlc mayorFieldHlcBeforeUpdate;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          parent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'visible mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'attached town',
+              mayorId: parent.id,
+            ),
+            transaction: tx,
+          );
+          child = await Town.db.updateRow(
+            session,
+            child.copyWith(mayorId: parent.id),
+            columns: (t) => [t.mayorId],
+            transaction: tx,
+          );
+        });
+
+        final mayorField = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.row.uuidRowId.equals(child.id) &
+              t.column.name.equals(Town.t.mayorId.columnName),
+          include: CrdtDataField.include(node: CrdtNode.include()),
+        );
+        mayorFieldHlcBeforeUpdate = mayorField!.hlc;
+      });
+
+      group(
+        'when the foreign key is cleared by an update without narrowing columns, ',
+        () {
+          setUp(() async {
+            await session.db.transactionForUser(testCrdtUserId, (tx) async {
+              child = await Town.db.updateRow(
+                session,
+                child.copyWith(mayorId: null),
+                transaction: tx,
+              );
+            });
+          });
+
+          test(
+            'then the null foreign key value is authored as a user change.',
+            () async {
+              final visibleChild = await Town.db.findById(session, child.id!);
+              final projection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Town.t.mayorId.columnName,
+              );
+              final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+                session,
+                where: (t) =>
+                    t.row.uuidRowId.equals(child.id) &
+                    t.column.name.equals(Town.t.mayorId.columnName),
+                include: CrdtDataField.include(node: CrdtNode.include()),
+              );
+
+              expect(visibleChild, isNotNull);
+              expect(visibleChild!.mayorId, isNull);
+              expect(projection, isNotNull);
+              expect(projection!.attemptedValue, isNull);
+              expect(projection.visibleValue, isNull);
+              expect(projection.hasOverride, isFalse);
+              expect(mayorFieldAfterUpdate, isNotNull);
+              expect(
+                mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
+                isTrue,
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+
+  group(
     'Given a set-null projection is active after a merged parent delete, ',
     () {
       late Person attemptedParent;
@@ -794,7 +882,18 @@ void main() {
       });
 
       group('when the row is updated without narrowing columns, ', () {
+        late Hlc mayorFieldHlcBeforeUpdate;
+
         setUp(() async {
+          final mayorField = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(child.id) &
+                t.column.name.equals(Town.t.mayorId.columnName),
+            include: CrdtDataField.include(node: CrdtNode.include()),
+          );
+          mayorFieldHlcBeforeUpdate = mayorField!.hlc;
+
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
             child = await Town.db.updateRow(
               session,
@@ -805,12 +904,19 @@ void main() {
         });
 
         test(
-          'then the non-foreign-key update does not promote the materialized repair to an attempted value.',
+          'then the foreign key write equal to the projected value is a repair passthrough, not an authored update.',
           () async {
             final visibleChild = await Town.db.findById(session, child.id!);
             final projection = await _findForeignKeyProjection(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
+            );
+            final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
             );
 
             expect(visibleChild, isNotNull);
@@ -820,9 +926,123 @@ void main() {
             expect(projection!.attemptedValue, attemptedParent.id);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
+            expect(mayorFieldAfterUpdate, isNotNull);
+            expect(mayorFieldAfterUpdate!.hlc, mayorFieldHlcBeforeUpdate);
           },
         );
       });
+
+      group(
+        'when the row is updated without narrowing columns and a changed foreign key, ',
+        () {
+          late Hlc mayorFieldHlcBeforeUpdate;
+
+          setUp(() async {
+            final mayorField = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+            mayorFieldHlcBeforeUpdate = mayorField!.hlc;
+
+            await session.db.transactionForUser(testCrdtUserId, (tx) async {
+              child = await Town.db.updateRow(
+                session,
+                projectedChild.copyWith(
+                  name: 'renamed with new mayor',
+                  mayorId: newParent.id,
+                ),
+                transaction: tx,
+              );
+            });
+          });
+
+          test(
+            'then the new foreign key value is authored as a user change.',
+            () async {
+              final visibleChild = await Town.db.findById(session, child.id!);
+              final projection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Town.t.mayorId.columnName,
+              );
+              final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+                session,
+                where: (t) =>
+                    t.row.uuidRowId.equals(child.id) &
+                    t.column.name.equals(Town.t.mayorId.columnName),
+                include: CrdtDataField.include(node: CrdtNode.include()),
+              );
+
+              expect(visibleChild, isNotNull);
+              expect(visibleChild!.mayorId, newParent.id);
+              expect(projection, isNotNull);
+              expect(projection!.attemptedValue, newParent.id);
+              expect(projection.visibleValue, isNull);
+              expect(projection.hasOverride, isFalse);
+              expect(mayorFieldAfterUpdate, isNotNull);
+              expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
+            },
+          );
+        },
+      );
+
+      group(
+        'when the foreign key is explicitly updated to the projected value with narrowed columns, ',
+        () {
+          late Hlc mayorFieldHlcBeforeUpdate;
+
+          setUp(() async {
+            final mayorField = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+            mayorFieldHlcBeforeUpdate = mayorField!.hlc;
+
+            await session.db.transactionForUser(testCrdtUserId, (tx) async {
+              child = await Town.db.updateRow(
+                session,
+                projectedChild.copyWith(mayorId: null),
+                columns: (t) => [t.mayorId],
+                transaction: tx,
+              );
+            });
+          });
+
+          test(
+            'then writing the projected value with narrowed columns is an authored update, not a passthrough.',
+            () async {
+              final visibleChild = await Town.db.findById(session, child.id!);
+              final projection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Town.t.mayorId.columnName,
+              );
+              final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+                session,
+                where: (t) =>
+                    t.row.uuidRowId.equals(child.id) &
+                    t.column.name.equals(Town.t.mayorId.columnName),
+                include: CrdtDataField.include(node: CrdtNode.include()),
+              );
+
+              expect(visibleChild, isNotNull);
+              expect(visibleChild!.mayorId, isNull);
+              expect(projection, isNotNull);
+              expect(projection!.attemptedValue, isNull);
+              expect(projection.hasOverride, isFalse);
+              expect(mayorFieldAfterUpdate, isNotNull);
+              expect(
+                mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
+                isTrue,
+              );
+            },
+          );
+        },
+      );
     },
   );
 
@@ -1186,6 +1406,143 @@ void main() {
           },
         );
       });
+
+      group(
+        'when the attempted parent delete is merged and the row is updated without narrowing columns, ',
+        () {
+          late Hlc townIdFieldHlcBeforeUpdate;
+          late Company projectedChild;
+
+          setUp(() async {
+            await session.db.mergeChanges(
+              [remoteAttemptedTownDelete],
+              userId: testCrdtUserId,
+            );
+
+            projectedChild = (await Company.db.findById(session, child.id!))!;
+            expect(projectedChild.townId, defaultTown.id);
+
+            final townIdField = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Company.t.townId.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+            townIdFieldHlcBeforeUpdate = townIdField!.hlc;
+
+            await session.db.transactionForUser(testCrdtUserId, (tx) async {
+              child = await Company.db.updateRow(
+                session,
+                projectedChild.copyWith(name: 'renamed projected company'),
+                transaction: tx,
+              );
+            });
+          });
+
+          test(
+            'then the set-default foreign key write equal to the projected value is a repair passthrough, not an authored update.',
+            () async {
+              final visibleChild = await Company.db.findById(session, child.id!);
+              final projection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Company.t.townId.columnName,
+              );
+              final townIdFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+                session,
+                where: (t) =>
+                    t.row.uuidRowId.equals(child.id) &
+                    t.column.name.equals(Company.t.townId.columnName),
+                include: CrdtDataField.include(node: CrdtNode.include()),
+              );
+
+              expect(visibleChild, isNotNull);
+              expect(visibleChild!.name, 'renamed projected company');
+              expect(visibleChild.townId, defaultTown.id);
+              expect(projection, isNotNull);
+              expect(projection!.attemptedValue, attemptedTown.id);
+              expect(projection.visibleValue, defaultTown.id);
+              expect(projection.hasOverride, isTrue);
+              expect(townIdFieldAfterUpdate, isNotNull);
+              expect(townIdFieldAfterUpdate!.hlc, townIdFieldHlcBeforeUpdate);
+            },
+          );
+        },
+      );
+
+      group(
+        'when the attempted parent delete is merged and the row is updated without narrowing columns with a changed foreign key, ',
+        () {
+          late Town otherTown;
+          late Hlc townIdFieldHlcBeforeUpdate;
+          late Company projectedChild;
+
+          setUp(() async {
+            await session.db.mergeChanges(
+              [remoteAttemptedTownDelete],
+              userId: testCrdtUserId,
+            );
+
+            projectedChild = (await Company.db.findById(session, child.id!))!;
+            expect(projectedChild.townId, defaultTown.id);
+
+            otherTown = await session.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => Town.db.insertRow(
+                session,
+                Town(id: const Uuid().v7obj(), name: 'other visible town'),
+                transaction: tx,
+              ),
+            );
+
+            final townIdField = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Company.t.townId.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+            townIdFieldHlcBeforeUpdate = townIdField!.hlc;
+
+            await session.db.transactionForUser(testCrdtUserId, (tx) async {
+              child = await Company.db.updateRow(
+                session,
+                projectedChild.copyWith(townId: otherTown.id),
+                transaction: tx,
+              );
+            });
+          });
+
+          test(
+            'then the new foreign key value is authored as a user change.',
+            () async {
+              final visibleChild = await Company.db.findById(session, child.id!);
+              final projection = await _findForeignKeyProjection(
+                rowId: child.id!,
+                columnName: Company.t.townId.columnName,
+              );
+              final townIdFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+                session,
+                where: (t) =>
+                    t.row.uuidRowId.equals(child.id) &
+                    t.column.name.equals(Company.t.townId.columnName),
+                include: CrdtDataField.include(node: CrdtNode.include()),
+              );
+
+              expect(visibleChild, isNotNull);
+              expect(visibleChild!.townId, otherTown.id);
+              expect(projection, isNotNull);
+              expect(projection!.attemptedValue, otherTown.id);
+              expect(projection.hasOverride, isFalse);
+              expect(townIdFieldAfterUpdate, isNotNull);
+              expect(
+                townIdFieldAfterUpdate!.hlc > townIdFieldHlcBeforeUpdate,
+                isTrue,
+              );
+            },
+          );
+        },
+      );
     },
   );
 
