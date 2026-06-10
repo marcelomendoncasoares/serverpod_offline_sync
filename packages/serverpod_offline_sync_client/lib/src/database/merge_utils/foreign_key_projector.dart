@@ -1,93 +1,37 @@
 part of '../recorder.dart';
 
-typedef _ForeignKeyProjectionWrite = ({
-  int fieldId,
-  UuidValue? attemptedValue,
-  UuidValue? visibleValue,
-  CrdtForeignKeyOverrideReason? overrideReason,
+typedef _ProjectedForeignKeyRow = ({
+  _MergeRowKey key,
+  CrdtDataRow crdtRow,
+  Map<String, Object?> values,
 });
 
-class _ProjectedForeignKeyRow {
-  _ProjectedForeignKeyRow({
-    required this.key,
-    required this.crdtRow,
-    required this.crdtRowId,
-    required this.isHidden,
-    required this.visibility,
-    required this.userHidden,
-    required this.userDeletedReason,
-    required this.values,
-  });
+typedef _ForeignKeyAttempt = ({
+  UuidValue? value,
+  CrdtForeignKeyOverrideReason? reason,
+});
 
-  final _MergeRowKey key;
-  final CrdtDataRow crdtRow;
-  final int crdtRowId;
-  final bool isHidden;
-  final CrdtDataRowVisibility visibility;
-  final bool userHidden;
-  final CrdtDataDeletedReason? userDeletedReason;
-  final Map<String, Object?> values;
-}
+typedef _ForeignKeyAttemptsByField = Map<_MergeFieldKey, _ForeignKeyAttempt>;
 
-class _ForeignKeyProjectionRow {
-  _ForeignKeyProjectionRow({
-    required this.id,
-    required this.fieldId,
-    required this.attemptedValue,
-    required this.visibleValue,
-    required this.overrideReason,
-  });
+typedef _ForeignKeyProjectionState = ({
+  Map<_MergeRowKey, _ProjectedForeignKeyRow> rows,
+  Map<String, List<_ProjectedForeignKeyRow>> rowsByTable,
+  Map<_MergeFieldKey, int> fieldIds,
+  Map<_MergeFieldKey, CrdtDataForeignKey> projections,
+  Map<_ForeignKeyValueKey, _ProjectedForeignKeyRow> parentRowsByReference,
+  Map<_ForeignKeyValueKey, List<_ProjectedForeignKeyRow>> childRowsByAttempt,
+});
 
-  final int? id;
-  final int fieldId;
-  final UuidValue? attemptedValue;
-  final UuidValue? visibleValue;
-  final CrdtForeignKeyOverrideReason? overrideReason;
+typedef _SafeIncomingForeignKeyData = ({
+  Map<String, Object?> data,
+  _ForeignKeyAttemptsByField attempts,
+});
 
-  /// Whether an active projection override exists for this FK field.
-  ///
-  /// Derived from [overrideReason]: an override is active if and only if
-  /// [overrideReason] is non-null.
-  bool get hasOverride => overrideReason != null;
-}
+typedef _ForeignKeyDefaultProjection = ({bool valid, UuidValue? value});
 
-class _ForeignKeyProjectionState {
-  _ForeignKeyProjectionState({
-    required this.rows,
-    required this.rowsByTable,
-    required this.fieldIds,
-    required this.projections,
-    required this.parentRowsByReference,
-    required this.childRowsByAttempt,
-  });
-
-  final Map<_MergeRowKey, _ProjectedForeignKeyRow> rows;
-  final Map<String, List<_ProjectedForeignKeyRow>> rowsByTable;
-  final Map<_MergeFieldKey, int> fieldIds;
-  final Map<_MergeFieldKey, _ForeignKeyProjectionRow> projections;
-  final Map<_ForeignKeyValueKey, _ProjectedForeignKeyRow> parentRowsByReference;
-  final Map<_ForeignKeyValueKey, List<_ProjectedForeignKeyRow>> childRowsByAttempt;
-}
+typedef _DomainRowUpdatesByKey = Map<_MergeRowKey, Map<String, Object?>>;
 
 extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
-  bool _tableColumnsMayAffectForeignKeys(
-    String tableName,
-    Set<String>? columnNames,
-  ) {
-    final childEdges =
-        _foreignKeyEdgesByChildTable[tableName] ?? const <_ForeignKeyEdge>[];
-    final parentEdges =
-        _foreignKeyEdgesByParentTable[tableName] ?? const <_ForeignKeyEdge>[];
-    if (childEdges.isEmpty && parentEdges.isEmpty) return false;
-    if (columnNames == null) return true;
-
-    return childEdges.any((edge) => columnNames.contains(edge.childColumn)) ||
-        parentEdges.any(
-          (edge) =>
-              edge.parentColumn != 'id' && columnNames.contains(edge.parentColumn),
-        );
-  }
-
   bool _mergeOperationsMayAffectForeignKeys(
     List<CrdtMergeChange> operations,
   ) {
@@ -118,11 +62,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     Set<String>? columnNames,
     Transaction transaction, {
     Set<_MergeFieldKey> skippedFields = const {},
-    Map<
-          _MergeFieldKey,
-          ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})
-        >
-        attemptedValues = const {},
+    _ForeignKeyAttemptsByField attemptedValues = const {},
   }) async {
     if (rowIds.isEmpty) return;
 
@@ -147,7 +87,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       transaction: transaction,
     );
 
-    final projectionWrites = <_ForeignKeyProjectionWrite>[];
+    final projectionWrites = <CrdtDataForeignKey>[];
     for (final rowId in rowIds) {
       final values = valuesByRowId[rowId];
       if (values == null) continue;
@@ -175,12 +115,14 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
           }
         }
 
-        projectionWrites.add((
-          fieldId: fieldId,
-          attemptedValue: attemptedValue,
-          visibleValue: overrideActive ? visibleValue : null,
-          overrideReason: overrideReason,
-        ));
+        projectionWrites.add(
+          CrdtDataForeignKey(
+            fieldId: fieldId,
+            attemptedValue: attemptedValue,
+            visibleValue: overrideActive ? visibleValue : null,
+            overrideReason: overrideReason,
+          ),
+        );
       }
     }
 
@@ -191,10 +133,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     String tableName,
     Set<UuidValue> rowIds,
     Transaction transaction,
-    Map<
-      _MergeFieldKey,
-      ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})
-    > attemptedValues,
+    _ForeignKeyAttemptsByField attemptedValues,
   ) async {
     if (rowIds.isEmpty) return;
 
@@ -287,24 +226,14 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     );
   }
 
-  Future<
-    ({
-      Map<String, Object?> data,
-      Map<
-        _MergeFieldKey,
-        ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})
-      > attempts,
-    })
-  >
-  _safeIncomingForeignKeyData(
+  Future<_SafeIncomingForeignKeyData> _safeIncomingForeignKeyData(
     String tableName,
     UuidValue rowId,
     Map<String, Object?> data,
     Transaction transaction,
   ) async {
     final safeData = {...data};
-    final attempts =
-        <_MergeFieldKey, ({UuidValue? value, CrdtForeignKeyOverrideReason? reason})>{};
+    final attempts = <_MergeFieldKey, _ForeignKeyAttempt>{};
 
     for (final edge
         in _foreignKeyEdgesByChildTable[tableName] ?? const <_ForeignKeyEdge>[]) {
@@ -382,7 +311,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       fieldIds.values.toSet(),
       transaction,
     );
-    final activeOverrideFields = <_MergeFieldKey, _ForeignKeyProjectionRow>{};
+    final activeOverrideFields = <_MergeFieldKey, CrdtDataForeignKey>{};
     for (final MapEntry(key: fieldKey, value: fieldId) in fieldIds.entries) {
       final projection = projections[fieldId];
       if (projection == null || !projection.hasOverride) continue;
@@ -421,11 +350,11 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
 
     final currentHidden = {
       for (final row in state.rows.values)
-        if (row.isHidden) row.key,
+        if (row.crdtRow.isHidden) row.key,
     };
     final userHidden = {
       for (final row in state.rows.values)
-        if (row.userHidden) row.key,
+        if (row.crdtRow.deleted?.isDeleted ?? false) row.key,
     };
     final finalHidden = _computeForeignKeyHiddenRows(state, userHidden);
 
@@ -442,12 +371,30 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     );
   }
 
+  bool _tableColumnsMayAffectForeignKeys(
+    String tableName,
+    Set<String>? columnNames,
+  ) {
+    final childEdges =
+        _foreignKeyEdgesByChildTable[tableName] ?? const <_ForeignKeyEdge>[];
+    final parentEdges =
+        _foreignKeyEdgesByParentTable[tableName] ?? const <_ForeignKeyEdge>[];
+    if (childEdges.isEmpty && parentEdges.isEmpty) return false;
+    if (columnNames == null) return true;
+
+    return childEdges.any((edge) => columnNames.contains(edge.childColumn)) ||
+        parentEdges.any(
+          (edge) =>
+              edge.parentColumn != 'id' && columnNames.contains(edge.parentColumn),
+        );
+  }
+
   Future<_ForeignKeyProjectionState> _loadForeignKeyProjectionState(
     Transaction transaction,
   ) async {
     final rows = <_MergeRowKey, _ProjectedForeignKeyRow>{};
     final fieldIds = <_MergeFieldKey, int>{};
-    final projections = <_MergeFieldKey, _ForeignKeyProjectionRow>{};
+    final projections = <_MergeFieldKey, CrdtDataForeignKey>{};
     final fkColumnsByTable = <String, Set<String>>{};
 
     for (final edge in _foreignKeyEdges) {
@@ -489,14 +436,9 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       for (final row in crdtRows) {
         final rowId = row.uuidRowId;
         final key = (tableName, rowId);
-        rows[key] = _ProjectedForeignKeyRow(
+        rows[key] = (
           key: key,
           crdtRow: row,
-          crdtRowId: row.id!,
-          isHidden: row.isHidden,
-          visibility: row.visibility,
-          userHidden: row.deleted?.isDeleted ?? false,
-          userDeletedReason: row.deleted?.reason,
           values: valuesByRowId[rowId] ?? const {},
         );
       }
@@ -563,7 +505,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       }
     }
 
-    return _ForeignKeyProjectionState(
+    return (
       rows: rows,
       rowsByTable: rowsByTable,
       fieldIds: fieldIds,
@@ -607,7 +549,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     };
   }
 
-  Future<Map<int, _ForeignKeyProjectionRow>> _loadForeignKeyProjections(
+  Future<Map<int, CrdtDataForeignKey>> _loadForeignKeyProjections(
     Set<int> fieldIds,
     Transaction transaction,
   ) async {
@@ -619,16 +561,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       transaction: transaction,
     );
 
-    return {
-      for (final projection in projections)
-        projection.fieldId: _ForeignKeyProjectionRow(
-          id: projection.id,
-          fieldId: projection.fieldId,
-          attemptedValue: projection.attemptedValue,
-          visibleValue: projection.visibleValue,
-          overrideReason: projection.overrideReason,
-        ),
-    };
+    return {for (final projection in projections) projection.fieldId: projection};
   }
 
   Set<_MergeRowKey> _computeForeignKeyHiddenRows(
@@ -838,8 +771,8 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     await _setProjectedRowVisibility(
       rowsToHide,
       state: state,
-      visibilityFor: (row) => row.userHidden
-          ? (row.userDeletedReason == CrdtDataDeletedReason.userCascadeDelete)
+      visibilityFor: (row) => (row.crdtRow.deleted?.isDeleted ?? false)
+          ? (row.crdtRow.deleted?.reason == CrdtDataDeletedReason.userCascadeDelete)
                 ? CrdtDataRowVisibility.userCascadeDelete
                 : CrdtDataRowVisibility.userDelete
           : CrdtDataRowVisibility.foreignKeyCascade,
@@ -848,7 +781,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     await _setProjectedRowVisibility(
       rowsToShow,
       state: state,
-      visibilityFor: (row) => row.userHidden
+      visibilityFor: (row) => (row.crdtRow.deleted?.isDeleted ?? false)
           ? CrdtDataRowVisibility.foreignKeyRestrictRestore
           : CrdtDataRowVisibility.userInsert,
       transaction: transaction,
@@ -869,7 +802,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       if (projectedRow == null) continue;
 
       final visibility = visibilityFor(projectedRow);
-      if (projectedRow.visibility == visibility) continue;
+      if (projectedRow.crdtRow.visibility == visibility) continue;
 
       toUpdate.add(projectedRow.crdtRow.copyWith(visibility: visibility));
     }
@@ -890,7 +823,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     required Transaction transaction,
   }) async {
     final changedUpdatesByRow = <_MergeRowKey, Map<String, Object?>>{};
-    final projectionWrites = <_ForeignKeyProjectionWrite>[];
+    final projectionWrites = <CrdtDataForeignKey>[];
 
     for (final edge in _foreignKeyEdges) {
       for (final child
@@ -953,12 +886,14 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
           continue;
         }
 
-        projectionWrites.add((
-          fieldId: fieldId,
-          attemptedValue: attemptedValue,
-          visibleValue: overrideReason != null ? desiredVisibleValue : null,
-          overrideReason: overrideReason,
-        ));
+        projectionWrites.add(
+          CrdtDataForeignKey(
+            fieldId: fieldId,
+            attemptedValue: attemptedValue,
+            visibleValue: overrideReason != null ? desiredVisibleValue : null,
+            overrideReason: overrideReason,
+          ),
+        );
       }
     }
 
@@ -978,7 +913,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   }
 
   Future<void> _applyBatchedDomainRowUpdates(
-    Map<_MergeRowKey, Map<String, Object?>> updatesByRow,
+    _DomainRowUpdatesByKey updatesByRow,
     Transaction transaction,
   ) async {
     final grouped =
@@ -1017,7 +952,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   }
 
   Future<void> _resolveUniqueConflictsAfterForeignKeyProjection(
-    Map<_MergeRowKey, Map<String, Object?>> changedUpdatesByRow,
+    _DomainRowUpdatesByKey changedUpdatesByRow,
     Transaction transaction,
   ) async {
     if (changedUpdatesByRow.isEmpty) return;
@@ -1079,7 +1014,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   UuidValue? _attemptedForeignKeyValueFromProjections(
     _ProjectedForeignKeyRow child,
     _ForeignKeyEdge edge,
-    Map<_MergeFieldKey, _ForeignKeyProjectionRow> projections,
+    Map<_MergeFieldKey, CrdtDataForeignKey> projections,
   ) {
     final projection =
         projections[(
@@ -1104,7 +1039,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     return target == null || hidden.contains(target.key);
   }
 
-  ({bool valid, UuidValue? value}) _defaultProjectionValue(
+  _ForeignKeyDefaultProjection _defaultProjectionValue(
     _ForeignKeyEdge edge,
     _ForeignKeyProjectionState state,
     Set<_MergeRowKey> hidden,
@@ -1138,7 +1073,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     return rowIds.isNotEmpty;
   }
 
-  Future<({bool valid, UuidValue? value})> _defaultProjectionValueFromDatabase(
+  Future<_ForeignKeyDefaultProjection> _defaultProjectionValueFromDatabase(
     _ForeignKeyEdge edge,
     Transaction transaction,
   ) async {
@@ -1191,9 +1126,9 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   }
 
   Future<void> _upsertForeignKeyProjections(
-    List<_ForeignKeyProjectionWrite> writes,
+    List<CrdtDataForeignKey> writes,
     Transaction transaction, {
-    Map<int, _ForeignKeyProjectionRow> existingProjections = const {},
+    Map<int, CrdtDataForeignKey> existingProjections = const {},
   }) async {
     if (writes.isEmpty) return;
 
@@ -1252,8 +1187,8 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   }
 
   bool _foreignKeyProjectionMatches(
-    _ForeignKeyProjectionRow existing,
-    _ForeignKeyProjectionWrite write,
+    CrdtDataForeignKey existing,
+    CrdtDataForeignKey write,
   ) {
     return _sameUuidValue(existing.attemptedValue, write.attemptedValue) &&
         _sameUuidValue(existing.visibleValue, write.visibleValue) &&
