@@ -105,6 +105,32 @@ void printStorageImpact(
   if (runningInCI) print('```');
 }
 
+void printMergeImpact(
+  MergeBenchmarkResults results, {
+  bool runningInCI = false,
+}) {
+  final timePerChangeUs = results.average / results.changeCount;
+  final changesPerSecond = Duration.microsecondsPerSecond / timePerChangeUs;
+  final queriesPerChange = results.averageQueries / results.changeCount;
+
+  print(
+    '${runningInCI ? '```' : ''}'
+    '\n🔀 MERGE ${results.title} performance:',
+  );
+  final batchDescription = results.batchDescription;
+  if (batchDescription != null) {
+    print('  Batch: $batchDescription');
+  }
+  print('  Merge time: ${results.average.toFormattedDuration()}');
+  print('  Time per change: ${timePerChangeUs.toFormattedDuration()}');
+  print('  Throughput: ${formatter0.format(changesPerSecond)} changes/s');
+  print(
+    '  Queries: ${formatter0.format(results.averageQueries)} per batch '
+    '(${formatter2.format(queriesPerChange)} per change)',
+  );
+  if (runningInCI) print('```');
+}
+
 class BenchmarkResults {
   const BenchmarkResults({
     required this.operation,
@@ -115,6 +141,26 @@ class BenchmarkResults {
   final Operation operation;
   final double baseline;
   final double crdt;
+}
+
+class MergeBenchmarkResults {
+  const MergeBenchmarkResults({
+    required this.title,
+    required this.batchDescription,
+    required this.average,
+    required this.averageQueries,
+    required this.changeCount,
+  });
+
+  final String title;
+  final String? batchDescription;
+
+  /// Average microseconds to merge one batch of [changeCount] changes.
+  final double average;
+
+  /// Average number of queries issued while merging one batch.
+  final double averageQueries;
+  final int changeCount;
 }
 
 class StorageBenchmarkResults {

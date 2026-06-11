@@ -1,5 +1,6 @@
 import 'utils/benchmark.dart';
 import 'utils/conversion.dart';
+import 'utils/merge.dart';
 import 'utils/results.dart';
 import 'utils/runner.dart';
 
@@ -115,6 +116,51 @@ Future<void> main(List<String> args) async {
     rowCount: rowCount,
     runningInCI: runningInCI,
   );
+
+  if (!runningInCI) print('\n${'=' * 60}');
+  print('\n## Merge Benchmark ($rowsString changes)\n');
+  print(
+    [
+      'This benchmark measures the time to apply remote CRDT changes to ',
+      'the local database through the sync merge path.',
+    ].join(runningInCI ? '' : '\n'),
+  );
+  if (!runningInCI) print('-' * 60);
+
+  final mergeBenchmarks = <MergeScenarioBenchmark>[
+    for (final operation in MergeOperation.values)
+      TypesMergeBenchmark(
+        'merge (${operation.name})',
+        operation: operation,
+        changeCount: rowCount,
+      ),
+    UniqueMergeBenchmark('merge (unique conflict)', changeCount: rowCount),
+    for (final operation in FkChainOperation.values)
+      FkChainMergeBenchmark(
+        'merge (fk chain ${operation.name})',
+        operation: operation,
+        changeCount: rowCount,
+      ),
+  ];
+
+  for (final benchmark in mergeBenchmarks) {
+    final mergeResult = await runWithProgress(
+      'Running ${benchmark.name} benchmark',
+      benchmark.measureMerge,
+      skipProgress: runningInCI,
+    );
+
+    printMergeImpact(
+      MergeBenchmarkResults(
+        title: benchmark.resultTitle,
+        batchDescription: benchmark.batchDescription,
+        average: mergeResult.averageMicroseconds,
+        averageQueries: mergeResult.averageQueries,
+        changeCount: benchmark.changesPerBatch,
+      ),
+      runningInCI: runningInCI,
+    );
+  }
 
   print('\n${'-' * 60}');
   print('✅ Benchmark complete!\n');

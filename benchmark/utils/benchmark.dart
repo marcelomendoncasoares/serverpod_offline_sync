@@ -203,7 +203,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       'offline_sync_benchmark_$name.db',
     );
     _dbFile = File(dbPath);
-    _deleteDatabaseFiles(_dbFile);
+    deleteDatabaseFiles(_dbFile);
 
     _plainSession = await Client(_clientUrl).createSession(
       _dbFile.path,
@@ -234,22 +234,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     }
   }
 
-  Future<double> _measurePreparedCycles(int minimumMillis) async {
-    final minimumMicros = minimumMillis * 1000;
-    final watch = Stopwatch()..start();
-    var totalTimedMicros = 0.0;
-    var timedIterations = 0;
-
-    while (watch.elapsedMicroseconds < minimumMicros) {
-      await _prepareCycle();
-      final sw = Stopwatch()..start();
-      await run();
-      totalTimedMicros += sw.elapsedMicroseconds;
-      timedIterations++;
-    }
-
-    return totalTimedMicros / timedIterations;
-  }
+  Future<double> _measurePreparedCycles(int minimumMillis) =>
+      measurePreparedCycles(minimumMillis, prepare: _prepareCycle, run: run);
 
   Future<void> _captureDatabaseSize() async {
     try {
@@ -335,7 +321,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     await _captureDatabaseSize();
     await _plainSession.close();
     _hasOpenSession = false;
-    _deleteDatabaseFiles(_dbFile);
+    deleteDatabaseFiles(_dbFile);
   }
 
   int measureStorage() {
@@ -406,6 +392,30 @@ class TypesTableStorageBenchmark extends TypesTableBenchmark {
   }
 }
 
+/// Repeats untimed [prepare] plus timed [run] cycles until at least
+/// [minimumMillis] of wall time has elapsed, returning the average timed
+/// microseconds per cycle.
+Future<double> measurePreparedCycles(
+  int minimumMillis, {
+  required Future<void> Function() prepare,
+  required Future<void> Function() run,
+}) async {
+  final minimumMicros = minimumMillis * 1000;
+  final watch = Stopwatch()..start();
+  var totalTimedMicros = 0.0;
+  var timedIterations = 0;
+
+  while (watch.elapsedMicroseconds < minimumMicros) {
+    await prepare();
+    final sw = Stopwatch()..start();
+    await run();
+    totalTimedMicros += sw.elapsedMicroseconds;
+    timedIterations++;
+  }
+
+  return totalTimedMicros / timedIterations;
+}
+
 /// Bytes used by SQLite for [mainDb], including WAL sidecars (often omitted by
 /// `mainDb.lengthSync()` alone).
 int _sqliteDbFootprintBytes(File mainDb) {
@@ -421,7 +431,8 @@ int _sqliteDbFootprintBytes(File mainDb) {
   return total;
 }
 
-void _deleteDatabaseFiles(File mainDb) {
+/// Deletes the SQLite database [mainDb] and its WAL sidecar files.
+void deleteDatabaseFiles(File mainDb) {
   if (mainDb.existsSync()) {
     mainDb.deleteSync();
   }
