@@ -1,3 +1,4 @@
+import 'utils/baseline.dart';
 import 'utils/benchmark.dart';
 import 'utils/conversion.dart';
 import 'utils/merge.dart';
@@ -15,15 +16,25 @@ Future<void> main(List<String> args) async {
   final rowCount = rowCountArg == null ? 1000 : int.parse(rowCountArg);
   final rowsString = formatter0.format(rowCount);
 
-  if (!runningInCI) print('\n${'=' * 60}');
-  print('## Performance Benchmark ($rowsString rows)\n');
-  print(
-    [
-      'This benchmark measures the performance impact of using CRDT ',
-      'metadata synchronization on database operations.',
-    ].join(runningInCI ? '' : '\n'),
-  );
-  if (!runningInCI) print('-' * 60);
+  final baseline = await BaselineNote.load();
+  final report = BenchmarkReport(baseline);
+
+  if (!runningInCI) report.print('\n${'=' * 60}');
+  report
+    ..print('## Performance Benchmark ($rowsString rows)\n')
+    ..print(
+      [
+        'This benchmark measures the performance impact of using CRDT ',
+        'metadata synchronization on database operations.',
+      ].join(runningInCI ? '' : '\n'),
+    );
+  if (report.hasBaseline) {
+    report.print(
+      '\nΔ values compare to the last benchmark on main '
+      '(commit ${baseline!.shortCommit}).',
+    );
+  }
+  if (!runningInCI) report.print('-' * 60);
 
   final benchmarkResults = <BenchmarkResults>[];
 
@@ -66,7 +77,7 @@ Future<void> main(List<String> args) async {
 
   if (spuriousBenchmarks.isNotEmpty) {
     final leadingText = runningInCI ? '\n> ' : '\n';
-    print(
+    report.print(
       [
         '$leadingText❌ Baseline time is greater than CRDT time. This is likely due ',
         'to running with a very low number of rows ($rowsString). This is not ',
@@ -77,7 +88,7 @@ Future<void> main(List<String> args) async {
     for (final result in spuriousBenchmarks) {
       final baselineDelay = result.baseline.toFormattedDuration();
       final crdtDelay = result.crdt.toFormattedDuration();
-      print(
+      report.print(
         '  - ${result.operation.name.toUpperCase()}: $baselineDelay > $crdtDelay',
       );
     }
@@ -87,6 +98,7 @@ Future<void> main(List<String> args) async {
     printPerformanceImpact(
       result,
       rowCount: rowCount,
+      report: report,
       runningInCI: runningInCI,
     );
   }
@@ -114,18 +126,20 @@ Future<void> main(List<String> args) async {
       crdt: crdtStorageResult,
     ),
     rowCount: rowCount,
+    report: report,
     runningInCI: runningInCI,
   );
 
-  if (!runningInCI) print('\n${'=' * 60}');
-  print('\n## Merge Benchmark ($rowsString changes)\n');
-  print(
-    [
-      'This benchmark measures the time to apply remote CRDT changes to ',
-      'the local database through the sync merge path.',
-    ].join(runningInCI ? '' : '\n'),
-  );
-  if (!runningInCI) print('-' * 60);
+  if (!runningInCI) report.print('\n${'=' * 60}');
+  report
+    ..print('\n## Merge Benchmark ($rowsString changes)\n')
+    ..print(
+      [
+        'This benchmark measures the time to apply remote CRDT changes to ',
+        'the local database through the sync merge path.',
+      ].join(runningInCI ? '' : '\n'),
+    );
+  if (!runningInCI) report.print('-' * 60);
 
   final mergeBenchmarks = <MergeScenarioBenchmark>[
     for (final operation in MergeOperation.values)
@@ -158,10 +172,12 @@ Future<void> main(List<String> args) async {
         averageQueries: mergeResult.averageQueries,
         changeCount: benchmark.changesPerBatch,
       ),
+      report: report,
       runningInCI: runningInCI,
     );
   }
 
-  print('\n${'-' * 60}');
-  print('✅ Benchmark complete!\n');
+  report
+    ..print('\n${'-' * 60}')
+    ..print('✅ Benchmark complete!\n');
 }

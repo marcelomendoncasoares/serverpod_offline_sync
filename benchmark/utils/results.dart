@@ -1,14 +1,16 @@
 // Pretty-printing benchmark comparison output.
 
+import 'baseline.dart';
 import 'benchmark.dart';
 import 'conversion.dart';
 
 void printPerformanceImpact(
   BenchmarkResults results, {
   required int rowCount,
+  required BenchmarkReport report,
   bool runningInCI = false,
 }) {
-  print(
+  report.print(
     '${runningInCI ? '```' : ''}'
     '\n📊 ${results.operation.name.toUpperCase()} performance impact:',
   );
@@ -23,17 +25,21 @@ void printPerformanceImpact(
   final runDelay = runDelayUs.toFormattedDuration();
   final runDelayPerOperation = (runDelayUs / rowCount).toFormattedDuration();
 
-  print('  Time: $baselineDelay --> $crdtDelay ($runDelay)');
-  print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
+  report
+    ..print('  Time: $baselineDelay --> $crdtDelay ($runDelay)')
+    ..print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
   if (results.operation != Operation.select) {
-    print('  Delay per ${results.operation.name}: $runDelayPerOperation');
+    report.print(
+      '  Delay per ${results.operation.name}: $runDelayPerOperation',
+    );
   }
-  if (runningInCI) print('```');
+  if (runningInCI) report.print('```');
 }
 
 void printStorageImpact(
   StorageBenchmarkResults benchmarkResults, {
   required int rowCount,
+  required BenchmarkReport report,
   bool runningInCI = false,
 }) {
   final stages = [
@@ -74,61 +80,69 @@ void printStorageImpact(
     ),
   ];
 
-  print('${runningInCI ? '```' : ''}\n💽 Storage impact (base footprint removed):');
-  print(
-    '  Base database size: '
-    '${benchmarkResults.baseline.baseDatabaseSize.toFormattedStorageSize()} '
-    '--> ${benchmarkResults.crdt.baseDatabaseSize.toFormattedStorageSize()}',
-  );
+  report
+    ..print(
+      '${runningInCI ? '```' : ''}'
+      '\n💽 Storage impact (base footprint removed):',
+    )
+    ..print(
+      '  Base database size: '
+      '${benchmarkResults.baseline.baseDatabaseSize.toFormattedStorageSize()} '
+      '--> ${benchmarkResults.crdt.baseDatabaseSize.toFormattedStorageSize()}',
+    );
 
   for (final stage in stages) {
-    print('  ${stage.title}:');
-    print(
-      '    Net storage: ${stage.baselineSize.toFormattedStorageSize()} '
-      '--> ${stage.crdtSize.toFormattedStorageSize()} '
-      '(${_formatSignedStorage(stage.extraBytes)})',
-    );
-    print(
-      '    CRDT overhead: ${_formatPercentageIncrease(stage.overheadPercent)}',
-    );
-    print(
-      '    Extra storage per ${stage.unitLabel}: '
-      '${_formatSignedStorage(stage.incrementalExtraBytesPerUnit)}',
-    );
+    report
+      ..print('  ${stage.title}:')
+      ..print(
+        '    Net storage: ${stage.baselineSize.toFormattedStorageSize()} '
+        '--> ${stage.crdtSize.toFormattedStorageSize()} '
+        '(${_formatSignedStorage(stage.extraBytes)})',
+      )
+      ..print(
+        '    CRDT overhead: '
+        '${_formatPercentageIncrease(stage.overheadPercent)}',
+      )
+      ..print(
+        '    Extra storage per ${stage.unitLabel}: '
+        '${_formatSignedStorage(stage.incrementalExtraBytesPerUnit)}',
+      );
   }
 
-  print(
+  report.print(
     '  Storage overhead range: '
     '${_formatPercentageValue(stages.first.overheadPercent)}% '
     '--> ${_formatPercentageValue(stages.last.overheadPercent)}%',
   );
-  if (runningInCI) print('```');
+  if (runningInCI) report.print('```');
 }
 
 void printMergeImpact(
   MergeBenchmarkResults results, {
+  required BenchmarkReport report,
   bool runningInCI = false,
 }) {
   final timePerChangeUs = results.average / results.changeCount;
   final changesPerSecond = Duration.microsecondsPerSecond / timePerChangeUs;
   final queriesPerChange = results.averageQueries / results.changeCount;
 
-  print(
+  report.print(
     '${runningInCI ? '```' : ''}'
     '\n🔀 MERGE ${results.title} performance:',
   );
   final batchDescription = results.batchDescription;
   if (batchDescription != null) {
-    print('  Batch: $batchDescription');
+    report.print('  Batch: $batchDescription');
   }
-  print('  Merge time: ${results.average.toFormattedDuration()}');
-  print('  Time per change: ${timePerChangeUs.toFormattedDuration()}');
-  print('  Throughput: ${formatter0.format(changesPerSecond)} changes/s');
-  print(
-    '  Queries: ${formatter0.format(results.averageQueries)} per batch '
-    '(${formatter2.format(queriesPerChange)} per change)',
-  );
-  if (runningInCI) print('```');
+  report
+    ..print('  Merge time: ${results.average.toFormattedDuration()}')
+    ..print('  Time per change: ${timePerChangeUs.toFormattedDuration()}')
+    ..print('  Throughput: ${formatter0.format(changesPerSecond)} changes/s')
+    ..print(
+      '  Queries: ${formatter0.format(results.averageQueries)} per batch '
+      '(${formatter2.format(queriesPerChange)} per change)',
+    );
+  if (runningInCI) report.print('```');
 }
 
 class BenchmarkResults {
