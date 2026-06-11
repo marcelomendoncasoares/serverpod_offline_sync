@@ -41,3 +41,7 @@ indexes:
   crdt_data_rows_user_tbl_row_idx:
     fields: userId, tblId, uuidRowId
     unique: true
+  ### Covers the user-agnostic tombstone visibility probes, which filter by
+  ### table and row id across all users (see whereVisibleOnCrdtRow).
+  crdt_data_rows_tbl_row_vis_idx:
+    fields: tblId, uuidRowId, visibility

@@ -3,6 +3,7 @@ import 'utils/conversion.dart';
 import 'utils/merge.dart';
 import 'utils/results.dart';
 import 'utils/runner.dart';
+import 'utils/scope.dart';
 
 Future<void> main(List<String> args) async {
   final runningInCI = args.contains('--ci');
@@ -90,6 +91,38 @@ Future<void> main(List<String> args) async {
       runningInCI: runningInCI,
     );
   }
+
+  // Production-shaped CRDT metadata: many users and a crdt_data_rows table
+  // much larger than the queried rows, exercising the scoped and unscoped
+  // tombstone predicates.
+  const scopeNoiseUsers = 100;
+  final scopeNoiseCrdtRows = rowCount * 100;
+  final scopeMeasurements = <ScopeMode, ScopeMeasurement>{};
+  for (final scopeMode in ScopeMode.values) {
+    scopeMeasurements[scopeMode] = await runWithProgress(
+      'Running select scope benchmark (${scopeMode.name})',
+      () => TombstoneScopeBenchmark(
+        'select scope (${scopeMode.name})',
+        mode: scopeMode,
+        rowCount: rowCount,
+        noiseUsers: scopeNoiseUsers,
+        noiseCrdtRows: scopeNoiseCrdtRows,
+      ).measure(),
+      skipProgress: runningInCI,
+    );
+  }
+  printScopeImpact(
+    ScopeBenchmarkResults(
+      baseline: scopeMeasurements[ScopeMode.baseline]!,
+      scoped: scopeMeasurements[ScopeMode.scoped]!,
+      unscoped: scopeMeasurements[ScopeMode.unscoped]!,
+      noiseUsers: scopeNoiseUsers,
+      noiseCrdtRows: scopeNoiseCrdtRows,
+    ),
+    rowCount: rowCount,
+    runningInCI: runningInCI,
+  );
+
   final baselineStorageResult = await runWithProgress(
     'Running storage benchmark (baseline)',
     () => TypesTableStorageBenchmark(

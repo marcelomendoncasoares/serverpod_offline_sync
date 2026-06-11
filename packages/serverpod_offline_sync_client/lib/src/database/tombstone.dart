@@ -136,8 +136,14 @@ extension on Table {
   /// (unmatched [IncludeObject] joins) or no hidden CRDT row matches.
   ///
   /// Without a user scope, a row is only hidden when every user tracking it
-  /// has it hidden (the minimum visibility across users is hidden), so admin
-  /// reads keep rows that are still visible to some user.
+  /// has it hidden (it has CRDT rows and none is visible), so admin reads
+  /// keep rows that are still visible to some user.
+  ///
+  /// Both forms are correlated `EXISTS` probes: the scoped probe is covered
+  /// by the (userId, tblId, uuidRowId) unique index and the unscoped probes
+  /// by the (tblId, uuidRowId, visibility) index, so point lookups stay
+  /// index-bound instead of scanning [CrdtDataRow] per query. Query planners
+  /// can also flatten them into anti-joins for large scans.
   Expression? whereVisibleOnCrdtRow(
     CrdtTableIdResolver tableIdForName,
     CrdtScopeUserIdResolver scopeUserId,
@@ -149,24 +155,28 @@ extension on Table {
     final crdtRow = CrdtDataRow.t;
     final userId = scopeUserId();
     if (userId != null) {
-      return id.equals(null) |
-          Expression(
-            '$id NOT IN '
-            '(SELECT ${crdtRow.uuidRowId} FROM "${crdtRow.tableName}" '
-            'WHERE ${crdtRow.tblId} = $tableId '
-            'AND ${crdtRow.userId} = $userId '
-            'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
-          );
+      return Expression(
+        'NOT EXISTS '
+        '(SELECT 1 FROM "${crdtRow.tableName}" '
+        'WHERE ${crdtRow.userId} = $userId '
+        'AND ${crdtRow.tblId} = $tableId '
+        'AND ${crdtRow.uuidRowId} = $id '
+        'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+      );
     }
 
-    return id.equals(null) |
-        Expression(
-          '$id NOT IN '
-          '(SELECT ${crdtRow.uuidRowId} FROM "${crdtRow.tableName}" '
+    return Expression(
+          'NOT EXISTS '
+          '(SELECT 1 FROM "${crdtRow.tableName}" '
           'WHERE ${crdtRow.tblId} = $tableId '
-          'GROUP BY ${crdtRow.uuidRowId} '
-          'HAVING MIN(${crdtRow.visibility}) > '
-          '$crdtRowLastVisibleVisibilityIndex)',
+          'AND ${crdtRow.uuidRowId} = $id)',
+        ) |
+        Expression(
+          'EXISTS '
+          '(SELECT 1 FROM "${crdtRow.tableName}" '
+          'WHERE ${crdtRow.tblId} = $tableId '
+          'AND ${crdtRow.uuidRowId} = $id '
+          'AND ${crdtRow.visibility} <= $crdtRowLastVisibleVisibilityIndex)',
         );
   }
 }
