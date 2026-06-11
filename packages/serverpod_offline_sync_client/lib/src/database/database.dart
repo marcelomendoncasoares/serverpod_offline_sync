@@ -138,6 +138,24 @@ class CrdtDatabase implements Database {
   DatabaseSerializationManager get serializationManager =>
       _delegate.serializationManager;
 
+  /// Merges [where] with the CRDT visibility predicates scoped to the queried
+  /// tables and the user associated with [transaction] (or the persistent
+  /// user). Without a user scope (e.g. server-side admin reads), a row is
+  /// only hidden when every user tracking it has it hidden.
+  Expression? _whereVisibleWithTombstone<T extends TableRow>(
+    Expression? where,
+    Include? include,
+    Transaction? transaction,
+  ) {
+    return mergeWhereWithTombstone<T>(
+      serializationManager,
+      where,
+      include,
+      tableIdForName: _recorder.tableIdForName,
+      scopeUserId: () => _recorder.userScopeForQueries(transaction)?.id,
+    );
+  }
+
   @override
   Future<List<T>> find<T extends TableRow>({
     Expression? where,
@@ -152,7 +170,7 @@ class CrdtDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     return _delegate.find<T>(
-      where: mergeWhereWithTombstone<T>(serializationManager, where, include),
+      where: _whereVisibleWithTombstone<T>(where, include, transaction),
       limit: limit,
       offset: offset,
       orderBy: orderBy,
@@ -178,7 +196,7 @@ class CrdtDatabase implements Database {
     final table = serializationManager.getTableForType(T);
     final where = table?.id.equals(id);
     return _delegate.findFirstRow<T>(
-      where: mergeWhereWithTombstone<T>(serializationManager, where, include),
+      where: _whereVisibleWithTombstone<T>(where, include, transaction),
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -199,7 +217,7 @@ class CrdtDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     return _delegate.findFirstRow<T>(
-      where: mergeWhereWithTombstone<T>(serializationManager, where, include),
+      where: _whereVisibleWithTombstone<T>(where, include, transaction),
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
@@ -343,7 +361,7 @@ class CrdtDatabase implements Database {
     final where = row.table.id.equals(row.id);
     final updatedRows = await _delegate.updateWhere<T>(
       columnValues: columnValues,
-      where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
+      where: _whereVisibleWithTombstone<T>(where, null, transaction)!,
       transaction: transaction,
     );
 
@@ -392,7 +410,7 @@ class CrdtDatabase implements Database {
       (tx) async {
         final result = await _delegate.updateWhere<T>(
           columnValues: columnValues,
-          where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
+          where: _whereVisibleWithTombstone<T>(where, null, tx)!,
           limit: limit,
           offset: offset,
           orderBy: orderBy,
@@ -476,7 +494,7 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final rows = await _delegate.find<T>(
-          where: mergeWhereWithTombstone<T>(serializationManager, where, null),
+          where: _whereVisibleWithTombstone<T>(where, null, tx),
           orderBy: orderBy,
           orderByList: orderByList,
           // Remove this once the deprecated member is removed.
@@ -499,7 +517,7 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     return _delegate.count<T>(
-      where: mergeWhereWithTombstone<T>(serializationManager, where, null),
+      where: _whereVisibleWithTombstone<T>(where, null, transaction),
       limit: limit,
       useCache: useCache,
       transaction: transaction,
@@ -514,7 +532,7 @@ class CrdtDatabase implements Database {
     LockBehavior lockBehavior = LockBehavior.wait,
   }) async {
     return _delegate.lockRows<T>(
-      where: mergeWhereWithTombstone<T>(serializationManager, where, null)!,
+      where: _whereVisibleWithTombstone<T>(where, null, transaction)!,
       lockMode: lockMode,
       transaction: transaction,
       lockBehavior: lockBehavior,

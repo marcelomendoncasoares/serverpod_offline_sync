@@ -215,6 +215,22 @@ class CrdtMutationRecorder {
     return _syncTableByName.containsKey(tableName);
   }
 
+  /// Returns the local [CrdtSchemaTable] id for [tableName], or null when the
+  /// table is not registered for CRDT synchronization.
+  int? tableIdForName(String tableName) => _schema[tableName]?.$1;
+
+  /// Returns the user scoping CRDT visibility for queries, or null when no
+  /// user is associated with [transaction] and no persistent user exists.
+  CrdtUser? userScopeForQueries(Transaction? transaction) {
+    if (transaction != null) {
+      final user = userForTransaction[transaction];
+      if (user != null) return user;
+    }
+    final userId = persistentUserId;
+    if (userId == null) return null;
+    return _userManager.getCached(userId);
+  }
+
   /// Returns the [CrdtUser] for the given user ID, creating it when needed.
   Future<CrdtUser> getOrCreateUser(UuidValue userId) {
     return _userManager.getOrCreate(userId);
@@ -1178,12 +1194,10 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
   }
 
   CrdtUser _getEffectiveUser(Transaction transaction) {
-    final user = userForTransaction[transaction];
-    if (user != null) return user;
-    if (persistentUserId == null) {
-      throw StateError('No user ID found for transaction or persistent user ID.');
-    }
-    return _userManager.getCached(persistentUserId!);
+    return userScopeForQueries(transaction) ??
+        (throw StateError(
+          'No user ID found for transaction or persistent user ID.',
+        ));
   }
 }
 

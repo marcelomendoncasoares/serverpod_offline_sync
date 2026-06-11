@@ -4,11 +4,32 @@ import 'package:serverpod_database/serverpod_database.dart';
 import '../crdt/extensions.dart';
 import '../protocol/protocol.dart';
 
+/// Resolves the local [CrdtSchemaTable] id for a domain table name. Returns
+/// null when the table is not registered for CRDT synchronization.
+typedef CrdtTableIdResolver = int? Function(String tableName);
+
+/// Resolves the [CrdtUser] id scoping the current query. Returns null when no
+/// user scope is available (e.g. server-side reads outside
+/// `transactionForUser` without a persistent user), in which case a row is
+/// only hidden when every user tracking it has it hidden.
+typedef CrdtScopeUserIdResolver = int? Function();
+
 /// Merges [where] with CRDT visibility predicates and mutates [include] in place.
 ///
 /// This method ensures that no rows with a hidden [CrdtDataRow.visibility] are
 /// returned for queries with [where] clauses or [include] graphs. If [include]
 /// is null, only the root table and [where] are merged.
+///
+/// Each predicate only considers [CrdtDataRow]s recorded for the queried table
+/// ([tableIdForName]) and, when a user scope is available ([scopeUserId]), for
+/// the scoped user. This prevents a tombstone recorded for another table or
+/// user from masking an unrelated row that reuses the same UUID. Without a
+/// user scope (admin reads on multi-user databases), a row stays visible as
+/// long as at least one user tracking it still sees it.
+///
+/// Both resolvers are only invoked when a predicate is actually built (i.e.
+/// for synced tables with UUID primary keys), so queries on CRDT-internal
+/// tables never touch the recorder state.
 ///
 /// We do **not** add a root predicate for keys whose nested include is an
 /// [IncludeList] - visibility filtering for that path is already handled via the
@@ -18,14 +39,21 @@ import '../protocol/protocol.dart';
 Expression? mergeWhereWithTombstone<T extends TableRow>(
   DatabaseSerializationManager serializationManager,
   Expression? where,
-  Include? include,
-) {
-  final includeObjectPredicates = _walkIncludeGraphForTombstone(include, null);
+  Include? include, {
+  required CrdtTableIdResolver tableIdForName,
+  required CrdtScopeUserIdResolver scopeUserId,
+}) {
+  final includeObjectPredicates = _walkIncludeGraphForTombstone(
+    include,
+    null,
+    tableIdForName: tableIdForName,
+    scopeUserId: scopeUserId,
+  );
 
   final rootTable = serializationManager.getTableForType(T);
   var merged = _mergeWhereOptional(
     where,
-    rootTable?.whereVisibleOnCrdtRow,
+    rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeUserId),
   );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -35,16 +63,23 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
 /// `AND` into the main query for [IncludeObject] joins.
 Expression? _walkIncludeGraphForTombstone(
   Include? inc,
-  Expression? includeObjectPredicates,
-) {
+  Expression? includeObjectPredicates, {
+  required CrdtTableIdResolver tableIdForName,
+  required CrdtScopeUserIdResolver scopeUserId,
+}) {
   if (inc == null) return includeObjectPredicates;
   if (inc is IncludeList) {
     // List relation: filter inside the list subquery only.
     inc.where = _mergeWhereOptional(
       inc.where,
-      inc.table.whereVisibleOnCrdtRow,
+      inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeUserId),
     );
-    return _walkIncludeGraphForTombstone(inc.include, includeObjectPredicates);
+    return _walkIncludeGraphForTombstone(
+      inc.include,
+      includeObjectPredicates,
+      tableIdForName: tableIdForName,
+      scopeUserId: scopeUserId,
+    );
   }
   var acc = includeObjectPredicates;
   final obj = inc;
@@ -53,7 +88,12 @@ Expression? _walkIncludeGraphForTombstone(
     final nested = entry.value;
     if (nested is IncludeList) {
       // e.g. one-to-many: visibility applies via IncludeList.where, not the main WHERE.
-      acc = _walkIncludeGraphForTombstone(nested, acc);
+      acc = _walkIncludeGraphForTombstone(
+        nested,
+        acc,
+        tableIdForName: tableIdForName,
+        scopeUserId: scopeUserId,
+      );
       continue;
     }
     if (nested is IncludeObject) {
@@ -62,10 +102,15 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          childTable.whereVisibleOnCrdtRow,
+          childTable.whereVisibleOnCrdtRow(tableIdForName, scopeUserId),
         );
       }
-      acc = _walkIncludeGraphForTombstone(nested, acc);
+      acc = _walkIncludeGraphForTombstone(
+        nested,
+        acc,
+        tableIdForName: tableIdForName,
+        scopeUserId: scopeUserId,
+      );
     }
   }
   return acc;
@@ -81,25 +126,47 @@ extension on Table {
   /// Creates a predicate that filters out hidden rows for the given [Table]
   /// using materialized [CrdtDataRow.visibility] metadata.
   ///
-  /// Join path:
-  ///   - UserModel.[id] = [CrdtDataRow.uuidRowId].
+  /// The row id is matched against a subquery of hidden [CrdtDataRow]s scoped
+  /// to this table's [CrdtSchemaTable] id and, when available, the scoped
+  /// user. The uncorrelated subquery avoids joining [CrdtDataRow] directly,
+  /// which would duplicate result rows when multiple users track the same row.
   ///
-  /// Returns null when [Table] does not use a UUID primary key. Keeps rows when
-  /// there is no CRDT row or [CrdtDataRow.visibility] is visible (LEFT JOIN
-  /// null-safe).
-  Expression? get whereVisibleOnCrdtRow {
+  /// Returns null when [Table] does not use a UUID primary key or is not
+  /// registered for CRDT synchronization. Keeps rows when the id is null
+  /// (unmatched [IncludeObject] joins) or no hidden CRDT row matches.
+  ///
+  /// Without a user scope, a row is only hidden when every user tracking it
+  /// has it hidden (the minimum visibility across users is hidden), so admin
+  /// reads keep rows that are still visible to some user.
+  Expression? whereVisibleOnCrdtRow(
+    CrdtTableIdResolver tableIdForName,
+    CrdtScopeUserIdResolver scopeUserId,
+  ) {
     if (id is! ColumnUuid) return null;
-    final crdtRowTable = createRelationTable<CrdtDataRowTable>(
-      relationFieldName: '${tableName}_crdt_row',
-      field: id,
-      foreignField: CrdtDataRow.t.uuidRowId,
-      tableRelation: tableRelation,
-      createTable: (foreignTableRelation) =>
-          CrdtDataRowTable(tableRelation: foreignTableRelation),
-    );
-    return (crdtRowTable.id.equals(null)) |
+    final tableId = tableIdForName(tableName);
+    if (tableId == null) return null;
+
+    final crdtRow = CrdtDataRow.t;
+    final userId = scopeUserId();
+    if (userId != null) {
+      return id.equals(null) |
+          Expression(
+            '$id NOT IN '
+            '(SELECT ${crdtRow.uuidRowId} FROM "${crdtRow.tableName}" '
+            'WHERE ${crdtRow.tblId} = $tableId '
+            'AND ${crdtRow.userId} = $userId '
+            'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+          );
+    }
+
+    return id.equals(null) |
         Expression(
-          '${crdtRowTable.visibility} <= $crdtRowLastVisibleVisibilityIndex',
+          '$id NOT IN '
+          '(SELECT ${crdtRow.uuidRowId} FROM "${crdtRow.tableName}" '
+          'WHERE ${crdtRow.tblId} = $tableId '
+          'GROUP BY ${crdtRow.uuidRowId} '
+          'HAVING MIN(${crdtRow.visibility}) > '
+          '$crdtRowLastVisibleVisibilityIndex)',
         );
   }
 }
