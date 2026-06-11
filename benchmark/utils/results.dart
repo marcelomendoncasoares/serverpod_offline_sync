@@ -2,7 +2,6 @@
 
 import 'benchmark.dart';
 import 'conversion.dart';
-import 'merge.dart';
 
 void printPerformanceImpact(
   BenchmarkResults results, {
@@ -112,22 +111,23 @@ void printMergeImpact(
 }) {
   final timePerChangeUs = results.average / results.changeCount;
   final changesPerSecond = Duration.microsecondsPerSecond / timePerChangeUs;
+  final queriesPerChange = results.averageQueries / results.changeCount;
 
   print(
     '${runningInCI ? '```' : ''}'
-    '\n🔀 MERGE ${results.operation.name.toUpperCase()} performance:',
+    '\n🔀 MERGE ${results.title} performance:',
   );
-  if (results.operation == MergeOperation.mixed) {
-    final composition = mixedMergeComposition(results.changeCount);
-    print(
-      '  Batch: ${formatter0.format(composition.inserts)} inserts + '
-      '${formatter0.format(composition.updates)} updates + '
-      '${formatter0.format(composition.deletes)} deletes',
-    );
+  final batchDescription = results.batchDescription;
+  if (batchDescription != null) {
+    print('  Batch: $batchDescription');
   }
   print('  Merge time: ${results.average.toFormattedDuration()}');
   print('  Time per change: ${timePerChangeUs.toFormattedDuration()}');
   print('  Throughput: ${formatter0.format(changesPerSecond)} changes/s');
+  print(
+    '  Queries: ${formatter0.format(results.averageQueries)} per batch '
+    '(${formatter2.format(queriesPerChange)} per change)',
+  );
   if (runningInCI) print('```');
 }
 
@@ -145,15 +145,21 @@ class BenchmarkResults {
 
 class MergeBenchmarkResults {
   const MergeBenchmarkResults({
-    required this.operation,
+    required this.title,
+    required this.batchDescription,
     required this.average,
+    required this.averageQueries,
     required this.changeCount,
   });
 
-  final MergeOperation operation;
+  final String title;
+  final String? batchDescription;
 
   /// Average microseconds to merge one batch of [changeCount] changes.
   final double average;
+
+  /// Average number of queries issued while merging one batch.
+  final double averageQueries;
   final int changeCount;
 }
 

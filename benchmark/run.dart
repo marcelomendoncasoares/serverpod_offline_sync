@@ -127,22 +127,36 @@ Future<void> main(List<String> args) async {
   );
   if (!runningInCI) print('-' * 60);
 
-  for (final operation in MergeOperation.values) {
-    final mergeResult = await runWithProgress(
-      'Running merge ${operation.name} benchmark',
-      () => TypesMergeBenchmark(
+  final mergeBenchmarks = <MergeScenarioBenchmark>[
+    for (final operation in MergeOperation.values)
+      TypesMergeBenchmark(
         'merge (${operation.name})',
         operation: operation,
         changeCount: rowCount,
-      ).measure(),
+      ),
+    UniqueMergeBenchmark('merge (unique conflict)', changeCount: rowCount),
+    for (final operation in FkChainOperation.values)
+      FkChainMergeBenchmark(
+        'merge (fk chain ${operation.name})',
+        operation: operation,
+        changeCount: rowCount,
+      ),
+  ];
+
+  for (final benchmark in mergeBenchmarks) {
+    final mergeResult = await runWithProgress(
+      'Running ${benchmark.name} benchmark',
+      benchmark.measureMerge,
       skipProgress: runningInCI,
     );
 
     printMergeImpact(
       MergeBenchmarkResults(
-        operation: operation,
-        average: mergeResult,
-        changeCount: rowCount,
+        title: benchmark.resultTitle,
+        batchDescription: benchmark.batchDescription,
+        average: mergeResult.averageMicroseconds,
+        averageQueries: mergeResult.averageQueries,
+        changeCount: benchmark.changesPerBatch,
       ),
       runningInCI: runningInCI,
     );
