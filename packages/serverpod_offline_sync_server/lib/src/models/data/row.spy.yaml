@@ -41,7 +41,13 @@ indexes:
   crdt_data_rows_user_tbl_row_idx:
     fields: userId, tblId, uuidRowId
     unique: true
-  ### Covers the user-agnostic tombstone visibility probes, which filter by
-  ### table and row id across all users (see whereVisibleOnCrdtRow).
-  crdt_data_rows_tbl_row_vis_idx:
-    fields: tblId, uuidRowId, visibility
+  ### TODO: Enable as serverOnly once Serverpod supports scoping indexes.
+  ###
+  ### Would cover the user-agnostic tombstone visibility scan, which filters
+  ### by table and row id across all users (see whereVisibleOnCrdtRow). Only
+  ### the server runs user-agnostic queries, but the index would cost every
+  ### client ~21 bytes per CRDT row plus write amplification, so it is left
+  ### out until it can be restricted to the server database.
+  # crdt_data_rows_tbl_row_vis_idx:
+  #   fields: tblId, uuidRowId, visibility
+  #   serverOnly: true

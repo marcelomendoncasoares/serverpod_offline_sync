@@ -136,14 +136,15 @@ extension on Table {
   /// (unmatched [IncludeObject] joins) or no hidden CRDT row matches.
   ///
   /// Without a user scope, a row is only hidden when every user tracking it
-  /// has it hidden (it has CRDT rows and none is visible), so admin reads
-  /// keep rows that are still visible to some user.
+  /// has it hidden (the minimum visibility across users is hidden), so admin
+  /// reads keep rows that are still visible to some user.
   ///
-  /// Both forms are correlated `EXISTS` probes: the scoped probe is covered
-  /// by the (userId, tblId, uuidRowId) unique index and the unscoped probes
-  /// by the (tblId, uuidRowId, visibility) index, so point lookups stay
-  /// index-bound instead of scanning [CrdtDataRow] per query. Query planners
-  /// can also flatten them into anti-joins for large scans.
+  /// The scoped form is a correlated `NOT EXISTS` probe covered by the
+  /// (userId, tblId, uuidRowId) unique index, so point lookups stay
+  /// index-bound and planners can flatten it into an anti-join for scans.
+  /// The unscoped form deliberately stays uncorrelated (one scan and
+  /// aggregate per query): without a (tblId, uuidRowId) index, correlated
+  /// probes would scan [CrdtDataRow] per outer row.
   Expression? whereVisibleOnCrdtRow(
     CrdtTableIdResolver tableIdForName,
     CrdtScopeUserIdResolver scopeUserId,
@@ -165,18 +166,34 @@ extension on Table {
       );
     }
 
-    return Expression(
-          'NOT EXISTS '
-          '(SELECT 1 FROM "${crdtRow.tableName}" '
-          'WHERE ${crdtRow.tblId} = $tableId '
-          'AND ${crdtRow.uuidRowId} = $id)',
-        ) |
+    // TODO: Once Serverpod supports server-only indexes, replace the unscoped
+    // below query with the correlated probes ("no tracker, or at least one
+    // visible tracker"). They keep point lookups index-bound and need no `id IS
+    // NULL` guard, since a null id correlates to no CRDT row and stays visible:
+    //
+    // ```dart
+    // return Expression(
+    //       'NOT EXISTS '
+    //       '(SELECT 1 FROM "${crdtRow.tableName}" '
+    //       'WHERE ${crdtRow.tblId} = $tableId '
+    //       'AND ${crdtRow.uuidRowId} = $id)',
+    //     ) |
+    //     Expression(
+    //       'EXISTS '
+    //       '(SELECT 1 FROM "${crdtRow.tableName}" '
+    //       'WHERE ${crdtRow.tblId} = $tableId '
+    //       'AND ${crdtRow.uuidRowId} = $id '
+    //       'AND ${crdtRow.visibility} <= $crdtRowLastVisibleVisibilityIndex)',
+    //     );
+    // ```
+    return id.equals(null) |
         Expression(
-          'EXISTS '
-          '(SELECT 1 FROM "${crdtRow.tableName}" '
+          '$id NOT IN '
+          '(SELECT ${crdtRow.uuidRowId} FROM "${crdtRow.tableName}" '
           'WHERE ${crdtRow.tblId} = $tableId '
-          'AND ${crdtRow.uuidRowId} = $id '
-          'AND ${crdtRow.visibility} <= $crdtRowLastVisibleVisibilityIndex)',
+          'GROUP BY ${crdtRow.uuidRowId} '
+          'HAVING MIN(${crdtRow.visibility}) > '
+          '$crdtRowLastVisibleVisibilityIndex)',
         );
   }
 }
