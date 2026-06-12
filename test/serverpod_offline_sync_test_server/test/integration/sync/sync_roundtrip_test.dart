@@ -246,7 +246,7 @@ void main() {
             reason: CrdtDataDeletedReason.userDelete,
           ),
         ],
-        userId: testCrdtUserId,
+        scopeId: testCrdtUserId,
       );
 
       final visibleChild = await Town.db.findById(crdtSession, child.id!);
@@ -304,7 +304,7 @@ void main() {
             value: missingParentId,
           ),
         ],
-        userId: testCrdtUserId,
+        scopeId: testCrdtUserId,
       );
 
       final visibleChild = await Town.db.findById(crdtSession, child.id!);
@@ -344,7 +344,7 @@ void main() {
     'when synchronization checkpoints are created '
     'then one fresh checkpoint for the local node is included.',
     () async {
-      final user = await CrdtUserManager(testSession).getOrCreate(testCrdtUserId);
+      final scope = await CrdtScopeManager(testSession).getOrCreate(testCrdtUserId);
       final sinceHlc = await crdtSync.createSyncSinceHlc(
         testSession,
         userId: testCrdtUserId,
@@ -352,7 +352,7 @@ void main() {
       );
 
       expect(sinceHlc.nodeCheckpoints, hasLength(1));
-      expect(sinceHlc.nodeCheckpoints.single.nodeId, user.currentNode!.uuidNodeId);
+      expect(sinceHlc.nodeCheckpoints.single.nodeId, scope.currentNode!.uuidNodeId);
       expect(
         sinceHlc.nodeCheckpoints.single,
         greaterThan(Hlc.zero(sinceHlc.nodeCheckpoints.single.nodeId)),

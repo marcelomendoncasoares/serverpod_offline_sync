@@ -5,7 +5,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart';
 import '../crdt/extensions.dart';
 import '../crdt/merge.dart';
 import '../managers/hlc.dart';
-import '../managers/user.dart';
+import '../managers/scope.dart';
 import '../protocol/protocol.dart';
 import 'database.dart';
 import 'schema.dart';
@@ -76,7 +76,7 @@ class CrdtMutationRecorder {
     persistentUserId: persistentUserId,
   );
 
-  late final CrdtUserManager _userManager = CrdtUserManager(_dbSession);
+  late final CrdtScopeManager _scopeManager = CrdtScopeManager(_dbSession);
 
   final Map<UuidValue, HlcManager> _hlcManagers = {};
 
@@ -162,15 +162,16 @@ class CrdtMutationRecorder {
   /// Safe to call again after the database was wiped (e.g. test `tearDown`)
   /// for in-memory schema ids to match new rows.
   Future<void> initialize() async {
-    _userManager.clearCache();
+    _scopeManager.clearCache();
     _hlcManagers.clear();
 
     if (persistentUserId != null) {
-      await _userManager.getOrCreate(persistentUserId!);
+      await _scopeManager.getOrCreate(persistentUserId!);
     }
 
     final schemaRegistry = CrdtSchemaRegistry(_dbSession, syncTables: syncTables);
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
+    await _warnForGlobalUniqueIndexes();
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
     for (final column in columnRows) {
@@ -184,6 +185,31 @@ class CrdtMutationRecorder {
           columnsByTableId[t.id!] ?? {},
         ),
     };
+  }
+
+  Future<void> _warnForGlobalUniqueIndexes() async {
+    final logWarning = _dbSession.logWarning;
+    if (logWarning == null) return;
+
+    for (final tableName in _syncTableByName.keys) {
+      final definition = _tableDefinitionsByName[tableName];
+      if (definition == null) continue;
+
+      for (final index in definition.indexes) {
+        if (!index.isUnique || index.isPrimary) continue;
+        final columnNames = [
+          for (final element in index.elements)
+            if (element.type == IndexElementDefinitionType.column) element.definition,
+        ];
+        if (columnNames.contains('scopeId')) continue;
+
+        await logWarning(
+          'Unique index ${index.indexName} on synced table $tableName does not '
+          'include scopeId. This is a global unique constraint; include scopeId '
+          'for per-scope uniqueness.',
+        );
+      }
+    }
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for
@@ -200,7 +226,8 @@ class CrdtMutationRecorder {
 
   late final Map<String, Set<String>> _syncedTableColumnNamesForMerge = {
     for (final MapEntry(key: k, value: cols) in _columnsByTableAndName.entries)
-      if (_syncTableByName.containsKey(k)) k: cols.keys.toSet(),
+      if (_syncTableByName.containsKey(k))
+        k: cols.keys.where((columnName) => columnName != 'scopeId').toSet(),
   };
 
   /// Whether the given table is tracked by CRDT.
@@ -221,19 +248,19 @@ class CrdtMutationRecorder {
 
   /// Returns the user scoping CRDT visibility for queries, or null when no
   /// user is associated with [transaction] and no persistent user exists.
-  CrdtUser? userScopeForQueries(Transaction? transaction) {
+  CrdtScope? scopeForQueries(Transaction? transaction) {
     if (transaction != null) {
-      final user = userForTransaction[transaction];
+      final user = scopeForTransaction[transaction];
       if (user != null) return user;
     }
     final userId = persistentUserId;
     if (userId == null) return null;
-    return _userManager.getCached(userId);
+    return _scopeManager.getCached(userId);
   }
 
-  /// Returns the [CrdtUser] for the given user ID, creating it when needed.
-  Future<CrdtUser> getOrCreateUser(UuidValue userId) {
-    return _userManager.getOrCreate(userId);
+  /// Returns the [CrdtScope] for the given user ID, creating it when needed.
+  Future<CrdtScope> getOrCreateScope(UuidValue userId) {
+    return _scopeManager.getOrCreate(userId);
   }
 
   /// Records the latest acknowledged sync checkpoint for [otherNodeId].
@@ -242,17 +269,17 @@ class CrdtMutationRecorder {
     UuidValue otherNodeId,
     Hlc syncedHlc,
   ) async {
-    final user = await _userManager.getOrCreate(userId);
+    final user = await _scopeManager.getOrCreate(userId);
     await _db.transaction((transaction) async {
       var node = await CrdtNode.db.findFirstRow(
         _session,
-        where: (t) => t.userId.equals(user.id) & t.uuidNodeId.equals(otherNodeId),
+        where: (t) => t.scopeId.equals(user.id) & t.uuidNodeId.equals(otherNodeId),
         transaction: transaction,
       );
 
       node ??= await CrdtNode.db.insertRow(
         _session,
-        CrdtNode(userId: user.id!, uuidNodeId: otherNodeId),
+        CrdtNode(scopeId: user.id!, uuidNodeId: otherNodeId),
         transaction: transaction,
       );
 
@@ -437,7 +464,7 @@ class CrdtMutationRecorder {
   }) async {
     if (foreignKeys.isEmpty) return null;
 
-    final userId = _getHlcManager(transaction).normalizedUserId;
+    final scopeId = _getHlcManager(transaction).normalizedScopeId;
     final escapedChildTable = _escapeIdentifier(childTableName);
     final whereRowIds = _sqlLiteralList(childRowIds);
 
@@ -456,10 +483,14 @@ FROM "$escapedChildTable" c
 LEFT JOIN "$parentTable" p
   ON p."$parentColumn" = c."$childColumn"
 LEFT JOIN "crdt_data_rows" r
-  ON r."userId" = $userId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
+  ON r."scopeId" = $scopeId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
 WHERE c."id" IN ($whereRowIds)
   AND c."$childColumn" IS NOT NULL
-  AND (p."id" IS NULL OR r."visibility" > $crdtRowLastVisibleVisibilityIndex)
+  AND (
+    p."id" IS NULL OR
+    p."scopeId" <> $scopeId OR
+    r."visibility" > $crdtRowLastVisibleVisibilityIndex
+  )
 ''';
     });
 
@@ -503,7 +534,7 @@ WHERE c."id" IN ($whereRowIds)
     final hlc = hlcManager.increment();
 
     return CrdtDataRow(
-      userId: hlcManager.normalizedUserId,
+      scopeId: hlcManager.normalizedScopeId,
       tblId: tableId,
       uuidRowId: rowId,
       nodeId: hlcManager.normalizedNodeId,
@@ -568,7 +599,7 @@ WHERE c."id" IN ($whereRowIds)
 
     final table = updatedRows.first.table;
     final updatedColumnList = (columns ?? table.managedColumns)
-        .where((c) => c.columnName != 'id')
+        .where((c) => c.columnName != 'id' && c.columnName != 'scopeId')
         .toList();
     if (updatedColumnList.isEmpty) return;
 
@@ -887,11 +918,13 @@ WHERE c."id" IN ($whereRowIds)
     CrdtDataRowInclude? include,
   }) {
     final (tableId, _) = _schema[tableName]!;
-    final userId = _getHlcManager(transaction).normalizedUserId;
+    final scopeId = _getHlcManager(transaction).normalizedScopeId;
     return CrdtDataRow.db.find(
       _session,
       where: (t) =>
-          t.userId.equals(userId) & t.tblId.equals(tableId) & t.uuidRowId.inSet(rowIds),
+          t.scopeId.equals(scopeId) &
+          t.tblId.equals(tableId) &
+          t.uuidRowId.inSet(rowIds),
       include: include,
       transaction: transaction,
     );
@@ -1064,13 +1097,13 @@ WHERE c."id" IN ($whereRowIds)
     required Transaction transaction,
   }) async {
     final (tableId, _) = _schema[tableName]!;
-    final userId = _getHlcManager(transaction).normalizedUserId;
+    final scopeId = _getHlcManager(transaction).normalizedScopeId;
     final result = await _db.unsafeQuery(
       '''
 SELECT d."id"
 FROM "${_escapeIdentifier(tableName)}" d
 LEFT JOIN "crdt_data_rows" r
-  ON r."userId" = $userId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 WHERE (${predicates.join(') AND (')})
   AND (r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex)
 ''',
@@ -1134,6 +1167,27 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     };
   }
 
+  Future<Set<UuidValue>> _foreignOwnedDomainRowIds(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Transaction transaction,
+  ) async {
+    if (rowIds.isEmpty) return const {};
+
+    final effectiveScopeId = _getHlcManager(transaction).normalizedScopeId;
+    final valuesByRowId = await _readDomainColumnValues(
+      tableName,
+      rowIds,
+      ['scopeId'],
+      transaction,
+    );
+
+    return {
+      for (final MapEntry(key: rowId, value: values) in valuesByRowId.entries)
+        if (values['scopeId'] != effectiveScopeId) rowId,
+    };
+  }
+
   Object? _defaultValueForColumn(String tableName, String columnName) {
     final column = _columnsByTableAndName[tableName]?[columnName];
     if (column == null) return null;
@@ -1186,15 +1240,15 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
   }
 
   HlcManager _getHlcManager(Transaction transaction) {
-    final user = _getEffectiveUser(transaction);
+    final user = _getEffectiveScope(transaction);
     return _hlcManagers.putIfAbsent(
-      user.uuidUserId,
-      () => HlcManager.forUser(user),
+      user.uuidScopeId,
+      () => HlcManager.forScope(user),
     );
   }
 
-  CrdtUser _getEffectiveUser(Transaction transaction) {
-    return userScopeForQueries(transaction) ??
+  CrdtScope _getEffectiveScope(Transaction transaction) {
+    return scopeForQueries(transaction) ??
         (throw StateError(
           'No user ID found for transaction or persistent user ID.',
         ));

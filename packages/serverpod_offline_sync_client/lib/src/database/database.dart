@@ -13,8 +13,8 @@ import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
 
-/// Map of transaction hashes to the user ID they are associated with.
-final userForTransaction = <Transaction, CrdtUser>{};
+/// Map of transaction hashes to the scope they are associated with.
+final scopeForTransaction = <Transaction, CrdtScope>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -70,7 +70,7 @@ class CrdtDatabase implements Database {
   /// Returns the current node identifier for the effective user.
   Future<UuidValue> currentNodeId({UuidValue? userId}) async {
     final effectiveUserId = await _requireUserId(userId);
-    final user = await _recorder.getOrCreateUser(effectiveUserId);
+    final user = await _recorder.getOrCreateScope(effectiveUserId);
     return user.currentNode!.uuidNodeId;
   }
 
@@ -105,24 +105,24 @@ class CrdtDatabase implements Database {
     );
   }
 
-  /// Merges remote CRDT changes into the local database for the given user.
+  /// Merges remote CRDT changes into the local database for the given scope.
   ///
-  /// When [userId] is omitted, this uses the recorder's persistent user id.
-  /// The merge locks the current user's CRDT tables and executes atomically
+  /// When [scopeId] is omitted, this uses the recorder's persistent user id.
+  /// The merge locks the current scope's CRDT tables and executes atomically
   /// inside [transactionForUser].
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
-    UuidValue? userId,
+    UuidValue? scopeId,
   }) async {
     if (mergeSet.isEmpty) return;
 
-    final effectiveUserId =
-        userId ??
+    final effectiveScopeId =
+        scopeId ??
         _recorder.persistentUserId ??
         (throw StateError(
-          'A user ID is required when merging changes without a persistent user.',
+          'A scope ID is required when merging changes without a persistent user.',
         ));
-    await transactionForUser<void>(effectiveUserId, (tx) async {
+    await transactionForUser<void>(effectiveScopeId, (tx) async {
       await _recorder.lockCurrentUser(tx);
       await _recorder.mergeChanges(mergeSet, tx);
     });
@@ -152,7 +152,7 @@ class CrdtDatabase implements Database {
       where,
       include,
       tableIdForName: _recorder.tableIdForName,
-      scopeUserId: () => _recorder.userScopeForQueries(transaction)?.id,
+      scopeUserId: () => _recorder.scopeForQueries(transaction)?.id,
     );
   }
 
@@ -169,7 +169,7 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    return _delegate.find<T>(
+    final result = await _delegate.find<T>(
       where: _whereVisibleWithTombstone<T>(where, include, transaction),
       limit: limit,
       offset: offset,
@@ -183,6 +183,7 @@ class CrdtDatabase implements Database {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
+    return _stripScopeIdFromScopedRead(result, transaction);
   }
 
   @override
@@ -195,13 +196,15 @@ class CrdtDatabase implements Database {
   }) async {
     final table = serializationManager.getTableForType(T);
     final where = table?.id.equals(id);
-    return _delegate.findFirstRow<T>(
+    final result = await _delegate.findFirstRow<T>(
       where: _whereVisibleWithTombstone<T>(where, include, transaction),
       transaction: transaction,
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
+    if (result == null) return null;
+    return _stripScopeIdFromScopedRead([result], transaction).single;
   }
 
   @override
@@ -216,7 +219,7 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
-    return _delegate.findFirstRow<T>(
+    final result = await _delegate.findFirstRow<T>(
       where: _whereVisibleWithTombstone<T>(where, include, transaction),
       offset: offset,
       orderBy: orderBy,
@@ -229,6 +232,8 @@ class CrdtDatabase implements Database {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
+    if (result == null) return null;
+    return _stripScopeIdFromScopedRead([result], transaction).single;
   }
 
   @override
@@ -237,17 +242,20 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
     bool ignoreConflicts = false,
   }) async {
+    if (rows.isEmpty) return [];
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
+        final prepared = _prepareRowsForInsert(rows, tx);
         final result = await _delegate.insert<T>(
-          rows,
+          prepared.rows,
           transaction: tx,
           ignoreConflicts: ignoreConflicts,
         );
 
         await _recorder.afterInsert<T>(result, tx);
+        _stripStampedRows(result, prepared);
         return result;
       },
     );
@@ -262,18 +270,22 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
+        final prepared = _prepareRowsForInsert([row], tx);
+        final databaseRow = prepared.rows.single;
         late final T result;
         try {
-          result = await _delegate.insertRow<T>(row, transaction: tx);
+          result = await _delegate.insertRow<T>(databaseRow, transaction: tx);
         } on DatabaseQueryException {
           if (!await _recorder.isDeleted(row, tx)) rethrow;
 
-          result = await _delegate.updateRow<T>(row, transaction: tx);
+          result = await _delegate.updateRow<T>(databaseRow, transaction: tx);
           await _recorder.afterReinsert([result], tx);
+          _stripStampedRows([result], prepared);
           return result;
         }
 
         await _recorder.afterInsert([result], tx);
+        _stripStampedRows([result], prepared);
         return result;
       },
     );
@@ -316,7 +328,12 @@ class CrdtDatabase implements Database {
       (tx) async {
         final updatedRows = [
           for (final row in rows)
-            await _updateRowWithoutRecording(row, columns: columns, transaction: tx),
+            await _updateRowWithoutRecording(
+              row,
+              stripScopeId: _shouldStripReturnedScopeId(row, tx),
+              transaction: tx,
+              columns: columns,
+            ),
         ];
 
         await _recorder.afterUpdate(updatedRows, columns, tx);
@@ -335,10 +352,12 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
+        final stripScopeId = _shouldStripReturnedScopeId(row, tx);
         final updatedRow = await _updateRowWithoutRecording(
           row,
-          columns: columns,
+          stripScopeId: stripScopeId,
           transaction: tx,
+          columns: columns,
         );
 
         await _recorder.afterUpdate([updatedRow], columns, tx);
@@ -350,11 +369,12 @@ class CrdtDatabase implements Database {
   Future<T> _updateRowWithoutRecording<T extends TableRow>(
     T row, {
     required Transaction transaction,
+    required bool stripScopeId,
     List<Column>? columns,
   }) async {
     final values = row.toJsonForDatabase() as Map<String, dynamic>;
     final columnValues = (columns ?? row.table.managedColumns)
-        .where((c) => c.columnName != 'id')
+        .where((c) => c.columnName != 'id' && c.columnName != 'scopeId')
         .map((c) => ColumnValue(c, values[c.columnName]))
         .toList();
 
@@ -371,7 +391,9 @@ class CrdtDatabase implements Database {
       throw Exception('Failed to update row, no rows updated.');
     }
 
-    return updatedRows.single;
+    final updatedRow = updatedRows.single;
+    if (stripScopeId) _stripScopeId(updatedRow);
+    return updatedRow;
   }
 
   @override
@@ -404,6 +426,10 @@ class CrdtDatabase implements Database {
     bool orderDescending = false,
     Transaction? transaction,
   }) async {
+    if (_recorder.isCrdtTracked<T>()) {
+      _assertNoScopeIdColumnValues<T>(columnValues);
+    }
+
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -423,6 +449,9 @@ class CrdtDatabase implements Database {
 
         final columns = columnValues.map((e) => e.column).toList();
         await _recorder.afterUpdate(result, columns, tx);
+        if (_recorder.isCrdtTracked<T>()) {
+          result.forEach(_stripScopeId);
+        }
         return result;
       },
     );
@@ -504,7 +533,7 @@ class CrdtDatabase implements Database {
         );
 
         await _recorder.insteadOfDelete<T>(rows, tx);
-        return rows;
+        return _stripScopeIdFromScopedRead(rows, tx);
       },
     );
   }
@@ -561,15 +590,15 @@ class CrdtDatabase implements Database {
     TransactionSettings? settings,
   }) async {
     // Ensure that the user exists with a node before starting the transaction.
-    final user = await _recorder.getOrCreateUser(userId);
+    final user = await _recorder.getOrCreateScope(userId);
 
     return transaction<R>(
       (tx) async {
         try {
-          userForTransaction[tx] = user;
+          scopeForTransaction[tx] = user;
           return await transactionFunction(tx);
         } finally {
-          userForTransaction.remove(tx);
+          scopeForTransaction.remove(tx);
         }
       },
       settings: settings,
@@ -582,6 +611,152 @@ class CrdtDatabase implements Database {
         (throw StateError(
           'A user ID is required when syncing without a persistent user.',
         ));
+  }
+
+  ({
+    List<T> rows,
+    Set<int> stampedIndexes,
+    Set<Object> stampedRowIds,
+  })
+  _prepareRowsForInsert<T extends TableRow>(
+    List<T> rows,
+    Transaction transaction,
+  ) {
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return (rows: rows, stampedIndexes: const {}, stampedRowIds: const {});
+    }
+
+    final scope = _requireEffectiveScope(transaction);
+    final effectiveScopeId = scope.id!;
+    final databaseRows = <T>[];
+    final stampedIndexes = <int>{};
+    final stampedRowIds = <Object>{};
+
+    for (final (index, row) in rows.indexed) {
+      final rowScopeId = _readScopeId(row);
+      if (rowScopeId == null) {
+        databaseRows.add(_copyWithScopeId(row, effectiveScopeId));
+        stampedIndexes.add(index);
+        final rowId = row.id;
+        if (rowId != null) stampedRowIds.add(rowId as Object);
+        continue;
+      }
+
+      if (rowScopeId != effectiveScopeId) {
+        throw StateError(
+          'Cannot write ${row.table.tableName} row ${row.id} with scopeId '
+          '$rowScopeId while acting in scope $effectiveScopeId.',
+        );
+      }
+
+      databaseRows.add(row);
+    }
+
+    return (
+      rows: databaseRows,
+      stampedIndexes: stampedIndexes,
+      stampedRowIds: stampedRowIds,
+    );
+  }
+
+  bool _shouldStripReturnedScopeId<T extends TableRow>(
+    T row,
+    Transaction transaction,
+  ) {
+    if (!_recorder.isCrdtTracked<T>(row.table)) return false;
+
+    final rowScopeId = _readScopeId(row);
+    if (rowScopeId == null) return true;
+
+    final effectiveScopeId = _requireEffectiveScope(transaction).id!;
+    if (rowScopeId != effectiveScopeId) {
+      throw StateError(
+        'Cannot write ${row.table.tableName} row ${row.id} with scopeId '
+        '$rowScopeId while acting in scope $effectiveScopeId.',
+      );
+    }
+
+    return false;
+  }
+
+  void _assertNoScopeIdColumnValues<T extends TableRow>(
+    List<ColumnValue> columnValues,
+  ) {
+    for (final columnValue in columnValues) {
+      if (columnValue.column.columnName == 'scopeId') {
+        final table = serializationManager.getTableForType(T)?.tableName ?? 'unknown';
+        throw StateError(
+          'scopeId is immutable and owned by the CRDT sync layer for $table.',
+        );
+      }
+    }
+  }
+
+  CrdtScope _requireEffectiveScope(Transaction transaction) {
+    return _recorder.scopeForQueries(transaction) ??
+        (throw StateError(
+          'A scope ID is required for CRDT writes without a persistent user.',
+        ));
+  }
+
+  int? _readScopeId(TableRow row) => (row as dynamic).scopeId as int?;
+
+  T _copyWithScopeId<T extends TableRow>(T row, int scopeId) {
+    return (row as dynamic).copyWith(scopeId: scopeId) as T;
+  }
+
+  void _stripStampedRows<T extends TableRow>(
+    List<T> rows,
+    ({
+      List<T> rows,
+      Set<int> stampedIndexes,
+      Set<Object> stampedRowIds,
+    })
+    prepared,
+  ) {
+    for (final (index, row) in rows.indexed) {
+      if (prepared.stampedIndexes.contains(index) ||
+          (row.id != null && prepared.stampedRowIds.contains(row.id))) {
+        _stripScopeId(row);
+      }
+    }
+  }
+
+  void _stripScopeId(TableRow row) {
+    (row as dynamic).scopeId = null;
+  }
+
+  List<T> _stripScopeIdFromScopedRead<T extends TableRow>(
+    List<T> rows,
+    Transaction? transaction,
+  ) {
+    if (rows.isEmpty) return rows;
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) return rows;
+    if (_recorder.scopeForQueries(transaction) == null) return rows;
+
+    return [
+      for (final row in rows) _copyWithScopeIdsStripped(row),
+    ];
+  }
+
+  T _copyWithScopeIdsStripped<T extends TableRow>(T row) {
+    final json = Map<String, dynamic>.from(row.toJson() as Map);
+    _stripScopeIdsFromJson(json);
+    return serializationManager.deserialize<T>(json);
+  }
+
+  void _stripScopeIdsFromJson(Object? value) {
+    if (value is Map) {
+      if (value.containsKey('scopeId')) {
+        value['scopeId'] = null;
+      }
+      value.values.forEach(_stripScopeIdsFromJson);
+      return;
+    }
+
+    if (value is Iterable) {
+      value.forEach(_stripScopeIdsFromJson);
+    }
   }
 
   @override

@@ -5,8 +5,8 @@ class: CrdtNode
 table: crdt_nodes
 database: all
 fields:
-  ### The user that owns the node.
-  user: CrdtUser?, relation(name=user_nodes, onDelete=Cascade)
+  ### The scope that owns the node.
+  scope: CrdtScope?, relation(name=scope_nodes, onDelete=Cascade)
 
   ### Unique identifier for the node.
   uuidNodeId: UuidValue, default=random_v7, unique

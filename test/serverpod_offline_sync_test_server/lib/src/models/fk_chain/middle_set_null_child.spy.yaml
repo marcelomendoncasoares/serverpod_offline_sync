@@ -3,6 +3,8 @@ table: fk_chain_middle_set_null_child
 database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
+  ### Owner scope of this row. Maintained by the CRDT sync layer.
+  scopeId: int?
   name: String
   restrictBlocker: FkChainRestrictBlocker?, relation(field=restrictBlockerId, onDelete=SetNull)
   restrictBlockerId: UuidValue?

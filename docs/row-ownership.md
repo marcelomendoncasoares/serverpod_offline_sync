@@ -1,6 +1,6 @@
 # Row ownership and scope isolation
 
-Status: accepted design, implementation pending (see *Implementation plan*).
+Status: implemented.
 The *Future: shared scopes* section is direction, not commitment.
 
 ## Summary
@@ -93,8 +93,9 @@ justified only where field names are data-driven, as in the merge path.
 
 The server holds one physical domain row per `(table, uuidRowId)`, while CRDT
 metadata (`crdt_data_rows` and its children) is keyed per
-`(scopeId, tblId, uuidRowId)`. The unique index allows multiple scopes to
-track the same row. Symptoms, in increasing severity:
+`(scopeId, tblId, uuidRowId)`. Before this design was implemented, that
+metadata shape let multiple scopes track the same row even though the domain
+table could only materialize one copy. Symptoms, in increasing severity:
 
 1. **Tombstone masking.** A tombstone recorded by one user (or for another
    table) used to hide unrelated rows sharing a UUID. Fixed by scoping the
@@ -141,9 +142,8 @@ makes LWW merging coherent.
   in the physical domain table. A row with the same UUID in a different scope
   cannot be represented as a second domain row; it is treated as a corrupt or
   hostile ownership collision and is skipped/logged on merge.
-- The value references `crdt_scopes.id` (the table currently named
-  `crdt_users`; renamed in Phase 1) — the scope that owns the row. Today a
-  scope is a user; the name is chosen deliberately so shared scopes can be
+- The value references `crdt_scopes.id` — the scope that owns the row. Today
+  a scope is a user; the name is chosen deliberately so shared scopes can be
   added later without renaming storage again.
 - **The value is database-local.** It is a normalization of the scope UUID
   into the local `crdt_scopes` table; the client's int for a scope is not

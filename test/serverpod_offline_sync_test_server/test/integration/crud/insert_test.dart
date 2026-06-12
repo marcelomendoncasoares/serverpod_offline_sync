@@ -32,6 +32,17 @@ void main() {
       expect(row!.name, 'test');
     });
 
+    test('then the returned row keeps scopeId null.', () async {
+      expect(person.scopeId, isNull);
+    });
+
+    test('then the stored row is stamped with the effective scope.', () async {
+      final row = await Person.db.findById(testSession, person.id!);
+
+      expect(row, isNotNull);
+      expect(row!.scopeId, await _currentScopeId());
+    });
+
     group('then CRDT metadata row', () {
       late CrdtDataRow? crdtRow;
 
@@ -72,6 +83,48 @@ void main() {
       expect(clFlag, isNull);
     });
   });
+
+  group('Given an empty person table, '
+      'when inserting a Person with an explicit matching scopeId,', () {
+    late Person person;
+    late int scopeId;
+
+    setUp(() async {
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) async {
+          scopeId = await _currentScopeId();
+          return Person.db.insertRow(
+            session,
+            Person(name: 'explicit', scopeId: scopeId),
+            transaction: tx,
+          );
+        },
+      );
+    });
+
+    test('then the returned row keeps the explicit scopeId.', () async {
+      expect(person.scopeId, scopeId);
+    });
+  });
+
+  test(
+    'Given an empty person table, '
+    'when inserting a Person with another scopeId, '
+    'then the insert throws.',
+    () async {
+      final insertFuture = session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'wrong scope', scopeId: -1),
+          transaction: tx,
+        ),
+      );
+
+      await expectLater(insertFuture, throwsA(isA<StateError>()));
+    },
+  );
 
   group('Given an empty person table, '
       'when inserting two Person rows with insert,', () {
@@ -303,4 +356,12 @@ void main() {
       });
     });
   });
+}
+
+Future<int> _currentScopeId() async {
+  final scope = await CrdtScope.db.findFirstRow(
+    session,
+    where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+  );
+  return scope!.id!;
 }

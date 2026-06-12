@@ -5,7 +5,7 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
-import '../managers/user.dart';
+import '../managers/scope.dart';
 import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
@@ -142,7 +142,7 @@ class CrdtSync {
     required UuidValue peerNodeId,
     required List<Hlc> nodeCheckpoints,
   }) async* {
-    final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
     yield* _streamInserts(session, crdtUser, nodeCheckpoints);
     yield* _streamUpdates(session, crdtUser, nodeCheckpoints);
     yield* _streamDeletes(session, crdtUser, nodeCheckpoints);
@@ -157,12 +157,12 @@ class CrdtSync {
     required UuidValue userId,
     required UuidValue peerNodeId,
   }) async {
-    final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
 
     final nodes = await CrdtNode.db.find(
       session,
       where: (t) =>
-          t.userId.equals(crdtUser.id) &
+          t.scopeId.equals(crdtUser.id) &
           t.uuidNodeId.notEquals(crdtUser.currentNode!.uuidNodeId),
     );
 
@@ -194,7 +194,7 @@ class CrdtSync {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final crdtDb = await _openCrdtDatabase(session);
-    await crdtDb.mergeChanges(mergeSet, userId: userId);
+    await crdtDb.mergeChanges(mergeSet, scopeId: userId);
     if (maxSyncedHlc != null) {
       await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
     }
@@ -255,7 +255,7 @@ class CrdtSync {
 
     var sessionCompleted = false;
     try {
-      final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+      final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
       final localNodeId = crdtUser.currentNode!.uuidNodeId;
 
       yield CrdtSyncConnect(
@@ -365,7 +365,7 @@ class CrdtSync {
 
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) async* {
     final rows = await CrdtDataRow.db.find(
@@ -399,6 +399,9 @@ class CrdtSync {
         foreignKeyAttemptFieldsByRowId[row.id!],
       );
       if (domainRow == null) continue;
+      if ((domainRow as dynamic).scopeId != crdtUser.id) continue;
+
+      (domainRow as dynamic).scopeId = null;
 
       yield CrdtMergeInsert(
         hlcDatetime: row.hlcDatetime,
@@ -413,7 +416,7 @@ class CrdtSync {
 
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) async* {
     final fields = await CrdtDataField.db.find(
@@ -437,6 +440,15 @@ class CrdtSync {
       }
 
       final columnName = field.column!.name;
+      if (!await _domainRowOwnedByScope(
+        session,
+        tableName,
+        field.row!.uuidRowId,
+        crdtUser.id!,
+      )) {
+        continue;
+      }
+
       final decodedValue = await _fetchColumnValue(
         session,
         tableName,
@@ -459,7 +471,7 @@ class CrdtSync {
 
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) async* {
     final tombstones = await CrdtDataDeleted.db.find(
@@ -476,6 +488,14 @@ class CrdtSync {
 
       final tableName = tombstone.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
+      if (!await _domainRowOwnedByScope(
+        session,
+        tableName,
+        tombstone.row!.uuidRowId,
+        crdtUser.id!,
+      )) {
+        continue;
+      }
 
       yield CrdtMergeDelete(
         hlcDatetime: tombstone.hlcDatetime,
@@ -491,10 +511,10 @@ class CrdtSync {
 
   Expression _rowHlcAfterFilter(
     CrdtDataRowTable t,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) =>
-      t.userId.equals(crdtUser.id) &
+      t.scopeId.equals(crdtUser.id) &
       t.node.afterAnyCheckpointFilter(
         t.node.uuidNodeId,
         t.hlcDatetime,
@@ -504,10 +524,10 @@ class CrdtSync {
 
   Expression _fieldHlcAfterFilter(
     CrdtDataFieldTable t,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) =>
-      t.row.userId.equals(crdtUser.id) &
+      t.row.scopeId.equals(crdtUser.id) &
       t.node.afterAnyCheckpointFilter(
         t.node.uuidNodeId,
         t.hlcDatetime,
@@ -517,10 +537,10 @@ class CrdtSync {
 
   Expression _tombstoneHlcAfterFilter(
     CrdtDataDeletedTable t,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) =>
-      t.row.userId.equals(crdtUser.id) &
+      t.row.scopeId.equals(crdtUser.id) &
       t.node.afterAnyCheckpointFilter(
         t.node.uuidNodeId,
         t.hlcDatetime,
@@ -588,6 +608,21 @@ class CrdtSync {
     );
     if (result.isEmpty) return null;
     return _decodeColumnValue(tableName, columnName, result.first[0]);
+  }
+
+  Future<bool> _domainRowOwnedByScope(
+    DatabaseSession session,
+    String tableName,
+    UuidValue rowId,
+    int scopeId,
+  ) async {
+    final encodedValue = ValueEncoder.instance.convert(rowId);
+    final result = await session.db.unsafeQuery(
+      'SELECT "scopeId" FROM "${_escapeIdentifier(tableName)}" '
+      'WHERE "id" = $encodedValue',
+    );
+    if (result.isEmpty) return false;
+    return result.first[0] == scopeId;
   }
 
   /// Loads FK projection metadata for outbound insert sync.
@@ -661,8 +696,10 @@ class CrdtSync {
           final definition = tableDefinitionsByName[table.tableName];
           final columns = [
             for (final column in definition?.columns ?? const <ColumnDefinition>[])
-              column.name,
-            if (definition == null) ...table.columns.map((column) => column.columnName),
+              if (column.name != 'scopeId') column.name,
+            if (definition == null)
+              for (final column in table.columns)
+                if (column.columnName != 'scopeId') column.columnName,
           ]..sort();
           final foreignKeys = _canonicalForeignKeys(definition);
           final uniqueIndexes = _canonicalUniqueIndexes(definition);

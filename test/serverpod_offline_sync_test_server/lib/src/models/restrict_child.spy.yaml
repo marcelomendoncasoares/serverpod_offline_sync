@@ -3,6 +3,8 @@ table: restrict_child
 database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
+  ### Owner scope of this row. Maintained by the CRDT sync layer.
+  scopeId: int?
   name: String
   parent: Person?, relation(field=parentId, onDelete=Restrict)
   parentId: UuidValue?

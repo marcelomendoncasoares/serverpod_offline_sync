@@ -31,11 +31,9 @@ typedef ScopeMeasurement = ({double findAllMicros, double findByIdMicros});
 /// production-shaped metadata instead of a single user's rows.
 ///
 /// On top of the [rowCount] benchmark rows, the CRDT modes seed [noiseUsers]
-/// extra users tracking [noiseCrdtRows] rows spread across every synced
-/// table, give 10% of the benchmark rows a second tracking user, and
-/// tombstone half of those second trackers. The visibility predicates must
-/// keep all [rowCount] rows visible in every mode, so the benchmark doubles
-/// as a correctness check that foreign tombstones do not mask shared rows.
+/// extra scopes tracking [noiseCrdtRows] unrelated rows spread across every
+/// synced table. Random UUIDs keep the noise ownership-conformant while still
+/// exercising large CRDT metadata tables.
 class TombstoneScopeBenchmark {
   TombstoneScopeBenchmark(
     this.name, {
@@ -138,23 +136,15 @@ class TombstoneScopeBenchmark {
     final hiddenVisibility = CrdtDataRowVisibility.userDelete.index;
 
     final benchUserId =
-        (await db.unsafeQuery('SELECT MIN("id") FROM "crdt_users"')).first[0]
-            as int;
-    final typesTblId =
-        (await db.unsafeQuery(
-              'SELECT "id" FROM "crdt_schema_tables" '
-              "WHERE \"name\" = '${Types.t.tableName}'",
-            )).first[0]
-            as int;
-
+        (await db.unsafeQuery('SELECT MIN("id") FROM "crdt_scopes"')).first[0] as int;
     await db.unsafeExecute('''
 WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < $noiseUsers - 1)
-INSERT INTO "crdt_users" ("currentNodeId") SELECT NULL FROM n
+INSERT INTO "crdt_scopes" ("currentNodeId") SELECT NULL FROM n
 ''');
     await db.unsafeExecute('''
-INSERT INTO "crdt_nodes" ("userId")
-SELECT u."id" FROM "crdt_users" u
-WHERE NOT EXISTS (SELECT 1 FROM "crdt_nodes" n WHERE n."userId" = u."id")
+INSERT INTO "crdt_nodes" ("scopeId")
+SELECT u."id" FROM "crdt_scopes" u
+WHERE NOT EXISTS (SELECT 1 FROM "crdt_nodes" n WHERE n."scopeId" = u."id")
 ''');
 
     // Noise rows for every noise user, spread across all synced tables, with
@@ -163,36 +153,19 @@ WHERE NOT EXISTS (SELECT 1 FROM "crdt_nodes" n WHERE n."userId" = u."id")
 WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < $noiseCrdtRows - 1),
 users(rowidx, uid) AS (
   SELECT ROW_NUMBER() OVER (ORDER BY "id") - 1, "id"
-  FROM "crdt_users" WHERE "id" <> $benchUserId
+  FROM "crdt_scopes" WHERE "id" <> $benchUserId
 ),
 tbls(tblidx, tid) AS (
   SELECT ROW_NUMBER() OVER (ORDER BY "id") - 1, "id" FROM "crdt_schema_tables"
 )
 INSERT INTO "crdt_data_rows"
-  ("hlcDatetime", "hlcCounter", "userId", "tblId", "uuidRowId", "nodeId", "visibility")
+  ("hlcDatetime", "hlcCounter", "scopeId", "tblId", "uuidRowId", "nodeId", "visibility")
 SELECT 0, 0, u.uid, t.tid, randomblob(16),
-       (SELECT nd."id" FROM "crdt_nodes" nd WHERE nd."userId" = u.uid LIMIT 1),
+       (SELECT nd."id" FROM "crdt_nodes" nd WHERE nd."scopeId" = u.uid LIMIT 1),
        CASE WHEN n.i % 10 = 0 THEN $hiddenVisibility ELSE 0 END
 FROM n
 JOIN users u ON u.rowidx = n.i % $noiseUsers
 JOIN tbls t ON t.tblidx = n.i % (SELECT COUNT(*) FROM "crdt_schema_tables")
-''');
-
-    // Second trackers over 10% of the benchmark rows, half of them
-    // tombstoned. The owner's rows stay visible, so foreign tombstones must
-    // not mask them in any mode.
-    await db.unsafeExecute('''
-INSERT INTO "crdt_data_rows"
-  ("hlcDatetime", "hlcCounter", "userId", "tblId", "uuidRowId", "nodeId", "visibility")
-SELECT 0, 0, u.uid, c."tblId", c."uuidRowId",
-       (SELECT nd."id" FROM "crdt_nodes" nd WHERE nd."userId" = u.uid LIMIT 1),
-       CASE WHEN c."id" % 2 = 0 THEN $hiddenVisibility ELSE 0 END
-FROM "crdt_data_rows" c
-JOIN (
-  SELECT ROW_NUMBER() OVER (ORDER BY "id") - 1 AS rowidx, "id" AS uid
-  FROM "crdt_users" WHERE "id" <> $benchUserId
-) u ON u.rowidx = c."id" % $noiseUsers
-WHERE c."userId" = $benchUserId AND c."tblId" = $typesTblId AND c."id" % 10 = 0
 ''');
 
     await db.unsafeExecute('ANALYZE');

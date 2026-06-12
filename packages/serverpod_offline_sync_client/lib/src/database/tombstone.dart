@@ -8,7 +8,7 @@ import '../protocol/protocol.dart';
 /// null when the table is not registered for CRDT synchronization.
 typedef CrdtTableIdResolver = int? Function(String tableName);
 
-/// Resolves the [CrdtUser] id scoping the current query. Returns null when no
+/// Resolves the [CrdtScope] id scoping the current query. Returns null when no
 /// user scope is available (e.g. server-side reads outside
 /// `transactionForUser` without a persistent user), in which case a row is
 /// only hidden when every user tracking it has it hidden.
@@ -140,7 +140,7 @@ extension on Table {
   /// reads keep rows that are still visible to some user.
   ///
   /// The scoped form is a correlated `NOT EXISTS` probe covered by the
-  /// (userId, tblId, uuidRowId) unique index, so point lookups stay
+  /// (scopeId, tblId, uuidRowId) unique index, so point lookups stay
   /// index-bound and planners can flatten it into an anti-join for scans.
   /// The unscoped form deliberately stays uncorrelated (one scan and
   /// aggregate per query): without a (tblId, uuidRowId) index, correlated
@@ -156,44 +156,41 @@ extension on Table {
     final crdtRow = CrdtDataRow.t;
     final userId = scopeUserId();
     if (userId != null) {
-      return Expression(
-        'NOT EXISTS '
-        '(SELECT 1 FROM "${crdtRow.tableName}" '
-        'WHERE ${crdtRow.userId} = $userId '
-        'AND ${crdtRow.tblId} = $tableId '
-        'AND ${crdtRow.uuidRowId} = $id '
-        'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
-      );
+      final scopeColumn = scopeIdColumn;
+      if (scopeColumn == null) return null;
+
+      return id.equals(null) |
+          (Expression('$scopeColumn = $userId') &
+              Expression(
+                'NOT EXISTS '
+                '(SELECT 1 FROM "${crdtRow.tableName}" '
+                'WHERE ${crdtRow.scopeId} = $userId '
+                'AND ${crdtRow.tblId} = $tableId '
+                'AND ${crdtRow.uuidRowId} = $id '
+                'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+              ));
     }
 
-    // TODO: Once Serverpod supports server-only indexes, replace the unscoped
-    // below query with the correlated probes ("no tracker, or at least one
-    // visible tracker"). They keep point lookups index-bound and need no `id IS
-    // NULL` guard, since a null id correlates to no CRDT row and stays visible:
-    //
-    // ```dart
-    // return Expression(
-    //       'NOT EXISTS '
-    //       '(SELECT 1 FROM "${crdtRow.tableName}" '
-    //       'WHERE ${crdtRow.tblId} = $tableId '
-    //       'AND ${crdtRow.uuidRowId} = $id)',
-    //     ) |
-    //     Expression(
-    //       'EXISTS '
-    //       '(SELECT 1 FROM "${crdtRow.tableName}" '
-    //       'WHERE ${crdtRow.tblId} = $tableId '
-    //       'AND ${crdtRow.uuidRowId} = $id '
-    //       'AND ${crdtRow.visibility} <= $crdtRowLastVisibleVisibilityIndex)',
-    //     );
-    // ```
+    final scopeColumn = scopeIdColumn;
+    if (scopeColumn == null) return null;
+
     return id.equals(null) |
         Expression(
-          '$id NOT IN '
-          '(SELECT ${crdtRow.uuidRowId} FROM "${crdtRow.tableName}" '
-          'WHERE ${crdtRow.tblId} = $tableId '
-          'GROUP BY ${crdtRow.uuidRowId} '
-          'HAVING MIN(${crdtRow.visibility}) > '
-          '$crdtRowLastVisibleVisibilityIndex)',
+          'NOT EXISTS '
+          '(SELECT 1 FROM "${crdtRow.tableName}" '
+          'WHERE ${crdtRow.scopeId} = $scopeColumn '
+          'AND ${crdtRow.tblId} = $tableId '
+          'AND ${crdtRow.uuidRowId} = $id '
+          'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
         );
+  }
+
+  Column<int>? get scopeIdColumn {
+    for (final column in columns) {
+      if (column.columnName == 'scopeId' && column is Column<int>) {
+        return column;
+      }
+    }
+    return null;
   }
 }

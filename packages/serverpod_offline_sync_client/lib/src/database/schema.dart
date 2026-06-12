@@ -17,6 +17,26 @@ class CrdtSchemaRegistry {
         '${tablesWithoutUuidPk.map((t) => '"${t.tableName}"').join(', ')}',
       );
     }
+
+    final tablesWithoutScopeId = syncTables.where((table) {
+      final scopeColumn = _scopeIdColumn(table);
+      return scopeColumn == null || scopeColumn is! Column<int>;
+    }).toList();
+    if (tablesWithoutScopeId.isNotEmpty) {
+      throw StateError(
+        'CRDT can only synchronize tables with a nullable int scopeId column, '
+        'but ${tablesWithoutScopeId.length} table(s) are missing it or declare '
+        'it with the wrong type: '
+        '${tablesWithoutScopeId.map((t) => '"${t.tableName}"').join(', ')}\n\n'
+        'Add this field to every synced model:\n'
+        'fields:\n'
+        '  id: UuidValue?, defaultPersist=random_v7\n'
+        '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
+        '  scopeId: int?\n\n'
+        'If the column is declared with scope=serverOnly, remove the scope; '
+        'the column must exist on every database.',
+      );
+    }
   }
 
   final DatabaseSession _session;
@@ -27,7 +47,8 @@ class CrdtSchemaRegistry {
   late final _columnsPerTableName = {
     for (final table in syncTables)
       table.tableName: [
-        for (final column in table.columns) column.columnName,
+        for (final column in table.columns)
+          if (column.columnName != 'scopeId') column.columnName,
       ],
   };
 
@@ -117,4 +138,11 @@ class CrdtSchemaRegistry {
 
     return foundColumnRows;
   }
+}
+
+Column? _scopeIdColumn(Table table) {
+  for (final column in table.columns) {
+    if (column.columnName == 'scopeId') return column;
+  }
+  return null;
 }

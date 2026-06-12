@@ -36,7 +36,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          userId: testCrdtUserId,
+          scopeId: testCrdtUserId,
         );
       });
 
@@ -100,7 +100,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -194,7 +194,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -230,7 +230,10 @@ void main() {
               include: CrdtDataField.include(node: CrdtNode.include()),
             );
 
-            expect(fields.length, Person.t.columns.length - 1); // -1 for the id column
+            final domainFieldCount = Person.t.columns
+                .where((c) => c.columnName != 'id' && c.columnName != 'scopeId')
+                .length;
+            expect(fields.length, domainFieldCount);
             expect(
               fields.map((f) => f.hlc),
               everyElement(remoteInsert.hlc),
@@ -331,7 +334,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
 
           final row = await Person.db.findById(session, person.id!);
@@ -407,7 +410,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -482,7 +485,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -550,7 +553,7 @@ void main() {
 
         await session.db.mergeChanges(
           mergeSet,
-          userId: testCrdtUserId,
+          scopeId: testCrdtUserId,
         );
 
         final row = await CrdtDataRow.db.findFirstRow(
@@ -573,7 +576,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -662,7 +665,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 

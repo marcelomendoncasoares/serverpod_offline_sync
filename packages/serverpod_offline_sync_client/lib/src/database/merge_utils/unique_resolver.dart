@@ -1,8 +1,10 @@
 part of '../recorder.dart';
 
 typedef _UniqueConflict = ({
-  CrdtDataRow row,
+  CrdtDataRow? row,
+  UuidValue rowId,
   _UniqueIndexConflictRelease uniqueIndex,
+  bool foreignScope,
 });
 
 /// Resolves unique constraint conflicts that appear while merging CRDT changes.
@@ -29,6 +31,20 @@ class CrdtUniqueConflictResolver {
     );
 
     for (final conflict in conflicts) {
+      if (conflict.foreignScope) {
+        resolvedData.addAll(
+          _uniqueConflictFreeValuesForData(
+            insert.tableName,
+            insert.uuidRowId,
+            resolvedData,
+            conflict.uniqueIndex,
+          ),
+        );
+        changed = true;
+        continue;
+      }
+
+      final conflictRow = conflict.row!;
       final incomingClaimHlc = _incomingInsertUniqueClaim(
         insert: insert,
         uniqueIndex: conflict.uniqueIndex,
@@ -36,7 +52,7 @@ class CrdtUniqueConflictResolver {
       );
       final conflictClaimHlc = await _uniqueIndexHlc(
         tableName: insert.tableName,
-        row: conflict.row,
+        row: conflictRow,
         uniqueIndex: conflict.uniqueIndex,
         fields: context.fields,
         transaction: transaction,
@@ -55,7 +71,7 @@ class CrdtUniqueConflictResolver {
       } else {
         await _releaseUniqueConflictForRow(
           tableName: insert.tableName,
-          rowId: conflict.row.uuidRowId,
+          rowId: conflictRow.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
           transaction: transaction,
         );
@@ -146,6 +162,23 @@ class CrdtUniqueConflictResolver {
 
     final resolvedUpdates = Map<String, Object?>.from(updates);
     for (final conflict in conflicts) {
+      if (conflict.foreignScope) {
+        final releasedValues = _uniqueConflictFreeValuesForData(
+          tableName,
+          row.uuidRowId,
+          values,
+          conflict.uniqueIndex,
+        );
+        for (final columnName in conflict.uniqueIndex.columnNames) {
+          if (releasedValues.containsKey(columnName)) {
+            resolvedUpdates[columnName] = releasedValues[columnName];
+            values[columnName] = releasedValues[columnName];
+          }
+        }
+        continue;
+      }
+
+      final conflictRow = conflict.row!;
       final rowClaimHlc = await _uniqueIndexHlc(
         tableName: tableName,
         row: row,
@@ -155,7 +188,7 @@ class CrdtUniqueConflictResolver {
       );
       final conflictClaimHlc = await _uniqueIndexHlc(
         tableName: tableName,
-        row: conflict.row,
+        row: conflictRow,
         uniqueIndex: conflict.uniqueIndex,
         fields: context.fields,
         transaction: transaction,
@@ -177,7 +210,7 @@ class CrdtUniqueConflictResolver {
       } else {
         await _releaseUniqueConflictForRow(
           tableName: tableName,
-          rowId: conflict.row.uuidRowId,
+          rowId: conflictRow.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
           transaction: transaction,
         );
@@ -274,9 +307,14 @@ class CrdtUniqueConflictResolver {
     }
 
     if (uniqueIndexesByConflictId.isEmpty) return const [];
-    final conflictRows = await _recorder._findCrdtRows(
+    final foreignScopeConflictIds = await _recorder._foreignOwnedDomainRowIds(
       tableName,
       uniqueIndexesByConflictId.keys.toSet(),
+      transaction,
+    );
+    final conflictRows = await _recorder._findCrdtRows(
+      tableName,
+      uniqueIndexesByConflictId.keys.toSet().difference(foreignScopeConflictIds),
       transaction,
       include: CrdtDataRow.include(
         node: CrdtNode.include(),
@@ -284,11 +322,21 @@ class CrdtUniqueConflictResolver {
       ),
     );
     return [
+      for (final conflictId in foreignScopeConflictIds)
+        for (final uniqueIndex in uniqueIndexesByConflictId[conflictId]!)
+          (
+            row: null,
+            rowId: conflictId,
+            uniqueIndex: uniqueIndex,
+            foreignScope: true,
+          ),
       for (final conflictRow in conflictRows)
         for (final uniqueIndex in uniqueIndexesByConflictId[conflictRow.uuidRowId]!)
           (
             row: conflictRow,
+            rowId: conflictRow.uuidRowId,
             uniqueIndex: uniqueIndex,
+            foreignScope: false,
           ),
     ];
   }

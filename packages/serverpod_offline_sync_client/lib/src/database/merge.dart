@@ -16,10 +16,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
   /// Locks the current user row so merges can serialize with other work.
   Future<void> lockCurrentUser(Transaction transaction) async {
-    final user = _getEffectiveUser(transaction);
+    final user = _getEffectiveScope(transaction);
     // Use a row lock without fetching the record since the merge path only
     // needs serialization against concurrent work for the same user.
-    await CrdtUser.db.lockRows(
+    await CrdtScope.db.lockRows(
       _session,
       where: (t) => t.id.equals(user.id),
       transaction: transaction,
@@ -39,7 +39,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final shouldProjectForeignKeys = _mergeOperationsMayAffectForeignKeys(
       operations,
     );
-    final currentUser = _getEffectiveUser(transaction);
+    final currentUser = _getEffectiveScope(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
       {for (final change in operations) change.uuidNodeId},
@@ -150,7 +150,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     var nodes = await CrdtNode.db.find(
       _session,
-      where: (t) => t.userId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
+      where: (t) => t.scopeId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
       transaction: transaction,
     );
     final existingNodeIds = nodes.map((node) => node.uuidNodeId).toSet();
@@ -162,7 +162,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         [
           for (final uuidNodeId in missingNodeIds)
             CrdtNode(
-              userId: userId,
+              scopeId: userId,
               uuidNodeId: uuidNodeId,
             ),
         ],
@@ -172,7 +172,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
       nodes = await CrdtNode.db.find(
         _session,
-        where: (t) => t.userId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
+        where: (t) => t.scopeId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
         transaction: transaction,
       );
     }
@@ -273,6 +273,23 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
 
     if (currentRow == null) {
+      final owner = await _readDomainRowOwner(
+        insert.tableName,
+        insert.uuidRowId,
+        transaction,
+      );
+      if (owner.exists &&
+          owner.scopeId != _getHlcManager(transaction).normalizedScopeId) {
+        await _warnSkippedForeignScopeMerge(
+          operation: 'insert',
+          tableName: insert.tableName,
+          rowId: insert.uuidRowId,
+          owningScopeId: owner.scopeId,
+          mergingScopeId: _getHlcManager(transaction).normalizedScopeId,
+        );
+        return;
+      }
+
       final resolvedInsert = await _uniqueConflictResolver._resolveForIncomingInsert(
         insert,
         data,
@@ -322,6 +339,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final rowKey = (update.tableName, update.uuidRowId);
     final row = context.rows[rowKey];
     if (row == null) return;
+    if (!await _domainRowOwnedByEffectiveScope(
+      operation: 'update',
+      tableName: update.tableName,
+      rowId: update.uuidRowId,
+      transaction: transaction,
+    )) {
+      return;
+    }
 
     final shouldApply = await _shouldMergeFieldMetadataIfNewer(
       tableName: update.tableName,
@@ -373,6 +398,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final row = context.rows[rowKey];
     if (row == null) return;
     if (!delete.reason.isSynced) return;
+    if (!await _domainRowOwnedByEffectiveScope(
+      operation: 'delete',
+      tableName: delete.tableName,
+      rowId: delete.uuidRowId,
+      transaction: transaction,
+    )) {
+      return;
+    }
 
     final currentTombstone = context.tombstones[rowKey];
     final currentClFlag = currentTombstone?.clFlag ?? 1;
@@ -412,7 +445,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       final insertedRow = await CrdtDataRow.db.insertRow(
         _session,
         CrdtDataRow(
-          userId: _getHlcManager(transaction).normalizedUserId,
+          scopeId: _getHlcManager(transaction).normalizedScopeId,
           tblId: tableId,
           uuidRowId: rowId,
           nodeId: remoteNode.id!,
@@ -555,16 +588,20 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     final tableRow = _requireMergeInsertTableRow(insert);
     final patchedRow = _db.serializationManager.patchTableRow(tableRow, data);
+    final scopedRow = _withScopeId(
+      patchedRow,
+      _getHlcManager(transaction).normalizedScopeId,
+    );
     try {
       await _db.updateRow(
-        patchedRow,
-        columns: patchedRow.table.managedColumns
+        scopedRow,
+        columns: scopedRow.table.managedColumns
             .where((c) => data.containsKey(c.columnName))
             .toList(),
         transaction: transaction,
       );
     } on DatabaseUpdateRowException {
-      await _db.insertRow(patchedRow, transaction: transaction);
+      await _db.insertRow(scopedRow, transaction: transaction);
     }
 
     return insertedCrdtRow;
@@ -579,6 +616,15 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     _MergeContext context,
     Transaction transaction,
   ) async {
+    if (!await _domainRowOwnedByEffectiveScope(
+      operation: 'insert',
+      tableName: insert.tableName,
+      rowId: insert.uuidRowId,
+      transaction: transaction,
+    )) {
+      return;
+    }
+
     final (_, columnsByName) = _schema[insert.tableName]!;
     final updatedValues = <String, Object?>{};
     for (final MapEntry(key: columnName, value: schemaColumn)
@@ -715,11 +761,66 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     return {
       for (final MapEntry(key: columnName, value: value) in data.entries)
-        if (columnName != 'id' && columns.containsKey(columnName))
+        if (columnName != 'id' &&
+            columnName != 'scopeId' &&
+            columns.containsKey(columnName))
           columnName: columns[columnName]!.columnType == ColumnType.uuid
               ? _uuidValueFromDatabase(value)
               : value,
     };
+  }
+
+  Future<({bool exists, int? scopeId})> _readDomainRowOwner(
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    final values = await _readDomainColumnValues(
+      tableName,
+      {rowId},
+      ['scopeId'],
+      transaction,
+    );
+    final row = values[rowId];
+    if (row == null) return (exists: false, scopeId: null);
+    return (exists: true, scopeId: row['scopeId'] as int?);
+  }
+
+  Future<bool> _domainRowOwnedByEffectiveScope({
+    required String operation,
+    required String tableName,
+    required UuidValue rowId,
+    required Transaction transaction,
+  }) async {
+    final owner = await _readDomainRowOwner(tableName, rowId, transaction);
+    final mergingScopeId = _getHlcManager(transaction).normalizedScopeId;
+    if (owner.exists && owner.scopeId == mergingScopeId) return true;
+
+    await _warnSkippedForeignScopeMerge(
+      operation: operation,
+      tableName: tableName,
+      rowId: rowId,
+      owningScopeId: owner.scopeId,
+      mergingScopeId: mergingScopeId,
+    );
+    return false;
+  }
+
+  Future<void> _warnSkippedForeignScopeMerge({
+    required String operation,
+    required String tableName,
+    required UuidValue rowId,
+    required int? owningScopeId,
+    required int mergingScopeId,
+  }) async {
+    await _dbSession.logWarning?.call(
+      'Skipped CRDT merge $operation for $tableName.$rowId because the domain '
+      'row belongs to scope $owningScopeId while merging scope $mergingScopeId.',
+    );
+  }
+
+  T _withScopeId<T extends TableRow>(T row, int scopeId) {
+    return (row as dynamic).copyWith(scopeId: scopeId) as T;
   }
 }
 
@@ -728,7 +829,9 @@ extension on DatabaseSerializationManager {
   T patchTableRow<T extends TableRow>(T row, Map<String, Object?> data) {
     final rowJson = Map<String, dynamic>.from(row.toJson() as Map);
     for (final column in row.table.managedColumns) {
-      if (column.columnName != 'id' && data.containsKey(column.columnName)) {
+      if (column.columnName != 'id' &&
+          column.columnName != 'scopeId' &&
+          data.containsKey(column.columnName)) {
         rowJson[column.fieldName] = data[column.columnName];
       }
     }

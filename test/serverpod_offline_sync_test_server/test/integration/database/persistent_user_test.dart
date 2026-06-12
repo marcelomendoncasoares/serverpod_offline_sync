@@ -25,13 +25,13 @@ void main() {
         expect(loaded?.name, 'local-only');
       });
 
-      test('then the CRDT user exists.', () async {
-        final crdtUser = await CrdtUser.db.findFirstRow(
+      test('then the CRDT scope exists.', () async {
+        final crdtScope = await CrdtScope.db.findFirstRow(
           session,
-          where: (t) => t.uuidUserId.equals(testCrdtUserId),
-          include: CrdtUser.include(currentNode: CrdtNode.include()),
+          where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+          include: CrdtScope.include(currentNode: CrdtNode.include()),
         );
-        expect(crdtUser, isNotNull);
+        expect(crdtScope, isNotNull);
       });
 
       test('then the CRDT metadata is written.', () async {

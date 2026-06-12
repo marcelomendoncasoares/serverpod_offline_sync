@@ -7,27 +7,27 @@ import '../protocol/protocol.dart';
 /// for CRDT operations.
 class HlcManager {
   HlcManager._(
-    this.uuidUserId,
-    this.normalizedUserId,
+    this.uuidScopeId,
+    this.normalizedScopeId,
     this.normalizedNodeId,
     this.lastHlc,
   );
 
-  /// Creates a new [HlcManager] for the current node of [user].
-  factory HlcManager.forUser(CrdtUser user) {
+  /// Creates a new [HlcManager] for the current node of [scope].
+  factory HlcManager.forScope(CrdtScope scope) {
     return HlcManager._(
-      user.uuidUserId,
-      user.id!,
-      user.currentNodeId!,
-      user.currentNode!.lastReceivedHlc ?? Hlc.zero(user.currentNode!.uuidNodeId),
+      scope.uuidScopeId,
+      scope.id!,
+      scope.currentNodeId!,
+      scope.currentNode!.lastReceivedHlc ?? Hlc.zero(scope.currentNode!.uuidNodeId),
     );
   }
 
-  /// The UUID of the user this manager is for.
-  final UuidValue uuidUserId;
+  /// The UUID of the scope this manager is for.
+  final UuidValue uuidScopeId;
 
-  /// The normalized user ID of the user this manager is for.
-  final int normalizedUserId;
+  /// The normalized scope ID of the scope this manager is for.
+  final int normalizedScopeId;
 
   /// The node ID of the current node.
   UuidValue get uuidNodeId => lastHlc.nodeId;
@@ -52,7 +52,7 @@ class HlcManager {
   /// Converts this manager state to the persisted current-node model.
   CrdtNode getNode() => CrdtNode(
     id: normalizedNodeId,
-    userId: normalizedUserId,
+    scopeId: normalizedScopeId,
     uuidNodeId: uuidNodeId,
     lastReceivedHlc: lastHlc,
   );

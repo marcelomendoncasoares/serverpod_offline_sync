@@ -10,8 +10,8 @@ extends: BaseHlc
 table: crdt_data_rows
 database: all
 fields:
-  ### Identifier for the user or client that owns the data.
-  user: CrdtUser?, relation(onDelete=Cascade)
+  ### Identifier for the scope that owns the data.
+  scope: CrdtScope?, relation(onDelete=Cascade)
 
   ### Reference to the table this row belongs to.
   tbl: CrdtSchemaTable?, relation(onDelete=Cascade)
@@ -38,16 +38,6 @@ fields:
   fields: List<CrdtDataField>?, relation(name=row_fields)
 
 indexes:
-  crdt_data_rows_user_tbl_row_idx:
-    fields: userId, tblId, uuidRowId
+  crdt_data_rows_scope_tbl_row_idx:
+    fields: scopeId, tblId, uuidRowId
     unique: true
-  ### TODO: Enable as serverOnly once Serverpod supports scoping indexes.
-  ###
-  ### Would cover the user-agnostic tombstone visibility scan, which filters
-  ### by table and row id across all users (see whereVisibleOnCrdtRow). Only
-  ### the server runs user-agnostic queries, but the index would cost every
-  ### client ~21 bytes per CRDT row plus write amplification, so it is left
-  ### out until it can be restricted to the server database.
-  # crdt_data_rows_tbl_row_vis_idx:
-  #   fields: tblId, uuidRowId, visibility
-  #   serverOnly: true

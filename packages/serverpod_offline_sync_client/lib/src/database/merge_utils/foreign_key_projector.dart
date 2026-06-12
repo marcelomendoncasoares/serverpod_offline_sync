@@ -409,10 +409,10 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
 
     for (final tableName in _syncTableByName.keys) {
       final (tableId, _) = _schema[tableName]!;
-      final userId = _getHlcManager(transaction).normalizedUserId;
+      final userId = _getHlcManager(transaction).normalizedScopeId;
       final crdtRows = await CrdtDataRow.db.find(
         _session,
-        where: (t) => t.userId.equals(userId) & t.tblId.equals(tableId),
+        where: (t) => t.scopeId.equals(userId) & t.tblId.equals(tableId),
         include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
         orderBy: (t) => t.uuidRowId,
         transaction: transaction,
@@ -519,11 +519,11 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     if (rowIds.isEmpty || columnNames.isEmpty) return {};
 
     final (tableId, _) = _schema[tableName]!;
-    final userId = _getHlcManager(transaction).normalizedUserId;
+    final userId = _getHlcManager(transaction).normalizedScopeId;
     final fields = await CrdtDataField.db.find(
       _session,
       where: (t) =>
-          t.row.userId.equals(userId) &
+          t.row.scopeId.equals(userId) &
           t.row.tblId.equals(tableId) &
           t.row.uuidRowId.inSet(rowIds) &
           t.column.name.inSet(columnNames),
@@ -1059,7 +1059,13 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
   ) async {
     final rowIds = await _findVisibleDomainRowIdsWhere(
       tableName: edge.parentTableName,
-      predicates: [_domainColumnPredicate(edge.parentColumn, value)],
+      predicates: [
+        _domainColumnPredicate(edge.parentColumn, value),
+        _domainColumnPredicate(
+          'scopeId',
+          _getHlcManager(transaction).normalizedScopeId,
+        ),
+      ],
       transaction: transaction,
     );
     return rowIds.isNotEmpty;

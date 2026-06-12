@@ -82,7 +82,7 @@ void main() {
     },
   );
 
-  group('Given a row tracked by two users on the same database,', () {
+  group('Given a row owned by one user on the same database,', () {
     late UuidValue rowId;
     late UuidValue otherUserId;
     late UuidValue otherUserNodeId;
@@ -111,10 +111,10 @@ void main() {
             uuidNodeId: otherUserNodeId,
             hlcDatetime: otherUserInsertHlc.datetime,
             hlcCounter: otherUserInsertHlc.counter,
-            data: Person(id: rowId, name: 'shared row'),
+            data: Person(id: rowId, name: 'foreign row'),
           ),
         ],
-        userId: otherUserId,
+        scopeId: otherUserId,
       );
     });
 
@@ -130,7 +130,31 @@ void main() {
       },
     );
 
-    group('when only the other user has a delete tombstone for the row,', () {
+    test(
+      'when another user merges an insert with the same row id, '
+      'then no second CRDT tracker is recorded.',
+      () async {
+        final crdtRows = await CrdtDataRow.db.find(
+          session,
+          where: (t) => t.uuidRowId.equals(rowId),
+        );
+
+        expect(crdtRows, hasLength(1));
+      },
+    );
+
+    test(
+      'when another user merges an insert with the same row id, '
+      'then the owner row is not overwritten.',
+      () async {
+        final row = await Person.db.findById(testSession, rowId);
+
+        expect(row, isNotNull);
+        expect(row!.name, 'shared row');
+      },
+    );
+
+    group('when the other user merges a delete for the row,', () {
       setUp(() async {
         await session.db.mergeChanges(
           [
@@ -144,12 +168,24 @@ void main() {
               reason: CrdtDataDeletedReason.userDelete,
             ),
           ],
-          userId: otherUserId,
+          scopeId: otherUserId,
         );
       });
 
       test(
-        'then the tombstone does not mask the row for the first user.',
+        'then no tombstone is recorded.',
+        () async {
+          final tombstoneCount = await CrdtDataDeleted.db.count(
+            session,
+            where: (t) => t.row.uuidRowId.equals(rowId),
+          );
+
+          expect(tombstoneCount, 0);
+        },
+      );
+
+      test(
+        'then the owner can still read the row.',
         () async {
           final found = await session.db.transactionForUser(
             testCrdtUserId,
@@ -159,42 +195,6 @@ void main() {
           expect(found, isNotNull);
         },
       );
-
-      test('then the row is hidden for the other user.', () async {
-        final found = await session.db.transactionForUser(
-          otherUserId,
-          (tx) => Person.db.findById(session, rowId, transaction: tx),
-        );
-
-        expect(found, isNull);
-      });
-
-      test(
-        'then the row remains visible for queries without a user scope.',
-        () async {
-          expect(await Person.db.findById(session, rowId), isNotNull);
-        },
-      );
-
-      group('and the first user also deletes the row,', () {
-        setUp(() async {
-          await session.db.transactionForUser(
-            testCrdtUserId,
-            (tx) => Person.db.deleteWhere(
-              session,
-              where: (t) => t.id.equals(rowId),
-              transaction: tx,
-            ),
-          );
-        });
-
-        test(
-          'then the row is hidden for queries without a user scope.',
-          () async {
-            expect(await Person.db.findById(session, rowId), isNull);
-          },
-        );
-      });
     });
   });
 }
