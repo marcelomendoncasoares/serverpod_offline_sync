@@ -14,10 +14,13 @@ different users silently overwrite each other across tenant boundaries.
 
 This document makes ownership explicit. The core decisions:
 
-> **Every synced row is owned by exactly one scope.** Two scopes never sync
-> the same row. Sharing, when it arrives, will be modeled as shared scopes
-> that multiple identities subscribe to — never as two scopes aliasing one
-> row.
+> **Every synced domain row is globally identified by `(table, uuidRowId)` and
+> owned by exactly one scope.** `scopeId` is not part of row identity; it is
+> ownership and isolation metadata on a globally identified row. Two scopes
+> never materialize or sync the same `(table, uuidRowId)`. Cross-scope UUID
+> reuse is an ownership collision, not valid multi-tenant state. Sharing, when
+> it arrives, will be modeled as shared scopes that multiple identities
+> subscribe to — never as two scopes aliasing one row.
 
 > **Every synced table declares `scopeId`, identically on server and
 > client.** The column is a hard requirement, never `scope=serverOnly`, so
@@ -133,6 +136,11 @@ makes LWW merging coherent.
 
 `scopeId` is a reserved column name, required on every synced table:
 
+- **It is not part of row identity.** The domain primary key remains the
+  required `id: UuidValue`, and `(table, uuidRowId)` remains globally unique
+  in the physical domain table. A row with the same UUID in a different scope
+  cannot be represented as a second domain row; it is treated as a corrupt or
+  hostile ownership collision and is skipped/logged on merge.
 - The value references `crdt_scopes.id` (the table currently named
   `crdt_users`; renamed in Phase 1) — the scope that owns the row. Today a
   scope is a user; the name is chosen deliberately so shared scopes can be
@@ -186,6 +194,23 @@ Consequences of the rule:
   scope), and incoming payloads have the field stripped by
   `_sanitizeMergeRowData` — it is not portable data.
 
+The same effective-scope requirement applies to every CRUD entrypoint, not
+only inserts:
+
+- `insert`/`insertRow`/batch insert: stamp-or-assert before the delegate write;
+- reinsert of a tombstoned row: only the same owning scope can revive it;
+  a foreign-scope row id is a UUID ownership collision, not a reinsert target;
+- `update`/`updateRow`: the scoped `WHERE` includes `scopeId = <scope>`, and
+  `scopeId` is removed from the SET list even if it appears in `columns`;
+- `updateWhere`/`updateById`: any `ColumnValue` for `scopeId` is rejected (or
+  dropped before SQL generation, but rejection gives better caller feedback),
+  and the scoped `WHERE` still includes `scopeId = <scope>`;
+- `delete`/`deleteRow`/`deleteWhere`: deletes only see rows owned by the
+  effective scope, so a foreign row id returns "no rows" instead of recording a
+  tombstone for another owner;
+- future `upsert`: must first resolve ownership of the conflicting row and may
+  update only when the existing row's `scopeId` equals the effective scope.
+
 ### Keeping the value off the wire
 
 The wire discipline is enforced by construction and respects the caller's
@@ -194,9 +219,11 @@ choice: **the field leaves the package the way it came in.**
 - **Stamped values stay internal.** When a model comes in with `scopeId`
   null, the proxy stamps the effective scope for the database write, and
   the rows handed back by that operation carry null again. The same applies
-  to scoped reads, which have no input model to respect. Callers who never
-  provide the value never observe it, and cannot serialize the
-  database-local int into endpoint payloads even by accident.
+  to scoped reads, which have no input model to respect. Stripping applies to
+  every synced model instance returned by the proxy, including nested
+  `IncludeObject` and `IncludeList` result graphs. Callers who never provide
+  the value never observe it, and cannot serialize the database-local int into
+  endpoint payloads even by accident.
 - **Explicit values are respected.** When a model comes in with `scopeId`
   set (and verified by the assert arm), the rows returned by that operation
   keep it — the package does not hide a value the caller knowingly manages.
@@ -230,7 +257,10 @@ the reserved name, it is excluded from:
 - `crdt_schema_columns` registration and field-level CRDT metadata (it has no
   HLC history; it is never merged as a field) — which also keeps it out of
   the synced-schema hash symmetrically on both sides;
-- update recording (`afterUpdate` ignores it) and merge payload sanitization.
+- update recording (`afterUpdate` ignores it) and merge payload sanitization;
+- outbound sync insert payloads and outbound sync update payloads. The sender
+  must not serialize `scopeId` from the domain row; the receiver stamps the
+  merge-local normalized scope instead.
 
 ### Validation
 
@@ -274,19 +304,37 @@ owned by another scope, regardless of HLC. The flag policy (see
 
 1. **Local writes: stamp-or-assert** (see *Write semantics*), with the
    effective scope required exactly as it already is for CRDT recording.
-2. **Merge-insert ownership check.** `_applyMergeInsertForMissingRow` reads
-   the existing domain row before writing. If it exists and its `scopeId`
-   differs from the merging scope, the incoming insert is **skipped and
-   logged**: a structured session-log warning carrying operation, table, row
-   id, owning scope, and merging scope. (A dedicated `crdt_sync_audit` table
-   is deferred until a concrete consumer exists.) This mirrors how updates
-   and deletes already no-op without a tracker. Re-keying the incoming row
-   to a synthetic UUID was considered (non-lossy, consistent with the unique
-   flag policy) but rejected: row identity re-keying breaks the incoming
-   chain's own foreign key references to that UUID, which would require
-   alias tracking across the whole merge. UUIDv7 collisions between honest
-   clients are negligible; a collision is a bug or an attack, and skipping
-   is the safe response to both.
+2. **Merge-insert ownership check.** `_applyMergeInsertForMissingRow` treats
+   an existing domain row with another `scopeId` as a UUID ownership collision.
+   The check is atomic with the physical write:
+   1. Look up the domain row by `(table, uuidRowId)` before writing.
+   2. If it exists with the merging scope, follow the same-scope
+      update/reinsert path.
+   3. If it exists with another scope, skip the incoming insert and log a
+      structured session-log warning carrying operation, table, row id, owning
+      scope, and merging scope.
+   4. If it does not exist, insert with `scopeId` stamped from the merging
+      scope.
+   5. If the insert races another scope and hits the domain primary key,
+      re-read the row and apply the same ownership decision before any CRDT
+      metadata survives the transaction.
+
+   Step 5 carries an implementation constraint: today the merge records the
+   scope's CRDT row (`_upsertMergeRow`) — and unique-conflict resolution and
+   FK-safe handling, which may mutate neighboring rows — *before* the domain
+   write where the collision surfaces. The insert application must therefore
+   run inside a savepoint rolled back on collision (or be reordered
+   domain-write-first), so that a skipped insert leaves behind no metadata,
+   no released unique values, and no FK attempts.
+
+   A dedicated `crdt_sync_audit` table is deferred until a concrete consumer
+   exists. This mirrors how updates and deletes already no-op without a
+   tracker. Re-keying the incoming row to a synthetic UUID was considered
+   (non-lossy, consistent with the unique flag policy) but rejected: row
+   identity re-keying breaks the incoming chain's own foreign key references
+   to that UUID, which would require alias tracking across the whole merge.
+   UUIDv7 collisions between honest clients are negligible; a collision is a
+   bug or an attack, and skipping is the safe response to both.
 3. **Foreign keys stay within a scope.** A synced row may only reference
    synced rows of its own scope. Locally,
    `_assertVisibleForeignKeyTargets` gains a scope-equality check next to
@@ -297,10 +345,15 @@ owned by another scope, regardless of HLC. The flag policy (see
    therefore never cross a scope boundary. References to non-synced tables
    are unaffected.
 4. **No metadata backstop constraint.** An earlier draft added a unique index
-   on `crdt_data_rows (tblId, uuidRowId)` as defense-in-depth. It is dropped:
-   with visibility predicates keyed through the row's own `scopeId` (below),
-   a stray foreign tracker is *inert* — it is never consulted. Not shipping
-   it also avoids ~21 bytes per CRDT row on every database.
+   on `crdt_data_rows (tblId, uuidRowId)` as defense-in-depth. It is dropped,
+   but only because every consumer of CRDT row metadata is required to prove
+   ownership against the physical row: reads key visibility through
+   `domain.scopeId`; outbound sync serializes a domain row only when
+   `domain.scopeId` equals the collecting scope; merge, FK, and unique
+   helpers ignore or skip metadata that does not match the row owner. A stray
+   foreign tracker is therefore inert by consumer discipline, not by the
+   metadata schema alone. Not shipping the index avoids ~21 bytes per CRDT row
+   on every database.
 
 ## Read path
 
@@ -329,6 +382,30 @@ Multi-scope deployments additionally gain Postgres row-level security as an
 option, since policies can reference `scopeId` directly — the package's
 isolation filter and RLS become two enforcements of one predicate.
 
+## Sync path
+
+Sync also consumes CRDT metadata, so it follows the same row-ownership rule
+as reads and writes:
+
+- **Outbound inserts** collect `crdt_data_rows` for one scope, then fetch the
+  physical domain row only if `domain.scopeId` equals that same scope. A
+  stale or hostile tracker for a foreign-owned row yields no payload.
+- **Outbound updates** fetch the column value only after the field's CRDT row
+  is proven to match the domain row owner. `scopeId` itself is never emitted
+  as an update because it has no field metadata.
+- **Outbound deletes** are scoped by CRDT metadata; a foreign tracker can at
+  worst produce a tombstone for a row the collecting scope never owned, so
+  delete collection also verifies the domain owner when the domain row still
+  exists.
+- **Inbound inserts and updates** sanitize any incoming `scopeId` before merge
+  and stamp from the merge scope. Incoming row UUIDs that already belong to
+  another scope are skipped/logged as ownership collisions.
+
+This is the audit rule for all future sync helpers: no path may serialize,
+materialize, resolve conflicts for, or project a synced domain row through
+CRDT metadata unless the domain row's `scopeId` equals the effective CRDT
+scope, except explicit unscoped admin reads.
+
 ## API surface
 
 The package is unreleased, so renames land directly, with no aliases and no
@@ -356,16 +433,19 @@ Consequences for application code, stated as contract:
 
 1. **Every synced table declares `id: UuidValue` and `scopeId: int?`.**
    Startup fails with a paste-ready error otherwise.
-2. **`scopeId` round-trips the way it came in** — left null, the sync layer
+2. **`id` remains globally unique per synced table.** The same
+   `(table, uuidRowId)` cannot exist in two scopes. If merge observes that
+   UUID already owned by another scope, it skips and logs the incoming row.
+3. **`scopeId` round-trips the way it came in** — left null, the sync layer
    stamps it internally and returns it null (scoped reads return it null
    too); provided explicitly, it must match the effective scope or the
    operation throws, and it stays visible on the way out. The column is
    immutable after insert.
-3. **Scoped reads are isolated to their scope.** Reading across scopes is an
+4. **Scoped reads are isolated to their scope.** Reading across scopes is an
    explicit unscoped (admin) read.
-4. **Merge-inserts colliding with another scope's row are skipped and
+5. **Merge-inserts colliding with another scope's row are skipped and
    logged**, never applied over the owner's data.
-5. **Foreign keys on synced tables target same-scope rows.** Cross-scope
+6. **Foreign keys on synced tables target same-scope rows.** Cross-scope
    references are repaired by the existing FK override machinery instead of
    being linked.
 
@@ -379,17 +459,21 @@ only where stated. No generator or Serverpod fork changes are required.
   final names. `CrdtSchemaRegistry`: the `scopeId` presence/type check with
   the `serverOnly` hint, and the unique-index warning. Reserved-name
   exclusions: `crdt_schema_columns` registration, field-level merge, update
-  recording, merge payload sanitization. Test models gain `scopeId`.
+  recording, inbound merge sanitization, and outbound sync serialization.
+  Test models gain `scopeId`.
 - **Phase 2 — write-path enforcement.** Stamp-or-assert in the proxy insert
-  paths (dynamic dispatch on the known field); `scopeId` excluded from
-  update SET lists; ownership assertion on update/delete/reinsert;
-  merge-insert ownership check with skip-and-log; merge stamping from the
-  merging scope; FK same-scope assertion and merge repair routing;
-  cross-scope yield guard in the unique resolver for global indexes.
+  paths (dynamic dispatch on the known field); `scopeId` rejected from
+  `updateWhere`/`updateById` column values and excluded from model-update SET
+  lists; ownership assertion on update, delete, reinsert, and upsert; atomic
+  merge-insert ownership check with skip-and-log, including primary-key race
+  handling; merge stamping from the merging scope; FK same-scope assertion
+  and merge repair routing; cross-scope yield guard in the unique resolver
+  for global indexes.
 - **Phase 3 — read paths.** Isolation filter for scoped reads; row-keyed
   visibility probe for unscoped reads; stripping of `scopeId` from scoped
-  read results; delete the `GROUP BY`/`MIN` form and the server-only-index
-  TODO from `tombstone.dart`.
+  root and include-graph read results; outbound sync owner checks before
+  serializing inserts, updates, or deletes; delete the `GROUP BY`/`MIN` form
+  and the server-only-index TODO from `tombstone.dart`.
 - **Phase 4 — tests and benchmarks.** The plan below, plus updating
   `TombstoneScopeBenchmark` to ownership-conformant seeding (one tracker per
   row); its current second-tracker fixtures survive only as the enforcement
@@ -407,11 +491,12 @@ tested **once**, not per combination:
 - **Enforcement tests.** Stamping on insert; assert-on-mismatch throwing for
   insert and update; immutability of the column; round-trip symmetry (null
   in → null out, explicit in → kept, per row in batches); stripping on
-  scoped reads and retention on unscoped reads; the caller's input instance
-  left unmutated; merge-insert collision skip-and-log (the multi-user
-  fixtures in `tombstone_scope_test.dart` become these tests); FK
-  cross-scope repair; cross-scope unique yield on a deliberately global
-  index.
+  scoped root and included read results and retention on unscoped reads; the
+  caller's input instance left unmutated; merge-insert collision skip-and-log
+  including a primary-key race regression; stale foreign tracker does not
+  produce outbound insert/update/delete payloads (the multi-user fixtures in
+  `tombstone_scope_test.dart` become these tests); FK cross-scope repair;
+  cross-scope unique yield on a deliberately global index.
 - **Combination smoke tests (one each, not per mechanism).** A two-scope
   database proving read isolation and per-scope uniqueness on SQLite; one
   `withServerpod` sync roundtrip proving the wiring end to end. These exist
@@ -510,11 +595,12 @@ filter and RLS become two enforcements of one predicate.
 
 ### What sharing does not change
 
-Every enforcement rule in this document survives unchanged: rows have exactly
-one owning scope, merge-insert ownership checks compare scopes, unique
-conflict groups form within a scope (or yield to the owner across scopes),
-and stamp-or-assert applies with the transaction's resolved scope. Sharing
-adds a membership layer in front of scopes; it does not touch row ownership.
+Every enforcement rule in this document survives unchanged: `(table,
+uuidRowId)` stays globally identified, rows have exactly one owning scope,
+merge-insert ownership checks compare scopes, unique conflict groups form
+within a scope (or yield to the owner across scopes), and stamp-or-assert
+applies with the transaction's resolved scope. Sharing adds a membership
+layer in front of scopes; it does not touch row ownership.
 
 ## Resolved during review
 
@@ -528,6 +614,11 @@ not relitigated by accident:
   test. Requiring the column everywhere deleted the mode system, the
   index-projection generator feature, and the per-mode test matrix, at the
   cost of ~1–2 bytes per row and a visible read-only field on domain models.
+- **Global UUID row identity:** retained. Serverpod's generated domain model
+  and ORM expect one primary key column, so the package does not introduce
+  composite `(scopeId, id)` identity or a surrogate physical row id. A
+  duplicate `(table, uuidRowId)` in another scope is an ownership collision,
+  not a valid second row.
 - **`scope=serverOnly` on the column:** rejected (would reintroduce
   asymmetric schemas); validation forbids it.
 - **Stamp-or-assert as the single write path:** chosen over required
@@ -542,20 +633,23 @@ not relitigated by accident:
   sync layer guarantees the value on every synced row.
 - **Wire transport prevented by construction, respecting the caller:** the
   value leaves the way it came in — stamped values are stripped from
-  returned rows and scoped reads; explicitly provided (and verified) values
-  are kept on the way out; unscoped admin reads keep the value as the only
-  per-row ownership information server-side. Mechanism: in-place dynamic
-  mutation on package-owned instances (preferred over `copyWith`, the
-  fallback only under immutability; `patchTableRow` is reserved for the
-  merge path, where field names are data-driven and its 50–200× cost is
-  justified), never leaving the caller's input observably mutated.
+  returned rows and scoped reads, including include graphs; explicitly
+  provided (and verified) values are kept on the way out; unscoped admin
+  reads keep the value as the only per-row ownership information server-side;
+  outbound sync never serializes it. Mechanism: in-place dynamic mutation on
+  package-owned instances (preferred over `copyWith`, the fallback only
+  under immutability; `patchTableRow` is reserved for the merge path, where
+  field names are data-driven and its 50–200× cost is justified), never
+  leaving the caller's input observably mutated.
 - **Unscoped-read semantics:** an unscoped read is an admin view; a row is
   visible while its owner sees it. Scoped reads are isolated to their scope
   — confirmed as the central goal of the design.
 - **Skip vs. re-key on colliding inserts:** skip and log; re-keying row
   identity would break the incoming chain's own FK references.
-- **Metadata backstop index:** dropped; foreign trackers are inert under
-  row-keyed probes.
+- **Metadata backstop index:** dropped only with the consumer audit rule:
+  every read, write, sync, merge, FK, and unique path that consumes CRDT row
+  metadata must prove `domain.scopeId` equals the effective metadata scope
+  before materializing domain data.
 - **Audit surface:** structured session-log warnings now; an audit table
   deferred until a consumer exists.
 - **No compatibility constraints:** the package is unreleased, so renames
