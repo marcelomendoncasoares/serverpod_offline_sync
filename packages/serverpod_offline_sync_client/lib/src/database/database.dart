@@ -152,7 +152,7 @@ class CrdtDatabase implements Database {
       where,
       include,
       tableIdForName: _recorder.tableIdForName,
-      scopeUserId: () => _recorder.scopeForQueries(transaction)?.id,
+      scopeId: () => _recorder.scopeForQueries(transaction)?.id,
     );
   }
 
@@ -183,7 +183,7 @@ class CrdtDatabase implements Database {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
-    return _stripScopeIdFromScopedRead(result, transaction);
+    return _stripScopeIdFromScopedRead(result, include, transaction);
   }
 
   @override
@@ -204,7 +204,7 @@ class CrdtDatabase implements Database {
       lockBehavior: lockBehavior,
     );
     if (result == null) return null;
-    return _stripScopeIdFromScopedRead([result], transaction).single;
+    return _stripScopeIdFromScopedRead([result], include, transaction).single;
   }
 
   @override
@@ -233,7 +233,7 @@ class CrdtDatabase implements Database {
       lockBehavior: lockBehavior,
     );
     if (result == null) return null;
-    return _stripScopeIdFromScopedRead([result], transaction).single;
+    return _stripScopeIdFromScopedRead([result], include, transaction).single;
   }
 
   @override
@@ -533,7 +533,7 @@ class CrdtDatabase implements Database {
         );
 
         await _recorder.insteadOfDelete<T>(rows, tx);
-        return _stripScopeIdFromScopedRead(rows, tx);
+        return _stripScopeIdFromScopedRead(rows, null, tx);
       },
     );
   }
@@ -616,29 +616,27 @@ class CrdtDatabase implements Database {
   ({
     List<T> rows,
     Set<int> stampedIndexes,
-    Set<Object> stampedRowIds,
+    Set<Object> explicitRowIds,
   })
   _prepareRowsForInsert<T extends TableRow>(
     List<T> rows,
     Transaction transaction,
   ) {
     if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
-      return (rows: rows, stampedIndexes: const {}, stampedRowIds: const {});
+      return (rows: rows, stampedIndexes: const {}, explicitRowIds: const {});
     }
 
     final scope = _requireEffectiveScope(transaction);
     final effectiveScopeId = scope.id!;
     final databaseRows = <T>[];
     final stampedIndexes = <int>{};
-    final stampedRowIds = <Object>{};
+    final explicitRowIds = <Object>{};
 
     for (final (index, row) in rows.indexed) {
       final rowScopeId = _readScopeId(row);
       if (rowScopeId == null) {
         databaseRows.add(_copyWithScopeId(row, effectiveScopeId));
         stampedIndexes.add(index);
-        final rowId = row.id;
-        if (rowId != null) stampedRowIds.add(rowId as Object);
         continue;
       }
 
@@ -650,12 +648,14 @@ class CrdtDatabase implements Database {
       }
 
       databaseRows.add(row);
+      final rowId = row.id;
+      if (rowId != null) explicitRowIds.add(rowId as Object);
     }
 
     return (
       rows: databaseRows,
       stampedIndexes: stampedIndexes,
-      stampedRowIds: stampedRowIds,
+      explicitRowIds: explicitRowIds,
     );
   }
 
@@ -710,13 +710,23 @@ class CrdtDatabase implements Database {
     ({
       List<T> rows,
       Set<int> stampedIndexes,
-      Set<Object> stampedRowIds,
+      Set<Object> explicitRowIds,
     })
     prepared,
   ) {
-    for (final (index, row) in rows.indexed) {
-      if (prepared.stampedIndexes.contains(index) ||
-          (row.id != null && prepared.stampedRowIds.contains(row.id))) {
+    if (rows.length == prepared.rows.length) {
+      for (final (index, row) in rows.indexed) {
+        if (prepared.stampedIndexes.contains(index)) _stripScopeId(row);
+      }
+      return;
+    }
+
+    // `ignoreConflicts` dropped rows, so positions no longer align with the
+    // input. Keep the value only on rows whose id was caller-provided on an
+    // explicit (asserted) input row; everything else is treated as stamped.
+    for (final row in rows) {
+      final rowId = row.id;
+      if (rowId == null || !prepared.explicitRowIds.contains(rowId)) {
         _stripScopeId(row);
       }
     }
@@ -728,12 +738,25 @@ class CrdtDatabase implements Database {
 
   List<T> _stripScopeIdFromScopedRead<T extends TableRow>(
     List<T> rows,
+    Include? include,
     Transaction? transaction,
   ) {
     if (rows.isEmpty) return rows;
     if (!_recorder.isCrdtTracked<T>(rows.first.table)) return rows;
     if (_recorder.scopeForQueries(transaction) == null) return rows;
 
+    final hasNestedRows =
+        include != null && include.includes.values.any((inc) => inc != null);
+    if (!hasNestedRows) {
+      // Hot path: delegate-returned rows are package-owned, so the root
+      // field is stripped in place with no allocation.
+      rows.forEach(_stripScopeId);
+      return rows;
+    }
+
+    // Nested models are only reachable through generated fields, which
+    // cannot be accessed generically by name, so include graphs pay a
+    // serialization round-trip per row to strip recursively.
     return [
       for (final row in rows) _copyWithScopeIdsStripped(row),
     ];

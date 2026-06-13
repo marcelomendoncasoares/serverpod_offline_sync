@@ -686,6 +686,63 @@ void main() {
       });
     },
   );
+
+  group(
+    'Given an existing same-scope row whose CRDT tracker was lost, '
+    'when merging a remote insert for the same row id,',
+    () {
+      late Person person;
+
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'before recovery'),
+            transaction: tx,
+          ),
+        );
+
+        // Simulate lost metadata: the domain row stays, the tracker goes.
+        await CrdtDataRow.db.deleteWhere(
+          testSession,
+          where: (t) => t.uuidRowId.equals(person.id),
+        );
+
+        final remoteNodeId = const Uuid().v7obj();
+        final hlc = Hlc.now(remoteNodeId);
+        await session.db.mergeChanges(
+          [
+            CrdtMergeInsert(
+              tableName: Person.t.tableName,
+              uuidRowId: person.id!,
+              uuidNodeId: remoteNodeId,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
+              data: Person(id: person.id, name: 'after recovery'),
+            ),
+          ],
+          scopeId: testCrdtUserId,
+        );
+      });
+
+      test('then the domain row is recovered with the merged values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, 'after recovery');
+      });
+
+      test('then a single CRDT tracker is recreated for the scope.', () async {
+        final crdtRows = await CrdtDataRow.db.find(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+        );
+
+        expect(crdtRows, hasLength(1));
+      });
+    },
+  );
 }
 
 extension on DateTime {

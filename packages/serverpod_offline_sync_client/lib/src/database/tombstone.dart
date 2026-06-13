@@ -8,11 +8,11 @@ import '../protocol/protocol.dart';
 /// null when the table is not registered for CRDT synchronization.
 typedef CrdtTableIdResolver = int? Function(String tableName);
 
-/// Resolves the [CrdtScope] id scoping the current query. Returns null when no
-/// user scope is available (e.g. server-side reads outside
-/// `transactionForUser` without a persistent user), in which case a row is
-/// only hidden when every user tracking it has it hidden.
-typedef CrdtScopeUserIdResolver = int? Function();
+/// Resolves the [CrdtScope] id scoping the current query. Returns null when
+/// no scope is available (e.g. server-side reads outside `transactionForUser`
+/// without a persistent user), in which case the query is an admin read: rows
+/// are not isolated and a row is hidden only when its owning scope hides it.
+typedef CrdtScopeIdResolver = int? Function();
 
 /// Merges [where] with CRDT visibility predicates and mutates [include] in place.
 ///
@@ -21,11 +21,11 @@ typedef CrdtScopeUserIdResolver = int? Function();
 /// is null, only the root table and [where] are merged.
 ///
 /// Each predicate only considers [CrdtDataRow]s recorded for the queried table
-/// ([tableIdForName]) and, when a user scope is available ([scopeUserId]), for
-/// the scoped user. This prevents a tombstone recorded for another table or
-/// user from masking an unrelated row that reuses the same UUID. Without a
-/// user scope (admin reads on multi-user databases), a row stays visible as
-/// long as at least one user tracking it still sees it.
+/// ([tableIdForName]) and, when a scope is available ([scopeId]), isolates the
+/// query to that scope's rows. This prevents a tombstone recorded for another
+/// table or scope from masking an unrelated row that reuses the same UUID.
+/// Without a scope (admin reads), rows are not isolated and a row stays
+/// visible as long as its owning scope still sees it.
 ///
 /// Both resolvers are only invoked when a predicate is actually built (i.e.
 /// for synced tables with UUID primary keys), so queries on CRDT-internal
@@ -41,19 +41,19 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   Expression? where,
   Include? include, {
   required CrdtTableIdResolver tableIdForName,
-  required CrdtScopeUserIdResolver scopeUserId,
+  required CrdtScopeIdResolver scopeId,
 }) {
   final includeObjectPredicates = _walkIncludeGraphForTombstone(
     include,
     null,
     tableIdForName: tableIdForName,
-    scopeUserId: scopeUserId,
+    scopeId: scopeId,
   );
 
   final rootTable = serializationManager.getTableForType(T);
   var merged = _mergeWhereOptional(
     where,
-    rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeUserId),
+    rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeId),
   );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -65,20 +65,20 @@ Expression? _walkIncludeGraphForTombstone(
   Include? inc,
   Expression? includeObjectPredicates, {
   required CrdtTableIdResolver tableIdForName,
-  required CrdtScopeUserIdResolver scopeUserId,
+  required CrdtScopeIdResolver scopeId,
 }) {
   if (inc == null) return includeObjectPredicates;
   if (inc is IncludeList) {
     // List relation: filter inside the list subquery only.
     inc.where = _mergeWhereOptional(
       inc.where,
-      inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeUserId),
+      inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeId),
     );
     return _walkIncludeGraphForTombstone(
       inc.include,
       includeObjectPredicates,
       tableIdForName: tableIdForName,
-      scopeUserId: scopeUserId,
+      scopeId: scopeId,
     );
   }
   var acc = includeObjectPredicates;
@@ -92,7 +92,7 @@ Expression? _walkIncludeGraphForTombstone(
         nested,
         acc,
         tableIdForName: tableIdForName,
-        scopeUserId: scopeUserId,
+        scopeId: scopeId,
       );
       continue;
     }
@@ -102,14 +102,14 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          childTable.whereVisibleOnCrdtRow(tableIdForName, scopeUserId),
+          childTable.whereVisibleOnCrdtRow(tableIdForName, scopeId),
         );
       }
       acc = _walkIncludeGraphForTombstone(
         nested,
         acc,
         tableIdForName: tableIdForName,
-        scopeUserId: scopeUserId,
+        scopeId: scopeId,
       );
     }
   }
@@ -126,68 +126,53 @@ extension on Table {
   /// Creates a predicate that filters out hidden rows for the given [Table]
   /// using materialized [CrdtDataRow.visibility] metadata.
   ///
-  /// The row id is matched against a subquery of hidden [CrdtDataRow]s scoped
-  /// to this table's [CrdtSchemaTable] id and, when available, the scoped
-  /// user. The uncorrelated subquery avoids joining [CrdtDataRow] directly,
-  /// which would duplicate result rows when multiple users track the same row.
-  ///
   /// Returns null when [Table] does not use a UUID primary key or is not
   /// registered for CRDT synchronization. Keeps rows when the id is null
   /// (unmatched [IncludeObject] joins) or no hidden CRDT row matches.
   ///
-  /// Without a user scope, a row is only hidden when every user tracking it
-  /// has it hidden (the minimum visibility across users is hidden), so admin
-  /// reads keep rows that are still visible to some user.
-  ///
-  /// The scoped form is a correlated `NOT EXISTS` probe covered by the
-  /// (scopeId, tblId, uuidRowId) unique index, so point lookups stay
-  /// index-bound and planners can flatten it into an anti-join for scans.
-  /// The unscoped form deliberately stays uncorrelated (one scan and
-  /// aggregate per query): without a (tblId, uuidRowId) index, correlated
-  /// probes would scan [CrdtDataRow] per outer row.
+  /// With a scope, rows are isolated to it (`scopeId = <scope>`) and checked
+  /// against the scope's tombstones with a correlated `NOT EXISTS` probe
+  /// covered by the (scopeId, tblId, uuidRowId) unique index. Without a
+  /// scope (admin reads), there is no isolation filter and the probe is
+  /// keyed by the row's own `scopeId` column instead — covered by the same
+  /// index — so a row stays visible while its owning scope sees it.
   Expression? whereVisibleOnCrdtRow(
     CrdtTableIdResolver tableIdForName,
-    CrdtScopeUserIdResolver scopeUserId,
+    CrdtScopeIdResolver scopeId,
   ) {
     if (id is! ColumnUuid) return null;
     final tableId = tableIdForName(tableName);
     if (tableId == null) return null;
 
+    // Synced tables are validated to carry the column at initialize(); a
+    // missing column here must fail closed, never skip the predicate.
+    final scopeColumn =
+        scopeIdColumn ??
+        (throw StateError(
+          'Synced table "$tableName" has no int scopeId column; '
+          'CrdtSchemaRegistry validation should have rejected it.',
+        ));
+
     final crdtRow = CrdtDataRow.t;
-    final userId = scopeUserId();
-    if (userId != null) {
-      final scopeColumn = scopeIdColumn;
-      if (scopeColumn == null) return null;
-
-      return id.equals(null) |
-          (Expression('$scopeColumn = $userId') &
-              Expression(
-                'NOT EXISTS '
-                '(SELECT 1 FROM "${crdtRow.tableName}" '
-                'WHERE ${crdtRow.scopeId} = $userId '
-                'AND ${crdtRow.tblId} = $tableId '
-                'AND ${crdtRow.uuidRowId} = $id '
-                'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
-              ));
-    }
-
-    final scopeColumn = scopeIdColumn;
-    if (scopeColumn == null) return null;
+    final effectiveScopeId = scopeId();
+    final notExistsExpr = Expression(
+      'NOT EXISTS '
+      '(SELECT 1 FROM "${crdtRow.tableName}" '
+      'WHERE ${crdtRow.scopeId} = ${effectiveScopeId ?? scopeColumn} '
+      'AND ${crdtRow.tblId} = $tableId '
+      'AND ${crdtRow.uuidRowId} = $id '
+      'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+    );
 
     return id.equals(null) |
-        Expression(
-          'NOT EXISTS '
-          '(SELECT 1 FROM "${crdtRow.tableName}" '
-          'WHERE ${crdtRow.scopeId} = $scopeColumn '
-          'AND ${crdtRow.tblId} = $tableId '
-          'AND ${crdtRow.uuidRowId} = $id '
-          'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
-        );
+        ((effectiveScopeId != null)
+            ? (scopeColumn.equals(effectiveScopeId) & notExistsExpr)
+            : notExistsExpr);
   }
 
-  Column<int>? get scopeIdColumn {
+  ColumnInt? get scopeIdColumn {
     for (final column in columns) {
-      if (column.columnName == 'scopeId' && column is Column<int>) {
+      if (column.columnName == 'scopeId' && column is ColumnInt) {
         return column;
       }
     }

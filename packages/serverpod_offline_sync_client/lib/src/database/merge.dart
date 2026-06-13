@@ -273,50 +273,67 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
 
     if (currentRow == null) {
+      final mergingScopeId = _getHlcManager(transaction).normalizedScopeId;
       final owner = await _readDomainRowOwner(
         insert.tableName,
         insert.uuidRowId,
         transaction,
       );
-      if (owner.exists &&
-          owner.scopeId != _getHlcManager(transaction).normalizedScopeId) {
+      if (owner.exists && owner.scopeId != mergingScopeId) {
         await _warnSkippedForeignScopeMerge(
           operation: 'insert',
           tableName: insert.tableName,
           rowId: insert.uuidRowId,
           owningScopeId: owner.scopeId,
-          mergingScopeId: _getHlcManager(transaction).normalizedScopeId,
+          mergingScopeId: mergingScopeId,
         );
         return;
       }
 
-      final resolvedInsert = await _uniqueConflictResolver._resolveForIncomingInsert(
-        insert,
-        data,
-        context,
-        transaction,
-      );
+      try {
+        // Savepoint so that an ownership collision detected at the physical
+        // write (a primary-key race with another scope after the pre-check
+        // above) leaves no CRDT metadata, released unique values, or foreign
+        // key attempts behind.
+        context.rows[rowKey] = await DatabaseUtil.runInTransactionOrSavepoint(
+          _db,
+          transaction,
+          (savepoint) async {
+            final resolvedInsert = await _uniqueConflictResolver
+                ._resolveForIncomingInsert(insert, data, context, savepoint);
 
-      final safeInsert = await _safeIncomingForeignKeyData(
-        insert.tableName,
-        insert.uuidRowId,
-        resolvedInsert.data,
-        transaction,
-      );
+            final safeInsert = await _safeIncomingForeignKeyData(
+              insert.tableName,
+              insert.uuidRowId,
+              resolvedInsert.data,
+              savepoint,
+            );
 
-      context.rows[rowKey] = await _applyMergeInsertForMissingRow(
-        insert,
-        remoteNode,
-        incomingHlc,
-        safeInsert.data,
-        transaction,
-      );
-      await _recordForeignKeyInsertAttempts(
-        insert.tableName,
-        {insert.uuidRowId},
-        transaction,
-        safeInsert.attempts,
-      );
+            final insertedRow = await _applyMergeInsertForMissingRow(
+              insert,
+              remoteNode,
+              incomingHlc,
+              safeInsert.data,
+              savepoint,
+            );
+            await _recordForeignKeyInsertAttempts(
+              insert.tableName,
+              {insert.uuidRowId},
+              savepoint,
+              safeInsert.attempts,
+            );
+            return insertedRow;
+          },
+        );
+      } on _ForeignScopeRowCollision catch (collision) {
+        await _warnSkippedForeignScopeMerge(
+          operation: 'insert',
+          tableName: insert.tableName,
+          rowId: insert.uuidRowId,
+          owningScopeId: collision.owningScopeId,
+          mergingScopeId: mergingScopeId,
+        );
+      }
     } else {
       await _applyMergeInsertForExistingRow(
         insert,
@@ -588,11 +605,34 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     final tableRow = _requireMergeInsertTableRow(insert);
     final patchedRow = _db.serializationManager.patchTableRow(tableRow, data);
-    final scopedRow = _withScopeId(
-      patchedRow,
-      _getHlcManager(transaction).normalizedScopeId,
-    );
+    final mergingScopeId = _getHlcManager(transaction).normalizedScopeId;
+    final scopedRow = _withScopeId(patchedRow, mergingScopeId);
     try {
+      // Insert first: the domain primary key resolves creation races
+      // atomically. The inner savepoint keeps a violation from poisoning the
+      // surrounding transaction so the recovery update below can still run.
+      await DatabaseUtil.runInTransactionOrSavepoint(
+        _db,
+        transaction,
+        (savepoint) => _db.insertRow(scopedRow, transaction: savepoint),
+      );
+    } on DatabaseQueryException {
+      final owner = await _readDomainRowOwner(
+        insert.tableName,
+        insert.uuidRowId,
+        transaction,
+      );
+      // No row means the violation came from something other than the
+      // primary key (e.g. a racing unique value); preserve the failure.
+      if (!owner.exists) rethrow;
+      if (owner.scopeId != mergingScopeId) {
+        throw _ForeignScopeRowCollision(owner.scopeId);
+      }
+
+      // Same-scope recovery (a tracked row whose metadata was lost, or a
+      // race between this scope's own merges). scopeId is immutable and rows
+      // are only soft-deleted, so ownership observed here cannot change for
+      // the rest of the transaction and the update is safe.
       await _db.updateRow(
         scopedRow,
         columns: scopedRow.table.managedColumns
@@ -600,8 +640,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             .toList(),
         transaction: transaction,
       );
-    } on DatabaseUpdateRowException {
-      await _db.insertRow(scopedRow, transaction: transaction);
     }
 
     return insertedCrdtRow;
@@ -822,6 +860,15 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   T _withScopeId<T extends TableRow>(T row, int scopeId) {
     return (row as dynamic).copyWith(scopeId: scopeId) as T;
   }
+}
+
+/// Signals that a merge insert lost a primary-key race to a row owned by
+/// another scope, so the savepoint around the insert application must be
+/// rolled back and the incoming change skipped.
+class _ForeignScopeRowCollision implements Exception {
+  _ForeignScopeRowCollision(this.owningScopeId);
+
+  final int? owningScopeId;
 }
 
 extension on DatabaseSerializationManager {
