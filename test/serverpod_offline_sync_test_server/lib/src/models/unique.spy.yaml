@@ -5,4 +5,8 @@ fields:
   id: UuidValue?, defaultPersist=random_v7
   ### Owner scope of this row. Maintained by the CRDT sync layer.
   scopeId: int?
-  name: String, unique
+  name: String
+indexes:
+  unique_scope_name_unique_idx:
+    fields: scopeId, name
+    unique: true

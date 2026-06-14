@@ -36,6 +36,7 @@ typedef _ForeignKeyValueKey = (String tableName, String columnName, String value
 
 typedef _UniqueIndexConflictRelease = ({
   List<_UniqueColumnConflictRelease> columns,
+  bool scoped,
 });
 
 typedef _UniqueColumnConflictRelease = ({
@@ -171,7 +172,6 @@ class CrdtMutationRecorder {
 
     final schemaRegistry = CrdtSchemaRegistry(_dbSession, syncTables: syncTables);
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
-    await _warnForGlobalUniqueIndexes();
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
     for (final column in columnRows) {
@@ -185,31 +185,6 @@ class CrdtMutationRecorder {
           columnsByTableId[t.id!] ?? {},
         ),
     };
-  }
-
-  Future<void> _warnForGlobalUniqueIndexes() async {
-    final logWarning = _dbSession.logWarning;
-    if (logWarning == null) return;
-
-    for (final tableName in _syncTableByName.keys) {
-      final definition = _tableDefinitionsByName[tableName];
-      if (definition == null) continue;
-
-      for (final index in definition.indexes) {
-        if (!index.isUnique || index.isPrimary) continue;
-        final columnNames = [
-          for (final element in index.elements)
-            if (element.type == IndexElementDefinitionType.column) element.definition,
-        ];
-        if (columnNames.contains('scopeId')) continue;
-
-        await logWarning(
-          'Unique index ${index.indexName} on synced table $tableName does not '
-          'include scopeId. This is a global unique constraint; include scopeId '
-          'for per-scope uniqueness.',
-        );
-      }
-    }
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for
@@ -1028,9 +1003,7 @@ WHERE c."id" IN ($whereRowIds)
 
     final uniqueIndexes = _uniqueIndexesForTable(tableDefinition);
     for (final uniqueIndex in uniqueIndexes) {
-      final columnNames = uniqueIndex.columns
-          .map((column) => column.columnName)
-          .toList();
+      final columnNames = uniqueIndex.columnNames.toList();
 
       final valuesByRowId = await _readDomainColumnValues(
         tableName,
@@ -1167,27 +1140,6 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     };
   }
 
-  Future<Set<UuidValue>> _foreignOwnedDomainRowIds(
-    String tableName,
-    Set<UuidValue> rowIds,
-    Transaction transaction,
-  ) async {
-    if (rowIds.isEmpty) return const {};
-
-    final effectiveScopeId = _getHlcManager(transaction).normalizedScopeId;
-    final valuesByRowId = await _readDomainColumnValues(
-      tableName,
-      rowIds,
-      ['scopeId'],
-      transaction,
-    );
-
-    return {
-      for (final MapEntry(key: rowId, value: values) in valuesByRowId.entries)
-        if (values['scopeId'] != effectiveScopeId) rowId,
-    };
-  }
-
   Object? _defaultValueForColumn(String tableName, String columnName) {
     final column = _columnsByTableAndName[tableName]?[columnName];
     if (column == null) return null;
@@ -1271,6 +1223,11 @@ List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
         (index) =>
             index.isUnique &&
             !index.isPrimary &&
+            index.elements.any(
+              (element) =>
+                  element.type == IndexElementDefinitionType.column &&
+                  element.definition == 'scopeId',
+            ) &&
             index.elements.every(
               (element) => element.type == IndexElementDefinitionType.column,
             ),
@@ -1280,17 +1237,28 @@ List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
   final columnsByName = {for (final column in table.columns) column.name: column};
   return [
     for (final index in uniqueIndexes)
-      (
-        columns: [
-          for (final columnName in index.elements.map((element) => element.definition))
-            _uniqueConflictReleaseForColumn(
-              table,
-              columnsByName[columnName],
-              columnName,
-            ),
-        ],
-      ),
+      _uniqueIndexConflictReleaseForIndex(table, columnsByName, index),
   ];
+}
+
+_UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
+  TableDefinition table,
+  Map<String, ColumnDefinition> columnsByName,
+  IndexDefinition index,
+) {
+  final columnNames = index.elements.map((element) => element.definition).toList();
+  return (
+    scoped: columnNames.contains('scopeId'),
+    columns: [
+      for (final columnName in columnNames)
+        if (columnName != 'scopeId')
+          _uniqueConflictReleaseForColumn(
+            table,
+            columnsByName[columnName],
+            columnName,
+          ),
+    ],
+  );
 }
 
 _UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(

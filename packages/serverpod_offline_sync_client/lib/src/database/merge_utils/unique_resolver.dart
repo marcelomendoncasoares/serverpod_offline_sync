@@ -1,10 +1,9 @@
 part of '../recorder.dart';
 
 typedef _UniqueConflict = ({
-  CrdtDataRow? row,
+  CrdtDataRow row,
   UuidValue rowId,
   _UniqueIndexConflictRelease uniqueIndex,
-  bool foreignScope,
 });
 
 /// Resolves unique constraint conflicts that appear while merging CRDT changes.
@@ -31,20 +30,7 @@ class CrdtUniqueConflictResolver {
     );
 
     for (final conflict in conflicts) {
-      if (conflict.foreignScope) {
-        resolvedData.addAll(
-          _uniqueConflictFreeValuesForData(
-            insert.tableName,
-            insert.uuidRowId,
-            resolvedData,
-            conflict.uniqueIndex,
-          ),
-        );
-        changed = true;
-        continue;
-      }
-
-      final conflictRow = conflict.row!;
+      final conflictRow = conflict.row;
       final incomingClaimHlc = _incomingInsertUniqueClaim(
         insert: insert,
         uniqueIndex: conflict.uniqueIndex,
@@ -65,6 +51,7 @@ class CrdtUniqueConflictResolver {
             insert.uuidRowId,
             resolvedData,
             conflict.uniqueIndex,
+            transaction,
           ),
         );
         changed = true;
@@ -162,23 +149,7 @@ class CrdtUniqueConflictResolver {
 
     final resolvedUpdates = Map<String, Object?>.from(updates);
     for (final conflict in conflicts) {
-      if (conflict.foreignScope) {
-        final releasedValues = _uniqueConflictFreeValuesForData(
-          tableName,
-          row.uuidRowId,
-          values,
-          conflict.uniqueIndex,
-        );
-        for (final columnName in conflict.uniqueIndex.columnNames) {
-          if (releasedValues.containsKey(columnName)) {
-            resolvedUpdates[columnName] = releasedValues[columnName];
-            values[columnName] = releasedValues[columnName];
-          }
-        }
-        continue;
-      }
-
-      final conflictRow = conflict.row!;
+      final conflictRow = conflict.row;
       final rowClaimHlc = await _uniqueIndexHlc(
         tableName: tableName,
         row: row,
@@ -200,6 +171,7 @@ class CrdtUniqueConflictResolver {
           row.uuidRowId,
           values,
           conflict.uniqueIndex,
+          transaction,
         );
         for (final columnName in conflict.uniqueIndex.columnNames) {
           if (releasedValues.containsKey(columnName)) {
@@ -225,6 +197,7 @@ class CrdtUniqueConflictResolver {
     UuidValue rowId,
     Map<String, Object?> data,
     _UniqueIndexConflictRelease uniqueIndex,
+    Transaction transaction,
   ) {
     final tableDefinition = _recorder._tableDefinitionsByName[tableName];
     if (tableDefinition == null) return data;
@@ -234,6 +207,9 @@ class CrdtUniqueConflictResolver {
       for (final column in uniqueIndex.columns)
         column.columnName: released[column.columnName],
     };
+    if (uniqueIndex.scoped) {
+      values['scopeId'] = _recorder._getHlcManager(transaction).normalizedScopeId;
+    }
     if (values.values.any((value) => value == null)) return released;
 
     for (final column in uniqueIndex.columns) {
@@ -269,6 +245,7 @@ class CrdtUniqueConflictResolver {
       rowId,
       values,
       uniqueIndex,
+      transaction,
     );
     await _recorder._updateDomainRows(tableName, {rowId}, releasedValues, transaction);
   }
@@ -292,7 +269,14 @@ class CrdtUniqueConflictResolver {
           if (values.containsKey(column.columnName))
             column.columnName: values[column.columnName],
       };
-      if (columnValues.length != uniqueIndex.columns.length) continue;
+      if (uniqueIndex.scoped) {
+        columnValues['scopeId'] = _recorder
+            ._getHlcManager(transaction)
+            .normalizedScopeId;
+      }
+      final expectedValueCount =
+          uniqueIndex.columns.length + (uniqueIndex.scoped ? 1 : 0);
+      if (columnValues.length != expectedValueCount) continue;
       if (columnValues.values.any((value) => value == null)) continue;
 
       final uniqueConflictIds = await _findVisibleRowsByUniqueValues(
@@ -307,14 +291,9 @@ class CrdtUniqueConflictResolver {
     }
 
     if (uniqueIndexesByConflictId.isEmpty) return const [];
-    final foreignScopeConflictIds = await _recorder._foreignOwnedDomainRowIds(
-      tableName,
-      uniqueIndexesByConflictId.keys.toSet(),
-      transaction,
-    );
     final conflictRows = await _recorder._findCrdtRows(
       tableName,
-      uniqueIndexesByConflictId.keys.toSet().difference(foreignScopeConflictIds),
+      uniqueIndexesByConflictId.keys.toSet(),
       transaction,
       include: CrdtDataRow.include(
         node: CrdtNode.include(),
@@ -322,21 +301,12 @@ class CrdtUniqueConflictResolver {
       ),
     );
     return [
-      for (final conflictId in foreignScopeConflictIds)
-        for (final uniqueIndex in uniqueIndexesByConflictId[conflictId]!)
-          (
-            row: null,
-            rowId: conflictId,
-            uniqueIndex: uniqueIndex,
-            foreignScope: true,
-          ),
       for (final conflictRow in conflictRows)
         for (final uniqueIndex in uniqueIndexesByConflictId[conflictRow.uuidRowId]!)
           (
             row: conflictRow,
             rowId: conflictRow.uuidRowId,
             uniqueIndex: uniqueIndex,
-            foreignScope: false,
           ),
     ];
   }

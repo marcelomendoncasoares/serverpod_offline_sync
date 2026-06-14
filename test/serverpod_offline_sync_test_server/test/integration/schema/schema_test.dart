@@ -1,5 +1,6 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
@@ -154,6 +155,64 @@ void main() {
           ),
         ),
       );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with a global unique index, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final uniqueDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Unique.t.tableName);
+      final scopedUniqueIndex = uniqueDefinition.indexes.singleWhere(
+        (index) => index.isUnique && !index.isPrimary,
+      );
+      final globalUniqueDefinition = uniqueDefinition.copyWith(
+        indexes: [
+          scopedUniqueIndex.copyWith(
+            elements: [
+              for (final element in scopedUniqueIndex.elements)
+                if (element.definition != 'scopeId') element,
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Unique.t],
+          tableDefinitions: [globalUniqueDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT can only synchronize tables with per-scope unique indexes',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced one-to-one foreign key unique index, '
+    'when syncAndGetSchema is called, '
+    'then the index is accepted.',
+    () async {
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Address.t, Person.t],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((table) => table.name).toSet(), {
+        Address.t.tableName,
+        Person.t.tableName,
+      });
     },
   );
 }

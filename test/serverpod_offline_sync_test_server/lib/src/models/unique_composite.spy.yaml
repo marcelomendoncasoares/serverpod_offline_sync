@@ -10,5 +10,5 @@ fields:
 
 indexes:
   unique_composite_scope_value_idx:
-    fields: scope, value
+    fields: scopeId, scope, value
     unique: true

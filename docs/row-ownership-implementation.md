@@ -89,9 +89,11 @@ constructor, next to the existing UUID-PK check:
 - Present but not `Column<int>` → same error, mistyped variant.
 
 In `recorder.dart` `initialize()` (where `_tableDefinitionsByName` provides
-index definitions): emit a session-log **warning** for each unique index on
-a synced table whose elements do not include `scopeId` ("global unique on
-purpose? include scopeId for per-scope uniqueness").
+index definitions): reject every non-primary unique index on a synced table
+whose elements do not include `scopeId`, except the single-column FK unique
+indexes Serverpod requires for one-to-one relations to another synced row.
+Ordinary global unique indexes are forbidden until the package has a
+deterministic cross-scope conflict policy.
 
 ### 1.4 Reserved-name exclusions
 
@@ -201,12 +203,12 @@ owner equals the merging scope before updating; mismatch → skip and log
   scope is classified exactly like an invisible target, flowing into the
   existing attempt/override repair.
 
-### 2.5 Cross-scope unique yield (`merge_utils/unique_resolver.dart`)
+### 2.5 Scoped unique conflict resolution (`merge_utils/unique_resolver.dart`)
 
-Where conflict groups are resolved: if the existing conflicting domain row's
-`scopeId` differs from the merging scope (possible only on
-deliberately-global unique indexes), the incoming claim yields
-unconditionally — skip the HLC comparison, never rewrite the foreign row.
+Where conflict groups are resolved: use `scopeId` as part of the unique lookup
+predicate, but never as a releasable/updateable column. Since global unique
+indexes are rejected at startup, conflict groups are same-scope only and the
+existing HLC comparison remains deterministic.
 
 Phase 2 exit: suite green; the multi-user fixtures in
 `tombstone_scope_test.dart` will start failing here — convert them in the

@@ -139,7 +139,7 @@ void main() {
       });
 
       test(
-        'when merging, then the incoming row yields and the owner row is not rewritten.',
+        'when merging, then both rows keep the per-scope unique value.',
         () async {
           final rows = await Unique.db.find(testSession);
 
@@ -147,7 +147,7 @@ void main() {
           expect(rows.singleWhere((row) => row.id == owner.id).name, 'global-name');
           expect(
             rows.singleWhere((row) => row.id == incoming.id).name,
-            'global-name__conflict__${incoming.id!.uuid}',
+            'global-name',
           );
         },
       );

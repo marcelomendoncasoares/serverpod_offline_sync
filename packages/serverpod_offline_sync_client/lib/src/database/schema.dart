@@ -6,7 +6,11 @@ import '../protocol/protocol.dart';
 /// Manages the CRDT schema for a database.
 class CrdtSchemaRegistry {
   /// Creates a new instance of [CrdtSchemaRegistry].
-  CrdtSchemaRegistry(this._session, {required this.syncTables}) {
+  CrdtSchemaRegistry(
+    this._session, {
+    required this.syncTables,
+    Iterable<TableDefinition>? tableDefinitions,
+  }) {
     final tablesWithoutUuidPk = syncTables.where(
       (table) => table.id is! Column<UuidValue>,
     );
@@ -35,6 +39,27 @@ class CrdtSchemaRegistry {
         '  scopeId: int?\n\n'
         'If the column is declared with scope=serverOnly, remove the scope; '
         'the column must exist on every database.',
+      );
+    }
+
+    final tableDefinitionsByName = {
+      for (final tableDefinition
+          in tableDefinitions ??
+              _session.db.serializationManager.getTargetTableDefinitions())
+        tableDefinition.name: tableDefinition,
+    };
+    final globalUniqueIndexes = _globalUniqueIndexViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (globalUniqueIndexes.isNotEmpty) {
+      throw StateError(
+        'CRDT can only synchronize tables with per-scope unique indexes, but '
+        '${globalUniqueIndexes.length} unique index(es) do not include scopeId: '
+        '${globalUniqueIndexes.join(', ')}. '
+        'Add scopeId to the unique index fields. '
+        'The only allowed global unique indexes are Serverpod-required '
+        'single-column foreign-key indexes for one-to-one relations.',
       );
     }
   }
@@ -145,4 +170,64 @@ Column? _scopeIdColumn(Table table) {
     if (column.columnName == 'scopeId') return column;
   }
   return null;
+}
+
+List<String> _globalUniqueIndexViolations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  final syncTableNames = {for (final table in syncTables) table.tableName};
+  return [
+    for (final tableName in syncTableNames)
+      for (final index
+          in tableDefinitionsByName[tableName]?.indexes ?? const <IndexDefinition>[])
+        if (_isForbiddenGlobalUniqueIndex(
+          tableDefinitionsByName[tableName]!,
+          index,
+          syncTableNames,
+        ))
+          '$tableName.${index.indexName}',
+  ];
+}
+
+bool _isForbiddenGlobalUniqueIndex(
+  TableDefinition tableDefinition,
+  IndexDefinition index,
+  Set<String> syncTableNames,
+) {
+  if (!index.isUnique || index.isPrimary) return false;
+  final includesScopeId = index.elements.any(
+    (element) =>
+        element.type == IndexElementDefinitionType.column &&
+        element.definition == 'scopeId',
+  );
+  if (includesScopeId) return false;
+
+  return !_isAllowedOneToOneForeignKeyUniqueIndex(
+    tableDefinition,
+    index,
+    syncTableNames,
+  );
+}
+
+bool _isAllowedOneToOneForeignKeyUniqueIndex(
+  TableDefinition tableDefinition,
+  IndexDefinition index,
+  Set<String> syncTableNames,
+) {
+  final elements = index.elements;
+  if (elements.length != 1 ||
+      elements.single.type != IndexElementDefinitionType.column) {
+    return false;
+  }
+
+  final columnName = elements.single.definition;
+  return tableDefinition.foreignKeys.any(
+    (foreignKey) =>
+        foreignKey.columns.length == 1 &&
+        foreignKey.columns.single == columnName &&
+        foreignKey.referenceColumns.length == 1 &&
+        foreignKey.referenceColumns.single == 'id' &&
+        syncTableNames.contains(foreignKey.referenceTable),
+  );
 }

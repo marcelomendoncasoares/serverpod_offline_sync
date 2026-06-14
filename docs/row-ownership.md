@@ -270,9 +270,11 @@ the reserved name, it is excluded from:
   (missing or mistyped → error with the paste-ready yaml, including the
   "remove `scope=serverOnly`" hint when the server schema has the column and
   the client schema does not);
-- unique indexes on synced tables that do not include `scopeId` produce a
-  startup *warning*, so globally-unique-on-purpose (an `email` column, say)
-  is a visible decision rather than an accident.
+- every non-primary unique index on a synced table must include `scopeId`
+  (missing → error), except a single-column unique index that Serverpod
+  requires for a one-to-one foreign key to another synced row. Ordinary global
+  unique indexes are forbidden for now because the package does not yet define
+  deterministic cross-scope conflict resolution.
 
 ## Unique indexes
 
@@ -286,18 +288,24 @@ indexes:
     unique: true
 ```
 
-Whether a unique value is per-scope or global is deliberately the
-application's choice — only the domain knows that an email is global and a
-nickname is not. On a deployment that happens to contain one scope, a
-composite unique with a constant `scopeId` accepts exactly the same rows as
-a plain unique; nothing degrades.
+Ordinary global unique indexes are rejected until the package has a
+deterministic cross-scope arbitration policy and a way to record the
+losing-side release in that scope's CRDT chain. "Whoever syncs first" is not
+an acceptable CRDT rule. The only permitted global unique index shape is the
+single-column FK unique that Serverpod requires for one-to-one relations.
+That column points at a globally unique synced row id, so it is not treated as
+global application-level arbitration; the model must still also declare the
+scoped composite unique index. On a deployment that happens to contain one
+scope, a composite unique with a constant `scopeId` accepts exactly the same
+rows as a plain unique; nothing degrades.
 
 The unique-conflict resolver discovers indexes from the table definitions,
-so per-scope groups fall out with no special casing: rows in different
-scopes never form a conflict group under a composite index. For indexes kept
-global on purpose, conflict groups can span scopes, and one guard is added:
-**a foreign scope's claim always yields** — resolution never rewrites a row
-owned by another scope, regardless of HLC. The flag policy (see
+uses `scopeId` as part of the lookup predicate, and releases only the
+application columns in scoped indexes. The allowed one-to-one FK global
+unique index is ignored by the CRDT resolver; same-scope conflicts are handled
+by the required scoped composite index, and cross-scope references are handled
+by FK repair. Rows in different scopes never form a conflict group under the
+required composite index. The flag policy (see
 `unique-constraint-invariants.md`) is otherwise unchanged.
 
 ## Enforcement mechanics
@@ -448,6 +456,9 @@ Consequences for application code, stated as contract:
 6. **Foreign keys on synced tables target same-scope rows.** Cross-scope
    references are repaired by the existing FK override machinery instead of
    being linked.
+7. **Unique indexes on synced tables include `scopeId`.** Global unique
+   indexes are rejected at startup until a deterministic cross-scope policy
+   exists.
 
 ## Implementation plan
 
@@ -457,7 +468,7 @@ only where stated. No generator or Serverpod fork changes are required.
 - **Phase 1 — naming, contract, validation.** The user→scope renames in
   internals and storage (above), done first so later phases build on the
   final names. `CrdtSchemaRegistry`: the `scopeId` presence/type check with
-  the `serverOnly` hint, and the unique-index warning. Reserved-name
+  the `serverOnly` hint, and the global unique-index rejection. Reserved-name
   exclusions: `crdt_schema_columns` registration, field-level merge, update
   recording, inbound merge sanitization, and outbound sync serialization.
   Test models gain `scopeId`.

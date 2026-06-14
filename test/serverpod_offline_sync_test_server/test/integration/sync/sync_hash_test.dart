@@ -122,14 +122,18 @@ void main() {
     final baseDefinitions = [
       addressDefinition,
     ];
+    final scopedAddressIndex = addressDefinition.indexes.singleWhere(
+      (index) => index.indexName == 'address_scope_inhabitant_unique_idx',
+    );
     final changedDefinitions = [
       addressDefinition.copyWith(
         indexes: [
-          addressDefinition.indexes.single.copyWith(
+          scopedAddressIndex.copyWith(
             elements: [
-              addressDefinition.indexes.single.elements.single.copyWith(
-                definition: 'street',
-              ),
+              for (final element in scopedAddressIndex.elements)
+                element.definition == 'inhabitantId'
+                    ? element.copyWith(definition: 'street')
+                    : element,
             ],
           ),
         ],
