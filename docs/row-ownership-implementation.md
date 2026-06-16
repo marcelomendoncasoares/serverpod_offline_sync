@@ -50,6 +50,14 @@ In `packages/serverpod_offline_sync_server/lib/src/models/`:
   `crdt_data_rows_scope_tbl_row_idx` with `fields: scopeId, tblId,
   uuidRowId`; **delete the commented-out `crdt_data_rows_tbl_row_vis_idx`
   block** (obsolete per the spec's read path).
+- `sync/violation.spy.yaml`: add the sparse durable
+  `crdt_sync_ownership_violations` table for terminal ownership violations.
+  It is keyed by `(domainTableName, uuidRowId, ownerScopeUuid,
+  incomingScopeUuid)` and stores operation, nullable table/row/node
+  relations, HLC datetime/counter, and first/last seen plus occurrence count.
+  If a merge rollback removes the incoming node row, recording may recreate
+  that node identity without `lastReceivedHlc` for inspection. It does not
+  store the rejected payload or a payload hash.
 - Sweep `data/`, `merge/`, `sync/`, `schema/` models for `user`-named fields
   that key a scope (none found in yaml today; endpoint/method parameters are
   covered in 1.2).
@@ -178,19 +186,25 @@ spec's five steps:
    no visibility predicate), extracting `scopeId` dynamically.
 2. Owner == merging scope → proceed as the same-scope update path (recovery
    for lost trackers).
-3. Foreign owner → skip; structured session-log warning (operation, table,
-   row id, owning scope, merging scope).
+3. Foreign owner → roll back the merge work for the incoming change, record a
+   durable `crdt_sync_ownership_violations` row (operation, table, row id,
+   owning scope UUID, merging scope UUID, nullable table/row/node relations,
+   and node/HLC metadata), and throw
+   `CrdtSyncOwnershipViolationException`.
 4. No row → proceed to insert with `scopeId` stamped on the patched row.
 5. Wrap the whole application — `_upsertMergeRow`, unique resolution
    (`_resolveForIncomingInsert`), FK-safe handling, domain write — in a
    savepoint (`DatabaseUtil.runInTransactionOrSavepoint` with the active
    transaction). On a domain PK violation, roll back the savepoint, re-read
-   the row, and re-apply the ownership decision. **Nothing from a skipped
-   insert survives**: no CRDT row, no released unique values, no FK
-   attempts.
+   the row, and re-apply the ownership decision. **Nothing from a rejected
+   insert survives**: no CRDT row, no released unique values, no FK attempts.
+   Since `mergeChanges` itself runs inside `transactionForUser`, the merge
+   transaction throws a rich ownership exception and `CrdtDatabase.mergeChanges`
+   records the violation after that transaction rolls back, then rethrows with
+   the persisted violation id.
 
 `_applyMergeInsertForExistingRow` (tracker exists) asserts the domain row's
-owner equals the merging scope before updating; mismatch → skip and log
+owner equals the merging scope before updating; mismatch → record and throw
 (tracker/domain disagreement is corrupted state, not a valid path).
 
 ### 2.4 FK same-scope enforcement
@@ -212,8 +226,8 @@ existing HLC comparison remains deterministic.
 
 Phase 2 exit: suite green; the multi-user fixtures in
 `tombstone_scope_test.dart` will start failing here — convert them in the
-same PR into the enforcement expectations (skip-and-log) or temporarily mark
-them for the Phase 4 rewrite.
+same PR into the enforcement expectations (fail-and-record) or temporarily
+mark them for the Phase 4 rewrite.
 
 ---
 
@@ -245,12 +259,12 @@ laziness.
 ### 3.3 Outbound sync owner checks (`crdt/sync.dart`)
 
 - `_streamInserts` (line ~366): after fetching the physical domain rows,
-  drop any whose `scopeId` differs from the collecting scope's id; log the
-  stale-tracker case.
+  fail and record a durable violation when `scopeId` differs from the
+  collecting scope's id.
 - `_streamUpdates` (~414): verify the owning domain row before emitting
-  field values, same rule.
+  field values, same fail-and-record rule.
 - `_streamDeletes` (~460): when the domain row still exists, verify the
-  owner before emitting the tombstone.
+  owner before emitting the tombstone, same fail-and-record rule.
 
 Phase 3 exit: full suite green, including `find_test.dart` semantics
 unchanged for single-scope fixtures (isolation filter is a no-op with one
@@ -272,10 +286,11 @@ replacing the multi-user groups of `tombstone_scope_test.dart`):
   caller's input instance left unmutated;
 - stripping on scoped reads incl. include graphs; retention on unscoped
   reads;
-- merge-insert collision skip-and-log, including the PK-race regression
+- merge-insert collision fail-and-record, including the PK-race regression
   (two scopes, same UUID, savepoint leaves no metadata/unique-release/FK
-  residue);
-- stale foreign tracker produces no outbound insert/update/delete payloads;
+  residue, durable violation survives rollback);
+- stale foreign tracker fails before producing outbound insert/update/delete
+  payloads and records a durable violation;
 - FK cross-scope repair; cross-scope unique yield on a deliberately global
   index.
 

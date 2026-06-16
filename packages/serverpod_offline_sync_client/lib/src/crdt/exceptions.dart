@@ -82,6 +82,27 @@ final class SyncTablesHashMismatchException extends CrdtSyncException {
       'schema version before syncing.';
 }
 
+/// Thrown when CRDT metadata or an incoming merge attempts to operate on a
+/// domain row owned by another scope.
+final class CrdtSyncOwnershipViolationException extends CrdtSyncException {
+  /// Creates a [CrdtSyncOwnershipViolationException].
+  const CrdtSyncOwnershipViolationException(this.violation);
+
+  /// The ownership violation that caused sync to stop.
+  final CrdtSyncOwnershipViolation violation;
+
+  @override
+  String toString() {
+    final persisted = violation.id == null
+        ? ''
+        : ' Persisted violation id: ${violation.id}.';
+    return 'CrdtSyncOwnershipViolationException: ${violation.operation} for '
+        '${violation.domainTableName}.${violation.uuidRowId} belongs to scope '
+        '${violation.ownerScopeUuid}, but sync attempted scope '
+        '${violation.incomingScopeUuid}.$persisted';
+  }
+}
+
 extension on Type {
   /// The name of the class without the leading underscore and without the 'Impl' suffix.
   String get className {

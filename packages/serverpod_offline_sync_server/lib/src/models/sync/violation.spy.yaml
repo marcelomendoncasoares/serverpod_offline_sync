@@ -1,0 +1,51 @@
+### Durable record of a terminal CRDT row ownership violation.
+###
+### These rows are sparse diagnostic state. They record observed corruption or
+### hostile input without duplicating the hot CRDT row ownership index.
+class: CrdtSyncOwnershipViolation
+table: crdt_sync_ownership_violations
+database: all
+fields:
+  ### Table whose row ownership was violated.
+  tbl: CrdtSchemaTable?, relation(optional, onDelete=SetNull)
+
+  ### Durable table name for repair workflows when the relation is unavailable.
+  domainTableName: String
+
+  ### CRDT metadata row used by the rejected operation, when such a row exists.
+  row: CrdtDataRow?, relation(optional, onDelete=SetNull)
+
+  ### Domain row UUID involved in the violation.
+  uuidRowId: UuidValue
+
+  ### Global scope UUID that owns the physical domain row, when known.
+  ownerScopeUuid: UuidValue?
+
+  ### Global scope UUID that attempted to operate on the row.
+  incomingScopeUuid: UuidValue
+
+  ### Merge or sync operation that observed the violation.
+  operation: String
+
+  ### Node that authored the rejected change, when known.
+  node: CrdtNode?, relation(optional, onDelete=SetNull)
+
+  ### Last observed HLC datetime for the rejected change, when known.
+  hlcDatetime: DateTime?
+
+  ### Last observed HLC counter for the rejected change, when known.
+  hlcCounter: int?
+
+  ### First time this violation key was observed.
+  firstSeenAt: DateTime
+
+  ### Most recent time this violation key was observed.
+  lastSeenAt: DateTime
+
+  ### Number of times this violation key has been observed.
+  occurrences: int
+
+indexes:
+  crdt_sync_ownership_violations_key_idx:
+    fields: domainTableName, uuidRowId, ownerScopeUuid, incomingScopeUuid
+    unique: true

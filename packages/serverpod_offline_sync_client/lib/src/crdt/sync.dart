@@ -11,6 +11,7 @@ import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
 import 'extensions.dart';
 import 'merge.dart';
+import 'ownership_violation.dart';
 
 /// Callback function for when a merge is successful.
 typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
@@ -399,7 +400,21 @@ class CrdtSync {
         foreignKeyAttemptFieldsByRowId[row.id!],
       );
       if (domainRow == null) continue;
-      if ((domainRow as dynamic).scopeId != crdtUser.id) continue;
+      final ownerScopeId = (domainRow as dynamic).scopeId as int?;
+      if (ownerScopeId != crdtUser.id) {
+        await _recordAndThrowOwnershipViolation(
+          session,
+          tableId: row.tblId,
+          metadataRowId: row.id,
+          operation: 'outbound insert',
+          tableName: tableName,
+          rowId: row.uuidRowId,
+          ownerScopeId: ownerScopeId,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          node: row.node,
+          hlc: row.hlc,
+        );
+      }
 
       (domainRow as dynamic).scopeId = null;
 
@@ -440,13 +455,27 @@ class CrdtSync {
       }
 
       final columnName = field.column!.name;
-      if (!await _domainRowOwnedByScope(
+      final owner = await _readDomainRowOwner(
         session,
         tableName,
         field.row!.uuidRowId,
-        crdtUser.id!,
-      )) {
+      );
+      if (!owner.exists) {
         continue;
+      }
+      if (owner.scopeId != crdtUser.id) {
+        await _recordAndThrowOwnershipViolation(
+          session,
+          tableId: field.row!.tblId,
+          metadataRowId: field.row!.id,
+          operation: 'outbound update',
+          tableName: tableName,
+          rowId: field.row!.uuidRowId,
+          ownerScopeId: owner.scopeId,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          node: field.node,
+          hlc: field.hlc,
+        );
       }
 
       final decodedValue = await _fetchColumnValue(
@@ -488,13 +517,27 @@ class CrdtSync {
 
       final tableName = tombstone.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
-      if (!await _domainRowOwnedByScope(
+      final owner = await _readDomainRowOwner(
         session,
         tableName,
         tombstone.row!.uuidRowId,
-        crdtUser.id!,
-      )) {
+      );
+      if (!owner.exists) {
         continue;
+      }
+      if (owner.scopeId != crdtUser.id) {
+        await _recordAndThrowOwnershipViolation(
+          session,
+          tableId: tombstone.row!.tblId,
+          metadataRowId: tombstone.row!.id,
+          operation: 'outbound delete',
+          tableName: tableName,
+          rowId: tombstone.row!.uuidRowId,
+          ownerScopeId: owner.scopeId,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          node: tombstone.node,
+          hlc: tombstone.hlc,
+        );
       }
 
       yield CrdtMergeDelete(
@@ -610,19 +653,68 @@ class CrdtSync {
     return _decodeColumnValue(tableName, columnName, result.first[0]);
   }
 
-  Future<bool> _domainRowOwnedByScope(
+  Future<({bool exists, int? scopeId})> _readDomainRowOwner(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
-    int scopeId,
   ) async {
     final encodedValue = ValueEncoder.instance.convert(rowId);
     final result = await session.db.unsafeQuery(
       'SELECT "scopeId" FROM "${_escapeIdentifier(tableName)}" '
       'WHERE "id" = $encodedValue',
     );
-    if (result.isEmpty) return false;
-    return result.first[0] == scopeId;
+    if (result.isEmpty) return (exists: false, scopeId: null);
+    return (exists: true, scopeId: result.first[0] as int?);
+  }
+
+  Future<Never> _recordAndThrowOwnershipViolation(
+    DatabaseSession session, {
+    required int tableId,
+    required int? metadataRowId,
+    required String operation,
+    required String tableName,
+    required UuidValue rowId,
+    required int? ownerScopeId,
+    required UuidValue incomingScopeUuid,
+    CrdtNode? node,
+    Hlc? hlc,
+  }) async {
+    final ownerScopeUuid = await _scopeUuidForNormalizedId(
+      session,
+      ownerScopeId,
+    );
+    final now = DateTime.now().toUtc();
+    final violation = CrdtSyncOwnershipViolation(
+      tblId: tableId,
+      domainTableName: tableName,
+      rowId: metadataRowId,
+      uuidRowId: rowId,
+      ownerScopeUuid: ownerScopeUuid,
+      incomingScopeUuid: incomingScopeUuid,
+      operation: operation,
+      nodeId: node?.id,
+      node: node,
+      hlcDatetime: hlc?.datetime,
+      hlcCounter: hlc?.counter,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      occurrences: 1,
+    );
+    final persisted = await recordCrdtOwnershipViolation(
+      session,
+      violation: violation,
+    );
+    throw CrdtSyncOwnershipViolationException(persisted);
+  }
+
+  Future<UuidValue?> _scopeUuidForNormalizedId(
+    DatabaseSession session,
+    int? scopeId,
+  ) async {
+    if (scopeId == null) return null;
+
+    final scope = await CrdtScope.db.findById(session, scopeId);
+    return scope?.uuidScopeId;
   }
 
   /// Loads FK projection metadata for outbound insert sync.

@@ -6,7 +6,9 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:uuid/uuid.dart';
 
+import '../crdt/exceptions.dart';
 import '../crdt/merge.dart';
+import '../crdt/ownership_violation.dart';
 import '../crdt/sync.dart';
 import '../protocol/protocol.dart';
 import 'recorder.dart';
@@ -122,10 +124,18 @@ class CrdtDatabase implements Database {
         (throw StateError(
           'A scope ID is required when merging changes without a persistent user.',
         ));
-    await transactionForUser<void>(effectiveScopeId, (tx) async {
-      await _recorder.lockCurrentUser(tx);
-      await _recorder.mergeChanges(mergeSet, tx);
-    });
+    try {
+      await transactionForUser<void>(effectiveScopeId, (tx) async {
+        await _recorder.lockCurrentUser(tx);
+        await _recorder.mergeChanges(mergeSet, tx);
+      });
+    } on CrdtSyncOwnershipViolationException catch (exception) {
+      final persistedViolation = await recordCrdtOwnershipViolation(
+        _delegate.session,
+        violation: exception.violation,
+      );
+      throw CrdtSyncOwnershipViolationException(persistedViolation);
+    }
   }
 
   @override

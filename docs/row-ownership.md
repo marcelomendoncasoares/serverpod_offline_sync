@@ -323,8 +323,8 @@ required composite index. The flag policy (see
       update/reinsert path.
    3. If it exists with another scope, roll back the merge work for the
       incoming change, record a durable ownership violation carrying operation,
-      table, row id, owning scope, incoming scope, node/change metadata, and a
-      payload hash, then fail the sync session.
+      table, row id, owning scope UUID, incoming scope UUID, and node/HLC
+      metadata, then fail the sync session.
    4. If it does not exist, insert with `scopeId` stamped from the merging
       scope.
    5. If the insert races another scope and hits the domain primary key,
@@ -342,11 +342,20 @@ required composite index. The flag policy (see
    diagnostic record survives even though the bad change does not.
 
    The durable record is sparse exception state, not a second ownership index.
-   A `crdt_sync_violations` table (name provisional) stores one deduplicated
-   row per observed violation key, e.g. `(type, tblId, uuidRowId,
-   ownerScopeId, incomingScopeId)`, with `firstSeen`, `lastSeen`, `count`,
-   last node/change identifiers, operation, and payload hash. It must not
-   store full row payloads by default. The sync response returns the violation
+   `crdt_sync_ownership_violations` stores one deduplicated row per observed
+   violation key: `(domainTableName, uuidRowId, ownerScopeUuid,
+   incomingScopeUuid)`. It also stores nullable relations to the registered
+   table (`tbl`), the CRDT metadata row used by the rejected operation (`row`),
+   and the node that authored the rejected change (`node`), plus operation,
+   `hlcDatetime`, `hlcCounter`, `firstSeenAt`, `lastSeenAt`, and
+   `occurrences`. `ownerScopeUuid` is nullable because a corrupt physical row
+   can exist with a null owner; `incomingScopeUuid` is required and globally
+   locatable. The row relation is nullable because a merge insert can collide
+   before an incoming CRDT row exists. If the merge rollback also removed the
+   incoming node relation, the recorder may recreate that node identity with no
+   `lastReceivedHlc` solely so the violation can be inspected; this does not
+   advance checkpoints. The record intentionally stores neither the rejected
+   payload nor a payload hash. The sync response returns the violation
    identifier and checkpoints do not advance past the rejected change, so
    retrying the same corrupt client state fails deterministically until the
    application resolves it.
@@ -688,9 +697,9 @@ not relitigated by accident:
   every read, write, sync, merge, FK, and unique path that consumes CRDT row
   metadata must prove `domain.scopeId` equals the effective metadata scope
   before materializing domain data.
-- **Audit surface:** a durable `crdt_sync_violations` table is part of the
-  ownership-collision contract. Session logs may mirror it, but they are not
-  the source of truth.
+- **Audit surface:** a durable `crdt_sync_ownership_violations` table is part
+  of the ownership-collision contract. Session logs may mirror it, but they
+  are not the source of truth.
 - **No compatibility constraints:** the package is unreleased, so renames
   (storage and API parameters) land without aliases, and there is no
   backfill or data migration to design.
