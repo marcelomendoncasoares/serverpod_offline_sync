@@ -11,6 +11,7 @@ import '../protocol/protocol.dart';
 import 'database.dart';
 import 'schema.dart';
 import 'session.dart';
+import 'unique_index_utils.dart';
 
 part 'merge.dart';
 part 'merge_utils/foreign_key_projector.dart';
@@ -1048,7 +1049,10 @@ WHERE c."id" IN ($whereRowIds)
   ) {
     return _uniqueIndexesByTableName.putIfAbsent(
       tableDefinition.name,
-      () => _syncableUniqueIndexesForTable(tableDefinition),
+      () => _syncableUniqueIndexesForTable(
+        tableDefinition,
+        _syncTableByName.keys.toSet(),
+      ),
     );
   }
 
@@ -1218,20 +1222,22 @@ int _nextClFlag(CrdtDataDeleted? current, bool isDeleted) {
 
 List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
   TableDefinition table,
+  Set<String> syncTableNames,
 ) {
   final uniqueIndexes = table.indexes
       .where(
         (index) =>
             index.isUnique &&
             !index.isPrimary &&
-            index.elements.any(
-              (element) =>
-                  element.type == IndexElementDefinitionType.column &&
-                  element.definition == 'scopeId',
-            ) &&
             index.elements.every(
               (element) => element.type == IndexElementDefinitionType.column,
-            ),
+            ) &&
+            (_isScopedUniqueIndex(index) ||
+                isCrdtAllowedForeignKeyOnlyUniqueIndex(
+                  table,
+                  index,
+                  syncTableNames,
+                )),
       )
       .toList();
 
@@ -1240,6 +1246,14 @@ List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
     for (final index in uniqueIndexes)
       _uniqueIndexConflictReleaseForIndex(table, columnsByName, index),
   ];
+}
+
+bool _isScopedUniqueIndex(IndexDefinition index) {
+  return index.elements.any(
+    (element) =>
+        element.type == IndexElementDefinitionType.column &&
+        element.definition == 'scopeId',
+  );
 }
 
 _UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
