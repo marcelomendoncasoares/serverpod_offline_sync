@@ -58,8 +58,8 @@ class CrdtSchemaRegistry {
         '${globalUniqueIndexes.length} unique index(es) do not include scopeId: '
         '${globalUniqueIndexes.join(', ')}. '
         'Add scopeId to the unique index fields. '
-        'The only allowed global unique indexes are Serverpod-required '
-        'single-column foreign-key indexes for one-to-one relations.',
+        'The only allowed global unique indexes are foreign-key-only indexes '
+        'whose target tables are also synchronized.',
       );
     }
   }
@@ -203,31 +203,37 @@ bool _isForbiddenGlobalUniqueIndex(
   );
   if (includesScopeId) return false;
 
-  return !_isAllowedOneToOneForeignKeyUniqueIndex(
+  return !_isAllowedForeignKeyOnlyUniqueIndex(
     tableDefinition,
     index,
     syncTableNames,
   );
 }
 
-bool _isAllowedOneToOneForeignKeyUniqueIndex(
+bool _isAllowedForeignKeyOnlyUniqueIndex(
   TableDefinition tableDefinition,
   IndexDefinition index,
   Set<String> syncTableNames,
 ) {
-  final elements = index.elements;
-  if (elements.length != 1 ||
-      elements.single.type != IndexElementDefinitionType.column) {
+  final indexColumns = <String>[];
+  for (final element in index.elements) {
+    if (element.type != IndexElementDefinitionType.column) return false;
+    indexColumns.add(element.definition);
+  }
+  if (indexColumns.isEmpty || indexColumns.length != indexColumns.toSet().length) {
     return false;
   }
 
-  final columnName = elements.single.definition;
-  return tableDefinition.foreignKeys.any(
-    (foreignKey) =>
-        foreignKey.columns.length == 1 &&
-        foreignKey.columns.single == columnName &&
-        foreignKey.referenceColumns.length == 1 &&
-        foreignKey.referenceColumns.single == 'id' &&
-        syncTableNames.contains(foreignKey.referenceTable),
-  );
+  final indexColumnSet = indexColumns.toSet();
+  final coveredForeignKeyColumns = <String>{};
+  for (final foreignKey in tableDefinition.foreignKeys) {
+    if (!syncTableNames.contains(foreignKey.referenceTable)) continue;
+    final foreignKeyColumns = foreignKey.columns.toSet();
+    if (foreignKeyColumns.isEmpty) continue;
+    if (indexColumnSet.containsAll(foreignKeyColumns)) {
+      coveredForeignKeyColumns.addAll(foreignKeyColumns);
+    }
+  }
+
+  return indexColumns.every(coveredForeignKeyColumns.contains);
 }

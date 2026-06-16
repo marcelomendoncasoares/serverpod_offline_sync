@@ -200,7 +200,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced one-to-one foreign key unique index, '
+    'Given a CRDT schema registry with a synced foreign-key-only unique index, '
     'when syncAndGetSchema is called, '
     'then the index is accepted.',
     () async {
@@ -213,6 +213,89 @@ void main() {
         Address.t.tableName,
         Person.t.tableName,
       });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a global unique index containing only foreign keys to synced tables, '
+    'when syncAndGetSchema is called, '
+    'then the index is accepted.',
+    () async {
+      final tableDefinitions = testSession.db.serializationManager
+          .getTargetTableDefinitions();
+      final townDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Town.t.tableName,
+      );
+      final addressDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Address.t.tableName,
+      );
+      final indexTemplate = addressDefinition.indexes.singleWhere(
+        (index) => index.indexName == 'address_scope_inhabitant_unique_idx',
+      );
+      final fkOnlyDefinition = townDefinition.copyWith(
+        indexes: [
+          indexTemplate.copyWith(
+            indexName: 'town_global_city_mayor_unique_idx',
+            elements: [
+              indexTemplate.elements.first.copyWith(definition: 'cityId'),
+              indexTemplate.elements.last.copyWith(definition: 'mayorId'),
+            ],
+          ),
+        ],
+      );
+
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Town.t, City.t, Person.t],
+        tableDefinitions: [fkOnlyDefinition],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((table) => table.name).toSet(), {
+        Town.t.tableName,
+        City.t.tableName,
+        Person.t.tableName,
+      });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a global unique index mixing a foreign key and an application column, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final addressDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Address.t.tableName);
+      final foreignKeyUniqueIndex = addressDefinition.indexes.singleWhere(
+        (index) => index.indexName == 'address__inhabitantId__unique_idx',
+      );
+      final foreignKeyElement = foreignKeyUniqueIndex.elements.single;
+      final mixedUniqueDefinition = addressDefinition.copyWith(
+        indexes: [
+          foreignKeyUniqueIndex.copyWith(
+            indexName: 'address_global_inhabitant_street_unique_idx',
+            elements: [
+              foreignKeyElement,
+              foreignKeyElement.copyWith(definition: 'street'),
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Address.t, Person.t],
+          tableDefinitions: [mixedUniqueDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('foreign-key-only indexes'),
+          ),
+        ),
+      );
     },
   );
 }

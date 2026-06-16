@@ -273,10 +273,10 @@ the reserved name, it is excluded from:
   "remove `scope=serverOnly`" hint when the server schema has the column and
   the client schema does not);
 - every non-primary unique index on a synced table must include `scopeId`
-  (missing → error), except a single-column unique index that Serverpod
-  requires for a one-to-one foreign key to another synced row. Ordinary global
-  unique indexes are forbidden for now because the package does not yet define
-  deterministic cross-scope conflict resolution.
+  (missing → error), except a foreign-key-only unique index whose referenced
+  tables are also synced. Ordinary global unique indexes are forbidden for now
+  because the package does not yet define deterministic cross-scope conflict
+  resolution.
 
 ## Unique indexes
 
@@ -293,20 +293,25 @@ indexes:
 Ordinary global unique indexes are rejected until the package has a
 deterministic cross-scope arbitration policy and a way to record the
 losing-side release in that scope's CRDT chain. "Whoever syncs first" is not
-an acceptable CRDT rule. The only permitted global unique index shape is the
-single-column FK unique that Serverpod requires for one-to-one relations.
-That column points at a globally unique synced row id, so it is not treated as
-global application-level arbitration; the model must still also declare the
-scoped composite unique index. On a deployment that happens to contain one
-scope, a composite unique with a constant `scopeId` accepts exactly the same
-rows as a plain unique; nothing degrades.
+an acceptable CRDT rule. The only permitted global unique indexes are
+foreign-key-only indexes: every index element must be a column, and the
+indexed columns must be composed only of complete foreign-key column sets whose
+referenced tables are also synced. This covers Serverpod's relation indexes,
+including one-to-one and composite FK relation indexes, without forcing
+duplicate per-scope indexes for include-query performance. Those columns point
+at globally unique synced row ids, and FK enforcement already repairs or
+rejects cross-scope references, so they are not treated as global
+application-level arbitration. The model must still declare scoped composite
+unique indexes for application uniqueness. On a deployment that happens to
+contain one scope, a composite unique with a constant `scopeId` accepts exactly
+the same rows as a plain unique; nothing degrades.
 
 The unique-conflict resolver discovers indexes from the table definitions,
 uses `scopeId` as part of the lookup predicate, and releases only the
-application columns in scoped indexes. The allowed one-to-one FK global
-unique index is ignored by the CRDT resolver; same-scope conflicts are handled
-by the required scoped composite index, and cross-scope references are handled
-by FK repair. Rows in different scopes never form a conflict group under the
+application columns in scoped indexes. Allowed FK-only global unique indexes
+are ignored by the CRDT resolver; same-scope application conflicts are handled
+by scoped composite indexes, and cross-scope references are handled by FK
+repair. Rows in different scopes never form a conflict group under the
 required composite index. The flag policy (see
 `unique-constraint-invariants.md`) is otherwise unchanged.
 
@@ -488,9 +493,9 @@ Consequences for application code, stated as contract:
 6. **Foreign keys on synced tables target same-scope rows.** Cross-scope
    references are repaired by the existing FK override machinery instead of
    being linked.
-7. **Unique indexes on synced tables include `scopeId`.** Global unique
-   indexes are rejected at startup until a deterministic cross-scope policy
-   exists.
+7. **Application unique indexes on synced tables include `scopeId`.** Global
+   unique indexes are rejected at startup until a deterministic cross-scope
+   policy exists, except FK-only indexes whose referenced tables are synced.
 
 ## Implementation plan
 
@@ -540,8 +545,8 @@ tested **once**, not per combination:
   stale foreign tracker fails before producing outbound insert/update/delete
   payloads and records a durable violation (the multi-user fixtures in
   `tombstone_scope_test.dart` become these tests); FK cross-scope repair;
-  schema validation rejects ordinary global unique indexes and accepts the
-  Serverpod-required one-to-one FK unique exception.
+  schema validation rejects ordinary global unique indexes and accepts
+  FK-only unique indexes whose referenced tables are synced.
 - **Combination smoke tests (one each, not per mechanism).** A two-scope
   database proving read isolation and per-scope uniqueness on SQLite; one
   `withServerpod` sync roundtrip proving the wiring end to end. These exist

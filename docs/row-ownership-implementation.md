@@ -98,10 +98,12 @@ constructor, next to the existing UUID-PK check:
 
 In `recorder.dart` `initialize()` (where `_tableDefinitionsByName` provides
 index definitions): reject every non-primary unique index on a synced table
-whose elements do not include `scopeId`, except the single-column FK unique
-indexes Serverpod requires for one-to-one relations to another synced row.
-Ordinary global unique indexes are forbidden until the package has a
-deterministic cross-scope conflict policy.
+whose elements do not include `scopeId`, except FK-only unique indexes
+composed only of complete FK column sets whose referenced tables are also
+synced. This preserves Serverpod relation/include query indexes without
+treating FK references as application-level global conflicts. Ordinary global
+unique indexes are forbidden until the package has a deterministic cross-scope
+conflict policy.
 
 ### 1.4 Reserved-name exclusions
 
@@ -220,9 +222,10 @@ owner equals the merging scope before updating; mismatch → record and throw
 ### 2.5 Scoped unique conflict resolution (`merge_utils/unique_resolver.dart`)
 
 Where conflict groups are resolved: use `scopeId` as part of the unique lookup
-predicate, but never as a releasable/updateable column. Since global unique
-indexes are rejected at startup, conflict groups are same-scope only and the
-existing HLC comparison remains deterministic.
+predicate, but never as a releasable/updateable column. Since ordinary global
+unique indexes are rejected at startup and allowed FK-only global indexes are
+ignored by the resolver, conflict groups are same-scope only and the existing
+HLC comparison remains deterministic.
 
 Phase 2 exit: suite green; the multi-user fixtures in
 `tombstone_scope_test.dart` will start failing here — convert them in the
