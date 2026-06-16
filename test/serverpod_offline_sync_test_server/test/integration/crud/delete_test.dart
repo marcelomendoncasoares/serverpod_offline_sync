@@ -22,8 +22,10 @@ void main() {
     });
 
     group('when deleting the Person row with deleteRow,', () {
+      late Person deletedPerson;
+
       setUp(() async {
-        await session.db.transactionForUser(
+        deletedPerson = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.deleteRow(session, person, transaction: tx),
         );
@@ -50,31 +52,12 @@ void main() {
         expect(row, isNotNull);
         expect(row!.name, person.name);
       });
+
+      test('then the returned row hides scopeId.', () async {
+        expect(deletedPerson.scopeId, isNull);
+      });
     });
   });
-
-  test(
-    'Given a person table with an existing row, '
-    'when deleting the Person row with deleteRow inside the owner scope, '
-    'then the returned row hides scopeId.',
-    () async {
-      final person = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(
-          session,
-          Person(name: 'test'),
-          transaction: tx,
-        ),
-      );
-
-      final deletedPerson = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.deleteRow(session, person, transaction: tx),
-      );
-
-      expect(deletedPerson.scopeId, isNull);
-    },
-  );
 
   group('Given a person table with a deleted row,', () {
     late Person person;

@@ -2,7 +2,6 @@ part of '../recorder.dart';
 
 typedef _UniqueConflict = ({
   CrdtDataRow row,
-  UuidValue rowId,
   _UniqueIndexConflictRelease uniqueIndex,
 });
 
@@ -30,7 +29,6 @@ class CrdtUniqueConflictResolver {
     );
 
     for (final conflict in conflicts) {
-      final conflictRow = conflict.row;
       final incomingClaimHlc = _incomingInsertUniqueClaim(
         insert: insert,
         uniqueIndex: conflict.uniqueIndex,
@@ -38,7 +36,7 @@ class CrdtUniqueConflictResolver {
       );
       final conflictClaimHlc = await _uniqueIndexHlc(
         tableName: insert.tableName,
-        row: conflictRow,
+        row: conflict.row,
         uniqueIndex: conflict.uniqueIndex,
         fields: context.fields,
         transaction: transaction,
@@ -51,14 +49,13 @@ class CrdtUniqueConflictResolver {
             insert.uuidRowId,
             resolvedData,
             conflict.uniqueIndex,
-            transaction,
           ),
         );
         changed = true;
       } else {
         await _releaseUniqueConflictForRow(
           tableName: insert.tableName,
-          rowId: conflictRow.uuidRowId,
+          rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
           transaction: transaction,
         );
@@ -149,7 +146,6 @@ class CrdtUniqueConflictResolver {
 
     final resolvedUpdates = Map<String, Object?>.from(updates);
     for (final conflict in conflicts) {
-      final conflictRow = conflict.row;
       final rowClaimHlc = await _uniqueIndexHlc(
         tableName: tableName,
         row: row,
@@ -159,7 +155,7 @@ class CrdtUniqueConflictResolver {
       );
       final conflictClaimHlc = await _uniqueIndexHlc(
         tableName: tableName,
-        row: conflictRow,
+        row: conflict.row,
         uniqueIndex: conflict.uniqueIndex,
         fields: context.fields,
         transaction: transaction,
@@ -171,7 +167,6 @@ class CrdtUniqueConflictResolver {
           row.uuidRowId,
           values,
           conflict.uniqueIndex,
-          transaction,
         );
         for (final columnName in conflict.uniqueIndex.columnNames) {
           if (releasedValues.containsKey(columnName)) {
@@ -182,7 +177,7 @@ class CrdtUniqueConflictResolver {
       } else {
         await _releaseUniqueConflictForRow(
           tableName: tableName,
-          rowId: conflictRow.uuidRowId,
+          rowId: conflict.row.uuidRowId,
           uniqueIndex: conflict.uniqueIndex,
           transaction: transaction,
         );
@@ -197,7 +192,6 @@ class CrdtUniqueConflictResolver {
     UuidValue rowId,
     Map<String, Object?> data,
     _UniqueIndexConflictRelease uniqueIndex,
-    Transaction transaction,
   ) {
     final tableDefinition = _recorder._tableDefinitionsByName[tableName];
     if (tableDefinition == null) return data;
@@ -207,9 +201,6 @@ class CrdtUniqueConflictResolver {
       for (final column in uniqueIndex.columns)
         column.columnName: released[column.columnName],
     };
-    if (uniqueIndex.scoped) {
-      values['scopeId'] = _recorder._getHlcManager(transaction).normalizedScopeId;
-    }
     if (values.values.any((value) => value == null)) return released;
 
     for (final column in uniqueIndex.columns) {
@@ -245,7 +236,6 @@ class CrdtUniqueConflictResolver {
       rowId,
       values,
       uniqueIndex,
-      transaction,
     );
     await _recorder._updateDomainRows(tableName, {rowId}, releasedValues, transaction);
   }
@@ -305,7 +295,6 @@ class CrdtUniqueConflictResolver {
         for (final uniqueIndex in uniqueIndexesByConflictId[conflictRow.uuidRowId]!)
           (
             row: conflictRow,
-            rowId: conflictRow.uuidRowId,
             uniqueIndex: uniqueIndex,
           ),
     ];

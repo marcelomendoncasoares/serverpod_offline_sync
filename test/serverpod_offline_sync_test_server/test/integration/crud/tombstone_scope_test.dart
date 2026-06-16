@@ -9,8 +9,7 @@ void main() {
   initTestClientSession();
 
   group(
-    'Given two synced tables sharing the same UUID row id with a tombstone '
-    'in only one of them,',
+    'Given a person tombstone and a town row with the same UUID in the same scope,',
     () {
       late UuidValue sharedId;
 
@@ -50,21 +49,21 @@ void main() {
       });
 
       test(
-        'when finding the town, then the person tombstone does not mask it.',
+        'when finding the town, then the person tombstone does not mask another table.',
         () async {
           expect(await Town.db.findById(session, sharedId), isNotNull);
         },
       );
 
       test(
-        'when counting towns, then the person tombstone does not mask it.',
+        'when counting towns, then the person tombstone does not mask another table.',
         () async {
           expect(await Town.db.count(session), 1);
         },
       );
 
       test(
-        'when updating the town, then the person tombstone does not mask it.',
+        'when updating the town, then the person tombstone does not mask another table.',
         () async {
           final town = await Town.db.findById(session, sharedId);
           final updated = await session.db.transactionForUser(

@@ -230,15 +230,15 @@ void main() {
         (definition) => definition.name == Address.t.tableName,
       );
       final indexTemplate = addressDefinition.indexes.singleWhere(
-        (index) => index.indexName == 'address_scope_inhabitant_unique_idx',
+        (index) => index.indexName == 'address__inhabitantId__unique_idx',
       );
       final fkOnlyDefinition = townDefinition.copyWith(
         indexes: [
           indexTemplate.copyWith(
             indexName: 'town_global_city_mayor_unique_idx',
             elements: [
-              indexTemplate.elements.first.copyWith(definition: 'cityId'),
-              indexTemplate.elements.last.copyWith(definition: 'mayorId'),
+              indexTemplate.elements.single.copyWith(definition: 'cityId'),
+              indexTemplate.elements.single.copyWith(definition: 'mayorId'),
             ],
           ),
         ],

@@ -398,10 +398,10 @@ class CrdtSync {
         table,
         dartName,
         foreignKeyAttemptFieldsByRowId[row.id!],
+        crdtUser.id!,
       );
-      if (domainRow == null) continue;
-      final ownerScopeId = (domainRow as dynamic).scopeId as int?;
-      if (ownerScopeId != crdtUser.id) {
+      if (!domainRow.exists) continue;
+      if (domainRow.ownerScopeId != crdtUser.id) {
         await _recordAndThrowOwnershipViolation(
           session,
           tableId: row.tblId,
@@ -409,14 +409,12 @@ class CrdtSync {
           operation: 'outbound insert',
           tableName: tableName,
           rowId: row.uuidRowId,
-          ownerScopeId: ownerScopeId,
+          ownerScopeId: domainRow.ownerScopeId,
           incomingScopeUuid: crdtUser.uuidScopeId,
           node: row.node,
           hlc: row.hlc,
         );
       }
-
-      (domainRow as dynamic).scopeId = null;
 
       yield CrdtMergeInsert(
         hlcDatetime: row.hlcDatetime,
@@ -424,7 +422,7 @@ class CrdtSync {
         tableName: tableName,
         uuidRowId: row.uuidRowId,
         uuidNodeId: row.node!.uuidNodeId,
-        data: domainRow,
+        data: domainRow.row,
       );
     }
   }
@@ -455,15 +453,18 @@ class CrdtSync {
       }
 
       final columnName = field.column!.name;
-      final owner = await _readDomainRowOwner(
+      final columnValue = await _fetchOwnedColumnValue(
         session,
         tableName,
         field.row!.uuidRowId,
+        columnName,
+        field.foreignKey,
+        crdtUser.id!,
       );
-      if (!owner.exists) {
+      if (!columnValue.exists) {
         continue;
       }
-      if (owner.scopeId != crdtUser.id) {
+      if (columnValue.ownerScopeId != crdtUser.id) {
         await _recordAndThrowOwnershipViolation(
           session,
           tableId: field.row!.tblId,
@@ -471,20 +472,12 @@ class CrdtSync {
           operation: 'outbound update',
           tableName: tableName,
           rowId: field.row!.uuidRowId,
-          ownerScopeId: owner.scopeId,
+          ownerScopeId: columnValue.ownerScopeId,
           incomingScopeUuid: crdtUser.uuidScopeId,
           node: field.node,
           hlc: field.hlc,
         );
       }
-
-      final decodedValue = await _fetchColumnValue(
-        session,
-        tableName,
-        field.row!.uuidRowId,
-        columnName,
-        field.foreignKey,
-      );
 
       yield CrdtMergeUpdate(
         hlcDatetime: field.hlcDatetime,
@@ -493,7 +486,7 @@ class CrdtSync {
         uuidRowId: field.row!.uuidRowId,
         uuidNodeId: field.node!.uuidNodeId,
         columnName: columnName,
-        value: decodedValue,
+        value: columnValue.value,
       );
     }
   }
@@ -521,6 +514,7 @@ class CrdtSync {
         session,
         tableName,
         tombstone.row!.uuidRowId,
+        expectedScopeId: crdtUser.id,
       );
       if (!owner.exists) {
         continue;
@@ -597,33 +591,43 @@ class CrdtSync {
   /// with an active override back to [CrdtDataForeignKey.attemptedValue] before
   /// deserializing. This is the inverse of inbound FK materialization: the wire
   /// payload carries attempted facts, not locally projected visible values.
-  Future<dynamic> _fetchDomainRow(
+  Future<({bool exists, int? ownerScopeId, dynamic row})> _fetchDomainRow(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
     Table table,
     String dartName,
     List<CrdtDataField>? foreignKeyAttemptFields,
+    int scopeId,
   ) async {
     final cols = table.columns
         .map((column) => '"${_escapeIdentifier(column.columnName)}"')
         .join(', ');
     final encodedRowId = ValueEncoder.instance.convert(rowId);
+    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+    final escapedTableName = _escapeIdentifier(tableName);
     final result = await session.db.unsafeQuery(
-      'SELECT $cols FROM "${_escapeIdentifier(tableName)}" '
-      'WHERE "id" = $encodedRowId',
+      'SELECT $cols FROM "$escapedTableName" '
+      'WHERE "id" = $encodedRowId AND "scopeId" = $encodedScopeId '
+      'LIMIT 1',
     );
-    if (result.isEmpty) return null;
+    if (result.isEmpty) {
+      final owner = await _readDomainRowOwner(session, tableName, rowId);
+      return (exists: owner.exists, ownerScopeId: owner.scopeId, row: null);
+    }
 
     final columnMap = result.first.toColumnMap()
       // Domain columns hold visible/materialized FK values; restore attempted
       // values for override columns before building the outbound merge payload.
-      ..applyProjectedForeignKeyAttempts(foreignKeyAttemptFields);
+      ..applyProjectedForeignKeyAttempts(foreignKeyAttemptFields)
+      // scopeId is local ownership metadata; it is never emitted on the wire.
+      ..remove('scopeId');
 
-    return session.db.serializationManager.deserializeByClassName({
+    final row = session.db.serializationManager.deserializeByClassName({
       'className': dartName,
       'data': columnMap,
     });
+    return (exists: true, ownerScopeId: scopeId, row: row);
   }
 
   /// Resolves a column value for outbound update sync.
@@ -632,36 +636,76 @@ class CrdtSync {
   /// from [CrdtDataForeignKey.attemptedValue] instead of the materialized
   /// domain column value. Non-FK columns and FK columns without an override
   /// are read directly from the domain table.
-  Future<dynamic> _fetchColumnValue(
+  Future<({bool exists, int? ownerScopeId, dynamic value})> _fetchOwnedColumnValue(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
     String columnName,
     CrdtDataForeignKey? projection,
+    int scopeId,
   ) async {
     if (projection != null && projection.hasOverride) {
-      return _decodeColumnValue(tableName, columnName, projection.attemptedValue);
+      final owner = await _readDomainRowOwner(
+        session,
+        tableName,
+        rowId,
+        expectedScopeId: scopeId,
+      );
+      if (!owner.exists || owner.scopeId != scopeId) {
+        return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
+      }
+      return (
+        exists: true,
+        ownerScopeId: scopeId,
+        value: _decodeColumnValue(tableName, columnName, projection.attemptedValue),
+      );
     }
 
     final encodedValue = ValueEncoder.instance.convert(rowId);
+    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+    final escapedTableName = _escapeIdentifier(tableName);
     final result = await session.db.unsafeQuery(
       'SELECT "${_escapeIdentifier(columnName)}" '
-      'FROM "${_escapeIdentifier(tableName)}" '
-      'WHERE "id" = $encodedValue',
+      'FROM "$escapedTableName" '
+      'WHERE "id" = $encodedValue AND "scopeId" = $encodedScopeId '
+      'LIMIT 1',
     );
-    if (result.isEmpty) return null;
-    return _decodeColumnValue(tableName, columnName, result.first[0]);
+    if (result.isNotEmpty) {
+      return (
+        exists: true,
+        ownerScopeId: scopeId,
+        value: _decodeColumnValue(tableName, columnName, result.first[0]),
+      );
+    }
+
+    final owner = await _readDomainRowOwner(session, tableName, rowId);
+    return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
   }
 
   Future<({bool exists, int? scopeId})> _readDomainRowOwner(
     DatabaseSession session,
     String tableName,
-    UuidValue rowId,
-  ) async {
+    UuidValue rowId, {
+    int? expectedScopeId,
+  }) async {
     final encodedValue = ValueEncoder.instance.convert(rowId);
+    final escapedTableName = _escapeIdentifier(tableName);
+    if (expectedScopeId != null) {
+      final encodedScopeId = ValueEncoder.instance.convert(expectedScopeId);
+      final scopedResult = await session.db.unsafeQuery(
+        'SELECT "scopeId" FROM "$escapedTableName" '
+        'WHERE "id" = $encodedValue AND "scopeId" = $encodedScopeId '
+        'LIMIT 1',
+      );
+      if (scopedResult.isNotEmpty) {
+        return (exists: true, scopeId: scopedResult.first[0] as int?);
+      }
+    }
+
     final result = await session.db.unsafeQuery(
-      'SELECT "scopeId" FROM "${_escapeIdentifier(tableName)}" '
-      'WHERE "id" = $encodedValue',
+      'SELECT "scopeId" FROM "$escapedTableName" '
+      'WHERE "id" = $encodedValue '
+      'LIMIT 1',
     );
     if (result.isEmpty) return (exists: false, scopeId: null);
     return (exists: true, scopeId: result.first[0] as int?);

@@ -1060,11 +1060,11 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     final rowIds = await _findVisibleDomainRowIdsWhere(
       tableName: edge.parentTableName,
       predicates: [
-        _domainColumnPredicate(edge.parentColumn, value),
         _domainColumnPredicate(
           'scopeId',
           _getHlcManager(transaction).normalizedScopeId,
         ),
+        _domainColumnPredicate(edge.parentColumn, value),
       ],
       transaction: transaction,
     );

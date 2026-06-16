@@ -25,7 +25,11 @@ void main() {
           transaction: tx,
         ),
       );
-      firstScopeId = await _scopeIdFor(testCrdtUserId);
+      final firstScope = await CrdtScope.db.findFirstRow(
+        session,
+        where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+      );
+      firstScopeId = firstScope!.id!;
 
       otherUserPerson = await session.db.transactionForUser(
         otherUserId,
@@ -35,7 +39,11 @@ void main() {
           transaction: tx,
         ),
       );
-      otherScopeId = await _scopeIdFor(otherUserId);
+      final otherScope = await CrdtScope.db.findFirstRow(
+        session,
+        where: (t) => t.uuidScopeId.equals(otherUserId),
+      );
+      otherScopeId = otherScope!.id!;
     });
 
     test(
@@ -104,7 +112,11 @@ void main() {
         (tx) => Town.db.attachRow.mayor(session, town, mayor, transaction: tx),
       );
 
-      scopeId = await _scopeIdFor(testCrdtUserId);
+      final scope = await CrdtScope.db.findFirstRow(
+        session,
+        where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+      );
+      scopeId = scope!.id!;
     });
 
     test(
@@ -285,12 +297,4 @@ void main() {
       );
     },
   );
-}
-
-Future<int> _scopeIdFor(UuidValue uuidScopeId) async {
-  final scope = await CrdtScope.db.findFirstRow(
-    session,
-    where: (t) => t.uuidScopeId.equals(uuidScopeId),
-  );
-  return scope!.id!;
 }
