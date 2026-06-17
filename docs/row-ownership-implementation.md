@@ -53,11 +53,10 @@ In `packages/serverpod_offline_sync_server/lib/src/models/`:
 - `sync/violation.spy.yaml`: add the sparse durable
   `crdt_sync_ownership_violations` table for terminal ownership violations.
   It is keyed by `(domainTableName, uuidRowId, ownerScopeUuid,
-  incomingScopeUuid)` and stores operation, nullable table/row/node
-  relations, HLC datetime/counter, and first/last seen plus occurrence count.
-  If a merge rollback removes the incoming node row, recording may recreate
-  that node identity without `lastReceivedHlc` for inspection. It does not
-  store the rejected payload or a payload hash.
+  incomingScopeUuid)` and stores denormalized scalars only: `operation`,
+  `uuidNodeId`, optional same-database `crdtDataRowId`, HLC datetime/counter,
+  and first/last seen plus occurrence count. There are no relations into CRDT
+  metadata tables. It does not store the rejected payload or a payload hash.
 - Sweep `data/`, `merge/`, `sync/`, `schema/` models for `user`-named fields
   that key a scope (none found in yaml today; endpoint/method parameters are
   covered in 1.2).
@@ -189,9 +188,9 @@ spec's five steps:
 2. Owner == merging scope → proceed as the same-scope update path (recovery
    for lost trackers).
 3. Foreign owner → roll back the merge work for the incoming change, record a
-   durable `crdt_sync_ownership_violations` row (operation, table, row id,
-   owning scope UUID, merging scope UUID, nullable table/row/node relations,
-   and node/HLC metadata), and throw
+   durable `crdt_sync_ownership_violations` row (operation, denormalized table
+   and row UUIDs, owning and incoming scope UUIDs, `uuidNodeId`, optional
+   `crdtDataRowId`, and HLC metadata), and throw
    `CrdtSyncOwnershipViolationException`.
 4. No row → proceed to insert with `scopeId` stamped on the patched row.
 5. Wrap the whole application — `_upsertMergeRow`, unique resolution
@@ -268,6 +267,10 @@ laziness.
   field values, same fail-and-record rule.
 - `_streamDeletes` (~460): when the domain row still exists, verify the
   owner before emitting the tombstone, same fail-and-record rule.
+
+Outbound violations use the same denormalized violation shape as merge
+violations (`uuidNodeId`, optional `crdtDataRowId` when a local metadata row
+was involved). No FK relations are written.
 
 Phase 3 exit: full suite green, including `find_test.dart` semantics
 unchanged for single-scope fixtures (isolation filter is a no-op with one

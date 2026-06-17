@@ -1,0 +1,6 @@
+analyzer:
+  errors:
+    camel_case_types: ignore
+
+formatter:
+  trailing_commas: preserve

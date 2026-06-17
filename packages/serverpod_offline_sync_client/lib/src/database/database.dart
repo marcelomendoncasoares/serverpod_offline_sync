@@ -321,6 +321,15 @@ class CrdtDatabase implements Database {
     Expression? updateWhere,
     Transaction? transaction,
   }) async {
+    if (T == CrdtSyncOwnershipViolation) {
+      return _delegate.upsertRow<T>(
+        row,
+        conflictColumns: conflictColumns,
+        updateColumns: updateColumns,
+        updateWhere: updateWhere,
+        transaction: transaction,
+      );
+    }
     // TODO: Implement CRDT upsert.
     throw UnimplementedError('CRDT upsert is not implemented.');
   }

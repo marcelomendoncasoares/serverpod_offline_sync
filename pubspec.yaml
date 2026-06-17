@@ -14,54 +14,54 @@ workspace:
 
 dev_dependencies:
   melos: ^7.5.1
-  serverpod_cli: 3.5.0-beta.9
+  serverpod_cli: 3.5.0-beta.10
 
 dependency_overrides:
   serverpod:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_cli:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: tools/serverpod_cli
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_client:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_client
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_database:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_database
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_embedded_postgres:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_embedded_postgres
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_shared:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_shared
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_serialization:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_serialization
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_service_client:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_service_client
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
   serverpod_test:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: packages/serverpod_test
-      ref: fix-dynamic-generate-watch
+      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
 
 melos:
   packages:

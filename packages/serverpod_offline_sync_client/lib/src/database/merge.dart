@@ -881,23 +881,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     CrdtNode? node,
     Hlc? hlc,
   }) async {
-    final ownerScopeUuid = await _scopeUuidForNormalizedId(
-      owningScopeId,
-      transaction,
-    );
-
     final now = DateTime.now().toUtc();
     throw CrdtSyncOwnershipViolationException(
       CrdtSyncOwnershipViolation(
-        tblId: _schema[tableName]?.$1,
         domainTableName: tableName,
-        rowId: metadataRowId,
         uuidRowId: rowId,
-        ownerScopeUuid: ownerScopeUuid,
+        ownerScopeUuid: await _scopeUuidForNormalizedId(owningScopeId, transaction),
         incomingScopeUuid: incomingScope.uuidScopeId,
         operation: operation,
-        nodeId: node?.id,
-        node: node,
+        uuidNodeId: node?.uuidNodeId,
+        crdtDataRowId: metadataRowId,
         hlcDatetime: hlc?.datetime,
         hlcCounter: hlc?.counter,
         firstSeenAt: now,

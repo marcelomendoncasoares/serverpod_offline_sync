@@ -154,20 +154,15 @@ void main() {
         final violation = await CrdtSyncOwnershipViolation.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(rowId),
-          include: CrdtSyncOwnershipViolation.include(
-            tbl: CrdtSchemaTable.include(),
-            node: CrdtNode.include(),
-          ),
         );
 
         expect(violation, isNotNull);
-        expect(violation!.tbl!.name, Person.t.tableName);
-        expect(violation.domainTableName, Person.t.tableName);
-        expect(violation.rowId, isNull);
+        expect(violation!.domainTableName, Person.t.tableName);
+        expect(violation.crdtDataRowId, isNull);
         expect(violation.ownerScopeUuid, testCrdtUserId);
         expect(violation.incomingScopeUuid, otherUserId);
         expect(violation.operation, 'insert');
-        expect(violation.node!.uuidNodeId, otherUserNodeId);
+        expect(violation.uuidNodeId, otherUserNodeId);
         expect(violation.hlcDatetime, otherUserInsertHlc.datetime);
         expect(violation.hlcCounter, otherUserInsertHlc.counter);
         expect(violation.occurrences, 1);
@@ -312,19 +307,15 @@ void main() {
             session,
             where: (t) =>
                 t.uuidRowId.equals(rowId) & t.incomingScopeUuid.equals(otherUserId),
-            include: CrdtSyncOwnershipViolation.include(
-              row: CrdtDataRow.include(),
-              node: CrdtNode.include(),
-            ),
           );
 
           expect(violation, isNotNull);
           expect(violation!.operation, 'outbound insert');
           expect(violation.ownerScopeUuid, testCrdtUserId);
           expect(violation.incomingScopeUuid, otherUserId);
-          expect(violation.rowId, staleTracker.id);
-          expect(violation.row!.uuidRowId, rowId);
-          expect(violation.node!.uuidNodeId, otherScope.currentNode!.uuidNodeId);
+          expect(violation.crdtDataRowId, staleTracker.id);
+          expect(violation.uuidRowId, rowId);
+          expect(violation.uuidNodeId, otherScope.currentNode!.uuidNodeId);
           expect(violation.occurrences, 2);
         },
       );

@@ -327,9 +327,9 @@ required composite index. The flag policy (see
    2. If it exists with the merging scope, follow the same-scope
       update/reinsert path.
    3. If it exists with another scope, roll back the merge work for the
-      incoming change, record a durable ownership violation carrying operation,
-      table, row id, owning scope UUID, incoming scope UUID, and node/HLC
-      metadata, then fail the sync session.
+      incoming change, record a durable ownership violation with denormalized
+      operation, table, row, scope, node UUID, and HLC fields, then fail the
+      sync session.
    4. If it does not exist, insert with `scopeId` stamped from the merging
       scope.
    5. If the insert races another scope and hits the domain primary key,
@@ -349,21 +349,26 @@ required composite index. The flag policy (see
    The durable record is sparse exception state, not a second ownership index.
    `crdt_sync_ownership_violations` stores one deduplicated row per observed
    violation key: `(domainTableName, uuidRowId, ownerScopeUuid,
-   incomingScopeUuid)`. It also stores nullable relations to the registered
-   table (`tbl`), the CRDT metadata row used by the rejected operation (`row`),
-   and the node that authored the rejected change (`node`), plus operation,
-   `hlcDatetime`, `hlcCounter`, `firstSeenAt`, `lastSeenAt`, and
-   `occurrences`. `ownerScopeUuid` is nullable because a corrupt physical row
-   can exist with a null owner; `incomingScopeUuid` is required and globally
-   locatable. The row relation is nullable because a merge insert can collide
-   before an incoming CRDT row exists. If the merge rollback also removed the
-   incoming node relation, the recorder may recreate that node identity with no
-   `lastReceivedHlc` solely so the violation can be inspected; this does not
-   advance checkpoints. The record intentionally stores neither the rejected
-   payload nor a payload hash. The sync response returns the violation
-   identifier and checkpoints do not advance past the rejected change, so
-   retrying the same corrupt client state fails deterministically until the
-   application resolves it.
+   incomingScopeUuid)`. All other stored fields are denormalized scalars so
+   the record remains useful after merge rollbacks and on databases that do
+   not share the same local CRDT metadata rows. There are no foreign keys into
+   CRDT metadata tables (`crdt_schema_tables`, `crdt_data_rows`,
+   `crdt_nodes`): relations would often target rows that never committed or
+   no longer exist when the violation is persisted outside the rolled-back
+   merge transaction.
+
+   Stored alongside the key: `operation`; `uuidNodeId` and `hlcDatetime` /
+   `hlcCounter` for the rejected change's causal context; optional
+   `crdtDataRowId` as a same-database hint to the local metadata row id when
+   one was known (for example outbound sync with a stale tracker);
+   `firstSeenAt`, `lastSeenAt`, and `occurrences`. `ownerScopeUuid` is
+   nullable because a corrupt physical row can exist with a null owner;
+   `incomingScopeUuid` is required and globally locatable. `crdtDataRowId` is
+   often null on merge-insert collisions and is not portable across devices.
+   The record intentionally stores neither the rejected payload nor a payload
+   hash. The sync response returns the violation identifier and checkpoints do
+   not advance past the rejected change, so retrying the same corrupt client
+   state fails deterministically until the application resolves it.
 
    Re-keying the incoming row to a synthetic UUID was considered (non-lossy,
    consistent with the unique flag policy) but rejected: row identity re-keying

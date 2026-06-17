@@ -2,18 +2,16 @@
 ###
 ### These rows are sparse diagnostic state. They record observed corruption or
 ### hostile input without duplicating the hot CRDT row ownership index.
+###
+### All identifiers are denormalized UUIDs and names so the record remains
+### useful after merge rollbacks and across databases that do not share the
+### same local CRDT metadata rows.
 class: CrdtSyncOwnershipViolation
 table: crdt_sync_ownership_violations
 database: all
 fields:
-  ### Table whose row ownership was violated.
-  tbl: CrdtSchemaTable?, relation(optional, onDelete=SetNull)
-
-  ### Durable table name for repair workflows when the relation is unavailable.
+  ### Durable table name for the violated domain row.
   domainTableName: String
-
-  ### CRDT metadata row used by the rejected operation, when such a row exists.
-  row: CrdtDataRow?, relation(optional, onDelete=SetNull)
 
   ### Domain row UUID involved in the violation.
   uuidRowId: UuidValue
@@ -27,8 +25,11 @@ fields:
   ### Merge or sync operation that observed the violation.
   operation: String
 
-  ### Node that authored the rejected change, when known.
-  node: CrdtNode?, relation(optional, onDelete=SetNull)
+  ### UUID of the node that authored the rejected change, when known.
+  uuidNodeId: UuidValue?
+
+  ### Local CRDT metadata row id observed for the rejected operation, when known.
+  crdtDataRowId: int?
 
   ### Last observed HLC datetime for the rejected change, when known.
   hlcDatetime: DateTime?

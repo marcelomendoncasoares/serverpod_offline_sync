@@ -216,7 +216,9 @@ A safe purge workflow is:
    - row fields, tombstones, and FK projection rows through their existing
      metadata cascades.
 5. Delete or anonymize diagnostics that intentionally outlive metadata
-   relations, such as durable ownership violation rows.
+   cascades, such as durable ownership violation rows. Those rows store
+   denormalized table names and scope UUIDs only; they do not reference
+   purged metadata through foreign keys.
 
 If an old offline client later reconnects with data for a purged scope, sync
 must fail with a terminal "scope deleted/reset required" response. The server

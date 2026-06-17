@@ -404,14 +404,13 @@ class CrdtSync {
       if (domainRow.ownerScopeId != crdtUser.id) {
         await _recordAndThrowOwnershipViolation(
           session,
-          tableId: row.tblId,
-          metadataRowId: row.id,
+          crdtDataRowId: row.id,
           operation: 'outbound insert',
           tableName: tableName,
           rowId: row.uuidRowId,
           ownerScopeId: domainRow.ownerScopeId,
           incomingScopeUuid: crdtUser.uuidScopeId,
-          node: row.node,
+          uuidNodeId: row.node!.uuidNodeId,
           hlc: row.hlc,
         );
       }
@@ -467,14 +466,13 @@ class CrdtSync {
       if (columnValue.ownerScopeId != crdtUser.id) {
         await _recordAndThrowOwnershipViolation(
           session,
-          tableId: field.row!.tblId,
-          metadataRowId: field.row!.id,
+          crdtDataRowId: field.row!.id,
           operation: 'outbound update',
           tableName: tableName,
           rowId: field.row!.uuidRowId,
           ownerScopeId: columnValue.ownerScopeId,
           incomingScopeUuid: crdtUser.uuidScopeId,
-          node: field.node,
+          uuidNodeId: field.node!.uuidNodeId,
           hlc: field.hlc,
         );
       }
@@ -522,14 +520,13 @@ class CrdtSync {
       if (owner.scopeId != crdtUser.id) {
         await _recordAndThrowOwnershipViolation(
           session,
-          tableId: tombstone.row!.tblId,
-          metadataRowId: tombstone.row!.id,
+          crdtDataRowId: tombstone.row!.id,
           operation: 'outbound delete',
           tableName: tableName,
           rowId: tombstone.row!.uuidRowId,
           ownerScopeId: owner.scopeId,
           incomingScopeUuid: crdtUser.uuidScopeId,
-          node: tombstone.node,
+          uuidNodeId: tombstone.node!.uuidNodeId,
           hlc: tombstone.hlc,
         );
       }
@@ -713,14 +710,13 @@ class CrdtSync {
 
   Future<Never> _recordAndThrowOwnershipViolation(
     DatabaseSession session, {
-    required int tableId,
-    required int? metadataRowId,
+    required int? crdtDataRowId,
     required String operation,
     required String tableName,
     required UuidValue rowId,
     required int? ownerScopeId,
     required UuidValue incomingScopeUuid,
-    CrdtNode? node,
+    required UuidValue uuidNodeId,
     Hlc? hlc,
   }) async {
     final ownerScopeUuid = await _scopeUuidForNormalizedId(
@@ -729,15 +725,13 @@ class CrdtSync {
     );
     final now = DateTime.now().toUtc();
     final violation = CrdtSyncOwnershipViolation(
-      tblId: tableId,
       domainTableName: tableName,
-      rowId: metadataRowId,
       uuidRowId: rowId,
       ownerScopeUuid: ownerScopeUuid,
       incomingScopeUuid: incomingScopeUuid,
       operation: operation,
-      nodeId: node?.id,
-      node: node,
+      uuidNodeId: uuidNodeId,
+      crdtDataRowId: crdtDataRowId,
       hlcDatetime: hlc?.datetime,
       hlcCounter: hlc?.counter,
       firstSeenAt: now,
