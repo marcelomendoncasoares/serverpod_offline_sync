@@ -2,15 +2,17 @@ import 'package:serverpod_database/serverpod_database.dart';
 
 import '../protocol/protocol.dart';
 
-/// Persists or updates the durable row for an ownership violation.
-Future<CrdtSyncOwnershipViolation> recordCrdtOwnershipViolation(
+/// Persists or updates the durable row for an integrity violation.
+Future<CrdtSyncIntegrityViolation> recordCrdtSyncIntegrityViolation(
   DatabaseSession session, {
-  required CrdtSyncOwnershipViolation violation,
+  required CrdtSyncIntegrityViolation violation,
   Transaction? transaction,
 }) async {
-  final existing = await CrdtSyncOwnershipViolation.db.findFirstRow(
+  final existing = await CrdtSyncIntegrityViolation.db.findFirstRow(
     session,
     where: (t) =>
+        t.type.equals(violation.type) &
+        t.operation.equals(violation.operation) &
         t.domainTableName.equals(violation.domainTableName) &
         t.uuidRowId.equals(violation.uuidRowId) &
         t.ownerScopeUuid.equals(violation.ownerScopeUuid) &
@@ -21,7 +23,6 @@ Future<CrdtSyncOwnershipViolation> recordCrdtOwnershipViolation(
   final now = DateTime.now().toUtc();
   final newViolation = existing != null
       ? existing.copyWith(
-          operation: violation.operation,
           crdtDataRowId: violation.crdtDataRowId ?? existing.crdtDataRowId,
           uuidNodeId: violation.uuidNodeId ?? existing.uuidNodeId,
           hlcDatetime: violation.hlcDatetime,
@@ -35,10 +36,12 @@ Future<CrdtSyncOwnershipViolation> recordCrdtOwnershipViolation(
           occurrences: 1,
         );
 
-  final persisted = await CrdtSyncOwnershipViolation.db.upsertRow(
+  final persisted = await CrdtSyncIntegrityViolation.db.upsertRow(
     session,
     newViolation,
     conflictColumns: (t) => [
+      t.type,
+      t.operation,
       t.domainTableName,
       t.uuidRowId,
       t.ownerScopeUuid,

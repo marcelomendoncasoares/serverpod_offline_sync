@@ -281,8 +281,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
       if (owner.exists && owner.scopeId != mergingScopeId) {
-        await _throwOwnershipViolation(
-          operation: 'insert',
+        await _throwOwnershipCollision(
+          operation: CrdtSyncViolationOperation.mergeInsert,
           tableName: insert.tableName,
           rowId: insert.uuidRowId,
           owningScopeId: owner.scopeId,
@@ -330,8 +330,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           },
         );
       } on _ForeignScopeRowCollision catch (collision) {
-        await _throwOwnershipViolation(
-          operation: 'insert',
+        await _throwOwnershipCollision(
+          operation: CrdtSyncViolationOperation.mergeInsert,
           tableName: insert.tableName,
           rowId: insert.uuidRowId,
           owningScopeId: collision.owningScopeId,
@@ -366,7 +366,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (row == null) return;
     final remoteNode = _requireRemoteNode(remoteNodes, update.uuidNodeId);
     if (!await _domainRowOwnedByEffectiveScope(
-      operation: 'update',
+      operation: CrdtSyncViolationOperation.mergeUpdate,
       tableName: update.tableName,
       rowId: update.uuidRowId,
       transaction: transaction,
@@ -429,7 +429,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (!delete.reason.isSynced) return;
     final remoteNode = _requireRemoteNode(remoteNodes, delete.uuidNodeId);
     if (!await _domainRowOwnedByEffectiveScope(
-      operation: 'delete',
+      operation: CrdtSyncViolationOperation.mergeDelete,
       tableName: delete.tableName,
       rowId: delete.uuidRowId,
       transaction: transaction,
@@ -671,7 +671,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     if (!await _domainRowOwnedByEffectiveScope(
-      operation: 'insert',
+      operation: CrdtSyncViolationOperation.mergeInsert,
       tableName: insert.tableName,
       rowId: insert.uuidRowId,
       transaction: transaction,
@@ -844,7 +844,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   }
 
   Future<bool> _domainRowOwnedByEffectiveScope({
-    required String operation,
+    required CrdtSyncViolationOperation operation,
     required String tableName,
     required UuidValue rowId,
     required Transaction transaction,
@@ -857,7 +857,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (owner.exists && owner.scopeId == mergingScope.id) return true;
     if (!owner.exists) return false;
 
-    await _throwOwnershipViolation(
+    await _throwOwnershipCollision(
       operation: operation,
       tableName: tableName,
       rowId: rowId,
@@ -870,8 +870,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
   }
 
-  Future<Never> _throwOwnershipViolation({
-    required String operation,
+  Future<Never> _throwOwnershipCollision({
+    required CrdtSyncViolationOperation operation,
     required String tableName,
     required UuidValue rowId,
     required int? owningScopeId,
@@ -882,8 +882,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Hlc? hlc,
   }) async {
     final now = DateTime.now().toUtc();
-    throw CrdtSyncOwnershipViolationException(
-      CrdtSyncOwnershipViolation(
+    throw CrdtSyncIntegrityViolationException(
+      CrdtSyncIntegrityViolation(
+        type: CrdtSyncViolationType.ownershipCollision,
         domainTableName: tableName,
         uuidRowId: rowId,
         ownerScopeUuid: await _scopeUuidForNormalizedId(owningScopeId, transaction),

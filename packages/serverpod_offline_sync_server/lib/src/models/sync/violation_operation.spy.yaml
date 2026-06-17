@@ -1,0 +1,10 @@
+### Merge or sync operation that observed an integrity violation.
+enum: CrdtSyncViolationOperation
+serialized: byName
+values:
+  - mergeInsert
+  - mergeUpdate
+  - mergeDelete
+  - outboundInsert
+  - outboundUpdate
+  - outboundDelete

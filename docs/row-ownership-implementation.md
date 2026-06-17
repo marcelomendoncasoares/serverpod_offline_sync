@@ -51,12 +51,13 @@ In `packages/serverpod_offline_sync_server/lib/src/models/`:
   uuidRowId`; **delete the commented-out `crdt_data_rows_tbl_row_vis_idx`
   block** (obsolete per the spec's read path).
 - `sync/violation.spy.yaml`: add the sparse durable
-  `crdt_sync_ownership_violations` table for terminal ownership violations.
-  It is keyed by `(domainTableName, uuidRowId, ownerScopeUuid,
-  incomingScopeUuid)` and stores denormalized scalars only: `operation`,
+  `crdt_sync_integrity_violations` table for terminal integrity violations.
+  It is keyed by `(type, operation, domainTableName, uuidRowId,
+  ownerScopeUuid, incomingScopeUuid)` and stores denormalized scalars only:
   `uuidNodeId`, optional same-database `crdtDataRowId`, HLC datetime/counter,
-  and first/last seen plus occurrence count. There are no relations into CRDT
-  metadata tables. It does not store the rejected payload or a payload hash.
+  and first/last seen plus occurrence count. `type` and `operation` are
+  serialized enum names. There are no relations into CRDT metadata tables. It
+  does not store the rejected payload or a payload hash.
 - Sweep `data/`, `merge/`, `sync/`, `schema/` models for `user`-named fields
   that key a scope (none found in yaml today; endpoint/method parameters are
   covered in 1.2).
@@ -188,10 +189,10 @@ spec's five steps:
 2. Owner == merging scope → proceed as the same-scope update path (recovery
    for lost trackers).
 3. Foreign owner → roll back the merge work for the incoming change, record a
-   durable `crdt_sync_ownership_violations` row (operation, denormalized table
-   and row UUIDs, owning and incoming scope UUIDs, `uuidNodeId`, optional
-   `crdtDataRowId`, and HLC metadata), and throw
-   `CrdtSyncOwnershipViolationException`.
+   durable `crdt_sync_integrity_violations` row (type, operation,
+   denormalized table and row UUIDs, owning and incoming scope UUIDs,
+   `uuidNodeId`, optional `crdtDataRowId`, and HLC metadata), and throw
+   `CrdtSyncIntegrityViolationException`.
 4. No row → proceed to insert with `scopeId` stamped on the patched row.
 5. Wrap the whole application — `_upsertMergeRow`, unique resolution
    (`_resolveForIncomingInsert`), FK-safe handling, domain write — in a

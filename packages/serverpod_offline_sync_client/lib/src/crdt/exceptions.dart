@@ -1,3 +1,5 @@
+import 'package:meta/meta.dart';
+import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../protocol/protocol.dart';
@@ -82,25 +84,58 @@ final class SyncTablesHashMismatchException extends CrdtSyncException {
       'schema version before syncing.';
 }
 
-/// Thrown when CRDT metadata or an incoming merge attempts to operate on a
-/// domain row owned by another scope.
-final class CrdtSyncOwnershipViolationException extends CrdtSyncException {
-  /// Creates a [CrdtSyncOwnershipViolationException].
-  const CrdtSyncOwnershipViolationException(this.violation);
+/// Thrown when sync observes terminal CRDT metadata/domain-row inconsistency.
+final class CrdtSyncIntegrityViolationException extends CrdtSyncException {
+  /// Creates a [CrdtSyncIntegrityViolationException].
+  const CrdtSyncIntegrityViolationException(this.violation);
 
-  /// The ownership violation that caused sync to stop.
-  final CrdtSyncOwnershipViolation violation;
+  /// The integrity violation that caused sync to stop.
+  final CrdtSyncIntegrityViolation violation;
 
   @override
   String toString() {
     final persisted = violation.id == null
         ? ''
         : ' Persisted violation id: ${violation.id}.';
-    return 'CrdtSyncOwnershipViolationException: ${violation.operation} for '
-        '${violation.domainTableName}.${violation.uuidRowId} belongs to scope '
-        '${violation.ownerScopeUuid}, but sync attempted scope '
-        '${violation.incomingScopeUuid}.$persisted';
+    final row = '${violation.domainTableName}.${violation.uuidRowId}';
+    return switch (violation.type) {
+      CrdtSyncViolationType.ownershipCollision =>
+        'CrdtSyncIntegrityViolationException: '
+            '${violation.type.name}/${violation.operation.name} for $row '
+            'belongs to scope ${violation.ownerScopeUuid}, but sync attempted '
+            'scope ${violation.incomingScopeUuid}.$persisted',
+      CrdtSyncViolationType.missingDomainRow =>
+        'CrdtSyncIntegrityViolationException: '
+            '${violation.type.name}/${violation.operation.name} references '
+            'missing domain row $row for scope '
+            '${violation.incomingScopeUuid}.$persisted',
+    };
   }
+}
+
+@internal
+final class PendingOutboundIntegrityViolation implements Exception {
+  const PendingOutboundIntegrityViolation({
+    required this.crdtDataRowId,
+    required this.type,
+    required this.operation,
+    required this.tableName,
+    required this.rowId,
+    required this.ownerScopeId,
+    required this.incomingScopeUuid,
+    required this.uuidNodeId,
+    this.hlc,
+  });
+
+  final int? crdtDataRowId;
+  final CrdtSyncViolationType type;
+  final CrdtSyncViolationOperation operation;
+  final String tableName;
+  final UuidValue rowId;
+  final int? ownerScopeId;
+  final UuidValue incomingScopeUuid;
+  final UuidValue uuidNodeId;
+  final Hlc? hlc;
 }
 
 extension on Type {

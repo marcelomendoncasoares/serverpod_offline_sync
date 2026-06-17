@@ -1,15 +1,18 @@
-### Durable record of a terminal CRDT row ownership violation.
+### Durable record of a terminal CRDT sync integrity violation.
 ###
 ### These rows are sparse diagnostic state. They record observed corruption or
-### hostile input without duplicating the hot CRDT row ownership index.
+### hostile input without duplicating hot CRDT indexes.
 ###
 ### All identifiers are denormalized UUIDs and names so the record remains
 ### useful after merge rollbacks and across databases that do not share the
 ### same local CRDT metadata rows.
-class: CrdtSyncOwnershipViolation
-table: crdt_sync_ownership_violations
+class: CrdtSyncIntegrityViolation
+table: crdt_sync_integrity_violations
 database: all
 fields:
+  ### High-level integrity violation category.
+  type: CrdtSyncViolationType
+
   ### Durable table name for the violated domain row.
   domainTableName: String
 
@@ -23,7 +26,7 @@ fields:
   incomingScopeUuid: UuidValue
 
   ### Merge or sync operation that observed the violation.
-  operation: String
+  operation: CrdtSyncViolationOperation
 
   ### UUID of the node that authored the rejected change, when known.
   uuidNodeId: UuidValue?
@@ -47,6 +50,6 @@ fields:
   occurrences: int
 
 indexes:
-  crdt_sync_ownership_violations_key_idx:
-    fields: domainTableName, uuidRowId, ownerScopeUuid, incomingScopeUuid
+  crdt_sync_integrity_violations_key_idx:
+    fields: type, operation, domainTableName, uuidRowId, ownerScopeUuid, incomingScopeUuid
     unique: true

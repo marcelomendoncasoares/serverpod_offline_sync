@@ -327,7 +327,7 @@ required composite index. The flag policy (see
    2. If it exists with the merging scope, follow the same-scope
       update/reinsert path.
    3. If it exists with another scope, roll back the merge work for the
-      incoming change, record a durable ownership violation with denormalized
+      incoming change, record a durable integrity violation with denormalized
       operation, table, row, scope, node UUID, and HLC fields, then fail the
       sync session.
    4. If it does not exist, insert with `scopeId` stamped from the merging
@@ -347,22 +347,25 @@ required composite index. The flag policy (see
    diagnostic record survives even though the bad change does not.
 
    The durable record is sparse exception state, not a second ownership index.
-   `crdt_sync_ownership_violations` stores one deduplicated row per observed
-   violation key: `(domainTableName, uuidRowId, ownerScopeUuid,
-   incomingScopeUuid)`. All other stored fields are denormalized scalars so
-   the record remains useful after merge rollbacks and on databases that do
-   not share the same local CRDT metadata rows. There are no foreign keys into
-   CRDT metadata tables (`crdt_schema_tables`, `crdt_data_rows`,
-   `crdt_nodes`): relations would often target rows that never committed or
-   no longer exist when the violation is persisted outside the rolled-back
-   merge transaction.
+   `crdt_sync_integrity_violations` stores one deduplicated row per observed
+   violation key: `(type, operation, domainTableName, uuidRowId,
+   ownerScopeUuid, incomingScopeUuid)`. All other stored fields are
+   denormalized scalars so the record remains useful after merge rollbacks and
+   on databases that do not share the same local CRDT metadata rows. There are
+   no foreign keys into CRDT metadata tables (`crdt_schema_tables`,
+   `crdt_data_rows`, `crdt_nodes`): relations would often target rows that
+   never committed or no longer exist when the violation is persisted outside
+   the rolled-back merge transaction.
 
-   Stored alongside the key: `operation`; `uuidNodeId` and `hlcDatetime` /
-   `hlcCounter` for the rejected change's causal context; optional
-   `crdtDataRowId` as a same-database hint to the local metadata row id when
-   one was known (for example outbound sync with a stale tracker);
-   `firstSeenAt`, `lastSeenAt`, and `occurrences`. `ownerScopeUuid` is
-   nullable because a corrupt physical row can exist with a null owner;
+   `type` and `operation` are serialized enum names. The current types are
+   `ownershipCollision` and `missingDomainRow`; operations distinguish merge
+   and outbound insert/update/delete paths. Stored alongside the key:
+   `uuidNodeId` and `hlcDatetime` / `hlcCounter` for the rejected change's
+   causal context; optional `crdtDataRowId` as a same-database hint to the
+   local metadata row id when one was known (for example outbound sync with a
+   stale tracker); `firstSeenAt`, `lastSeenAt`, and `occurrences`.
+   `ownerScopeUuid` is nullable because a corrupt physical row can exist with
+   a null owner;
    `incomingScopeUuid` is required and globally locatable. `crdtDataRowId` is
    often null on merge-insert collisions and is not portable across devices.
    The record intentionally stores neither the rejected payload nor a payload
@@ -707,12 +710,13 @@ not relitigated by accident:
   every read, write, sync, merge, FK, and unique path that consumes CRDT row
   metadata must prove `domain.scopeId` equals the effective metadata scope
   before materializing domain data.
-- **Audit surface:** a durable `crdt_sync_ownership_violations` table is part
-  of the ownership-collision contract. Session logs may mirror it, but they
-  are not the source of truth.
-- **No compatibility constraints:** the package is unreleased, so renames
-  (storage and API parameters) land without aliases, and there is no
-  backfill or data migration to design.
+- **Audit surface:** a durable `crdt_sync_integrity_violations` table is part
+  of the terminal sync-integrity contract. Session logs may mirror it, but
+  they are not the source of truth.
+- **No compatibility aliases:** the package is unreleased, so renames
+  (storage and API parameters) land without aliases. The storage migration
+  preserves existing durable violation rows by mapping prior operation strings
+  to the new enum names.
 
 ## Open questions
 

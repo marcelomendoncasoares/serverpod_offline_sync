@@ -10,8 +10,8 @@ import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
 import 'extensions.dart';
+import 'integrity_violation.dart';
 import 'merge.dart';
-import 'ownership_violation.dart';
 
 /// Callback function for when a merge is successful.
 typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
@@ -144,9 +144,17 @@ class CrdtSync {
     required List<Hlc> nodeCheckpoints,
   }) async* {
     final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
-    yield* _streamInserts(session, crdtUser, nodeCheckpoints);
-    yield* _streamUpdates(session, crdtUser, nodeCheckpoints);
-    yield* _streamDeletes(session, crdtUser, nodeCheckpoints);
+    try {
+      await for (final change in _streamPendingChanges(
+        session,
+        crdtUser,
+        nodeCheckpoints,
+      )) {
+        yield change;
+      }
+    } on PendingOutboundIntegrityViolation catch (violation) {
+      await _recordAndThrowIntegrityViolation(session, violation);
+    }
   }
 
   /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
@@ -364,6 +372,16 @@ class CrdtSync {
     return crdtDb;
   }
 
+  Stream<CrdtMergeChange> _streamPendingChanges(
+    DatabaseSession session,
+    CrdtScope crdtUser,
+    List<Hlc> nodeCheckpoints,
+  ) async* {
+    yield* _streamInserts(session, crdtUser, nodeCheckpoints);
+    yield* _streamUpdates(session, crdtUser, nodeCheckpoints);
+    yield* _streamDeletes(session, crdtUser, nodeCheckpoints);
+  }
+
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     CrdtScope crdtUser,
@@ -400,12 +418,24 @@ class CrdtSync {
         foreignKeyAttemptFieldsByRowId[row.id!],
         crdtUser.id!,
       );
-      if (!domainRow.exists) continue;
-      if (domainRow.ownerScopeId != crdtUser.id) {
-        await _recordAndThrowOwnershipViolation(
-          session,
+      if (!domainRow.exists) {
+        _throwPendingIntegrityViolation(
           crdtDataRowId: row.id,
-          operation: 'outbound insert',
+          type: CrdtSyncViolationType.missingDomainRow,
+          operation: CrdtSyncViolationOperation.outboundInsert,
+          tableName: tableName,
+          rowId: row.uuidRowId,
+          ownerScopeId: null,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: row.node!.uuidNodeId,
+          hlc: row.hlc,
+        );
+      }
+      if (domainRow.ownerScopeId != crdtUser.id) {
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: row.id,
+          type: CrdtSyncViolationType.ownershipCollision,
+          operation: CrdtSyncViolationOperation.outboundInsert,
           tableName: tableName,
           rowId: row.uuidRowId,
           ownerScopeId: domainRow.ownerScopeId,
@@ -461,13 +491,23 @@ class CrdtSync {
         crdtUser.id!,
       );
       if (!columnValue.exists) {
-        continue;
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: field.row!.id,
+          type: CrdtSyncViolationType.missingDomainRow,
+          operation: CrdtSyncViolationOperation.outboundUpdate,
+          tableName: tableName,
+          rowId: field.row!.uuidRowId,
+          ownerScopeId: null,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: field.node!.uuidNodeId,
+          hlc: field.hlc,
+        );
       }
       if (columnValue.ownerScopeId != crdtUser.id) {
-        await _recordAndThrowOwnershipViolation(
-          session,
+        _throwPendingIntegrityViolation(
           crdtDataRowId: field.row!.id,
-          operation: 'outbound update',
+          type: CrdtSyncViolationType.ownershipCollision,
+          operation: CrdtSyncViolationOperation.outboundUpdate,
           tableName: tableName,
           rowId: field.row!.uuidRowId,
           ownerScopeId: columnValue.ownerScopeId,
@@ -513,14 +553,11 @@ class CrdtSync {
         tableName,
         tombstone.row!.uuidRowId,
       );
-      if (!owner.exists) {
-        continue;
-      }
-      if (owner.scopeId != crdtUser.id) {
-        await _recordAndThrowOwnershipViolation(
-          session,
+      if (owner.exists && owner.scopeId != crdtUser.id) {
+        _throwPendingIntegrityViolation(
           crdtDataRowId: tombstone.row!.id,
-          operation: 'outbound delete',
+          type: CrdtSyncViolationType.ownershipCollision,
+          operation: CrdtSyncViolationOperation.outboundDelete,
           tableName: tableName,
           rowId: tombstone.row!.uuidRowId,
           ownerScopeId: owner.scopeId,
@@ -689,41 +726,59 @@ class CrdtSync {
     return (exists: true, scopeId: result.first[0] as int?);
   }
 
-  Future<Never> _recordAndThrowOwnershipViolation(
-    DatabaseSession session, {
+  Never _throwPendingIntegrityViolation({
     required int? crdtDataRowId,
-    required String operation,
+    required CrdtSyncViolationType type,
+    required CrdtSyncViolationOperation operation,
     required String tableName,
     required UuidValue rowId,
     required int? ownerScopeId,
     required UuidValue incomingScopeUuid,
     required UuidValue uuidNodeId,
     Hlc? hlc,
-  }) async {
+  }) {
+    throw PendingOutboundIntegrityViolation(
+      crdtDataRowId: crdtDataRowId,
+      type: type,
+      operation: operation,
+      tableName: tableName,
+      rowId: rowId,
+      ownerScopeId: ownerScopeId,
+      incomingScopeUuid: incomingScopeUuid,
+      uuidNodeId: uuidNodeId,
+      hlc: hlc,
+    );
+  }
+
+  Future<Never> _recordAndThrowIntegrityViolation(
+    DatabaseSession session,
+    PendingOutboundIntegrityViolation pending,
+  ) async {
     final ownerScopeUuid = await _scopeUuidForNormalizedId(
       session,
-      ownerScopeId,
+      pending.ownerScopeId,
     );
     final now = DateTime.now().toUtc();
-    final violation = CrdtSyncOwnershipViolation(
-      domainTableName: tableName,
-      uuidRowId: rowId,
+    final violation = CrdtSyncIntegrityViolation(
+      type: pending.type,
+      domainTableName: pending.tableName,
+      uuidRowId: pending.rowId,
       ownerScopeUuid: ownerScopeUuid,
-      incomingScopeUuid: incomingScopeUuid,
-      operation: operation,
-      uuidNodeId: uuidNodeId,
-      crdtDataRowId: crdtDataRowId,
-      hlcDatetime: hlc?.datetime,
-      hlcCounter: hlc?.counter,
+      incomingScopeUuid: pending.incomingScopeUuid,
+      operation: pending.operation,
+      uuidNodeId: pending.uuidNodeId,
+      crdtDataRowId: pending.crdtDataRowId,
+      hlcDatetime: pending.hlc?.datetime,
+      hlcCounter: pending.hlc?.counter,
       firstSeenAt: now,
       lastSeenAt: now,
       occurrences: 1,
     );
-    final persisted = await recordCrdtOwnershipViolation(
+    final persisted = await recordCrdtSyncIntegrityViolation(
       session,
       violation: violation,
     );
-    throw CrdtSyncOwnershipViolationException(persisted);
+    throw CrdtSyncIntegrityViolationException(persisted);
   }
 
   Future<UuidValue?> _scopeUuidForNormalizedId(
