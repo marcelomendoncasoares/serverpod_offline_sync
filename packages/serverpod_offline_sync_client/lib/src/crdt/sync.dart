@@ -512,7 +512,6 @@ class CrdtSync {
         session,
         tableName,
         tombstone.row!.uuidRowId,
-        expectedScopeId: crdtUser.id,
       );
       if (!owner.exists) {
         continue;
@@ -642,12 +641,7 @@ class CrdtSync {
     int scopeId,
   ) async {
     if (projection != null && projection.hasOverride) {
-      final owner = await _readDomainRowOwner(
-        session,
-        tableName,
-        rowId,
-        expectedScopeId: scopeId,
-      );
+      final owner = await _readDomainRowOwner(session, tableName, rowId);
       if (!owner.exists || owner.scopeId != scopeId) {
         return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
       }
@@ -682,23 +676,10 @@ class CrdtSync {
   Future<({bool exists, int? scopeId})> _readDomainRowOwner(
     DatabaseSession session,
     String tableName,
-    UuidValue rowId, {
-    int? expectedScopeId,
-  }) async {
+    UuidValue rowId,
+  ) async {
     final encodedValue = ValueEncoder.instance.convert(rowId);
     final escapedTableName = _escapeIdentifier(tableName);
-    if (expectedScopeId != null) {
-      final encodedScopeId = ValueEncoder.instance.convert(expectedScopeId);
-      final scopedResult = await session.db.unsafeQuery(
-        'SELECT "scopeId" FROM "$escapedTableName" '
-        'WHERE "id" = $encodedValue AND "scopeId" = $encodedScopeId '
-        'LIMIT 1',
-      );
-      if (scopedResult.isNotEmpty) {
-        return (exists: true, scopeId: scopedResult.first[0] as int?);
-      }
-    }
-
     final result = await session.db.unsafeQuery(
       'SELECT "scopeId" FROM "$escapedTableName" '
       'WHERE "id" = $encodedValue '
