@@ -92,9 +92,11 @@ void main() {
     final changedDefinitions = [
       addressDefinition.copyWith(
         foreignKeys: [
-          addressDefinition.foreignKeys.single.copyWith(
-            onDelete: ForeignKeyAction.cascade,
-          ),
+          for (final fk in addressDefinition.foreignKeys)
+            if (fk.columns.contains('inhabitantId'))
+              fk.copyWith(onDelete: ForeignKeyAction.noAction)
+            else
+              fk,
         ],
       ),
     ];

@@ -37,7 +37,7 @@ class CrdtSchemaRegistry {
         'fields:\n'
         '  id: UuidValue?, defaultPersist=random_v7\n'
         '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
-        '  scopeId: int?\n\n'
+        '  scopeId: int?, relation(optional, parent=crdt_scopes, onDelete=Cascade)\n\n'
         'If the column is declared with scope=serverOnly, remove the scope; '
         'the column must exist on every database.',
       );
@@ -61,6 +61,26 @@ class CrdtSchemaRegistry {
         'Add scopeId to the unique index fields. '
         'The only allowed global unique indexes are foreign-key-only indexes '
         'whose target tables are also synchronized.',
+      );
+    }
+
+    final tablesWithoutScopeIdRelation = _missingCrdtScopeRelations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (tablesWithoutScopeIdRelation.isNotEmpty) {
+      throw StateError(
+        'CRDT synced tables must declare scopeId as a cascade relation to '
+        'crdt_scopes, but ${tablesWithoutScopeIdRelation.length} table(s) are '
+        'missing this relation: '
+        '${tablesWithoutScopeIdRelation.map((t) => '"$t"').join(', ')}\n\n'
+        'Add this field to every synced model:\n'
+        'fields:\n'
+        '  id: UuidValue?, defaultPersist=random_v7\n'
+        '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
+        '  scopeId: int?, relation(optional, parent=crdt_scopes, onDelete=Cascade)\n\n'
+        'If the column is declared with scope=serverOnly, remove the scope; '
+        'the column must exist on every database.',
       );
     }
   }
@@ -208,5 +228,29 @@ bool _isForbiddenGlobalUniqueIndex(
     tableDefinition,
     index,
     syncTableNames,
+  );
+}
+
+List<String> _missingCrdtScopeRelations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  return [
+    for (final table in syncTables)
+      if (tableDefinitionsByName.containsKey(table.tableName) &&
+          !_hasCrdtScopeRelation(tableDefinitionsByName[table.tableName]!))
+        table.tableName,
+  ];
+}
+
+bool _hasCrdtScopeRelation(TableDefinition tableDefinition) {
+  return tableDefinition.foreignKeys.any(
+    (fk) =>
+        fk.columns.length == 1 &&
+        fk.columns.single == 'scopeId' &&
+        fk.referenceTable == 'crdt_scopes' &&
+        fk.referenceColumns.length == 1 &&
+        fk.referenceColumns.single == 'id' &&
+        fk.onDelete == ForeignKeyAction.cascade,
   );
 }

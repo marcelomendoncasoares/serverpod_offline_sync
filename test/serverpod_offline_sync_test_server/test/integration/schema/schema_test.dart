@@ -1,4 +1,8 @@
+// Uses serverpod_database types already available transitively from the test setup.
+// ignore_for_file: depend_on_referenced_packages
+
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -291,6 +295,99 @@ void main() {
             (e) => e.message,
             'message',
             contains('foreign-key-only indexes'),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table that has the scopeId '
+    'cascade relation to crdt_scopes, '
+    'when the registry is created, '
+    'then no error is thrown.',
+    () async {
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Person.t],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((t) => t.name).toSet(), {Person.t.tableName});
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table missing the scopeId '
+    'cascade relation to crdt_scopes, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final noScopeRelationDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            if (fk.columns.contains('scopeId') &&
+                fk.referenceTable == 'crdt_scopes')
+              null
+            else
+              fk,
+        ].whereType<ForeignKeyDefinition>().toList(),
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [noScopeRelationDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT synced tables must declare scopeId as a cascade relation to crdt_scopes',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with scopeId referencing '
+    'crdt_scopes but without onDelete=Cascade, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final wrongActionDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            if (fk.columns.contains('scopeId') &&
+                fk.referenceTable == 'crdt_scopes')
+              fk.copyWith(onDelete: ForeignKeyAction.restrict)
+            else
+              fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [wrongActionDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT synced tables must declare scopeId as a cascade relation to crdt_scopes',
+            ),
           ),
         ),
       );

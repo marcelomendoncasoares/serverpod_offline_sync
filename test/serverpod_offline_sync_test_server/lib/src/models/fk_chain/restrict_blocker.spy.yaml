@@ -4,7 +4,7 @@ database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
   ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?
+  scopeId: int?, relation(optional, parent=crdt_scopes, onDelete=Cascade)
   name: String
   cascadeMiddle: FkChainCascadeMiddle?, relation(field=cascadeMiddleId, onDelete=Restrict)
   cascadeMiddleId: UuidValue?
