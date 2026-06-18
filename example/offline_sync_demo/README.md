@@ -23,8 +23,17 @@ Key controls:
 - **Show hidden rows** reveals locally hidden/soft-deleted rows (read through the
   unwrapped session and shown struck-through and muted) alongside the visible
   "user view".
-- **Seed target** picks which replica the preset/seed buttons write to. Presets
-  only seed locally; running sync to produce conflicts is up to you.
+- **Seed target**: click any panel — replica A, replica B, or the **Server** —
+  to make it the target (it gets a highlighted border and a "seed target"
+  badge). The preset/seed buttons then write only to that target. Targeting a
+  replica writes locally (nothing reaches the server until you sync); targeting
+  the Server writes straight into the scope via `demoDebug.seedScope`, so you can
+  reset a replica and sync to exercise the fetch-from-scratch flow.
+- **Reset** (the ↺ button on each panel) cleans up panels independently: a
+  replica reset wipes that local database (a fresh device), and the server reset
+  stops active streams before hard-clearing every row and CRDT metadata record in
+  the current scope. Each is independent; reset replicas too when you want a
+  completely fresh demo run.
 - Click any row to open its full record, edit fields, or delete it.
 - The top bar carries a light/dark toggle and an avatar menu for switching
   between or creating demo users.

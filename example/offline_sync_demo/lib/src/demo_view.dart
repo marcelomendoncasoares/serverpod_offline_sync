@@ -151,23 +151,16 @@ class _PresetPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Seed target').small().muted(),
-          const Gap(6),
-          material.SegmentedButton<ReplicaSlot>(
-            segments: const [
-              material.ButtonSegment(
-                value: ReplicaSlot.a,
-                label: Text('Replica A'),
-              ),
-              material.ButtonSegment(
-                value: ReplicaSlot.b,
-                label: Text('Replica B'),
+          Row(
+            children: [
+              const material.Icon(material.Icons.ads_click, size: 14),
+              const Gap(6),
+              Expanded(
+                child: Text(
+                  'Seeding into ${controller.focusedTargetLabel}.',
+                ).small().muted(),
               ),
             ],
-            selected: {controller.focusedSlot},
-            onSelectionChanged: controller.busy
-                ? null
-                : (selection) => controller.setFocusedSlot(selection.single),
           ),
           const Gap(12),
           Tabs(
@@ -358,90 +351,132 @@ class _ReplicaPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final state = controller.replica(slot);
-    final focused = controller.focusedSlot == slot;
+    final target = slot == ReplicaSlot.a
+        ? SeedTarget.replicaA
+        : SeedTarget.replicaB;
+    final focused = controller.focusedTarget == target;
     final canSync =
         controller.online &&
         !controller.busy &&
         !state.streaming &&
         state.session != null;
 
-    return OutlinedContainer(
-      borderColor: focused ? scheme.primary : null,
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              material.Icon(
-                slot == ReplicaSlot.a
-                    ? material.Icons.computer
-                    : material.Icons.laptop,
-                size: 16,
-              ),
-              const Gap(6),
-              Text(slot.label).semiBold(),
-              const Gap(8),
-              _SyncBadge(state: state),
-              const Spacer(),
-              if (focused)
-                const Text('seed target').xSmall().muted()
-              else
-                GhostButton(
-                  onPressed: () => controller.setFocusedSlot(slot),
-                  child: const Text('Seed here').xSmall(),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => controller.setFocusedTarget(target),
+      child: OutlinedContainer(
+        borderColor: focused ? scheme.primary : null,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                material.Icon(
+                  slot == ReplicaSlot.a
+                      ? material.Icons.computer
+                      : material.Icons.laptop,
+                  size: 16,
                 ),
-            ],
-          ),
-          const Gap(6),
-          Row(
-            children: [
-              Text(
-                '${state.projection.visibleRowCount} visible · '
-                '${state.projection.hiddenRowCount} hidden',
-              ).xSmall().muted(),
-              const Spacer(),
-              PrimaryButton(
-                onPressed: canSync
-                    ? () => unawaited(controller.syncReplica(slot))
-                    : null,
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    material.Icon(material.Icons.sync, size: 14),
-                    Gap(4),
-                    Text('Sync'),
-                  ],
-                ),
-              ),
-              const Gap(8),
-              Checkbox(
-                state: state.streaming
-                    ? CheckboxState.checked
-                    : CheckboxState.unchecked,
-                onChanged: (!controller.online || controller.busy)
-                    ? null
-                    : (value) => unawaited(
-                        controller.setReplicaStreaming(
-                          slot,
-                          value == CheckboxState.checked,
-                        ),
-                      ),
-                trailing: const Text('Stream'),
-              ),
-            ],
-          ),
-          const Gap(8),
-          const Divider(),
-          const Gap(8),
-          Expanded(
-            child: _ProjectionTree(
-              nodes: state.projection.nodes,
-              onTapRow: (ref) =>
-                  unawaited(showRowDetailSheet(context, controller, ref, slot)),
+                const Gap(6),
+                Text(slot.label).semiBold(),
+                const Gap(8),
+                _SyncBadge(state: state),
+                const Spacer(),
+                if (focused)
+                  const _StatusPill(text: 'seed target', warn: false)
+                else
+                  const Text('tap to target').xSmall().muted(),
+              ],
             ),
-          ),
-        ],
+            const Gap(6),
+            Row(
+              children: [
+                Text(
+                  '${state.projection.visibleRowCount} visible · '
+                  '${state.projection.hiddenRowCount} hidden',
+                ).xSmall().muted(),
+                const Spacer(),
+                PrimaryButton(
+                  onPressed: canSync
+                      ? () => unawaited(controller.syncReplica(slot))
+                      : null,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      material.Icon(material.Icons.sync, size: 14),
+                      Gap(4),
+                      Text('Sync'),
+                    ],
+                  ),
+                ),
+                const Gap(8),
+                Checkbox(
+                  state: state.streaming
+                      ? CheckboxState.checked
+                      : CheckboxState.unchecked,
+                  onChanged: (!controller.online || controller.busy)
+                      ? null
+                      : (value) => unawaited(
+                          controller.setReplicaStreaming(
+                            slot,
+                            value == CheckboxState.checked,
+                          ),
+                        ),
+                  trailing: const Text('Stream'),
+                ),
+                const Gap(4),
+                material.Tooltip(
+                  message: 'Reset ${slot.label}: wipe local database',
+                  child: IconButton.ghost(
+                    icon: const material.Icon(
+                      material.Icons.delete_outline,
+                      size: 16,
+                    ),
+                    onPressed: controller.busy
+                        ? null
+                        : () => unawaited(controller.resetReplica(slot)),
+                  ),
+                ),
+              ],
+            ),
+            if (state.error != null) ...[
+              const Gap(6),
+              Row(
+                children: [
+                  material.Icon(
+                    material.Icons.error_outline,
+                    size: 12,
+                    color: scheme.destructive,
+                  ),
+                  const Gap(4),
+                  Expanded(
+                    child: material.Text(
+                      state.error!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: material.TextStyle(
+                        fontSize: 11,
+                        color: scheme.destructive,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const Gap(8),
+            const Divider(),
+            const Gap(8),
+            Expanded(
+              child: _ProjectionTree(
+                nodes: state.projection.nodes,
+                onTapRow: (ref) => unawaited(
+                  showRowDetailSheet(context, controller, ref, slot),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -454,48 +489,83 @@ class _ServerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final state = controller.server;
-    return OutlinedContainer(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const material.Icon(material.Icons.dns, size: 16),
-              const Gap(6),
-              const Text('Server').semiBold(),
-              const Gap(8),
-              _ServerBadge(controller: controller),
-              const Spacer(),
-              IconButton.ghost(
-                icon: const material.Icon(material.Icons.refresh, size: 16),
-                onPressed: (!controller.online || controller.busy)
-                    ? null
-                    : () => unawaited(controller.refreshServer()),
-              ),
-            ],
-          ),
-          const Gap(6),
-          Text(
-            '${state.projection.visibleRowCount} rows · merged truth for '
-            'this scope',
-          ).xSmall().muted(),
-          const Gap(8),
-          const Divider(),
-          const Gap(8),
-          Expanded(
-            child: !controller.online
-                ? const Center(
-                    child: Text('Offline — connect to view server state.'),
-                  )
-                : state.error != null
-                ? const Center(
-                    child: Text('Server unavailable. Refresh after auth.'),
-                  )
-                : _ProjectionTree(nodes: state.projection.nodes),
-          ),
-        ],
+    final focused = controller.focusedTarget == SeedTarget.server;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => controller.setFocusedTarget(SeedTarget.server),
+      child: OutlinedContainer(
+        borderColor: focused ? scheme.primary : null,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const material.Icon(material.Icons.dns, size: 16),
+                const Gap(6),
+                const Text('Server').semiBold(),
+                const Gap(8),
+                _ServerBadge(controller: controller),
+                const Spacer(),
+                if (focused)
+                  const _StatusPill(text: 'seed target', warn: false)
+                else
+                  const Text('tap to target').xSmall().muted(),
+              ],
+            ),
+            const Gap(6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${state.projection.visibleRowCount} rows · merged truth',
+                  ).xSmall().muted(),
+                ),
+                material.Tooltip(
+                  message: 'Reset server scope: clear all rows',
+                  child: IconButton.ghost(
+                    icon: const material.Icon(
+                      material.Icons.delete_outline,
+                      size: 16,
+                    ),
+                    onPressed: (!controller.online || controller.busy)
+                        ? null
+                        : () => unawaited(controller.resetServer()),
+                  ),
+                ),
+                const Gap(4),
+                material.Tooltip(
+                  message: 'Refresh server state',
+                  child: IconButton.ghost(
+                    icon: const material.Icon(material.Icons.refresh, size: 16),
+                    onPressed: (!controller.online || controller.busy)
+                        ? null
+                        : () => unawaited(controller.refreshServer()),
+                  ),
+                ),
+              ],
+            ),
+            const Gap(8),
+            const Divider(),
+            const Gap(8),
+            Expanded(
+              child: !controller.online
+                  ? const Center(
+                      child: Text('Offline — connect to view server state.'),
+                    )
+                  : state.error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(state.error!).small().muted(),
+                      ),
+                    )
+                  : _ProjectionTree(nodes: state.projection.nodes),
+            ),
+          ],
+        ),
       ),
     );
   }

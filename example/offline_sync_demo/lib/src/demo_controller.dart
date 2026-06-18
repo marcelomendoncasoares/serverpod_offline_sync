@@ -27,6 +27,17 @@ enum SyncPhase {
   final String label;
 }
 
+/// Where preset/seed actions write: one of the replicas or the server.
+enum SeedTarget {
+  replicaA('Replica A'),
+  replicaB('Replica B'),
+  server('Server');
+
+  const SeedTarget(this.label);
+
+  final String label;
+}
+
 /// Per-replica view and sync state held side by side by [DemoController].
 class ReplicaState {
   ReplicaState(this.slot);
@@ -69,8 +80,8 @@ class DemoController extends ChangeNotifier {
   protocol.Client? _client;
   DemoUser? selectedUser;
 
-  /// The replica that preset/seed actions write to.
-  ReplicaSlot focusedSlot = ReplicaSlot.a;
+  /// Where preset/seed actions write: a replica or the server.
+  SeedTarget focusedTarget = SeedTarget.replicaA;
   int presetTab = 0;
   bool online = true;
   bool showHidden = false;
@@ -94,7 +105,15 @@ class DemoController extends ChangeNotifier {
 
   ReplicaState replica(ReplicaSlot slot) => replicas[slot]!;
 
-  ReplicaSession? get _focusedSession => replicas[focusedSlot]!.session;
+  /// The replica the seed target maps to, or null when targeting the server.
+  ReplicaSlot? get _focusedSlot => switch (focusedTarget) {
+    SeedTarget.replicaA => ReplicaSlot.a,
+    SeedTarget.replicaB => ReplicaSlot.b,
+    SeedTarget.server => null,
+  };
+
+  /// Human label for the current seed target.
+  String get focusedTargetLabel => focusedTarget.label;
 
   // --- Lifecycle ----------------------------------------------------------
 
@@ -156,8 +175,8 @@ class DemoController extends ChangeNotifier {
 
   // --- Controls -----------------------------------------------------------
 
-  void setFocusedSlot(ReplicaSlot slot) {
-    focusedSlot = slot;
+  void setFocusedTarget(SeedTarget target) {
+    focusedTarget = target;
     notifyListeners();
   }
 
@@ -315,195 +334,279 @@ class DemoController extends ChangeNotifier {
     if (session == null) {
       state.projection = DemoProjection.empty();
     } else {
-      final snapshot = await DemoSnapshot.load(
-        session.crdtSession,
-        session.rawSession,
-      );
-      state.projection = snapshot.project(showHidden: showHidden);
+      // Reading the view must never turn a successful sync/seed into a reported
+      // failure. Surface the error in the panel and keep the last projection.
+      try {
+        final snapshot = await DemoSnapshot.load(
+          session.crdtSession,
+          session.rawSession,
+        );
+        state.projection = snapshot.project(showHidden: showHidden);
+        state.error = null;
+      } catch (error, stackTrace) {
+        if (kDebugMode) {
+          debugPrint('Snapshot load failed for ${slot.label}: $error');
+          debugPrint('$stackTrace');
+        }
+        state.error = 'view error: $error';
+      }
     }
     if (notify) notifyListeners();
   }
 
-  // --- Presets / seeding (focused replica) --------------------------------
+  // --- Reset --------------------------------------------------------------
 
-  Future<void> seedBasicGraph() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final suffix = _counter.next('basic');
+  /// Wipes one replica's local database (a fresh device). Syncing afterwards
+  /// re-pulls whatever the server still holds. Other replicas and the server
+  /// are untouched.
+  Future<void> resetReplica(ReplicaSlot slot) async {
+    final user = selectedUser;
+    if (user == null) return;
 
-    await _run('Seeded a city/person/address/town graph on '
-        '${focusedSlot.label}.', () async {
-      final city = await protocol.City.db.insertRow(
-        session.crdtSession,
-        protocol.City(id: newId(), name: 'City $suffix'),
-      );
-      final person = await protocol.Person.db.insertRow(
-        session.crdtSession,
-        protocol.Person(id: newId(), name: 'Person $suffix', surname: 'Local'),
-      );
-      await protocol.Address.db.insertRow(
-        session.crdtSession,
-        protocol.Address(
-          id: newId(),
-          street: 'Main Street $suffix',
-          inhabitantId: person.id,
-        ),
-      );
-      await protocol.Town.db.insertRow(
-        session.crdtSession,
-        protocol.Town(id: newId(), name: 'Town $suffix', cityId: city.id),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
+    await _run('Reset ${slot.label} (wiped local database).', () async {
+      await _resetReplicaStorage(user, slot);
     });
   }
 
-  Future<void> seedTypedRow() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final suffix = _counter.next('types');
-
-    await _run('Seeded a typed row on ${focusedSlot.label}.', () async {
-      await protocol.Types.db.insertRow(
-        session.crdtSession,
-        protocol.Types(
-          id: newId(),
-          aBool: suffix.isOdd,
-          aDateTime: DateTime.utc(2026, 6, ((suffix - 1) % 28) + 1, 12),
-          aText: 'typed-$suffix',
-          anInt: suffix,
-          anInt64: BigInt.parse('9007199254740993') + BigInt.from(suffix),
-          aReal: suffix + 0.25,
-          aBlob: ByteData.sublistView(Uint8List.fromList([suffix, 2, 3])),
-          anEnum: protocol
-              .TypesEnum
-              .values[suffix % protocol.TypesEnum.values.length],
-          optionalText: 'optional-$suffix',
-          optionalUuid: newId(),
-        ),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
+  /// Hard-clears the caller's server scope, including synced rows and CRDT
+  /// metadata. Other replicas keep their local data until they are reset or
+  /// sync back into the empty server scope.
+  Future<void> resetServer() async {
+    if (!online) return;
+    await _run('Reset the server scope.', () async {
+      await _stopAllStreams();
+      try {
+        await client.demoDebug.resetScope();
+      } catch (error) {
+        // Surface the reason in the panel, not just the status bar (e.g. a stale
+        // server process without the resetScope endpoint).
+        server.error = 'reset failed: $error';
+        rethrow;
+      }
+      await _fetchServer(notify: false);
     });
   }
 
-  Future<void> addPerson() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final suffix = _counter.next('person');
+  // --- Presets / seeding (focused target) ---------------------------------
 
-    await _run('Added Person $suffix on ${focusedSlot.label}.', () async {
-      await protocol.Person.db.insertRow(
-        session.crdtSession,
-        protocol.Person(id: newId(), name: 'Person $suffix'),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
+  /// Routes a seed to the focused target: a server endpoint call when the
+  /// server is selected, otherwise local inserts on the focused replica.
+  Future<void> _runSeed({
+    required String success,
+    required String serverKind,
+    String? serverText,
+    required Future<void> Function(ReplicaSession session) local,
+  }) async {
+    if (focusedTarget == SeedTarget.server) {
+      if (!online) {
+        status = 'Connect to seed the server.';
+        notifyListeners();
+        return;
+      }
+      await _run(success, () async {
+        try {
+          await client.demoDebug.seedScope(serverKind, serverText);
+        } catch (error) {
+          server.error = 'seed failed: $error';
+          rethrow;
+        }
+        await _fetchServer(notify: false);
+      });
+      return;
+    }
+
+    final slot = _focusedSlot!;
+    final session = replicas[slot]!.session;
+    if (session == null) return;
+    await _run(success, () async {
+      await local(session);
+      await _refreshReplica(slot, notify: false);
     });
   }
 
-  Future<void> createConcurrentUniqueInserts() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final name = _pendingUniqueName ??=
-        'shared-name-${_counter.next('unique')}';
-
-    await _run(
-      'Inserted Unique.name "$name" on ${focusedSlot.label}.',
-      () async {
-        await protocol.Unique.db.insertRow(
+  Future<void> seedBasicGraph() {
+    return _runSeed(
+      success:
+          'Seeded a city/person/address/town graph on '
+          '$focusedTargetLabel.',
+      serverKind: 'basicGraph',
+      local: (session) async {
+        final suffix = _counter.next('basic');
+        final city = await protocol.City.db.insertRow(
           session.crdtSession,
-          protocol.Unique(id: newId(), name: name),
+          protocol.City(id: newId(), name: 'City $suffix'),
         );
-        await _refreshReplica(focusedSlot, notify: false);
+        final person = await protocol.Person.db.insertRow(
+          session.crdtSession,
+          protocol.Person(
+            id: newId(),
+            name: 'Person $suffix',
+            surname: 'Local',
+          ),
+        );
+        await protocol.Address.db.insertRow(
+          session.crdtSession,
+          protocol.Address(
+            id: newId(),
+            street: 'Main Street $suffix',
+            inhabitantId: person.id,
+          ),
+        );
+        await protocol.Town.db.insertRow(
+          session.crdtSession,
+          protocol.Town(id: newId(), name: 'Town $suffix', cityId: city.id),
+        );
       },
     );
   }
 
-  Future<void> createUuidUniqueConflict() async {
-    final session = _focusedSession;
-    if (session == null) return;
+  Future<void> seedTypedRow() {
+    return _runSeed(
+      success: 'Seeded a typed row on $focusedTargetLabel.',
+      serverKind: 'typedRow',
+      local: (session) async {
+        final suffix = _counter.next('types');
+        await protocol.Types.db.insertRow(
+          session.crdtSession,
+          protocol.Types(
+            id: newId(),
+            aBool: suffix.isOdd,
+            aDateTime: DateTime.utc(2026, 6, ((suffix - 1) % 28) + 1, 12),
+            aText: 'typed-$suffix',
+            anInt: suffix,
+            anInt64: BigInt.parse('9007199254740993') + BigInt.from(suffix),
+            aReal: suffix + 0.25,
+            aBlob: ByteData.sublistView(Uint8List.fromList([suffix, 2, 3])),
+            anEnum: protocol
+                .TypesEnum
+                .values[suffix % protocol.TypesEnum.values.length],
+            optionalText: 'optional-$suffix',
+            optionalUuid: newId(),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> addPerson() {
+    return _runSeed(
+      success: 'Added a person on $focusedTargetLabel.',
+      serverKind: 'person',
+      local: (session) async {
+        final suffix = _counter.next('person');
+        await protocol.Person.db.insertRow(
+          session.crdtSession,
+          protocol.Person(id: newId(), name: 'Person $suffix'),
+        );
+      },
+    );
+  }
+
+  Future<void> createConcurrentUniqueInserts() {
+    final name = _pendingUniqueName ??=
+        'shared-name-${_counter.next('unique')}';
+    return _runSeed(
+      success: 'Inserted Unique.name "$name" on $focusedTargetLabel.',
+      serverKind: 'unique',
+      serverText: name,
+      local: (session) async {
+        await protocol.Unique.db.insertRow(
+          session.crdtSession,
+          protocol.Unique(id: newId(), name: name),
+        );
+      },
+    );
+  }
+
+  Future<void> createUuidUniqueConflict() {
     final sharedValue = _pendingUniqueUuid ??= newId();
-
-    await _run('Inserted UniqueUuid on ${focusedSlot.label}.', () async {
-      await protocol.UniqueUuid.db.insertRow(
-        session.crdtSession,
-        protocol.UniqueUuid(id: newId(), value: sharedValue),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
-    });
+    return _runSeed(
+      success: 'Inserted UniqueUuid on $focusedTargetLabel.',
+      serverKind: 'uniqueUuid',
+      serverText: sharedValue.uuid,
+      local: (session) async {
+        await protocol.UniqueUuid.db.insertRow(
+          session.crdtSession,
+          protocol.UniqueUuid(id: newId(), value: sharedValue),
+        );
+      },
+    );
   }
 
-  Future<void> createRestrictMergeScenario() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final suffix = _counter.next('restrict');
-
-    await _run('Seeded restrict parent on ${focusedSlot.label}.', () async {
-      await protocol.Person.db.insertRow(
-        session.crdtSession,
-        protocol.Person(id: newId(), name: 'Restricted parent $suffix'),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
-    });
+  Future<void> createRestrictMergeScenario() {
+    return _runSeed(
+      success: 'Seeded a restrict parent on $focusedTargetLabel.',
+      serverKind: 'person',
+      serverText: 'Restricted parent',
+      local: (session) async {
+        final suffix = _counter.next('restrict');
+        await protocol.Person.db.insertRow(
+          session.crdtSession,
+          protocol.Person(id: newId(), name: 'Restricted parent $suffix'),
+        );
+      },
+    );
   }
 
-  Future<void> createSetNullProjectionScenario() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final suffix = _counter.next('setnull');
-
-    await _run('Seeded set-null mayor candidate on '
-        '${focusedSlot.label}.', () async {
-      await protocol.Person.db.insertRow(
-        session.crdtSession,
-        protocol.Person(id: newId(), name: 'Attempted mayor $suffix'),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
-    });
+  Future<void> createSetNullProjectionScenario() {
+    return _runSeed(
+      success: 'Seeded a set-null mayor candidate on $focusedTargetLabel.',
+      serverKind: 'person',
+      serverText: 'Attempted mayor',
+      local: (session) async {
+        final suffix = _counter.next('setnull');
+        await protocol.Person.db.insertRow(
+          session.crdtSession,
+          protocol.Person(id: newId(), name: 'Attempted mayor $suffix'),
+        );
+      },
+    );
   }
 
-  Future<void> seedForeignKeyChain() async {
-    final session = _focusedSession;
-    if (session == null) return;
-    final suffix = _counter.next('chain');
-
-    await _run('Seeded a mixed FK chain on ${focusedSlot.label}.', () async {
-      final root = await protocol.FkChainRoot.db.insertRow(
-        session.crdtSession,
-        protocol.FkChainRoot(id: newId(), name: 'Root $suffix'),
-      );
-      final middle = await protocol.FkChainCascadeMiddle.db.insertRow(
-        session.crdtSession,
-        protocol.FkChainCascadeMiddle(
-          id: newId(),
-          name: 'Cascade middle $suffix',
-          rootId: root.id,
-        ),
-      );
-      final blocker = await protocol.FkChainRestrictBlocker.db.insertRow(
-        session.crdtSession,
-        protocol.FkChainRestrictBlocker(
-          id: newId(),
-          name: 'Restrict blocker $suffix',
-          cascadeMiddleId: middle.id,
-        ),
-      );
-      await protocol.FkChainMiddleSetNullChild.db.insertRow(
-        session.crdtSession,
-        protocol.FkChainMiddleSetNullChild(
-          id: newId(),
-          name: 'Set-null child $suffix',
-          restrictBlockerId: blocker.id,
-        ),
-      );
-      await protocol.FkChainMiddleCascadeChild.db.insertRow(
-        session.crdtSession,
-        protocol.FkChainMiddleCascadeChild(
-          id: newId(),
-          name: 'Cascade child $suffix',
-          restrictBlockerId: blocker.id,
-        ),
-      );
-      await _refreshReplica(focusedSlot, notify: false);
-    });
+  Future<void> seedForeignKeyChain() {
+    return _runSeed(
+      success: 'Seeded a mixed FK chain on $focusedTargetLabel.',
+      serverKind: 'fkChain',
+      local: (session) async {
+        final suffix = _counter.next('chain');
+        final root = await protocol.FkChainRoot.db.insertRow(
+          session.crdtSession,
+          protocol.FkChainRoot(id: newId(), name: 'Root $suffix'),
+        );
+        final middle = await protocol.FkChainCascadeMiddle.db.insertRow(
+          session.crdtSession,
+          protocol.FkChainCascadeMiddle(
+            id: newId(),
+            name: 'Cascade middle $suffix',
+            rootId: root.id,
+          ),
+        );
+        final blocker = await protocol.FkChainRestrictBlocker.db.insertRow(
+          session.crdtSession,
+          protocol.FkChainRestrictBlocker(
+            id: newId(),
+            name: 'Restrict blocker $suffix',
+            cascadeMiddleId: middle.id,
+          ),
+        );
+        await protocol.FkChainMiddleSetNullChild.db.insertRow(
+          session.crdtSession,
+          protocol.FkChainMiddleSetNullChild(
+            id: newId(),
+            name: 'Set-null child $suffix',
+            restrictBlockerId: blocker.id,
+          ),
+        );
+        await protocol.FkChainMiddleCascadeChild.db.insertRow(
+          session.crdtSession,
+          protocol.FkChainMiddleCascadeChild(
+            id: newId(),
+            name: 'Cascade child $suffix',
+            restrictBlockerId: blocker.id,
+          ),
+        );
+      },
+    );
   }
 
   // --- Row detail & editing -----------------------------------------------
@@ -903,6 +1006,45 @@ class DemoController extends ChangeNotifier {
     for (final slot in ReplicaSlot.values) {
       await _stopReplicaStream(slot);
     }
+  }
+
+  Future<void> _resetReplicaStorage(DemoUser user, ReplicaSlot slot) async {
+    await _stopReplicaStream(slot);
+
+    final sessionsToClose = <ReplicaSession>[];
+    _sessions.removeWhere((_, session) {
+      final shouldRemove =
+          session.slot == slot && session.user.username == user.username;
+      if (shouldRemove) sessionsToClose.add(session);
+      return shouldRemove;
+    });
+
+    replicas[slot]!.session = null;
+    for (final session in sessionsToClose) {
+      await session.rawSession.close();
+    }
+
+    final dir = await getApplicationSupportDirectory();
+    final base = p.join(
+      dir.path,
+      'serverpod_offline_sync_demo',
+      '${user.username}-${slot.name}.db',
+    );
+    for (final path in [base, '$base-wal', '$base-shm']) {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+
+    await _openSession(user, slot);
+    replicas[slot]!
+      ..phase = online ? SyncPhase.idle : SyncPhase.offline
+      ..lastSyncedLabel = null
+      ..error = null;
+    _pendingUniqueName = null;
+    _pendingUniqueUuid = null;
+    await _refreshReplica(slot, notify: false);
   }
 
   void _resetReplicaPhases() {
