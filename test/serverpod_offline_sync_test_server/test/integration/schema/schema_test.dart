@@ -1,5 +1,6 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
@@ -54,10 +55,10 @@ void main() {
       test(
         'then the columns are registered with the correct names and IDs.',
         () async {
-          expect(columnRows, hasLength(table.columns.length));
+          expect(columnRows, hasLength(table.columns.syncColumnNames.length));
           expect(
             columnRows.map((c) => c.name).toSet(),
-            table.columns.map((c) => c.columnName).toSet(),
+            table.columns.syncColumnNames,
           );
           expect(columnRows.map((c) => c.tblId).toSet(), {tableRows.single.id!});
         },
@@ -92,7 +93,7 @@ void main() {
           expect(secondTableRows.single.name, table.tableName);
           expect(secondTableRows.single.id, firstTableRows.single.id);
 
-          expect(secondColumnRows, hasLength(table.columns.length));
+          expect(secondColumnRows, hasLength(table.columns.syncColumnNames.length));
           expect(
             secondColumnRows.map((c) => c.id).toSet(),
             firstColumnRows.map((c) => c.id).toSet(),
@@ -125,7 +126,9 @@ void main() {
       );
       expect(
         columnRows,
-        hasLength(tables.fold<int>(0, (sum, t) => sum + t.columns.length)),
+        hasLength(
+          tables.fold<int>(0, (sum, t) => sum + t.columns.syncColumnNames.length),
+        ),
       );
     },
   );
@@ -152,6 +155,147 @@ void main() {
       );
     },
   );
+
+  test(
+    'Given a CRDT schema registry with a synced table with a global unique index, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final uniqueDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Unique.t.tableName);
+      final scopedUniqueIndex = uniqueDefinition.indexes.singleWhere(
+        (index) => index.isUnique && !index.isPrimary,
+      );
+      final globalUniqueDefinition = uniqueDefinition.copyWith(
+        indexes: [
+          scopedUniqueIndex.copyWith(
+            elements: [
+              for (final element in scopedUniqueIndex.elements)
+                if (element.definition != 'scopeId') element,
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Unique.t],
+          tableDefinitions: [globalUniqueDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT can only synchronize tables with per-scope unique indexes',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced foreign-key-only unique index, '
+    'when syncAndGetSchema is called, '
+    'then the index is accepted.',
+    () async {
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Address.t, Person.t],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((table) => table.name).toSet(), {
+        Address.t.tableName,
+        Person.t.tableName,
+      });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a global unique index containing only foreign keys to synced tables, '
+    'when syncAndGetSchema is called, '
+    'then the index is accepted.',
+    () async {
+      final tableDefinitions = testSession.db.serializationManager
+          .getTargetTableDefinitions();
+      final townDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Town.t.tableName,
+      );
+      final addressDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Address.t.tableName,
+      );
+      final indexTemplate = addressDefinition.indexes.singleWhere(
+        (index) => index.indexName == 'address__inhabitantId__unique_idx',
+      );
+      final fkOnlyDefinition = townDefinition.copyWith(
+        indexes: [
+          indexTemplate.copyWith(
+            indexName: 'town_global_city_mayor_unique_idx',
+            elements: [
+              indexTemplate.elements.single.copyWith(definition: 'cityId'),
+              indexTemplate.elements.single.copyWith(definition: 'mayorId'),
+            ],
+          ),
+        ],
+      );
+
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Town.t, City.t, Person.t],
+        tableDefinitions: [fkOnlyDefinition],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((table) => table.name).toSet(), {
+        Town.t.tableName,
+        City.t.tableName,
+        Person.t.tableName,
+      });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a global unique index mixing a foreign key and an application column, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final addressDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Address.t.tableName);
+      final foreignKeyUniqueIndex = addressDefinition.indexes.singleWhere(
+        (index) => index.indexName == 'address__inhabitantId__unique_idx',
+      );
+      final foreignKeyElement = foreignKeyUniqueIndex.elements.single;
+      final mixedUniqueDefinition = addressDefinition.copyWith(
+        indexes: [
+          foreignKeyUniqueIndex.copyWith(
+            indexName: 'address_global_inhabitant_street_unique_idx',
+            elements: [
+              foreignKeyElement,
+              foreignKeyElement.copyWith(definition: 'street'),
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Address.t, Person.t],
+          tableDefinitions: [mixedUniqueDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('foreign-key-only indexes'),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _UuidPkTable extends Table<UuidValue> {
@@ -160,7 +304,13 @@ class _UuidPkTable extends Table<UuidValue> {
   @override
   List<Column> get columns => [
     id,
+    ColumnInt('scopeId', this),
     ColumnString('name', this),
     ColumnBool('is_active', this),
   ];
+}
+
+extension on List<Column<dynamic>> {
+  List<String> get syncColumnNames =>
+      map((column) => column.columnName).where((name) => name != 'scopeId').toList();
 }

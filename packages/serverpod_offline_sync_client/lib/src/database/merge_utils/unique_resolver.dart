@@ -259,7 +259,14 @@ class CrdtUniqueConflictResolver {
           if (values.containsKey(column.columnName))
             column.columnName: values[column.columnName],
       };
-      if (columnValues.length != uniqueIndex.columns.length) continue;
+      if (uniqueIndex.scoped) {
+        columnValues['scopeId'] = _recorder
+            ._getHlcManager(transaction)
+            .normalizedScopeId;
+      }
+      final expectedValueCount =
+          uniqueIndex.columns.length + (uniqueIndex.scoped ? 1 : 0);
+      if (columnValues.length != expectedValueCount) continue;
       if (columnValues.values.any((value) => value == null)) continue;
 
       final uniqueConflictIds = await _findVisibleRowsByUniqueValues(

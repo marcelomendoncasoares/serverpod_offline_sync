@@ -1,0 +1,6 @@
+### High-level category of a durable CRDT sync integrity violation.
+enum: CrdtSyncViolationType
+serialized: byName
+values:
+  - ownershipCollision
+  - missingDomainRow

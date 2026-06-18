@@ -22,8 +22,10 @@ void main() {
     });
 
     group('when deleting the Person row with deleteRow,', () {
+      late Person deletedPerson;
+
       setUp(() async {
-        await session.db.transactionForUser(
+        deletedPerson = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.deleteRow(session, person, transaction: tx),
         );
@@ -49,6 +51,10 @@ void main() {
         );
         expect(row, isNotNull);
         expect(row!.name, person.name);
+      });
+
+      test('then the returned row hides scopeId.', () async {
+        expect(deletedPerson.scopeId, isNull);
       });
     });
   });

@@ -54,7 +54,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -137,7 +137,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -191,7 +191,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -250,7 +250,7 @@ void main() {
         );
         await session.db.mergeChanges(
           [remoteDelete],
-          userId: testCrdtUserId,
+          scopeId: testCrdtUserId,
         );
 
         remoteUpdate = CrdtMergeUpdate(
@@ -268,7 +268,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -307,7 +307,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteUpdate, remoteRestore],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -375,7 +375,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -455,7 +455,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 

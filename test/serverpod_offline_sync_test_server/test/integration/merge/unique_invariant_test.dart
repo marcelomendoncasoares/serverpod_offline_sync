@@ -41,7 +41,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -70,13 +70,13 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
           loserRowHlcAfterFirstMerge = await _rowHlc(loser.id!);
 
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -100,6 +100,54 @@ void main() {
           expect(await _rowHlc(loser.id!), loserRowHlcAfterFirstMerge);
         });
       });
+    },
+  );
+
+  group(
+    'Given a row owned by one scope and a remote insert for another scope '
+    'that claims the same unique value, ',
+    () {
+      late Unique owner;
+      late Unique incoming;
+      late UuidValue otherUserId;
+
+      setUp(() async {
+        owner = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Unique.db.insertRow(
+            session,
+            Unique(id: const Uuid().v7obj(), name: 'global-name'),
+            transaction: tx,
+          ),
+        );
+        otherUserId = const Uuid().v7obj();
+        incoming = Unique(id: const Uuid().v7obj(), name: 'global-name');
+
+        await session.db.mergeChanges(
+          [
+            CrdtMergeInsert(
+              tableName: Unique.t.tableName,
+              uuidRowId: incoming.id!,
+              uuidNodeId: const Uuid().v7obj(),
+              hlcDatetime: (await _rowHlc(owner.id!)).datetime.advance(),
+              hlcCounter: 0,
+              data: incoming,
+            ),
+          ],
+          scopeId: otherUserId,
+        );
+      });
+
+      test(
+        'when merging, then both rows keep the per-scope unique value.',
+        () async {
+          final rows = await Unique.db.find(testSession);
+
+          expect(rows, hasLength(2));
+          expect(rows.singleWhere((row) => row.id == owner.id).name, 'global-name');
+          expect(rows.singleWhere((row) => row.id == incoming.id).name, 'global-name');
+        },
+      );
     },
   );
 
@@ -136,7 +184,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -217,7 +265,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -292,7 +340,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -368,15 +416,15 @@ void main() {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
               [newerClaimInsert, olderClaimInsert],
-              userId: testCrdtUserId,
+              scopeId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [newerClaimInsert],
-              userId: testCrdtUserId,
+              scopeId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [olderClaimInsert],
-              userId: testCrdtUserId,
+              scopeId: testCrdtUserId,
             );
           });
 
@@ -441,7 +489,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 
@@ -508,7 +556,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            userId: testCrdtUserId,
+            scopeId: testCrdtUserId,
           );
         });
 

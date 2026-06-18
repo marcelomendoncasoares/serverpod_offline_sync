@@ -5,15 +5,22 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
-import '../managers/user.dart';
+import '../managers/scope.dart';
 import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
 import 'extensions.dart';
+import 'integrity_violation.dart';
 import 'merge.dart';
 
 /// Callback function for when a merge is successful.
 typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
+
+/// A tuple representing the ownership of a domain row.
+typedef DomainRowOwner = ({bool exists, int? scopeId});
+
+/// A cache of domain row owners by table name and row id.
+typedef DomainRowOwnerCache = Map<(String, UuidValue), DomainRowOwner>;
 
 /// The shared CRDT synchronization logic used by both client and server nodes.
 class CrdtSync {
@@ -142,10 +149,18 @@ class CrdtSync {
     required UuidValue peerNodeId,
     required List<Hlc> nodeCheckpoints,
   }) async* {
-    final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
-    yield* _streamInserts(session, crdtUser, nodeCheckpoints);
-    yield* _streamUpdates(session, crdtUser, nodeCheckpoints);
-    yield* _streamDeletes(session, crdtUser, nodeCheckpoints);
+    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
+    try {
+      await for (final change in _streamPendingChanges(
+        session,
+        crdtUser,
+        nodeCheckpoints,
+      )) {
+        yield change;
+      }
+    } on PendingOutboundIntegrityViolation catch (violation) {
+      await _recordAndThrowIntegrityViolation(session, violation);
+    }
   }
 
   /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
@@ -157,12 +172,12 @@ class CrdtSync {
     required UuidValue userId,
     required UuidValue peerNodeId,
   }) async {
-    final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
 
     final nodes = await CrdtNode.db.find(
       session,
       where: (t) =>
-          t.userId.equals(crdtUser.id) &
+          t.scopeId.equals(crdtUser.id) &
           t.uuidNodeId.notEquals(crdtUser.currentNode!.uuidNodeId),
     );
 
@@ -194,7 +209,7 @@ class CrdtSync {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final crdtDb = await _openCrdtDatabase(session);
-    await crdtDb.mergeChanges(mergeSet, userId: userId);
+    await crdtDb.mergeChanges(mergeSet, scopeId: userId);
     if (maxSyncedHlc != null) {
       await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
     }
@@ -255,7 +270,7 @@ class CrdtSync {
 
     var sessionCompleted = false;
     try {
-      final crdtUser = await CrdtUserManager(session).getOrCreate(userId);
+      final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
       final localNodeId = crdtUser.currentNode!.uuidNodeId;
 
       yield CrdtSyncConnect(
@@ -363,10 +378,24 @@ class CrdtSync {
     return crdtDb;
   }
 
+  Stream<CrdtMergeChange> _streamPendingChanges(
+    DatabaseSession session,
+    CrdtScope crdtUser,
+    List<Hlc> nodeCheckpoints,
+  ) async* {
+    // Domain ownership is immutable while a collection runs, so read each
+    // row's owner at most once across all three streams.
+    final ownerCache = DomainRowOwnerCache();
+    yield* _streamInserts(session, crdtUser, nodeCheckpoints, ownerCache);
+    yield* _streamUpdates(session, crdtUser, nodeCheckpoints, ownerCache);
+    yield* _streamDeletes(session, crdtUser, nodeCheckpoints, ownerCache);
+  }
+
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
+    DomainRowOwnerCache ownerCache,
   ) async* {
     final rows = await CrdtDataRow.db.find(
       session,
@@ -397,8 +426,35 @@ class CrdtSync {
         table,
         dartName,
         foreignKeyAttemptFieldsByRowId[row.id!],
+        crdtUser.id!,
+        ownerCache,
       );
-      if (domainRow == null) continue;
+      if (!domainRow.exists) {
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: row.id,
+          type: CrdtSyncViolationType.missingDomainRow,
+          operation: CrdtSyncViolationOperation.outboundInsert,
+          tableName: tableName,
+          rowId: row.uuidRowId,
+          ownerScopeId: null,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: row.node!.uuidNodeId,
+          hlc: row.hlc,
+        );
+      }
+      if (domainRow.ownerScopeId != crdtUser.id) {
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: row.id,
+          type: CrdtSyncViolationType.ownershipCollision,
+          operation: CrdtSyncViolationOperation.outboundInsert,
+          tableName: tableName,
+          rowId: row.uuidRowId,
+          ownerScopeId: domainRow.ownerScopeId,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: row.node!.uuidNodeId,
+          hlc: row.hlc,
+        );
+      }
 
       yield CrdtMergeInsert(
         hlcDatetime: row.hlcDatetime,
@@ -406,15 +462,16 @@ class CrdtSync {
         tableName: tableName,
         uuidRowId: row.uuidRowId,
         uuidNodeId: row.node!.uuidNodeId,
-        data: domainRow,
+        data: domainRow.row,
       );
     }
   }
 
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
+    DomainRowOwnerCache ownerCache,
   ) async* {
     final fields = await CrdtDataField.db.find(
       session,
@@ -437,13 +494,41 @@ class CrdtSync {
       }
 
       final columnName = field.column!.name;
-      final decodedValue = await _fetchColumnValue(
+      final columnValue = await _fetchOwnedColumnValue(
         session,
         tableName,
         field.row!.uuidRowId,
         columnName,
         field.foreignKey,
+        crdtUser.id!,
+        ownerCache,
       );
+      if (!columnValue.exists) {
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: field.row!.id,
+          type: CrdtSyncViolationType.missingDomainRow,
+          operation: CrdtSyncViolationOperation.outboundUpdate,
+          tableName: tableName,
+          rowId: field.row!.uuidRowId,
+          ownerScopeId: null,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: field.node!.uuidNodeId,
+          hlc: field.hlc,
+        );
+      }
+      if (columnValue.ownerScopeId != crdtUser.id) {
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: field.row!.id,
+          type: CrdtSyncViolationType.ownershipCollision,
+          operation: CrdtSyncViolationOperation.outboundUpdate,
+          tableName: tableName,
+          rowId: field.row!.uuidRowId,
+          ownerScopeId: columnValue.ownerScopeId,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: field.node!.uuidNodeId,
+          hlc: field.hlc,
+        );
+      }
 
       yield CrdtMergeUpdate(
         hlcDatetime: field.hlcDatetime,
@@ -452,15 +537,16 @@ class CrdtSync {
         uuidRowId: field.row!.uuidRowId,
         uuidNodeId: field.node!.uuidNodeId,
         columnName: columnName,
-        value: decodedValue,
+        value: columnValue.value,
       );
     }
   }
 
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
+    DomainRowOwnerCache ownerCache,
   ) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
@@ -476,6 +562,25 @@ class CrdtSync {
 
       final tableName = tombstone.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
+      final owner = await _readDomainRowOwner(
+        session,
+        tableName,
+        tombstone.row!.uuidRowId,
+        ownerCache,
+      );
+      if (owner.exists && owner.scopeId != crdtUser.id) {
+        _throwPendingIntegrityViolation(
+          crdtDataRowId: tombstone.row!.id,
+          type: CrdtSyncViolationType.ownershipCollision,
+          operation: CrdtSyncViolationOperation.outboundDelete,
+          tableName: tableName,
+          rowId: tombstone.row!.uuidRowId,
+          ownerScopeId: owner.scopeId,
+          incomingScopeUuid: crdtUser.uuidScopeId,
+          uuidNodeId: tombstone.node!.uuidNodeId,
+          hlc: tombstone.hlc,
+        );
+      }
 
       yield CrdtMergeDelete(
         hlcDatetime: tombstone.hlcDatetime,
@@ -491,10 +596,10 @@ class CrdtSync {
 
   Expression _rowHlcAfterFilter(
     CrdtDataRowTable t,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) =>
-      t.userId.equals(crdtUser.id) &
+      t.scopeId.equals(crdtUser.id) &
       t.node.afterAnyCheckpointFilter(
         t.node.uuidNodeId,
         t.hlcDatetime,
@@ -504,10 +609,10 @@ class CrdtSync {
 
   Expression _fieldHlcAfterFilter(
     CrdtDataFieldTable t,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) =>
-      t.row.userId.equals(crdtUser.id) &
+      t.row.scopeId.equals(crdtUser.id) &
       t.node.afterAnyCheckpointFilter(
         t.node.uuidNodeId,
         t.hlcDatetime,
@@ -517,10 +622,10 @@ class CrdtSync {
 
   Expression _tombstoneHlcAfterFilter(
     CrdtDataDeletedTable t,
-    CrdtUser crdtUser,
+    CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) =>
-      t.row.userId.equals(crdtUser.id) &
+      t.row.scopeId.equals(crdtUser.id) &
       t.node.afterAnyCheckpointFilter(
         t.node.uuidNodeId,
         t.hlcDatetime,
@@ -534,33 +639,45 @@ class CrdtSync {
   /// with an active override back to [CrdtDataForeignKey.attemptedValue] before
   /// deserializing. This is the inverse of inbound FK materialization: the wire
   /// payload carries attempted facts, not locally projected visible values.
-  Future<dynamic> _fetchDomainRow(
+  Future<({bool exists, int? ownerScopeId, dynamic row})> _fetchDomainRow(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
     Table table,
     String dartName,
     List<CrdtDataField>? foreignKeyAttemptFields,
+    int scopeId,
+    DomainRowOwnerCache ownerCache,
   ) async {
     final cols = table.columns
         .map((column) => '"${_escapeIdentifier(column.columnName)}"')
         .join(', ');
     final encodedRowId = ValueEncoder.instance.convert(rowId);
+    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+    final escapedTableName = _escapeIdentifier(tableName);
     final result = await session.db.unsafeQuery(
-      'SELECT $cols FROM "${_escapeIdentifier(tableName)}" '
-      'WHERE "id" = $encodedRowId',
+      'SELECT $cols FROM "$escapedTableName" '
+      'WHERE "id" = $encodedRowId AND "scopeId" = $encodedScopeId '
+      'LIMIT 1',
     );
-    if (result.isEmpty) return null;
+    if (result.isEmpty) {
+      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+      return (exists: owner.exists, ownerScopeId: owner.scopeId, row: null);
+    }
+    ownerCache[(tableName, rowId)] = (exists: true, scopeId: scopeId);
 
     final columnMap = result.first.toColumnMap()
       // Domain columns hold visible/materialized FK values; restore attempted
       // values for override columns before building the outbound merge payload.
-      ..applyProjectedForeignKeyAttempts(foreignKeyAttemptFields);
+      ..applyProjectedForeignKeyAttempts(foreignKeyAttemptFields)
+      // scopeId is local ownership metadata; it is never emitted on the wire.
+      ..remove('scopeId');
 
-    return session.db.serializationManager.deserializeByClassName({
+    final row = session.db.serializationManager.deserializeByClassName({
       'className': dartName,
       'data': columnMap,
     });
+    return (exists: true, ownerScopeId: scopeId, row: row);
   }
 
   /// Resolves a column value for outbound update sync.
@@ -569,25 +686,135 @@ class CrdtSync {
   /// from [CrdtDataForeignKey.attemptedValue] instead of the materialized
   /// domain column value. Non-FK columns and FK columns without an override
   /// are read directly from the domain table.
-  Future<dynamic> _fetchColumnValue(
+  Future<({bool exists, int? ownerScopeId, dynamic value})> _fetchOwnedColumnValue(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
     String columnName,
     CrdtDataForeignKey? projection,
+    int scopeId,
+    DomainRowOwnerCache ownerCache,
   ) async {
     if (projection != null && projection.hasOverride) {
-      return _decodeColumnValue(tableName, columnName, projection.attemptedValue);
+      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+      if (!owner.exists || owner.scopeId != scopeId) {
+        return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
+      }
+      return (
+        exists: true,
+        ownerScopeId: scopeId,
+        value: _decodeColumnValue(tableName, columnName, projection.attemptedValue),
+      );
     }
 
     final encodedValue = ValueEncoder.instance.convert(rowId);
+    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+    final escapedTableName = _escapeIdentifier(tableName);
     final result = await session.db.unsafeQuery(
       'SELECT "${_escapeIdentifier(columnName)}" '
-      'FROM "${_escapeIdentifier(tableName)}" '
-      'WHERE "id" = $encodedValue',
+      'FROM "$escapedTableName" '
+      'WHERE "id" = $encodedValue AND "scopeId" = $encodedScopeId '
+      'LIMIT 1',
     );
-    if (result.isEmpty) return null;
-    return _decodeColumnValue(tableName, columnName, result.first[0]);
+    if (result.isNotEmpty) {
+      ownerCache[(tableName, rowId)] = (exists: true, scopeId: scopeId);
+      return (
+        exists: true,
+        ownerScopeId: scopeId,
+        value: _decodeColumnValue(tableName, columnName, result.first[0]),
+      );
+    }
+
+    final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+    return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
+  }
+
+  Future<DomainRowOwner> _readDomainRowOwner(
+    DatabaseSession session,
+    String tableName,
+    UuidValue rowId,
+    DomainRowOwnerCache ownerCache,
+  ) async {
+    final cached = ownerCache[(tableName, rowId)];
+    if (cached != null) return cached;
+
+    final encodedValue = ValueEncoder.instance.convert(rowId);
+    final escapedTableName = _escapeIdentifier(tableName);
+    final result = await session.db.unsafeQuery(
+      'SELECT "scopeId" FROM "$escapedTableName" '
+      'WHERE "id" = $encodedValue '
+      'LIMIT 1',
+    );
+    final owner = result.isEmpty
+        ? (exists: false, scopeId: null)
+        : (exists: true, scopeId: result.first[0] as int?);
+    ownerCache[(tableName, rowId)] = owner;
+    return owner;
+  }
+
+  Never _throwPendingIntegrityViolation({
+    required int? crdtDataRowId,
+    required CrdtSyncViolationType type,
+    required CrdtSyncViolationOperation operation,
+    required String tableName,
+    required UuidValue rowId,
+    required int? ownerScopeId,
+    required UuidValue incomingScopeUuid,
+    required UuidValue uuidNodeId,
+    Hlc? hlc,
+  }) {
+    throw PendingOutboundIntegrityViolation(
+      crdtDataRowId: crdtDataRowId,
+      type: type,
+      operation: operation,
+      tableName: tableName,
+      rowId: rowId,
+      ownerScopeId: ownerScopeId,
+      incomingScopeUuid: incomingScopeUuid,
+      uuidNodeId: uuidNodeId,
+      hlc: hlc,
+    );
+  }
+
+  Future<Never> _recordAndThrowIntegrityViolation(
+    DatabaseSession session,
+    PendingOutboundIntegrityViolation pending,
+  ) async {
+    final ownerScopeUuid = await _scopeUuidForNormalizedId(
+      session,
+      pending.ownerScopeId,
+    );
+    final now = DateTime.now().toUtc();
+    final violation = CrdtSyncIntegrityViolation(
+      type: pending.type,
+      domainTableName: pending.tableName,
+      uuidRowId: pending.rowId,
+      ownerScopeUuid: ownerScopeUuid,
+      incomingScopeUuid: pending.incomingScopeUuid,
+      operation: pending.operation,
+      uuidNodeId: pending.uuidNodeId,
+      crdtDataRowId: pending.crdtDataRowId,
+      hlcDatetime: pending.hlc?.datetime,
+      hlcCounter: pending.hlc?.counter,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      occurrences: 1,
+    );
+    final persisted = await recordCrdtSyncIntegrityViolation(
+      session,
+      violation: violation,
+    );
+    throw CrdtSyncIntegrityViolationException(persisted);
+  }
+
+  Future<UuidValue?> _scopeUuidForNormalizedId(
+    DatabaseSession session,
+    int? scopeId,
+  ) async {
+    if (scopeId == null) return null;
+
+    final scope = await CrdtScope.db.findById(session, scopeId);
+    return scope?.uuidScopeId;
   }
 
   /// Loads FK projection metadata for outbound insert sync.
@@ -661,8 +888,10 @@ class CrdtSync {
           final definition = tableDefinitionsByName[table.tableName];
           final columns = [
             for (final column in definition?.columns ?? const <ColumnDefinition>[])
-              column.name,
-            if (definition == null) ...table.columns.map((column) => column.columnName),
+              if (column.name != 'scopeId') column.name,
+            if (definition == null)
+              for (final column in table.columns)
+                if (column.columnName != 'scopeId') column.columnName,
           ]..sort();
           final foreignKeys = _canonicalForeignKeys(definition);
           final uniqueIndexes = _canonicalUniqueIndexes(definition);

@@ -8,98 +8,169 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  group('Given an empty person table, '
-      'when inserting a Person with insertRow,', () {
-    late Person person;
-
-    setUp(() async {
-      person = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(
-          session,
-          Person(name: 'test'),
-          transaction: tx,
-        ),
-      );
-    });
-
-    test('then the row exists in the person table.', () async {
-      final row = await Person.db.findFirstRow(
-        session,
-        where: (t) => t.id.equals(person.id),
-      );
-      expect(row, isNotNull);
-      expect(row!.name, 'test');
-    });
-
-    group('then CRDT metadata row', () {
-      late CrdtDataRow? crdtRow;
+  group('Given an empty person table,', () {
+    group('when inserting a Person with insertRow,', () {
+      late Person person;
 
       setUp(() async {
-        crdtRow = await CrdtDataRow.db.findFirstRow(
-          session,
-          where: (t) => t.uuidRowId.equals(person.id),
-          include: CrdtDataRow.include(node: CrdtNode.include()),
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'test'),
+            transaction: tx,
+          ),
         );
       });
 
-      test('is recorded.', () async {
-        expect(crdtRow, isNotNull);
-        expect(crdtRow!.tblId, isNotNull);
-        expect(crdtRow!.uuidRowId, person.id);
-      });
-
-      test('has the HLC components populated consistently.', () async {
-        final hlc = crdtRow!.hlc;
-        expect(hlc, greaterThan(Hlc.zero(hlc.nodeId)));
-      });
-    });
-
-    test('then no CRDT fields metadata are registered.', () async {
-      final fieldCount = await CrdtDataField.db.count(
-        session,
-        where: (t) => t.row.uuidRowId.equals(person.id),
-      );
-      expect(fieldCount, 0);
-    });
-
-    test('then no CRDT visibility generation is created for the row.', () async {
-      final clFlag = await CrdtDataDeleted.db.findFirstRow(
-        session,
-        where: (t) => t.row.uuidRowId.equals(person.id),
-      );
-
-      expect(clFlag, isNull);
-    });
-  });
-
-  group('Given an empty person table, '
-      'when inserting two Person rows with insert,', () {
-    late List<Person> inserted;
-
-    setUp(() async {
-      inserted = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insert(
+      test('then the row exists in the person table.', () async {
+        final row = await Person.db.findFirstRow(
           session,
-          [Person(name: 'a'), Person(name: 'b')],
-          transaction: tx,
-        ),
-      );
+          where: (t) => t.id.equals(person.id),
+        );
+        expect(row, isNotNull);
+        expect(row!.name, 'test');
+      });
+
+      test('then the returned row keeps scopeId null.', () async {
+        expect(person.scopeId, isNull);
+      });
+
+      test('then the stored row is stamped with the effective scope.', () async {
+        final row = await Person.db.findById(testSession, person.id!);
+        final scope = await CrdtScope.db.findFirstRow(
+          session,
+          where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+        );
+
+        expect(row, isNotNull);
+        expect(row!.scopeId, scope!.id);
+      });
+
+      group('then CRDT metadata row', () {
+        late CrdtDataRow? crdtRow;
+
+        setUp(() async {
+          crdtRow = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(person.id),
+            include: CrdtDataRow.include(node: CrdtNode.include()),
+          );
+        });
+
+        test('is recorded.', () async {
+          expect(crdtRow, isNotNull);
+          expect(crdtRow!.tblId, isNotNull);
+          expect(crdtRow!.uuidRowId, person.id);
+        });
+
+        test('has the HLC components populated consistently.', () async {
+          final hlc = crdtRow!.hlc;
+          expect(hlc, greaterThan(Hlc.zero(hlc.nodeId)));
+        });
+      });
+
+      test('then no CRDT fields metadata are registered.', () async {
+        final fieldCount = await CrdtDataField.db.count(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+        expect(fieldCount, 0);
+      });
+
+      test('then no CRDT visibility generation is created for the row.', () async {
+        final clFlag = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+
+        expect(clFlag, isNull);
+      });
     });
 
-    test('then both rows exist with distinct ids and CRDT metadata.', () async {
-      expect(inserted, hasLength(2));
-      expect(inserted[0].id, isNot(equals(inserted[1].id)));
+    group('when inserting a Person with an explicit matching scopeId,', () {
+      late Person person;
+      late int scopeId;
 
-      final insertedIds = inserted.map((e) => e.id!).toSet();
-      final crdt = await CrdtDataRow.db.find(
-        session,
-        where: (t) => t.uuidRowId.inSet(insertedIds),
-      );
+      setUp(() async {
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) async {
+            final scope = await CrdtScope.db.findFirstRow(
+              session,
+              where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+            );
+            scopeId = scope!.id!;
+            return Person.db.insertRow(
+              session,
+              Person(name: 'explicit', scopeId: scopeId),
+              transaction: tx,
+            );
+          },
+        );
+      });
 
-      expect(crdt, hasLength(2));
-      expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
+      test('then the returned row keeps the explicit scopeId.', () async {
+        expect(person.scopeId, scopeId);
+      });
+    });
+
+    test(
+      'when inserting a Person with another scopeId, '
+      'then the insert throws.',
+      () async {
+        final insertFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'wrong scope', scopeId: -1),
+            transaction: tx,
+          ),
+        );
+
+        await expectLater(
+          insertFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf([
+                contains('Cannot write person row'),
+                contains('with scopeId -1 while acting in scope 1'),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+
+    group('when inserting two Person rows with insert,', () {
+      late List<Person> inserted;
+
+      setUp(() async {
+        inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(name: 'a'), Person(name: 'b')],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then both rows exist with distinct ids and CRDT metadata.', () async {
+        expect(inserted, hasLength(2));
+        expect(inserted[0].id, isNot(equals(inserted[1].id)));
+
+        final insertedIds = inserted.map((e) => e.id!).toSet();
+        final crdt = await CrdtDataRow.db.find(
+          session,
+          where: (t) => t.uuidRowId.inSet(insertedIds),
+        );
+
+        expect(crdt, hasLength(2));
+        expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
+      });
     });
   });
 

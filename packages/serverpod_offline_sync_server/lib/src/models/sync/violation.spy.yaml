@@ -1,0 +1,55 @@
+### Durable record of a terminal CRDT sync integrity violation.
+###
+### These rows are sparse diagnostic state. They record observed corruption or
+### hostile input without duplicating hot CRDT indexes.
+###
+### All identifiers are denormalized UUIDs and names so the record remains
+### useful after merge rollbacks and across databases that do not share the
+### same local CRDT metadata rows.
+class: CrdtSyncIntegrityViolation
+table: crdt_sync_integrity_violations
+database: all
+fields:
+  ### High-level integrity violation category.
+  type: CrdtSyncViolationType
+
+  ### Durable table name for the violated domain row.
+  domainTableName: String
+
+  ### Domain row UUID involved in the violation.
+  uuidRowId: UuidValue
+
+  ### Global scope UUID that owns the physical domain row, when known.
+  ownerScopeUuid: UuidValue?
+
+  ### Global scope UUID that attempted to operate on the row.
+  incomingScopeUuid: UuidValue
+
+  ### Merge or sync operation that observed the violation.
+  operation: CrdtSyncViolationOperation
+
+  ### UUID of the node that authored the rejected change, when known.
+  uuidNodeId: UuidValue?
+
+  ### Local CRDT metadata row id observed for the rejected operation, when known.
+  crdtDataRowId: int?
+
+  ### Last observed HLC datetime for the rejected change, when known.
+  hlcDatetime: DateTime?
+
+  ### Last observed HLC counter for the rejected change, when known.
+  hlcCounter: int?
+
+  ### First time this violation key was observed.
+  firstSeenAt: DateTime
+
+  ### Most recent time this violation key was observed.
+  lastSeenAt: DateTime
+
+  ### Number of times this violation key has been observed.
+  occurrences: int
+
+indexes:
+  crdt_sync_integrity_violations_key_idx:
+    fields: type, operation, domainTableName, uuidRowId, ownerScopeUuid, incomingScopeUuid
+    unique: true

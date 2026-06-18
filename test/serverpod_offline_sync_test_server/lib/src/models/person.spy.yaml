@@ -3,6 +3,8 @@ table: person
 database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
+  ### Owner scope of this row. Maintained by the CRDT sync layer.
+  scopeId: int?
   name: String
   surname: String?
   address: Address?, relation(name=person_address)

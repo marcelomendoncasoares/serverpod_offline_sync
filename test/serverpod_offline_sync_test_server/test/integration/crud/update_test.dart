@@ -22,8 +22,10 @@ void main() {
     });
 
     group('when updating the Person name column with updateRow,', () {
+      late Person updatedPerson;
+
       setUp(() async {
-        await session.db.transactionForUser(
+        updatedPerson = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.updateRow(
             session,
@@ -32,6 +34,10 @@ void main() {
             transaction: tx,
           ),
         );
+      });
+
+      test('then the returned row keeps scopeId null.', () async {
+        expect(updatedPerson.scopeId, isNull);
       });
 
       test('then the person row reflects the new values.', () async {
@@ -133,6 +139,61 @@ void main() {
         );
       });
     });
+
+    test(
+      'when updating a Person with another scopeId, then it throws.',
+      () async {
+        final updateFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateRow(
+            session,
+            person.copyWith(name: 'wrong scope', scopeId: -1),
+            columns: (t) => [t.name],
+            transaction: tx,
+          ),
+        );
+
+        await expectLater(
+          updateFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf([
+                contains('Cannot write person row'),
+                contains('with scopeId -1 while acting in scope 1'),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'when updateWhere sets scopeId, then it throws.',
+      () async {
+        final updateFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateWhere(
+            session,
+            columnValues: (t) => [t.scopeId(-1)],
+            where: (t) => t.id.equals(person.id),
+            transaction: tx,
+          ),
+        );
+
+        await expectLater(
+          updateFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('scopeId is immutable and owned by the CRDT sync layer'),
+            ),
+          ),
+        );
+      },
+    );
   });
 
   group('Given a person table with a deleted row,', () {
@@ -274,11 +335,11 @@ void main() {
           ),
         );
 
-        final user = await CrdtUser.db.findFirstRow(session);
+        final scope = await CrdtScope.db.findFirstRow(session);
 
         otherNode = await CrdtNode.db.insertRow(
           session,
-          CrdtNode(userId: user!.id!),
+          CrdtNode(scopeId: scope!.id!),
         );
 
         final crdtDataRow = await CrdtDataRow.db

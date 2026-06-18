@@ -2,11 +2,13 @@ part of 'recorder.dart';
 
 typedef _MergeRowKey = (String, UuidValue);
 typedef _MergeFieldKey = (String, UuidValue, String);
+typedef _DomainOwner = ({bool exists, int? scopeId});
 typedef _MergeContext = ({
   Map<_MergeRowKey, CrdtDataRow> rows,
   Map<_MergeFieldKey, CrdtDataField> fields,
   Map<_MergeFieldKey, Hlc> incomingFieldHlcs,
   Map<_MergeRowKey, CrdtDataDeleted> tombstones,
+  Map<_MergeRowKey, _DomainOwner> domainOwners,
 });
 
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
@@ -16,10 +18,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
   /// Locks the current user row so merges can serialize with other work.
   Future<void> lockCurrentUser(Transaction transaction) async {
-    final user = _getEffectiveUser(transaction);
+    final user = _getEffectiveScope(transaction);
     // Use a row lock without fetching the record since the merge path only
     // needs serialization against concurrent work for the same user.
-    await CrdtUser.db.lockRows(
+    await CrdtScope.db.lockRows(
       _session,
       where: (t) => t.id.equals(user.id),
       transaction: transaction,
@@ -39,7 +41,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final shouldProjectForeignKeys = _mergeOperationsMayAffectForeignKeys(
       operations,
     );
-    final currentUser = _getEffectiveUser(transaction);
+    final currentUser = _getEffectiveScope(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
       currentUser.id!,
       {for (final change in operations) change.uuidNodeId},
@@ -150,7 +152,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     var nodes = await CrdtNode.db.find(
       _session,
-      where: (t) => t.userId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
+      where: (t) => t.scopeId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
       transaction: transaction,
     );
     final existingNodeIds = nodes.map((node) => node.uuidNodeId).toSet();
@@ -162,7 +164,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         [
           for (final uuidNodeId in missingNodeIds)
             CrdtNode(
-              userId: userId,
+              scopeId: userId,
               uuidNodeId: uuidNodeId,
             ),
         ],
@@ -172,7 +174,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
       nodes = await CrdtNode.db.find(
         _session,
-        where: (t) => t.userId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
+        where: (t) => t.scopeId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
         transaction: transaction,
       );
     }
@@ -197,6 +199,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         (update.tableName, update.uuidRowId, update.columnName): update.hlc,
     };
     final tombstones = <_MergeRowKey, CrdtDataDeleted>{};
+    // Owning scope per row, snapshotted once so the per-operation ownership
+    // checks never re-read the same immutable `scopeId`. Only rows that
+    // already have a tracker are pre-read here — those are exactly the rows
+    // whose ownership the update/delete/existing-insert paths verify. New
+    // rows go through the insert path, which proves ownership at the physical
+    // write and refreshes this entry afterwards.
+    final domainOwners = <_MergeRowKey, _DomainOwner>{};
 
     for (final MapEntry(key: tableName, value: rowIds) in rowIdsByTable.entries) {
       final loadedRows = await _findCrdtRows(
@@ -213,6 +222,22 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         rows[(tableName, row.uuidRowId)] = row;
         if (row.deleted != null) {
           tombstones[(tableName, row.uuidRowId)] = row.deleted!;
+        }
+      }
+
+      final trackedRowIds = loadedRows.map((row) => row.uuidRowId).toSet();
+      if (trackedRowIds.isNotEmpty) {
+        final ownerValues = await _readDomainColumnValues(
+          tableName,
+          trackedRowIds,
+          ['scopeId'],
+          transaction,
+        );
+        for (final rowId in trackedRowIds) {
+          final values = ownerValues[rowId];
+          domainOwners[(tableName, rowId)] = values == null
+              ? (exists: false, scopeId: null)
+              : (exists: true, scopeId: values['scopeId'] as int?);
         }
       }
 
@@ -252,6 +277,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       fields: fields,
       incomingFieldHlcs: incomingFieldHlcs,
       tombstones: tombstones,
+      domainOwners: domainOwners,
     );
   }
 
@@ -273,33 +299,61 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
 
     if (currentRow == null) {
-      final resolvedInsert = await _uniqueConflictResolver._resolveForIncomingInsert(
-        insert,
-        data,
-        context,
-        transaction,
-      );
+      final mergingScope = _getEffectiveScope(transaction);
+      final mergingScopeId = mergingScope.id!;
+      try {
+        // Insert-first inside a savepoint: the domain primary key resolves
+        // creation races atomically, and `_applyMergeInsertForMissingRow`
+        // raises `_ForeignScopeRowCollision` when the row turns out to be owned
+        // by another scope. Rolling the savepoint back then leaves no CRDT
+        // metadata, released unique values, or foreign key attempts behind.
+        context.rows[rowKey] = await DatabaseUtil.runInTransactionOrSavepoint(
+          _db,
+          transaction,
+          (savepoint) async {
+            final resolvedInsert = await _uniqueConflictResolver
+                ._resolveForIncomingInsert(insert, data, context, savepoint);
 
-      final safeInsert = await _safeIncomingForeignKeyData(
-        insert.tableName,
-        insert.uuidRowId,
-        resolvedInsert.data,
-        transaction,
-      );
+            final safeInsert = await _safeIncomingForeignKeyData(
+              insert.tableName,
+              insert.uuidRowId,
+              resolvedInsert.data,
+              savepoint,
+            );
 
-      context.rows[rowKey] = await _applyMergeInsertForMissingRow(
-        insert,
-        remoteNode,
-        incomingHlc,
-        safeInsert.data,
-        transaction,
-      );
-      await _recordForeignKeyInsertAttempts(
-        insert.tableName,
-        {insert.uuidRowId},
-        transaction,
-        safeInsert.attempts,
-      );
+            final insertedRow = await _applyMergeInsertForMissingRow(
+              insert,
+              remoteNode,
+              incomingHlc,
+              safeInsert.data,
+              savepoint,
+            );
+            await _recordForeignKeyInsertAttempts(
+              insert.tableName,
+              {insert.uuidRowId},
+              savepoint,
+              safeInsert.attempts,
+            );
+            return insertedRow;
+          },
+        );
+        // The row is now owned by the merging scope (freshly inserted, or a
+        // same-scope recovery), so same-merge field updates resolve ownership
+        // from the cache instead of re-reading the domain row.
+        context.domainOwners[rowKey] = (exists: true, scopeId: mergingScopeId);
+      } on _ForeignScopeRowCollision catch (collision) {
+        await _throwOwnershipCollision(
+          operation: CrdtSyncViolationOperation.mergeInsert,
+          tableName: insert.tableName,
+          rowId: insert.uuidRowId,
+          owningScopeId: collision.owningScopeId,
+          incomingScope: mergingScope,
+          metadataRowId: null,
+          node: remoteNode,
+          hlc: insert.hlc,
+          transaction: transaction,
+        );
+      }
     } else {
       await _applyMergeInsertForExistingRow(
         insert,
@@ -322,13 +376,26 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final rowKey = (update.tableName, update.uuidRowId);
     final row = context.rows[rowKey];
     if (row == null) return;
+    final remoteNode = _requireRemoteNode(remoteNodes, update.uuidNodeId);
+    if (!await _domainRowOwnedByEffectiveScope(
+      operation: CrdtSyncViolationOperation.mergeUpdate,
+      tableName: update.tableName,
+      rowId: update.uuidRowId,
+      context: context,
+      transaction: transaction,
+      metadataRowId: row.id,
+      node: remoteNode,
+      hlc: update.hlc,
+    )) {
+      return;
+    }
 
     final shouldApply = await _shouldMergeFieldMetadataIfNewer(
       tableName: update.tableName,
       rowId: update.uuidRowId,
       columnName: update.columnName,
       row: row,
-      remoteNode: _requireRemoteNode(remoteNodes, update.uuidNodeId),
+      remoteNode: remoteNode,
       incomingHlc: update.hlc,
       fields: context.fields,
       transaction: transaction,
@@ -373,6 +440,19 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final row = context.rows[rowKey];
     if (row == null) return;
     if (!delete.reason.isSynced) return;
+    final remoteNode = _requireRemoteNode(remoteNodes, delete.uuidNodeId);
+    if (!await _domainRowOwnedByEffectiveScope(
+      operation: CrdtSyncViolationOperation.mergeDelete,
+      tableName: delete.tableName,
+      rowId: delete.uuidRowId,
+      context: context,
+      transaction: transaction,
+      metadataRowId: row.id,
+      node: remoteNode,
+      hlc: delete.hlc,
+    )) {
+      return;
+    }
 
     final currentTombstone = context.tombstones[rowKey];
     final currentClFlag = currentTombstone?.clFlag ?? 1;
@@ -382,7 +462,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     context.tombstones[rowKey] = await _upsertMergeTombstone(
       row,
-      _requireRemoteNode(remoteNodes, delete.uuidNodeId),
+      remoteNode,
       delete.hlc,
       delete.clFlag,
       delete.reason,
@@ -412,7 +492,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       final insertedRow = await CrdtDataRow.db.insertRow(
         _session,
         CrdtDataRow(
-          userId: _getHlcManager(transaction).normalizedUserId,
+          scopeId: _getHlcManager(transaction).normalizedScopeId,
           tblId: tableId,
           uuidRowId: rowId,
           nodeId: remoteNode.id!,
@@ -555,16 +635,41 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     final tableRow = _requireMergeInsertTableRow(insert);
     final patchedRow = _db.serializationManager.patchTableRow(tableRow, data);
+    final mergingScopeId = _getHlcManager(transaction).normalizedScopeId;
+    final scopedRow = _withScopeId(patchedRow, mergingScopeId);
     try {
+      // Insert first: the domain primary key resolves creation races
+      // atomically. The inner savepoint keeps a violation from poisoning the
+      // surrounding transaction so the recovery update below can still run.
+      await DatabaseUtil.runInTransactionOrSavepoint(
+        _db,
+        transaction,
+        (savepoint) => _db.insertRow(scopedRow, transaction: savepoint),
+      );
+    } on DatabaseQueryException {
+      final owner = await _readDomainRowOwner(
+        insert.tableName,
+        insert.uuidRowId,
+        transaction,
+      );
+      // No row means the violation came from something other than the
+      // primary key (e.g. a racing unique value); preserve the failure.
+      if (!owner.exists) rethrow;
+      if (owner.scopeId != mergingScopeId) {
+        throw _ForeignScopeRowCollision(owner.scopeId);
+      }
+
+      // Same-scope recovery (a tracked row whose metadata was lost, or a
+      // race between this scope's own merges). scopeId is immutable and rows
+      // are only soft-deleted, so ownership observed here cannot change for
+      // the rest of the transaction and the update is safe.
       await _db.updateRow(
-        patchedRow,
-        columns: patchedRow.table.managedColumns
+        scopedRow,
+        columns: scopedRow.table.managedColumns
             .where((c) => data.containsKey(c.columnName))
             .toList(),
         transaction: transaction,
       );
-    } on DatabaseUpdateRowException {
-      await _db.insertRow(patchedRow, transaction: transaction);
     }
 
     return insertedCrdtRow;
@@ -579,6 +684,19 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     _MergeContext context,
     Transaction transaction,
   ) async {
+    if (!await _domainRowOwnedByEffectiveScope(
+      operation: CrdtSyncViolationOperation.mergeInsert,
+      tableName: insert.tableName,
+      rowId: insert.uuidRowId,
+      context: context,
+      transaction: transaction,
+      metadataRowId: currentRow.id,
+      node: remoteNode,
+      hlc: insert.hlc,
+    )) {
+      return;
+    }
+
     final (_, columnsByName) = _schema[insert.tableName]!;
     final updatedValues = <String, Object?>{};
     for (final MapEntry(key: columnName, value: schemaColumn)
@@ -715,12 +833,133 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     return {
       for (final MapEntry(key: columnName, value: value) in data.entries)
-        if (columnName != 'id' && columns.containsKey(columnName))
+        if (columnName != 'id' &&
+            columnName != 'scopeId' &&
+            columns.containsKey(columnName))
           columnName: columns[columnName]!.columnType == ColumnType.uuid
               ? _uuidValueFromDatabase(value)
               : value,
     };
   }
+
+  Future<({bool exists, int? scopeId})> _readDomainRowOwner(
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    final values = await _readDomainColumnValues(
+      tableName,
+      {rowId},
+      ['scopeId'],
+      transaction,
+    );
+    final row = values[rowId];
+    if (row == null) return (exists: false, scopeId: null);
+    return (exists: true, scopeId: row['scopeId'] as int?);
+  }
+
+  /// Returns the owning scope of [rowId] from the merge snapshot taken in
+  /// [_loadMergeContext], reading the domain row only if it was not captured
+  /// there (e.g. a row a concurrent operation added since the snapshot).
+  Future<_DomainOwner> _resolveDomainOwner(
+    _MergeContext context,
+    String tableName,
+    UuidValue rowId,
+    Transaction transaction,
+  ) async {
+    final key = (tableName, rowId);
+    final cached = context.domainOwners[key];
+    if (cached != null) return cached;
+    final owner = await _readDomainRowOwner(tableName, rowId, transaction);
+    context.domainOwners[key] = owner;
+    return owner;
+  }
+
+  Future<bool> _domainRowOwnedByEffectiveScope({
+    required CrdtSyncViolationOperation operation,
+    required String tableName,
+    required UuidValue rowId,
+    required _MergeContext context,
+    required Transaction transaction,
+    int? metadataRowId,
+    CrdtNode? node,
+    Hlc? hlc,
+  }) async {
+    final owner = await _resolveDomainOwner(context, tableName, rowId, transaction);
+    final mergingScope = _getEffectiveScope(transaction);
+    if (owner.exists && owner.scopeId == mergingScope.id) return true;
+    if (!owner.exists) return false;
+
+    await _throwOwnershipCollision(
+      operation: operation,
+      tableName: tableName,
+      rowId: rowId,
+      owningScopeId: owner.scopeId,
+      incomingScope: mergingScope,
+      metadataRowId: metadataRowId,
+      node: node,
+      hlc: hlc,
+      transaction: transaction,
+    );
+  }
+
+  Future<Never> _throwOwnershipCollision({
+    required CrdtSyncViolationOperation operation,
+    required String tableName,
+    required UuidValue rowId,
+    required int? owningScopeId,
+    required CrdtScope incomingScope,
+    required int? metadataRowId,
+    required Transaction transaction,
+    CrdtNode? node,
+    Hlc? hlc,
+  }) async {
+    final now = DateTime.now().toUtc();
+    throw CrdtSyncIntegrityViolationException(
+      CrdtSyncIntegrityViolation(
+        type: CrdtSyncViolationType.ownershipCollision,
+        domainTableName: tableName,
+        uuidRowId: rowId,
+        ownerScopeUuid: await _scopeUuidForNormalizedId(owningScopeId, transaction),
+        incomingScopeUuid: incomingScope.uuidScopeId,
+        operation: operation,
+        uuidNodeId: node?.uuidNodeId,
+        crdtDataRowId: metadataRowId,
+        hlcDatetime: hlc?.datetime,
+        hlcCounter: hlc?.counter,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        occurrences: 1,
+      ),
+    );
+  }
+
+  Future<UuidValue?> _scopeUuidForNormalizedId(
+    int? scopeId,
+    Transaction transaction,
+  ) async {
+    if (scopeId == null) return null;
+
+    final scope = await CrdtScope.db.findById(
+      _session,
+      scopeId,
+      transaction: transaction,
+    );
+    return scope?.uuidScopeId;
+  }
+
+  T _withScopeId<T extends TableRow>(T row, int scopeId) {
+    return (row as dynamic).copyWith(scopeId: scopeId) as T;
+  }
+}
+
+/// Signals that a merge insert lost a primary-key race to a row owned by
+/// another scope, so the savepoint around the insert application must be
+/// rolled back before the sync violation is recorded and thrown.
+class _ForeignScopeRowCollision implements Exception {
+  _ForeignScopeRowCollision(this.owningScopeId);
+
+  final int? owningScopeId;
 }
 
 extension on DatabaseSerializationManager {
@@ -728,7 +967,9 @@ extension on DatabaseSerializationManager {
   T patchTableRow<T extends TableRow>(T row, Map<String, Object?> data) {
     final rowJson = Map<String, dynamic>.from(row.toJson() as Map);
     for (final column in row.table.managedColumns) {
-      if (column.columnName != 'id' && data.containsKey(column.columnName)) {
+      if (column.columnName != 'id' &&
+          column.columnName != 'scopeId' &&
+          data.containsKey(column.columnName)) {
         rowJson[column.fieldName] = data[column.columnName];
       }
     }

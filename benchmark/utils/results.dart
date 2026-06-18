@@ -2,6 +2,7 @@
 
 import 'benchmark.dart';
 import 'conversion.dart';
+import 'scope.dart';
 
 void printPerformanceImpact(
   BenchmarkResults results, {
@@ -131,6 +132,40 @@ void printMergeImpact(
   if (runningInCI) print('```');
 }
 
+void printScopeImpact(
+  ScopeBenchmarkResults results, {
+  required int rowCount,
+  bool runningInCI = false,
+}) {
+  String compare(
+    double baseline,
+    double scoped,
+    double unscoped,
+  ) {
+    String overhead(double value) =>
+        '${formatter2.format((value - baseline) / baseline * 100)}%';
+    return '${baseline.toFormattedDuration()} --> '
+        '${scoped.toFormattedDuration()} scoped (+${overhead(scoped)}) / '
+        '${unscoped.toFormattedDuration()} unscoped (+${overhead(unscoped)})';
+  }
+
+  print(
+    '${runningInCI ? '```' : ''}'
+    '\n🔭 SELECT scope impact '
+    '(${formatter0.format(results.noiseUsers)} extra users, '
+    '${formatter0.format(results.noiseCrdtRows)} CRDT noise rows):',
+  );
+  print(
+    '  find all (${formatter0.format(rowCount)} rows): '
+    '${compare(results.baseline.findAllMicros, results.scoped.findAllMicros, results.unscoped.findAllMicros)}',
+  );
+  print(
+    '  findById (per lookup): '
+    '${compare(results.baseline.findByIdMicros, results.scoped.findByIdMicros, results.unscoped.findByIdMicros)}',
+  );
+  if (runningInCI) print('```');
+}
+
 class BenchmarkResults {
   const BenchmarkResults({
     required this.operation,
@@ -141,6 +176,22 @@ class BenchmarkResults {
   final Operation operation;
   final double baseline;
   final double crdt;
+}
+
+class ScopeBenchmarkResults {
+  const ScopeBenchmarkResults({
+    required this.baseline,
+    required this.scoped,
+    required this.unscoped,
+    required this.noiseUsers,
+    required this.noiseCrdtRows,
+  });
+
+  final ScopeMeasurement baseline;
+  final ScopeMeasurement scoped;
+  final ScopeMeasurement unscoped;
+  final int noiseUsers;
+  final int noiseCrdtRows;
 }
 
 class MergeBenchmarkResults {

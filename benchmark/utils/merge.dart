@@ -138,7 +138,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   Future<void> mergeSeedRows(List<TableRow<UuidValue?>> rows) {
     return _crdtSession.db.mergeChanges(
       [for (final row in rows) insertChangeFor(row)],
-      userId: _userId,
+      scopeId: _userId,
     );
   }
 
@@ -199,7 +199,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   @override
   Future<void> run() async {
     final queriesBefore = _countingDb.queryCount;
-    await _crdtSession.db.mergeChanges(_mergeSet, userId: _userId);
+    await _crdtSession.db.mergeChanges(_mergeSet, scopeId: _userId);
     _timedQueries += _countingDb.queryCount - queriesBefore;
     _timedRuns++;
   }

@@ -2,11 +2,16 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../protocol/protocol.dart';
+import 'unique_index_utils.dart';
 
 /// Manages the CRDT schema for a database.
 class CrdtSchemaRegistry {
   /// Creates a new instance of [CrdtSchemaRegistry].
-  CrdtSchemaRegistry(this._session, {required this.syncTables}) {
+  CrdtSchemaRegistry(
+    this._session, {
+    required this.syncTables,
+    Iterable<TableDefinition>? tableDefinitions,
+  }) {
     final tablesWithoutUuidPk = syncTables.where(
       (table) => table.id is! Column<UuidValue>,
     );
@@ -15,6 +20,47 @@ class CrdtSchemaRegistry {
         'CRDT can only synchronize tables with a UUID primary key, but '
         '${tablesWithoutUuidPk.length} table(s) do not have a UUID primary key: '
         '${tablesWithoutUuidPk.map((t) => '"${t.tableName}"').join(', ')}',
+      );
+    }
+
+    final tablesWithoutScopeId = syncTables.where((table) {
+      final scopeColumn = _scopeIdColumn(table);
+      return scopeColumn == null || scopeColumn is! Column<int>;
+    }).toList();
+    if (tablesWithoutScopeId.isNotEmpty) {
+      throw StateError(
+        'CRDT can only synchronize tables with a nullable int scopeId column, '
+        'but ${tablesWithoutScopeId.length} table(s) are missing it or declare '
+        'it with the wrong type: '
+        '${tablesWithoutScopeId.map((t) => '"${t.tableName}"').join(', ')}\n\n'
+        'Add this field to every synced model:\n'
+        'fields:\n'
+        '  id: UuidValue?, defaultPersist=random_v7\n'
+        '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
+        '  scopeId: int?\n\n'
+        'If the column is declared with scope=serverOnly, remove the scope; '
+        'the column must exist on every database.',
+      );
+    }
+
+    final tableDefinitionsByName = {
+      for (final tableDefinition
+          in tableDefinitions ??
+              _session.db.serializationManager.getTargetTableDefinitions())
+        tableDefinition.name: tableDefinition,
+    };
+    final globalUniqueIndexes = _globalUniqueIndexViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (globalUniqueIndexes.isNotEmpty) {
+      throw StateError(
+        'CRDT can only synchronize tables with per-scope unique indexes, but '
+        '${globalUniqueIndexes.length} unique index(es) do not include scopeId: '
+        '${globalUniqueIndexes.join(', ')}. '
+        'Add scopeId to the unique index fields. '
+        'The only allowed global unique indexes are foreign-key-only indexes '
+        'whose target tables are also synchronized.',
       );
     }
   }
@@ -27,7 +73,8 @@ class CrdtSchemaRegistry {
   late final _columnsPerTableName = {
     for (final table in syncTables)
       table.tableName: [
-        for (final column in table.columns) column.columnName,
+        for (final column in table.columns)
+          if (column.columnName != 'scopeId') column.columnName,
       ],
   };
 
@@ -117,4 +164,49 @@ class CrdtSchemaRegistry {
 
     return foundColumnRows;
   }
+}
+
+Column? _scopeIdColumn(Table table) {
+  for (final column in table.columns) {
+    if (column.columnName == 'scopeId') return column;
+  }
+  return null;
+}
+
+List<String> _globalUniqueIndexViolations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  final syncTableNames = {for (final table in syncTables) table.tableName};
+  return [
+    for (final tableName in syncTableNames)
+      for (final index
+          in tableDefinitionsByName[tableName]?.indexes ?? const <IndexDefinition>[])
+        if (_isForbiddenGlobalUniqueIndex(
+          tableDefinitionsByName[tableName]!,
+          index,
+          syncTableNames,
+        ))
+          '$tableName.${index.indexName}',
+  ];
+}
+
+bool _isForbiddenGlobalUniqueIndex(
+  TableDefinition tableDefinition,
+  IndexDefinition index,
+  Set<String> syncTableNames,
+) {
+  if (!index.isUnique || index.isPrimary) return false;
+  final includesScopeId = index.elements.any(
+    (element) =>
+        element.type == IndexElementDefinitionType.column &&
+        element.definition == 'scopeId',
+  );
+  if (includesScopeId) return false;
+
+  return !isCrdtAllowedForeignKeyOnlyUniqueIndex(
+    tableDefinition,
+    index,
+    syncTableNames,
+  );
 }

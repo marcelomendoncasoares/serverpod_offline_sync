@@ -3,4 +3,6 @@ table: fk_chain_root
 database: all
 fields:
   id: UuidValue?, defaultPersist=random_v7
+  ### Owner scope of this row. Maintained by the CRDT sync layer.
+  scopeId: int?
   name: String

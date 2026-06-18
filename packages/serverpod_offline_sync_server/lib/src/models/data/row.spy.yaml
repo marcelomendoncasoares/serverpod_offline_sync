@@ -10,8 +10,8 @@ extends: BaseHlc
 table: crdt_data_rows
 database: all
 fields:
-  ### Identifier for the user or client that owns the data.
-  user: CrdtUser?, relation(onDelete=Cascade)
+  ### Identifier for the scope that owns the data.
+  scope: CrdtScope?, relation(onDelete=Cascade)
 
   ### Reference to the table this row belongs to.
   tbl: CrdtSchemaTable?, relation(onDelete=Cascade)
@@ -38,6 +38,6 @@ fields:
   fields: List<CrdtDataField>?, relation(name=row_fields)
 
 indexes:
-  crdt_data_rows_user_tbl_row_idx:
-    fields: userId, tblId, uuidRowId
+  crdt_data_rows_scope_tbl_row_idx:
+    fields: scopeId, tblId, uuidRowId
     unique: true

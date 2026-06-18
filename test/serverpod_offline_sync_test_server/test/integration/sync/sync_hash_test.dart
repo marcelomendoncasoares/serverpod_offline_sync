@@ -122,14 +122,18 @@ void main() {
     final baseDefinitions = [
       addressDefinition,
     ];
+    final foreignKeyUniqueIndex = addressDefinition.indexes.singleWhere(
+      (index) => index.indexName == 'address__inhabitantId__unique_idx',
+    );
     final changedDefinitions = [
       addressDefinition.copyWith(
         indexes: [
-          addressDefinition.indexes.single.copyWith(
+          foreignKeyUniqueIndex.copyWith(
             elements: [
-              addressDefinition.indexes.single.elements.single.copyWith(
-                definition: 'street',
-              ),
+              for (final element in foreignKeyUniqueIndex.elements)
+                element.definition == 'inhabitantId'
+                    ? element.copyWith(definition: 'street')
+                    : element,
             ],
           ),
         ],
