@@ -16,6 +16,12 @@ import 'merge.dart';
 /// Callback function for when a merge is successful.
 typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
 
+/// A tuple representing the ownership of a domain row.
+typedef DomainRowOwner = ({bool exists, int? scopeId});
+
+/// A cache of domain row owners by table name and row id.
+typedef DomainRowOwnerCache = Map<(String, UuidValue), DomainRowOwner>;
+
 /// The shared CRDT synchronization logic used by both client and server nodes.
 class CrdtSync {
   /// Creates a new [CrdtSync] instance.
@@ -377,15 +383,19 @@ class CrdtSync {
     CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
   ) async* {
-    yield* _streamInserts(session, crdtUser, nodeCheckpoints);
-    yield* _streamUpdates(session, crdtUser, nodeCheckpoints);
-    yield* _streamDeletes(session, crdtUser, nodeCheckpoints);
+    // Domain ownership is immutable while a collection runs, so read each
+    // row's owner at most once across all three streams.
+    final ownerCache = DomainRowOwnerCache();
+    yield* _streamInserts(session, crdtUser, nodeCheckpoints, ownerCache);
+    yield* _streamUpdates(session, crdtUser, nodeCheckpoints, ownerCache);
+    yield* _streamDeletes(session, crdtUser, nodeCheckpoints, ownerCache);
   }
 
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
+    DomainRowOwnerCache ownerCache,
   ) async* {
     final rows = await CrdtDataRow.db.find(
       session,
@@ -417,6 +427,7 @@ class CrdtSync {
         dartName,
         foreignKeyAttemptFieldsByRowId[row.id!],
         crdtUser.id!,
+        ownerCache,
       );
       if (!domainRow.exists) {
         _throwPendingIntegrityViolation(
@@ -460,6 +471,7 @@ class CrdtSync {
     DatabaseSession session,
     CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
+    DomainRowOwnerCache ownerCache,
   ) async* {
     final fields = await CrdtDataField.db.find(
       session,
@@ -489,6 +501,7 @@ class CrdtSync {
         columnName,
         field.foreignKey,
         crdtUser.id!,
+        ownerCache,
       );
       if (!columnValue.exists) {
         _throwPendingIntegrityViolation(
@@ -533,6 +546,7 @@ class CrdtSync {
     DatabaseSession session,
     CrdtScope crdtUser,
     List<Hlc> nodeCheckpoints,
+    DomainRowOwnerCache ownerCache,
   ) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
@@ -552,6 +566,7 @@ class CrdtSync {
         session,
         tableName,
         tombstone.row!.uuidRowId,
+        ownerCache,
       );
       if (owner.exists && owner.scopeId != crdtUser.id) {
         _throwPendingIntegrityViolation(
@@ -632,6 +647,7 @@ class CrdtSync {
     String dartName,
     List<CrdtDataField>? foreignKeyAttemptFields,
     int scopeId,
+    DomainRowOwnerCache ownerCache,
   ) async {
     final cols = table.columns
         .map((column) => '"${_escapeIdentifier(column.columnName)}"')
@@ -645,9 +661,10 @@ class CrdtSync {
       'LIMIT 1',
     );
     if (result.isEmpty) {
-      final owner = await _readDomainRowOwner(session, tableName, rowId);
+      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
       return (exists: owner.exists, ownerScopeId: owner.scopeId, row: null);
     }
+    ownerCache[(tableName, rowId)] = (exists: true, scopeId: scopeId);
 
     final columnMap = result.first.toColumnMap()
       // Domain columns hold visible/materialized FK values; restore attempted
@@ -676,9 +693,10 @@ class CrdtSync {
     String columnName,
     CrdtDataForeignKey? projection,
     int scopeId,
+    DomainRowOwnerCache ownerCache,
   ) async {
     if (projection != null && projection.hasOverride) {
-      final owner = await _readDomainRowOwner(session, tableName, rowId);
+      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
       if (!owner.exists || owner.scopeId != scopeId) {
         return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
       }
@@ -699,6 +717,7 @@ class CrdtSync {
       'LIMIT 1',
     );
     if (result.isNotEmpty) {
+      ownerCache[(tableName, rowId)] = (exists: true, scopeId: scopeId);
       return (
         exists: true,
         ownerScopeId: scopeId,
@@ -706,15 +725,19 @@ class CrdtSync {
       );
     }
 
-    final owner = await _readDomainRowOwner(session, tableName, rowId);
+    final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
     return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
   }
 
-  Future<({bool exists, int? scopeId})> _readDomainRowOwner(
+  Future<DomainRowOwner> _readDomainRowOwner(
     DatabaseSession session,
     String tableName,
     UuidValue rowId,
+    DomainRowOwnerCache ownerCache,
   ) async {
+    final cached = ownerCache[(tableName, rowId)];
+    if (cached != null) return cached;
+
     final encodedValue = ValueEncoder.instance.convert(rowId);
     final escapedTableName = _escapeIdentifier(tableName);
     final result = await session.db.unsafeQuery(
@@ -722,8 +745,11 @@ class CrdtSync {
       'WHERE "id" = $encodedValue '
       'LIMIT 1',
     );
-    if (result.isEmpty) return (exists: false, scopeId: null);
-    return (exists: true, scopeId: result.first[0] as int?);
+    final owner = result.isEmpty
+        ? (exists: false, scopeId: null)
+        : (exists: true, scopeId: result.first[0] as int?);
+    ownerCache[(tableName, rowId)] = owner;
+    return owner;
   }
 
   Never _throwPendingIntegrityViolation({

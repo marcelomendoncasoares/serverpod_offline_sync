@@ -970,6 +970,7 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       fields: <_MergeFieldKey, CrdtDataField>{},
       incomingFieldHlcs: <_MergeFieldKey, Hlc>{},
       tombstones: <_MergeRowKey, CrdtDataDeleted>{},
+      domainOwners: <_MergeRowKey, _DomainOwner>{},
     );
 
     for (final MapEntry(key: rowKey, value: updates) in changedUpdatesByRow.entries) {
