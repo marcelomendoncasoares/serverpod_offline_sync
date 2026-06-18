@@ -131,35 +131,34 @@ void main() {
         await expectLater(insertFuture, throwsA(isA<StateError>()));
       },
     );
-  });
 
-  group('Given an empty person table, '
-      'when inserting two Person rows with insert,', () {
-    late List<Person> inserted;
+    group('when inserting two Person rows with insert,', () {
+      late List<Person> inserted;
 
-    setUp(() async {
-      inserted = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insert(
+      setUp(() async {
+        inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(name: 'a'), Person(name: 'b')],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then both rows exist with distinct ids and CRDT metadata.', () async {
+        expect(inserted, hasLength(2));
+        expect(inserted[0].id, isNot(equals(inserted[1].id)));
+
+        final insertedIds = inserted.map((e) => e.id!).toSet();
+        final crdt = await CrdtDataRow.db.find(
           session,
-          [Person(name: 'a'), Person(name: 'b')],
-          transaction: tx,
-        ),
-      );
-    });
+          where: (t) => t.uuidRowId.inSet(insertedIds),
+        );
 
-    test('then both rows exist with distinct ids and CRDT metadata.', () async {
-      expect(inserted, hasLength(2));
-      expect(inserted[0].id, isNot(equals(inserted[1].id)));
-
-      final insertedIds = inserted.map((e) => e.id!).toSet();
-      final crdt = await CrdtDataRow.db.find(
-        session,
-        where: (t) => t.uuidRowId.inSet(insertedIds),
-      );
-
-      expect(crdt, hasLength(2));
-      expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
+        expect(crdt, hasLength(2));
+        expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
+      });
     });
   });
 
