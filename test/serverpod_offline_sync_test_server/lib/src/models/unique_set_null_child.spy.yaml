@@ -7,8 +7,4 @@ fields:
   scopeId: int?
   name: String
   parent: Person?, relation(field=parentId, onDelete=SetNull)
-  parentId: UuidValue?
-indexes:
-  unique_set_null_child_scope_parent_unique_idx:
-    fields: scopeId, parentId
-    unique: true
+  parentId: UuidValue?, unique
