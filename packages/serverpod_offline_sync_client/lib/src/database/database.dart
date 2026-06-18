@@ -55,6 +55,8 @@ class CrdtDatabase implements Database {
   final Duration _continuousSyncInterval;
 
   final CrdtMutationRecorder _recorder;
+  bool _initialized = false;
+  Future<void>? _initializing;
 
   late final CrdtSync _sync = CrdtSync(
     syncTables: _syncTables,
@@ -65,7 +67,27 @@ class CrdtDatabase implements Database {
 
   /// Initializes the CRDT database.
   Future<void> initialize() async {
-    await _recorder.initialize();
+    final initializing = _recorder.initialize().then((_) {
+      _initialized = true;
+    });
+    _initializing = initializing;
+    try {
+      await initializing;
+    } finally {
+      if (identical(_initializing, initializing)) {
+        _initializing = null;
+      }
+    }
+  }
+
+  Future<void> _ensureInitialized() async {
+    if (_initialized) return;
+    final initializing = _initializing;
+    if (initializing != null) {
+      await initializing;
+      return;
+    }
+    await initialize();
   }
 
   /// The hash describing the synchronized schema configured for this database.
@@ -73,6 +95,7 @@ class CrdtDatabase implements Database {
 
   /// Returns the current node identifier for the effective user.
   Future<UuidValue> currentNodeId({UuidValue? userId}) async {
+    await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
     final user = await _recorder.getOrCreateScope(effectiveUserId);
     return user.currentNode!.uuidNodeId;
@@ -85,6 +108,7 @@ class CrdtDatabase implements Database {
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
+    await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
     yield* _sync.sync(
       _delegate.session,
@@ -101,6 +125,7 @@ class CrdtDatabase implements Database {
     Hlc syncedHlc, {
     UuidValue? userId,
   }) async {
+    await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
     await _recorder.recordSyncCheckpoint(
       effectiveUserId,
@@ -119,6 +144,7 @@ class CrdtDatabase implements Database {
     UuidValue? scopeId,
   }) async {
     if (mergeSet.isEmpty) return;
+    await _ensureInitialized();
 
     final effectiveScopeId =
         scopeId ??
@@ -181,6 +207,7 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
+    await _ensureInitialized();
     final result = await _delegate.find<T>(
       where: _whereVisibleWithTombstone<T>(where, include, transaction),
       limit: limit,
@@ -206,6 +233,7 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
+    await _ensureInitialized();
     final table = serializationManager.getTableForType(T);
     final where = table?.id.equals(id);
     final result = await _delegate.findFirstRow<T>(
@@ -231,6 +259,7 @@ class CrdtDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
+    await _ensureInitialized();
     final result = await _delegate.findFirstRow<T>(
       where: _whereVisibleWithTombstone<T>(where, include, transaction),
       offset: offset,
@@ -255,6 +284,7 @@ class CrdtDatabase implements Database {
     bool ignoreConflicts = false,
   }) async {
     if (rows.isEmpty) return [];
+    await _ensureInitialized();
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -278,6 +308,7 @@ class CrdtDatabase implements Database {
     T row, {
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -323,6 +354,7 @@ class CrdtDatabase implements Database {
     Expression? updateWhere,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     if (T == CrdtSyncIntegrityViolation) {
       return _delegate.upsertRow<T>(
         row,
@@ -343,6 +375,7 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     if (rows.isEmpty) return [];
+    await _ensureInitialized();
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -369,6 +402,7 @@ class CrdtDatabase implements Database {
     List<Column>? columns,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -423,6 +457,7 @@ class CrdtDatabase implements Database {
     required List<ColumnValue> columnValues,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     final table = serializationManager.getTableForType(T);
     if (table == null) return null;
 
@@ -447,6 +482,7 @@ class CrdtDatabase implements Database {
     bool orderDescending = false,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     if (_recorder.isCrdtTracked<T>()) {
       _assertNoScopeIdColumnValues<T>(columnValues);
     }
@@ -487,6 +523,7 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     if (rows.isEmpty) return [];
+    await _ensureInitialized();
     return deleteWhere<T>(
       where: rows.first.table.id.inSet(
         rows.map((row) => row.id).castToIdType().toSet(),
@@ -505,6 +542,7 @@ class CrdtDatabase implements Database {
     T row, {
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     final deletedRows = await deleteWhere<T>(
       where: row.table.id.equals(row.id),
       transaction: transaction,
@@ -527,6 +565,7 @@ class CrdtDatabase implements Database {
     bool orderDescending = false,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>()) {
       return _delegate.deleteWhere<T>(
         where: where,
@@ -566,6 +605,7 @@ class CrdtDatabase implements Database {
     bool useCache = true,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     return _delegate.count<T>(
       where: _whereVisibleWithTombstone<T>(where, null, transaction),
       limit: limit,
@@ -581,6 +621,7 @@ class CrdtDatabase implements Database {
     required Transaction transaction,
     LockBehavior lockBehavior = LockBehavior.wait,
   }) async {
+    await _ensureInitialized();
     return _delegate.lockRows<T>(
       where: _whereVisibleWithTombstone<T>(where, null, transaction)!,
       lockMode: lockMode,
@@ -594,6 +635,7 @@ class CrdtDatabase implements Database {
     TransactionFunction<R> transactionFunction, {
     TransactionSettings? settings,
   }) async {
+    await _ensureInitialized();
     return _delegate.transaction(
       transactionFunction,
       settings: settings,
@@ -610,6 +652,7 @@ class CrdtDatabase implements Database {
     TransactionFunction<R> transactionFunction, {
     TransactionSettings? settings,
   }) async {
+    await _ensureInitialized();
     // Ensure that the user exists with a node before starting the transaction.
     final user = await _recorder.getOrCreateScope(userId);
 

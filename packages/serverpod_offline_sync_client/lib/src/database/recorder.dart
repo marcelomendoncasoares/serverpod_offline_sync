@@ -73,11 +73,7 @@ class CrdtMutationRecorder {
 
   late final DatabaseSession _dbSession = _db.session;
 
-  late final _session = CrdtDatabaseSession(
-    _db,
-    syncTables: syncTables,
-    persistentUserId: persistentUserId,
-  );
+  late final _session = BasicDatabaseSession(_db);
 
   late final CrdtScopeManager _scopeManager = CrdtScopeManager(_dbSession);
 
