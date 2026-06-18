@@ -183,8 +183,10 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
     final cleaned = switch ((cleanLeft, cleanRight)) {
       (null, null) => null,
       (final expr, null) || (null, final expr) => expr,
-      _ when where.operator == 'AND' => cleanLeft! & cleanRight!,
-      _ when where.operator == 'OR' => cleanLeft! | cleanRight!,
+      _ when cleanLeft != null && cleanRight != null && where.operator == 'AND' =>
+        cleanLeft & cleanRight,
+      _ when cleanLeft != null && cleanRight != null && where.operator == 'OR' =>
+        cleanLeft | cleanRight,
       _ => throw StateError(
         'Unsupported TwoPartExpression operator "${where.operator}" '
         'when stripping includeHiddenRows sentinel.',

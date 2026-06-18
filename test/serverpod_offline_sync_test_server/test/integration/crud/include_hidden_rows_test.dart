@@ -32,39 +32,35 @@ void main() {
       );
     });
 
-    group('when using find with includeHiddenRows,', () {
-      late List<Person> result;
-
-      setUp(() async {
-        result = await Person.db.find(
+    test(
+      'when using find with includeHiddenRows, '
+      'then both the live and tombstoned rows are returned.',
+      () async {
+        final result = await Person.db.find(
           session,
           where: (t) => t.includeHiddenRows,
         );
-      });
 
-      test('then both the live and tombstoned rows are returned.', () {
         expect(
           result.map((r) => r.id).toSet(),
           {liveRow.id, deletedRow.id},
         );
-      });
-    });
+      },
+    );
 
-    group('when using findFirstRow with includeHiddenRows and a name filter,', () {
-      late Person? result;
-
-      setUp(() async {
-        result = await Person.db.findFirstRow(
+    test(
+      'when using findFirstRow with includeHiddenRows and a name filter, '
+      'then the tombstoned row is returned.',
+      () async {
+        final result = await Person.db.findFirstRow(
           session,
           where: (t) => t.name.equals('deleted') & t.includeHiddenRows,
         );
-      });
 
-      test('then the tombstoned row is returned.', () {
         expect(result, isNotNull);
         expect(result!.id, deletedRow.id);
-      });
-    });
+      },
+    );
 
     test(
       'when using find with ID filter and includeHiddenRows,'
