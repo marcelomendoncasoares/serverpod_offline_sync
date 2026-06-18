@@ -228,6 +228,74 @@ class DemoSnapshot {
     );
   }
 
+  /// Builds a snapshot from the server's merged truth. Every returned row is
+  /// visible (the server has no per-replica hidden rows) and there is no local
+  /// CRDT metadata to show.
+  factory DemoSnapshot.fromServer(protocol.DemoServerSnapshot server) {
+    List<RowEntry<T>> allVisible<T>(
+      List<T> rows,
+      protocol.UuidValue? Function(T) idOf,
+    ) {
+      return [
+        for (final row in rows)
+          if (idOf(row) != null)
+            RowEntry<T>(id: idOf(row)!, row: row, visible: true),
+      ];
+    }
+
+    final chain = <ChainEntry>[
+      for (final row in server.fkChainRoots)
+        ChainEntry(
+          tableName: 'fk_chain_root',
+          id: row.id!,
+          name: row.name,
+          visible: true,
+        ),
+      for (final row in server.fkChainCascadeMiddles)
+        ChainEntry(
+          tableName: 'fk_chain_cascade_middle',
+          id: row.id!,
+          name: row.name,
+          visible: true,
+        ),
+      for (final row in server.fkChainRestrictBlockers)
+        ChainEntry(
+          tableName: 'fk_chain_restrict_blocker',
+          id: row.id!,
+          name: row.name,
+          visible: true,
+        ),
+      for (final row in server.fkChainMiddleSetNullChildren)
+        ChainEntry(
+          tableName: 'fk_chain_middle_set_null_child',
+          id: row.id!,
+          name: row.name,
+          visible: true,
+        ),
+      for (final row in server.fkChainMiddleCascadeChildren)
+        ChainEntry(
+          tableName: 'fk_chain_middle_cascade_child',
+          id: row.id!,
+          name: row.name,
+          visible: true,
+        ),
+    ];
+
+    return DemoSnapshot(
+      people: allVisible(server.people, (r) => r.id),
+      addresses: allVisible(server.addresses, (r) => r.id),
+      cities: allVisible(server.cities, (r) => r.id),
+      towns: allVisible(server.towns, (r) => r.id),
+      uniques: allVisible(server.uniques, (r) => r.id),
+      uniqueUuids: allVisible(server.uniqueUuids, (r) => r.id),
+      restrictChildren: allVisible(server.restrictChildren, (r) => r.id),
+      types: allVisible(server.types, (r) => r.id),
+      chain: chain,
+      foreignKeys: const [],
+      tombstones: const [],
+    );
+  }
+
   int get visibleRowCount => _countVisible(true);
   int get hiddenRowCount => _countVisible(false);
 

@@ -1,0 +1,17 @@
+### A read-only snapshot of one scope's merged server state, used by the demo
+### app's "Server" panel. Not a database table.
+class: DemoServerSnapshot
+fields:
+  people: List<Person>
+  addresses: List<Address>
+  cities: List<City>
+  towns: List<Town>
+  uniques: List<Unique>
+  uniqueUuids: List<UniqueUuid>
+  restrictChildren: List<RestrictChild>
+  types: List<Types>
+  fkChainRoots: List<FkChainRoot>
+  fkChainCascadeMiddles: List<FkChainCascadeMiddle>
+  fkChainRestrictBlockers: List<FkChainRestrictBlocker>
+  fkChainMiddleSetNullChildren: List<FkChainMiddleSetNullChild>
+  fkChainMiddleCascadeChildren: List<FkChainMiddleCascadeChild>

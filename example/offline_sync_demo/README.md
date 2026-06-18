@@ -16,6 +16,10 @@ Key controls:
 - **Per-replica sync**: each panel has its own one-shot **Sync** and **Stream**
   (continuous) controls, so you drive `A → server` and `B → server`
   independently and watch them converge.
+- A third **Server** panel shows the server's merged truth for the current
+  scope, fetched through the `demoDebug.fetchScopeSnapshot` endpoint (reads run
+  in the caller's scope via `transactionForUser`). It refreshes after each sync
+  and via its own refresh button, so you can watch `A | B | Server` converge.
 - **Show hidden rows** reveals locally hidden/soft-deleted rows (read through the
   unwrapped session and shown struck-through and muted) alongside the visible
   "user view".

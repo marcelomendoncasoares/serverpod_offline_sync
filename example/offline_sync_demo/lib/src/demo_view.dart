@@ -44,6 +44,8 @@ class DemoDashboard extends StatelessWidget {
                     slot: ReplicaSlot.b,
                   ),
                 ),
+                const Gap(12),
+                Expanded(child: _ServerPanel(controller: controller)),
               ],
             ),
           ),
@@ -433,13 +435,115 @@ class _ReplicaPanel extends StatelessWidget {
           const Divider(),
           const Gap(8),
           Expanded(
-            child: _ReplicaTree(
-              controller: controller,
-              slot: slot,
+            child: _ProjectionTree(
               nodes: state.projection.nodes,
+              onTapRow: (ref) =>
+                  unawaited(showRowDetailSheet(context, controller, ref, slot)),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ServerPanel extends StatelessWidget {
+  const _ServerPanel({required this.controller});
+
+  final DemoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = controller.server;
+    return OutlinedContainer(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const material.Icon(material.Icons.dns, size: 16),
+              const Gap(6),
+              const Text('Server').semiBold(),
+              const Gap(8),
+              _ServerBadge(controller: controller),
+              const Spacer(),
+              IconButton.ghost(
+                icon: const material.Icon(material.Icons.refresh, size: 16),
+                onPressed: (!controller.online || controller.busy)
+                    ? null
+                    : () => unawaited(controller.refreshServer()),
+              ),
+            ],
+          ),
+          const Gap(6),
+          Text(
+            '${state.projection.visibleRowCount} rows · merged truth for '
+            'this scope',
+          ).xSmall().muted(),
+          const Gap(8),
+          const Divider(),
+          const Gap(8),
+          Expanded(
+            child: !controller.online
+                ? const Center(
+                    child: Text('Offline — connect to view server state.'),
+                  )
+                : state.error != null
+                ? const Center(
+                    child: Text('Server unavailable. Refresh after auth.'),
+                  )
+                : _ProjectionTree(nodes: state.projection.nodes),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerBadge extends StatelessWidget {
+  const _ServerBadge({required this.controller});
+
+  final DemoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final state = controller.server;
+
+    String label;
+    Color bg;
+    Color fg;
+    if (!controller.online) {
+      label = 'offline';
+      bg = scheme.muted;
+      fg = scheme.mutedForeground;
+    } else if (state.loading) {
+      label = 'loading';
+      bg = scheme.primary;
+      fg = scheme.primaryForeground;
+    } else if (state.error != null) {
+      label = 'error';
+      bg = scheme.destructive;
+      fg = material.Colors.white;
+    } else {
+      label = state.lastFetchedLabel ?? 'idle';
+      bg = scheme.muted;
+      fg = scheme.mutedForeground;
+    }
+
+    return material.Tooltip(
+      message: state.error ?? label,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: material.Text(
+          label,
+          style: material.TextStyle(color: fg, fontSize: 11),
+        ),
       ),
     );
   }
@@ -486,22 +590,17 @@ class _SyncBadge extends StatelessWidget {
   }
 }
 
-class _ReplicaTree extends StatefulWidget {
-  const _ReplicaTree({
-    required this.controller,
-    required this.slot,
-    required this.nodes,
-  });
+class _ProjectionTree extends StatefulWidget {
+  const _ProjectionTree({required this.nodes, this.onTapRow});
 
-  final DemoController controller;
-  final ReplicaSlot slot;
   final List<TreeNode<DemoTreeItem>> nodes;
+  final void Function(DemoRowRef ref)? onTapRow;
 
   @override
-  State<_ReplicaTree> createState() => _ReplicaTreeState();
+  State<_ProjectionTree> createState() => _ProjectionTreeState();
 }
 
-class _ReplicaTreeState extends State<_ReplicaTree> {
+class _ProjectionTreeState extends State<_ProjectionTree> {
   late List<TreeNode<DemoTreeItem>> nodes;
 
   @override
@@ -511,7 +610,7 @@ class _ReplicaTreeState extends State<_ReplicaTree> {
   }
 
   @override
-  void didUpdateWidget(covariant _ReplicaTree oldWidget) {
+  void didUpdateWidget(covariant _ProjectionTree oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.nodes, widget.nodes)) {
       nodes = widget.nodes;
@@ -524,6 +623,7 @@ class _ReplicaTreeState extends State<_ReplicaTree> {
       return const Center(child: Text('No rows yet.'));
     }
     final scheme = Theme.of(context).colorScheme;
+    final onTapRow = widget.onTapRow;
 
     return TreeView<DemoTreeItem>(
       nodes: nodes,
@@ -542,16 +642,9 @@ class _ReplicaTreeState extends State<_ReplicaTree> {
           }),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: item.ref == null
+            onTap: (item.ref == null || onTapRow == null)
                 ? null
-                : () => unawaited(
-                    showRowDetailSheet(
-                      context,
-                      widget.controller,
-                      item.ref!,
-                      widget.slot,
-                    ),
-                  ),
+                : () => onTapRow(item.ref!),
             child: Row(
               children: [
                 Flexible(

@@ -42,6 +42,14 @@ class ReplicaState {
   bool get streaming => stream != null;
 }
 
+/// State of the "Server" panel that mirrors the merged server truth.
+class ServerPanelState {
+  DemoProjection projection = DemoProjection.empty();
+  bool loading = false;
+  String? error;
+  String? lastFetchedLabel;
+}
+
 /// Drives the whole demo: users, replicas, connectivity, sync, and seeding.
 class DemoController extends ChangeNotifier {
   DemoController({required this.serverUrl});
@@ -54,6 +62,7 @@ class DemoController extends ChangeNotifier {
     ReplicaSlot.a: ReplicaState(ReplicaSlot.a),
     ReplicaSlot.b: ReplicaState(ReplicaSlot.b),
   };
+  final server = ServerPanelState();
   final _sessions = <String, ReplicaSession>{};
   final _counter = ScenarioCounter();
 
@@ -125,9 +134,6 @@ class DemoController extends ChangeNotifier {
     if (!users.contains(user)) users.add(user);
 
     await switchUser(user);
-    if (online) {
-      await _ensureRemoteAuth(user);
-    }
   }
 
   Future<void> switchUser(DemoUser user) async {
@@ -140,6 +146,11 @@ class DemoController extends ChangeNotifier {
       await _openSessionsFor(user);
       _resetReplicaPhases();
       await _refreshAll(notify: false);
+      if (online) {
+        await _ensureRemoteAuth(user);
+      } else {
+        await _fetchServer(notify: false);
+      }
     });
   }
 
@@ -172,6 +183,8 @@ class DemoController extends ChangeNotifier {
         _resetReplicaPhases();
         if (online && selectedUser != null) {
           await _ensureRemoteAuth(selectedUser!);
+        } else {
+          await _fetchServer(notify: false);
         }
       },
     );
@@ -200,6 +213,7 @@ class DemoController extends ChangeNotifier {
         rethrow;
       } finally {
         await _refreshReplica(slot, notify: false);
+        await _fetchServer(notify: false);
       }
     });
   }
@@ -250,13 +264,49 @@ class DemoController extends ChangeNotifier {
 
   // --- Refresh ------------------------------------------------------------
 
-  Future<void> refreshAll() => _refreshAll();
+  Future<void> refreshAll() async {
+    await _refreshAll(notify: false);
+    await _fetchServer(notify: false);
+    notifyListeners();
+  }
+
+  /// Re-fetches just the server "merged truth" panel.
+  Future<void> refreshServer() => _fetchServer();
 
   Future<void> _refreshAll({bool notify = true}) async {
     for (final slot in ReplicaSlot.values) {
       await _refreshReplica(slot, notify: false);
     }
     if (notify) notifyListeners();
+  }
+
+  Future<void> _fetchServer({bool notify = true}) async {
+    if (!online) {
+      server
+        ..projection = DemoProjection.empty()
+        ..error = null
+        ..lastFetchedLabel = null;
+      if (notify) notifyListeners();
+      return;
+    }
+    server.loading = true;
+    if (notify) notifyListeners();
+    try {
+      final snapshot = await client.demoDebug.fetchScopeSnapshot();
+      server
+        ..projection = DemoSnapshot.fromServer(
+          snapshot,
+        ).project(showHidden: showHidden)
+        ..error = null
+        ..lastFetchedLabel = 'fetched ${_timeLabel()}';
+    } catch (error) {
+      server
+        ..projection = DemoProjection.empty()
+        ..error = '$error';
+    } finally {
+      server.loading = false;
+      if (notify) notifyListeners();
+    }
   }
 
   Future<void> _refreshReplica(ReplicaSlot slot, {bool notify = true}) async {
@@ -831,6 +881,9 @@ class DemoController extends ChangeNotifier {
         authKeyProvider.token = token;
       }
       status = 'Authenticated ${user.username} on the demo server.';
+      if (identical(selectedUser, user)) {
+        await _fetchServer(notify: false);
+      }
       notifyListeners();
     } catch (error) {
       status = 'Using local ${user.username}; server auth unavailable: $error';
