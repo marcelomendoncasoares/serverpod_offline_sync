@@ -19,59 +19,59 @@ dev_dependencies:
 dependency_overrides:
   serverpod:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_auth_core_client:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_client
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_auth_core_server:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_server
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_cli:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: tools/serverpod_cli
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_client:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_client
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_database:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_database
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_embedded_postgres:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_embedded_postgres
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_shared:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_shared
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_serialization:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_serialization
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_service_client:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_service_client
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_test:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_test
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
 
 melos:
   packages:
@@ -94,15 +94,9 @@ melos:
       exec: dart analyze . --fatal-infos --fatal-warnings
     generate:
       # Must run the module first, or the test project won't have the tables.
-      # Runs generate twice on the server package due to a bug in the generator.
       run: |
-        {
-          melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate ||
-          melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate
-        } &&
-        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate &&
-        dart run scripts/patch_auth_core_client_protocol.dart &&
-        dart format test/serverpod_offline_sync_test_client/lib/src/protocol/protocol.dart
+        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate &&
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
     create-migration:
       # If the module does not run first, the test project will see no module tables.
       run: >-

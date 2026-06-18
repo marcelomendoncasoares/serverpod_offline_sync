@@ -1,0 +1,29 @@
+# Configuration for the main API test server.
+apiServer:
+  port: 8080
+  publicHost: localhost
+  publicPort: 8080
+  publicScheme: http
+
+# Configuration for the Insights test server.
+insightsServer:
+  port: 8081
+  publicHost: localhost
+  publicPort: 8081
+  publicScheme: http
+
+# Configuration for the web test server.
+webServer:
+  port: 8082
+  publicHost: localhost
+  publicPort: 8082
+  publicScheme: http
+
+# This is the database setup for your test server.
+database:
+  filePath: development.db
+
+sessionLogs:
+  persistentEnabled: false
+  consoleEnabled: true
+  consoleLogFormat: text

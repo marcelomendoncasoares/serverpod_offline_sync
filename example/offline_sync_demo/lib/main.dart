@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' as material;
+import 'package:flutter_driver/driver_extension.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import 'src/demo_controller.dart';
@@ -12,6 +13,7 @@ const _defaultServerUrl = String.fromEnvironment(
 );
 
 void main() {
+  enableFlutterDriverExtension(enableTextEntryEmulation: false);
   runApp(const DemoRoot());
 }
 

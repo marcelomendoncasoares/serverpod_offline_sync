@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_driver:
+    sdk: flutter
 
   http: ^1.5.0
   path: ^1.9.1
@@ -54,31 +56,31 @@ dependency_overrides:
   meta: 1.18.2
   serverpod_auth_core_client:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_client
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_client:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_client
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_database:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_database
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_offline_sync_shared:
     path: ../../packages/serverpod_offline_sync_shared
   serverpod_serialization:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_serialization
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
   serverpod_shared:
     git:
-      url: https://github.com/serverpod/serverpod.git
+      url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_shared
-      ref: 1a6878faf9bf41c1a26ff4f0ebac2f0ac151b668
+      ref: fix-double-generator-bug
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
