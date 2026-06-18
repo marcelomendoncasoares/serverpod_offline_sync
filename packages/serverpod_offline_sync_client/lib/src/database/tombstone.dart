@@ -180,18 +180,24 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
     final (cleanLeft, foundLeft) = _stripIncludeHidden(subs[0]);
     final (cleanRight, foundRight) = _stripIncludeHidden(subs[1]);
     if (!foundLeft && !foundRight) return (where, false);
-    final cleaned = switch ((cleanLeft, cleanRight)) {
-      (null, null) => null,
-      (final expr, null) || (null, final expr) => expr,
-      _ when cleanLeft != null && cleanRight != null && where.operator == 'AND' =>
-        cleanLeft & cleanRight,
-      _ when cleanLeft != null && cleanRight != null && where.operator == 'OR' =>
-        cleanLeft | cleanRight,
-      _ => throw StateError(
+    final Expression? cleaned;
+    if (cleanLeft == null && cleanRight == null) {
+      cleaned = null;
+    } else if (cleanLeft == null) {
+      cleaned = cleanRight;
+    } else if (cleanRight == null) {
+      cleaned = cleanLeft;
+    } else if (where.operator == 'AND') {
+      cleaned = cleanLeft & cleanRight;
+    } else if (where.operator == 'OR') {
+      cleaned = cleanLeft | cleanRight;
+    } else {
+      throw StateError(
         'Unsupported TwoPartExpression operator "${where.operator}" '
-        'when stripping includeHiddenRows sentinel.',
-      ),
-    };
+        'when stripping includeHiddenRows sentinel. '
+        'Only AND and OR operators are supported.',
+      );
+    }
     return (cleaned, true);
   }
   return (where, false);
