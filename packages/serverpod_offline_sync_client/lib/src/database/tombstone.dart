@@ -14,9 +14,11 @@ typedef CrdtTableIdResolver = int? Function(String tableName);
 /// are not isolated and a row is hidden only when its owning scope hides it.
 typedef CrdtScopeIdResolver = int? Function();
 
-/// Sentinel string used to detect the [IncludeTombstonedRows.includeHiddenRows]
-/// placeholder in a `where` expression tree.
-const _includeHiddenSentinel = '__include_hidden__';
+/// Private sentinel class used to signal that the CRDT visibility filter
+/// should be bypassed. Detected via `is` type check instead of string comparison.
+final class _IncludeHiddenSentinel extends Expression<String> {
+  const _IncludeHiddenSentinel() : super('__include_hidden__');
+}
 
 /// Extension on [Table] that exposes [includeHiddenRows] for use in `where`
 /// clauses to bypass the CRDT tombstone/visibility filter.
@@ -43,7 +45,7 @@ const _includeHiddenSentinel = '__include_hidden__';
 extension IncludeTombstonedRows on Table {
   /// Placeholder expression that signals the CRDT visibility filter should be
   /// skipped, returning tombstoned rows alongside live rows.
-  Expression get includeHiddenRows => const Expression(_includeHiddenSentinel);
+  Expression get includeHiddenRows => const _IncludeHiddenSentinel();
 }
 
 /// Merges [where] with CRDT visibility predicates and mutates [include] in place.
@@ -164,7 +166,7 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
   return where & addition;
 }
 
-/// Strips the [_includeHiddenSentinel] from [where], returning the cleaned
+/// Strips the [_IncludeHiddenSentinel] from [where], returning the cleaned
 /// expression and a flag indicating whether the sentinel was found.
 ///
 /// Recursively walks [TwoPartExpression] nodes to remove the sentinel wherever
@@ -172,7 +174,7 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
 /// when the sentinel was found at any depth.
 (Expression?, bool) _stripIncludeHidden(Expression? where) {
   if (where == null) return (null, false);
-  if (where.toString() == _includeHiddenSentinel) return (null, true);
+  if (where is _IncludeHiddenSentinel) return (null, true);
   if (where is TwoPartExpression) {
     final subs = where.subExpressions;
     final (cleanLeft, foundLeft) = _stripIncludeHidden(subs[0]);
@@ -181,8 +183,12 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
     final cleaned = switch ((cleanLeft, cleanRight)) {
       (null, null) => null,
       (final expr, null) || (null, final expr) => expr,
-      _ =>
-        where.operator == 'AND' ? cleanLeft! & cleanRight! : cleanLeft! | cleanRight!,
+      _ when where.operator == 'AND' => cleanLeft! & cleanRight!,
+      _ when where.operator == 'OR' => cleanLeft! | cleanRight!,
+      _ => throw StateError(
+        'Unsupported TwoPartExpression operator "${where.operator}" '
+        'when stripping includeHiddenRows sentinel.',
+      ),
     };
     return (cleaned, true);
   }

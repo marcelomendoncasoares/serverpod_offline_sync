@@ -67,7 +67,7 @@ void main() {
     });
 
     test(
-      'when using findById with includeHiddenRows,'
+      'when using find with ID filter and includeHiddenRows,'
       ' then the tombstoned row is returned.',
       () async {
         final result = await Person.db.find(
