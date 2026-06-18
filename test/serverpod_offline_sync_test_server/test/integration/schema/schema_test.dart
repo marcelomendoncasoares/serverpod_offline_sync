@@ -52,15 +52,13 @@ void main() {
         },
       );
 
-      final expectedColumnNames = _syncedColumnNames(table);
-
       test(
         'then the columns are registered with the correct names and IDs.',
         () async {
-          expect(columnRows, hasLength(expectedColumnNames.length));
+          expect(columnRows, hasLength(table.columns.syncColumnNames.length));
           expect(
             columnRows.map((c) => c.name).toSet(),
-            expectedColumnNames,
+            table.columns.syncColumnNames,
           );
           expect(columnRows.map((c) => c.tblId).toSet(), {tableRows.single.id!});
         },
@@ -95,7 +93,7 @@ void main() {
           expect(secondTableRows.single.name, table.tableName);
           expect(secondTableRows.single.id, firstTableRows.single.id);
 
-          expect(secondColumnRows, hasLength(_syncedColumnNames(table).length));
+          expect(secondColumnRows, hasLength(table.columns.syncColumnNames.length));
           expect(
             secondColumnRows.map((c) => c.id).toSet(),
             firstColumnRows.map((c) => c.id).toSet(),
@@ -129,7 +127,7 @@ void main() {
       expect(
         columnRows,
         hasLength(
-          tables.fold<int>(0, (sum, t) => sum + _syncedColumnNames(t).length),
+          tables.fold<int>(0, (sum, t) => sum + t.columns.syncColumnNames.length),
         ),
       );
     },
@@ -312,7 +310,7 @@ class _UuidPkTable extends Table<UuidValue> {
   ];
 }
 
-Set<String> _syncedColumnNames(Table table) => {
-  for (final column in table.columns)
-    if (column.columnName != 'scopeId') column.columnName,
-};
+extension on List<Column<dynamic>> {
+  List<String> get syncColumnNames =>
+      map((column) => column.columnName).where((name) => name != 'scopeId').toList();
+}

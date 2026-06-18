@@ -128,7 +128,19 @@ void main() {
           ),
         );
 
-        await expectLater(insertFuture, throwsA(isA<StateError>()));
+        await expectLater(
+          insertFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf([
+                contains('Cannot write person row'),
+                contains('with scopeId -1 while acting in scope 1'),
+              ]),
+            ),
+          ),
+        );
       },
     );
 

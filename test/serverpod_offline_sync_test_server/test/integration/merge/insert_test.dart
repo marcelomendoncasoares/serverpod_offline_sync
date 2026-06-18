@@ -230,10 +230,7 @@ void main() {
               include: CrdtDataField.include(node: CrdtNode.include()),
             );
 
-            final domainFieldCount = Person.t.columns
-                .where((c) => c.columnName != 'id' && c.columnName != 'scopeId')
-                .length;
-            expect(fields.length, domainFieldCount);
+            expect(fields.length, Person.t.columns.length - 2); // -2 for id and scopeId
             expect(
               fields.map((f) => f.hlc),
               everyElement(remoteInsert.hlc),
@@ -704,6 +701,8 @@ void main() {
         );
 
         // Simulate lost metadata: the domain row stays, the tracker goes.
+        // This is not expected to happen in practice as only a direct access
+        // to the underlying database can corrupt the metadata.
         await CrdtDataRow.db.deleteWhere(
           testSession,
           where: (t) => t.uuidRowId.equals(person.id),

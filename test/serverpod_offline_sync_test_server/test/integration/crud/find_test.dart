@@ -46,21 +46,28 @@ void main() {
       otherScopeId = otherScope!.id!;
     });
 
-    test(
-      'when finding inside the first scope, then only the first scope row is returned.',
-      () async {
-        final rows = await session.db.transactionForUser(
+    group('when finding inside the first scope, ', () {
+      late List<Person> rows;
+
+      setUp(() async {
+        rows = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.find(session, transaction: tx),
         );
+      });
 
+      test('then only the first scope row is returned.', () async {
         expect(rows.map((row) => row.id).toSet(), {firstUserPerson.id});
+      });
+
+      test('then scopeId is null.', () async {
         expect(rows.single.scopeId, isNull);
-      },
-    );
+      });
+    });
 
     test(
-      'when finding the other scope row by id inside the first scope, then null is returned.',
+      'when finding the other scope row by id inside the first scope, '
+      'then it returns null.',
       () async {
         final row = await session.db.transactionForUser(
           testCrdtUserId,
@@ -72,7 +79,8 @@ void main() {
     );
 
     test(
-      'when finding without a scope, then both rows keep their stored scopeId.',
+      'when finding without a scope, '
+      'then both rows keep their stored scopeId.',
       () async {
         final rows = await Person.db.find(session);
 

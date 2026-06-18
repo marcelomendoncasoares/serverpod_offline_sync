@@ -125,7 +125,7 @@ void main() {
         }
       });
 
-      test('then the sync fails with an integrity violation.', () async {
+      test('then the merge fails with an integrity violation.', () async {
         expect(
           mergeError,
           isA<CrdtSyncIntegrityViolationException>()
@@ -159,7 +159,7 @@ void main() {
         );
       });
 
-      test('then the integrity violation is recorded durably.', () async {
+      test('then the integrity violation is persisted.', () async {
         final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
           session,
           where: (t) => t.uuidRowId.equals(rowId),

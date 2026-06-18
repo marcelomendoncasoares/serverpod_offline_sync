@@ -5,10 +5,6 @@ fields:
   id: UuidValue?, defaultPersist=random_v7
   ### Owner scope of this row. Maintained by the CRDT sync layer.
   scopeId: int?
+  ### This scope field has no relation with the CRDT sync layer.
   scope: String
-  value: String
-
-indexes:
-  unique_composite_scope_value_idx:
-    fields: scopeId, scope, value
-    unique: true
+  value: String, unique(per=[scopeId, scope])

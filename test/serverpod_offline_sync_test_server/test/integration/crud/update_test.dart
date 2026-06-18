@@ -153,7 +153,19 @@ void main() {
           ),
         );
 
-        await expectLater(updateFuture, throwsA(isA<StateError>()));
+        await expectLater(
+          updateFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf([
+                contains('Cannot write person row'),
+                contains('with scopeId -1 while acting in scope 1'),
+              ]),
+            ),
+          ),
+        );
       },
     );
 
@@ -170,7 +182,16 @@ void main() {
           ),
         );
 
-        await expectLater(updateFuture, throwsA(isA<StateError>()));
+        await expectLater(
+          updateFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('scopeId is immutable and owned by the CRDT sync layer'),
+            ),
+          ),
+        );
       },
     );
   });

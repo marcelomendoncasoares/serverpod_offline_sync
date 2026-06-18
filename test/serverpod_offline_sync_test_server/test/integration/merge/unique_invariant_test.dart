@@ -145,10 +145,7 @@ void main() {
 
           expect(rows, hasLength(2));
           expect(rows.singleWhere((row) => row.id == owner.id).name, 'global-name');
-          expect(
-            rows.singleWhere((row) => row.id == incoming.id).name,
-            'global-name',
-          );
+          expect(rows.singleWhere((row) => row.id == incoming.id).name, 'global-name');
         },
       );
     },
