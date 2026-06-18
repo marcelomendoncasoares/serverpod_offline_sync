@@ -326,14 +326,7 @@ void main() {
           .getTargetTableDefinitions()
           .firstWhere((definition) => definition.name == Person.t.tableName);
       final noScopeRelationDefinition = personDefinition.copyWith(
-        foreignKeys: [
-          for (final fk in personDefinition.foreignKeys)
-            if (fk.columns.contains('scopeId') &&
-                fk.referenceTable == 'crdt_scopes')
-              null
-            else
-              fk,
-        ].whereType<ForeignKeyDefinition>().toList(),
+        foreignKeys: _removeScopeIdForeignKey(personDefinition),
       );
 
       expect(
@@ -394,6 +387,17 @@ void main() {
     },
   );
 }
+
+List<ForeignKeyDefinition> _removeScopeIdForeignKey(
+  TableDefinition definition,
+) =>
+    definition.foreignKeys
+        .where(
+          (fk) =>
+              !(fk.columns.contains('scopeId') &&
+                  fk.referenceTable == 'crdt_scopes'),
+        )
+        .toList();
 
 class _UuidPkTable extends Table<UuidValue> {
   _UuidPkTable({String? name}) : super(tableName: name ?? 'uuid_pk_table');

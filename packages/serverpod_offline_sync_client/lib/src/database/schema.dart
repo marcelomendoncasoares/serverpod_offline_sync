@@ -64,16 +64,16 @@ class CrdtSchemaRegistry {
       );
     }
 
-    final tablesWithoutScopeIdRelation = _missingCrdtScopeRelations(
+    final tablesMissingScopeIdRelation = _missingCrdtScopeRelations(
       syncTables,
       tableDefinitionsByName,
     );
-    if (tablesWithoutScopeIdRelation.isNotEmpty) {
+    if (tablesMissingScopeIdRelation.isNotEmpty) {
       throw StateError(
         'CRDT synced tables must declare scopeId as a cascade relation to '
-        'crdt_scopes, but ${tablesWithoutScopeIdRelation.length} table(s) are '
+        'crdt_scopes, but ${tablesMissingScopeIdRelation.length} table(s) are '
         'missing this relation: '
-        '${tablesWithoutScopeIdRelation.map((t) => '"$t"').join(', ')}\n\n'
+        '${tablesMissingScopeIdRelation.map((t) => '"$t"').join(', ')}\n\n'
         'Add this field to every synced model:\n'
         'fields:\n'
         '  id: UuidValue?, defaultPersist=random_v7\n'
