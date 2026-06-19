@@ -137,28 +137,25 @@ class _DemoHomeState extends State<DemoHome> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) => Scaffold(
-        headers: [
-          AppBar(
-            title: const Text('Serverpod Offline Sync Demo'),
-            subtitle: const Text(_defaultServerUrl),
-            trailing: [
-              ThemeToggleButton(
-                isDark: widget.isDark,
-                onToggle: widget.onToggleTheme,
-              ),
-              const Gap(8),
-              UserAvatarMenu(controller: controller),
-            ],
-          ),
-          const Divider(),
-        ],
-        child: material.Material(
-          color: material.Colors.transparent,
-          child: DemoDashboard(controller: controller),
+    return Scaffold(
+      headers: [
+        AppBar(
+          title: const Text('Serverpod Offline Sync Demo'),
+          subtitle: const Text(_defaultServerUrl),
+          trailing: [
+            ThemeToggleButton(
+              isDark: widget.isDark,
+              onToggle: widget.onToggleTheme,
+            ),
+            const Gap(8),
+            UserAvatarMenu(controller: controller),
+          ],
         ),
+        const Divider(),
+      ],
+      child: material.Material(
+        color: material.Colors.transparent,
+        child: DemoDashboard(controller: controller),
       ),
     );
   }

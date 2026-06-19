@@ -40,7 +40,7 @@ enum SeedTarget {
 }
 
 /// Per-replica view and sync state held side by side by [DemoController].
-class ReplicaState {
+class ReplicaState extends ChangeNotifier {
   ReplicaState(this.slot);
 
   final ReplicaSlot slot;
@@ -50,16 +50,42 @@ class ReplicaState {
   String? lastSyncedLabel;
   String? error;
   offline.CrdtSyncSession? stream;
+  bool busy = false;
+  bool _disposed = false;
 
   bool get streaming => stream != null;
+
+  void changed() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }
 
 /// State of the "Server" panel that mirrors the merged server truth.
-class ServerPanelState {
+class ServerPanelState extends ChangeNotifier {
   DemoProjection projection = DemoProjection.empty();
   bool loading = false;
+  bool busy = false;
   String? error;
   String? lastFetchedLabel;
+  bool _disposed = false;
+
+  void changed() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }
 
 /// Drives the whole demo: users, replicas, connectivity, sync, and seeding.
@@ -88,9 +114,13 @@ class DemoController extends ChangeNotifier {
   bool showHidden = false;
   bool busy = false;
   String status = 'Opening local demo databases...';
+  bool _disposed = false;
 
   String? _pendingUniqueName;
   protocol.UuidValue? _pendingUniqueUuid;
+
+  bool get anyBusy =>
+      busy || server.busy || replicas.values.any((state) => state.busy);
 
   /// Static explanation shown by the replica-isolation info button.
   String get replicaIsolationMessage {
@@ -106,15 +136,23 @@ class DemoController extends ChangeNotifier {
 
   ReplicaState replica(ReplicaSlot slot) => replicas[slot]!;
 
-  /// The replica the seed target maps to, or null when targeting the server.
-  ReplicaSlot? get _focusedSlot => switch (focusedTarget) {
+  ReplicaSlot? _slotForTarget(SeedTarget target) => switch (target) {
     SeedTarget.replicaA => ReplicaSlot.a,
     SeedTarget.replicaB => ReplicaSlot.b,
     SeedTarget.server => null,
   };
 
+  bool _targetBusy(SeedTarget target) {
+    final slot = _slotForTarget(target);
+    if (slot == null) return busy || server.busy;
+    return busy || replicas[slot]!.busy;
+  }
+
   /// Human label for the current seed target.
   String get focusedTargetLabel => focusedTarget.label;
+
+  /// Whether the currently selected seed target is already doing work.
+  bool get focusedTargetBusy => _targetBusy(focusedTarget);
 
   // --- Lifecycle ----------------------------------------------------------
 
@@ -136,11 +174,22 @@ class DemoController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     unawaited(_stopAllStreams());
     for (final session in _sessions.values) {
       unawaited(session.rawSession.close());
     }
+    for (final state in replicas.values) {
+      state.dispose();
+    }
+    server.dispose();
     super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
   }
 
   // --- Users --------------------------------------------------------------
@@ -215,12 +264,12 @@ class DemoController extends ChangeNotifier {
   Future<void> syncReplica(ReplicaSlot slot) async {
     final state = replicas[slot]!;
     final session = state.session;
-    if (session == null || !online || state.streaming) return;
+    if (session == null || !online || state.streaming || state.busy) return;
 
-    await _run('Synced ${slot.label} with the server.', () async {
+    await _runReplica(slot, 'Synced ${slot.label} with the server.', () async {
       state.phase = SyncPhase.syncing;
       state.error = null;
-      notifyListeners();
+      state.changed();
       try {
         await client.crdt.syncOnce(session.crdtSession);
         state.phase = SyncPhase.idle;
@@ -234,6 +283,8 @@ class DemoController extends ChangeNotifier {
       } finally {
         await _refreshReplica(slot, notify: false);
         await _fetchServer(notify: false);
+        state.changed();
+        server.changed();
       }
     });
   }
@@ -242,41 +293,48 @@ class DemoController extends ChangeNotifier {
     final state = replicas[slot]!;
     if (value) {
       final session = state.session;
-      if (session == null || !online || state.streaming) return;
-      await _run('Streaming ${slot.label} with the server.', () async {
-        final stream = client.crdt.syncContinuously(
-          session.crdtSession,
-          onMergeSuccess: (hlc) {
-            state.lastSyncedLabel = 'merged $hlc';
-            unawaited(_refreshReplica(slot));
-          },
-        );
-        state.stream = stream;
-        state.phase = SyncPhase.streaming;
-        state.error = null;
-        unawaited(
-          stream.done
-              .then((_) {
-                if (!identical(state.stream, stream)) return;
-                state.stream = null;
-                if (state.phase == SyncPhase.streaming) {
-                  state.phase = SyncPhase.idle;
-                }
-                notifyListeners();
-              })
-              .catchError((Object error) {
-                if (!identical(state.stream, stream)) return;
-                state.stream = null;
-                state.phase = SyncPhase.failed;
-                state.error = '$error';
-                notifyListeners();
-              }),
-        );
-      });
+      if (session == null || !online || state.streaming || state.busy) return;
+      await _runReplica(
+        slot,
+        'Streaming ${slot.label} with the server.',
+        () async {
+          final stream = client.crdt.syncContinuously(
+            session.crdtSession,
+            onMergeSuccess: (hlc) {
+              state.lastSyncedLabel = 'merged $hlc';
+              unawaited(_refreshReplica(slot));
+            },
+          );
+          state.stream = stream;
+          state.phase = SyncPhase.streaming;
+          state.error = null;
+          unawaited(
+            stream.done
+                .then((_) {
+                  if (!identical(state.stream, stream)) return;
+                  state.stream = null;
+                  if (state.phase == SyncPhase.streaming) {
+                    state.phase = SyncPhase.idle;
+                  }
+                  state.changed();
+                  notifyListeners();
+                })
+                .catchError((Object error) {
+                  if (!identical(state.stream, stream)) return;
+                  state.stream = null;
+                  state.phase = SyncPhase.failed;
+                  state.error = '$error';
+                  state.changed();
+                  notifyListeners();
+                }),
+          );
+        },
+      );
       return;
     }
 
-    await _run(
+    await _runReplica(
+      slot,
       'Stopped streaming ${slot.label}.',
       () => _stopReplicaStream(slot),
     );
@@ -287,7 +345,7 @@ class DemoController extends ChangeNotifier {
   Future<void> refreshAll() async {
     await _refreshAll(notify: false);
     await _fetchServer(notify: false);
-    notifyListeners();
+    _notifyEverything();
   }
 
   /// Re-fetches just the server "merged truth" panel.
@@ -297,7 +355,9 @@ class DemoController extends ChangeNotifier {
     for (final slot in ReplicaSlot.values) {
       await _refreshReplica(slot, notify: false);
     }
-    if (notify) notifyListeners();
+    if (notify) {
+      _notifyReplicas();
+    }
   }
 
   Future<void> _fetchServer({bool notify = true}) async {
@@ -306,11 +366,11 @@ class DemoController extends ChangeNotifier {
         ..projection = DemoProjection.empty()
         ..error = null
         ..lastFetchedLabel = null;
-      if (notify) notifyListeners();
+      if (notify) server.changed();
       return;
     }
     server.loading = true;
-    if (notify) notifyListeners();
+    if (notify) server.changed();
     try {
       final snapshot = await client.demoDebug.fetchScopeSnapshot();
       server
@@ -325,7 +385,7 @@ class DemoController extends ChangeNotifier {
         ..error = '$error';
     } finally {
       server.loading = false;
-      if (notify) notifyListeners();
+      if (notify) server.changed();
     }
   }
 
@@ -352,7 +412,7 @@ class DemoController extends ChangeNotifier {
         state.error = 'view error: $error';
       }
     }
-    if (notify) notifyListeners();
+    if (notify) state.changed();
   }
 
   // --- Reset --------------------------------------------------------------
@@ -364,9 +424,13 @@ class DemoController extends ChangeNotifier {
     final user = selectedUser;
     if (user == null) return;
 
-    await _run('Reset ${slot.label} (wiped local database).', () async {
-      await _resetReplicaStorage(user, slot);
-    });
+    await _runReplica(
+      slot,
+      'Reset ${slot.label} (wiped local database).',
+      () async {
+        await _resetReplicaStorage(user, slot);
+      },
+    );
   }
 
   /// Hard-clears the caller's server scope, including synced rows and CRDT
@@ -374,8 +438,9 @@ class DemoController extends ChangeNotifier {
   /// sync back into the empty server scope.
   Future<void> resetServer() async {
     if (!online) return;
-    await _run('Reset the server scope.', () async {
+    await _runServer('Reset the server scope.', () async {
       await _stopAllStreams();
+      _notifyReplicas();
       try {
         await client.demoDebug.resetScope();
       } catch (error) {
@@ -385,6 +450,7 @@ class DemoController extends ChangeNotifier {
         rethrow;
       }
       await _fetchServer(notify: false);
+      server.changed();
     });
   }
 
@@ -398,13 +464,16 @@ class DemoController extends ChangeNotifier {
     String? serverText,
     required Future<void> Function(ReplicaSession session) local,
   }) async {
-    if (focusedTarget == SeedTarget.server) {
+    final target = focusedTarget;
+    if (_targetBusy(target)) return;
+
+    if (target == SeedTarget.server) {
       if (!online) {
         status = 'Connect to seed the server.';
         notifyListeners();
         return;
       }
-      await _run(success, () async {
+      await _runServer(success, () async {
         try {
           await client.demoDebug.seedScope(serverKind, serverText);
         } catch (error) {
@@ -412,16 +481,18 @@ class DemoController extends ChangeNotifier {
           rethrow;
         }
         await _fetchServer(notify: false);
+        server.changed();
       });
       return;
     }
 
-    final slot = _focusedSlot!;
+    final slot = _slotForTarget(target)!;
     final session = replicas[slot]!.session;
     if (session == null) return;
-    await _run(success, () async {
+    await _runReplica(slot, success, () async {
       await local(session);
       await _refreshReplica(slot, notify: false);
+      replicas[slot]!.changed();
     });
   }
 
@@ -742,178 +813,194 @@ class DemoController extends ChangeNotifier {
     final session = replicas[slot]!.session;
     if (session == null) return false;
 
-    return _run('Updated ${ref.tableName} on ${slot.label}.', () async {
-      final crdt = session.crdtSession;
+    return _runReplica(
+      slot,
+      'Updated ${ref.tableName} on ${slot.label}.',
+      () async {
+        final crdt = session.crdtSession;
 
-      Future<void> update<T extends Object>(
-        Future<T?> Function(DatabaseSession) find,
-        Map<String, dynamic> Function(T) json,
-        Future<T> Function(DatabaseSession, T) write,
-      ) async {
-        final row = await find(crdt);
-        if (row == null) return;
-        final editedJson = _applyEditedValues(ref.tableName, json(row), values);
-        final editedRow = protocol.Protocol().deserialize<T>(editedJson);
-        await write(crdt, editedRow);
-      }
+        Future<void> update<T extends Object>(
+          Future<T?> Function(DatabaseSession) find,
+          Map<String, dynamic> Function(T) json,
+          Future<T> Function(DatabaseSession, T) write,
+        ) async {
+          final row = await find(crdt);
+          if (row == null) return;
+          final editedJson = _applyEditedValues(
+            ref.tableName,
+            json(row),
+            values,
+          );
+          final editedRow = protocol.Protocol().deserialize<T>(editedJson);
+          await write(crdt, editedRow);
+        }
 
-      switch (ref.tableName) {
-        case 'person':
-          await update<protocol.Person>(
-            (s) => protocol.Person.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.Person.db.updateRow,
-          );
-        case 'address':
-          await update<protocol.Address>(
-            (s) => protocol.Address.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.Address.db.updateRow,
-          );
-        case 'city':
-          await update<protocol.City>(
-            (s) => protocol.City.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.City.db.updateRow,
-          );
-        case 'town':
-          await update<protocol.Town>(
-            (s) => protocol.Town.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.Town.db.updateRow,
-          );
-        case 'unique':
-          await update<protocol.Unique>(
-            (s) => protocol.Unique.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.Unique.db.updateRow,
-          );
-        case 'unique_uuid':
-          await update<protocol.UniqueUuid>(
-            (s) => protocol.UniqueUuid.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.UniqueUuid.db.updateRow,
-          );
-        case 'restrict_child':
-          await update<protocol.RestrictChild>(
-            (s) => protocol.RestrictChild.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.RestrictChild.db.updateRow,
-          );
-        case 'types':
-          await update<protocol.Types>(
-            (s) => protocol.Types.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.Types.db.updateRow,
-          );
-        case 'fk_chain_root':
-          await update<protocol.FkChainRoot>(
-            (s) => protocol.FkChainRoot.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.FkChainRoot.db.updateRow,
-          );
-        case 'fk_chain_cascade_middle':
-          await update<protocol.FkChainCascadeMiddle>(
-            (s) => protocol.FkChainCascadeMiddle.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.FkChainCascadeMiddle.db.updateRow,
-          );
-        case 'fk_chain_restrict_blocker':
-          await update<protocol.FkChainRestrictBlocker>(
-            (s) => protocol.FkChainRestrictBlocker.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.FkChainRestrictBlocker.db.updateRow,
-          );
-        case 'fk_chain_middle_set_null_child':
-          await update<protocol.FkChainMiddleSetNullChild>(
-            (s) => protocol.FkChainMiddleSetNullChild.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.FkChainMiddleSetNullChild.db.updateRow,
-          );
-        case 'fk_chain_middle_cascade_child':
-          await update<protocol.FkChainMiddleCascadeChild>(
-            (s) => protocol.FkChainMiddleCascadeChild.db.findById(s, ref.id),
-            (r) => r.toJson(),
-            protocol.FkChainMiddleCascadeChild.db.updateRow,
-          );
-        default:
-          status = 'No editor is wired for ${ref.tableName}.';
-      }
-      await _refreshReplica(slot, notify: false);
-    });
+        switch (ref.tableName) {
+          case 'person':
+            await update<protocol.Person>(
+              (s) => protocol.Person.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.Person.db.updateRow,
+            );
+          case 'address':
+            await update<protocol.Address>(
+              (s) => protocol.Address.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.Address.db.updateRow,
+            );
+          case 'city':
+            await update<protocol.City>(
+              (s) => protocol.City.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.City.db.updateRow,
+            );
+          case 'town':
+            await update<protocol.Town>(
+              (s) => protocol.Town.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.Town.db.updateRow,
+            );
+          case 'unique':
+            await update<protocol.Unique>(
+              (s) => protocol.Unique.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.Unique.db.updateRow,
+            );
+          case 'unique_uuid':
+            await update<protocol.UniqueUuid>(
+              (s) => protocol.UniqueUuid.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.UniqueUuid.db.updateRow,
+            );
+          case 'restrict_child':
+            await update<protocol.RestrictChild>(
+              (s) => protocol.RestrictChild.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.RestrictChild.db.updateRow,
+            );
+          case 'types':
+            await update<protocol.Types>(
+              (s) => protocol.Types.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.Types.db.updateRow,
+            );
+          case 'fk_chain_root':
+            await update<protocol.FkChainRoot>(
+              (s) => protocol.FkChainRoot.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.FkChainRoot.db.updateRow,
+            );
+          case 'fk_chain_cascade_middle':
+            await update<protocol.FkChainCascadeMiddle>(
+              (s) => protocol.FkChainCascadeMiddle.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.FkChainCascadeMiddle.db.updateRow,
+            );
+          case 'fk_chain_restrict_blocker':
+            await update<protocol.FkChainRestrictBlocker>(
+              (s) => protocol.FkChainRestrictBlocker.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.FkChainRestrictBlocker.db.updateRow,
+            );
+          case 'fk_chain_middle_set_null_child':
+            await update<protocol.FkChainMiddleSetNullChild>(
+              (s) => protocol.FkChainMiddleSetNullChild.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.FkChainMiddleSetNullChild.db.updateRow,
+            );
+          case 'fk_chain_middle_cascade_child':
+            await update<protocol.FkChainMiddleCascadeChild>(
+              (s) => protocol.FkChainMiddleCascadeChild.db.findById(s, ref.id),
+              (r) => r.toJson(),
+              protocol.FkChainMiddleCascadeChild.db.updateRow,
+            );
+          default:
+            status = 'No editor is wired for ${ref.tableName}.';
+        }
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
   }
 
   Future<void> deleteRow(DemoRowRef ref, ReplicaSlot slot) async {
     final session = replicas[slot]!.session;
     if (session == null) return;
 
-    await _run('Deleted ${ref.tableName} on ${slot.label}.', () async {
-      final crdt = session.crdtSession;
-      switch (ref.tableName) {
-        case 'person':
-          final row = await protocol.Person.db.findById(crdt, ref.id);
-          if (row != null) await protocol.Person.db.deleteRow(crdt, row);
-        case 'address':
-          final row = await protocol.Address.db.findById(crdt, ref.id);
-          if (row != null) await protocol.Address.db.deleteRow(crdt, row);
-        case 'city':
-          final row = await protocol.City.db.findById(crdt, ref.id);
-          if (row != null) await protocol.City.db.deleteRow(crdt, row);
-        case 'town':
-          final row = await protocol.Town.db.findById(crdt, ref.id);
-          if (row != null) await protocol.Town.db.deleteRow(crdt, row);
-        case 'unique':
-          final row = await protocol.Unique.db.findById(crdt, ref.id);
-          if (row != null) await protocol.Unique.db.deleteRow(crdt, row);
-        case 'unique_uuid':
-          final row = await protocol.UniqueUuid.db.findById(crdt, ref.id);
-          if (row != null) await protocol.UniqueUuid.db.deleteRow(crdt, row);
-        case 'restrict_child':
-          final row = await protocol.RestrictChild.db.findById(crdt, ref.id);
-          if (row != null) await protocol.RestrictChild.db.deleteRow(crdt, row);
-        case 'types':
-          final row = await protocol.Types.db.findById(crdt, ref.id);
-          if (row != null) await protocol.Types.db.deleteRow(crdt, row);
-        case 'fk_chain_root':
-          final row = await protocol.FkChainRoot.db.findById(crdt, ref.id);
-          if (row != null) await protocol.FkChainRoot.db.deleteRow(crdt, row);
-        case 'fk_chain_cascade_middle':
-          final row = await protocol.FkChainCascadeMiddle.db.findById(
-            crdt,
-            ref.id,
-          );
-          if (row != null) {
-            await protocol.FkChainCascadeMiddle.db.deleteRow(crdt, row);
-          }
-        case 'fk_chain_restrict_blocker':
-          final row = await protocol.FkChainRestrictBlocker.db.findById(
-            crdt,
-            ref.id,
-          );
-          if (row != null) {
-            await protocol.FkChainRestrictBlocker.db.deleteRow(crdt, row);
-          }
-        case 'fk_chain_middle_set_null_child':
-          final row = await protocol.FkChainMiddleSetNullChild.db.findById(
-            crdt,
-            ref.id,
-          );
-          if (row != null) {
-            await protocol.FkChainMiddleSetNullChild.db.deleteRow(crdt, row);
-          }
-        case 'fk_chain_middle_cascade_child':
-          final row = await protocol.FkChainMiddleCascadeChild.db.findById(
-            crdt,
-            ref.id,
-          );
-          if (row != null) {
-            await protocol.FkChainMiddleCascadeChild.db.deleteRow(crdt, row);
-          }
-        default:
-          status = 'No delete is wired for ${ref.tableName}.';
-      }
-      await _refreshReplica(slot, notify: false);
-    });
+    await _runReplica(
+      slot,
+      'Deleted ${ref.tableName} on ${slot.label}.',
+      () async {
+        final crdt = session.crdtSession;
+        switch (ref.tableName) {
+          case 'person':
+            final row = await protocol.Person.db.findById(crdt, ref.id);
+            if (row != null) await protocol.Person.db.deleteRow(crdt, row);
+          case 'address':
+            final row = await protocol.Address.db.findById(crdt, ref.id);
+            if (row != null) await protocol.Address.db.deleteRow(crdt, row);
+          case 'city':
+            final row = await protocol.City.db.findById(crdt, ref.id);
+            if (row != null) await protocol.City.db.deleteRow(crdt, row);
+          case 'town':
+            final row = await protocol.Town.db.findById(crdt, ref.id);
+            if (row != null) await protocol.Town.db.deleteRow(crdt, row);
+          case 'unique':
+            final row = await protocol.Unique.db.findById(crdt, ref.id);
+            if (row != null) await protocol.Unique.db.deleteRow(crdt, row);
+          case 'unique_uuid':
+            final row = await protocol.UniqueUuid.db.findById(crdt, ref.id);
+            if (row != null) await protocol.UniqueUuid.db.deleteRow(crdt, row);
+          case 'restrict_child':
+            final row = await protocol.RestrictChild.db.findById(crdt, ref.id);
+            if (row != null) {
+              await protocol.RestrictChild.db.deleteRow(crdt, row);
+            }
+          case 'types':
+            final row = await protocol.Types.db.findById(crdt, ref.id);
+            if (row != null) await protocol.Types.db.deleteRow(crdt, row);
+          case 'fk_chain_root':
+            final row = await protocol.FkChainRoot.db.findById(crdt, ref.id);
+            if (row != null) await protocol.FkChainRoot.db.deleteRow(crdt, row);
+          case 'fk_chain_cascade_middle':
+            final row = await protocol.FkChainCascadeMiddle.db.findById(
+              crdt,
+              ref.id,
+            );
+            if (row != null) {
+              await protocol.FkChainCascadeMiddle.db.deleteRow(crdt, row);
+            }
+          case 'fk_chain_restrict_blocker':
+            final row = await protocol.FkChainRestrictBlocker.db.findById(
+              crdt,
+              ref.id,
+            );
+            if (row != null) {
+              await protocol.FkChainRestrictBlocker.db.deleteRow(crdt, row);
+            }
+          case 'fk_chain_middle_set_null_child':
+            final row = await protocol.FkChainMiddleSetNullChild.db.findById(
+              crdt,
+              ref.id,
+            );
+            if (row != null) {
+              await protocol.FkChainMiddleSetNullChild.db.deleteRow(crdt, row);
+            }
+          case 'fk_chain_middle_cascade_child':
+            final row = await protocol.FkChainMiddleCascadeChild.db.findById(
+              crdt,
+              ref.id,
+            );
+            if (row != null) {
+              await protocol.FkChainMiddleCascadeChild.db.deleteRow(crdt, row);
+            }
+          default:
+            status = 'No delete is wired for ${ref.tableName}.';
+        }
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
   }
 
   // --- Internals ----------------------------------------------------------
@@ -970,6 +1057,7 @@ class DemoController extends ChangeNotifier {
       status = 'Authenticated ${user.username} on the demo server.';
       if (identical(selectedUser, user)) {
         await _fetchServer(notify: false);
+        server.changed();
       }
       notifyListeners();
     } catch (error) {
@@ -1066,7 +1154,7 @@ class DemoController extends ChangeNotifier {
 
   Future<bool> _run(String success, Future<void> Function() action) async {
     busy = true;
-    notifyListeners();
+    _notifyEverything();
     try {
       await action();
       status = success;
@@ -1079,8 +1167,82 @@ class DemoController extends ChangeNotifier {
       return false;
     } finally {
       busy = false;
+      _notifyEverything();
+    }
+  }
+
+  Future<bool> _runReplica(
+    ReplicaSlot slot,
+    String success,
+    Future<void> Function() action,
+  ) async {
+    final state = replicas[slot]!;
+    if (busy || state.busy) return false;
+
+    state
+      ..busy = true
+      ..error = null;
+    state.changed();
+    notifyListeners();
+
+    try {
+      await action();
+      status = success;
+      return true;
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('$stackTrace');
+      }
+      state.error ??= '$error';
+      status = 'Failed: $error';
+      return false;
+    } finally {
+      state.busy = false;
+      state.changed();
       notifyListeners();
     }
+  }
+
+  Future<bool> _runServer(
+    String success,
+    Future<void> Function() action,
+  ) async {
+    if (busy || server.busy) return false;
+
+    server
+      ..busy = true
+      ..error = null;
+    server.changed();
+    notifyListeners();
+
+    try {
+      await action();
+      status = success;
+      return true;
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('$stackTrace');
+      }
+      server.error ??= '$error';
+      status = 'Failed: $error';
+      return false;
+    } finally {
+      server.busy = false;
+      server.changed();
+      notifyListeners();
+    }
+  }
+
+  void _notifyReplicas() {
+    for (final state in replicas.values) {
+      state.changed();
+    }
+  }
+
+  void _notifyEverything() {
+    _notifyReplicas();
+    server.changed();
+    notifyListeners();
   }
 
   String _sessionKey(DemoUser user, ReplicaSlot slot) {
