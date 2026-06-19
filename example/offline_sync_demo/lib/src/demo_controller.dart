@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:serverpod_database/serverpod_database.dart'
-    show DatabaseSession;
+    show ColumnDefinition, ColumnType, DatabaseSession, TableDefinition;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -548,6 +549,31 @@ class DemoController extends ChangeNotifier {
     );
   }
 
+  Future<void> addRestrictChild() {
+    return _runSeed(
+      success: 'Added a RestrictChild on $focusedTargetLabel.',
+      serverKind: 'restrictChild',
+      local: (session) async {
+        final parents = await protocol.Person.db.find(session.crdtSession);
+        final parent = parents.firstWhere(
+          (row) => row.id != null,
+          orElse: () => throw StateError(
+            'Seed or sync a visible Person before adding RestrictChild.',
+          ),
+        );
+        final suffix = _counter.next('restrict-child');
+        await protocol.RestrictChild.db.insertRow(
+          session.crdtSession,
+          protocol.RestrictChild(
+            id: newId(),
+            name: 'Restrict child $suffix',
+            parentId: parent.id,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> createSetNullProjectionScenario() {
     return _runSeed(
       success: 'Seeded a set-null mayor candidate on $focusedTargetLabel.',
@@ -620,19 +646,19 @@ class DemoController extends ChangeNotifier {
     Future<RowDetail?> build<T extends Object>(
       Future<T?> Function(DatabaseSession) find,
       Map<String, dynamic> Function(T) json,
-      List<EditableField> Function(T) editable,
     ) async {
       final visibleRow = await find(session.crdtSession);
       final row = visibleRow ?? await find(session.rawSession);
       if (row == null) return null;
+      final fields = _modelFields(ref.tableName, json(row));
       return RowDetail(
         ref: ref,
         slot: slot,
         tableName: ref.tableName,
         uuid: ref.id.uuid,
         visible: visibleRow != null,
-        fields: json(row),
-        editable: editable(row),
+        fields: fields,
+        editable: _editableFields(ref.tableName, fields),
       );
     }
 
@@ -641,82 +667,66 @@ class DemoController extends ChangeNotifier {
         return build<protocol.Person>(
           (s) => protocol.Person.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [
-            EditableField('name', 'Name', r.name),
-            EditableField('surname', 'Surname', r.surname ?? ''),
-          ],
         );
       case 'address':
         return build<protocol.Address>(
           (s) => protocol.Address.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('street', 'Street', r.street)],
         );
       case 'city':
         return build<protocol.City>(
           (s) => protocol.City.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'town':
         return build<protocol.Town>(
           (s) => protocol.Town.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'unique':
         return build<protocol.Unique>(
           (s) => protocol.Unique.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'unique_uuid':
         return build<protocol.UniqueUuid>(
           (s) => protocol.UniqueUuid.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => const [],
         );
       case 'restrict_child':
         return build<protocol.RestrictChild>(
           (s) => protocol.RestrictChild.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'types':
         return build<protocol.Types>(
           (s) => protocol.Types.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('aText', 'Text', r.aText)],
         );
       case 'fk_chain_root':
         return build<protocol.FkChainRoot>(
           (s) => protocol.FkChainRoot.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'fk_chain_cascade_middle':
         return build<protocol.FkChainCascadeMiddle>(
           (s) => protocol.FkChainCascadeMiddle.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'fk_chain_restrict_blocker':
         return build<protocol.FkChainRestrictBlocker>(
           (s) => protocol.FkChainRestrictBlocker.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'fk_chain_middle_set_null_child':
         return build<protocol.FkChainMiddleSetNullChild>(
           (s) => protocol.FkChainMiddleSetNullChild.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       case 'fk_chain_middle_cascade_child':
         return build<protocol.FkChainMiddleCascadeChild>(
           (s) => protocol.FkChainMiddleCascadeChild.db.findById(s, ref.id),
           (r) => r.toJson(),
-          (r) => [EditableField('name', 'Name', r.name)],
         );
       default:
         return null;
@@ -724,134 +734,108 @@ class DemoController extends ChangeNotifier {
   }
 
   /// Applies [values] (keyed by [EditableField.key]) to the row on [slot].
-  Future<void> applyEdit(
+  Future<bool> applyEdit(
     DemoRowRef ref,
     ReplicaSlot slot,
     Map<String, String> values,
   ) async {
     final session = replicas[slot]!.session;
-    if (session == null) return;
+    if (session == null) return false;
 
-    String? nullable(String key) {
-      final value = values[key];
-      if (value == null) return null;
-      return value.isEmpty ? null : value;
-    }
-
-    await _run('Updated ${ref.tableName} on ${slot.label}.', () async {
+    return _run('Updated ${ref.tableName} on ${slot.label}.', () async {
       final crdt = session.crdtSession;
+
+      Future<void> update<T extends Object>(
+        Future<T?> Function(DatabaseSession) find,
+        Map<String, dynamic> Function(T) json,
+        Future<T> Function(DatabaseSession, T) write,
+      ) async {
+        final row = await find(crdt);
+        if (row == null) return;
+        final editedJson = _applyEditedValues(ref.tableName, json(row), values);
+        final editedRow = protocol.Protocol().deserialize<T>(editedJson);
+        await write(crdt, editedRow);
+      }
+
       switch (ref.tableName) {
         case 'person':
-          final row = await protocol.Person.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.Person.db.updateRow(
-              crdt,
-              row.copyWith(
-                name: values['name'] ?? row.name,
-                surname: nullable('surname'),
-              ),
-            );
-          }
+          await update<protocol.Person>(
+            (s) => protocol.Person.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.Person.db.updateRow,
+          );
         case 'address':
-          final row = await protocol.Address.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.Address.db.updateRow(
-              crdt,
-              row.copyWith(street: values['street'] ?? row.street),
-            );
-          }
+          await update<protocol.Address>(
+            (s) => protocol.Address.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.Address.db.updateRow,
+          );
         case 'city':
-          final row = await protocol.City.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.City.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
+          await update<protocol.City>(
+            (s) => protocol.City.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.City.db.updateRow,
+          );
         case 'town':
-          final row = await protocol.Town.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.Town.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
+          await update<protocol.Town>(
+            (s) => protocol.Town.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.Town.db.updateRow,
+          );
         case 'unique':
-          final row = await protocol.Unique.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.Unique.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
+          await update<protocol.Unique>(
+            (s) => protocol.Unique.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.Unique.db.updateRow,
+          );
+        case 'unique_uuid':
+          await update<protocol.UniqueUuid>(
+            (s) => protocol.UniqueUuid.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.UniqueUuid.db.updateRow,
+          );
         case 'restrict_child':
-          final row = await protocol.RestrictChild.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.RestrictChild.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
+          await update<protocol.RestrictChild>(
+            (s) => protocol.RestrictChild.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.RestrictChild.db.updateRow,
+          );
         case 'types':
-          final row = await protocol.Types.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.Types.db.updateRow(
-              crdt,
-              row.copyWith(aText: values['aText'] ?? row.aText),
-            );
-          }
+          await update<protocol.Types>(
+            (s) => protocol.Types.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.Types.db.updateRow,
+          );
         case 'fk_chain_root':
-          final row = await protocol.FkChainRoot.db.findById(crdt, ref.id);
-          if (row != null) {
-            await protocol.FkChainRoot.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
+          await update<protocol.FkChainRoot>(
+            (s) => protocol.FkChainRoot.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.FkChainRoot.db.updateRow,
+          );
         case 'fk_chain_cascade_middle':
-          final row = await protocol.FkChainCascadeMiddle.db.findById(
-            crdt,
-            ref.id,
+          await update<protocol.FkChainCascadeMiddle>(
+            (s) => protocol.FkChainCascadeMiddle.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.FkChainCascadeMiddle.db.updateRow,
           );
-          if (row != null) {
-            await protocol.FkChainCascadeMiddle.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
         case 'fk_chain_restrict_blocker':
-          final row = await protocol.FkChainRestrictBlocker.db.findById(
-            crdt,
-            ref.id,
+          await update<protocol.FkChainRestrictBlocker>(
+            (s) => protocol.FkChainRestrictBlocker.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.FkChainRestrictBlocker.db.updateRow,
           );
-          if (row != null) {
-            await protocol.FkChainRestrictBlocker.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
         case 'fk_chain_middle_set_null_child':
-          final row = await protocol.FkChainMiddleSetNullChild.db.findById(
-            crdt,
-            ref.id,
+          await update<protocol.FkChainMiddleSetNullChild>(
+            (s) => protocol.FkChainMiddleSetNullChild.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.FkChainMiddleSetNullChild.db.updateRow,
           );
-          if (row != null) {
-            await protocol.FkChainMiddleSetNullChild.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
         case 'fk_chain_middle_cascade_child':
-          final row = await protocol.FkChainMiddleCascadeChild.db.findById(
-            crdt,
-            ref.id,
+          await update<protocol.FkChainMiddleCascadeChild>(
+            (s) => protocol.FkChainMiddleCascadeChild.db.findById(s, ref.id),
+            (r) => r.toJson(),
+            protocol.FkChainMiddleCascadeChild.db.updateRow,
           );
-          if (row != null) {
-            await protocol.FkChainMiddleCascadeChild.db.updateRow(
-              crdt,
-              row.copyWith(name: values['name'] ?? row.name),
-            );
-          }
         default:
           status = 'No editor is wired for ${ref.tableName}.';
       }
@@ -1080,17 +1064,19 @@ class DemoController extends ChangeNotifier {
     return null;
   }
 
-  Future<void> _run(String success, Future<void> Function() action) async {
+  Future<bool> _run(String success, Future<void> Function() action) async {
     busy = true;
     notifyListeners();
     try {
       await action();
       status = success;
+      return true;
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint('$stackTrace');
       }
       status = 'Failed: $error';
+      return false;
     } finally {
       busy = false;
       notifyListeners();
@@ -1139,4 +1125,175 @@ class RowDetail {
 
   /// The CRDT scope id stored on the row, if any.
   String? get scopeId => fields['scopeId']?.toString();
+
+  Map<String, dynamic> get displayFields => fields;
+}
+
+final _tableDefinitionsByName = <String, TableDefinition>{
+  for (final table in protocol.Protocol.targetTableDefinitions)
+    table.name: table,
+};
+
+final _valueEncoder = _JsonValueEncoder();
+
+Map<String, dynamic> _modelFields(String tableName, Map<String, dynamic> json) {
+  final fields = <String, dynamic>{};
+  final table = _tableDefinitionsByName[tableName];
+
+  if (table != null) {
+    for (final column in table.columns) {
+      fields[column.name] = json[column.name];
+    }
+  }
+
+  for (final entry in json.entries) {
+    if (_isPublicField(entry.key)) {
+      fields.putIfAbsent(entry.key, () => entry.value);
+    }
+  }
+
+  return fields;
+}
+
+List<EditableField> _editableFields(
+  String tableName,
+  Map<String, dynamic> fields,
+) {
+  final table = _tableDefinitionsByName[tableName];
+  if (table == null) {
+    return [
+      for (final entry in fields.entries)
+        if (_isEditableField(entry.key))
+          EditableField(
+            entry.key,
+            entry.key,
+            _valueEncoder.encode(entry.value),
+          ),
+    ];
+  }
+
+  return [
+    for (final column in table.columns)
+      if (_isEditableColumn(column))
+        EditableField(
+          column.name,
+          column.name,
+          _valueEncoder.encode(fields[column.name]),
+        ),
+  ];
+}
+
+Map<String, dynamic> _applyEditedValues(
+  String tableName,
+  Map<String, dynamic> json,
+  Map<String, String> values,
+) {
+  final edited = Map<String, dynamic>.of(json);
+  final table = _tableDefinitionsByName[tableName];
+
+  if (table == null) {
+    for (final entry in values.entries) {
+      if (_isEditableField(entry.key)) {
+        edited[entry.key] = _valueEncoder.decode(
+          entry.value,
+          currentValue: json[entry.key],
+        );
+      }
+    }
+    return edited;
+  }
+
+  for (final column in table.columns) {
+    final value = values[column.name];
+    if (value == null || !_isEditableColumn(column)) continue;
+    edited[column.name] = _valueEncoder.decode(
+      value,
+      column: column,
+      currentValue: json[column.name],
+    );
+  }
+
+  return edited;
+}
+
+bool _isPublicField(String key) {
+  return !key.startsWith('__') && !key.startsWith('_');
+}
+
+bool _isEditableField(String key) {
+  return _isPublicField(key) && key != 'id' && key != 'scopeId';
+}
+
+bool _isEditableColumn(ColumnDefinition column) {
+  return _isEditableField(column.name);
+}
+
+class _JsonValueEncoder {
+  const _JsonValueEncoder();
+
+  String encode(dynamic value) {
+    if (value == null) return '';
+    if (value is String) return value;
+    return jsonEncode(value);
+  }
+
+  dynamic decode(String raw, {ColumnDefinition? column, dynamic currentValue}) {
+    if (raw.isEmpty && (column?.isNullable ?? currentValue == null)) {
+      return null;
+    }
+
+    if (column == null) {
+      return _decodeFromCurrentValue(raw, currentValue);
+    }
+
+    return switch (column.columnType) {
+      ColumnType.boolean => _decodeBool(raw),
+      ColumnType.bigint => _decodeBigIntColumn(raw, column),
+      ColumnType.doublePrecision => double.parse(raw),
+      ColumnType.uuid ||
+      ColumnType.timestampWithoutTimeZone ||
+      ColumnType.text ||
+      ColumnType.bytea => raw,
+      _ => _decodeJsonLiteral(raw),
+    };
+  }
+
+  dynamic _decodeFromCurrentValue(String raw, dynamic currentValue) {
+    return switch (currentValue) {
+      null => raw,
+      String() => raw,
+      bool() => _decodeBool(raw),
+      int() => int.parse(raw),
+      double() => double.parse(raw),
+      List() || Map() => jsonDecode(raw),
+      _ => raw,
+    };
+  }
+
+  dynamic _decodeBigIntColumn(String raw, ColumnDefinition column) {
+    final dartType = column.dartType;
+    if (dartType?.startsWith('protocol:') ?? false) {
+      return int.parse(raw);
+    }
+    if (dartType == 'int' || dartType == 'int?') {
+      return int.parse(raw);
+    }
+    return raw;
+  }
+
+  bool _decodeBool(String raw) {
+    return switch (raw.trim().toLowerCase()) {
+      'true' || '1' || 'yes' => true,
+      'false' || '0' || 'no' => false,
+      _ => throw FormatException('Expected a boolean value.'),
+    };
+  }
+
+  dynamic _decodeJsonLiteral(String raw) {
+    try {
+      return jsonDecode(raw);
+    } on FormatException {
+      return raw;
+    }
+  }
 }

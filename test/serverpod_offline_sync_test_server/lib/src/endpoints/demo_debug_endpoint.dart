@@ -136,6 +136,29 @@ class DemoDebugEndpoint extends Endpoint {
             Person(id: const Uuid().v7obj(), name: name),
             transaction: transaction,
           );
+        case 'restrictChild':
+          final people = await Person.db.find(session, transaction: transaction);
+          Person? parent;
+          for (final person in people) {
+            if (person.id != null) {
+              parent = person;
+              break;
+            }
+          }
+          if (parent == null) {
+            throw StateError(
+              'Seed or sync a visible Person before adding RestrictChild.',
+            );
+          }
+          await RestrictChild.db.insertRow(
+            session,
+            RestrictChild(
+              id: const Uuid().v7obj(),
+              name: 'Server restrict child $tag',
+              parentId: parent.id,
+            ),
+            transaction: transaction,
+          );
         case 'unique':
           await Unique.db.insertRow(
             session,
