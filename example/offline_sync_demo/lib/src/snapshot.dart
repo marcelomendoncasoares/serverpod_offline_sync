@@ -8,28 +8,21 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import 'models.dart';
+import 'relationships.dart';
+import 'table_ops.dart';
 
-/// A domain row together with its computed visibility for one replica.
-class RowEntry<T> {
-  RowEntry({required this.id, required this.row, required this.visible});
-
-  final protocol.UuidValue id;
-  final T row;
-  final bool visible;
-}
-
-/// A row from one of the FK-chain tables, tagged with its table name.
-class ChainEntry {
-  ChainEntry({
-    required this.tableName,
+/// A single domain row, as JSON, together with its visibility for one replica.
+class RowView {
+  RowView({
+    required this.table,
     required this.id,
-    required this.name,
+    required this.json,
     required this.visible,
   });
 
-  final String tableName;
+  final String table;
   final protocol.UuidValue id;
-  final String name;
+  final Map<String, dynamic> json;
   final bool visible;
 }
 
@@ -40,8 +33,9 @@ class DemoTreeItem {
     required this.icon,
     this.detail,
     this.ref,
+    this.relation,
     this.hidden = false,
-    this.hiddenReason,
+    this.dangling = false,
     this.metadata = false,
   });
 
@@ -58,15 +52,17 @@ class DemoTreeItem {
     String detail,
     DemoRowRef ref, {
     required bool hidden,
-    String? hiddenReason,
+    Relationship? relation,
+    bool dangling = false,
   }) {
     return DemoTreeItem._(
       title: title,
       detail: detail,
       ref: ref,
-      icon: hidden ? material.Icons.visibility_off : material.Icons.table_rows,
+      icon: iconForTable(ref.tableName, hidden: hidden),
       hidden: hidden,
-      hiddenReason: hiddenReason,
+      relation: relation,
+      dangling: dangling,
     );
   }
 
@@ -83,8 +79,14 @@ class DemoTreeItem {
   final String? detail;
   final material.IconData icon;
   final DemoRowRef? ref;
+
+  /// The foreign-key edge that attaches this node to its parent (null for roots
+  /// and groups). Drives the onDelete badge.
+  final Relationship? relation;
   final bool hidden;
-  final String? hiddenReason;
+
+  /// This row carries a non-null foreign key whose parent is not present here.
+  final bool dangling;
   final bool metadata;
 }
 
@@ -97,11 +99,7 @@ class DemoProjection {
   });
 
   factory DemoProjection.empty() {
-    return DemoProjection(
-      nodes: const [],
-      visibleRowCount: 0,
-      hiddenRowCount: 0,
-    );
+    return DemoProjection(nodes: const [], visibleRowCount: 0, hiddenRowCount: 0);
   }
 
   final List<TreeNode<DemoTreeItem>> nodes;
@@ -112,325 +110,200 @@ class DemoProjection {
 /// An immutable view of one replica's domain rows and CRDT metadata.
 class DemoSnapshot {
   DemoSnapshot({
-    required this.people,
-    required this.addresses,
-    required this.cities,
-    required this.towns,
-    required this.uniques,
-    required this.uniqueUuids,
-    required this.restrictChildren,
-    required this.types,
-    required this.chain,
+    required this.catalog,
+    required this.rows,
     required this.foreignKeys,
     required this.tombstones,
   });
 
-  final List<RowEntry<protocol.Person>> people;
-  final List<RowEntry<protocol.Address>> addresses;
-  final List<RowEntry<protocol.City>> cities;
-  final List<RowEntry<protocol.Town>> towns;
-  final List<RowEntry<protocol.Unique>> uniques;
-  final List<RowEntry<protocol.UniqueUuid>> uniqueUuids;
-  final List<RowEntry<protocol.RestrictChild>> restrictChildren;
-  final List<RowEntry<protocol.Types>> types;
-  final List<ChainEntry> chain;
+  final RelationshipCatalog catalog;
+  final List<RowView> rows;
   final List<offline.CrdtDataForeignKey> foreignKeys;
   final List<offline.CrdtDataDeleted> tombstones;
 
   /// Loads visible rows (CRDT session) and the full physical set (raw session)
-  /// and classifies every row's visibility.
+  /// for every synced table and classifies each row's visibility.
   static Future<DemoSnapshot> load(
+    RelationshipCatalog catalog,
     offline.CrdtDatabaseSession crdt,
     ClientDatabaseSession raw,
   ) async {
-    final chain = <ChainEntry>[
-      ..._classifyChain(
-        'fk_chain_root',
-        await protocol.FkChainRoot.db.find(crdt),
-        await protocol.FkChainRoot.db.find(raw),
-        (r) => r.id,
-        (r) => r.name,
-      ),
-      ..._classifyChain(
-        'fk_chain_cascade_middle',
-        await protocol.FkChainCascadeMiddle.db.find(crdt),
-        await protocol.FkChainCascadeMiddle.db.find(raw),
-        (r) => r.id,
-        (r) => r.name,
-      ),
-      ..._classifyChain(
-        'fk_chain_restrict_blocker',
-        await protocol.FkChainRestrictBlocker.db.find(crdt),
-        await protocol.FkChainRestrictBlocker.db.find(raw),
-        (r) => r.id,
-        (r) => r.name,
-      ),
-      ..._classifyChain(
-        'fk_chain_middle_set_null_child',
-        await protocol.FkChainMiddleSetNullChild.db.find(crdt),
-        await protocol.FkChainMiddleSetNullChild.db.find(raw),
-        (r) => r.id,
-        (r) => r.name,
-      ),
-      ..._classifyChain(
-        'fk_chain_middle_cascade_child',
-        await protocol.FkChainMiddleCascadeChild.db.find(crdt),
-        await protocol.FkChainMiddleCascadeChild.db.find(raw),
-        (r) => r.id,
-        (r) => r.name,
-      ),
-    ];
+    final rows = <RowView>[];
+    for (final table in catalog.tables) {
+      final ops = demoTableOps[table];
+      if (ops == null) continue;
+      final visible = await ops.findAll(crdt);
+      final full = await ops.findAll(raw);
+      final visibleIds = {
+        for (final row in visible)
+          if (row['id'] != null) '${row['id']}',
+      };
+      for (final row in full) {
+        final rawId = row['id'];
+        if (rawId == null) continue;
+        rows.add(
+          RowView(
+            table: table,
+            id: protocol.UuidValue.withValidation('$rawId'),
+            json: row,
+            visible: visibleIds.contains('$rawId'),
+          ),
+        );
+      }
+    }
 
     return DemoSnapshot(
-      people: _classify(
-        await protocol.Person.db.find(crdt),
-        await protocol.Person.db.find(raw),
-        (r) => r.id,
-      ),
-      addresses: _classify(
-        await protocol.Address.db.find(crdt),
-        await protocol.Address.db.find(raw),
-        (r) => r.id,
-      ),
-      cities: _classify(
-        await protocol.City.db.find(crdt),
-        await protocol.City.db.find(raw),
-        (r) => r.id,
-      ),
-      towns: _classify(
-        await protocol.Town.db.find(crdt),
-        await protocol.Town.db.find(raw),
-        (r) => r.id,
-      ),
-      uniques: _classify(
-        await protocol.Unique.db.find(crdt),
-        await protocol.Unique.db.find(raw),
-        (r) => r.id,
-      ),
-      uniqueUuids: _classify(
-        await protocol.UniqueUuid.db.find(crdt),
-        await protocol.UniqueUuid.db.find(raw),
-        (r) => r.id,
-      ),
-      restrictChildren: _classify(
-        await protocol.RestrictChild.db.find(crdt),
-        await protocol.RestrictChild.db.find(raw),
-        (r) => r.id,
-      ),
-      types: _classify(
-        await protocol.Types.db.find(crdt),
-        await protocol.Types.db.find(raw),
-        (r) => r.id,
-      ),
-      chain: chain,
+      catalog: catalog,
+      rows: rows,
       foreignKeys: await offline.CrdtDataForeignKey.db.find(crdt),
       tombstones: await offline.CrdtDataDeleted.db.find(crdt),
     );
   }
 
   /// Builds a snapshot from the server's merged truth. Every returned row is
-  /// visible (the server has no per-replica hidden rows) and there is no local
-  /// CRDT metadata to show.
-  factory DemoSnapshot.fromServer(protocol.DemoServerSnapshot server) {
-    List<RowEntry<T>> allVisible<T>(
-      List<T> rows,
-      protocol.UuidValue? Function(T) idOf,
-    ) {
-      return [
-        for (final row in rows)
-          if (idOf(row) != null)
-            RowEntry<T>(id: idOf(row)!, row: row, visible: true),
-      ];
+  /// visible and there is no local CRDT metadata to show.
+  factory DemoSnapshot.fromServer(
+    RelationshipCatalog catalog,
+    protocol.DemoServerSnapshot server,
+  ) {
+    final rows = <RowView>[];
+    void add(String table, List<dynamic> serverRows) {
+      for (final row in serverRows) {
+        final json = (row as dynamic).toJson() as Map<String, dynamic>;
+        final rawId = json['id'];
+        if (rawId == null) continue;
+        rows.add(
+          RowView(
+            table: table,
+            id: protocol.UuidValue.withValidation('$rawId'),
+            json: json,
+            visible: true,
+          ),
+        );
+      }
     }
 
-    final chain = <ChainEntry>[
-      for (final row in server.fkChainRoots)
-        ChainEntry(
-          tableName: 'fk_chain_root',
-          id: row.id!,
-          name: row.name,
-          visible: true,
-        ),
-      for (final row in server.fkChainCascadeMiddles)
-        ChainEntry(
-          tableName: 'fk_chain_cascade_middle',
-          id: row.id!,
-          name: row.name,
-          visible: true,
-        ),
-      for (final row in server.fkChainRestrictBlockers)
-        ChainEntry(
-          tableName: 'fk_chain_restrict_blocker',
-          id: row.id!,
-          name: row.name,
-          visible: true,
-        ),
-      for (final row in server.fkChainMiddleSetNullChildren)
-        ChainEntry(
-          tableName: 'fk_chain_middle_set_null_child',
-          id: row.id!,
-          name: row.name,
-          visible: true,
-        ),
-      for (final row in server.fkChainMiddleCascadeChildren)
-        ChainEntry(
-          tableName: 'fk_chain_middle_cascade_child',
-          id: row.id!,
-          name: row.name,
-          visible: true,
-        ),
-    ];
+    add('person', server.people);
+    add('address', server.addresses);
+    add('city', server.cities);
+    add('town', server.towns);
+    add('unique', server.uniques);
+    add('unique_uuid', server.uniqueUuids);
+    add('restrict_child', server.restrictChildren);
+    add('types', server.types);
+    add('fk_chain_root', server.fkChainRoots);
+    add('fk_chain_cascade_middle', server.fkChainCascadeMiddles);
+    add('fk_chain_restrict_blocker', server.fkChainRestrictBlockers);
+    add('fk_chain_middle_set_null_child', server.fkChainMiddleSetNullChildren);
+    add('fk_chain_middle_cascade_child', server.fkChainMiddleCascadeChildren);
 
     return DemoSnapshot(
-      people: allVisible(server.people, (r) => r.id),
-      addresses: allVisible(server.addresses, (r) => r.id),
-      cities: allVisible(server.cities, (r) => r.id),
-      towns: allVisible(server.towns, (r) => r.id),
-      uniques: allVisible(server.uniques, (r) => r.id),
-      uniqueUuids: allVisible(server.uniqueUuids, (r) => r.id),
-      restrictChildren: allVisible(server.restrictChildren, (r) => r.id),
-      types: allVisible(server.types, (r) => r.id),
-      chain: chain,
+      catalog: catalog,
+      rows: rows,
       foreignKeys: const [],
       tombstones: const [],
     );
   }
 
-  int get visibleRowCount => _countVisible(true);
-  int get hiddenRowCount => _countVisible(false);
+  int get visibleRowCount => rows.where((r) => r.visible).length;
+  int get hiddenRowCount => rows.where((r) => !r.visible).length;
 
-  int _countVisible(bool visible) {
-    var total = 0;
-    void add(Iterable<bool> visibilities) {
-      total += visibilities.where((v) => v == visible).length;
+  /// Builds the FK forest for this snapshot. When [showHidden] is false only
+  /// visible rows are shown; otherwise hidden rows are included and flagged.
+  DemoProjection project({required bool showHidden}) {
+    final included = [
+      for (final row in rows)
+        if (row.visible || showHidden) row,
+    ];
+    final byId = {for (final row in included) row.id.uuid: row};
+
+    // Resolve each row's primary parent: the first of its foreign keys that is
+    // set and resolves to a row present in this view.
+    final childrenOf = <String, List<RowView>>{};
+    final edgeOf = <String, Relationship>{};
+    final danglingIds = <String>{};
+    final roots = <RowView>[];
+
+    for (final row in included) {
+      Relationship? parentEdge;
+      String? parentId;
+      var hasUnresolvedRef = false;
+      for (final relation in catalog.parentRelationshipsOf(row.table)) {
+        final value = row.json[relation.fkColumn];
+        if (value == null) continue;
+        final candidate = byId[_normalizeId(value)];
+        if (candidate != null && candidate.id.uuid != row.id.uuid) {
+          parentEdge = relation;
+          parentId = candidate.id.uuid;
+          break;
+        }
+        hasUnresolvedRef = true;
+      }
+
+      if (parentEdge != null && parentId != null) {
+        childrenOf.putIfAbsent(parentId, () => []).add(row);
+        edgeOf[row.id.uuid] = parentEdge;
+      } else {
+        if (hasUnresolvedRef) danglingIds.add(row.id.uuid);
+        roots.add(row);
+      }
     }
 
-    add(people.map((e) => e.visible));
-    add(addresses.map((e) => e.visible));
-    add(cities.map((e) => e.visible));
-    add(towns.map((e) => e.visible));
-    add(uniques.map((e) => e.visible));
-    add(uniqueUuids.map((e) => e.visible));
-    add(restrictChildren.map((e) => e.visible));
-    add(types.map((e) => e.visible));
-    add(chain.map((e) => e.visible));
-    return total;
-  }
+    TreeNode<DemoTreeItem> nodeFor(RowView row, Set<String> seen) {
+      seen.add(row.id.uuid);
+      final children = [
+        for (final child in childrenOf[row.id.uuid] ?? const <RowView>[])
+          if (!seen.contains(child.id.uuid)) nodeFor(child, seen),
+      ];
+      final relation = edgeOf[row.id.uuid];
+      final detail = relation != null
+          ? '${relationLabel(relation.fkColumn)} · ${shortId(row.id)}'
+          : '${tableLabel(row.table)} · ${shortId(row.id)}';
+      return TreeItem(
+        data: DemoTreeItem.row(
+          catalog.displayLabel(row.table, row.json),
+          detail,
+          DemoRowRef(tableName: row.table, id: row.id),
+          hidden: !row.visible,
+          relation: relation,
+          dangling: danglingIds.contains(row.id.uuid),
+        ),
+        expanded: true,
+        children: children,
+      );
+    }
 
-  /// Builds the tree for this snapshot. When [showHidden] is false only visible
-  /// rows are shown (the "user view"); otherwise hidden rows are included and
-  /// flagged.
-  DemoProjection project({required bool showHidden}) {
-    bool include(bool visible) => visible || showHidden;
-
-    final domainChildren = <TreeNode<DemoTreeItem>>[
-      for (final city in cities)
-        if (include(city.visible))
-          _rowNode(
-            'city',
-            city.id,
-            city.row.name,
-            'id ${shortId(city.id)}',
-            visible: city.visible,
-            children: [
-              for (final town in towns)
-                if (town.row.cityId == city.id && include(town.visible))
-                  _townNode(town),
-            ],
-          ),
-      for (final person in people)
-        if (include(person.visible)) _personNode(person, include),
-      for (final town in towns)
-        if (town.row.cityId == null && include(town.visible)) _townNode(town),
-    ];
-
-    final uniqueChildren = <TreeNode<DemoTreeItem>>[
-      for (final entry in uniques)
-        if (include(entry.visible))
-          _rowNode(
-            'unique',
-            entry.id,
-            entry.row.name,
-            _uniqueDetail(entry.row.name),
-            visible: entry.visible,
-          ),
-      for (final entry in uniqueUuids)
-        if (include(entry.visible))
-          _rowNode(
-            'unique_uuid',
-            entry.id,
-            shortId(entry.row.value),
-            'value ${entry.row.value.uuid}',
-            visible: entry.visible,
-          ),
-    ];
-
-    final fkChildren = <TreeNode<DemoTreeItem>>[
-      for (final entry in restrictChildren)
-        if (include(entry.visible))
-          _rowNode(
-            'restrict_child',
-            entry.id,
-            entry.row.name,
-            'parent ${shortId(entry.row.parentId)}',
-            visible: entry.visible,
-          ),
-      for (final entry in chain)
-        if (include(entry.visible))
-          _rowNode(
-            entry.tableName,
-            entry.id,
-            entry.name,
-            'id ${shortId(entry.id)}',
-            visible: entry.visible,
-          ),
-    ];
-
-    final typeChildren = <TreeNode<DemoTreeItem>>[
-      for (final entry in types)
-        if (include(entry.visible))
-          _rowNode(
-            'types',
-            entry.id,
-            entry.row.aText,
-            '${entry.row.anEnum?.name ?? 'no enum'}, '
-                'int64 ${entry.row.anInt64}, '
-                'uuid ${shortId(entry.row.optionalUuid)}',
-            visible: entry.visible,
-          ),
-    ];
+    final seen = <String>{};
+    final forest = [for (final root in roots) nodeFor(root, seen)];
 
     final nodes = <TreeNode<DemoTreeItem>>[
-      _groupNode('Domain graph', _groupSummary(domainChildren), domainChildren),
-      _groupNode(
-        'Unique conflicts',
-        _groupSummary(uniqueChildren),
-        uniqueChildren,
-      ),
-      _groupNode('Foreign keys', _groupSummary(fkChildren), fkChildren),
-      _groupNode('Typed values', _groupSummary(typeChildren), typeChildren),
-      _groupNode(
-        'CRDT metadata',
-        '${foreignKeys.length} FK projections · ${tombstones.length} tombstones',
-        [
-          for (final fk in foreignKeys)
-            TreeItem(
-              data: DemoTreeItem.metadata(
-                'field ${fk.fieldId}',
-                'attempted ${shortId(fk.attemptedValue)} '
-                    'visible ${shortId(fk.visibleValue)} '
-                    'reason ${fk.overrideReason?.name ?? 'none'}',
+      ...forest,
+      if (foreignKeys.isNotEmpty || tombstones.isNotEmpty)
+        TreeItem(
+          data: DemoTreeItem.group(
+            'CRDT metadata',
+            '${foreignKeys.length} FK projections · ${tombstones.length} tombstones',
+          ),
+          expanded: false,
+          children: [
+            for (final fk in foreignKeys)
+              TreeItem(
+                data: DemoTreeItem.metadata(
+                  'field ${fk.fieldId}',
+                  'attempted ${shortId(fk.attemptedValue)} '
+                      'visible ${shortId(fk.visibleValue)} '
+                      'reason ${fk.overrideReason?.name ?? 'none'}',
+                ),
               ),
-            ),
-          for (final tombstone in tombstones)
-            TreeItem(
-              data: DemoTreeItem.metadata(
-                'tombstone row ${tombstone.rowId}',
-                'clFlag ${tombstone.clFlag}, reason ${tombstone.reason.name}',
+            for (final tombstone in tombstones)
+              TreeItem(
+                data: DemoTreeItem.metadata(
+                  'tombstone row ${tombstone.rowId}',
+                  'clFlag ${tombstone.clFlag}, reason ${tombstone.reason.name}',
+                ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
     ].expandAll();
 
     return DemoProjection(
@@ -440,127 +313,37 @@ class DemoSnapshot {
     );
   }
 
-  TreeNode<DemoTreeItem> _personNode(
-    RowEntry<protocol.Person> person,
-    bool Function(bool) include,
-  ) {
-    return _rowNode(
-      'person',
-      person.id,
-      '${person.row.name} ${person.row.surname ?? ''}'.trim(),
-      'org ${shortId(person.row.organizationId)} '
-          'company ${shortId(person.row.oldCompanyId)}',
-      visible: person.visible,
-      children: [
-        for (final address in addresses)
-          if (address.row.inhabitantId == person.id && include(address.visible))
-            _rowNode(
-              'address',
-              address.id,
-              address.row.street,
-              'inhabitant ${shortId(address.row.inhabitantId)}',
-              visible: address.visible,
-            ),
-      ],
-    );
+  static String _normalizeId(Object? value) {
+    final text = '$value';
+    return text;
   }
+}
 
-  TreeNode<DemoTreeItem> _townNode(RowEntry<protocol.Town> town) {
-    return _rowNode(
-      'town',
-      town.id,
-      town.row.name,
-      'city ${shortId(town.row.cityId)} mayor ${shortId(town.row.mayorId)}',
-      visible: town.visible,
-    );
+/// Friendly name for a foreign-key column, e.g. `inhabitantId` → `inhabitant`.
+String relationLabel(String fkColumn) {
+  if (fkColumn.endsWith('Id')) {
+    return fkColumn.substring(0, fkColumn.length - 2);
   }
+  return fkColumn;
+}
 
-  static String _uniqueDetail(String name) {
-    if (name.startsWith('__conflict__')) {
-      return 'conflict loser · materialized $name';
-    }
-    return 'name $name';
-  }
+/// Friendly name for a table, e.g. `fk_chain_root` → `fk chain root`.
+String tableLabel(String table) => table.replaceAll('_', ' ');
 
-  static String _groupSummary(List<TreeNode<DemoTreeItem>> children) {
-    final hidden = children
-        .whereType<TreeItem<DemoTreeItem>>()
-        .where((c) => c.data.hidden)
-        .length;
-    final visible = children.length - hidden;
-    if (hidden == 0) return '$visible rows';
-    return '$visible visible · $hidden hidden';
-  }
-
-  static TreeNode<DemoTreeItem> _groupNode(
-    String title,
-    String detail,
-    List<TreeNode<DemoTreeItem>> children,
-  ) {
-    return TreeItem(
-      data: DemoTreeItem.group(title, detail),
-      expanded: true,
-      children: children,
-    );
-  }
-
-  static TreeNode<DemoTreeItem> _rowNode(
-    String tableName,
-    protocol.UuidValue id,
-    String title,
-    String detail, {
-    required bool visible,
-    List<TreeNode<DemoTreeItem>> children = const [],
-  }) {
-    return TreeItem(
-      data: DemoTreeItem.row(
-        title,
-        detail,
-        DemoRowRef(tableName: tableName, id: id),
-        hidden: !visible,
-        hiddenReason: visible ? null : 'hidden',
-      ),
-      expanded: true,
-      children: children,
-    );
-  }
-
-  static List<RowEntry<T>> _classify<T>(
-    List<T> visible,
-    List<T> full,
-    protocol.UuidValue? Function(T) idOf,
-  ) {
-    final visibleIds = <String>{
-      for (final row in visible)
-        if (idOf(row) != null) idOf(row)!.uuid,
-    };
-    final entries = <RowEntry<T>>[];
-    for (final row in full) {
-      final id = idOf(row);
-      if (id == null) continue;
-      entries.add(
-        RowEntry<T>(id: id, row: row, visible: visibleIds.contains(id.uuid)),
-      );
-    }
-    return entries;
-  }
-
-  static List<ChainEntry> _classifyChain<T>(
-    String tableName,
-    List<T> visible,
-    List<T> full,
-    protocol.UuidValue? Function(T) idOf,
-    String Function(T) nameOf,
-  ) {
-    final classified = _classify(visible, full, idOf);
-    return [
-      for (final entry in classified)
-        ChainEntry(
-          tableName: tableName,
-          id: entry.id,
-          name: nameOf(entry.row),
-          visible: entry.visible,
-        ),
-    ];
-  }
+/// A small icon per table family, falling back to a generic row icon.
+material.IconData iconForTable(String table, {required bool hidden}) {
+  if (hidden) return material.Icons.visibility_off;
+  return switch (table) {
+    'person' => material.Icons.person,
+    'address' => material.Icons.home,
+    'city' => material.Icons.location_city,
+    'town' => material.Icons.map,
+    'organization' => material.Icons.apartment,
+    'company' => material.Icons.business,
+    'restrict_child' || 'required_set_null_child' => material.Icons.link,
+    'unique' || 'unique_uuid' || 'unique_composite' => material.Icons.key,
+    'types' => material.Icons.data_object,
+    _ when table.startsWith('fk_chain') => material.Icons.account_tree,
+    _ => material.Icons.table_rows,
+  };
 }

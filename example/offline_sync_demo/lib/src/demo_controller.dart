@@ -6,14 +6,16 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:serverpod_database/serverpod_database.dart'
-    show ColumnDefinition, ColumnType, DatabaseSession, TableDefinition;
+    show ColumnDefinition, ColumnType, TableDefinition;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as protocol;
 
 import 'models.dart';
+import 'relationships.dart';
 import 'snapshot.dart';
+import 'table_ops.dart';
 
 /// Lifecycle state of a replica's sync transport.
 enum SyncPhase {
@@ -28,15 +30,13 @@ enum SyncPhase {
   final String label;
 }
 
-/// Where preset/seed actions write: one of the replicas or the server.
-enum SeedTarget {
-  replicaA('Replica A'),
-  replicaB('Replica B'),
-  server('Server');
+/// A candidate parent row, offered by the re-parent picker.
+class ParentOption {
+  ParentOption({required this.ref, required this.label, required this.visible});
 
-  const SeedTarget(this.label);
-
+  final DemoRowRef ref;
   final String label;
+  final bool visible;
 }
 
 /// Per-replica view and sync state held side by side by [DemoController].
@@ -45,6 +45,7 @@ class ReplicaState extends ChangeNotifier {
 
   final ReplicaSlot slot;
   ReplicaSession? session;
+  DemoSnapshot? snapshot;
   DemoProjection projection = DemoProjection.empty();
   SyncPhase phase = SyncPhase.idle;
   String? lastSyncedLabel;
@@ -88,12 +89,41 @@ class ServerPanelState extends ChangeNotifier {
   }
 }
 
-/// Drives the whole demo: users, replicas, connectivity, sync, and seeding.
+/// One step of a guided scenario, bound to a concrete replica and rows.
+class ScenarioStep {
+  ScenarioStep(this.label, this.run, {this.replica});
+
+  final String label;
+  final ReplicaSlot? replica;
+  final Future<void> Function() run;
+}
+
+/// A guided, stateful recipe that scripts the free-form primitives. Optional —
+/// every step it runs can also be done by hand directly on the tree.
+class Scenario {
+  Scenario({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.build,
+  });
+
+  final String id;
+  final String title;
+  final String summary;
+  final List<ScenarioStep> Function(DemoController controller) build;
+}
+
+/// Drives the whole demo: users, replicas, connectivity, sync, and editing.
 class DemoController extends ChangeNotifier {
   DemoController({required this.serverUrl});
 
   final String serverUrl;
   final authKeyProvider = DemoAuthKeyProvider();
+
+  late final RelationshipCatalog catalog = RelationshipCatalog.build({
+    for (final table in demoSyncTables) table.tableName,
+  });
 
   final users = <DemoUser>[];
   final replicas = <ReplicaSlot, ReplicaState>{
@@ -107,17 +137,16 @@ class DemoController extends ChangeNotifier {
   protocol.Client? _client;
   DemoUser? selectedUser;
 
-  /// Where preset/seed actions write: a replica or the server.
-  SeedTarget focusedTarget = SeedTarget.replicaA;
-  int presetTab = 0;
   bool online = true;
   bool showHidden = false;
   bool busy = false;
   String status = 'Opening local demo databases...';
   bool _disposed = false;
 
-  String? _pendingUniqueName;
-  protocol.UuidValue? _pendingUniqueUuid;
+  // Active guided scenario, if any.
+  Scenario? activeScenario;
+  List<ScenarioStep> _activeSteps = const [];
+  int scenarioStepIndex = 0;
 
   bool get anyBusy =>
       busy || server.busy || replicas.values.any((state) => state.busy);
@@ -136,23 +165,22 @@ class DemoController extends ChangeNotifier {
 
   ReplicaState replica(ReplicaSlot slot) => replicas[slot]!;
 
-  ReplicaSlot? _slotForTarget(SeedTarget target) => switch (target) {
-    SeedTarget.replicaA => ReplicaSlot.a,
-    SeedTarget.replicaB => ReplicaSlot.b,
-    SeedTarget.server => null,
-  };
+  bool replicaBusy(ReplicaSlot slot) => busy || replicas[slot]!.busy;
 
-  bool _targetBusy(SeedTarget target) {
-    final slot = _slotForTarget(target);
-    if (slot == null) return busy || server.busy;
-    return busy || replicas[slot]!.busy;
+  /// Visible rows of [parentTable] on [slot], offered as re-parent targets.
+  List<ParentOption> parentOptions(ReplicaSlot slot, String parentTable) {
+    final snapshot = replicas[slot]!.snapshot;
+    if (snapshot == null) return const [];
+    return [
+      for (final row in snapshot.rows)
+        if (row.table == parentTable && (row.visible || showHidden))
+          ParentOption(
+            ref: DemoRowRef(tableName: row.table, id: row.id),
+            label: catalog.displayLabel(row.table, row.json),
+            visible: row.visible,
+          ),
+    ];
   }
-
-  /// Human label for the current seed target.
-  String get focusedTargetLabel => focusedTarget.label;
-
-  /// Whether the currently selected seed target is already doing work.
-  bool get focusedTargetBusy => _targetBusy(focusedTarget);
 
   // --- Lifecycle ----------------------------------------------------------
 
@@ -209,6 +237,7 @@ class DemoController extends ChangeNotifier {
     if (identical(user, selectedUser)) return;
     await _run('Switched to ${user.username}.', () async {
       await _stopAllStreams();
+      stopScenario();
       selectedUser = user;
       authKeyProvider.token = user.token;
       _rebuildClient();
@@ -224,16 +253,6 @@ class DemoController extends ChangeNotifier {
   }
 
   // --- Controls -----------------------------------------------------------
-
-  void setFocusedTarget(SeedTarget target) {
-    focusedTarget = target;
-    notifyListeners();
-  }
-
-  void setPresetTab(int value) {
-    presetTab = value;
-    notifyListeners();
-  }
 
   Future<void> setShowHidden(bool value) async {
     showHidden = value;
@@ -274,8 +293,6 @@ class DemoController extends ChangeNotifier {
         await client.crdt.syncOnce(session.crdtSession);
         state.phase = SyncPhase.idle;
         state.lastSyncedLabel = 'synced ${_timeLabel()}';
-        _pendingUniqueName = null;
-        _pendingUniqueUuid = null;
       } catch (error) {
         state.phase = SyncPhase.failed;
         state.error = '$error';
@@ -375,6 +392,7 @@ class DemoController extends ChangeNotifier {
       final snapshot = await client.demoDebug.fetchScopeSnapshot();
       server
         ..projection = DemoSnapshot.fromServer(
+          catalog,
           snapshot,
         ).project(showHidden: showHidden)
         ..error = null
@@ -393,15 +411,18 @@ class DemoController extends ChangeNotifier {
     final state = replicas[slot]!;
     final session = state.session;
     if (session == null) {
+      state.snapshot = null;
       state.projection = DemoProjection.empty();
     } else {
       // Reading the view must never turn a successful sync/seed into a reported
       // failure. Surface the error in the panel and keep the last projection.
       try {
         final snapshot = await DemoSnapshot.load(
+          catalog,
           session.crdtSession,
           session.rawSession,
         );
+        state.snapshot = snapshot;
         state.projection = snapshot.project(showHidden: showHidden);
         state.error = null;
       } catch (error, stackTrace) {
@@ -418,8 +439,7 @@ class DemoController extends ChangeNotifier {
   // --- Reset --------------------------------------------------------------
 
   /// Wipes one replica's local database (a fresh device). Syncing afterwards
-  /// re-pulls whatever the server still holds. Other replicas and the server
-  /// are untouched.
+  /// re-pulls whatever the server still holds.
   Future<void> resetReplica(ReplicaSlot slot) async {
     final user = selectedUser;
     if (user == null) return;
@@ -434,8 +454,7 @@ class DemoController extends ChangeNotifier {
   }
 
   /// Hard-clears the caller's server scope, including synced rows and CRDT
-  /// metadata. Other replicas keep their local data until they are reset or
-  /// sync back into the empty server scope.
+  /// metadata.
   Future<void> resetServer() async {
     if (!online) return;
     await _runServer('Reset the server scope.', () async {
@@ -444,8 +463,6 @@ class DemoController extends ChangeNotifier {
       try {
         await client.demoDebug.resetScope();
       } catch (error) {
-        // Surface the reason in the panel, not just the status bar (e.g. a stale
-        // server process without the resetScope endpoint).
         server.error = 'reset failed: $error';
         rethrow;
       }
@@ -454,55 +471,105 @@ class DemoController extends ChangeNotifier {
     });
   }
 
-  // --- Presets / seeding (focused target) ---------------------------------
+  // --- Free-form row construction (the primary workflow) ------------------
 
-  /// Routes a seed to the focused target: a server endpoint call when the
-  /// server is selected, otherwise local inserts on the focused replica.
-  Future<void> _runSeed({
-    required String success,
-    required String serverKind,
-    String? serverText,
-    required Future<void> Function(ReplicaSession session) local,
+  /// Creates a root row of [table] on [slot] and returns its reference.
+  Future<DemoRowRef?> createRoot(
+    ReplicaSlot slot,
+    String table, {
+    String? label,
   }) async {
-    final target = focusedTarget;
-    if (_targetBusy(target)) return;
-
-    if (target == SeedTarget.server) {
-      if (!online) {
-        status = 'Connect to seed the server.';
-        notifyListeners();
-        return;
-      }
-      await _runServer(success, () async {
-        try {
-          await client.demoDebug.seedScope(serverKind, serverText);
-        } catch (error) {
-          server.error = 'seed failed: $error';
-          rethrow;
-        }
-        await _fetchServer(notify: false);
-        server.changed();
-      });
-      return;
+    final json = catalog.buildRowJson(
+      table,
+      label: label ?? '${_friendly(table)} ${_counter.next(table)}',
+    );
+    if (json == null) {
+      status = 'Cannot create $table without more fields.';
+      notifyListeners();
+      return null;
     }
+    return _insertJson(slot, table, json, 'Created $table on ${slot.label}.');
+  }
 
-    final slot = _slotForTarget(target)!;
+  /// Creates a child of [parent] on [slot] using [relation], attaching its
+  /// foreign key to the parent. Returns the new child's reference.
+  Future<DemoRowRef?> createChildFor(
+    ReplicaSlot slot,
+    DemoRowRef parent,
+    Relationship relation,
+  ) async {
+    final childLabel =
+        '${_friendly(relation.childTable)} ${_counter.next(relation.childTable)}';
+    final json = catalog.buildRowJson(
+      relation.childTable,
+      fkColumn: relation.fkColumn,
+      fkValue: parent.id,
+      label: childLabel,
+    );
+    if (json == null) {
+      status = 'Cannot create ${relation.childTable} here.';
+      notifyListeners();
+      return null;
+    }
+    return _insertJson(
+      slot,
+      relation.childTable,
+      json,
+      'Attached ${relation.childTable} to ${parent.tableName} on ${slot.label}.',
+    );
+  }
+
+  /// Re-points [ref]'s [fkColumn] at [newParentId], or detaches it when null.
+  Future<void> reParent(
+    ReplicaSlot slot,
+    DemoRowRef ref,
+    String fkColumn,
+    protocol.UuidValue? newParentId,
+  ) async {
+    final ops = demoTableOps[ref.tableName];
     final session = replicas[slot]!.session;
-    if (session == null) return;
-    await _runReplica(slot, success, () async {
-      await local(session);
+    if (ops == null || session == null) return;
+
+    final verb = newParentId == null ? 'Detached' : 'Re-parented';
+    await _runReplica(slot, '$verb ${ref.tableName} on ${slot.label}.', () async {
+      final crdt = session.crdtSession;
+      final json =
+          await ops.findByIdJson(crdt, ref.id) ??
+          await ops.findByIdJson(session.rawSession, ref.id);
+      if (json == null) return;
+      final edited = Map<String, dynamic>.of(json);
+      edited[fkColumn] = newParentId?.uuid;
+      await ops.updateJson(crdt, edited);
       await _refreshReplica(slot, notify: false);
       replicas[slot]!.changed();
     });
   }
 
-  Future<void> seedBasicGraph() {
-    return _runSeed(
-      success:
-          'Seeded a city/person/address/town graph on '
-          '$focusedTargetLabel.',
-      serverKind: 'basicGraph',
-      local: (session) async {
+  Future<DemoRowRef?> _insertJson(
+    ReplicaSlot slot,
+    String table,
+    Map<String, dynamic> json,
+    String success,
+  ) async {
+    final ops = demoTableOps[table];
+    final session = replicas[slot]!.session;
+    if (ops == null || session == null) return null;
+    final id = protocol.UuidValue.withValidation('${json['id']}');
+    final ok = await _runReplica(slot, success, () async {
+      await ops.insertJson(session.crdtSession, json);
+      await _refreshReplica(slot, notify: false);
+      replicas[slot]!.changed();
+    });
+    return ok ? DemoRowRef(tableName: table, id: id) : null;
+  }
+
+  // --- Seeds (quick-starts, used by menus and scenarios) ------------------
+
+  Future<void> seedBasicGraph(ReplicaSlot slot) {
+    return _seedLocal(
+      slot,
+      'Seeded a city/person/address/town graph on ${slot.label}.',
+      (session) async {
         final suffix = _counter.next('basic');
         final city = await protocol.City.db.insertRow(
           session.crdtSession,
@@ -510,11 +577,7 @@ class DemoController extends ChangeNotifier {
         );
         final person = await protocol.Person.db.insertRow(
           session.crdtSession,
-          protocol.Person(
-            id: newId(),
-            name: 'Person $suffix',
-            surname: 'Local',
-          ),
+          protocol.Person(id: newId(), name: 'Person $suffix', surname: 'Local'),
         );
         await protocol.Address.db.insertRow(
           session.crdtSession,
@@ -532,276 +595,360 @@ class DemoController extends ChangeNotifier {
     );
   }
 
-  Future<void> seedTypedRow() {
-    return _runSeed(
-      success: 'Seeded a typed row on $focusedTargetLabel.',
-      serverKind: 'typedRow',
-      local: (session) async {
-        final suffix = _counter.next('types');
-        await protocol.Types.db.insertRow(
-          session.crdtSession,
-          protocol.Types(
-            id: newId(),
-            aBool: suffix.isOdd,
-            aDateTime: DateTime.utc(2026, 6, ((suffix - 1) % 28) + 1, 12),
-            aText: 'typed-$suffix',
-            anInt: suffix,
-            anInt64: BigInt.parse('9007199254740993') + BigInt.from(suffix),
-            aReal: suffix + 0.25,
-            aBlob: ByteData.sublistView(Uint8List.fromList([suffix, 2, 3])),
-            anEnum: protocol
-                .TypesEnum
-                .values[suffix % protocol.TypesEnum.values.length],
-            optionalText: 'optional-$suffix',
-            optionalUuid: newId(),
-          ),
-        );
-      },
-    );
+  Future<void> seedTypedRow(ReplicaSlot slot) {
+    return _seedLocal(slot, 'Seeded a typed row on ${slot.label}.', (
+      session,
+    ) async {
+      final suffix = _counter.next('types');
+      await protocol.Types.db.insertRow(
+        session.crdtSession,
+        protocol.Types(
+          id: newId(),
+          aBool: suffix.isOdd,
+          aDateTime: DateTime.utc(2026, 6, ((suffix - 1) % 28) + 1, 12),
+          aText: 'typed-$suffix',
+          anInt: suffix,
+          anInt64: BigInt.parse('9007199254740993') + BigInt.from(suffix),
+          aReal: suffix + 0.25,
+          aBlob: ByteData.sublistView(Uint8List.fromList([suffix, 2, 3])),
+          anEnum:
+              protocol.TypesEnum.values[suffix % protocol.TypesEnum.values.length],
+          optionalText: 'optional-$suffix',
+          optionalUuid: newId(),
+        ),
+      );
+    });
   }
 
-  Future<void> addPerson() {
-    return _runSeed(
-      success: 'Added a person on $focusedTargetLabel.',
-      serverKind: 'person',
-      local: (session) async {
-        final suffix = _counter.next('person');
-        await protocol.Person.db.insertRow(
-          session.crdtSession,
-          protocol.Person(id: newId(), name: 'Person $suffix'),
-        );
-      },
-    );
+  Future<void> seedForeignKeyChain(ReplicaSlot slot) {
+    return _seedLocal(slot, 'Seeded a mixed FK chain on ${slot.label}.', (
+      session,
+    ) async {
+      final suffix = _counter.next('chain');
+      final root = await protocol.FkChainRoot.db.insertRow(
+        session.crdtSession,
+        protocol.FkChainRoot(id: newId(), name: 'Root $suffix'),
+      );
+      final middle = await protocol.FkChainCascadeMiddle.db.insertRow(
+        session.crdtSession,
+        protocol.FkChainCascadeMiddle(
+          id: newId(),
+          name: 'Cascade middle $suffix',
+          rootId: root.id,
+        ),
+      );
+      final blocker = await protocol.FkChainRestrictBlocker.db.insertRow(
+        session.crdtSession,
+        protocol.FkChainRestrictBlocker(
+          id: newId(),
+          name: 'Restrict blocker $suffix',
+          cascadeMiddleId: middle.id,
+        ),
+      );
+      await protocol.FkChainMiddleSetNullChild.db.insertRow(
+        session.crdtSession,
+        protocol.FkChainMiddleSetNullChild(
+          id: newId(),
+          name: 'Set-null child $suffix',
+          restrictBlockerId: blocker.id,
+        ),
+      );
+      await protocol.FkChainMiddleCascadeChild.db.insertRow(
+        session.crdtSession,
+        protocol.FkChainMiddleCascadeChild(
+          id: newId(),
+          name: 'Cascade child $suffix',
+          restrictBlockerId: blocker.id,
+        ),
+      );
+    });
   }
 
-  Future<void> createConcurrentUniqueInserts() {
-    final name = _pendingUniqueName ??=
-        'shared-name-${_counter.next('unique')}';
-    return _runSeed(
-      success: 'Inserted Unique.name "$name" on $focusedTargetLabel.',
-      serverKind: 'unique',
-      serverText: name,
-      local: (session) async {
-        await protocol.Unique.db.insertRow(
-          session.crdtSession,
-          protocol.Unique(id: newId(), name: name),
-        );
-      },
-    );
+  /// Inserts a Unique row with a fixed [name] (for concurrent-insert conflicts).
+  Future<DemoRowRef?> createUnique(ReplicaSlot slot, String name) {
+    return createRoot(slot, 'unique', label: name);
   }
 
-  Future<void> createUuidUniqueConflict() {
-    final sharedValue = _pendingUniqueUuid ??= newId();
-    return _runSeed(
-      success: 'Inserted UniqueUuid on $focusedTargetLabel.',
-      serverKind: 'uniqueUuid',
-      serverText: sharedValue.uuid,
-      local: (session) async {
-        await protocol.UniqueUuid.db.insertRow(
-          session.crdtSession,
-          protocol.UniqueUuid(id: newId(), value: sharedValue),
-        );
-      },
-    );
+  Future<void> _seedLocal(
+    ReplicaSlot slot,
+    String success,
+    Future<void> Function(ReplicaSession session) local,
+  ) async {
+    final session = replicas[slot]!.session;
+    if (session == null) return;
+    await _runReplica(slot, success, () async {
+      await local(session);
+      await _refreshReplica(slot, notify: false);
+      replicas[slot]!.changed();
+    });
   }
 
-  Future<void> createRestrictMergeScenario() {
-    return _runSeed(
-      success: 'Seeded a restrict parent on $focusedTargetLabel.',
-      serverKind: 'person',
-      serverText: 'Restricted parent',
-      local: (session) async {
-        final suffix = _counter.next('restrict');
-        await protocol.Person.db.insertRow(
-          session.crdtSession,
-          protocol.Person(id: newId(), name: 'Restricted parent $suffix'),
-        );
-      },
-    );
+  /// Seeds a graph directly on the server (fetch-from-scratch scenarios).
+  Future<void> seedServer(String kind, [String? text]) async {
+    if (!online) {
+      status = 'Connect to seed the server.';
+      notifyListeners();
+      return;
+    }
+    await _runServer('Seeded the server scope ($kind).', () async {
+      try {
+        await client.demoDebug.seedScope(kind, text);
+      } catch (error) {
+        server.error = 'seed failed: $error';
+        rethrow;
+      }
+      await _fetchServer(notify: false);
+      server.changed();
+    });
   }
 
-  Future<void> addRestrictChild() {
-    return _runSeed(
-      success: 'Added a RestrictChild on $focusedTargetLabel.',
-      serverKind: 'restrictChild',
-      local: (session) async {
-        final parents = await protocol.Person.db.find(session.crdtSession);
-        final parent = parents.firstWhere(
-          (row) => row.id != null,
-          orElse: () => throw StateError(
-            'Seed or sync a visible Person before adding RestrictChild.',
-          ),
-        );
-        final suffix = _counter.next('restrict-child');
-        await protocol.RestrictChild.db.insertRow(
-          session.crdtSession,
-          protocol.RestrictChild(
-            id: newId(),
-            name: 'Restrict child $suffix',
-            parentId: parent.id,
-          ),
-        );
-      },
-    );
+  // --- Scenarios ----------------------------------------------------------
+
+  late final List<Scenario> scenarios = _buildScenarios();
+
+  List<ScenarioStep> get activeSteps => _activeSteps;
+
+  void startScenario(Scenario scenario) {
+    activeScenario = scenario;
+    _activeSteps = scenario.build(this);
+    scenarioStepIndex = 0;
+    status = 'Scenario "${scenario.title}" ready — run the steps in order.';
+    notifyListeners();
   }
 
-  Future<void> createSetNullProjectionScenario() {
-    return _runSeed(
-      success: 'Seeded a set-null mayor candidate on $focusedTargetLabel.',
-      serverKind: 'person',
-      serverText: 'Attempted mayor',
-      local: (session) async {
-        final suffix = _counter.next('setnull');
-        await protocol.Person.db.insertRow(
-          session.crdtSession,
-          protocol.Person(id: newId(), name: 'Attempted mayor $suffix'),
-        );
-      },
-    );
+  void stopScenario() {
+    if (activeScenario == null) return;
+    activeScenario = null;
+    _activeSteps = const [];
+    scenarioStepIndex = 0;
+    notifyListeners();
   }
 
-  Future<void> seedForeignKeyChain() {
-    return _runSeed(
-      success: 'Seeded a mixed FK chain on $focusedTargetLabel.',
-      serverKind: 'fkChain',
-      local: (session) async {
-        final suffix = _counter.next('chain');
-        final root = await protocol.FkChainRoot.db.insertRow(
-          session.crdtSession,
-          protocol.FkChainRoot(id: newId(), name: 'Root $suffix'),
-        );
-        final middle = await protocol.FkChainCascadeMiddle.db.insertRow(
-          session.crdtSession,
-          protocol.FkChainCascadeMiddle(
-            id: newId(),
-            name: 'Cascade middle $suffix',
-            rootId: root.id,
-          ),
-        );
-        final blocker = await protocol.FkChainRestrictBlocker.db.insertRow(
-          session.crdtSession,
-          protocol.FkChainRestrictBlocker(
-            id: newId(),
-            name: 'Restrict blocker $suffix',
-            cascadeMiddleId: middle.id,
-          ),
-        );
-        await protocol.FkChainMiddleSetNullChild.db.insertRow(
-          session.crdtSession,
-          protocol.FkChainMiddleSetNullChild(
-            id: newId(),
-            name: 'Set-null child $suffix',
-            restrictBlockerId: blocker.id,
-          ),
-        );
-        await protocol.FkChainMiddleCascadeChild.db.insertRow(
-          session.crdtSession,
-          protocol.FkChainMiddleCascadeChild(
-            id: newId(),
-            name: 'Cascade child $suffix',
-            restrictBlockerId: blocker.id,
-          ),
-        );
-      },
-    );
+  bool get scenarioComplete =>
+      activeScenario != null && scenarioStepIndex >= _activeSteps.length;
+
+  Future<void> runNextScenarioStep() async {
+    if (activeScenario == null) return;
+    if (scenarioStepIndex >= _activeSteps.length) return;
+    final step = _activeSteps[scenarioStepIndex];
+    await step.run();
+    scenarioStepIndex++;
+    if (scenarioStepIndex >= _activeSteps.length) {
+      status = 'Scenario "${activeScenario!.title}" complete.';
+    }
+    notifyListeners();
   }
 
-  // --- Row detail & editing -----------------------------------------------
+  List<Scenario> _buildScenarios() {
+    Relationship? childRelation(String parent, String child) {
+      for (final relation in catalog.childRelationshipsOf(parent)) {
+        if (relation.childTable == child) return relation;
+      }
+      return null;
+    }
+
+    return [
+      Scenario(
+        id: 'restrict',
+        title: 'Restrict blocks delete',
+        summary:
+            'A Restrict child added on B blocks the parent delete made on A.',
+        build: (c) {
+          final ctx = <String, DemoRowRef?>{};
+          final relation = childRelation('person', 'restrict_child');
+          return [
+            ScenarioStep(
+              'Seed parent Person on A',
+              replica: ReplicaSlot.a,
+              () async => ctx['parent'] = await c.createRoot(
+                ReplicaSlot.a,
+                'person',
+                label: 'Restricted parent',
+              ),
+            ),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B ← server',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
+            ScenarioStep('Attach Restrict child on B', replica: ReplicaSlot.b, () async {
+              final parent = ctx['parent'];
+              if (parent != null && relation != null) {
+                await c.createChildFor(ReplicaSlot.b, parent, relation);
+              }
+            }),
+            ScenarioStep('Delete parent on A', replica: ReplicaSlot.a, () async {
+              final parent = ctx['parent'];
+              if (parent != null) await c.deleteRow(parent, ReplicaSlot.a);
+            }),
+            ScenarioStep(
+              'Sync A → server, then B',
+              () async {
+                await c.syncReplica(ReplicaSlot.a);
+                await c.syncReplica(ReplicaSlot.b);
+              },
+            ),
+          ];
+        },
+      ),
+      Scenario(
+        id: 'set_null',
+        title: 'SetNull projection',
+        summary:
+            'A Town mayor reference on B is nulled when the mayor is deleted on A.',
+        build: (c) {
+          final ctx = <String, DemoRowRef?>{};
+          final relation = childRelation('person', 'town');
+          return [
+            ScenarioStep(
+              'Seed mayor Person on A',
+              replica: ReplicaSlot.a,
+              () async => ctx['mayor'] = await c.createRoot(
+                ReplicaSlot.a,
+                'person',
+                label: 'Mayor candidate',
+              ),
+            ),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B ← server',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
+            ScenarioStep('Add Town with that mayor on B', replica: ReplicaSlot.b, () async {
+              final mayor = ctx['mayor'];
+              if (mayor != null && relation != null) {
+                await c.createChildFor(ReplicaSlot.b, mayor, relation);
+              }
+            }),
+            ScenarioStep('Delete mayor on A', replica: ReplicaSlot.a, () async {
+              final mayor = ctx['mayor'];
+              if (mayor != null) await c.deleteRow(mayor, ReplicaSlot.a);
+            }),
+            ScenarioStep(
+              'Sync A → server, then B',
+              () async {
+                await c.syncReplica(ReplicaSlot.a);
+                await c.syncReplica(ReplicaSlot.b);
+              },
+            ),
+          ];
+        },
+      ),
+      Scenario(
+        id: 'cascade',
+        title: 'Cascade hides children',
+        summary:
+            'Deleting an Organization on A cascade-hides the Person attached on B.',
+        build: (c) {
+          final ctx = <String, DemoRowRef?>{};
+          final relation = childRelation('organization', 'person');
+          return [
+            ScenarioStep(
+              'Seed Organization on A',
+              replica: ReplicaSlot.a,
+              () async => ctx['org'] = await c.createRoot(
+                ReplicaSlot.a,
+                'organization',
+                label: 'Cascade org',
+              ),
+            ),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B ← server',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
+            ScenarioStep('Attach Person to org on B', replica: ReplicaSlot.b, () async {
+              final org = ctx['org'];
+              if (org != null && relation != null) {
+                await c.createChildFor(ReplicaSlot.b, org, relation);
+              }
+            }),
+            ScenarioStep('Delete org on A', replica: ReplicaSlot.a, () async {
+              final org = ctx['org'];
+              if (org != null) await c.deleteRow(org, ReplicaSlot.a);
+            }),
+            ScenarioStep(
+              'Sync A → server, then B',
+              () async {
+                await c.syncReplica(ReplicaSlot.a);
+                await c.syncReplica(ReplicaSlot.b);
+              },
+            ),
+          ];
+        },
+      ),
+      Scenario(
+        id: 'unique',
+        title: 'Concurrent unique insert',
+        summary:
+            'Both replicas insert a Unique row with the same name; one loses on merge.',
+        build: (c) {
+          final name = 'shared-${c._counter.next('unique')}';
+          return [
+            ScenarioStep(
+              'Insert Unique "$name" on A',
+              replica: ReplicaSlot.a,
+              () => c.createUnique(ReplicaSlot.a, name),
+            ),
+            ScenarioStep(
+              'Insert Unique "$name" on B',
+              replica: ReplicaSlot.b,
+              () => c.createUnique(ReplicaSlot.b, name),
+            ),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B → server (conflict resolves)',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
+          ];
+        },
+      ),
+    ];
+  }
+
+  // --- Row detail, editing & deletion -------------------------------------
 
   /// Loads the full record for [ref] on [slot], reading hidden rows through the
   /// raw session when needed.
   Future<RowDetail?> loadDetail(DemoRowRef ref, ReplicaSlot slot) async {
+    final ops = demoTableOps[ref.tableName];
     final session = replicas[slot]!.session;
-    if (session == null) return null;
+    if (ops == null || session == null) return null;
 
-    Future<RowDetail?> build<T extends Object>(
-      Future<T?> Function(DatabaseSession) find,
-      Map<String, dynamic> Function(T) json,
-    ) async {
-      final visibleRow = await find(session.crdtSession);
-      final row = visibleRow ?? await find(session.rawSession);
-      if (row == null) return null;
-      final fields = _modelFields(ref.tableName, json(row));
-      return RowDetail(
-        ref: ref,
-        slot: slot,
-        tableName: ref.tableName,
-        uuid: ref.id.uuid,
-        visible: visibleRow != null,
-        fields: fields,
-        editable: _editableFields(ref.tableName, fields),
-      );
-    }
+    final visibleJson = await ops.findByIdJson(session.crdtSession, ref.id);
+    final json = visibleJson ?? await ops.findByIdJson(session.rawSession, ref.id);
+    if (json == null) return null;
 
-    switch (ref.tableName) {
-      case 'person':
-        return build<protocol.Person>(
-          (s) => protocol.Person.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'address':
-        return build<protocol.Address>(
-          (s) => protocol.Address.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'city':
-        return build<protocol.City>(
-          (s) => protocol.City.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'town':
-        return build<protocol.Town>(
-          (s) => protocol.Town.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'unique':
-        return build<protocol.Unique>(
-          (s) => protocol.Unique.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'unique_uuid':
-        return build<protocol.UniqueUuid>(
-          (s) => protocol.UniqueUuid.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'restrict_child':
-        return build<protocol.RestrictChild>(
-          (s) => protocol.RestrictChild.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'types':
-        return build<protocol.Types>(
-          (s) => protocol.Types.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'fk_chain_root':
-        return build<protocol.FkChainRoot>(
-          (s) => protocol.FkChainRoot.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'fk_chain_cascade_middle':
-        return build<protocol.FkChainCascadeMiddle>(
-          (s) => protocol.FkChainCascadeMiddle.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'fk_chain_restrict_blocker':
-        return build<protocol.FkChainRestrictBlocker>(
-          (s) => protocol.FkChainRestrictBlocker.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'fk_chain_middle_set_null_child':
-        return build<protocol.FkChainMiddleSetNullChild>(
-          (s) => protocol.FkChainMiddleSetNullChild.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      case 'fk_chain_middle_cascade_child':
-        return build<protocol.FkChainMiddleCascadeChild>(
-          (s) => protocol.FkChainMiddleCascadeChild.db.findById(s, ref.id),
-          (r) => r.toJson(),
-        );
-      default:
-        return null;
-    }
+    final fields = _modelFields(ref.tableName, json);
+    return RowDetail(
+      ref: ref,
+      slot: slot,
+      tableName: ref.tableName,
+      uuid: ref.id.uuid,
+      visible: visibleJson != null,
+      fields: fields,
+      editable: _editableFields(ref.tableName, fields),
+    );
   }
 
   /// Applies [values] (keyed by [EditableField.key]) to the row on [slot].
@@ -810,200 +957,41 @@ class DemoController extends ChangeNotifier {
     ReplicaSlot slot,
     Map<String, String> values,
   ) async {
+    final ops = demoTableOps[ref.tableName];
     final session = replicas[slot]!.session;
-    if (session == null) return false;
+    if (ops == null || session == null) return false;
 
-    return _runReplica(
-      slot,
-      'Updated ${ref.tableName} on ${slot.label}.',
-      () async {
-        final crdt = session.crdtSession;
-
-        Future<void> update<T extends Object>(
-          Future<T?> Function(DatabaseSession) find,
-          Map<String, dynamic> Function(T) json,
-          Future<T> Function(DatabaseSession, T) write,
-        ) async {
-          final row = await find(crdt);
-          if (row == null) return;
-          final editedJson = _applyEditedValues(
-            ref.tableName,
-            json(row),
-            values,
-          );
-          final editedRow = protocol.Protocol().deserialize<T>(editedJson);
-          await write(crdt, editedRow);
-        }
-
-        switch (ref.tableName) {
-          case 'person':
-            await update<protocol.Person>(
-              (s) => protocol.Person.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.Person.db.updateRow,
-            );
-          case 'address':
-            await update<protocol.Address>(
-              (s) => protocol.Address.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.Address.db.updateRow,
-            );
-          case 'city':
-            await update<protocol.City>(
-              (s) => protocol.City.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.City.db.updateRow,
-            );
-          case 'town':
-            await update<protocol.Town>(
-              (s) => protocol.Town.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.Town.db.updateRow,
-            );
-          case 'unique':
-            await update<protocol.Unique>(
-              (s) => protocol.Unique.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.Unique.db.updateRow,
-            );
-          case 'unique_uuid':
-            await update<protocol.UniqueUuid>(
-              (s) => protocol.UniqueUuid.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.UniqueUuid.db.updateRow,
-            );
-          case 'restrict_child':
-            await update<protocol.RestrictChild>(
-              (s) => protocol.RestrictChild.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.RestrictChild.db.updateRow,
-            );
-          case 'types':
-            await update<protocol.Types>(
-              (s) => protocol.Types.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.Types.db.updateRow,
-            );
-          case 'fk_chain_root':
-            await update<protocol.FkChainRoot>(
-              (s) => protocol.FkChainRoot.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.FkChainRoot.db.updateRow,
-            );
-          case 'fk_chain_cascade_middle':
-            await update<protocol.FkChainCascadeMiddle>(
-              (s) => protocol.FkChainCascadeMiddle.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.FkChainCascadeMiddle.db.updateRow,
-            );
-          case 'fk_chain_restrict_blocker':
-            await update<protocol.FkChainRestrictBlocker>(
-              (s) => protocol.FkChainRestrictBlocker.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.FkChainRestrictBlocker.db.updateRow,
-            );
-          case 'fk_chain_middle_set_null_child':
-            await update<protocol.FkChainMiddleSetNullChild>(
-              (s) => protocol.FkChainMiddleSetNullChild.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.FkChainMiddleSetNullChild.db.updateRow,
-            );
-          case 'fk_chain_middle_cascade_child':
-            await update<protocol.FkChainMiddleCascadeChild>(
-              (s) => protocol.FkChainMiddleCascadeChild.db.findById(s, ref.id),
-              (r) => r.toJson(),
-              protocol.FkChainMiddleCascadeChild.db.updateRow,
-            );
-          default:
-            status = 'No editor is wired for ${ref.tableName}.';
-        }
-        await _refreshReplica(slot, notify: false);
-        replicas[slot]!.changed();
-      },
-    );
+    return _runReplica(slot, 'Updated ${ref.tableName} on ${slot.label}.', () async {
+      final crdt = session.crdtSession;
+      final json = await ops.findByIdJson(crdt, ref.id);
+      if (json == null) return;
+      final edited = _applyEditedValues(ref.tableName, json, values);
+      await ops.updateJson(crdt, edited);
+      await _refreshReplica(slot, notify: false);
+      replicas[slot]!.changed();
+    });
   }
 
   Future<void> deleteRow(DemoRowRef ref, ReplicaSlot slot) async {
+    final ops = demoTableOps[ref.tableName];
     final session = replicas[slot]!.session;
-    if (session == null) return;
+    if (ops == null || session == null) return;
 
-    await _runReplica(
-      slot,
-      'Deleted ${ref.tableName} on ${slot.label}.',
-      () async {
-        final crdt = session.crdtSession;
-        switch (ref.tableName) {
-          case 'person':
-            final row = await protocol.Person.db.findById(crdt, ref.id);
-            if (row != null) await protocol.Person.db.deleteRow(crdt, row);
-          case 'address':
-            final row = await protocol.Address.db.findById(crdt, ref.id);
-            if (row != null) await protocol.Address.db.deleteRow(crdt, row);
-          case 'city':
-            final row = await protocol.City.db.findById(crdt, ref.id);
-            if (row != null) await protocol.City.db.deleteRow(crdt, row);
-          case 'town':
-            final row = await protocol.Town.db.findById(crdt, ref.id);
-            if (row != null) await protocol.Town.db.deleteRow(crdt, row);
-          case 'unique':
-            final row = await protocol.Unique.db.findById(crdt, ref.id);
-            if (row != null) await protocol.Unique.db.deleteRow(crdt, row);
-          case 'unique_uuid':
-            final row = await protocol.UniqueUuid.db.findById(crdt, ref.id);
-            if (row != null) await protocol.UniqueUuid.db.deleteRow(crdt, row);
-          case 'restrict_child':
-            final row = await protocol.RestrictChild.db.findById(crdt, ref.id);
-            if (row != null) {
-              await protocol.RestrictChild.db.deleteRow(crdt, row);
-            }
-          case 'types':
-            final row = await protocol.Types.db.findById(crdt, ref.id);
-            if (row != null) await protocol.Types.db.deleteRow(crdt, row);
-          case 'fk_chain_root':
-            final row = await protocol.FkChainRoot.db.findById(crdt, ref.id);
-            if (row != null) await protocol.FkChainRoot.db.deleteRow(crdt, row);
-          case 'fk_chain_cascade_middle':
-            final row = await protocol.FkChainCascadeMiddle.db.findById(
-              crdt,
-              ref.id,
-            );
-            if (row != null) {
-              await protocol.FkChainCascadeMiddle.db.deleteRow(crdt, row);
-            }
-          case 'fk_chain_restrict_blocker':
-            final row = await protocol.FkChainRestrictBlocker.db.findById(
-              crdt,
-              ref.id,
-            );
-            if (row != null) {
-              await protocol.FkChainRestrictBlocker.db.deleteRow(crdt, row);
-            }
-          case 'fk_chain_middle_set_null_child':
-            final row = await protocol.FkChainMiddleSetNullChild.db.findById(
-              crdt,
-              ref.id,
-            );
-            if (row != null) {
-              await protocol.FkChainMiddleSetNullChild.db.deleteRow(crdt, row);
-            }
-          case 'fk_chain_middle_cascade_child':
-            final row = await protocol.FkChainMiddleCascadeChild.db.findById(
-              crdt,
-              ref.id,
-            );
-            if (row != null) {
-              await protocol.FkChainMiddleCascadeChild.db.deleteRow(crdt, row);
-            }
-          default:
-            status = 'No delete is wired for ${ref.tableName}.';
-        }
-        await _refreshReplica(slot, notify: false);
-        replicas[slot]!.changed();
-      },
-    );
+    await _runReplica(slot, 'Deleted ${ref.tableName} on ${slot.label}.', () async {
+      await ops.deleteById(session.crdtSession, ref.id);
+      await _refreshReplica(slot, notify: false);
+      replicas[slot]!.changed();
+    });
   }
 
   // --- Internals ----------------------------------------------------------
+
+  String _friendly(String table) {
+    final words = tableLabel(table).split(' ');
+    return words
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
 
   Future<ReplicaSession> _openSession(DemoUser user, ReplicaSlot slot) async {
     final key = _sessionKey(user, slot);
@@ -1114,8 +1102,6 @@ class DemoController extends ChangeNotifier {
       ..phase = online ? SyncPhase.idle : SyncPhase.offline
       ..lastSyncedLabel = null
       ..error = null;
-    _pendingUniqueName = null;
-    _pendingUniqueUuid = null;
     await _refreshReplica(slot, notify: false);
   }
 
@@ -1203,10 +1189,7 @@ class DemoController extends ChangeNotifier {
     }
   }
 
-  Future<bool> _runServer(
-    String success,
-    Future<void> Function() action,
-  ) async {
+  Future<bool> _runServer(String success, Future<void> Function() action) async {
     if (busy || server.busy) return false;
 
     server
@@ -1326,11 +1309,7 @@ List<EditableField> _editableFields(
     return [
       for (final entry in fields.entries)
         if (_isEditableField(entry.key))
-          EditableField(
-            entry.key,
-            entry.key,
-            _valueEncoder.encode(entry.value),
-          ),
+          EditableField(entry.key, entry.key, _valueEncoder.encode(entry.value)),
     ];
   }
 

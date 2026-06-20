@@ -6,9 +6,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import 'demo_controller.dart';
 import 'models.dart';
+import 'relationships.dart';
 import 'snapshot.dart';
 
-/// The full dashboard: global toolbar, presets, two replica panels, status bar.
+/// The full dashboard: global toolbar, scenario rail, replica panels, server.
 class DemoDashboard extends StatelessWidget {
   const DemoDashboard({super.key, required this.controller});
 
@@ -28,11 +29,12 @@ class DemoDashboard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  width: 300,
-                  child: _PresetPanel(controller: controller),
+                  width: 280,
+                  child: _ScenarioRail(controller: controller),
                 ),
                 const Gap(12),
                 Expanded(
+                  flex: 4,
                   child: _ReplicaPanel(
                     controller: controller,
                     slot: ReplicaSlot.a,
@@ -40,13 +42,14 @@ class DemoDashboard extends StatelessWidget {
                 ),
                 const Gap(12),
                 Expanded(
+                  flex: 4,
                   child: _ReplicaPanel(
                     controller: controller,
                     slot: ReplicaSlot.b,
                   ),
                 ),
                 const Gap(12),
-                Expanded(child: _ServerPanel(controller: controller)),
+                Expanded(flex: 3, child: _ServerPanel(controller: controller)),
               ],
             ),
           ),
@@ -143,236 +146,194 @@ class _ReplicaIsolationInfoButton extends StatelessWidget {
   }
 }
 
-class _PresetPanel extends StatelessWidget {
-  const _PresetPanel({required this.controller});
+// --- Scenario rail ---------------------------------------------------------
+
+class _ScenarioRail extends StatelessWidget {
+  const _ScenarioRail({required this.controller});
 
   final DemoController controller;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        controller,
-        ...controller.replicas.values,
-        controller.server,
-      ]),
-      builder: (context, _) => OutlinedContainer(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+      animation: controller,
+      builder: (context, _) {
+        final active = controller.activeScenario;
+        return OutlinedContainer(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const material.Icon(material.Icons.list_alt, size: 16),
+                  const Gap(6),
+                  const Text('Scenarios').semiBold(),
+                  const Spacer(),
+                  if (active != null)
+                    IconButton.ghost(
+                      icon: const material.Icon(material.Icons.close, size: 16),
+                      onPressed: controller.stopScenario,
+                    ),
+                ],
+              ),
+              const Gap(4),
+              const Text(
+                'Optional quick-starts. Everything here is also doable by hand '
+                'on the trees.',
+              ).xSmall().muted(),
+              const Gap(12),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: active == null
+                      ? _ScenarioList(controller: controller)
+                      : _ScenarioSteps(
+                          controller: controller,
+                          scenario: active,
+                        ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ScenarioList extends StatelessWidget {
+  const _ScenarioList({required this.controller});
+
+  final DemoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final scenario in controller.scenarios)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: OutlineButton(
+              onPressed: controller.anyBusy
+                  ? null
+                  : () => controller.startScenario(scenario),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const material.Icon(
+                    material.Icons.play_circle_outline,
+                    size: 18,
+                  ),
+                  const Gap(8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(scenario.title),
+                        const Gap(2),
+                        Text(scenario.summary).xSmall().muted(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ScenarioSteps extends StatelessWidget {
+  const _ScenarioSteps({required this.controller, required this.scenario});
+
+  final DemoController controller;
+  final Scenario scenario;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final steps = controller.activeSteps;
+    final current = controller.scenarioStepIndex;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(scenario.title).semiBold(),
+        const Gap(2),
+        Text(scenario.summary).xSmall().muted(),
+        const Gap(12),
+        for (var i = 0; i < steps.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const material.Icon(material.Icons.ads_click, size: 14),
-                const Gap(6),
+                material.Icon(
+                  i < current
+                      ? material.Icons.check_circle
+                      : i == current
+                      ? material.Icons.radio_button_checked
+                      : material.Icons.radio_button_unchecked,
+                  size: 16,
+                  color: i < current
+                      ? scheme.primary
+                      : i == current
+                      ? scheme.foreground
+                      : scheme.mutedForeground,
+                ),
+                const Gap(8),
                 Expanded(
-                  child: Text(
-                    'Seeding into ${controller.focusedTargetLabel}.',
-                  ).small().muted(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      material.Text(
+                        steps[i].label,
+                        style: material.TextStyle(
+                          fontSize: 13,
+                          color: i == current
+                              ? scheme.foreground
+                              : scheme.mutedForeground,
+                          fontWeight: i == current
+                              ? material.FontWeight.w500
+                              : material.FontWeight.normal,
+                        ),
+                      ),
+                      if (steps[i].replica != null)
+                        Text(steps[i].replica!.label).xSmall().muted(),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const Gap(12),
-            Tabs(
-              index: controller.presetTab,
-              onChanged: controller.setPresetTab,
-              expand: true,
-              children: const [
-                TabItem(child: Text('CRUD')),
-                TabItem(child: Text('Unique')),
-                TabItem(child: Text('FK')),
-              ],
-            ),
-            const Gap(12),
-            Expanded(
-              child: SingleChildScrollView(
-                child: switch (controller.presetTab) {
-                  0 => _CrudPresets(controller: controller),
-                  1 => _UniquePresets(controller: controller),
-                  _ => _ForeignKeyPresets(controller: controller),
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CrudPresets extends StatelessWidget {
-  const _CrudPresets({required this.controller});
-
-  final DemoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = controller.focusedTargetBusy;
-    return _PresetGroup(
-      children: [
-        _PresetButton(
-          icon: material.Icons.account_tree,
-          title: 'Seed city/person/address/town',
-          detail: 'Creates an ordinary editable graph on the seed target.',
-          disabled: disabled,
-          onPressed: controller.seedBasicGraph,
-        ),
-        _PresetButton(
-          icon: material.Icons.data_object,
-          title: 'Seed typed row',
-          detail: 'Exercises bool, DateTime, int64, blob, enum, and UUID.',
-          disabled: disabled,
-          onPressed: controller.seedTypedRow,
-        ),
-        _PresetButton(
-          icon: material.Icons.person_add_alt,
-          title: 'Add person',
-          detail: 'Creates one simple row on the seed target.',
-          disabled: disabled,
-          onPressed: controller.addPerson,
-        ),
-      ],
-    );
-  }
-}
-
-class _UniquePresets extends StatelessWidget {
-  const _UniquePresets({required this.controller});
-
-  final DemoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = controller.focusedTargetBusy;
-    return _PresetGroup(
-      children: [
-        _PresetButton(
-          icon: material.Icons.call_split,
-          title: 'Concurrent unique insert',
-          detail: 'Inserts a Unique row (same name) on the seed target.',
-          recipe: '1. Seed on A → 2. Seed on B → 3. Sync A → 4. Sync B',
-          disabled: disabled,
-          onPressed: controller.createConcurrentUniqueInserts,
-        ),
-        _PresetButton(
-          icon: material.Icons.key,
-          title: 'UUID unique conflict',
-          detail: 'Inserts a UniqueUuid row (same value) on the seed target.',
-          recipe: '1. Seed on A → 2. Seed on B → 3. Sync A → 4. Sync B',
-          disabled: disabled,
-          onPressed: controller.createUuidUniqueConflict,
-        ),
-      ],
-    );
-  }
-}
-
-class _ForeignKeyPresets extends StatelessWidget {
-  const _ForeignKeyPresets({required this.controller});
-
-  final DemoController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = controller.focusedTargetBusy;
-    return _PresetGroup(
-      children: [
-        _PresetButton(
-          icon: material.Icons.block,
-          title: 'Restrict blocks delete',
-          detail: 'Seeds a parent Person on the seed target.',
-          recipe:
-              '1. Seed on A → 2. Sync A → 3. Sync B → 4. Delete parent on '
-              'A, add RestrictChild on B → 5. Sync both',
-          disabled: disabled,
-          onPressed: controller.createRestrictMergeScenario,
-        ),
-        _PresetButton(
-          icon: material.Icons.account_tree,
-          title: 'Add RestrictChild',
-          detail: 'Attaches a restricting child to the first visible Person.',
-          recipe: 'Use after the parent Person has been synced to this target.',
-          disabled: disabled,
-          onPressed: controller.addRestrictChild,
-        ),
-        _PresetButton(
-          icon: material.Icons.link_off,
-          title: 'Set-null projection',
-          detail: 'Seeds a mayor candidate Person on the seed target.',
-          recipe:
-              '1. Seed on A → 2. Sync A → 3. Sync B → 4. Delete parent on '
-              'A, add Town mayor ref on B → 5. Sync both',
-          disabled: disabled,
-          onPressed: controller.createSetNullProjectionScenario,
-        ),
-        _PresetButton(
-          icon: material.Icons.hub,
-          title: 'FK chain sketch',
-          detail: 'Creates a root, cascade middle, blocker, and grandchildren.',
-          disabled: disabled,
-          onPressed: controller.seedForeignKeyChain,
-        ),
-      ],
-    );
-  }
-}
-
-class _PresetGroup extends StatelessWidget {
-  const _PresetGroup({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: children).gap(10);
-  }
-}
-
-class _PresetButton extends StatelessWidget {
-  const _PresetButton({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.disabled,
-    required this.onPressed,
-    this.recipe,
-  });
-
-  final material.IconData icon;
-  final String title;
-  final String detail;
-  final bool disabled;
-  final String? recipe;
-  final Future<void> Function() onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlineButton(
-      onPressed: disabled ? null : () => unawaited(onPressed()),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          material.Icon(icon, size: 18),
-          const Gap(8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+        const Gap(8),
+        if (controller.scenarioComplete)
+          PrimaryButton(
+            onPressed: controller.stopScenario,
+            child: const Text('Done'),
+          )
+        else
+          PrimaryButton(
+            onPressed: controller.anyBusy
+                ? null
+                : () => unawaited(controller.runNextScenarioStep()),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title),
-                const Gap(2),
-                Text(detail).small().muted(),
-                if (recipe != null) ...[
-                  const Gap(4),
-                  Text(recipe!).xSmall().muted(),
-                ],
+                const material.Icon(material.Icons.play_arrow, size: 16),
+                const Gap(4),
+                Text('Run step ${current + 1}'),
               ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
+
+// --- Replica panel ---------------------------------------------------------
 
 class _ReplicaPanel extends StatelessWidget {
   const _ReplicaPanel({required this.controller, required this.slot});
@@ -387,147 +348,212 @@ class _ReplicaPanel extends StatelessWidget {
       builder: (context, _) {
         final scheme = Theme.of(context).colorScheme;
         final state = controller.replica(slot);
-        final target = slot == ReplicaSlot.a
-            ? SeedTarget.replicaA
-            : SeedTarget.replicaB;
-        final focused = controller.focusedTarget == target;
         final canUseReplica = !controller.busy && !state.busy;
         final canSync =
             controller.online &&
             canUseReplica &&
             !state.streaming &&
             state.session != null;
+        final actions = _RowActions(controller: controller, slot: slot);
 
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => controller.setFocusedTarget(target),
-          child: OutlinedContainer(
-            borderColor: focused ? scheme.primary : null,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    material.Icon(
-                      slot == ReplicaSlot.a
-                          ? material.Icons.computer
-                          : material.Icons.laptop,
-                      size: 16,
-                    ),
+        return OutlinedContainer(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  material.Icon(
+                    slot == ReplicaSlot.a
+                        ? material.Icons.computer
+                        : material.Icons.laptop,
+                    size: 16,
+                  ),
+                  const Gap(6),
+                  Text(slot.label).semiBold(),
+                  const Gap(8),
+                  _SyncBadge(state: state),
+                  if (state.busy) ...[
                     const Gap(6),
-                    Text(slot.label).semiBold(),
-                    const Gap(8),
-                    _SyncBadge(state: state),
-                    if (state.busy) ...[
-                      const Gap(6),
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(),
-                      ),
-                    ],
-                    const Spacer(),
-                    if (focused)
-                      const _StatusPill(text: 'seed target', warn: false)
-                    else
-                      const Text('tap to target').xSmall().muted(),
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(),
+                    ),
                   ],
-                ),
+                  const Spacer(),
+                  Text(
+                    '${state.projection.visibleRowCount} visible · '
+                    '${state.projection.hiddenRowCount} hidden',
+                  ).xSmall().muted(),
+                ],
+              ),
+              const Gap(8),
+              Row(
+                children: [
+                  _NewRowButton(
+                    controller: controller,
+                    slot: slot,
+                    enabled: canUseReplica && state.session != null,
+                  ),
+                  const Spacer(),
+                  PrimaryButton(
+                    onPressed: canSync
+                        ? () => unawaited(controller.syncReplica(slot))
+                        : null,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        material.Icon(material.Icons.sync, size: 14),
+                        Gap(4),
+                        Text('Sync'),
+                      ],
+                    ),
+                  ),
+                  const Gap(8),
+                  Checkbox(
+                    state: state.streaming
+                        ? CheckboxState.checked
+                        : CheckboxState.unchecked,
+                    onChanged: (!controller.online || !canUseReplica)
+                        ? null
+                        : (value) => unawaited(
+                            controller.setReplicaStreaming(
+                              slot,
+                              value == CheckboxState.checked,
+                            ),
+                          ),
+                    trailing: const Text('Stream'),
+                  ),
+                  const Gap(4),
+                  material.Tooltip(
+                    message: 'Reset ${slot.label}: wipe local database',
+                    child: IconButton.ghost(
+                      icon: const material.Icon(
+                        material.Icons.delete_outline,
+                        size: 16,
+                      ),
+                      onPressed: canUseReplica
+                          ? () => unawaited(controller.resetReplica(slot))
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              if (state.error != null) ...[
                 const Gap(6),
                 Row(
                   children: [
-                    Text(
-                      '${state.projection.visibleRowCount} visible · '
-                      '${state.projection.hiddenRowCount} hidden',
-                    ).xSmall().muted(),
-                    const Spacer(),
-                    PrimaryButton(
-                      onPressed: canSync
-                          ? () => unawaited(controller.syncReplica(slot))
-                          : null,
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          material.Icon(material.Icons.sync, size: 14),
-                          Gap(4),
-                          Text('Sync'),
-                        ],
-                      ),
-                    ),
-                    const Gap(8),
-                    Checkbox(
-                      state: state.streaming
-                          ? CheckboxState.checked
-                          : CheckboxState.unchecked,
-                      onChanged: (!controller.online || !canUseReplica)
-                          ? null
-                          : (value) => unawaited(
-                              controller.setReplicaStreaming(
-                                slot,
-                                value == CheckboxState.checked,
-                              ),
-                            ),
-                      trailing: const Text('Stream'),
+                    material.Icon(
+                      material.Icons.error_outline,
+                      size: 12,
+                      color: scheme.destructive,
                     ),
                     const Gap(4),
-                    material.Tooltip(
-                      message: 'Reset ${slot.label}: wipe local database',
-                      child: IconButton.ghost(
-                        icon: const material.Icon(
-                          material.Icons.delete_outline,
-                          size: 16,
+                    Expanded(
+                      child: material.Text(
+                        state.error!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: material.TextStyle(
+                          fontSize: 11,
+                          color: scheme.destructive,
                         ),
-                        onPressed: canUseReplica
-                            ? () => unawaited(controller.resetReplica(slot))
-                            : null,
                       ),
                     ),
                   ],
                 ),
-                if (state.error != null) ...[
-                  const Gap(6),
-                  Row(
-                    children: [
-                      material.Icon(
-                        material.Icons.error_outline,
-                        size: 12,
-                        color: scheme.destructive,
-                      ),
-                      const Gap(4),
-                      Expanded(
-                        child: material.Text(
-                          state.error!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: material.TextStyle(
-                            fontSize: 11,
-                            color: scheme.destructive,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const Gap(8),
-                const Divider(),
-                const Gap(8),
-                Expanded(
-                  child: _ProjectionTree(
-                    nodes: state.projection.nodes,
-                    onTapRow: (ref) => unawaited(
-                      showRowDetailSheet(context, controller, ref, slot),
-                    ),
+              ],
+              const Gap(8),
+              const Divider(),
+              const Gap(8),
+              Expanded(
+                child: _ProjectionTree(
+                  nodes: state.projection.nodes,
+                  actions: actions,
+                  onTapRow: (ref) => unawaited(
+                    showRowDetailSheet(context, controller, ref, slot),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 }
+
+/// Bundles the per-replica context the row action menus need.
+class _RowActions {
+  _RowActions({required this.controller, required this.slot});
+
+  final DemoController controller;
+  final ReplicaSlot slot;
+}
+
+class _NewRowButton extends StatelessWidget {
+  const _NewRowButton({
+    required this.controller,
+    required this.slot,
+    required this.enabled,
+  });
+
+  final DemoController controller;
+  final ReplicaSlot slot;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlineButton(
+      onPressed: enabled ? () => _open(context) : null,
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          material.Icon(material.Icons.add, size: 14),
+          Gap(4),
+          Text('New row'),
+        ],
+      ),
+    );
+  }
+
+  void _open(BuildContext context) {
+    showDropdown(
+      context: context,
+      builder: (context) => DropdownMenu(
+        children: [
+          MenuButton(
+            leading: const material.Icon(material.Icons.account_tree, size: 16),
+            onPressed: (_) => unawaited(controller.seedBasicGraph(slot)),
+            child: const Text('Seed city/person/address/town'),
+          ),
+          MenuButton(
+            leading: const material.Icon(material.Icons.data_object, size: 16),
+            onPressed: (_) => unawaited(controller.seedTypedRow(slot)),
+            child: const Text('Seed typed row'),
+          ),
+          MenuButton(
+            leading: const material.Icon(material.Icons.hub, size: 16),
+            onPressed: (_) => unawaited(controller.seedForeignKeyChain(slot)),
+            child: const Text('Seed FK chain'),
+          ),
+          for (final table in controller.catalog.creatableRootTables)
+            MenuButton(
+              leading: material.Icon(
+                iconForTable(table, hidden: false),
+                size: 16,
+              ),
+              onPressed: (_) => unawaited(controller.createRoot(slot, table)),
+              child: Text(tableLabel(table)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Server panel ----------------------------------------------------------
 
 class _ServerPanel extends StatelessWidget {
   const _ServerPanel({required this.controller});
@@ -572,6 +598,11 @@ class _ServerPanel extends StatelessWidget {
                       '${state.projection.visibleRowCount} rows · merged truth',
                     ).xSmall().muted(),
                   ),
+                  _ServerSeedButton(
+                    controller: controller,
+                    enabled: controller.online && !serverBusy,
+                  ),
+                  const Gap(4),
                   material.Tooltip(
                     message: 'Reset server scope: clear all rows',
                     child: IconButton.ghost(
@@ -620,6 +651,49 @@ class _ServerPanel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ServerSeedButton extends StatelessWidget {
+  const _ServerSeedButton({required this.controller, required this.enabled});
+
+  final DemoController controller;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return material.Tooltip(
+      message: 'Seed the server scope directly',
+      child: IconButton.ghost(
+        icon: const material.Icon(material.Icons.add, size: 16),
+        onPressed: enabled ? () => _open(context) : null,
+      ),
+    );
+  }
+
+  void _open(BuildContext context) {
+    showDropdown(
+      context: context,
+      builder: (context) => DropdownMenu(
+        children: [
+          MenuButton(
+            leading: const material.Icon(material.Icons.account_tree, size: 16),
+            onPressed: (_) => unawaited(controller.seedServer('basicGraph')),
+            child: const Text('Seed graph'),
+          ),
+          MenuButton(
+            leading: const material.Icon(material.Icons.data_object, size: 16),
+            onPressed: (_) => unawaited(controller.seedServer('typedRow')),
+            child: const Text('Seed typed row'),
+          ),
+          MenuButton(
+            leading: const material.Icon(material.Icons.hub, size: 16),
+            onPressed: (_) => unawaited(controller.seedServer('fkChain')),
+            child: const Text('Seed FK chain'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -717,11 +791,14 @@ class _SyncBadge extends StatelessWidget {
   }
 }
 
+// --- Tree ------------------------------------------------------------------
+
 class _ProjectionTree extends StatefulWidget {
-  const _ProjectionTree({required this.nodes, this.onTapRow});
+  const _ProjectionTree({required this.nodes, this.onTapRow, this.actions});
 
   final List<TreeNode<DemoTreeItem>> nodes;
   final void Function(DemoRowRef ref)? onTapRow;
+  final _RowActions? actions;
 
   @override
   State<_ProjectionTree> createState() => _ProjectionTreeState();
@@ -758,6 +835,7 @@ class _ProjectionTreeState extends State<_ProjectionTree> {
       builder: (context, node) {
         return _DemoTreeItemView(
           node: node,
+          actions: widget.actions,
           onTapRow: onTapRow,
           onExpand: TreeView.defaultItemExpandHandler(nodes, node, (value) {
             setState(() => nodes = value);
@@ -773,11 +851,13 @@ class _DemoTreeItemView extends StatefulWidget {
     required this.node,
     required this.onExpand,
     required this.onTapRow,
+    required this.actions,
   });
 
   final TreeItem<DemoTreeItem> node;
   final ValueChanged<bool> onExpand;
   final void Function(DemoRowRef ref)? onTapRow;
+  final _RowActions? actions;
 
   @override
   State<_DemoTreeItemView> createState() => _DemoTreeItemViewState();
@@ -816,18 +896,11 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final item = widget.node.data;
-    final selectable = item.ref != null && widget.onTapRow != null;
+    final ref = item.ref;
+    final selectable = ref != null && widget.onTapRow != null;
     final expandable = widget.node.children.isNotEmpty;
     final interactive = selectable || expandable;
-    final foreground = _hovered ? scheme.background : scheme.foreground;
-    final mutedForeground = _hovered
-        ? scheme.background.withAlpha(180)
-        : scheme.mutedForeground;
-    final iconColor = _hovered
-        ? foreground
-        : item.hidden
-        ? scheme.mutedForeground
-        : null;
+    final showActions = widget.actions != null && ref != null && !item.metadata;
 
     return material.MouseRegion(
       cursor: interactive
@@ -835,17 +908,23 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
           : material.SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 0),
+      child: Container(
         decoration: BoxDecoration(
-          color: _hovered ? scheme.foreground : material.Colors.transparent,
+          color: _hovered ? scheme.muted : material.Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
         child: TreeItemView(
           focusNode: _focusNode,
-          leading: material.Icon(item.icon, size: 14, color: iconColor),
+          leading: material.Icon(
+            item.icon,
+            size: 14,
+            color: item.hidden ? scheme.mutedForeground : null,
+          ),
           onExpand: widget.onExpand,
           onPressed: interactive ? _handlePressed : null,
+          trailing: showActions
+              ? _RowActionBar(actions: widget.actions!, ref: ref)
+              : null,
           child: Row(
             children: [
               Flexible(
@@ -858,9 +937,9 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
                     fontWeight: item.metadata
                         ? material.FontWeight.normal
                         : material.FontWeight.w500,
-                    color: item.hidden && !_hovered
+                    color: item.hidden
                         ? scheme.mutedForeground
-                        : foreground,
+                        : scheme.foreground,
                     decoration: item.hidden
                         ? material.TextDecoration.lineThrough
                         : null,
@@ -877,14 +956,260 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
                       overflow: TextOverflow.ellipsis,
                       style: material.TextStyle(
                         fontSize: 11,
-                        color: mutedForeground,
+                        color: scheme.mutedForeground,
                       ),
                     ),
                   ),
                 ),
+              if (item.relation != null) ...[
+                const Gap(6),
+                _FkBadge(relation: item.relation!),
+              ],
+              if (item.dangling) ...[const Gap(6), _DanglingBadge()],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FkBadge extends StatelessWidget {
+  const _FkBadge({required this.relation});
+
+  final Relationship relation;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (bg, fg) = _actionColors(scheme, relation.onDelete);
+    return material.Tooltip(
+      message:
+          '${relationLabel(relation.fkColumn)} → ${tableLabel(relation.parentTable)} '
+          '· ${relation.onDelete.label} (${relation.onDelete.summary})',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: material.Text(
+          '${relationLabel(relation.fkColumn)} · ${relation.onDelete.label}',
+          style: material.TextStyle(color: fg, fontSize: 10),
+        ),
+      ),
+    );
+  }
+}
+
+class _DanglingBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return material.Tooltip(
+      message: 'Foreign key points at a row not present here.',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: scheme.muted,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: material.Text(
+          'dangling',
+          style: material.TextStyle(
+            color: scheme.mutedForeground,
+            fontSize: 10,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+(Color, Color) _actionColors(ColorScheme scheme, FkAction action) {
+  return switch (action) {
+    FkAction.restrict => (scheme.destructive, material.Colors.white),
+    FkAction.cascade => (const Color(0xFFB45309), material.Colors.white),
+    FkAction.setNull ||
+    FkAction.setDefault => (scheme.primary, scheme.primaryForeground),
+    FkAction.noAction => (scheme.muted, scheme.mutedForeground),
+  };
+}
+
+class _RowActionBar extends StatelessWidget {
+  const _RowActionBar({required this.actions, required this.ref});
+
+  final _RowActions actions;
+  final DemoRowRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = actions.controller;
+    final children = controller.catalog.childRelationshipsOf(ref.tableName);
+    final parents = controller.catalog.parentRelationshipsOf(ref.tableName);
+    final busy = controller.replicaBusy(actions.slot);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (children.isNotEmpty)
+          _ActionIcon(
+            icon: material.Icons.add,
+            tooltip: 'Attach a child',
+            onTap: busy ? null : () => _openAddChild(context, children),
+          ),
+        if (parents.isNotEmpty)
+          _ActionIcon(
+            icon: material.Icons.drive_file_move_outline,
+            tooltip: 'Re-parent or detach',
+            onTap: busy ? null : () => _openMove(context, parents),
+          ),
+      ],
+    );
+  }
+
+  void _openAddChild(BuildContext context, List<Relationship> children) {
+    showDropdown(
+      context: context,
+      builder: (context) => DropdownMenu(
+        children: [
+          for (final relation in children)
+            MenuButton(
+              leading: material.Icon(
+                iconForTable(relation.childTable, hidden: false),
+                size: 16,
+              ),
+              trailing: _MiniActionTag(action: relation.onDelete),
+              onPressed: (_) => unawaited(
+                actions.controller.createChildFor(actions.slot, ref, relation),
+              ),
+              child: Text(
+                '${tableLabel(relation.childTable)} · '
+                '${relationLabel(relation.fkColumn)}',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _openMove(BuildContext context, List<Relationship> parents) {
+    if (parents.length == 1) {
+      _openParentPicker(context, parents.single);
+      return;
+    }
+    showDropdown(
+      context: context,
+      builder: (context) => DropdownMenu(
+        children: [
+          for (final relation in parents)
+            MenuButton(
+              trailing: _MiniActionTag(action: relation.onDelete),
+              onPressed: (_) => _openParentPicker(context, relation),
+              child: Text(
+                '${relationLabel(relation.fkColumn)} → '
+                '${tableLabel(relation.parentTable)}',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _openParentPicker(BuildContext context, Relationship relation) {
+    final controller = actions.controller;
+    final options = controller
+        .parentOptions(actions.slot, relation.parentTable)
+        .where((option) => option.ref.id.uuid != ref.id.uuid)
+        .toList();
+
+    showDropdown(
+      context: context,
+      builder: (context) => DropdownMenu(
+        children: [
+          MenuButton(
+            leading: const material.Icon(material.Icons.link_off, size: 16),
+            onPressed: (_) => unawaited(
+              controller.reParent(actions.slot, ref, relation.fkColumn, null),
+            ),
+            child: const Text('Detach (null)'),
+          ),
+          for (final option in options)
+            MenuButton(
+              leading: material.Icon(
+                iconForTable(relation.parentTable, hidden: !option.visible),
+                size: 16,
+              ),
+              onPressed: (_) => unawaited(
+                controller.reParent(
+                  actions.slot,
+                  ref,
+                  relation.fkColumn,
+                  option.ref.id,
+                ),
+              ),
+              child: Text(option.label),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionIcon extends StatelessWidget {
+  const _ActionIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final material.IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = onTap == null
+        ? scheme.mutedForeground.withAlpha(110)
+        : scheme.mutedForeground;
+    return material.Tooltip(
+      message: tooltip,
+      child: material.MouseRegion(
+        cursor: onTap == null
+            ? material.SystemMouseCursors.basic
+            : material.SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            child: material.Icon(icon, size: 15, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniActionTag extends StatelessWidget {
+  const _MiniActionTag({required this.action});
+
+  final FkAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (bg, fg) = _actionColors(scheme, action);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: material.Text(
+        action.label,
+        style: material.TextStyle(color: fg, fontSize: 10),
       ),
     );
   }
@@ -1212,7 +1537,7 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
         children: [
           Row(
             children: [
-              Text(detail.tableName).large().semiBold(),
+              Text(tableLabel(detail.tableName)).large().semiBold(),
               const Gap(8),
               _StatusPill(
                 text: detail.visible ? 'visible' : 'hidden',
