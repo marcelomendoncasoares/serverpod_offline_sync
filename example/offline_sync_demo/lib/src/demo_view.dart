@@ -112,6 +112,25 @@ class _Toolbar extends StatelessWidget {
                 ],
               ),
             ),
+            material.Tooltip(
+              message: 'Wipe both replicas and the server scope at once',
+              child: OutlineButton(
+                onPressed: controller.anyBusy
+                    ? null
+                    : () => unawaited(controller.resetAll()),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    material.Icon(
+                      material.Icons.delete_sweep_outlined,
+                      size: 16,
+                    ),
+                    Gap(6),
+                    Text('Reset all'),
+                  ],
+                ),
+              ),
+            ),
             _ReplicaIsolationInfoButton(controller: controller),
           ],
         ),

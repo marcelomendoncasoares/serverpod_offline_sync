@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:serverpod/serverpod.dart';
@@ -12,22 +13,118 @@ class DemoDebugEndpoint extends Endpoint {
   @override
   bool get requireLogin => true;
 
-  /// Returns every synced row visible to the caller's scope on the server.
-  Future<DemoServerSnapshot> fetchScopeSnapshot(Session session) async {
+  /// Returns every synced row visible to the caller's scope on the server. When
+  /// [includeHidden] is true, also returns the physically-present rows that are
+  /// CRDT-hidden in the scope (conflict losers, soft-deleted rows), read raw so
+  /// the demo's "Server" panel can mirror the replica "show hidden" view.
+  Future<DemoServerSnapshot> fetchScopeSnapshot(
+    Session session, {
+    bool includeHidden = false,
+  }) async {
     final userId = UuidValue.withValidation(
       session.authenticated!.userIdentifier,
     );
 
     final db = session.db;
+    final DemoServerSnapshot snapshot;
     if (db is CrdtDatabase) {
       // Run the reads in the caller's scope so the snapshot reflects what this
       // user sees, not an unscoped admin view across every scope.
-      return db.transactionForUser(
+      snapshot = await db.transactionForUser(
         userId,
         (transaction) => _loadSnapshot(session, transaction),
       );
+    } else {
+      snapshot = await _loadSnapshot(session, null);
     }
-    return _loadSnapshot(session, null);
+
+    if (includeHidden && db is CrdtDatabase) {
+      snapshot.hiddenRows = await _loadHiddenRows(session, userId, snapshot);
+    }
+    return snapshot;
+  }
+
+  /// Reads each rendered table's physical rows for the caller's scope (raw, so
+  /// CRDT-hidden rows are included) and returns those whose id is not in the
+  /// visible [snapshot]. Best effort: a table that fails to read raw simply
+  /// contributes no hidden rows.
+  Future<List<DemoHiddenRow>> _loadHiddenRows(
+    Session session,
+    UuidValue userId,
+    DemoServerSnapshot snapshot,
+  ) async {
+    final scope = await CrdtScope.db.findFirstRow(
+      session,
+      where: (t) => t.uuidScopeId.equals(userId),
+    );
+    final scopeId = scope?.id;
+    if (scopeId == null) return [];
+
+    Set<String> ids(Iterable<dynamic> rows) => {
+      for (final row in rows)
+        if (row.id != null) '${row.id.uuid}',
+    };
+
+    final visibleByTable = <String, Set<String>>{
+      'person': ids(snapshot.people),
+      'address': ids(snapshot.addresses),
+      'city': ids(snapshot.cities),
+      'town': ids(snapshot.towns),
+      'unique': ids(snapshot.uniques),
+      'unique_uuid': ids(snapshot.uniqueUuids),
+      'restrict_child': ids(snapshot.restrictChildren),
+      'types': ids(snapshot.types),
+      'fk_chain_root': ids(snapshot.fkChainRoots),
+      'fk_chain_cascade_middle': ids(snapshot.fkChainCascadeMiddles),
+      'fk_chain_restrict_blocker': ids(snapshot.fkChainRestrictBlockers),
+      'fk_chain_middle_set_null_child': ids(snapshot.fkChainMiddleSetNullChildren),
+      'fk_chain_middle_cascade_child': ids(snapshot.fkChainMiddleCascadeChildren),
+    };
+
+    final hidden = <DemoHiddenRow>[];
+    for (final entry in visibleByTable.entries) {
+      final table = entry.key;
+      final visibleIds = entry.value;
+      try {
+        final result = await session.db.unsafeQuery(
+          'SELECT * FROM "${_escapeIdentifier(table)}" WHERE "scopeId" = $scopeId',
+        );
+        for (final row in result) {
+          final map = {
+            for (final entry in row.toColumnMap().entries)
+              entry.key: _coerceColumnValue(entry.value),
+          };
+          final id = map['id'];
+          if (id is! String || visibleIds.contains(id)) continue;
+          hidden.add(
+            DemoHiddenRow(table: table, encodedJson: jsonEncode(map)),
+          );
+        }
+      } on Exception catch (_) {
+        // Skip tables that cannot be read raw on this backend.
+      }
+    }
+    return hidden;
+  }
+
+  /// Coerces a raw column value to a JSON-encodable form. The demo only needs
+  /// the id, label, and foreign-key columns; uuids are stored as 16-byte blobs
+  /// in SQLite, so those are rendered back to the canonical uuid string the
+  /// client compares against.
+  Object? _coerceColumnValue(Object? value) {
+    if (value == null || value is String || value is num || value is bool) {
+      return value;
+    }
+    if (value is List<int> && value.length == 16) {
+      return _uuidStringFromBytes(value);
+    }
+    return value.toString();
+  }
+
+  String _uuidStringFromBytes(List<int> bytes) {
+    final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 
   /// Hard-deletes every synced row and CRDT metadata row in the caller's scope,

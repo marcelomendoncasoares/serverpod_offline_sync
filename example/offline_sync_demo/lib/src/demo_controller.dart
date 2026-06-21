@@ -389,7 +389,9 @@ class DemoController extends ChangeNotifier {
     server.loading = true;
     if (notify) server.changed();
     try {
-      final snapshot = await client.demoDebug.fetchScopeSnapshot();
+      final snapshot = await client.demoDebug.fetchScopeSnapshot(
+        includeHidden: showHidden,
+      );
       server
         ..projection = DemoSnapshot.fromServer(
           catalog,
@@ -451,6 +453,16 @@ class DemoController extends ChangeNotifier {
         await _resetReplicaStorage(user, slot);
       },
     );
+  }
+
+  /// Wipes both replicas and the server scope at once, concurrently.
+  Future<void> resetAll() async {
+    await _stopAllStreams();
+    await Future.wait([
+      resetReplica(ReplicaSlot.a),
+      resetReplica(ReplicaSlot.b),
+      if (online) resetServer(),
+    ]);
   }
 
   /// Hard-clears the caller's server scope, including synced rows and CRDT
@@ -531,18 +543,22 @@ class DemoController extends ChangeNotifier {
     if (ops == null || session == null) return;
 
     final verb = newParentId == null ? 'Detached' : 'Re-parented';
-    await _runReplica(slot, '$verb ${ref.tableName} on ${slot.label}.', () async {
-      final crdt = session.crdtSession;
-      final json =
-          await ops.findByIdJson(crdt, ref.id) ??
-          await ops.findByIdJson(session.rawSession, ref.id);
-      if (json == null) return;
-      final edited = Map<String, dynamic>.of(json);
-      edited[fkColumn] = newParentId?.uuid;
-      await ops.updateJson(crdt, edited);
-      await _refreshReplica(slot, notify: false);
-      replicas[slot]!.changed();
-    });
+    await _runReplica(
+      slot,
+      '$verb ${ref.tableName} on ${slot.label}.',
+      () async {
+        final crdt = session.crdtSession;
+        final json =
+            await ops.findByIdJson(crdt, ref.id) ??
+            await ops.findByIdJson(session.rawSession, ref.id);
+        if (json == null) return;
+        final edited = Map<String, dynamic>.of(json);
+        edited[fkColumn] = newParentId?.uuid;
+        await ops.updateJson(crdt, edited);
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
   }
 
   Future<DemoRowRef?> _insertJson(
@@ -577,7 +593,11 @@ class DemoController extends ChangeNotifier {
         );
         final person = await protocol.Person.db.insertRow(
           session.crdtSession,
-          protocol.Person(id: newId(), name: 'Person $suffix', surname: 'Local'),
+          protocol.Person(
+            id: newId(),
+            name: 'Person $suffix',
+            surname: 'Local',
+          ),
         );
         await protocol.Address.db.insertRow(
           session.crdtSession,
@@ -611,8 +631,9 @@ class DemoController extends ChangeNotifier {
           anInt64: BigInt.parse('9007199254740993') + BigInt.from(suffix),
           aReal: suffix + 0.25,
           aBlob: ByteData.sublistView(Uint8List.fromList([suffix, 2, 3])),
-          anEnum:
-              protocol.TypesEnum.values[suffix % protocol.TypesEnum.values.length],
+          anEnum: protocol
+              .TypesEnum
+              .values[suffix % protocol.TypesEnum.values.length],
           optionalText: 'optional-$suffix',
           optionalUuid: newId(),
         ),
@@ -776,23 +797,28 @@ class DemoController extends ChangeNotifier {
               () => c.syncReplica(ReplicaSlot.b),
               replica: ReplicaSlot.b,
             ),
-            ScenarioStep('Attach Restrict child on B', replica: ReplicaSlot.b, () async {
-              final parent = ctx['parent'];
-              if (parent != null && relation != null) {
-                await c.createChildFor(ReplicaSlot.b, parent, relation);
-              }
-            }),
-            ScenarioStep('Delete parent on A', replica: ReplicaSlot.a, () async {
-              final parent = ctx['parent'];
-              if (parent != null) await c.deleteRow(parent, ReplicaSlot.a);
-            }),
             ScenarioStep(
-              'Sync A → server, then B',
+              'Attach Restrict child on B',
+              replica: ReplicaSlot.b,
               () async {
-                await c.syncReplica(ReplicaSlot.a);
-                await c.syncReplica(ReplicaSlot.b);
+                final parent = ctx['parent'];
+                if (parent != null && relation != null) {
+                  await c.createChildFor(ReplicaSlot.b, parent, relation);
+                }
               },
             ),
+            ScenarioStep(
+              'Delete parent on A',
+              replica: ReplicaSlot.a,
+              () async {
+                final parent = ctx['parent'];
+                if (parent != null) await c.deleteRow(parent, ReplicaSlot.a);
+              },
+            ),
+            ScenarioStep('Sync A → server, then B', () async {
+              await c.syncReplica(ReplicaSlot.a);
+              await c.syncReplica(ReplicaSlot.b);
+            }),
           ];
         },
       ),
@@ -824,23 +850,24 @@ class DemoController extends ChangeNotifier {
               () => c.syncReplica(ReplicaSlot.b),
               replica: ReplicaSlot.b,
             ),
-            ScenarioStep('Add Town with that mayor on B', replica: ReplicaSlot.b, () async {
-              final mayor = ctx['mayor'];
-              if (mayor != null && relation != null) {
-                await c.createChildFor(ReplicaSlot.b, mayor, relation);
-              }
-            }),
+            ScenarioStep(
+              'Add Town with that mayor on B',
+              replica: ReplicaSlot.b,
+              () async {
+                final mayor = ctx['mayor'];
+                if (mayor != null && relation != null) {
+                  await c.createChildFor(ReplicaSlot.b, mayor, relation);
+                }
+              },
+            ),
             ScenarioStep('Delete mayor on A', replica: ReplicaSlot.a, () async {
               final mayor = ctx['mayor'];
               if (mayor != null) await c.deleteRow(mayor, ReplicaSlot.a);
             }),
-            ScenarioStep(
-              'Sync A → server, then B',
-              () async {
-                await c.syncReplica(ReplicaSlot.a);
-                await c.syncReplica(ReplicaSlot.b);
-              },
-            ),
+            ScenarioStep('Sync A → server, then B', () async {
+              await c.syncReplica(ReplicaSlot.a);
+              await c.syncReplica(ReplicaSlot.b);
+            }),
           ];
         },
       ),
@@ -872,23 +899,24 @@ class DemoController extends ChangeNotifier {
               () => c.syncReplica(ReplicaSlot.b),
               replica: ReplicaSlot.b,
             ),
-            ScenarioStep('Attach Person to org on B', replica: ReplicaSlot.b, () async {
-              final org = ctx['org'];
-              if (org != null && relation != null) {
-                await c.createChildFor(ReplicaSlot.b, org, relation);
-              }
-            }),
+            ScenarioStep(
+              'Attach Person to org on B',
+              replica: ReplicaSlot.b,
+              () async {
+                final org = ctx['org'];
+                if (org != null && relation != null) {
+                  await c.createChildFor(ReplicaSlot.b, org, relation);
+                }
+              },
+            ),
             ScenarioStep('Delete org on A', replica: ReplicaSlot.a, () async {
               final org = ctx['org'];
               if (org != null) await c.deleteRow(org, ReplicaSlot.a);
             }),
-            ScenarioStep(
-              'Sync A → server, then B',
-              () async {
-                await c.syncReplica(ReplicaSlot.a);
-                await c.syncReplica(ReplicaSlot.b);
-              },
-            ),
+            ScenarioStep('Sync A → server, then B', () async {
+              await c.syncReplica(ReplicaSlot.a);
+              await c.syncReplica(ReplicaSlot.b);
+            }),
           ];
         },
       ),
@@ -936,7 +964,8 @@ class DemoController extends ChangeNotifier {
     if (ops == null || session == null) return null;
 
     final visibleJson = await ops.findByIdJson(session.crdtSession, ref.id);
-    final json = visibleJson ?? await ops.findByIdJson(session.rawSession, ref.id);
+    final json =
+        visibleJson ?? await ops.findByIdJson(session.rawSession, ref.id);
     if (json == null) return null;
 
     final fields = _modelFields(ref.tableName, json);
@@ -961,15 +990,19 @@ class DemoController extends ChangeNotifier {
     final session = replicas[slot]!.session;
     if (ops == null || session == null) return false;
 
-    return _runReplica(slot, 'Updated ${ref.tableName} on ${slot.label}.', () async {
-      final crdt = session.crdtSession;
-      final json = await ops.findByIdJson(crdt, ref.id);
-      if (json == null) return;
-      final edited = _applyEditedValues(ref.tableName, json, values);
-      await ops.updateJson(crdt, edited);
-      await _refreshReplica(slot, notify: false);
-      replicas[slot]!.changed();
-    });
+    return _runReplica(
+      slot,
+      'Updated ${ref.tableName} on ${slot.label}.',
+      () async {
+        final crdt = session.crdtSession;
+        final json = await ops.findByIdJson(crdt, ref.id);
+        if (json == null) return;
+        final edited = _applyEditedValues(ref.tableName, json, values);
+        await ops.updateJson(crdt, edited);
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
   }
 
   Future<void> deleteRow(DemoRowRef ref, ReplicaSlot slot) async {
@@ -977,11 +1010,15 @@ class DemoController extends ChangeNotifier {
     final session = replicas[slot]!.session;
     if (ops == null || session == null) return;
 
-    await _runReplica(slot, 'Deleted ${ref.tableName} on ${slot.label}.', () async {
-      await ops.deleteById(session.crdtSession, ref.id);
-      await _refreshReplica(slot, notify: false);
-      replicas[slot]!.changed();
-    });
+    await _runReplica(
+      slot,
+      'Deleted ${ref.tableName} on ${slot.label}.',
+      () async {
+        await ops.deleteById(session.crdtSession, ref.id);
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
   }
 
   // --- Internals ----------------------------------------------------------
@@ -1189,7 +1226,10 @@ class DemoController extends ChangeNotifier {
     }
   }
 
-  Future<bool> _runServer(String success, Future<void> Function() action) async {
+  Future<bool> _runServer(
+    String success,
+    Future<void> Function() action,
+  ) async {
     if (busy || server.busy) return false;
 
     server
@@ -1309,7 +1349,11 @@ List<EditableField> _editableFields(
     return [
       for (final entry in fields.entries)
         if (_isEditableField(entry.key))
-          EditableField(entry.key, entry.key, _valueEncoder.encode(entry.value)),
+          EditableField(
+            entry.key,
+            entry.key,
+            _valueEncoder.encode(entry.value),
+          ),
     ];
   }
 

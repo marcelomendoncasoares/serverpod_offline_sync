@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart' as material;
 import 'package:serverpod_database/serverpod_database.dart'
     show ClientDatabaseSession;
@@ -99,7 +101,11 @@ class DemoProjection {
   });
 
   factory DemoProjection.empty() {
-    return DemoProjection(nodes: const [], visibleRowCount: 0, hiddenRowCount: 0);
+    return DemoProjection(
+      nodes: const [],
+      visibleRowCount: 0,
+      hiddenRowCount: 0,
+    );
   }
 
   final List<TreeNode<DemoTreeItem>> nodes;
@@ -196,6 +202,25 @@ class DemoSnapshot {
     add('fk_chain_restrict_blocker', server.fkChainRestrictBlockers);
     add('fk_chain_middle_set_null_child', server.fkChainMiddleSetNullChildren);
     add('fk_chain_middle_cascade_child', server.fkChainMiddleCascadeChildren);
+
+    for (final hidden
+        in server.hiddenRows ?? const <protocol.DemoHiddenRow>[]) {
+      try {
+        final json = jsonDecode(hidden.encodedJson) as Map<String, dynamic>;
+        final rawId = json['id'];
+        if (rawId == null) continue;
+        rows.add(
+          RowView(
+            table: hidden.table,
+            id: protocol.UuidValue.withValidation('$rawId'),
+            json: json,
+            visible: false,
+          ),
+        );
+      } catch (_) {
+        // Ignore a hidden row we cannot decode.
+      }
+    }
 
     return DemoSnapshot(
       catalog: catalog,

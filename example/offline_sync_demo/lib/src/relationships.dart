@@ -146,12 +146,13 @@ class RelationshipCatalog {
     final value = json[column];
     if (value == null) return '(${shortId(_idOf(json))})';
     final definition = _byName[table];
-    final isUuid = definition?.columns
-        .firstWhere(
-          (c) => c.name == column,
-          orElse: () => definition.columns.first,
-        )
-        .columnType ==
+    final isUuid =
+        definition?.columns
+            .firstWhere(
+              (c) => c.name == column,
+              orElse: () => definition.columns.first,
+            )
+            .columnType ==
         ColumnType.uuid;
     final text = '$value';
     if (isUuid && text.length >= 8) return text.substring(0, 8);
