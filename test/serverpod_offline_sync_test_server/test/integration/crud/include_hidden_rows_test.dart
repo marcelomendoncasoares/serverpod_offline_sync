@@ -19,11 +19,7 @@ void main() {
 
       deletedRow = await session.db.transactionForUser(
         testCrdtUserId,
-        (tx) => Person.db.insertRow(
-          session,
-          Person(name: 'deleted'),
-          transaction: tx,
-        ),
+        (tx) => Person.db.insertRow(session, Person(name: 'deleted'), transaction: tx),
       );
 
       await session.db.transactionForUser(
