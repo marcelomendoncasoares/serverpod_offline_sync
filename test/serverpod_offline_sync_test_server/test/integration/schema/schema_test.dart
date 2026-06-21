@@ -1,8 +1,4 @@
-// Uses serverpod_database types already available transitively from the test setup.
-// ignore_for_file: depend_on_referenced_packages
-
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -302,8 +298,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table that has the scopeId '
-    'cascade relation to crdt_scopes, '
+    'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
     'when the registry is created, '
     'then no error is thrown.',
     () async {
@@ -317,16 +312,22 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table missing the scopeId '
-    'cascade relation to crdt_scopes, '
+    'Given a CRDT schema registry with a synced table missing the scopeId cascade relation to crdt_scopes, '
     'when the registry is created, '
     'then an error is thrown.',
     () async {
       final personDefinition = testSession.db.serializationManager
           .getTargetTableDefinitions()
           .firstWhere((definition) => definition.name == Person.t.tableName);
+
       final noScopeRelationDefinition = personDefinition.copyWith(
-        foreignKeys: _removeScopeIdForeignKey(personDefinition),
+        foreignKeys: personDefinition.foreignKeys
+            .where(
+              (fk) =>
+                  !(fk.columns.contains('scopeId') &&
+                      fk.referenceTable == 'crdt_scopes'),
+            )
+            .toList(),
       );
 
       expect(
@@ -349,8 +350,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table with scopeId referencing '
-    'crdt_scopes but without onDelete=Cascade, '
+    'Given a CRDT schema registry with a synced table with scopeId referencing crdt_scopes but without onDelete=Cascade, '
     'when the registry is created, '
     'then an error is thrown.',
     () async {
@@ -360,11 +360,9 @@ void main() {
       final wrongActionDefinition = personDefinition.copyWith(
         foreignKeys: [
           for (final fk in personDefinition.foreignKeys)
-            if (fk.columns.contains('scopeId') &&
-                fk.referenceTable == 'crdt_scopes')
-              fk.copyWith(onDelete: ForeignKeyAction.restrict)
-            else
-              fk,
+            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+                ? fk.copyWith(onDelete: .restrict)
+                : fk,
         ],
       );
 
@@ -387,17 +385,6 @@ void main() {
     },
   );
 }
-
-List<ForeignKeyDefinition> _removeScopeIdForeignKey(
-  TableDefinition definition,
-) =>
-    definition.foreignKeys
-        .where(
-          (fk) =>
-              !(fk.columns.contains('scopeId') &&
-                  fk.referenceTable == 'crdt_scopes'),
-        )
-        .toList();
 
 class _UuidPkTable extends Table<UuidValue> {
   _UuidPkTable({String? name}) : super(tableName: name ?? 'uuid_pk_table');
