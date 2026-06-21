@@ -248,7 +248,10 @@ void main() {
       });
 
       test('then the deleted row keeps its original value.', () async {
-        final row = await Person.db.findById(testSession, person.id!);
+        final row = await Person.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+        );
 
         expect(row, isNotNull);
         expect(row!.name, person.name);
@@ -466,9 +469,10 @@ void main() {
         expect(foundVisibleRow, isNotNull);
         expect(foundVisibleRow!.name, 'updated');
 
-        // Use the test session to find the deleted row, since it is not visible
-        // in the CRDT database.
-        final foundDeletedRow = await Unique.db.findById(testSession, deletedRow.id!);
+        final foundDeletedRow = await Unique.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(deletedRow.id) & t.includeHiddenRows,
+        );
         expect(foundDeletedRow, isNotNull);
         expect(foundDeletedRow!.name, startsWith(deletedRow.name));
         expect(foundDeletedRow.name, isNot(deletedRow.name));
@@ -494,7 +498,10 @@ void main() {
       });
 
       test('then the soft-deleted row has another conflict-free name.', () async {
-        final row = await Unique.db.findById(testSession, deletedRow.id!);
+        final row = await Unique.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(deletedRow.id) & t.includeHiddenRows,
+        );
 
         expect(row, isNotNull);
         expect(row!.name, startsWith(deletedRow.name));

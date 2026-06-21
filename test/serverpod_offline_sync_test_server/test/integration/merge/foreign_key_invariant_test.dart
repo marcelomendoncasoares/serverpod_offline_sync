@@ -1739,7 +1739,10 @@ void main() {
           'then the child is hidden so no visible orphan remains.',
           () async {
             final visibleChild = await Address.db.findById(session, child.id!);
-            final hiddenChild = await Address.db.findById(testSession, child.id!);
+            final hiddenChild = await Address.db.findFirstRow(
+              session,
+              where: (t) => t.id.equals(child.id) & t.includeHiddenRows,
+            );
             final crdtRow = await CrdtDataRow.db.findFirstRow(
               session,
               where: (t) => t.uuidRowId.equals(child.id),
@@ -1816,9 +1819,9 @@ void main() {
               session,
               child.id!,
             );
-            final hiddenChild = await Organization.db.findById(
-              testSession,
-              child.id!,
+            final hiddenChild = await Organization.db.findFirstRow(
+              session,
+              where: (t) => t.id.equals(child.id) & t.includeHiddenRows,
             );
             final crdtRow = await CrdtDataRow.db.findFirstRow(
               session,
