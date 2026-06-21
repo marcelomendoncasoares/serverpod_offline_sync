@@ -34,7 +34,11 @@ typedef _ForeignKeyEdge = ({
   Object? defaultValue,
 });
 
-typedef _ForeignKeyValueKey = (String tableName, String columnName, String value);
+typedef _ForeignKeyValueKey = (
+  String tableName,
+  String columnName,
+  String value,
+);
 
 typedef _UniqueIndexConflictRelease = ({
   List<_UniqueColumnConflictRelease> columns,
@@ -46,48 +50,87 @@ typedef _UniqueColumnConflictRelease = ({
   _UniqueConflictReleaseKind kind,
 });
 
-enum _UniqueConflictReleaseKind {
-  setNull,
-  textSuffix,
-  syntheticUuid,
-}
+enum _UniqueConflictReleaseKind { setNull, textSuffix, syntheticUuid }
 
-/// Persists additional CRDT rows after a mutating ORM operation completes.
-///
-/// Callbacks receive the underlying database (not the CRDT proxy) and the
-/// active transaction. Use that database for follow-up inserts so work is not
-/// wrapped again by the proxy.
-class CrdtMutationRecorder {
-  /// Creates a [CrdtMutationRecorder] instance.
-  CrdtMutationRecorder(
-    this._db, {
-    required this.persistentUserId,
+typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
+
+/// Process-level CRDT database metadata shared by ephemeral database wrappers.
+class CrdtDatabaseContext {
+  /// Creates a [CrdtDatabaseContext] for the configured synchronized tables.
+  CrdtDatabaseContext({
     required this.syncTables,
-  }) : assert(
-         _db is! CrdtDatabase,
-         'The database must be the user database, not the CRDT database. '
-         'Passing a CRDT database would cause an infinite recursion.',
-       );
+    required DatabaseSerializationManager serializationManager,
+  }) : _tableDefinitions = serializationManager.getTargetTableDefinitions();
 
-  final Database _db;
+  /// The list of tables to sync with CRDT.
+  final List<Table> syncTables;
 
-  late final DatabaseSession _dbSession = _db.session;
+  final List<TableDefinition> _tableDefinitions;
 
-  late final _session = CrdtDatabaseSession(
-    _db,
-    syncTables: syncTables,
-    persistentUserId: persistentUserId,
-  );
+  _CrdtSchema? _schema;
+  Future<_CrdtSchema>? _schemaFuture;
 
-  late final CrdtScopeManager _scopeManager = CrdtScopeManager(_dbSession);
+  /// Initializes shared schema rows and caches their generated identifiers.
+  Future<void> initialize(DatabaseSession session) async {
+    if (_schema != null) return;
 
-  final Map<UuidValue, HlcManager> _hlcManagers = {};
+    final schemaFuture = _schemaFuture ??= _loadSchema(session);
+    try {
+      _schema = await schemaFuture;
+    } catch (_) {
+      if (identical(_schemaFuture, schemaFuture)) {
+        _schemaFuture = null;
+      }
+      rethrow;
+    }
+  }
 
-  late Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
+  Future<_CrdtSchema> _loadSchema(DatabaseSession session) async {
+    final schemaRegistry = CrdtSchemaRegistry(
+      session,
+      syncTables: syncTables,
+      tableDefinitions: _tableDefinitions,
+    );
+    final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
 
-  late final _tableDefinitionsByName = {
-    for (final table in _db.serializationManager.getTargetTableDefinitions())
-      table.name: table,
+    final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
+    for (final column in columnRows) {
+      columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;
+    }
+
+    return {
+      for (final t in tableRows) t.name: (t.id!, columnsByTableId[t.id!] ?? {}),
+    };
+  }
+
+  _CrdtSchema get _schemaSnapshot =>
+      _schema ??
+      (throw StateError(
+        'The CRDT database has not been initialized. Call '
+        'CrdtDatabase.initialize() before using CRDT database operations.',
+      ));
+
+  /// Returns the local [CrdtSchemaTable] id for [tableName], or null when the
+  /// table is not registered for CRDT synchronization.
+  int? _tableIdForName(String tableName) => _schemaSnapshot[tableName]?.$1;
+
+  late final Map<String, Table> _syncTableByName = {
+    for (final t in syncTables) t.tableName: t,
+  };
+
+  late final Map<String, TableDefinition> _tableDefinitionsByName = {
+    for (final table in _tableDefinitions) table.name: table,
+  };
+
+  late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
+    for (final table in _tableDefinitionsByName.values)
+      table.name: {for (final column in table.columns) column.name: column},
+  };
+
+  late final Map<String, Set<String>> _syncedTableColumnNamesForMerge = {
+    for (final MapEntry(key: k, value: cols) in _columnsByTableAndName.entries)
+      if (_syncTableByName.containsKey(k))
+        k: cols.keys.where((columnName) => columnName != 'scopeId').toSet(),
   };
 
   late final Map<String, List<_ReferencingForeignKey>> _foreignKeysByReferencedTable =
@@ -155,38 +198,104 @@ class CrdtMutationRecorder {
 
   final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
-  late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
-    for (final table in _tableDefinitionsByName.values)
-      table.name: {for (final column in table.columns) column.name: column},
-  };
+  bool _isCrdtTrackedTableName(String tableName) {
+    return _syncTableByName.containsKey(tableName);
+  }
+
+  Object? _defaultValueForColumn(String tableName, String columnName) {
+    final column = _columnsByTableAndName[tableName]?[columnName];
+    if (column == null) return null;
+    final defaultValue = column.columnDefault;
+    if (defaultValue == null) return null;
+    if (column.columnType == ColumnType.uuid) {
+      final unquoted = defaultValue.replaceAll("'", '');
+      if (unquoted == 'random' || unquoted == 'random_v7') return null;
+      return UuidValue.withValidation(unquoted);
+    }
+    return defaultValue.replaceAll("'", '');
+  }
+}
+
+/// Persists additional CRDT rows after a mutating ORM operation completes.
+///
+/// Callbacks receive the underlying database (not the CRDT proxy) and the
+/// active transaction. Use that database for follow-up inserts so work is not
+/// wrapped again by the proxy.
+class CrdtMutationRecorder {
+  /// Creates a [CrdtMutationRecorder] instance.
+  CrdtMutationRecorder(
+    this._db, {
+    required CrdtDatabaseContext context,
+    required this.persistentUserId,
+  }) : _context = context,
+       assert(
+         _db is! CrdtDatabase,
+         'The database must be the user database, not the CRDT database. '
+         'Passing a CRDT database would cause an infinite recursion.',
+       );
+
+  final Database _db;
+  final CrdtDatabaseContext _context;
+
+  late final DatabaseSession _dbSession = _db.session;
+
+  late final _session = _dbSession;
+
+  late final CrdtScopeManager _scopeManager = CrdtScopeManager(_dbSession);
+
+  final Map<UuidValue, HlcManager> _hlcManagers = {};
+  Future<void>? _ensureInitializedFuture;
+  var _isInitialized = false;
+
+  _CrdtSchema get _schema => _context._schemaSnapshot;
+  Map<String, TableDefinition> get _tableDefinitionsByName =>
+      _context._tableDefinitionsByName;
+  Map<String, List<_ReferencingForeignKey>> get _foreignKeysByReferencedTable =>
+      _context._foreignKeysByReferencedTable;
+  List<_ForeignKeyEdge> get _foreignKeyEdges => _context._foreignKeyEdges;
+  Map<String, List<_ForeignKeyEdge>> get _foreignKeyEdgesByParentTable =>
+      _context._foreignKeyEdgesByParentTable;
+  Map<String, List<_ForeignKeyEdge>> get _foreignKeyEdgesByChildTable =>
+      _context._foreignKeyEdgesByChildTable;
+  Map<String, List<_UniqueIndexConflictRelease>> get _uniqueIndexesByTableName =>
+      _context._uniqueIndexesByTableName;
+  Map<String, Map<String, ColumnDefinition>> get _columnsByTableAndName =>
+      _context._columnsByTableAndName;
 
   /// Initializes the CRDT recorder.
   ///
-  /// Safe to call again after the database was wiped (e.g. test `tearDown`)
-  /// for in-memory schema ids to match new rows.
+  /// Clears this recorder's live scope/HLC caches before ensuring shared
+  /// database metadata is initialized.
   Future<void> initialize() async {
     _scopeManager.clearCache();
     _hlcManagers.clear();
+    _ensureInitializedFuture = null;
+    _isInitialized = false;
 
+    await ensureInitialized();
+  }
+
+  /// Ensures the recorder is ready without clearing live per-session caches.
+  Future<void> ensureInitialized() async {
+    if (_isInitialized) return;
+
+    final initializeFuture = _ensureInitializedFuture ??= _initializeOnce();
+    try {
+      await initializeFuture;
+    } catch (_) {
+      if (identical(_ensureInitializedFuture, initializeFuture)) {
+        _ensureInitializedFuture = null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _initializeOnce() async {
+    await _context.initialize(_dbSession);
     if (persistentUserId != null) {
       await _scopeManager.getOrCreate(persistentUserId!);
     }
-
-    final schemaRegistry = CrdtSchemaRegistry(_dbSession, syncTables: syncTables);
-    final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
-
-    final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
-    for (final column in columnRows) {
-      columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;
-    }
-
-    _schema = {
-      for (final t in tableRows)
-        t.name: (
-          t.id!,
-          columnsByTableId[t.id!] ?? {},
-        ),
-    };
+    _isInitialized = true;
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for
@@ -195,17 +304,12 @@ class CrdtMutationRecorder {
   final UuidValue? persistentUserId;
 
   /// The list of tables to sync with CRDT.
-  final List<Table> syncTables;
+  List<Table> get syncTables => _context.syncTables;
 
-  late final _syncTableByName = {
-    for (final t in syncTables) t.tableName: t,
-  };
+  Map<String, Table> get _syncTableByName => _context._syncTableByName;
 
-  late final Map<String, Set<String>> _syncedTableColumnNamesForMerge = {
-    for (final MapEntry(key: k, value: cols) in _columnsByTableAndName.entries)
-      if (_syncTableByName.containsKey(k))
-        k: cols.keys.where((columnName) => columnName != 'scopeId').toSet(),
-  };
+  Map<String, Set<String>> get _syncedTableColumnNamesForMerge =>
+      _context._syncedTableColumnNamesForMerge;
 
   /// Whether the given table is tracked by CRDT.
   bool isCrdtTracked<T extends TableRow>([Table? table]) {
@@ -216,12 +320,12 @@ class CrdtMutationRecorder {
 
   /// Whether the given table name is tracked by CRDT.
   bool _isCrdtTrackedTableName(String tableName) {
-    return _syncTableByName.containsKey(tableName);
+    return _context._isCrdtTrackedTableName(tableName);
   }
 
   /// Returns the local [CrdtSchemaTable] id for [tableName], or null when the
   /// table is not registered for CRDT synchronization.
-  int? tableIdForName(String tableName) => _schema[tableName]?.$1;
+  int? tableIdForName(String tableName) => _context._tableIdForName(tableName);
 
   /// Returns the user scoping CRDT visibility for queries, or null when no
   /// user is associated with [transaction] and no persistent user exists.
@@ -288,7 +392,9 @@ class CrdtMutationRecorder {
 
       await CrdtDataRow.db.insert(
         _session,
-        [for (final rowId in rowIds) _newCrdtDataRow(tableId, rowId, hlcManager)],
+        [
+          for (final rowId in rowIds) _newCrdtDataRow(tableId, rowId, hlcManager),
+        ],
         transaction: transaction,
         ignoreConflicts: true,
       );
@@ -324,7 +430,12 @@ class CrdtMutationRecorder {
         CrdtDataDeletedReason.userReinsert,
         transaction,
       );
-      await _recordUpdatedFields(reinsertedRows, crdtDataRows, null, transaction);
+      await _recordUpdatedFields(
+        reinsertedRows,
+        crdtDataRows,
+        null,
+        transaction,
+      );
       await _recordForeignKeyAttemptsForRows(
         tableName,
         rowIds,
@@ -570,9 +681,7 @@ WHERE c."id" IN ($whereRowIds)
   }) async {
     if (updatedRows.isEmpty || crdtDataRows.isEmpty) return;
 
-    final crdtDataRowByUuid = {
-      for (final r in crdtDataRows) r.uuidRowId: r,
-    };
+    final crdtDataRowByUuid = {for (final r in crdtDataRows) r.uuidRowId: r};
 
     final table = updatedRows.first.table;
     final updatedColumnList = (columns ?? table.managedColumns)
@@ -590,9 +699,7 @@ WHERE c."id" IN ($whereRowIds)
     ];
     await _upsertCrdtFieldsForRows(
       table.tableName,
-      [
-        for (final row in updatedRows) crdtDataRowByUuid[row.id as UuidValue]!,
-      ],
+      [for (final row in updatedRows) crdtDataRowByUuid[row.id as UuidValue]!],
       schemaColumns,
       transaction,
       skippedFields: skippedFields,
@@ -626,7 +733,11 @@ WHERE c."id" IN ($whereRowIds)
 
     for (final row in crdtDataRows) {
       for (final schemaCol in schemaColumns) {
-        if (skippedFields.contains((tableName, row.uuidRowId, schemaCol.name))) {
+        if (skippedFields.contains((
+          tableName,
+          row.uuidRowId,
+          schemaCol.name,
+        ))) {
           continue;
         }
 
@@ -655,10 +766,18 @@ WHERE c."id" IN ($whereRowIds)
     }
 
     if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(_session, toInsert, transaction: transaction);
+      await CrdtDataField.db.insert(
+        _session,
+        toInsert,
+        transaction: transaction,
+      );
     }
     if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(_session, toUpdate, transaction: transaction);
+      await CrdtDataField.db.update(
+        _session,
+        toUpdate,
+        transaction: transaction,
+      );
     }
   }
 
@@ -878,11 +997,9 @@ WHERE c."id" IN ($whereRowIds)
     if (!isCrdtTracked<T>(row.table)) return false;
     if (row.id is! UuidValue) return false;
 
-    final crdtRows = await _findCrdtRows(
-      row.table.tableName,
-      {row.id as UuidValue},
-      transaction,
-    );
+    final crdtRows = await _findCrdtRows(row.table.tableName, {
+      row.id as UuidValue,
+    }, transaction);
     if (crdtRows.isEmpty) return false;
 
     return crdtRows.single.isHidden;
@@ -922,12 +1039,9 @@ WHERE c."id" IN ($whereRowIds)
     for (final reference in foreignKeys) {
       final parentValuesById = reference.parentColumn == 'id'
           ? null
-          : await _readDomainColumnValues(
-              parentTableName,
-              parentIds,
-              [reference.parentColumn],
-              transaction,
-            );
+          : await _readDomainColumnValues(parentTableName, parentIds, [
+              reference.parentColumn,
+            ], transaction);
 
       for (final parentId in parentIds) {
         final referencedValue = reference.parentColumn == 'id'
@@ -949,12 +1063,9 @@ WHERE c."id" IN ($whereRowIds)
               '${reference.childTableName}.${reference.childColumn} references it.',
             );
           case ForeignKeyAction.setNull:
-            await _updateDomainRows(
-              reference.childTableName,
-              childIds,
-              {reference.childColumn: null},
-              transaction,
-            );
+            await _updateDomainRows(reference.childTableName, childIds, {
+              reference.childColumn: null,
+            }, transaction);
             await recordFieldsUpdatedByTable(
               reference.childTableName,
               childIds,
@@ -972,12 +1083,9 @@ WHERE c."id" IN ($whereRowIds)
                 '${reference.childTableName}.${reference.childColumn}.',
               );
             }
-            await _updateDomainRows(
-              reference.childTableName,
-              childIds,
-              {reference.childColumn: defaultValue},
-              transaction,
-            );
+            await _updateDomainRows(reference.childTableName, childIds, {
+              reference.childColumn: defaultValue,
+            }, transaction);
             await recordFieldsUpdatedByTable(
               reference.childTableName,
               childIds,
@@ -1076,17 +1184,14 @@ WHERE c."id" IN ($whereRowIds)
   }) async {
     final (tableId, _) = _schema[tableName]!;
     final scopeId = _getHlcManager(transaction).normalizedScopeId;
-    final result = await _db.unsafeQuery(
-      '''
+    final result = await _db.unsafeQuery('''
 SELECT d."id"
 FROM "${_escapeIdentifier(tableName)}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 WHERE (${predicates.join(') AND (')})
   AND (r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex)
-''',
-      transaction: transaction,
-    );
+''', transaction: transaction);
     return {
       for (final row in result) UuidValueJsonExtension.fromJson(row.first),
     };
@@ -1104,14 +1209,11 @@ WHERE (${predicates.join(') AND (')})
         .map((e) => '"${_escapeIdentifier(e.key)}" = ${_sqlLiteral(e.value)}')
         .join(', ');
 
-    await _db.unsafeExecute(
-      '''
+    await _db.unsafeExecute('''
 UPDATE "${_escapeIdentifier(tableName)}"
 SET $assignments
 WHERE "id" IN (${_sqlLiteralList(rowIds)})
-''',
-      transaction: transaction,
-    );
+''', transaction: transaction);
   }
 
   Future<Map<UuidValue, Map<String, Object?>>> _readDomainColumnValues(
@@ -1127,14 +1229,11 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
       for (final columnName in columnNames) '"${_escapeIdentifier(columnName)}"',
     ].join(', ');
 
-    final result = await _db.unsafeQuery(
-      '''
+    final result = await _db.unsafeQuery('''
 SELECT $columns
 FROM "${_escapeIdentifier(tableName)}"
 WHERE "id" IN (${_sqlLiteralList(rowIds)})
-''',
-      transaction: transaction,
-    );
+''', transaction: transaction);
 
     return {
       for (final row in result)
@@ -1146,16 +1245,7 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
   }
 
   Object? _defaultValueForColumn(String tableName, String columnName) {
-    final column = _columnsByTableAndName[tableName]?[columnName];
-    if (column == null) return null;
-    final defaultValue = column.columnDefault;
-    if (defaultValue == null) return null;
-    if (column.columnType == ColumnType.uuid) {
-      final unquoted = defaultValue.replaceAll("'", '');
-      if (unquoted == 'random' || unquoted == 'random_v7') return null;
-      return UuidValue.withValidation(unquoted);
-    }
-    return defaultValue.replaceAll("'", '');
+    return _context._defaultValueForColumn(tableName, columnName);
   }
 
   Object? _conflictFreeValue(
@@ -1241,7 +1331,9 @@ List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
       )
       .toList();
 
-  final columnsByName = {for (final column in table.columns) column.name: column};
+  final columnsByName = {
+    for (final column in table.columns) column.name: column,
+  };
   return [
     for (final index in uniqueIndexes)
       _uniqueIndexConflictReleaseForIndex(table, columnsByName, index),
@@ -1282,7 +1374,9 @@ _UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
   String columnName,
 ) {
   if (column == null) {
-    throw StateError('No column definition found for ${table.name}.$columnName.');
+    throw StateError(
+      'No column definition found for ${table.name}.$columnName.',
+    );
   }
 
   if (column.isNullable) {
@@ -1290,11 +1384,17 @@ _UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
   }
 
   if (column.columnType == ColumnType.text) {
-    return (columnName: columnName, kind: _UniqueConflictReleaseKind.textSuffix);
+    return (
+      columnName: columnName,
+      kind: _UniqueConflictReleaseKind.textSuffix,
+    );
   }
 
   if (column.columnType == ColumnType.uuid && !_isForeignKeyColumn(table, columnName)) {
-    return (columnName: columnName, kind: _UniqueConflictReleaseKind.syntheticUuid);
+    return (
+      columnName: columnName,
+      kind: _UniqueConflictReleaseKind.syntheticUuid,
+    );
   }
 
   throw StateError(

@@ -5,6 +5,7 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../database/recorder.dart';
 import '../managers/scope.dart';
 import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
@@ -32,6 +33,9 @@ class CrdtSync {
     /// The serialization manager to use for deserializing merge changes.
     required DatabaseSerializationManager serializationManager,
 
+    /// Shared CRDT database metadata.
+    CrdtDatabaseContext? databaseContext,
+
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = defaultSyncBatchSize,
 
@@ -39,6 +43,12 @@ class CrdtSync {
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
+       _databaseContext =
+           databaseContext ??
+           CrdtDatabaseContext(
+             syncTables: syncTables,
+             serializationManager: serializationManager,
+           ),
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval {
     if (syncBatchSize < 1) {
@@ -54,6 +64,7 @@ class CrdtSync {
 
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
+  final CrdtDatabaseContext _databaseContext;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
 
@@ -81,11 +92,29 @@ class CrdtSync {
     int syncBatchSize = defaultSyncBatchSize,
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
   }) {
+    final databaseContext = CrdtDatabaseContext(
+      syncTables: syncTables,
+      serializationManager: serializationManager,
+    );
     _instance = CrdtSync(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
+      databaseContext: databaseContext,
+    );
+  }
+
+  /// Wraps [database] in a CRDT-aware database using this sync context.
+  CrdtDatabase wrapDatabase(Database database, {UuidValue? persistentUserId}) {
+    if (database is CrdtDatabase) return database;
+    return CrdtDatabase(
+      database,
+      syncTables: _syncTables,
+      syncBatchSize: _syncBatchSize,
+      continuousSyncInterval: _continuousSyncInterval,
+      persistentUserId: persistentUserId,
+      context: _databaseContext,
     );
   }
 
@@ -211,7 +240,11 @@ class CrdtSync {
     final crdtDb = await _openCrdtDatabase(session);
     await crdtDb.mergeChanges(mergeSet, scopeId: userId);
     if (maxSyncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
+      await crdtDb.recordSyncCheckpoint(
+        otherNodeId,
+        maxSyncedHlc,
+        userId: userId,
+      );
     }
     return maxSyncedHlc;
   }
@@ -224,15 +257,11 @@ class CrdtSync {
     required List<Hlc> nodeCheckpoints,
   }) async* {
     yield* collectPendingChanges(
-          session,
-          userId: userId,
-          peerNodeId: peerNodeId,
-          nodeCheckpoints: nodeCheckpoints,
-        )
-        .chunked(_syncBatchSize)
-        .map(
-          (changes) => CrdtSyncMergeChunk(changes: changes),
-        );
+      session,
+      userId: userId,
+      peerNodeId: peerNodeId,
+      nodeCheckpoints: nodeCheckpoints,
+    ).chunked(_syncBatchSize).map((changes) => CrdtSyncMergeChunk(changes: changes));
     yield CrdtSyncEndOfBatch();
   }
 
@@ -303,11 +332,15 @@ class CrdtSync {
         );
 
         var hasChanges = false;
-        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
+        await for (final changes in pendingLocalChanges.chunked(
+          _syncBatchSize,
+        )) {
           hasChanges = true;
           for (final change in changes) {
             final lastCheckpoint = nodeCheckpoints[change.uuidNodeId];
-            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(lastCheckpoint);
+            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(
+              lastCheckpoint,
+            );
           }
           yield CrdtSyncMergeChunk(changes: changes);
         }
@@ -373,7 +406,7 @@ class CrdtSync {
       return db;
     }
 
-    final crdtDb = CrdtDatabase(db, syncTables: _syncTables);
+    final crdtDb = wrapDatabase(db);
     await crdtDb.initialize();
     return crdtDb;
   }
@@ -661,7 +694,12 @@ class CrdtSync {
       'LIMIT 1',
     );
     if (result.isEmpty) {
-      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+      final owner = await _readDomainRowOwner(
+        session,
+        tableName,
+        rowId,
+        ownerCache,
+      );
       return (exists: owner.exists, ownerScopeId: owner.scopeId, row: null);
     }
     ownerCache[(tableName, rowId)] = (exists: true, scopeId: scopeId);
@@ -696,14 +734,23 @@ class CrdtSync {
     DomainRowOwnerCache ownerCache,
   ) async {
     if (projection != null && projection.hasOverride) {
-      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+      final owner = await _readDomainRowOwner(
+        session,
+        tableName,
+        rowId,
+        ownerCache,
+      );
       if (!owner.exists || owner.scopeId != scopeId) {
         return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
       }
       return (
         exists: true,
         ownerScopeId: scopeId,
-        value: _decodeColumnValue(tableName, columnName, projection.attemptedValue),
+        value: _decodeColumnValue(
+          tableName,
+          columnName,
+          projection.attemptedValue,
+        ),
       );
     }
 
@@ -725,7 +772,12 @@ class CrdtSync {
       );
     }
 
-    final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+    final owner = await _readDomainRowOwner(
+      session,
+      tableName,
+      rowId,
+      ownerCache,
+    );
     return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
   }
 
@@ -846,7 +898,11 @@ class CrdtSync {
     return fieldsByRowId;
   }
 
-  dynamic _decodeColumnValue(String tableName, String columnName, Object? value) {
+  dynamic _decodeColumnValue(
+    String tableName,
+    String columnName,
+    Object? value,
+  ) {
     if (value == null) return null;
 
     final definition = _columnDefinitionsByTableName[tableName]?[columnName];
@@ -970,7 +1026,9 @@ extension on Map<String, dynamic> {
   /// [CrdtDataForeignKey.attemptedValue] preserves what was actually tried.
   /// Outbound sync must send the attempted value so peers can apply their own
   /// projection from the same fact.
-  void applyProjectedForeignKeyAttempts(List<CrdtDataField>? foreignKeyAttemptFields) {
+  void applyProjectedForeignKeyAttempts(
+    List<CrdtDataField>? foreignKeyAttemptFields,
+  ) {
     if (foreignKeyAttemptFields == null) return;
     for (final field in foreignKeyAttemptFields) {
       final projection = field.foreignKey;
