@@ -45,9 +45,8 @@ void main() {
 
       test('then the row still exist on the person table.', () async {
         final row = await Person.db.findFirstRow(
-          // Use the test session to avoid the tombstone filter of the CRDT database.
-          testSession,
-          where: (t) => t.id.equals(person.id),
+          session,
+          where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
         );
         expect(row, isNotNull);
         expect(row!.name, person.name);
@@ -192,7 +191,10 @@ void main() {
     test(
       'then the unique property of the row is updated to a conflict-free value.',
       () async {
-        final row = await Unique.db.findById(testSession, unique.id!);
+        final row = await Unique.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(unique.id) & t.includeHiddenRows,
+        );
 
         expect(row, isNotNull);
         expect(row!.name, startsWith(unique.name));
@@ -224,7 +226,10 @@ void main() {
     test(
       'then the unique UUID property of the row is updated to a conflict-free value.',
       () async {
-        final row = await UniqueUuid.db.findById(testSession, uniqueUuid.id!);
+        final row = await UniqueUuid.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(uniqueUuid.id) & t.includeHiddenRows,
+        );
 
         expect(row, isNotNull);
         expect(row!.value, isNot(uniqueUuid.value));
@@ -279,7 +284,10 @@ void main() {
       test(
         'then the unique nullable UUID foreign key is set to null.',
         () async {
-          final row = await Address.db.findById(testSession, address.id!);
+          final row = await Address.db.findFirstRow(
+            session,
+            where: (t) => t.id.equals(address.id) & t.includeHiddenRows,
+          );
 
           expect(row, isNotNull);
           expect(row!.inhabitantId, isNull);
@@ -424,9 +432,8 @@ void main() {
 
     test('then the organization row still exist on the organization table.', () async {
       final row = await Organization.db.findFirstRow(
-        // Use the test session to avoid the tombstone filter of the CRDT database.
-        testSession,
-        where: (t) => t.id.equals(organization.id),
+        session,
+        where: (t) => t.id.equals(organization.id) & t.includeHiddenRows,
       );
       expect(row, isNotNull);
       expect(row!.name, organization.name);
@@ -597,7 +604,7 @@ void main() {
 
       test('then the company row is updated to the default town.', () async {
         final updatedCompany = await Company.db.findFirstRow(
-          testSession,
+          session,
           where: (t) => t.id.equals(company.id),
         );
 

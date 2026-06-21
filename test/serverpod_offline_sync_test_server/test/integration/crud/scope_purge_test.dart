@@ -86,8 +86,8 @@ void main() {
         () async {
           expect(
             await Person.db.count(
-              testSession,
-              where: (t) => t.scopeId.equals(purgedScope.id),
+              session,
+              where: (t) => t.scopeId.equals(purgedScope.id) & t.includeHiddenRows,
             ),
             greaterThan(0),
           );
@@ -134,17 +134,17 @@ void main() {
           'then the scope-owned domain rows are physically removed.',
           () async {
             expect(
-              await Person.db.findById(testSession, purgedKeptPerson.id!),
+              await Person.db.findById(session, purgedKeptPerson.id!),
               isNull,
             );
             expect(
-              await Person.db.findById(testSession, purgedDeletedPerson.id!),
+              await Person.db.findById(session, purgedDeletedPerson.id!),
               isNull,
             );
             expect(
               await Person.db.count(
-                testSession,
-                where: (t) => t.scopeId.equals(purgedScope.id),
+                session,
+                where: (t) => t.scopeId.equals(purgedScope.id) & t.includeHiddenRows,
               ),
               0,
             );
@@ -187,7 +187,7 @@ void main() {
           'then the surviving scope keeps its domain rows and metadata.',
           () async {
             expect(
-              await Person.db.findById(testSession, survivingPerson.id!),
+              await Person.db.findById(session, survivingPerson.id!),
               isNotNull,
             );
             expect(

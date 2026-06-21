@@ -277,7 +277,10 @@ void main() {
         });
 
         test('then the field value is merged into the hidden row.', () async {
-          final hiddenRow = await Person.db.findById(testSession, person.id!);
+          final hiddenRow = await Person.db.findFirstRow(
+            session,
+            where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+          );
           final field = await CrdtDataField.db.findFirstRow(
             session,
             where: (t) =>
