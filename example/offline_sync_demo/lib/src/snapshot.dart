@@ -1,8 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart' as material;
-import 'package:serverpod_database/serverpod_database.dart'
-    show ClientDatabaseSession;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -127,19 +123,19 @@ class DemoSnapshot {
   final List<offline.CrdtDataForeignKey> foreignKeys;
   final List<offline.CrdtDataDeleted> tombstones;
 
-  /// Loads visible rows (CRDT session) and the full physical set (raw session)
-  /// for every synced table and classifies each row's visibility.
+  /// Loads the visible rows and the full set (visible + CRDT-hidden, via
+  /// `includeHidden`) for every synced table through the one CRDT session, and
+  /// classifies each row's visibility.
   static Future<DemoSnapshot> load(
     RelationshipCatalog catalog,
     offline.CrdtDatabaseSession crdt,
-    ClientDatabaseSession raw,
   ) async {
     final rows = <RowView>[];
     for (final table in catalog.tables) {
       final ops = demoTableOps[table];
       if (ops == null) continue;
       final visible = await ops.findAll(crdt);
-      final full = await ops.findAll(raw);
+      final full = await ops.findAll(crdt, includeHidden: true);
       final visibleIds = {
         for (final row in visible)
           if (row['id'] != null) '${row['id']}',
@@ -172,6 +168,10 @@ class DemoSnapshot {
     RelationshipCatalog catalog,
     protocol.DemoServerSnapshot server,
   ) {
+    final hiddenIds = {
+      for (final id in server.hiddenRowIds ?? const <protocol.UuidValue>[])
+        id.uuid,
+    };
     final rows = <RowView>[];
     void add(String table, List<dynamic> serverRows) {
       for (final row in serverRows) {
@@ -183,7 +183,7 @@ class DemoSnapshot {
             table: table,
             id: protocol.UuidValue.withValidation('$rawId'),
             json: json,
-            visible: true,
+            visible: !hiddenIds.contains('$rawId'),
           ),
         );
       }
@@ -202,25 +202,6 @@ class DemoSnapshot {
     add('fk_chain_restrict_blocker', server.fkChainRestrictBlockers);
     add('fk_chain_middle_set_null_child', server.fkChainMiddleSetNullChildren);
     add('fk_chain_middle_cascade_child', server.fkChainMiddleCascadeChildren);
-
-    for (final hidden
-        in server.hiddenRows ?? const <protocol.DemoHiddenRow>[]) {
-      try {
-        final json = jsonDecode(hidden.encodedJson) as Map<String, dynamic>;
-        final rawId = json['id'];
-        if (rawId == null) continue;
-        rows.add(
-          RowView(
-            table: hidden.table,
-            id: protocol.UuidValue.withValidation('$rawId'),
-            json: json,
-            visible: false,
-          ),
-        );
-      } catch (_) {
-        // Ignore a hidden row we cannot decode.
-      }
-    }
 
     return DemoSnapshot(
       catalog: catalog,

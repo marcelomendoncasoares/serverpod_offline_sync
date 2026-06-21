@@ -15,6 +15,7 @@ fields:
   fkChainRestrictBlockers: List<FkChainRestrictBlocker>
   fkChainMiddleSetNullChildren: List<FkChainMiddleSetNullChild>
   fkChainMiddleCascadeChildren: List<FkChainMiddleCascadeChild>
-  ### Physically-present rows hidden in the caller's scope, populated only when
-  ### the snapshot is requested with `includeHidden`.
-  hiddenRows: List<DemoHiddenRow>?
+  ### Ids of rows that are physically present but CRDT-hidden in the caller's
+  ### scope. Populated only when the snapshot is requested with `includeHidden`;
+  ### the rows themselves are carried in the lists above.
+  hiddenRowIds: List<UuidValue>?

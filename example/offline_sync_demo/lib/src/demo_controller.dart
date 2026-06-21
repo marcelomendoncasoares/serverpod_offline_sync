@@ -419,11 +419,7 @@ class DemoController extends ChangeNotifier {
       // Reading the view must never turn a successful sync/seed into a reported
       // failure. Surface the error in the panel and keep the last projection.
       try {
-        final snapshot = await DemoSnapshot.load(
-          catalog,
-          session.crdtSession,
-          session.rawSession,
-        );
+        final snapshot = await DemoSnapshot.load(catalog, session.crdtSession);
         state.snapshot = snapshot;
         state.projection = snapshot.project(showHidden: showHidden);
         state.error = null;
@@ -550,7 +546,7 @@ class DemoController extends ChangeNotifier {
         final crdt = session.crdtSession;
         final json =
             await ops.findByIdJson(crdt, ref.id) ??
-            await ops.findByIdJson(session.rawSession, ref.id);
+            await _findHiddenJson(ops, crdt, ref.id);
         if (json == null) return;
         final edited = Map<String, dynamic>.of(json);
         edited[fkColumn] = newParentId?.uuid;
@@ -956,8 +952,22 @@ class DemoController extends ChangeNotifier {
 
   // --- Row detail, editing & deletion -------------------------------------
 
+  /// Finds a row's JSON by id including CRDT-hidden rows (via `includeHidden`),
+  /// since a plain findById only returns visible rows.
+  Future<Map<String, dynamic>?> _findHiddenJson(
+    TableOps ops,
+    offline.CrdtDatabaseSession crdt,
+    protocol.UuidValue id,
+  ) async {
+    final all = await ops.findAll(crdt, includeHidden: true);
+    for (final row in all) {
+      if ('${row['id']}' == id.uuid) return row;
+    }
+    return null;
+  }
+
   /// Loads the full record for [ref] on [slot], reading hidden rows through the
-  /// raw session when needed.
+  /// includeHidden expression when needed.
   Future<RowDetail?> loadDetail(DemoRowRef ref, ReplicaSlot slot) async {
     final ops = demoTableOps[ref.tableName];
     final session = replicas[slot]!.session;
@@ -965,7 +975,7 @@ class DemoController extends ChangeNotifier {
 
     final visibleJson = await ops.findByIdJson(session.crdtSession, ref.id);
     final json =
-        visibleJson ?? await ops.findByIdJson(session.rawSession, ref.id);
+        visibleJson ?? await _findHiddenJson(ops, session.crdtSession, ref.id);
     if (json == null) return null;
 
     final fields = _modelFields(ref.tableName, json);
@@ -1105,36 +1115,30 @@ class DemoController extends ChangeNotifier {
     }
   }
 
+  /// Resets a replica to a fresh, empty state by deleting its local CRDT scope
+  /// row. Every synced table now cascades on `scopeId` → `crdt_scopes`, so the
+  /// domain rows and CRDT metadata go with it — no need to drop and recreate the
+  /// database file. A new scope/node is established lazily on the next write.
   Future<void> _resetReplicaStorage(DemoUser user, ReplicaSlot slot) async {
     await _stopReplicaStream(slot);
 
-    final sessionsToClose = <ReplicaSession>[];
-    _sessions.removeWhere((_, session) {
-      final shouldRemove =
-          session.slot == slot && session.user.username == user.username;
-      if (shouldRemove) sessionsToClose.add(session);
-      return shouldRemove;
-    });
-
-    replicas[slot]!.session = null;
-    for (final session in sessionsToClose) {
-      await session.rawSession.close();
-    }
-
-    final dir = await getApplicationSupportDirectory();
-    final base = p.join(
-      dir.path,
-      'serverpod_offline_sync_demo',
-      '${user.username}-${slot.name}.db',
-    );
-    for (final path in [base, '$base-wal', '$base-shm']) {
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
+    final session = replicas[slot]!.session;
+    if (session != null) {
+      final crdt = session.crdtSession;
+      final scope = await offline.CrdtScope.db.findFirstRow(
+        crdt,
+        where: (t) => t.uuidScopeId.equals(user.authUserId),
+      );
+      final scopeId = scope?.id;
+      if (scopeId != null) {
+        await offline.CrdtScope.db.deleteWhere(
+          crdt,
+          where: (t) => t.id.equals(scopeId),
+        );
       }
+      await crdt.db.initialize();
     }
 
-    await _openSession(user, slot);
     replicas[slot]!
       ..phase = online ? SyncPhase.idle : SyncPhase.offline
       ..lastSyncedLabel = null

@@ -1,7 +1,0 @@
-### One physically-present but CRDT-hidden row in a scope, surfaced for the demo
-### app's "Server" panel when "show hidden rows" is enabled. [encodedJson] is the
-### row's raw column map encoded as a JSON string. Not a database table.
-class: DemoHiddenRow
-fields:
-  table: String
-  encodedJson: String

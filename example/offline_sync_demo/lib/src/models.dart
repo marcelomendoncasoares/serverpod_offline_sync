@@ -1,37 +1,11 @@
 import 'package:http/http.dart' as http;
 import 'package:serverpod_database/serverpod_database.dart'
-    show ClientDatabaseSession, Table;
+    show ClientDatabaseSession;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as protocol;
 import 'package:uuid/uuid.dart' as uuid;
-
-/// Tables synchronized by the demo, mirroring the server `demoSyncTables`.
-final List<Table> demoSyncTables = <Table>[
-  protocol.Address.t,
-  protocol.City.t,
-  protocol.Company.t,
-  protocol.FkChainCascadeMiddle.t,
-  protocol.FkChainMiddleCascadeChild.t,
-  protocol.FkChainMiddleSetNullChild.t,
-  protocol.FkChainRestrictBlocker.t,
-  protocol.FkChainRoot.t,
-  protocol.FkChainSetNullCascadeChild.t,
-  protocol.FkChainSetNullMiddle.t,
-  protocol.FkChainSetNullRestrictChild.t,
-  protocol.FkChainSetNullSetNullChild.t,
-  protocol.Organization.t,
-  protocol.Person.t,
-  protocol.RequiredSetNullChild.t,
-  protocol.RestrictChild.t,
-  protocol.Town.t,
-  protocol.Types.t,
-  protocol.Unique.t,
-  protocol.UniqueComposite.t,
-  protocol.UniqueSetNullChild.t,
-  protocol.UniqueUuid.t,
-];
 
 /// One of the two independent local replicas held side by side.
 enum ReplicaSlot {

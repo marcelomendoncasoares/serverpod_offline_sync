@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
-    show CrdtDatabase, CrdtScope;
+    show CrdtDatabase, CrdtScope, IncludeTombstonedRows;
 
 import '../generated/protocol.dart';
 
@@ -14,9 +13,9 @@ class DemoDebugEndpoint extends Endpoint {
   bool get requireLogin => true;
 
   /// Returns every synced row visible to the caller's scope on the server. When
-  /// [includeHidden] is true, also returns the physically-present rows that are
-  /// CRDT-hidden in the scope (conflict losers, soft-deleted rows), read raw so
-  /// the demo's "Server" panel can mirror the replica "show hidden" view.
+  /// [includeHidden] is true, the snapshot also includes CRDT-hidden rows
+  /// (conflict losers, soft-deleted rows) via the `t.includeHiddenRows`
+  /// expression, with their ids listed in [DemoServerSnapshot.hiddenRowIds].
   Future<DemoServerSnapshot> fetchScopeSnapshot(
     Session session, {
     bool includeHidden = false,
@@ -26,109 +25,57 @@ class DemoDebugEndpoint extends Endpoint {
     );
 
     final db = session.db;
-    final DemoServerSnapshot snapshot;
-    if (db is CrdtDatabase) {
-      // Run the reads in the caller's scope so the snapshot reflects what this
-      // user sees, not an unscoped admin view across every scope.
-      snapshot = await db.transactionForUser(
-        userId,
-        (transaction) => _loadSnapshot(session, transaction),
+    if (db is! CrdtDatabase) {
+      return _loadSnapshot(session, null, includeHidden: false);
+    }
+
+    // Run the reads in the caller's scope so the snapshot reflects what this
+    // user sees, not an unscoped admin view across every scope.
+    return db.transactionForUser(userId, (transaction) async {
+      final visible = await _loadSnapshot(
+        session,
+        transaction,
+        includeHidden: false,
       );
-    } else {
-      snapshot = await _loadSnapshot(session, null);
-    }
+      if (!includeHidden) return visible;
 
-    if (includeHidden && db is CrdtDatabase) {
-      snapshot.hiddenRows = await _loadHiddenRows(session, userId, snapshot);
-    }
-    return snapshot;
+      final all = await _loadSnapshot(session, transaction, includeHidden: true);
+      all.hiddenRowIds = _diffHiddenIds(visible, all);
+      return all;
+    });
   }
 
-  /// Reads each rendered table's physical rows for the caller's scope (raw, so
-  /// CRDT-hidden rows are included) and returns those whose id is not in the
-  /// visible [snapshot]. Best effort: a table that fails to read raw simply
-  /// contributes no hidden rows.
-  Future<List<DemoHiddenRow>> _loadHiddenRows(
-    Session session,
-    UuidValue userId,
-    DemoServerSnapshot snapshot,
-  ) async {
-    final scope = await CrdtScope.db.findFirstRow(
-      session,
-      where: (t) => t.uuidScopeId.equals(userId),
-    );
-    final scopeId = scope?.id;
-    if (scopeId == null) return [];
-
-    Set<String> ids(Iterable<dynamic> rows) => {
-      for (final row in rows)
-        if (row.id != null) '${row.id.uuid}',
-    };
-
-    final visibleByTable = <String, Set<String>>{
-      'person': ids(snapshot.people),
-      'address': ids(snapshot.addresses),
-      'city': ids(snapshot.cities),
-      'town': ids(snapshot.towns),
-      'unique': ids(snapshot.uniques),
-      'unique_uuid': ids(snapshot.uniqueUuids),
-      'restrict_child': ids(snapshot.restrictChildren),
-      'types': ids(snapshot.types),
-      'fk_chain_root': ids(snapshot.fkChainRoots),
-      'fk_chain_cascade_middle': ids(snapshot.fkChainCascadeMiddles),
-      'fk_chain_restrict_blocker': ids(snapshot.fkChainRestrictBlockers),
-      'fk_chain_middle_set_null_child': ids(snapshot.fkChainMiddleSetNullChildren),
-      'fk_chain_middle_cascade_child': ids(snapshot.fkChainMiddleCascadeChildren),
-    };
-
-    final hidden = <DemoHiddenRow>[];
-    for (final entry in visibleByTable.entries) {
-      final table = entry.key;
-      final visibleIds = entry.value;
-      try {
-        final result = await session.db.unsafeQuery(
-          'SELECT * FROM "${_escapeIdentifier(table)}" WHERE "scopeId" = $scopeId',
-        );
-        for (final row in result) {
-          final map = {
-            for (final entry in row.toColumnMap().entries)
-              entry.key: _coerceColumnValue(entry.value),
-          };
-          final id = map['id'];
-          if (id is! String || visibleIds.contains(id)) continue;
-          hidden.add(
-            DemoHiddenRow(table: table, encodedJson: jsonEncode(map)),
-          );
-        }
-      } on Exception catch (_) {
-        // Skip tables that cannot be read raw on this backend.
-      }
-    }
-    return hidden;
+  /// The ids present in [all] (visible + hidden) but not in [visible].
+  List<UuidValue> _diffHiddenIds(
+    DemoServerSnapshot visible,
+    DemoServerSnapshot all,
+  ) {
+    final visibleIds = _allIds(visible).map((id) => id.uuid).toSet();
+    return [
+      for (final id in _allIds(all))
+        if (!visibleIds.contains(id.uuid)) id,
+    ];
   }
 
-  /// Coerces a raw column value to a JSON-encodable form. The demo only needs
-  /// the id, label, and foreign-key columns; uuids are stored as 16-byte blobs
-  /// in SQLite, so those are rendered back to the canonical uuid string the
-  /// client compares against.
-  Object? _coerceColumnValue(Object? value) {
-    if (value == null || value is String || value is num || value is bool) {
-      return value;
-    }
-    if (value is List<int> && value.length == 16) {
-      return _uuidStringFromBytes(value);
-    }
-    return value.toString();
-  }
+  List<UuidValue> _allIds(DemoServerSnapshot s) => <UuidValue?>[
+    ...s.people.map((r) => r.id),
+    ...s.addresses.map((r) => r.id),
+    ...s.cities.map((r) => r.id),
+    ...s.towns.map((r) => r.id),
+    ...s.uniques.map((r) => r.id),
+    ...s.uniqueUuids.map((r) => r.id),
+    ...s.restrictChildren.map((r) => r.id),
+    ...s.types.map((r) => r.id),
+    ...s.fkChainRoots.map((r) => r.id),
+    ...s.fkChainCascadeMiddles.map((r) => r.id),
+    ...s.fkChainRestrictBlockers.map((r) => r.id),
+    ...s.fkChainMiddleSetNullChildren.map((r) => r.id),
+    ...s.fkChainMiddleCascadeChildren.map((r) => r.id),
+  ].whereType<UuidValue>().toList();
 
-  String _uuidStringFromBytes(List<int> bytes) {
-    final hex = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
-        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
-  }
-
-  /// Hard-deletes every synced row and CRDT metadata row in the caller's scope,
-  /// clearing the server for a fresh demo run.
+  /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
+  /// table cascades on `scopeId` → `crdt_scopes`, so all domain rows and CRDT
+  /// metadata are removed with it — no manual per-table cleanup needed.
   Future<void> resetScope(Session session) async {
     final userId = UuidValue.withValidation(
       session.authenticated!.userIdentifier,
@@ -138,20 +85,14 @@ class DemoDebugEndpoint extends Endpoint {
     if (db is CrdtDatabase) {
       await db.initialize();
     }
-    await db.transaction((transaction) async {
-      final scope = await CrdtScope.db.findFirstRow(
-        session,
-        where: (t) => t.uuidScopeId.equals(userId),
-        transaction: transaction,
-      );
-      final scopeId = scope?.id;
-      if (scopeId == null) return;
-
-      for (final tableName in _demoScopedTablesDeleteOrder) {
-        await _deleteScopedRows(session, transaction, tableName, scopeId);
-      }
-      await _deleteCrdtRowsForScope(session, transaction, scopeId);
-    });
+    final scope = await CrdtScope.db.findFirstRow(
+      session,
+      where: (t) => t.uuidScopeId.equals(userId),
+    );
+    final scopeId = scope?.id;
+    if (scopeId != null) {
+      await CrdtScope.db.deleteWhere(session, where: (t) => t.id.equals(scopeId));
+    }
     if (db is CrdtDatabase) {
       await db.initialize();
     }
@@ -319,182 +260,75 @@ class DemoDebugEndpoint extends Endpoint {
 
   Future<DemoServerSnapshot> _loadSnapshot(
     Session session,
-    Transaction? transaction,
-  ) async {
+    Transaction? transaction, {
+    required bool includeHidden,
+  }) async {
     return DemoServerSnapshot(
-      people: await Person.db.find(session, transaction: transaction),
-      addresses: await Address.db.find(session, transaction: transaction),
-      cities: await City.db.find(session, transaction: transaction),
-      towns: await Town.db.find(session, transaction: transaction),
-      uniques: await Unique.db.find(session, transaction: transaction),
-      uniqueUuids: await UniqueUuid.db.find(session, transaction: transaction),
-      restrictChildren: await RestrictChild.db.find(
+      people: await Person.db.find(
         session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
         transaction: transaction,
       ),
-      types: await Types.db.find(session, transaction: transaction),
+      addresses: await Address.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
+      cities: await City.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
+      towns: await Town.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
+      uniques: await Unique.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
+      uniqueUuids: await UniqueUuid.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
+      restrictChildren: await RestrictChild.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
+      types: await Types.db.find(
+        session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
+        transaction: transaction,
+      ),
       fkChainRoots: await FkChainRoot.db.find(
         session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
         transaction: transaction,
       ),
       fkChainCascadeMiddles: await FkChainCascadeMiddle.db.find(
         session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
         transaction: transaction,
       ),
       fkChainRestrictBlockers: await FkChainRestrictBlocker.db.find(
         session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
         transaction: transaction,
       ),
       fkChainMiddleSetNullChildren: await FkChainMiddleSetNullChild.db.find(
         session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
         transaction: transaction,
       ),
       fkChainMiddleCascadeChildren: await FkChainMiddleCascadeChild.db.find(
         session,
+        where: includeHidden ? (t) => t.includeHiddenRows : null,
         transaction: transaction,
       ),
     );
-  }
-}
-
-const _demoScopedTablesDeleteOrder = [
-  'address',
-  'restrict_child',
-  'required_set_null_child',
-  'unique_set_null_child',
-  'fk_chain_middle_cascade_child',
-  'fk_chain_middle_set_null_child',
-  'fk_chain_set_null_cascade_child',
-  'fk_chain_set_null_restrict_child',
-  'fk_chain_set_null_set_null_child',
-  'fk_chain_restrict_blocker',
-  'fk_chain_set_null_middle',
-  'fk_chain_cascade_middle',
-  'fk_chain_root',
-  'person',
-  'company',
-  'organization',
-  'town',
-  'city',
-  'types',
-  'unique',
-  'unique_composite',
-  'unique_uuid',
-];
-
-Future<void> _deleteScopedRows(
-  Session session,
-  Transaction transaction,
-  String tableName,
-  int scopeId,
-) async {
-  await _executeResetSql(
-    session,
-    transaction,
-    'delete $tableName rows for scope $scopeId',
-    'DELETE FROM "${_escapeIdentifier(tableName)}" WHERE "scopeId" = $scopeId',
-  );
-}
-
-Future<void> _deleteCrdtRowsForScope(
-  Session session,
-  Transaction transaction,
-  int scopeId,
-) async {
-  await _executeResetSql(
-    session,
-    transaction,
-    'delete projected foreign-key metadata for scope $scopeId',
-    '''
-DELETE FROM "crdt_data_foreign_key"
-WHERE "fieldId" IN (
-  SELECT f."id"
-  FROM "crdt_data_fields" f
-  WHERE f."rowId" IN (
-    SELECT "id"
-    FROM "crdt_data_rows"
-    WHERE "scopeId" = $scopeId
-  )
-  OR NOT EXISTS (
-    SELECT 1
-    FROM "crdt_data_rows" r
-    WHERE r."id" = f."rowId"
-  )
-)
-OR NOT EXISTS (
-  SELECT 1
-  FROM "crdt_data_fields" f
-  WHERE f."id" = "crdt_data_foreign_key"."fieldId"
-)
-''',
-  );
-  await _executeResetSql(
-    session,
-    transaction,
-    'delete tombstone metadata for scope $scopeId',
-    '''
-DELETE FROM "crdt_data_tombstone"
-WHERE "rowId" IN (
-  SELECT "id"
-  FROM "crdt_data_rows"
-  WHERE "scopeId" = $scopeId
-)
-OR NOT EXISTS (
-  SELECT 1
-  FROM "crdt_data_rows" r
-  WHERE r."id" = "crdt_data_tombstone"."rowId"
-)
-''',
-  );
-  await _executeResetSql(
-    session,
-    transaction,
-    'delete field metadata for scope $scopeId',
-    '''
-DELETE FROM "crdt_data_fields"
-WHERE "rowId" IN (
-  SELECT "id"
-  FROM "crdt_data_rows"
-  WHERE "scopeId" = $scopeId
-)
-OR NOT EXISTS (
-  SELECT 1
-  FROM "crdt_data_rows" r
-  WHERE r."id" = "crdt_data_fields"."rowId"
-)
-''',
-  );
-  await _executeResetSql(
-    session,
-    transaction,
-    'detach current CRDT node for scope $scopeId',
-    'UPDATE "crdt_scopes" SET "currentNodeId" = NULL WHERE "id" = $scopeId',
-  );
-  await _executeResetSql(
-    session,
-    transaction,
-    'delete row metadata for scope $scopeId',
-    'DELETE FROM "crdt_data_rows" WHERE "scopeId" = $scopeId',
-  );
-  await _executeResetSql(
-    session,
-    transaction,
-    'delete node metadata for scope $scopeId',
-    'DELETE FROM "crdt_nodes" WHERE "scopeId" = $scopeId',
-  );
-}
-
-String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
-
-Future<void> _executeResetSql(
-  Session session,
-  Transaction transaction,
-  String label,
-  String sql,
-) async {
-  try {
-    await session.db.unsafeExecute(sql, transaction: transaction);
-  } catch (error) {
-    throw Exception('Failed to $label: $error');
   }
 }
