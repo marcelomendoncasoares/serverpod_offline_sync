@@ -6,5 +6,6 @@ export 'src/database/database.dart';
 export 'src/database/recorder.dart';
 export 'src/database/schema.dart';
 export 'src/database/session.dart' show CrdtDatabaseAccess, CrdtDatabaseSession;
+export 'src/database/tombstone.dart' show IncludeTombstonedRows;
 export 'src/managers/hlc.dart';
 export 'src/managers/scope.dart';

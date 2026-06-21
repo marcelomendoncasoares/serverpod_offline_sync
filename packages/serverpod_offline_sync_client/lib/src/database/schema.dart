@@ -32,14 +32,8 @@ class CrdtSchemaRegistry {
         'CRDT can only synchronize tables with a nullable int scopeId column, '
         'but ${tablesWithoutScopeId.length} table(s) are missing it or declare '
         'it with the wrong type: '
-        '${tablesWithoutScopeId.map((t) => '"${t.tableName}"').join(', ')}\n\n'
-        'Add this field to every synced model:\n'
-        'fields:\n'
-        '  id: UuidValue?, defaultPersist=random_v7\n'
-        '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
-        '  scopeId: int?\n\n'
-        'If the column is declared with scope=serverOnly, remove the scope; '
-        'the column must exist on every database.',
+        '${tablesWithoutScopeId.map((t) => '"${t.tableName}"').join(', ')}'
+        '$_scopeIdFieldHelp',
       );
     }
 
@@ -63,7 +57,33 @@ class CrdtSchemaRegistry {
         'whose target tables are also synchronized.',
       );
     }
+
+    final tablesMissingScopeIdRelation = _missingCrdtScopeRelations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (tablesMissingScopeIdRelation.isNotEmpty) {
+      throw StateError(
+        'CRDT synced tables must declare scopeId as a cascade relation to '
+        'crdt_scopes, but ${tablesMissingScopeIdRelation.length} table(s) are '
+        'missing this relation: '
+        '${tablesMissingScopeIdRelation.map((t) => '"$t"').join(', ')}'
+        '$_scopeIdFieldHelp',
+      );
+    }
   }
+
+  /// Help text appended to schema validation errors that describes the required
+  /// `scopeId` ownership field on every synced model.
+  static const _scopeIdFieldHelp =
+      '\n\n'
+      'Add this field to every synced model:\n'
+      'fields:\n'
+      '  id: UuidValue?, defaultPersist=random_v7\n'
+      '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
+      '  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)\n\n'
+      'If the column is declared with scope=serverOnly, remove the scope; '
+      'the column must exist on every database.';
 
   final DatabaseSession _session;
 
@@ -208,5 +228,29 @@ bool _isForbiddenGlobalUniqueIndex(
     tableDefinition,
     index,
     syncTableNames,
+  );
+}
+
+List<String> _missingCrdtScopeRelations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  return [
+    for (final table in syncTables)
+      if (tableDefinitionsByName.containsKey(table.tableName) &&
+          !_hasCrdtScopeRelation(tableDefinitionsByName[table.tableName]!))
+        table.tableName,
+  ];
+}
+
+bool _hasCrdtScopeRelation(TableDefinition tableDefinition) {
+  return tableDefinition.foreignKeys.any(
+    (fk) =>
+        fk.columns.length == 1 &&
+        fk.columns.single == 'scopeId' &&
+        fk.referenceTable == 'crdt_scopes' &&
+        fk.referenceColumns.length == 1 &&
+        fk.referenceColumns.single == 'id' &&
+        fk.onDelete == ForeignKeyAction.cascade,
   );
 }

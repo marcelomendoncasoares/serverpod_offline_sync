@@ -296,6 +296,94 @@ void main() {
       );
     },
   );
+
+  test(
+    'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
+    'when the registry is created, '
+    'then no error is thrown.',
+    () async {
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Person.t],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((t) => t.name).toSet(), {Person.t.tableName});
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table missing the scopeId cascade relation to crdt_scopes, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+
+      final noScopeRelationDefinition = personDefinition.copyWith(
+        foreignKeys: personDefinition.foreignKeys
+            .where(
+              (fk) =>
+                  !(fk.columns.contains('scopeId') &&
+                      fk.referenceTable == 'crdt_scopes'),
+            )
+            .toList(),
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [noScopeRelationDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT synced tables must declare scopeId as a cascade relation to crdt_scopes',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with scopeId referencing crdt_scopes but without onDelete=Cascade, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final wrongActionDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+                ? fk.copyWith(onDelete: .restrict)
+                : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [wrongActionDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT synced tables must declare scopeId as a cascade relation to crdt_scopes',
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _UuidPkTable extends Table<UuidValue> {

@@ -92,9 +92,13 @@ void main() {
     final changedDefinitions = [
       addressDefinition.copyWith(
         foreignKeys: [
-          addressDefinition.foreignKeys.single.copyWith(
-            onDelete: ForeignKeyAction.cascade,
-          ),
+          for (final fk in addressDefinition.foreignKeys)
+            // Only mutate the inhabitantId FK; the scopeId->crdt_scopes FK
+            // must remain unchanged so it does not interfere with this test.
+            if (fk.columns.contains('inhabitantId'))
+              fk.copyWith(onDelete: ForeignKeyAction.noAction)
+            else
+              fk,
         ],
       ),
     ];
