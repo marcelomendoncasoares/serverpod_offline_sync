@@ -1,9 +1,10 @@
 import 'package:serverpod_database/serverpod_database.dart'
-    show ColumnDefinition, ColumnType, ForeignKeyAction, TableDefinition;
+    show ColumnType, ForeignKeyAction, TableDefinition, TableRow;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as protocol;
 
 import 'models.dart';
+import 'table_ops.dart';
 
 /// The referential action a foreign key takes when its parent is deleted.
 ///
@@ -50,8 +51,7 @@ class Relationship {
 ///
 /// Everything here is computed once from [protocol.Protocol.targetTableDefinitions]
 /// (the same table definitions the client already ships), so the relationship
-/// menus, edge badges, and generic row construction stay in sync with the model
-/// with zero hand-maintained tables.
+/// menus and edge badges stay in sync with the generated model.
 class RelationshipCatalog {
   RelationshipCatalog._(this._byName, this._inbound, this._outbound);
 
@@ -115,7 +115,7 @@ class RelationshipCatalog {
   List<String> get creatableRootTables {
     final result = <String>[];
     for (final table in _byName.keys) {
-      if (buildRowJson(table) != null) result.add(table);
+      if (demoTableOps[table]?.canCreateRoot ?? false) result.add(table);
     }
     result.sort();
     return result;
@@ -140,11 +140,13 @@ class RelationshipCatalog {
     return 'id';
   }
 
-  /// A short human label for [json] of [table].
-  String displayLabel(String table, Map<String, dynamic> json) {
+  /// A short human label for [row].
+  String displayLabel(TableRow<protocol.UuidValue?> row) {
+    final table = row.table.tableName;
+    final json = row.toJson() as Map<String, dynamic>;
     final column = displayColumn(table);
     final value = json[column];
-    if (value == null) return '(${shortId(_idOf(json))})';
+    if (value == null) return '(${shortId(row.id)})';
     final definition = _byName[table];
     final isUuid =
         definition?.columns
@@ -159,74 +161,19 @@ class RelationshipCatalog {
     return text;
   }
 
-  /// Builds a JSON row for [table] ready to insert, filling required columns and
-  /// optionally pointing [fkColumn] at [fkValue]. Returns null when the table
-  /// cannot be safely constructed generically (e.g. it has a required blob or a
-  /// required parent with no default).
-  Map<String, dynamic>? buildRowJson(
+  /// Builds a generated row for [table], optionally assigning one foreign key.
+  /// Required fields and defaults remain owned by the generated constructors.
+  TableRow<protocol.UuidValue?>? buildRow(
     String table, {
     String? fkColumn,
     protocol.UuidValue? fkValue,
     String? label,
   }) {
-    final definition = _byName[table];
-    if (definition == null) return null;
-
-    final fkColumnNames = {
-      for (final fk in definition.foreignKeys)
-        if (fk.columns.length == 1) fk.columns.single,
-    };
-    final display = displayColumn(table);
-    final rowLabel = label ?? _defaultLabel(table);
-
-    final json = <String, dynamic>{'id': newId().uuid};
-    for (final column in definition.columns) {
-      if (column.name == 'id' || column.name == 'scopeId') continue;
-      if (column.name.startsWith('_')) continue;
-
-      if (column.name == fkColumn) {
-        json[column.name] = fkValue?.uuid;
-        continue;
-      }
-      if (column.name == display) {
-        json[column.name] = column.columnType == ColumnType.uuid
-            ? newId().uuid
-            : rowLabel;
-        continue;
-      }
-      if (column.isNullable) continue;
-
-      final isFk = fkColumnNames.contains(column.name);
-      if (isFk) {
-        final fallback = _cleanDefault(column.columnDefault);
-        if (fallback == null) return null;
-        json[column.name] = fallback;
-        continue;
-      }
-
-      final value = _defaultValueFor(column, rowLabel);
-      if (value == _unfillable) return null;
-      json[column.name] = value;
-    }
-    return json;
-  }
-
-  static const Object _unfillable = Object();
-
-  Object? _defaultValueFor(ColumnDefinition column, String label) {
-    final cleaned = _cleanDefault(column.columnDefault);
-    if (cleaned != null) return cleaned;
-    return switch (column.columnType) {
-      ColumnType.text => label,
-      ColumnType.uuid => newId().uuid,
-      ColumnType.boolean => false,
-      ColumnType.integer => 0,
-      ColumnType.bigint => (column.dartType ?? '').contains('BigInt') ? '0' : 0,
-      ColumnType.doublePrecision => 0,
-      ColumnType.timestampWithoutTimeZone =>
-        DateTime.now().toUtc().toIso8601String(),
-      _ => _unfillable,
-    };
+    return demoTableOps[table]?.createRow(
+      label: label ?? _defaultLabel(table),
+      foreignKeyColumn: fkColumn,
+      foreignKeyValue: fkValue,
+    );
   }
 
   String _defaultLabel(String table) {
@@ -239,27 +186,4 @@ class RelationshipCatalog {
 
   static bool _isSystemColumn(String name) =>
       name == 'id' || name == 'scopeId' || name.startsWith('_');
-
-  static String? _cleanDefault(String? raw) {
-    if (raw == null) return null;
-    var value = raw.trim();
-    final cast = value.indexOf('::');
-    if (cast != -1) value = value.substring(0, cast).trim();
-    if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
-      value = value.substring(1, value.length - 1);
-    }
-    if (value.isEmpty) return null;
-    final lower = value.toLowerCase();
-    if (lower == 'null') return null;
-    if (lower.startsWith('gen_random_uuid') || lower.startsWith('nextval')) {
-      return null;
-    }
-    return value;
-  }
-
-  static protocol.UuidValue? _idOf(Map<String, dynamic> json) {
-    final raw = json['id'];
-    if (raw == null) return null;
-    return protocol.UuidValue.withValidation('$raw');
-  }
 }

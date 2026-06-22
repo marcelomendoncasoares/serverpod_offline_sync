@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart' as material;
-import 'package:serverpod_database/serverpod_database.dart' as db
-    show TableRow;
+import 'package:serverpod_database/serverpod_database.dart' as db show TableRow;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -11,19 +10,16 @@ import 'models.dart';
 import 'relationships.dart';
 import 'table_ops.dart';
 
-/// A single domain row, as JSON, together with its visibility for one replica.
+/// A generated domain row together with its visibility for one replica.
 class RowView {
-  RowView({
-    required this.table,
-    required this.id,
-    required this.json,
-    required this.visible,
-  });
+  RowView({required this.model, required this.visible});
 
-  final String table;
-  final protocol.UuidValue id;
-  final Map<String, dynamic> json;
+  final db.TableRow<protocol.UuidValue?> model;
   final bool visible;
+
+  String get table => model.table.tableName;
+  protocol.UuidValue get id => model.id!;
+  Map<String, dynamic> get json => model.toJson() as Map<String, dynamic>;
 }
 
 /// The data shown in one tree node.
@@ -140,19 +136,12 @@ class DemoSnapshot {
       final full = await ops.findAll(crdt, includeHidden: true);
       final visibleIds = {
         for (final row in visible)
-          if (row['id'] != null) '${row['id']}',
+          if (row.id != null) row.id!.uuid,
       };
-      for (final row in full) {
-        final rawId = row['id'];
-        if (rawId == null) continue;
-        rows.add(
-          RowView(
-            table: table,
-            id: protocol.UuidValue.withValidation('$rawId'),
-            json: row,
-            visible: visibleIds.contains('$rawId'),
-          ),
-        );
+      for (final model in full) {
+        final id = model.id;
+        if (id == null) continue;
+        rows.add(RowView(model: model, visible: visibleIds.contains(id.uuid)));
       }
     }
 
@@ -179,14 +168,7 @@ class DemoSnapshot {
       final model = row as db.TableRow<protocol.UuidValue?>;
       final id = model.id;
       if (id == null) continue;
-      rows.add(
-        RowView(
-          table: model.table.tableName,
-          id: id,
-          json: model.toJson() as Map<String, dynamic>,
-          visible: !hiddenIds.contains(id.uuid),
-        ),
-      );
+      rows.add(RowView(model: model, visible: !hiddenIds.contains(id.uuid)));
     }
 
     return DemoSnapshot(
@@ -253,7 +235,7 @@ class DemoSnapshot {
           : '${tableLabel(row.table)} · ${shortId(row.id)}';
       return TreeItem(
         data: DemoTreeItem.row(
-          catalog.displayLabel(row.table, row.json),
+          catalog.displayLabel(row.model),
           detail,
           DemoRowRef(tableName: row.table, id: row.id),
           hidden: !row.visible,

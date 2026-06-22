@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:serverpod_database/serverpod_database.dart'
-    show ColumnDefinition, ColumnType, TableDefinition;
+    show ColumnDefinition, ColumnType, TableDefinition, TableRow;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -180,7 +179,7 @@ class DemoController extends ChangeNotifier {
         if (row.table == parentTable && (row.visible || showHidden))
           ParentOption(
             ref: DemoRowRef(tableName: row.table, id: row.id),
-            label: catalog.displayLabel(row.table, row.json),
+            label: catalog.displayLabel(row.model),
             visible: row.visible,
           ),
     ];
@@ -516,16 +515,16 @@ class DemoController extends ChangeNotifier {
     String table, {
     String? label,
   }) async {
-    final json = catalog.buildRowJson(
+    final row = catalog.buildRow(
       table,
       label: label ?? '${_friendly(table)} ${_counter.next(table)}',
     );
-    if (json == null) {
+    if (row == null) {
       status = 'Cannot create $table without more fields.';
       notifyListeners();
       return null;
     }
-    return _insertJson(slot, table, json, 'Created $table on ${slot.label}.');
+    return _insertRow(slot, row, 'Created $table on ${slot.label}.');
   }
 
   /// Creates a child of [parent] on [slot] using [relation], attaching its
@@ -537,21 +536,20 @@ class DemoController extends ChangeNotifier {
   ) async {
     final childLabel =
         '${_friendly(relation.childTable)} ${_counter.next(relation.childTable)}';
-    final json = catalog.buildRowJson(
+    final row = catalog.buildRow(
       relation.childTable,
       fkColumn: relation.fkColumn,
       fkValue: parent.id,
       label: childLabel,
     );
-    if (json == null) {
+    if (row == null) {
       status = 'Cannot create ${relation.childTable} here.';
       notifyListeners();
       return null;
     }
-    return _insertJson(
+    return _insertRow(
       slot,
-      relation.childTable,
-      json,
+      row,
       'Attached ${relation.childTable} to ${parent.tableName} on ${slot.label}.',
     );
   }
@@ -573,31 +571,30 @@ class DemoController extends ChangeNotifier {
       '$verb ${ref.tableName} on ${slot.label}.',
       () async {
         final crdt = session.crdtSession;
-        final json =
-            await ops.findByIdJson(crdt, ref.id) ??
-            await _findHiddenJson(ops, crdt, ref.id);
-        if (json == null) return;
-        final edited = Map<String, dynamic>.of(json);
-        edited[fkColumn] = newParentId?.uuid;
-        await ops.updateJson(crdt, edited);
+        final row =
+            await ops.findById(crdt, ref.id) ??
+            await _findHiddenRow(ops, crdt, ref.id);
+        if (row == null) return;
+        await ops.updateFields(crdt, row, {fkColumn: newParentId});
         await _refreshReplica(slot, notify: false);
         replicas[slot]!.changed();
       },
     );
   }
 
-  Future<DemoRowRef?> _insertJson(
+  Future<DemoRowRef?> _insertRow(
     ReplicaSlot slot,
-    String table,
-    Map<String, dynamic> json,
+    TableRow<protocol.UuidValue?> row,
     String success,
   ) async {
+    final table = row.table.tableName;
     final ops = demoTableOps[table];
     final session = replicas[slot]!.session;
     if (ops == null || session == null) return null;
-    final id = protocol.UuidValue.withValidation('${json['id']}');
+    final id = row.id;
+    if (id == null) return null;
     final ok = await _runReplica(slot, success, () async {
-      await ops.insertJson(session.crdtSession, json);
+      await ops.insertRow(session.crdtSession, row);
       await _refreshReplica(slot, notify: false);
       replicas[slot]!.changed();
     });
@@ -1001,16 +998,16 @@ class DemoController extends ChangeNotifier {
 
   // --- Row detail, editing & deletion -------------------------------------
 
-  /// Finds a row's JSON by id including CRDT-hidden rows (via `includeHidden`),
+  /// Finds a row by id including CRDT-hidden rows (via `includeHidden`),
   /// since a plain findById only returns visible rows.
-  Future<Map<String, dynamic>?> _findHiddenJson(
+  Future<TableRow<protocol.UuidValue?>?> _findHiddenRow(
     TableOps ops,
     offline.CrdtDatabaseSession crdt,
     protocol.UuidValue id,
   ) async {
     final all = await ops.findAll(crdt, includeHidden: true);
     for (final row in all) {
-      if ('${row['id']}' == id.uuid) return row;
+      if (row.id == id) return row;
     }
     return null;
   }
@@ -1022,18 +1019,19 @@ class DemoController extends ChangeNotifier {
     final session = replicas[slot]!.session;
     if (ops == null || session == null) return null;
 
-    final visibleJson = await ops.findByIdJson(session.crdtSession, ref.id);
-    final json =
-        visibleJson ?? await _findHiddenJson(ops, session.crdtSession, ref.id);
-    if (json == null) return null;
+    final visibleRow = await ops.findById(session.crdtSession, ref.id);
+    final row =
+        visibleRow ?? await _findHiddenRow(ops, session.crdtSession, ref.id);
+    if (row == null) return null;
 
+    final json = row.toJson() as Map<String, dynamic>;
     final fields = _modelFields(ref.tableName, json);
     return RowDetail(
       ref: ref,
       slot: slot,
       tableName: ref.tableName,
       uuid: ref.id.uuid,
-      visible: visibleJson != null,
+      visible: visibleRow != null,
       fields: fields,
       editable: _editableFields(ref.tableName, fields),
     );
@@ -1054,10 +1052,10 @@ class DemoController extends ChangeNotifier {
       'Updated ${ref.tableName} on ${slot.label}.',
       () async {
         final crdt = session.crdtSession;
-        final json = await ops.findByIdJson(crdt, ref.id);
-        if (json == null) return;
-        final edited = _applyEditedValues(ref.tableName, json, values);
-        await ops.updateJson(crdt, edited);
+        final row = await ops.findById(crdt, ref.id);
+        if (row == null) return;
+        final fields = _decodeEditedValues(ref.tableName, row, values);
+        await ops.updateFields(crdt, row, fields);
         await _refreshReplica(slot, notify: false);
         replicas[slot]!.changed();
       },
@@ -1395,7 +1393,7 @@ final _tableDefinitionsByName = <String, TableDefinition>{
     table.name: table,
 };
 
-final _valueEncoder = _JsonValueEncoder();
+final _fieldTextCodec = _FieldTextCodec();
 
 Map<String, dynamic> _modelFields(String tableName, Map<String, dynamic> json) {
   final fields = <String, dynamic>{};
@@ -1428,7 +1426,7 @@ List<EditableField> _editableFields(
           EditableField(
             entry.key,
             entry.key,
-            _valueEncoder.encode(entry.value),
+            _fieldTextCodec.encode(entry.value),
           ),
     ];
   }
@@ -1439,23 +1437,24 @@ List<EditableField> _editableFields(
         EditableField(
           column.name,
           column.name,
-          _valueEncoder.encode(fields[column.name]),
+          _fieldTextCodec.encode(fields[column.name]),
         ),
   ];
 }
 
-Map<String, dynamic> _applyEditedValues(
+Map<String, dynamic> _decodeEditedValues(
   String tableName,
-  Map<String, dynamic> json,
+  TableRow<protocol.UuidValue?> row,
   Map<String, String> values,
 ) {
-  final edited = Map<String, dynamic>.of(json);
+  final json = row.toJson() as Map<String, dynamic>;
+  final edited = <String, dynamic>{};
   final table = _tableDefinitionsByName[tableName];
 
   if (table == null) {
     for (final entry in values.entries) {
       if (_isEditableField(entry.key)) {
-        edited[entry.key] = _valueEncoder.decode(
+        edited[entry.key] = _fieldTextCodec.decode(
           entry.value,
           currentValue: json[entry.key],
         );
@@ -1467,7 +1466,7 @@ Map<String, dynamic> _applyEditedValues(
   for (final column in table.columns) {
     final value = values[column.name];
     if (value == null || !_isEditableColumn(column)) continue;
-    edited[column.name] = _valueEncoder.decode(
+    edited[column.name] = _fieldTextCodec.decode(
       value,
       column: column,
       currentValue: json[column.name],
@@ -1489,13 +1488,16 @@ bool _isEditableColumn(ColumnDefinition column) {
   return _isEditableField(column.name);
 }
 
-class _JsonValueEncoder {
-  const _JsonValueEncoder();
+/// Converts generated JSON field values to and from editable text.
+///
+/// This is UI input parsing, not model serialization. [TableOps.updateFields]
+/// delegates reconstruction of the generated model to [protocol.Protocol].
+class _FieldTextCodec {
+  const _FieldTextCodec();
 
   String encode(dynamic value) {
     if (value == null) return '';
-    if (value is String) return value;
-    return jsonEncode(value);
+    return '$value';
   }
 
   dynamic decode(String raw, {ColumnDefinition? column, dynamic currentValue}) {
@@ -1510,12 +1512,13 @@ class _JsonValueEncoder {
     return switch (column.columnType) {
       ColumnType.boolean => _decodeBool(raw),
       ColumnType.bigint => _decodeBigIntColumn(raw, column),
+      ColumnType.integer => int.parse(raw),
       ColumnType.doublePrecision => double.parse(raw),
       ColumnType.uuid ||
       ColumnType.timestampWithoutTimeZone ||
       ColumnType.text ||
       ColumnType.bytea => raw,
-      _ => _decodeJsonLiteral(raw),
+      _ => raw,
     };
   }
 
@@ -1526,7 +1529,6 @@ class _JsonValueEncoder {
       bool() => _decodeBool(raw),
       int() => int.parse(raw),
       double() => double.parse(raw),
-      List() || Map() => jsonDecode(raw),
       _ => raw,
     };
   }
@@ -1548,13 +1550,5 @@ class _JsonValueEncoder {
       'false' || '0' || 'no' => false,
       _ => throw FormatException('Expected a boolean value.'),
     };
-  }
-
-  dynamic _decodeJsonLiteral(String raw) {
-    try {
-      return jsonDecode(raw);
-    } on FormatException {
-      return raw;
-    }
   }
 }
