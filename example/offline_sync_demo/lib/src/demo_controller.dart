@@ -255,8 +255,14 @@ class DemoController extends ChangeNotifier {
   // --- Controls -----------------------------------------------------------
 
   Future<void> setShowHidden(bool value) async {
+    if (showHidden == value) return;
     showHidden = value;
-    await _refreshAll();
+    notifyListeners();
+    _projectFromSnapshots();
+    if (online) {
+      await _fetchServer(notify: false);
+    }
+    _notifyEverything();
   }
 
   Future<void> setOnline(bool value) async {
@@ -400,7 +406,9 @@ class DemoController extends ChangeNotifier {
         final visible = await client.demoDebug.fetchScopeSnapshot(
           includeHidden: false,
         );
-        final visibleIds = {for (final row in visible) '${(row as dynamic).id}'};
+        final visibleIds = {
+          for (final row in visible) '${(row as dynamic).id}',
+        };
         for (final row in rows) {
           final id = '${(row as dynamic).id}';
           if (!visibleIds.contains(id)) hiddenIds.add(id);
@@ -1286,6 +1294,15 @@ class DemoController extends ChangeNotifier {
       server.busy = false;
       server.changed();
       notifyListeners();
+    }
+  }
+
+  void _projectFromSnapshots() {
+    for (final state in replicas.values) {
+      final snapshot = state.snapshot;
+      if (snapshot != null) {
+        state.projection = snapshot.project(showHidden: showHidden);
+      }
     }
   }
 

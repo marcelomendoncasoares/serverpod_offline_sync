@@ -488,6 +488,7 @@ class _ReplicaPanel extends StatelessWidget {
               const Gap(8),
               Expanded(
                 child: _ProjectionTree(
+                  key: ValueKey(controller.showHidden),
                   nodes: state.projection.nodes,
                   actions: actions,
                   onTapRow: (ref) => unawaited(
@@ -664,7 +665,10 @@ class _ServerPanel extends StatelessWidget {
                           child: Text(state.error!).small().muted(),
                         ),
                       )
-                    : _ProjectionTree(nodes: state.projection.nodes),
+                    : _ProjectionTree(
+                        key: ValueKey(controller.showHidden),
+                        nodes: state.projection.nodes,
+                      ),
               ),
             ],
           ),
@@ -813,7 +817,12 @@ class _SyncBadge extends StatelessWidget {
 // --- Tree ------------------------------------------------------------------
 
 class _ProjectionTree extends StatefulWidget {
-  const _ProjectionTree({required this.nodes, this.onTapRow, this.actions});
+  const _ProjectionTree({
+    super.key,
+    required this.nodes,
+    this.onTapRow,
+    this.actions,
+  });
 
   final List<TreeNode<DemoTreeItem>> nodes;
   final void Function(DemoRowRef ref)? onTapRow;
