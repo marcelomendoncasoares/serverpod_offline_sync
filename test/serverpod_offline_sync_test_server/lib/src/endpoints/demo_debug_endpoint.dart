@@ -12,11 +12,17 @@ class DemoDebugEndpoint extends Endpoint {
   @override
   bool get requireLogin => true;
 
-  /// Returns every synced row visible to the caller's scope on the server. When
-  /// [includeHidden] is true, the snapshot also includes CRDT-hidden rows
-  /// (conflict losers, soft-deleted rows) via the `t.includeHiddenRows`
-  /// expression, with their ids listed in [DemoServerSnapshot.hiddenRowIds].
-  Future<DemoServerSnapshot> fetchScopeSnapshot(
+  /// Returns every synced domain row in the caller's scope on the server as a
+  /// flat list of models. When [includeHidden] is true, the list also includes
+  /// CRDT-hidden rows (conflict losers, soft-deleted rows) via the
+  /// `t.includeHiddenRows` expression; otherwise only visible rows are returned.
+  ///
+  /// The rows cross the wire as `dynamic`: Serverpod tags each model with its
+  /// class name — the same mechanism the CRDT sync layer uses — so the client
+  /// deserializes them straight back into typed models with no per-table
+  /// plumbing on either side. The client flags hidden rows by diffing a
+  /// visible-only fetch against an include-hidden one.
+  Future<List<dynamic>> fetchScopeSnapshot(
     Session session, {
     bool includeHidden = false,
   }) async {
@@ -26,52 +32,17 @@ class DemoDebugEndpoint extends Endpoint {
 
     final db = session.db;
     if (db is! CrdtDatabase) {
-      return _loadSnapshot(session, null, includeHidden: false);
+      return _loadRows(session, null, includeHidden: false);
     }
 
     // Run the reads in the caller's scope so the snapshot reflects what this
     // user sees, not an unscoped admin view across every scope.
-    return db.transactionForUser(userId, (transaction) async {
-      final visible = await _loadSnapshot(
-        session,
-        transaction,
-        includeHidden: false,
-      );
-      if (!includeHidden) return visible;
-
-      final all = await _loadSnapshot(session, transaction, includeHidden: true);
-      all.hiddenRowIds = _diffHiddenIds(visible, all);
-      return all;
-    });
+    return db.transactionForUser(
+      userId,
+      (transaction) =>
+          _loadRows(session, transaction, includeHidden: includeHidden),
+    );
   }
-
-  /// The ids present in [all] (visible + hidden) but not in [visible].
-  List<UuidValue> _diffHiddenIds(
-    DemoServerSnapshot visible,
-    DemoServerSnapshot all,
-  ) {
-    final visibleIds = _allIds(visible).map((id) => id.uuid).toSet();
-    return [
-      for (final id in _allIds(all))
-        if (!visibleIds.contains(id.uuid)) id,
-    ];
-  }
-
-  List<UuidValue> _allIds(DemoServerSnapshot s) => <UuidValue?>[
-    ...s.people.map((r) => r.id),
-    ...s.addresses.map((r) => r.id),
-    ...s.cities.map((r) => r.id),
-    ...s.towns.map((r) => r.id),
-    ...s.uniques.map((r) => r.id),
-    ...s.uniqueUuids.map((r) => r.id),
-    ...s.restrictChildren.map((r) => r.id),
-    ...s.types.map((r) => r.id),
-    ...s.fkChainRoots.map((r) => r.id),
-    ...s.fkChainCascadeMiddles.map((r) => r.id),
-    ...s.fkChainRestrictBlockers.map((r) => r.id),
-    ...s.fkChainMiddleSetNullChildren.map((r) => r.id),
-    ...s.fkChainMiddleCascadeChildren.map((r) => r.id),
-  ].whereType<UuidValue>().toList();
 
   /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
   /// table cascades on `scopeId` → `crdt_scopes`, so all domain rows and CRDT
@@ -275,77 +246,53 @@ class DemoDebugEndpoint extends Endpoint {
     });
   }
 
-  Future<DemoServerSnapshot> _loadSnapshot(
+  /// Loads every synced domain row in the caller's scope as a flat list of
+  /// models. When [includeHidden] is true, CRDT-hidden rows are returned too
+  /// via the `t.includeHiddenRows` expression.
+  ///
+  /// `includeHiddenRows` is an extension on any [Table], so the read is uniform
+  /// across every synced type — each table is listed once because Dart cannot
+  /// turn a runtime [Table] back into the compile-time `T` that
+  /// `session.db.find<T>` requires.
+  Future<List<dynamic>> _loadRows(
     Session session,
     Transaction? transaction, {
     required bool includeHidden,
   }) async {
-    return DemoServerSnapshot(
-      people: await Person.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      addresses: await Address.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      cities: await City.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      towns: await Town.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      uniques: await Unique.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      uniqueUuids: await UniqueUuid.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      restrictChildren: await RestrictChild.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      types: await Types.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      fkChainRoots: await FkChainRoot.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      fkChainCascadeMiddles: await FkChainCascadeMiddle.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      fkChainRestrictBlockers: await FkChainRestrictBlocker.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      fkChainMiddleSetNullChildren: await FkChainMiddleSetNullChild.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-      fkChainMiddleCascadeChildren: await FkChainMiddleCascadeChild.db.find(
-        session,
-        where: includeHidden ? (t) => t.includeHiddenRows : null,
-        transaction: transaction,
-      ),
-    );
+    final rows = <dynamic>[];
+    Future<void> add<T extends TableRow>() async {
+      rows.addAll(
+        await session.db.find<T>(
+          // It does not matter which table we use to access the [includeHiddenRows]
+          // extension, as it is a global extension on all tables.
+          where: includeHidden ? Person.t.includeHiddenRows : null,
+          transaction: transaction,
+        ),
+      );
+    }
+
+    await add<Person>();
+    await add<Address>();
+    await add<City>();
+    await add<Town>();
+    await add<Organization>();
+    await add<Company>();
+    await add<RestrictChild>();
+    await add<RequiredSetNullChild>();
+    await add<Unique>();
+    await add<UniqueUuid>();
+    await add<UniqueComposite>();
+    await add<UniqueSetNullChild>();
+    await add<Types>();
+    await add<FkChainRoot>();
+    await add<FkChainCascadeMiddle>();
+    await add<FkChainRestrictBlocker>();
+    await add<FkChainMiddleSetNullChild>();
+    await add<FkChainMiddleCascadeChild>();
+    await add<FkChainSetNullMiddle>();
+    await add<FkChainSetNullCascadeChild>();
+    await add<FkChainSetNullRestrictChild>();
+    await add<FkChainSetNullSetNullChild>();
+    return rows;
   }
 }

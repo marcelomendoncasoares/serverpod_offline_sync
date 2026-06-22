@@ -389,13 +389,28 @@ class DemoController extends ChangeNotifier {
     server.loading = true;
     if (notify) server.changed();
     try {
-      final snapshot = await client.demoDebug.fetchScopeSnapshot(
+      final rows = await client.demoDebug.fetchScopeSnapshot(
         includeHidden: showHidden,
       );
+      // The server returns a flat list of row models. To flag CRDT-hidden rows
+      // we diff against a visible-only fetch (the same two reads the endpoint
+      // used to do internally); skipped entirely when hidden rows aren't shown.
+      final hiddenIds = <String>{};
+      if (showHidden) {
+        final visible = await client.demoDebug.fetchScopeSnapshot(
+          includeHidden: false,
+        );
+        final visibleIds = {for (final row in visible) '${(row as dynamic).id}'};
+        for (final row in rows) {
+          final id = '${(row as dynamic).id}';
+          if (!visibleIds.contains(id)) hiddenIds.add(id);
+        }
+      }
       server
         ..projection = DemoSnapshot.fromServer(
           catalog,
-          snapshot,
+          rows,
+          hiddenIds: hiddenIds,
         ).project(showHidden: showHidden)
         ..error = null
         ..lastFetchedLabel = 'fetched ${_timeLabel()}';

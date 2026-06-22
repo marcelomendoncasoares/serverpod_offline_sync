@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart' as material;
+import 'package:serverpod_database/serverpod_database.dart' as db
+    show TableRow;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
@@ -162,46 +164,30 @@ class DemoSnapshot {
     );
   }
 
-  /// Builds a snapshot from the server's merged truth. Every returned row is
-  /// visible and there is no local CRDT metadata to show.
+  /// Builds a snapshot from the server's merged truth. [serverRows] is the flat
+  /// `List<dynamic>` returned by `fetchScopeSnapshot`: each element is a typed
+  /// domain model, deserialized by Serverpod from its `__className__` tag, so
+  /// the table name and JSON come straight off the model. Rows whose id is in
+  /// [hiddenIds] are flagged hidden; there is no local CRDT metadata to show.
   factory DemoSnapshot.fromServer(
     RelationshipCatalog catalog,
-    protocol.DemoServerSnapshot server,
-  ) {
-    final hiddenIds = {
-      for (final id in server.hiddenRowIds ?? const <protocol.UuidValue>[])
-        id.uuid,
-    };
+    List<dynamic> serverRows, {
+    Set<String> hiddenIds = const {},
+  }) {
     final rows = <RowView>[];
-    void add(String table, List<dynamic> serverRows) {
-      for (final row in serverRows) {
-        final json = (row as dynamic).toJson() as Map<String, dynamic>;
-        final rawId = json['id'];
-        if (rawId == null) continue;
-        rows.add(
-          RowView(
-            table: table,
-            id: protocol.UuidValue.withValidation('$rawId'),
-            json: json,
-            visible: !hiddenIds.contains('$rawId'),
-          ),
-        );
-      }
+    for (final row in serverRows) {
+      final model = row as db.TableRow<protocol.UuidValue?>;
+      final id = model.id;
+      if (id == null) continue;
+      rows.add(
+        RowView(
+          table: model.table.tableName,
+          id: id,
+          json: model.toJson() as Map<String, dynamic>,
+          visible: !hiddenIds.contains(id.uuid),
+        ),
+      );
     }
-
-    add('person', server.people);
-    add('address', server.addresses);
-    add('city', server.cities);
-    add('town', server.towns);
-    add('unique', server.uniques);
-    add('unique_uuid', server.uniqueUuids);
-    add('restrict_child', server.restrictChildren);
-    add('types', server.types);
-    add('fk_chain_root', server.fkChainRoots);
-    add('fk_chain_cascade_middle', server.fkChainCascadeMiddles);
-    add('fk_chain_restrict_blocker', server.fkChainRestrictBlockers);
-    add('fk_chain_middle_set_null_child', server.fkChainMiddleSetNullChildren);
-    add('fk_chain_middle_cascade_child', server.fkChainMiddleCascadeChildren);
 
     return DemoSnapshot(
       catalog: catalog,
