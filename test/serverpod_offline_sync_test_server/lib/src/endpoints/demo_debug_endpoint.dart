@@ -76,6 +76,13 @@ class DemoDebugEndpoint extends Endpoint {
   /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
   /// table cascades on `scopeId` → `crdt_scopes`, so all domain rows and CRDT
   /// metadata are removed with it — no manual per-table cleanup needed.
+  ///
+  /// The delete runs with `defer_foreign_keys` on: the scopeId cascade fans out
+  /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
+  /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
+  /// cascade off `crdt_scopes`), and SQLite's cascade order can transiently
+  /// violate those immediate checks. Deferring them to commit lets the whole
+  /// cascade complete first.
   Future<void> resetScope(Session session) async {
     final userId = UuidValue.withValidation(
       session.authenticated!.userIdentifier,
@@ -91,7 +98,17 @@ class DemoDebugEndpoint extends Endpoint {
     );
     final scopeId = scope?.id;
     if (scopeId != null) {
-      await CrdtScope.db.deleteWhere(session, where: (t) => t.id.equals(scopeId));
+      await db.transaction((transaction) async {
+        await db.unsafeExecute(
+          'PRAGMA defer_foreign_keys = ON',
+          transaction: transaction,
+        );
+        await CrdtScope.db.deleteWhere(
+          session,
+          where: (t) => t.id.equals(scopeId),
+          transaction: transaction,
+        );
+      });
     }
     if (db is CrdtDatabase) {
       await db.initialize();

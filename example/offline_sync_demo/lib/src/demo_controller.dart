@@ -1119,6 +1119,13 @@ class DemoController extends ChangeNotifier {
   /// row. Every synced table now cascades on `scopeId` → `crdt_scopes`, so the
   /// domain rows and CRDT metadata go with it — no need to drop and recreate the
   /// database file. A new scope/node is established lazily on the next write.
+  ///
+  /// The delete runs with `defer_foreign_keys` on: the scopeId cascade fans out
+  /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
+  /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
+  /// cascade off `crdt_scopes`), and SQLite's cascade order can transiently
+  /// violate those immediate checks. Deferring them to commit lets the whole
+  /// cascade complete first.
   Future<void> _resetReplicaStorage(DemoUser user, ReplicaSlot slot) async {
     await _stopReplicaStream(slot);
 
@@ -1131,10 +1138,17 @@ class DemoController extends ChangeNotifier {
       );
       final scopeId = scope?.id;
       if (scopeId != null) {
-        await offline.CrdtScope.db.deleteWhere(
-          crdt,
-          where: (t) => t.id.equals(scopeId),
-        );
+        await crdt.db.transaction((transaction) async {
+          await crdt.db.unsafeExecute(
+            'PRAGMA defer_foreign_keys = ON',
+            transaction: transaction,
+          );
+          await offline.CrdtScope.db.deleteWhere(
+            crdt,
+            where: (t) => t.id.equals(scopeId),
+            transaction: transaction,
+          );
+        });
       }
       await crdt.db.initialize();
     }

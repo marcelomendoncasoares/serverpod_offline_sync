@@ -219,4 +219,146 @@ void main() {
       });
     },
   );
+
+  group(
+    'Given a scope whose graph spans the CRDT metadata diamond — domain rows '
+    'plus the crdt_data_rows / crdt_data_fields / crdt_data_tombstone metadata '
+    'that reference crdt_nodes,',
+    () {
+      late UuidValue userId;
+      late CrdtScope scope;
+
+      setUp(() async {
+        userId = const Uuid().v7obj();
+
+        // A graph wide enough to generate many CRDT metadata rows: a cascade
+        // chain (city -> town), a RESTRICT relation (person <- address), and the
+        // mixed FK chain. Every insert records crdt_data_rows / crdt_data_fields
+        // rows that reference crdt_nodes.
+        await session.db.transactionForUser(userId, (tx) async {
+          final city = await City.db.insertRow(
+            session,
+            City(id: const Uuid().v7obj(), name: 'City'),
+            transaction: tx,
+          );
+          await Town.db.insertRow(
+            session,
+            Town(id: const Uuid().v7obj(), name: 'Town', cityId: city.id),
+            transaction: tx,
+          );
+          final person = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'Person'),
+            transaction: tx,
+          );
+          await Address.db.insertRow(
+            session,
+            Address(
+              id: const Uuid().v7obj(),
+              street: 'Street',
+              inhabitantId: person.id,
+            ),
+            transaction: tx,
+          );
+          final root = await FkChainRoot.db.insertRow(
+            session,
+            FkChainRoot(id: const Uuid().v7obj(), name: 'Root'),
+            transaction: tx,
+          );
+          final middle = await FkChainCascadeMiddle.db.insertRow(
+            session,
+            FkChainCascadeMiddle(
+              id: const Uuid().v7obj(),
+              name: 'Cascade middle',
+              rootId: root.id,
+            ),
+            transaction: tx,
+          );
+          final blocker = await FkChainRestrictBlocker.db.insertRow(
+            session,
+            FkChainRestrictBlocker(
+              id: const Uuid().v7obj(),
+              name: 'Restrict blocker',
+              cascadeMiddleId: middle.id,
+            ),
+            transaction: tx,
+          );
+          await FkChainMiddleSetNullChild.db.insertRow(
+            session,
+            FkChainMiddleSetNullChild(
+              id: const Uuid().v7obj(),
+              name: 'Set-null child',
+              restrictBlockerId: blocker.id,
+            ),
+            transaction: tx,
+          );
+          await FkChainMiddleCascadeChild.db.insertRow(
+            session,
+            FkChainMiddleCascadeChild(
+              id: const Uuid().v7obj(),
+              name: 'Cascade child',
+              restrictBlockerId: blocker.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        // An extra insert + delete records a tombstone in the scope, exercising
+        // the crdt_data_tombstone.nodeId -> crdt_nodes edge of the diamond.
+        final disposable = await session.db.transactionForUser(
+          userId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'Disposable'),
+            transaction: tx,
+          ),
+        );
+        await session.db.transactionForUser(
+          userId,
+          (tx) => Person.db.deleteRow(session, disposable, transaction: tx),
+        );
+
+        scope = await CrdtScopeManager(session).getOrCreate(userId);
+      });
+
+      test(
+        'when the scope is purged by deleting its crdt_scopes row, '
+        'then all domain rows and CRDT metadata are removed.',
+        () async {
+          await CrdtScope.db.deleteWhere(
+            session,
+            where: (t) => t.id.equals(scope.id),
+          );
+
+          expect(await CrdtScope.db.findById(session, scope.id!), isNull);
+          expect(
+            await Person.db.count(
+              session,
+              where: (t) => t.scopeId.equals(scope.id) & t.includeHiddenRows,
+            ),
+            0,
+          );
+          expect(
+            await CrdtDataRow.db.count(
+              session,
+              where: (t) => t.scopeId.equals(scope.id),
+            ),
+            0,
+          );
+        },
+        skip:
+            'Purging this scope by deleting its crdt_scopes row currently fails '
+            'with "FOREIGN KEY constraint failed". The scopeId cascade fans out '
+            'across the CRDT metadata diamond: crdt_data_rows / crdt_data_fields '
+            '/ crdt_data_tombstone reference crdt_nodes with ON DELETE NO ACTION '
+            'while both those tables and crdt_nodes cascade off crdt_scopes, so '
+            'SQLite enforces the immediate NO ACTION checks mid-cascade before the '
+            'referencing rows are themselves deleted. The fix is to generate '
+            'those foreign keys as DEFERRABLE INITIALLY DEFERRED, which depends on '
+            'upstream Serverpod support for emitting deferrable constraints in '
+            'migrations. Until that lands, callers must wrap the purge in a '
+            'transaction with "PRAGMA defer_foreign_keys = ON".',
+      );
+    },
+  );
 }
