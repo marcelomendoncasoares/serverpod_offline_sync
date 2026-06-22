@@ -487,14 +487,16 @@ class _ReplicaPanel extends StatelessWidget {
               const Divider(),
               const Gap(8),
               Expanded(
-                child: _ProjectionTree(
-                  key: ValueKey(controller.showHidden),
-                  nodes: state.projection.nodes,
-                  actions: actions,
-                  onTapRow: (ref) => unawaited(
-                    showRowDetailSheet(context, controller, ref, slot),
-                  ),
-                ),
+                child: controller.initializing
+                    ? const _PanelLoading(message: 'Opening local database…')
+                    : _ProjectionTree(
+                        key: ValueKey(controller.showHidden),
+                        nodes: state.projection.nodes,
+                        actions: actions,
+                        onTapRow: (ref) => unawaited(
+                          showRowDetailSheet(context, controller, ref, slot),
+                        ),
+                      ),
               ),
             ],
           ),
@@ -654,7 +656,9 @@ class _ServerPanel extends StatelessWidget {
               const Divider(),
               const Gap(8),
               Expanded(
-                child: !controller.online
+                child: controller.initializing
+                    ? const _PanelLoading(message: 'Loading server state…')
+                    : !controller.online
                     ? const Center(
                         child: Text('Offline — connect to view server state.'),
                       )
@@ -809,6 +813,32 @@ class _SyncBadge extends StatelessWidget {
           label,
           style: material.TextStyle(color: fg, fontSize: 11),
         ),
+      ),
+    );
+  }
+}
+
+/// Centered loading indicator shown in a panel body while the local databases
+/// are still opening (during [DemoController.initializing]).
+class _PanelLoading extends StatelessWidget {
+  const _PanelLoading({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(),
+          ),
+          const Gap(10),
+          Text(message).small().muted(),
+        ],
       ),
     );
   }

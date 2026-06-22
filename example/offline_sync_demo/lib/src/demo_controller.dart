@@ -140,6 +140,10 @@ class DemoController extends ChangeNotifier {
   bool online = true;
   bool showHidden = false;
   bool busy = false;
+
+  /// True until the first [initialize] finishes opening the local databases.
+  /// While set, the replica and server panels show a loading indicator.
+  bool initializing = true;
   String status = 'Opening local demo databases...';
   bool _disposed = false;
 
@@ -198,6 +202,8 @@ class DemoController extends ChangeNotifier {
       await _refreshAll(notify: false);
       unawaited(_ensureRemoteAuth(alice));
     });
+    initializing = false;
+    notifyListeners();
   }
 
   @override
