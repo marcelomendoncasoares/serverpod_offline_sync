@@ -34,8 +34,15 @@ class CrdtSyncClient {
   /// Pushes local pending changes for [session] to the remote peer once.
   ///
   /// The [session] must be wrapped in a [CrdtDatabaseSession].
-  Future<void> syncOnce(DatabaseSession session) async {
-    await _startSyncSession(session, once: true).done;
+  Future<void> syncOnce(
+    DatabaseSession session, {
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
+  }) async {
+    await _startSyncSession(
+      session,
+      once: true,
+      onMergeSuccess: onMergeSuccess,
+    ).done;
   }
 
   /// Keeps synchronizing [session] with the remote peer until cancelled through

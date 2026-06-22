@@ -278,7 +278,10 @@ class DemoController extends ChangeNotifier {
       state.error = null;
       state.changed();
       try {
-        await client.crdt.syncOnce(session.crdtSession);
+        await client.crdt.syncOnce(
+          session.crdtSession,
+          onMergeSuccess: (hlc) => _handleReplicaMerge(slot, hlc),
+        );
         state.phase = SyncPhase.idle;
         state.lastSyncedLabel = 'synced ${_timeLabel()}';
       } catch (error) {
@@ -287,9 +290,7 @@ class DemoController extends ChangeNotifier {
         rethrow;
       } finally {
         await _refreshReplica(slot, notify: false);
-        await _fetchServer(notify: false);
         state.changed();
-        server.changed();
       }
     });
   }
@@ -305,10 +306,7 @@ class DemoController extends ChangeNotifier {
         () async {
           final stream = client.crdt.syncContinuously(
             session.crdtSession,
-            onMergeSuccess: (hlc) {
-              state.lastSyncedLabel = 'merged $hlc';
-              unawaited(_refreshReplica(slot));
-            },
+            onMergeSuccess: (hlc) => unawaited(_handleReplicaMerge(slot, hlc)),
           );
           state.stream = stream;
           state.phase = SyncPhase.streaming;
@@ -412,6 +410,14 @@ class DemoController extends ChangeNotifier {
       server.loading = false;
       if (notify) server.changed();
     }
+  }
+
+  Future<void> _handleReplicaMerge(ReplicaSlot slot, Object hlc) async {
+    replicas[slot]!.lastSyncedLabel = 'merged $hlc';
+    await _refreshReplica(slot, notify: false);
+    await _fetchServer(notify: false);
+    replicas[slot]!.changed();
+    server.changed();
   }
 
   Future<void> _refreshReplica(ReplicaSlot slot, {bool notify = true}) async {
