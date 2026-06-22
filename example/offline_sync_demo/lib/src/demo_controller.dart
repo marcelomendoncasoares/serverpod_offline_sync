@@ -838,6 +838,11 @@ class DemoController extends ChangeNotifier {
               await c.syncReplica(ReplicaSlot.a);
               await c.syncReplica(ReplicaSlot.b);
             }),
+            ScenarioStep(
+              'Sync A ← server (converge)',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
           ];
         },
       ),
@@ -887,6 +892,11 @@ class DemoController extends ChangeNotifier {
               await c.syncReplica(ReplicaSlot.a);
               await c.syncReplica(ReplicaSlot.b);
             }),
+            ScenarioStep(
+              'Sync A ← server (converge)',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
           ];
         },
       ),
@@ -936,6 +946,11 @@ class DemoController extends ChangeNotifier {
               await c.syncReplica(ReplicaSlot.a);
               await c.syncReplica(ReplicaSlot.b);
             }),
+            ScenarioStep(
+              'Sync A ← server (converge)',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
           ];
         },
       ),
@@ -966,6 +981,11 @@ class DemoController extends ChangeNotifier {
               'Sync B → server (conflict resolves)',
               () => c.syncReplica(ReplicaSlot.b),
               replica: ReplicaSlot.b,
+            ),
+            ScenarioStep(
+              'Sync A ← server (converge)',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
             ),
           ];
         },
