@@ -6,9 +6,6 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 import 'models.dart';
 
-typedef _RowFactory<T extends TableRow<UuidValue?>> =
-    T? Function(UuidValue id, String label, Map<String, UuidValue> foreignKeys);
-
 /// Generic, table-name keyed CRUD over the generated Serverpod models.
 ///
 /// Database operations retain generated model instances. The only
@@ -19,7 +16,7 @@ class TableOps {
   TableOps({
     required this.table,
     required this.canCreateRoot,
-    required this.createRow,
+    required this.create,
     required this.findAll,
     required this.findById,
     required this.insertRow,
@@ -36,13 +33,14 @@ class TableOps {
   /// Whether the generated constructor can build this row without a parent.
   final bool canCreateRoot;
 
-  /// Builds a generated model, optionally assigning one foreign key.
-  final TableRow<UuidValue?>? Function({
-    required String label,
-    String? foreignKeyColumn,
-    UuidValue? foreignKeyValue,
-  })
-  createRow;
+  /// Builds a generated model from an [id], a [label] for its display column,
+  /// and any [foreignKeys] to assign. Null when this table has no UI factory.
+  final TableRow<UuidValue?>? Function(
+    UuidValue id,
+    String label,
+    Map<String, UuidValue> foreignKeys,
+  )?
+  create;
 
   /// Every row in the table. When [includeHidden] is true, CRDT-tombstoned
   /// (soft-deleted) rows are returned too.
@@ -76,7 +74,8 @@ class TableOps {
 }
 
 TableOps _ops<T extends TableRow<UuidValue?>>({
-  _RowFactory<T>? create,
+  T? Function(UuidValue id, String label, Map<String, UuidValue> foreignKeys)?
+  create,
   bool canCreateRoot = true,
 }) {
   final table = Protocol().getTableForType(T);
@@ -85,14 +84,8 @@ TableOps _ops<T extends TableRow<UuidValue?>>({
   }
   return TableOps(
     table: table,
+    create: create,
     canCreateRoot: create != null && canCreateRoot,
-    createRow: ({required label, foreignKeyColumn, foreignKeyValue}) {
-      if (create == null) return null;
-      return create(newId(), label, {
-        if (foreignKeyColumn != null && foreignKeyValue != null)
-          foreignKeyColumn: foreignKeyValue,
-      });
-    },
     findAll: (session, {includeHidden = false}) async {
       return session.db.find<T>(
         where: includeHidden ? table.includeHiddenRows : null,

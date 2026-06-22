@@ -205,7 +205,7 @@ class DemoSnapshot {
       for (final relation in catalog.parentRelationshipsOf(row.table)) {
         final value = row.json[relation.fkColumn];
         if (value == null) continue;
-        final candidate = byId[_normalizeId(value)];
+        final candidate = byId['$value'];
         if (candidate != null && candidate.id.uuid != row.id.uuid) {
           parentEdge = relation;
           parentId = candidate.id.uuid;
@@ -285,11 +285,6 @@ class DemoSnapshot {
       visibleRowCount: visibleRowCount,
       hiddenRowCount: hiddenRowCount,
     );
-  }
-
-  static String _normalizeId(Object? value) {
-    final text = '$value';
-    return text;
   }
 }
 

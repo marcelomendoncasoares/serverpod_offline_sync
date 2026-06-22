@@ -40,18 +40,9 @@ class DemoUser {
 
 /// A single local replica's database sessions.
 class ReplicaSession {
-  ReplicaSession({
-    required this.user,
-    required this.slot,
-    required this.rawSession,
-    required this.crdtSession,
-  });
+  ReplicaSession({required this.rawSession, required this.crdtSession});
 
-  final DemoUser user;
-  final ReplicaSlot slot;
-
-  /// Unwrapped session that bypasses CRDT visibility filtering. Used to read
-  /// the full physical row set (including locally hidden rows).
+  /// Owns the underlying SQLite connection and is closed with the controller.
   final ClientDatabaseSession rawSession;
 
   /// CRDT-aware session that only exposes visible rows.

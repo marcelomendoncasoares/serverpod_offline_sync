@@ -16,6 +16,8 @@ import 'relationships.dart';
 import 'snapshot.dart';
 import 'table_ops.dart';
 
+part 'scenarios.dart';
+
 /// Lifecycle state of a replica's sync transport.
 enum SyncPhase {
   offline('Offline'),
@@ -86,31 +88,6 @@ class ServerPanelState extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
-}
-
-/// One step of a guided scenario, bound to a concrete replica and rows.
-class ScenarioStep {
-  ScenarioStep(this.label, this.run, {this.replica});
-
-  final String label;
-  final ReplicaSlot? replica;
-  final Future<void> Function() run;
-}
-
-/// A guided, stateful recipe that scripts the free-form primitives. Optional —
-/// every step it runs can also be done by hand directly on the tree.
-class Scenario {
-  Scenario({
-    required this.id,
-    required this.title,
-    required this.summary,
-    required this.build,
-  });
-
-  final String id;
-  final String title;
-  final String summary;
-  final List<ScenarioStep> Function(DemoController controller) build;
 }
 
 /// Drives the whole demo: users, replicas, connectivity, sync, and editing.
@@ -198,7 +175,7 @@ class DemoController extends ChangeNotifier {
       authKeyProvider.token = alice.token;
       await _openSessionsFor(alice);
       _resetReplicaPhases();
-      await _refreshAll(notify: false);
+      await _refreshReplicas(notify: false);
       unawaited(_ensureRemoteAuth(alice));
     });
     initializing = false;
@@ -248,7 +225,7 @@ class DemoController extends ChangeNotifier {
       _rebuildClient();
       await _openSessionsFor(user);
       _resetReplicaPhases();
-      await _refreshAll(notify: false);
+      await _refreshReplicas(notify: false);
       if (online) {
         await _ensureRemoteAuth(user);
       } else {
@@ -371,7 +348,7 @@ class DemoController extends ChangeNotifier {
   // --- Refresh ------------------------------------------------------------
 
   Future<void> refreshAll() async {
-    await _refreshAll(notify: false);
+    await _refreshReplicas(notify: false);
     await _fetchServer(notify: false);
     _notifyEverything();
   }
@@ -379,7 +356,7 @@ class DemoController extends ChangeNotifier {
   /// Re-fetches just the server "merged truth" panel.
   Future<void> refreshServer() => _fetchServer();
 
-  Future<void> _refreshAll({bool notify = true}) async {
+  Future<void> _refreshReplicas({bool notify = true}) async {
     for (final slot in ReplicaSlot.values) {
       await _refreshReplica(slot, notify: false);
     }
@@ -782,220 +759,6 @@ class DemoController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<Scenario> _buildScenarios() {
-    Relationship? childRelation(String parent, String child) {
-      for (final relation in catalog.childRelationshipsOf(parent)) {
-        if (relation.childTable == child) return relation;
-      }
-      return null;
-    }
-
-    return [
-      Scenario(
-        id: 'restrict',
-        title: 'Restrict blocks delete',
-        summary:
-            'A Restrict child added on B blocks the parent delete made on A.',
-        build: (c) {
-          final ctx = <String, DemoRowRef?>{};
-          final relation = childRelation('person', 'restrict_child');
-          return [
-            ScenarioStep(
-              'Seed parent Person on A',
-              replica: ReplicaSlot.a,
-              () async => ctx['parent'] = await c.createRoot(
-                ReplicaSlot.a,
-                'person',
-                label: 'Restricted parent',
-              ),
-            ),
-            ScenarioStep(
-              'Sync A → server',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-            ScenarioStep(
-              'Sync B ← server',
-              () => c.syncReplica(ReplicaSlot.b),
-              replica: ReplicaSlot.b,
-            ),
-            ScenarioStep(
-              'Attach Restrict child on B',
-              replica: ReplicaSlot.b,
-              () async {
-                final parent = ctx['parent'];
-                if (parent != null && relation != null) {
-                  await c.createChildFor(ReplicaSlot.b, parent, relation);
-                }
-              },
-            ),
-            ScenarioStep(
-              'Delete parent on A',
-              replica: ReplicaSlot.a,
-              () async {
-                final parent = ctx['parent'];
-                if (parent != null) await c.deleteRow(parent, ReplicaSlot.a);
-              },
-            ),
-            ScenarioStep('Sync A → server, then B', () async {
-              await c.syncReplica(ReplicaSlot.a);
-              await c.syncReplica(ReplicaSlot.b);
-            }),
-            ScenarioStep(
-              'Sync A ← server (converge)',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-          ];
-        },
-      ),
-      Scenario(
-        id: 'set_null',
-        title: 'SetNull projection',
-        summary:
-            'A Town mayor reference on B is nulled when the mayor is deleted on A.',
-        build: (c) {
-          final ctx = <String, DemoRowRef?>{};
-          final relation = childRelation('person', 'town');
-          return [
-            ScenarioStep(
-              'Seed mayor Person on A',
-              replica: ReplicaSlot.a,
-              () async => ctx['mayor'] = await c.createRoot(
-                ReplicaSlot.a,
-                'person',
-                label: 'Mayor candidate',
-              ),
-            ),
-            ScenarioStep(
-              'Sync A → server',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-            ScenarioStep(
-              'Sync B ← server',
-              () => c.syncReplica(ReplicaSlot.b),
-              replica: ReplicaSlot.b,
-            ),
-            ScenarioStep(
-              'Add Town with that mayor on B',
-              replica: ReplicaSlot.b,
-              () async {
-                final mayor = ctx['mayor'];
-                if (mayor != null && relation != null) {
-                  await c.createChildFor(ReplicaSlot.b, mayor, relation);
-                }
-              },
-            ),
-            ScenarioStep('Delete mayor on A', replica: ReplicaSlot.a, () async {
-              final mayor = ctx['mayor'];
-              if (mayor != null) await c.deleteRow(mayor, ReplicaSlot.a);
-            }),
-            ScenarioStep('Sync A → server, then B', () async {
-              await c.syncReplica(ReplicaSlot.a);
-              await c.syncReplica(ReplicaSlot.b);
-            }),
-            ScenarioStep(
-              'Sync A ← server (converge)',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-          ];
-        },
-      ),
-      Scenario(
-        id: 'cascade',
-        title: 'Cascade hides children',
-        summary:
-            'Deleting an Organization on A cascade-hides the Person attached on B.',
-        build: (c) {
-          final ctx = <String, DemoRowRef?>{};
-          final relation = childRelation('organization', 'person');
-          return [
-            ScenarioStep(
-              'Seed Organization on A',
-              replica: ReplicaSlot.a,
-              () async => ctx['org'] = await c.createRoot(
-                ReplicaSlot.a,
-                'organization',
-                label: 'Cascade org',
-              ),
-            ),
-            ScenarioStep(
-              'Sync A → server',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-            ScenarioStep(
-              'Sync B ← server',
-              () => c.syncReplica(ReplicaSlot.b),
-              replica: ReplicaSlot.b,
-            ),
-            ScenarioStep(
-              'Attach Person to org on B',
-              replica: ReplicaSlot.b,
-              () async {
-                final org = ctx['org'];
-                if (org != null && relation != null) {
-                  await c.createChildFor(ReplicaSlot.b, org, relation);
-                }
-              },
-            ),
-            ScenarioStep('Delete org on A', replica: ReplicaSlot.a, () async {
-              final org = ctx['org'];
-              if (org != null) await c.deleteRow(org, ReplicaSlot.a);
-            }),
-            ScenarioStep('Sync A → server, then B', () async {
-              await c.syncReplica(ReplicaSlot.a);
-              await c.syncReplica(ReplicaSlot.b);
-            }),
-            ScenarioStep(
-              'Sync A ← server (converge)',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-          ];
-        },
-      ),
-      Scenario(
-        id: 'unique',
-        title: 'Concurrent unique insert',
-        summary:
-            'Both replicas insert a Unique row with the same name; one loses on merge.',
-        build: (c) {
-          final name = 'shared-${c._counter.next('unique')}';
-          return [
-            ScenarioStep(
-              'Insert Unique "$name" on A',
-              replica: ReplicaSlot.a,
-              () => c.createUnique(ReplicaSlot.a, name),
-            ),
-            ScenarioStep(
-              'Insert Unique "$name" on B',
-              replica: ReplicaSlot.b,
-              () => c.createUnique(ReplicaSlot.b, name),
-            ),
-            ScenarioStep(
-              'Sync A → server',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-            ScenarioStep(
-              'Sync B → server (conflict resolves)',
-              () => c.syncReplica(ReplicaSlot.b),
-              replica: ReplicaSlot.b,
-            ),
-            ScenarioStep(
-              'Sync A ← server (converge)',
-              () => c.syncReplica(ReplicaSlot.a),
-              replica: ReplicaSlot.a,
-            ),
-          ];
-        },
-      ),
-    ];
-  }
-
   // --- Row detail, editing & deletion -------------------------------------
 
   /// Finds a row by id including CRDT-hidden rows (via `includeHidden`),
@@ -1027,7 +790,6 @@ class DemoController extends ChangeNotifier {
     final json = row.toJson() as Map<String, dynamic>;
     final fields = _modelFields(ref.tableName, json);
     return RowDetail(
-      ref: ref,
       slot: slot,
       tableName: ref.tableName,
       uuid: ref.id.uuid,
@@ -1054,7 +816,7 @@ class DemoController extends ChangeNotifier {
         final crdt = session.crdtSession;
         final row = await ops.findById(crdt, ref.id);
         if (row == null) return;
-        final fields = _decodeEditedValues(ref.tableName, row, values);
+        final fields = _decodeEditedValues(ref.tableName, values);
         await ops.updateFields(crdt, row, fields);
         await _refreshReplica(slot, notify: false);
         replicas[slot]!.changed();
@@ -1111,8 +873,6 @@ class DemoController extends ChangeNotifier {
     );
     await crdtSession.db.initialize();
     final session = ReplicaSession(
-      user: user,
-      slot: slot,
       rawSession: rawSession,
       crdtSession: crdtSession,
     );
@@ -1355,17 +1115,15 @@ class DemoController extends ChangeNotifier {
 
 /// A single editable field of a row detail.
 class EditableField {
-  EditableField(this.key, this.label, this.value);
+  EditableField(this.key, this.value);
 
   final String key;
-  final String label;
   final String value;
 }
 
 /// The complete record behind a tree row, plus its CRDT visibility status.
 class RowDetail {
   RowDetail({
-    required this.ref,
     required this.slot,
     required this.tableName,
     required this.uuid,
@@ -1374,7 +1132,6 @@ class RowDetail {
     required this.editable,
   });
 
-  final DemoRowRef ref;
   final ReplicaSlot slot;
   final String tableName;
   final String uuid;
@@ -1384,8 +1141,6 @@ class RowDetail {
 
   /// The CRDT scope id stored on the row, if any.
   String? get scopeId => fields['scopeId']?.toString();
-
-  Map<String, dynamic> get displayFields => fields;
 }
 
 final _tableDefinitionsByName = <String, TableDefinition>{
@@ -1393,16 +1148,12 @@ final _tableDefinitionsByName = <String, TableDefinition>{
     table.name: table,
 };
 
-final _fieldTextCodec = _FieldTextCodec();
-
 Map<String, dynamic> _modelFields(String tableName, Map<String, dynamic> json) {
   final fields = <String, dynamic>{};
-  final table = _tableDefinitionsByName[tableName];
+  final table = _tableDefinition(tableName);
 
-  if (table != null) {
-    for (final column in table.columns) {
-      fields[column.name] = json[column.name];
-    }
+  for (final column in table.columns) {
+    fields[column.name] = json[column.name];
   }
 
   for (final entry in json.entries) {
@@ -1418,59 +1169,26 @@ List<EditableField> _editableFields(
   String tableName,
   Map<String, dynamic> fields,
 ) {
-  final table = _tableDefinitionsByName[tableName];
-  if (table == null) {
-    return [
-      for (final entry in fields.entries)
-        if (_isEditableField(entry.key))
-          EditableField(
-            entry.key,
-            entry.key,
-            _fieldTextCodec.encode(entry.value),
-          ),
-    ];
-  }
+  final table = _tableDefinition(tableName);
 
   return [
     for (final column in table.columns)
       if (_isEditableColumn(column))
-        EditableField(
-          column.name,
-          column.name,
-          _fieldTextCodec.encode(fields[column.name]),
-        ),
+        EditableField(column.name, fields[column.name]?.toString() ?? ''),
   ];
 }
 
 Map<String, dynamic> _decodeEditedValues(
   String tableName,
-  TableRow<protocol.UuidValue?> row,
   Map<String, String> values,
 ) {
-  final json = row.toJson() as Map<String, dynamic>;
   final edited = <String, dynamic>{};
-  final table = _tableDefinitionsByName[tableName];
-
-  if (table == null) {
-    for (final entry in values.entries) {
-      if (_isEditableField(entry.key)) {
-        edited[entry.key] = _fieldTextCodec.decode(
-          entry.value,
-          currentValue: json[entry.key],
-        );
-      }
-    }
-    return edited;
-  }
+  final table = _tableDefinition(tableName);
 
   for (final column in table.columns) {
     final value = values[column.name];
     if (value == null || !_isEditableColumn(column)) continue;
-    edited[column.name] = _fieldTextCodec.decode(
-      value,
-      column: column,
-      currentValue: json[column.name],
-    );
+    edited[column.name] = _parseFieldText(value, column);
   }
 
   return edited;
@@ -1488,67 +1206,39 @@ bool _isEditableColumn(ColumnDefinition column) {
   return _isEditableField(column.name);
 }
 
-/// Converts generated JSON field values to and from editable text.
-///
-/// This is UI input parsing, not model serialization. [TableOps.updateFields]
-/// delegates reconstruction of the generated model to [protocol.Protocol].
-class _FieldTextCodec {
-  const _FieldTextCodec();
+TableDefinition _tableDefinition(String tableName) {
+  return _tableDefinitionsByName[tableName] ??
+      (throw StateError('No table definition registered for $tableName.'));
+}
 
-  String encode(dynamic value) {
-    if (value == null) return '';
-    return '$value';
-  }
+/// Parses editable text into the JSON shape consumed by [protocol.Protocol].
+dynamic _parseFieldText(String raw, ColumnDefinition column) {
+  if (raw.isEmpty && column.isNullable) return null;
 
-  dynamic decode(String raw, {ColumnDefinition? column, dynamic currentValue}) {
-    if (raw.isEmpty && (column?.isNullable ?? currentValue == null)) {
-      return null;
-    }
+  return switch (column.columnType) {
+    ColumnType.boolean => _parseBool(raw),
+    ColumnType.bigint => _parseBigIntColumn(raw, column),
+    ColumnType.integer => int.parse(raw),
+    ColumnType.doublePrecision => double.parse(raw),
+    ColumnType.uuid ||
+    ColumnType.timestampWithoutTimeZone ||
+    ColumnType.text ||
+    ColumnType.bytea => raw,
+    _ => raw,
+  };
+}
 
-    if (column == null) {
-      return _decodeFromCurrentValue(raw, currentValue);
-    }
+dynamic _parseBigIntColumn(String raw, ColumnDefinition column) {
+  final dartType = column.dartType;
+  if (dartType?.startsWith('protocol:') ?? false) return int.parse(raw);
+  if (dartType == 'int' || dartType == 'int?') return int.parse(raw);
+  return raw;
+}
 
-    return switch (column.columnType) {
-      ColumnType.boolean => _decodeBool(raw),
-      ColumnType.bigint => _decodeBigIntColumn(raw, column),
-      ColumnType.integer => int.parse(raw),
-      ColumnType.doublePrecision => double.parse(raw),
-      ColumnType.uuid ||
-      ColumnType.timestampWithoutTimeZone ||
-      ColumnType.text ||
-      ColumnType.bytea => raw,
-      _ => raw,
-    };
-  }
-
-  dynamic _decodeFromCurrentValue(String raw, dynamic currentValue) {
-    return switch (currentValue) {
-      null => raw,
-      String() => raw,
-      bool() => _decodeBool(raw),
-      int() => int.parse(raw),
-      double() => double.parse(raw),
-      _ => raw,
-    };
-  }
-
-  dynamic _decodeBigIntColumn(String raw, ColumnDefinition column) {
-    final dartType = column.dartType;
-    if (dartType?.startsWith('protocol:') ?? false) {
-      return int.parse(raw);
-    }
-    if (dartType == 'int' || dartType == 'int?') {
-      return int.parse(raw);
-    }
-    return raw;
-  }
-
-  bool _decodeBool(String raw) {
-    return switch (raw.trim().toLowerCase()) {
-      'true' || '1' || 'yes' => true,
-      'false' || '0' || 'no' => false,
-      _ => throw FormatException('Expected a boolean value.'),
-    };
-  }
+bool _parseBool(String raw) {
+  return switch (raw.trim().toLowerCase()) {
+    'true' || '1' || 'yes' => true,
+    'false' || '0' || 'no' => false,
+    _ => throw FormatException('Expected a boolean value.'),
+  };
 }

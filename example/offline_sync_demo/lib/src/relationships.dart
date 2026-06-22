@@ -98,8 +98,6 @@ class RelationshipCatalog {
 
   Iterable<String> get tables => _byName.keys;
 
-  TableDefinition? definition(String table) => _byName[table];
-
   /// Relationships whose parent is [table] — i.e. the kinds of child rows that
   /// can be attached to it. Drives the "+ child" menu.
   List<Relationship> childRelationshipsOf(String table) =>
@@ -169,11 +167,11 @@ class RelationshipCatalog {
     protocol.UuidValue? fkValue,
     String? label,
   }) {
-    return demoTableOps[table]?.createRow(
-      label: label ?? _defaultLabel(table),
-      foreignKeyColumn: fkColumn,
-      foreignKeyValue: fkValue,
-    );
+    final create = demoTableOps[table]?.create;
+    if (create == null) return null;
+    return create(newId(), label ?? _defaultLabel(table), {
+      if (fkColumn != null && fkValue != null) fkColumn: fkValue,
+    });
   }
 
   String _defaultLabel(String table) {
