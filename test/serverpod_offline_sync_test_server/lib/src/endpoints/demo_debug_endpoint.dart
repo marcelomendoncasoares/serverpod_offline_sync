@@ -32,16 +32,24 @@ class DemoDebugEndpoint extends Endpoint {
 
     final db = session.db;
     if (db is! CrdtDatabase) {
-      return _loadRows(session, null, includeHidden: false);
+      return _loadRows(session, null, includeHidden: false, scopeId: null);
     }
 
     // Run the reads in the caller's scope so the snapshot reflects what this
     // user sees, not an unscoped admin view across every scope.
-    return db.transactionForUser(
-      userId,
-      (transaction) =>
-          _loadRows(session, transaction, includeHidden: includeHidden),
-    );
+    return db.transactionForUser(userId, (transaction) async {
+      final scope = await CrdtScope.db.findFirstRow(
+        session,
+        where: (t) => t.uuidScopeId.equals(userId),
+        transaction: transaction,
+      );
+      return _loadRows(
+        session,
+        transaction,
+        includeHidden: includeHidden,
+        scopeId: scope?.id,
+      );
+    });
   }
 
   /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
@@ -258,14 +266,13 @@ class DemoDebugEndpoint extends Endpoint {
     Session session,
     Transaction? transaction, {
     required bool includeHidden,
+    required int? scopeId,
   }) async {
     final rows = <dynamic>[];
     Future<void> add<T extends TableRow>() async {
       rows.addAll(
         await session.db.find<T>(
-          // It does not matter which table we use to access the [includeHiddenRows]
-          // extension, as it is a global extension on all tables.
-          where: includeHidden ? Person.t.includeHiddenRows : null,
+          where: includeHidden ? _includeHiddenRowsInScope<T>(session, scopeId) : null,
           transaction: transaction,
         ),
       );
@@ -294,5 +301,28 @@ class DemoDebugEndpoint extends Endpoint {
     await add<FkChainSetNullRestrictChild>();
     await add<FkChainSetNullSetNullChild>();
     return rows;
+  }
+
+  Expression _includeHiddenRowsInScope<T extends TableRow>(
+    Session session,
+    int? scopeId,
+  ) {
+    if (scopeId == null) {
+      throw StateError('Cannot include hidden rows without a CRDT scope.');
+    }
+
+    final table =
+        session.db.serializationManager.getTableForType(T) ??
+        (throw StateError('No table is registered for type $T.'));
+    return _scopeIdColumn(table).equals(scopeId) & table.includeHiddenRows;
+  }
+
+  ColumnInt _scopeIdColumn(Table table) {
+    for (final column in table.columns) {
+      if (column.columnName == 'scopeId' && column is ColumnInt) {
+        return column;
+      }
+    }
+    throw StateError('Synced table "${table.tableName}" has no scopeId column.');
   }
 }
