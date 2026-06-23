@@ -154,8 +154,9 @@ class RelationshipCatalog {
             )
             .columnType ==
         ColumnType.uuid;
+    if (isUuid && value is protocol.UuidValue) return shortId(value);
     final text = '$value';
-    if (isUuid && text.length >= 8) return text.substring(0, 8);
+    if (isUuid && text.length >= 8) return text.substring(text.length - 8);
     return text;
   }
 

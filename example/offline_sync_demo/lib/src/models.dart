@@ -125,7 +125,12 @@ protocol.UuidValue newId() {
 }
 
 /// Short 8-character form of a UUID for compact display.
+///
+/// Uses the last 8 characters so v7 UUIDs show the random suffix rather than
+/// the timestamp prefix.
 String shortId(protocol.UuidValue? value) {
   if (value == null) return 'null';
-  return value.uuid.substring(0, 8);
+  final uuid = value.uuid;
+  if (uuid.length <= 8) return uuid;
+  return uuid.substring(uuid.length - 8);
 }
