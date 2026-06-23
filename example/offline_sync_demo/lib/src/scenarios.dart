@@ -74,10 +74,16 @@ extension on DemoController {
                 if (parent != null) await c.deleteRow(parent, ReplicaSlot.a);
               },
             ),
-            ScenarioStep('Sync A → server, then B', () async {
-              await c.syncReplica(ReplicaSlot.a);
-              await c.syncReplica(ReplicaSlot.b);
-            }),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B ← server',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
             ScenarioStep(
               'Sync A ← server (converge)',
               () => c.syncReplica(ReplicaSlot.a),
@@ -127,10 +133,16 @@ extension on DemoController {
               final mayor = ctx['mayor'];
               if (mayor != null) await c.deleteRow(mayor, ReplicaSlot.a);
             }),
-            ScenarioStep('Sync A → server, then B', () async {
-              await c.syncReplica(ReplicaSlot.a);
-              await c.syncReplica(ReplicaSlot.b);
-            }),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B ← server',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
             ScenarioStep(
               'Sync A ← server (converge)',
               () => c.syncReplica(ReplicaSlot.a),
@@ -180,10 +192,16 @@ extension on DemoController {
               final org = ctx['org'];
               if (org != null) await c.deleteRow(org, ReplicaSlot.a);
             }),
-            ScenarioStep('Sync A → server, then B', () async {
-              await c.syncReplica(ReplicaSlot.a);
-              await c.syncReplica(ReplicaSlot.b);
-            }),
+            ScenarioStep(
+              'Sync A → server',
+              () => c.syncReplica(ReplicaSlot.a),
+              replica: ReplicaSlot.a,
+            ),
+            ScenarioStep(
+              'Sync B ← server',
+              () => c.syncReplica(ReplicaSlot.b),
+              replica: ReplicaSlot.b,
+            ),
             ScenarioStep(
               'Sync A ← server (converge)',
               () => c.syncReplica(ReplicaSlot.a),
