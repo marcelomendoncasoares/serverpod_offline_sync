@@ -85,7 +85,7 @@ class DemoRoot extends StatefulWidget {
 }
 
 class _DemoRootState extends State<DemoRoot> {
-  bool _isDark = false;
+  bool _isDark = true;
 
   void _toggleTheme() => setState(() => _isDark = !_isDark);
 
