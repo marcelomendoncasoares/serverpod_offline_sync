@@ -22,7 +22,7 @@ class _CreateUserSheet extends StatefulWidget {
 }
 
 class _CreateUserSheetState extends State<_CreateUserSheet> {
-  final _textController = material.TextEditingController();
+  final _textController = TextEditingController();
 
   @override
   void dispose() {
@@ -38,39 +38,33 @@ class _CreateUserSheetState extends State<_CreateUserSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return material.Material(
-      color: material.Colors.transparent,
-      child: SizedBox(
-        width: 320,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Create demo user').large().semiBold(),
-              const Gap(4),
-              const Text(
-                'Authenticates by username only and opens its replicas.',
-              ).small().muted(),
-              const Gap(12),
-              material.TextField(
-                controller: _textController,
-                autofocus: true,
-                decoration: const material.InputDecoration(
-                  labelText: 'Username',
-                  isDense: true,
-                  border: material.OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => _submit(),
-              ),
-              const Gap(12),
-              PrimaryButton(
-                onPressed: _submit,
-                child: const Text('Create & switch'),
-              ),
-            ],
-          ),
+    return SizedBox(
+      width: 320,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Create demo user').large().semiBold(),
+            const Gap(4),
+            const Text(
+              'Authenticates by username only and opens its replicas.',
+            ).small().muted(),
+            const Gap(12),
+            const Text('Username').small().muted(),
+            const Gap(4),
+            TextField(
+              controller: _textController,
+              autofocus: true,
+              onSubmitted: (_) => _submit(),
+            ),
+            const Gap(12),
+            PrimaryButton(
+              onPressed: _submit,
+              child: const Text('Create & switch'),
+            ),
+          ],
         ),
       ),
     );
@@ -108,7 +102,7 @@ class _RowDetailSheet extends StatefulWidget {
 }
 
 class _RowDetailSheetState extends State<_RowDetailSheet> {
-  final _controllers = <String, material.TextEditingController>{};
+  final _controllers = <String, TextEditingController>{};
   RowDetail? _detail;
   bool _loading = true;
   bool _saveFailed = false;
@@ -128,9 +122,7 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
       _loading = false;
       if (detail != null) {
         for (final field in detail.editable) {
-          _controllers[field.key] = material.TextEditingController(
-            text: field.value,
-          );
+          _controllers[field.key] = TextEditingController(text: field.value);
         }
       }
     });
@@ -194,16 +186,13 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return material.Material(
-      color: material.Colors.transparent,
-      child: SizedBox(
-        width: 400,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _detail == null
-            ? const Center(child: Text('Row not found on this replica.'))
-            : _buildDetail(context, _detail!),
-      ),
+    return SizedBox(
+      width: 400,
+      child: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _detail == null
+          ? const Center(child: Text('Row not found on this replica.'))
+          : _buildDetail(context, _detail!),
     );
   }
 
@@ -222,10 +211,11 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
                 warn: !detail.visible,
               ),
               const Spacer(),
-              material.Tooltip(
-                message: 'Close details',
+              Tooltip(
+                tooltip: (context) =>
+                    const TooltipContainer(child: Text('Close details')),
                 child: IconButton.ghost(
-                  icon: const material.Icon(material.Icons.close, size: 16),
+                  icon: const Icon(Icons.close, size: 16),
                   onPressed: () => closeOverlay(context),
                 ),
               ),
@@ -248,19 +238,21 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
             for (final field in detail.editable)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: material.TextField(
-                  controller: _controllers[field.key],
-                  onTap: () => _copyValue(_controllers[field.key]!.text),
-                  onChanged: (_) {
-                    if (_saveFailed) {
-                      setState(() => _saveFailed = false);
-                    }
-                  },
-                  decoration: material.InputDecoration(
-                    labelText: field.key,
-                    isDense: true,
-                    border: const material.OutlineInputBorder(),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(field.key).small().muted(),
+                    const Gap(4),
+                    TextField(
+                      controller: _controllers[field.key],
+                      onTap: () => _copyValue(_controllers[field.key]!.text),
+                      onChanged: (_) {
+                        if (_saveFailed) {
+                          setState(() => _saveFailed = false);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
             const Gap(8),
@@ -296,8 +288,8 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
   }
 
   Widget _kv(BuildContext context, String label, String value) {
-    return material.MouseRegion(
-      cursor: material.SystemMouseCursors.click,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => _copyValue(value),
@@ -307,12 +299,7 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(width: 96, child: Text(label).xSmall().muted()),
-              Expanded(
-                child: material.Text(
-                  value,
-                  style: const material.TextStyle(fontSize: 12),
-                ),
-              ),
+              Expanded(child: Text(value).xSmall()),
             ],
           ),
         ),
@@ -353,16 +340,16 @@ class _SolidDestructiveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ButtonStyleOverride.inherit(
       decoration: (context, states, value) {
-        if (states.contains(material.WidgetState.disabled)) return value;
+        if (states.contains(WidgetState.disabled)) return value;
 
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
-        final color = scheme.brightness == material.Brightness.dark
+        final color = scheme.brightness == Brightness.dark
             ? const Color(0xFFDC2626)
             : scheme.destructive;
 
         return BoxDecoration(
-          color: states.contains(material.WidgetState.hovered)
+          color: states.contains(WidgetState.hovered)
               ? const Color(0xFFB91C1C)
               : color,
           borderRadius: BorderRadius.circular(theme.radiusMd),
@@ -385,7 +372,7 @@ class _StatusPill extends StatelessWidget {
     return _Badge(
       text: text,
       background: warn ? scheme.destructive : scheme.primary,
-      foreground: warn ? material.Colors.white : scheme.primaryForeground,
+      foreground: warn ? Colors.white : scheme.primaryForeground,
     );
   }
 }

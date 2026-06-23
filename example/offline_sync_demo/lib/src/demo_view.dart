@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -108,14 +107,16 @@ class _Toolbar extends StatelessWidget {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  material.Icon(material.Icons.refresh, size: 16),
+                  Icon(Icons.refresh, size: 16),
                   Gap(6),
                   Text('Refresh'),
                 ],
               ),
             ),
-            material.Tooltip(
-              message: 'Wipe both replicas and the server scope at once',
+            Tooltip(
+              tooltip: (context) => const TooltipContainer(
+                child: Text('Wipe both replicas and the server scope at once'),
+              ),
               child: OutlineButton(
                 onPressed: controller.anyBusy
                     ? null
@@ -123,10 +124,7 @@ class _Toolbar extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    material.Icon(
-                      material.Icons.delete_sweep_outlined,
-                      size: 16,
-                    ),
+                    Icon(Icons.delete_sweep_outlined, size: 16),
                     Gap(6),
                     Text('Reset all'),
                   ],
@@ -149,7 +147,7 @@ class _ReplicaIsolationInfoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton.ghost(
-      icon: const material.Icon(material.Icons.info_outline, size: 18),
+      icon: const Icon(Icons.info_outline, size: 18),
       onPressed: () {
         showPopover(
           context: context,
@@ -187,13 +185,13 @@ class _ScenarioRail extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const material.Icon(material.Icons.list_alt, size: 16),
+                  const Icon(Icons.list_alt, size: 16),
                   const Gap(6),
                   const Text('Scenarios').semiBold(),
                   const Spacer(),
                   if (active != null)
                     IconButton.ghost(
-                      icon: const material.Icon(material.Icons.close, size: 16),
+                      icon: const Icon(Icons.close, size: 16),
                       onPressed: controller.stopScenario,
                     ),
                 ],
@@ -242,10 +240,7 @@ class _ScenarioList extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const material.Icon(
-                    material.Icons.play_circle_outline,
-                    size: 18,
-                  ),
+                  const Icon(Icons.play_circle_outline, size: 18),
                   const Gap(8),
                   Expanded(
                     child: Column(
@@ -291,12 +286,12 @@ class _ScenarioSteps extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                material.Icon(
+                Icon(
                   i < current
-                      ? material.Icons.check_circle
+                      ? Icons.check_circle
                       : i == current
-                      ? material.Icons.radio_button_checked
-                      : material.Icons.radio_button_unchecked,
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
                   size: 16,
                   color: i < current
                       ? scheme.primary
@@ -309,16 +304,16 @@ class _ScenarioSteps extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      material.Text(
+                      Text(
                         steps[i].label,
-                        style: material.TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           color: i == current
                               ? scheme.foreground
                               : scheme.mutedForeground,
                           fontWeight: i == current
-                              ? material.FontWeight.w500
-                              : material.FontWeight.normal,
+                              ? FontWeight.w500
+                              : FontWeight.normal,
                         ),
                       ),
                       if (steps[i].replica != null)
@@ -343,7 +338,7 @@ class _ScenarioSteps extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const material.Icon(material.Icons.play_arrow, size: 16),
+                const Icon(Icons.play_arrow, size: 16),
                 const Gap(4),
                 Text('Run step ${current + 1}'),
               ],
@@ -384,10 +379,8 @@ class _ReplicaPanel extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  material.Icon(
-                    slot == ReplicaSlot.a
-                        ? material.Icons.computer
-                        : material.Icons.laptop,
+                  Icon(
+                    slot == ReplicaSlot.a ? Icons.computer : Icons.laptop,
                     size: 16,
                   ),
                   const Gap(6),
@@ -425,7 +418,7 @@ class _ReplicaPanel extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        material.Icon(material.Icons.sync, size: 14),
+                        Icon(Icons.sync, size: 14),
                         Gap(4),
                         Text('Sync'),
                       ],
@@ -447,13 +440,12 @@ class _ReplicaPanel extends StatelessWidget {
                     trailing: const Text('Stream'),
                   ),
                   const Gap(4),
-                  material.Tooltip(
-                    message: 'Reset ${slot.label}: wipe local database',
+                  Tooltip(
+                    tooltip: (context) => TooltipContainer(
+                      child: Text('Reset ${slot.label}: wipe local database'),
+                    ),
                     child: IconButton.ghost(
-                      icon: const material.Icon(
-                        material.Icons.delete_outline,
-                        size: 16,
-                      ),
+                      icon: const Icon(Icons.delete_outline, size: 16),
                       onPressed: canUseReplica
                           ? () => unawaited(controller.resetReplica(slot))
                           : null,
@@ -465,18 +457,18 @@ class _ReplicaPanel extends StatelessWidget {
                 const Gap(6),
                 Row(
                   children: [
-                    material.Icon(
-                      material.Icons.error_outline,
+                    Icon(
+                      Icons.error_outline,
                       size: 12,
                       color: scheme.destructive,
                     ),
                     const Gap(4),
                     Expanded(
-                      child: material.Text(
+                      child: Text(
                         state.error!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: material.TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: scheme.destructive,
                         ),
@@ -533,11 +525,7 @@ class _NewRowButton extends StatelessWidget {
       onPressed: enabled ? () => _open(context) : null,
       child: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          material.Icon(material.Icons.add, size: 14),
-          Gap(4),
-          Text('Add data'),
-        ],
+        children: [Icon(Icons.add, size: 14), Gap(4), Text('Add data')],
       ),
     );
   }
@@ -548,26 +536,23 @@ class _NewRowButton extends StatelessWidget {
       builder: (context) => DropdownMenu(
         children: [
           MenuButton(
-            leading: const material.Icon(material.Icons.account_tree, size: 16),
+            leading: const Icon(Icons.account_tree, size: 16),
             onPressed: (_) => unawaited(controller.seedBasicGraph(slot)),
             child: const Text('Seed city/person/address/town'),
           ),
           MenuButton(
-            leading: const material.Icon(material.Icons.data_object, size: 16),
+            leading: const Icon(Icons.data_object, size: 16),
             onPressed: (_) => unawaited(controller.seedTypedRow(slot)),
             child: const Text('Seed typed row'),
           ),
           MenuButton(
-            leading: const material.Icon(material.Icons.hub, size: 16),
+            leading: const Icon(Icons.hub, size: 16),
             onPressed: (_) => unawaited(controller.seedForeignKeyChain(slot)),
             child: const Text('Seed FK chain'),
           ),
           for (final table in controller.catalog.creatableRootTables)
             MenuButton(
-              leading: material.Icon(
-                iconForTable(table, hidden: false),
-                size: 16,
-              ),
+              leading: Icon(iconForTable(table, hidden: false), size: 16),
               onPressed: (_) => unawaited(controller.createRoot(slot, table)),
               child: Text(tableLabel(table)),
             ),
@@ -599,7 +584,7 @@ class _ServerPanel extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const material.Icon(material.Icons.dns, size: 16),
+                  const Icon(Icons.dns, size: 16),
                   const Gap(6),
                   const Text('Server').semiBold(),
                   const Gap(8),
@@ -627,26 +612,24 @@ class _ServerPanel extends StatelessWidget {
                     enabled: controller.online && !serverBusy,
                   ),
                   const Gap(4),
-                  material.Tooltip(
-                    message: 'Reset server scope: clear all rows',
+                  Tooltip(
+                    tooltip: (context) => const TooltipContainer(
+                      child: Text('Reset server scope: clear all rows'),
+                    ),
                     child: IconButton.ghost(
-                      icon: const material.Icon(
-                        material.Icons.delete_outline,
-                        size: 16,
-                      ),
+                      icon: const Icon(Icons.delete_outline, size: 16),
                       onPressed: (!controller.online || serverBusy)
                           ? null
                           : () => unawaited(controller.resetServer()),
                     ),
                   ),
                   const Gap(4),
-                  material.Tooltip(
-                    message: 'Refresh server state',
+                  Tooltip(
+                    tooltip: (context) => const TooltipContainer(
+                      child: Text('Refresh server state'),
+                    ),
                     child: IconButton.ghost(
-                      icon: const material.Icon(
-                        material.Icons.refresh,
-                        size: 16,
-                      ),
+                      icon: const Icon(Icons.refresh, size: 16),
                       onPressed: (!controller.online || serverBusy)
                           ? null
                           : () => unawaited(controller.refreshServer()),
@@ -692,10 +675,11 @@ class _ServerSeedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return material.Tooltip(
-      message: 'Seed the server scope directly',
+    return Tooltip(
+      tooltip: (context) =>
+          const TooltipContainer(child: Text('Seed the server scope directly')),
       child: IconButton.ghost(
-        icon: const material.Icon(material.Icons.add, size: 16),
+        icon: const Icon(Icons.add, size: 16),
         onPressed: enabled ? () => _open(context) : null,
       ),
     );
@@ -707,17 +691,17 @@ class _ServerSeedButton extends StatelessWidget {
       builder: (context) => DropdownMenu(
         children: [
           MenuButton(
-            leading: const material.Icon(material.Icons.account_tree, size: 16),
+            leading: const Icon(Icons.account_tree, size: 16),
             onPressed: (_) => unawaited(controller.seedServer('basicGraph')),
             child: const Text('Seed graph'),
           ),
           MenuButton(
-            leading: const material.Icon(material.Icons.data_object, size: 16),
+            leading: const Icon(Icons.data_object, size: 16),
             onPressed: (_) => unawaited(controller.seedServer('typedRow')),
             child: const Text('Seed typed row'),
           ),
           MenuButton(
-            leading: const material.Icon(material.Icons.hub, size: 16),
+            leading: const Icon(Icons.hub, size: 16),
             onPressed: (_) => unawaited(controller.seedServer('fkChain')),
             child: const Text('Seed FK chain'),
           ),
@@ -752,18 +736,18 @@ class _Badge extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: material.Text(
+      child: Text(
         text,
-        style: material.TextStyle(
-          color: foreground,
-          fontSize: compact ? 10 : 11,
-        ),
+        style: TextStyle(color: foreground, fontSize: compact ? 10 : 11),
       ),
     );
     final message = tooltip;
     return message == null
         ? badge
-        : material.Tooltip(message: message, child: badge);
+        : Tooltip(
+            tooltip: (context) => TooltipContainer(child: Text(message)),
+            child: badge,
+          );
   }
 }
 
@@ -791,7 +775,7 @@ class _ServerBadge extends StatelessWidget {
     } else if (state.error != null) {
       label = 'error';
       bg = scheme.destructive;
-      fg = material.Colors.white;
+      fg = Colors.white;
     } else {
       label = state.lastFetchedLabel ?? 'idle';
       bg = scheme.muted;
@@ -826,7 +810,7 @@ class _SyncBadge extends StatelessWidget {
         ? scheme.primary
         : scheme.muted;
     final fg = failed
-        ? material.Colors.white
+        ? Colors.white
         : active
         ? scheme.primaryForeground
         : scheme.mutedForeground;
@@ -986,20 +970,18 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
     final interactive = selectable || expandable;
     final showActions = widget.actions != null && ref != null && !item.metadata;
 
-    return material.MouseRegion(
-      cursor: interactive
-          ? material.SystemMouseCursors.click
-          : material.SystemMouseCursors.basic,
+    return MouseRegion(
+      cursor: interactive ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
         decoration: BoxDecoration(
-          color: _hovered ? scheme.muted : material.Colors.transparent,
+          color: _hovered ? scheme.muted : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
         child: TreeItemView(
           focusNode: _focusNode,
-          leading: material.Icon(
+          leading: Icon(
             item.icon,
             size: 14,
             color: item.hidden ? scheme.mutedForeground : null,
@@ -1012,21 +994,19 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
           child: Row(
             children: [
               Flexible(
-                child: material.Text(
+                child: Text(
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: material.TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: item.metadata
-                        ? material.FontWeight.normal
-                        : material.FontWeight.w500,
+                        ? FontWeight.normal
+                        : FontWeight.w500,
                     color: item.hidden
                         ? scheme.mutedForeground
                         : scheme.foreground,
-                    decoration: item.hidden
-                        ? material.TextDecoration.lineThrough
-                        : null,
+                    decoration: item.hidden ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
@@ -1034,11 +1014,11 @@ class _DemoTreeItemViewState extends State<_DemoTreeItemView> {
                 Flexible(
                   child: Padding(
                     padding: const EdgeInsets.only(left: 8),
-                    child: material.Text(
+                    child: Text(
                       item.detail!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: material.TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: scheme.mutedForeground,
                       ),
@@ -1095,8 +1075,8 @@ class _DanglingBadge extends StatelessWidget {
 
 (Color, Color) _actionColors(ColorScheme scheme, FkAction action) {
   return switch (action) {
-    FkAction.restrict => (scheme.destructive, material.Colors.white),
-    FkAction.cascade => (const Color(0xFFB45309), material.Colors.white),
+    FkAction.restrict => (scheme.destructive, Colors.white),
+    FkAction.cascade => (const Color(0xFFB45309), Colors.white),
     FkAction.setNull ||
     FkAction.setDefault => (scheme.primary, scheme.primaryForeground),
     FkAction.noAction => (scheme.muted, scheme.mutedForeground),
@@ -1121,13 +1101,13 @@ class _RowActionBar extends StatelessWidget {
       children: [
         if (children.isNotEmpty)
           _ActionIcon(
-            icon: material.Icons.add,
+            icon: Icons.add,
             tooltip: 'Attach a child',
             onTap: busy ? null : () => _openAddChild(context, children),
           ),
         if (parents.isNotEmpty)
           _ActionIcon(
-            icon: material.Icons.drive_file_move_outline,
+            icon: Icons.drive_file_move_outline,
             tooltip: 'Re-parent or detach',
             onTap: busy ? null : () => _openMove(context, parents),
           ),
@@ -1142,7 +1122,7 @@ class _RowActionBar extends StatelessWidget {
         children: [
           for (final relation in children)
             MenuButton(
-              leading: material.Icon(
+              leading: Icon(
                 iconForTable(relation.childTable, hidden: false),
                 size: 16,
               ),
@@ -1195,7 +1175,7 @@ class _RowActionBar extends StatelessWidget {
       builder: (context) => DropdownMenu(
         children: [
           MenuButton(
-            leading: const material.Icon(material.Icons.link_off, size: 16),
+            leading: const Icon(Icons.link_off, size: 16),
             onPressed: (_) => unawaited(
               controller.reParent(actions.slot, ref, relation.fkColumn, null),
             ),
@@ -1203,7 +1183,7 @@ class _RowActionBar extends StatelessWidget {
           ),
           for (final option in options)
             MenuButton(
-              leading: material.Icon(
+              leading: Icon(
                 iconForTable(relation.parentTable, hidden: !option.visible),
                 size: 16,
               ),
@@ -1230,7 +1210,7 @@ class _ActionIcon extends StatelessWidget {
     required this.onTap,
   });
 
-  final material.IconData icon;
+  final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
 
@@ -1240,18 +1220,18 @@ class _ActionIcon extends StatelessWidget {
     final color = onTap == null
         ? scheme.mutedForeground.withAlpha(110)
         : scheme.mutedForeground;
-    return material.Tooltip(
-      message: tooltip,
-      child: material.MouseRegion(
+    return Tooltip(
+      tooltip: (context) => TooltipContainer(child: Text(tooltip)),
+      child: MouseRegion(
         cursor: onTap == null
-            ? material.SystemMouseCursors.basic
-            : material.SystemMouseCursors.click,
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-            child: material.Icon(icon, size: 15, color: color),
+            child: Icon(icon, size: 15, color: color),
           ),
         ),
       ),
@@ -1290,10 +1270,7 @@ class _StatusBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            material.Icon(
-              controller.online ? material.Icons.wifi : material.Icons.wifi_off,
-              size: 18,
-            ),
+            Icon(controller.online ? Icons.wifi : Icons.wifi_off, size: 18),
             const Gap(8),
             Expanded(child: Text(controller.status)),
             if (controller.anyBusy)
@@ -1323,10 +1300,7 @@ class ThemeToggleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton.ghost(
-      icon: material.Icon(
-        isDark ? material.Icons.light_mode : material.Icons.dark_mode,
-        size: 18,
-      ),
+      icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode, size: 18),
       onPressed: onToggle,
     );
   }
@@ -1353,7 +1327,7 @@ class UserAvatarMenu extends StatelessWidget {
               const Gap(8),
               Text(user?.username ?? 'no user'),
               const Gap(2),
-              const material.Icon(material.Icons.arrow_drop_down, size: 18),
+              const Icon(Icons.arrow_drop_down, size: 18),
             ],
           ),
         );
@@ -1373,7 +1347,7 @@ class UserAvatarMenu extends StatelessWidget {
               child: Text(user.username),
             ),
           MenuButton(
-            leading: const material.Icon(material.Icons.person_add, size: 16),
+            leading: const Icon(Icons.person_add, size: 16),
             onPressed: (_) =>
                 unawaited(showCreateUserSheet(context, controller)),
             child: const Text('Create user…'),

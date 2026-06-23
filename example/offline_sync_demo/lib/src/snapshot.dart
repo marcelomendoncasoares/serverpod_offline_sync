@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart' as material;
 import 'package:serverpod_database/serverpod_database.dart' as db show TableRow;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as offline;
@@ -39,7 +38,7 @@ class DemoTreeItem {
     return DemoTreeItem._(
       title: title,
       detail: detail,
-      icon: material.Icons.folder_open,
+      icon: Icons.folder_open,
     );
   }
 
@@ -66,14 +65,14 @@ class DemoTreeItem {
     return DemoTreeItem._(
       title: title,
       detail: detail,
-      icon: material.Icons.info_outline,
+      icon: Icons.info_outline,
       metadata: true,
     );
   }
 
   final String title;
   final String? detail;
-  final material.IconData icon;
+  final IconData icon;
   final DemoRowRef? ref;
 
   /// The foreign-key edge that attaches this node to its parent (null for roots
@@ -312,19 +311,19 @@ String relationLabel(String fkColumn) {
 String tableLabel(String table) => table.replaceAll('_', ' ');
 
 /// A small icon per table family, falling back to a generic row icon.
-material.IconData iconForTable(String table, {required bool hidden}) {
-  if (hidden) return material.Icons.visibility_off;
+IconData iconForTable(String table, {required bool hidden}) {
+  if (hidden) return Icons.visibility_off;
   return switch (table) {
-    'person' => material.Icons.person,
-    'address' => material.Icons.home,
-    'city' => material.Icons.location_city,
-    'town' => material.Icons.map,
-    'organization' => material.Icons.apartment,
-    'company' => material.Icons.business,
-    'restrict_child' || 'required_set_null_child' => material.Icons.link,
-    'unique' || 'unique_uuid' || 'unique_composite' => material.Icons.key,
-    'types' => material.Icons.data_object,
-    _ when table.startsWith('fk_chain') => material.Icons.account_tree,
-    _ => material.Icons.table_rows,
+    'person' => Icons.person,
+    'address' => Icons.home,
+    'city' => Icons.location_city,
+    'town' => Icons.map,
+    'organization' => Icons.apartment,
+    'company' => Icons.business,
+    'restrict_child' || 'required_set_null_child' => Icons.link,
+    'unique' || 'unique_uuid' || 'unique_composite' => Icons.key,
+    'types' => Icons.data_object,
+    _ when table.startsWith('fk_chain') => Icons.account_tree,
+    _ => Icons.table_rows,
   };
 }
