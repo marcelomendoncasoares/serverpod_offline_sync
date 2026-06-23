@@ -182,6 +182,13 @@ class DemoSnapshot {
   int get visibleRowCount => rows.where((r) => r.visible).length;
   int get hiddenRowCount => rows.where((r) => !r.visible).length;
 
+  /// Stable ordering for tree siblings: table name, then id.
+  int _compareRows(RowView a, RowView b) {
+    final byTable = a.table.compareTo(b.table);
+    if (byTable != 0) return byTable;
+    return a.id.uuid.compareTo(b.id.uuid);
+  }
+
   /// Builds the FK forest for this snapshot. When [showHidden] is false only
   /// visible rows are shown; otherwise hidden rows are included and flagged.
   DemoProjection project({required bool showHidden}) {
@@ -225,8 +232,11 @@ class DemoSnapshot {
 
     TreeNode<DemoTreeItem> nodeFor(RowView row, Set<String> seen) {
       seen.add(row.id.uuid);
+      final childRows = List<RowView>.of(
+        childrenOf[row.id.uuid] ?? const <RowView>[],
+      )..sort(_compareRows);
       final children = [
-        for (final child in childrenOf[row.id.uuid] ?? const <RowView>[])
+        for (final child in childRows)
           if (!seen.contains(child.id.uuid)) nodeFor(child, seen),
       ];
       final relation = edgeOf[row.id.uuid];
@@ -246,6 +256,8 @@ class DemoSnapshot {
         children: children,
       );
     }
+
+    roots.sort(_compareRows);
 
     final seen = <String>{};
     final forest = [for (final root in roots) nodeFor(root, seen)];
