@@ -145,6 +145,7 @@ final Map<String, TableOps> demoTableOps = {
           Organization(id: id, name: label, cityId: foreignKeys['cityId']),
     ),
     _ops<Company>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) =>
           Company(id: id, name: label, townId: foreignKeys['townId']),
     ),
