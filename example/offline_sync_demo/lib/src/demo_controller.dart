@@ -584,6 +584,51 @@ class DemoController extends ChangeNotifier {
     return ok ? DemoRowRef(tableName: table, id: id) : null;
   }
 
+  /// Restores a soft-deleted row by inserting it again with the same id.
+  Future<DemoRowRef?> reinsertRow(DemoRowRef ref, ReplicaSlot slot) async {
+    final ops = demoTableOps[ref.tableName];
+    final session = replicas[slot]!.session;
+    if (ops == null || session == null) return null;
+
+    final ok = await _runReplica(
+      slot,
+      'Reinserted ${ref.tableName} on ${slot.label}.',
+      () async {
+        final crdt = session.crdtSession;
+        final hidden = await _findHiddenRow(ops, crdt, ref.id);
+        if (hidden == null) return;
+        await ops.insertRow(crdt, hidden);
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
+    return ok ? ref : null;
+  }
+
+  /// Applies [fields] to a visible row on [slot].
+  Future<void> updateRowFields(
+    DemoRowRef ref,
+    ReplicaSlot slot,
+    Map<String, dynamic> fields,
+  ) async {
+    final ops = demoTableOps[ref.tableName];
+    final session = replicas[slot]!.session;
+    if (ops == null || session == null) return;
+
+    await _runReplica(
+      slot,
+      'Updated ${ref.tableName} on ${slot.label}.',
+      () async {
+        final crdt = session.crdtSession;
+        final row = await ops.findById(crdt, ref.id);
+        if (row == null) return;
+        await ops.updateFields(crdt, row, fields);
+        await _refreshReplica(slot, notify: false);
+        replicas[slot]!.changed();
+      },
+    );
+  }
+
   // --- Seeds (quick-starts, used by menus and scenarios) ------------------
 
   Future<void> seedBasicGraph(ReplicaSlot slot) {
@@ -693,6 +738,33 @@ class DemoController extends ChangeNotifier {
   /// Inserts a Unique row with a fixed [name] (for concurrent-insert conflicts).
   Future<DemoRowRef?> createUnique(ReplicaSlot slot, String name) {
     return createRoot(slot, 'unique', label: name);
+  }
+
+  /// Inserts a Town, optionally with a fixed [id] (used for SetDefault targets).
+  Future<DemoRowRef?> createTown(
+    ReplicaSlot slot, {
+    protocol.UuidValue? id,
+    String? label,
+  }) async {
+    final row = protocol.Town(
+      id: id ?? newId(),
+      name: label ?? 'Town ${_counter.next('town')}',
+    );
+    return _insertRow(slot, row, 'Created town on ${slot.label}.');
+  }
+
+  /// Inserts a Company referencing [town].
+  Future<DemoRowRef?> createCompanyForTown(
+    ReplicaSlot slot,
+    DemoRowRef town, {
+    String? label,
+  }) async {
+    final row = protocol.Company(
+      id: newId(),
+      name: label ?? 'Company ${_counter.next('company')}',
+      townId: town.id,
+    );
+    return _insertRow(slot, row, 'Created company on ${slot.label}.');
   }
 
   Future<void> _seedLocal(
