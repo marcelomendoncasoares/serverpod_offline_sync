@@ -331,18 +331,47 @@ class _ScenarioSteps extends StatelessWidget {
             child: const Text('Done'),
           )
         else
-          PrimaryButton(
-            onPressed: controller.anyBusy
-                ? null
-                : () => unawaited(controller.runNextScenarioStep()),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.play_arrow, size: 16),
-                const Gap(4),
-                Text('Run step ${current + 1}'),
-              ],
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  onPressed:
+                      controller.anyBusy || controller.scenarioAutoPlaying
+                      ? null
+                      : () => unawaited(controller.runNextScenarioStep()),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.play_arrow, size: 16),
+                      const Gap(4),
+                      Text('Run step ${current + 1}'),
+                    ],
+                  ),
+                ),
+              ),
+              const Gap(8),
+              Tooltip(
+                tooltip: (context) => TooltipContainer(
+                  child: Text(
+                    controller.scenarioAutoPlaying
+                        ? 'Pause auto-play'
+                        : 'Auto-play steps (1.0s apart)',
+                  ),
+                ),
+                child: OutlineButton(
+                  onPressed:
+                      controller.anyBusy && !controller.scenarioAutoPlaying
+                      ? null
+                      : controller.toggleScenarioAutoPlay,
+                  child: Icon(
+                    controller.scenarioAutoPlaying
+                        ? Icons.pause
+                        : Icons.play_arrow,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ],
           ),
       ],
     );

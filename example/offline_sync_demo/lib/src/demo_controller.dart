@@ -128,6 +128,10 @@ class DemoController extends ChangeNotifier {
   Scenario? activeScenario;
   List<ScenarioStep> _activeSteps = const [];
   int scenarioStepIndex = 0;
+  bool scenarioAutoPlaying = false;
+  Timer? _scenarioAutoPlayTimer;
+
+  static const _scenarioAutoPlayDelay = Duration(milliseconds: 500);
 
   bool get anyBusy =>
       busy || server.busy || replicas.values.any((state) => state.busy);
@@ -186,6 +190,7 @@ class DemoController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    stopScenarioAutoPlay();
     unawaited(_stopAllStreams());
     for (final replica in _sessions.values) {
       unawaited(replica.close());
@@ -803,6 +808,7 @@ class DemoController extends ChangeNotifier {
   List<ScenarioStep> get activeSteps => _activeSteps;
 
   void startScenario(Scenario scenario) {
+    stopScenarioAutoPlay();
     activeScenario = scenario;
     _activeSteps = scenario.build(this);
     scenarioStepIndex = 0;
@@ -812,6 +818,7 @@ class DemoController extends ChangeNotifier {
 
   void stopScenario() {
     if (activeScenario == null) return;
+    stopScenarioAutoPlay();
     activeScenario = null;
     _activeSteps = const [];
     scenarioStepIndex = 0;
@@ -821,6 +828,63 @@ class DemoController extends ChangeNotifier {
   bool get scenarioComplete =>
       activeScenario != null && scenarioStepIndex >= _activeSteps.length;
 
+  void toggleScenarioAutoPlay() {
+    if (scenarioAutoPlaying) {
+      stopScenarioAutoPlay();
+    } else {
+      startScenarioAutoPlay();
+    }
+  }
+
+  void startScenarioAutoPlay() {
+    if (activeScenario == null || scenarioComplete || scenarioAutoPlaying) {
+      return;
+    }
+    scenarioAutoPlaying = true;
+    notifyListeners();
+    _kickScenarioAutoPlay();
+  }
+
+  void stopScenarioAutoPlay() {
+    if (!scenarioAutoPlaying && _scenarioAutoPlayTimer == null) return;
+    scenarioAutoPlaying = false;
+    _scenarioAutoPlayTimer?.cancel();
+    _scenarioAutoPlayTimer = null;
+    notifyListeners();
+  }
+
+  void _kickScenarioAutoPlay() {
+    if (!scenarioAutoPlaying || scenarioComplete || activeScenario == null) {
+      return;
+    }
+    if (anyBusy) {
+      _scheduleScenarioAutoPlayStep(delay: const Duration(milliseconds: 100));
+      return;
+    }
+    unawaited(_runScenarioAutoPlayStep());
+  }
+
+  void _scheduleScenarioAutoPlayStep({
+    Duration delay = _scenarioAutoPlayDelay,
+  }) {
+    _scenarioAutoPlayTimer?.cancel();
+    if (!scenarioAutoPlaying || scenarioComplete || activeScenario == null) {
+      return;
+    }
+    _scenarioAutoPlayTimer = Timer(delay, _kickScenarioAutoPlay);
+  }
+
+  Future<void> _runScenarioAutoPlayStep() async {
+    if (!scenarioAutoPlaying || scenarioComplete || activeScenario == null) {
+      return;
+    }
+    if (anyBusy) {
+      _scheduleScenarioAutoPlayStep(delay: const Duration(milliseconds: 100));
+      return;
+    }
+    await runNextScenarioStep();
+  }
+
   Future<void> runNextScenarioStep() async {
     if (activeScenario == null) return;
     if (scenarioStepIndex >= _activeSteps.length) return;
@@ -829,6 +893,9 @@ class DemoController extends ChangeNotifier {
     scenarioStepIndex++;
     if (scenarioStepIndex >= _activeSteps.length) {
       status = 'Scenario "${activeScenario!.title}" complete.';
+      stopScenarioAutoPlay();
+    } else if (scenarioAutoPlaying) {
+      _scheduleScenarioAutoPlayStep();
     }
     notifyListeners();
   }
