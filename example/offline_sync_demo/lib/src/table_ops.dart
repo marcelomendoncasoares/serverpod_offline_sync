@@ -183,6 +183,7 @@ final Map<String, TableOps> demoTableOps = {
       create: (id, label, foreignKeys) => FkChainRoot(id: id, name: label),
     ),
     _ops<FkChainCascadeMiddle>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainCascadeMiddle(
         id: id,
         name: label,
@@ -190,6 +191,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainRestrictBlocker>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainRestrictBlocker(
         id: id,
         name: label,
@@ -197,6 +199,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainMiddleSetNullChild>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainMiddleSetNullChild(
         id: id,
         name: label,
@@ -204,6 +207,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainMiddleCascadeChild>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainMiddleCascadeChild(
         id: id,
         name: label,
@@ -211,6 +215,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainSetNullMiddle>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainSetNullMiddle(
         id: id,
         name: label,
@@ -218,6 +223,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainSetNullCascadeChild>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainSetNullCascadeChild(
         id: id,
         name: label,
@@ -225,6 +231,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainSetNullRestrictChild>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainSetNullRestrictChild(
         id: id,
         name: label,
@@ -232,6 +239,7 @@ final Map<String, TableOps> demoTableOps = {
       ),
     ),
     _ops<FkChainSetNullSetNullChild>(
+      canCreateRoot: false,
       create: (id, label, foreignKeys) => FkChainSetNullSetNullChild(
         id: id,
         name: label,
