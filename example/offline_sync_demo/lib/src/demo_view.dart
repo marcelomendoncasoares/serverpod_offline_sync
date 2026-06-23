@@ -431,7 +431,7 @@ class _ReplicaPanel extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Gap(8),
+                  const Gap(12),
                   Checkbox(
                     state: state.streaming
                         ? CheckboxState.checked
@@ -536,7 +536,7 @@ class _NewRowButton extends StatelessWidget {
         children: [
           material.Icon(material.Icons.add, size: 14),
           Gap(4),
-          Text('New row'),
+          Text('Add data'),
         ],
       ),
     );
