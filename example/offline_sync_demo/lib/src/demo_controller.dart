@@ -12,6 +12,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
     as protocol;
 
 import 'models.dart';
+import 'offline_replica.dart';
 import 'relationships.dart';
 import 'snapshot.dart';
 import 'table_ops.dart';
@@ -45,7 +46,7 @@ class ReplicaState extends ChangeNotifier {
   ReplicaState(this.slot);
 
   final ReplicaSlot slot;
-  ReplicaSession? session;
+  OfflineReplica? session;
   DemoSnapshot? snapshot;
   DemoProjection projection = DemoProjection.empty();
   SyncPhase phase = SyncPhase.idle;
@@ -107,7 +108,7 @@ class DemoController extends ChangeNotifier {
     ReplicaSlot.b: ReplicaState(ReplicaSlot.b),
   };
   final server = ServerPanelState();
-  final _sessions = <String, ReplicaSession>{};
+  final _sessions = <String, OfflineReplica>{};
   final _counter = ScenarioCounter();
 
   protocol.Client? _client;
@@ -186,8 +187,8 @@ class DemoController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     unawaited(_stopAllStreams());
-    for (final session in _sessions.values) {
-      unawaited(session.rawSession.close());
+    for (final replica in _sessions.values) {
+      unawaited(replica.close());
     }
     for (final state in replicas.values) {
       state.dispose();
@@ -278,8 +279,8 @@ class DemoController extends ChangeNotifier {
       state.error = null;
       state.changed();
       try {
-        await client.crdt.syncOnce(
-          session.crdtSession,
+        await session.syncOnce(
+          client,
           onMergeSuccess: (hlc) => _handleReplicaMerge(slot, hlc),
         );
         state.phase = SyncPhase.idle;
@@ -304,8 +305,8 @@ class DemoController extends ChangeNotifier {
         slot,
         'Streaming ${slot.label} with the server.',
         () async {
-          final stream = client.crdt.syncContinuously(
-            session.crdtSession,
+          final stream = session.syncContinuously(
+            client,
             onMergeSuccess: (hlc) => unawaited(_handleReplicaMerge(slot, hlc)),
           );
           state.stream = stream;
@@ -430,7 +431,7 @@ class DemoController extends ChangeNotifier {
       // Reading the view must never turn a successful sync/seed into a reported
       // failure. Surface the error in the panel and keep the last projection.
       try {
-        final snapshot = await DemoSnapshot.load(catalog, session.crdtSession);
+        final snapshot = await DemoSnapshot.load(catalog, session.session);
         state.snapshot = snapshot;
         state.projection = snapshot.project(showHidden: showHidden);
         state.error = null;
@@ -450,15 +451,10 @@ class DemoController extends ChangeNotifier {
   /// Wipes one replica's local database (a fresh device). Syncing afterwards
   /// re-pulls whatever the server still holds.
   Future<void> resetReplica(ReplicaSlot slot) async {
-    final user = selectedUser;
-    if (user == null) return;
-
     await _runReplica(
       slot,
       'Reset ${slot.label} (wiped local database).',
-      () async {
-        await _resetReplicaStorage(user, slot);
-      },
+      () => _resetReplicaStorage(slot),
     );
   }
 
@@ -553,7 +549,7 @@ class DemoController extends ChangeNotifier {
       slot,
       '$verb ${ref.tableName} on ${slot.label}.',
       () async {
-        final crdt = session.crdtSession;
+        final crdt = session.session;
         final row =
             await ops.findById(crdt, ref.id) ??
             await _findHiddenRow(ops, crdt, ref.id);
@@ -577,7 +573,7 @@ class DemoController extends ChangeNotifier {
     final id = row.id;
     if (id == null) return null;
     final ok = await _runReplica(slot, success, () async {
-      await ops.insertRow(session.crdtSession, row);
+      await ops.insertRow(session.session, row);
       await _refreshReplica(slot, notify: false);
       replicas[slot]!.changed();
     });
@@ -594,7 +590,7 @@ class DemoController extends ChangeNotifier {
       slot,
       'Reinserted ${ref.tableName} on ${slot.label}.',
       () async {
-        final crdt = session.crdtSession;
+        final crdt = session.session;
         final hidden = await _findHiddenRow(ops, crdt, ref.id);
         if (hidden == null) return;
         await ops.insertRow(crdt, hidden);
@@ -619,7 +615,7 @@ class DemoController extends ChangeNotifier {
       slot,
       'Updated ${ref.tableName} on ${slot.label}.',
       () async {
-        final crdt = session.crdtSession;
+        final crdt = session.session;
         final row = await ops.findById(crdt, ref.id);
         if (row == null) return;
         await ops.updateFields(crdt, row, fields);
@@ -638,11 +634,11 @@ class DemoController extends ChangeNotifier {
       (session) async {
         final suffix = _counter.next('basic');
         final city = await protocol.City.db.insertRow(
-          session.crdtSession,
+          session.session,
           protocol.City(id: newId(), name: 'City $suffix'),
         );
         final person = await protocol.Person.db.insertRow(
-          session.crdtSession,
+          session.session,
           protocol.Person(
             id: newId(),
             name: 'Person $suffix',
@@ -650,7 +646,7 @@ class DemoController extends ChangeNotifier {
           ),
         );
         await protocol.Address.db.insertRow(
-          session.crdtSession,
+          session.session,
           protocol.Address(
             id: newId(),
             street: 'Main Street $suffix',
@@ -658,7 +654,7 @@ class DemoController extends ChangeNotifier {
           ),
         );
         await protocol.Town.db.insertRow(
-          session.crdtSession,
+          session.session,
           protocol.Town(id: newId(), name: 'Town $suffix', cityId: city.id),
         );
       },
@@ -671,7 +667,7 @@ class DemoController extends ChangeNotifier {
     ) async {
       final suffix = _counter.next('types');
       await protocol.Types.db.insertRow(
-        session.crdtSession,
+        session.session,
         protocol.Types(
           id: newId(),
           aBool: suffix.isOdd,
@@ -697,11 +693,11 @@ class DemoController extends ChangeNotifier {
     ) async {
       final suffix = _counter.next('chain');
       final root = await protocol.FkChainRoot.db.insertRow(
-        session.crdtSession,
+        session.session,
         protocol.FkChainRoot(id: newId(), name: 'Root $suffix'),
       );
       final middle = await protocol.FkChainCascadeMiddle.db.insertRow(
-        session.crdtSession,
+        session.session,
         protocol.FkChainCascadeMiddle(
           id: newId(),
           name: 'Cascade middle $suffix',
@@ -709,7 +705,7 @@ class DemoController extends ChangeNotifier {
         ),
       );
       final blocker = await protocol.FkChainRestrictBlocker.db.insertRow(
-        session.crdtSession,
+        session.session,
         protocol.FkChainRestrictBlocker(
           id: newId(),
           name: 'Restrict blocker $suffix',
@@ -717,7 +713,7 @@ class DemoController extends ChangeNotifier {
         ),
       );
       await protocol.FkChainMiddleSetNullChild.db.insertRow(
-        session.crdtSession,
+        session.session,
         protocol.FkChainMiddleSetNullChild(
           id: newId(),
           name: 'Set-null child $suffix',
@@ -725,7 +721,7 @@ class DemoController extends ChangeNotifier {
         ),
       );
       await protocol.FkChainMiddleCascadeChild.db.insertRow(
-        session.crdtSession,
+        session.session,
         protocol.FkChainMiddleCascadeChild(
           id: newId(),
           name: 'Cascade child $suffix',
@@ -770,7 +766,7 @@ class DemoController extends ChangeNotifier {
   Future<void> _seedLocal(
     ReplicaSlot slot,
     String success,
-    Future<void> Function(ReplicaSession session) local,
+    Future<void> Function(OfflineReplica session) local,
   ) async {
     final session = replicas[slot]!.session;
     if (session == null) return;
@@ -860,9 +856,9 @@ class DemoController extends ChangeNotifier {
     final session = replicas[slot]!.session;
     if (ops == null || session == null) return null;
 
-    final visibleRow = await ops.findById(session.crdtSession, ref.id);
+    final visibleRow = await ops.findById(session.session, ref.id);
     final row =
-        visibleRow ?? await _findHiddenRow(ops, session.crdtSession, ref.id);
+        visibleRow ?? await _findHiddenRow(ops, session.session, ref.id);
     if (row == null) return null;
 
     final json = row.toJson() as Map<String, dynamic>;
@@ -891,7 +887,7 @@ class DemoController extends ChangeNotifier {
       slot,
       'Updated ${ref.tableName} on ${slot.label}.',
       () async {
-        final crdt = session.crdtSession;
+        final crdt = session.session;
         final row = await ops.findById(crdt, ref.id);
         if (row == null) return;
         final fields = _decodeEditedValues(ref.tableName, values);
@@ -911,7 +907,7 @@ class DemoController extends ChangeNotifier {
       slot,
       'Deleted ${ref.tableName} on ${slot.label}.',
       () async {
-        await ops.deleteById(session.crdtSession, ref.id);
+        await ops.deleteById(session.session, ref.id);
         await _refreshReplica(slot, notify: false);
         replicas[slot]!.changed();
       },
@@ -927,7 +923,7 @@ class DemoController extends ChangeNotifier {
         .join(' ');
   }
 
-  Future<ReplicaSession> _openSession(DemoUser user, ReplicaSlot slot) async {
+  Future<OfflineReplica> _openSession(DemoUser user, ReplicaSlot slot) async {
     final key = _sessionKey(user, slot);
     final existing = _sessions[key];
     if (existing != null) {
@@ -935,28 +931,21 @@ class DemoController extends ChangeNotifier {
       return existing;
     }
 
+    // The demo chooses where each replica's database lives (one file per
+    // user+slot); opening and CRDT-wrapping it is OfflineReplica's job.
     final dir = await getApplicationSupportDirectory();
     final dbDir = Directory(p.join(dir.path, 'serverpod_offline_sync_demo'));
     if (!dbDir.existsSync()) {
       dbDir.createSync(recursive: true);
     }
-    final rawSession = await client.createSession(
-      p.join(dbDir.path, '${user.username}-${slot.name}.db'),
-      isDebugMode: kDebugMode,
-    );
-    final crdtSession = offline.CrdtDatabaseSession.wraps(
-      rawSession,
-      syncTables: demoSyncTables,
+    final replica = await OfflineReplica.open(
+      client: client,
+      databasePath: p.join(dbDir.path, '${user.username}-${slot.name}.db'),
       persistentUserId: user.authUserId,
     );
-    await crdtSession.db.initialize();
-    final session = ReplicaSession(
-      rawSession: rawSession,
-      crdtSession: crdtSession,
-    );
-    _sessions[key] = session;
-    replicas[slot]!.session = session;
-    return session;
+    _sessions[key] = replica;
+    replicas[slot]!.session = replica;
+    return replica;
   }
 
   Future<void> _openSessionsFor(DemoUser user) async {
@@ -1000,43 +989,12 @@ class DemoController extends ChangeNotifier {
     }
   }
 
-  /// Resets a replica to a fresh, empty state by deleting its local CRDT scope
-  /// row. Every synced table now cascades on `scopeId` → `crdt_scopes`, so the
-  /// domain rows and CRDT metadata go with it — no need to drop and recreate the
-  /// database file. A new scope/node is established lazily on the next write.
-  ///
-  /// The delete runs with `defer_foreign_keys` on: the scopeId cascade fans out
-  /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
-  /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
-  /// cascade off `crdt_scopes`), and SQLite's cascade order can transiently
-  /// violate those immediate checks. Deferring them to commit lets the whole
-  /// cascade complete first.
-  Future<void> _resetReplicaStorage(DemoUser user, ReplicaSlot slot) async {
+  /// Wipes a replica's local database (via [OfflineReplica.reset]) and resets
+  /// its sync phase. Syncing afterwards re-pulls whatever the server still
+  /// holds.
+  Future<void> _resetReplicaStorage(ReplicaSlot slot) async {
     await _stopReplicaStream(slot);
-
-    final session = replicas[slot]!.session;
-    if (session != null) {
-      final crdt = session.crdtSession;
-      final scope = await offline.CrdtScope.db.findFirstRow(
-        crdt,
-        where: (t) => t.uuidScopeId.equals(user.authUserId),
-      );
-      final scopeId = scope?.id;
-      if (scopeId != null) {
-        await crdt.db.transaction((transaction) async {
-          await crdt.db.unsafeExecute(
-            'PRAGMA defer_foreign_keys = ON',
-            transaction: transaction,
-          );
-          await offline.CrdtScope.db.deleteWhere(
-            crdt,
-            where: (t) => t.id.equals(scopeId),
-            transaction: transaction,
-          );
-        });
-      }
-      await crdt.db.initialize();
-    }
+    await replicas[slot]!.session?.reset();
 
     replicas[slot]!
       ..phase = online ? SyncPhase.idle : SyncPhase.offline

@@ -8,6 +8,13 @@ import 'models.dart';
 
 /// Generic, table-name keyed CRUD over the generated Serverpod models.
 ///
+/// This indirection exists **only** so the demo's metadata-driven UI can act on
+/// any of the synced tables without a per-type switch. A real integration does
+/// not need it: you call the generated model APIs directly against the CRDT
+/// session — e.g. `Person.db.insertRow(session, person)` or
+/// `session.db.find<Person>()` — exactly as the `seed*` methods in
+/// `DemoController` do. Read those for the plain, recommended form.
+///
 /// Database operations retain generated model instances. The only
 /// serialization boundary is [updateFields], where a generic UI edit has to be
 /// turned back into the concrete generated type; that conversion is delegated

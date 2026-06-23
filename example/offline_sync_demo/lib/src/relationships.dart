@@ -108,7 +108,7 @@ class RelationshipCatalog {
   List<Relationship> parentRelationshipsOf(String table) =>
       _outbound[table] ?? const [];
 
-  /// Tables listed in the "+ New row" menu, as declared by
+  /// Tables listed in the "Add data" menu, as declared by
   /// [demoTableOps.canCreateRoot].
   List<String> get creatableRootTables {
     final result = <String>[];

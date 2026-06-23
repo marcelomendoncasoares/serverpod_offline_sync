@@ -1,8 +1,4 @@
 import 'package:http/http.dart' as http;
-import 'package:serverpod_database/serverpod_database.dart'
-    show ClientDatabaseSession;
-import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
-    as offline;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
     as protocol;
 import 'package:uuid/uuid.dart' as uuid;
@@ -36,17 +32,6 @@ class DemoUser {
     if (trimmed.isEmpty) return '?';
     return trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
   }
-}
-
-/// A single local replica's database sessions.
-class ReplicaSession {
-  ReplicaSession({required this.rawSession, required this.crdtSession});
-
-  /// Owns the underlying SQLite connection and is closed with the controller.
-  final ClientDatabaseSession rawSession;
-
-  /// CRDT-aware session that only exposes visible rows.
-  final offline.CrdtDatabaseSession crdtSession;
 }
 
 /// Identifies a domain row by its demo table name and UUID.
