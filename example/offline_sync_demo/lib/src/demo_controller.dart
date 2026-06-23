@@ -114,7 +114,7 @@ class DemoController extends ChangeNotifier {
   DemoUser? selectedUser;
 
   bool online = true;
-  bool showHidden = false;
+  bool showHidden = true;
   bool busy = false;
 
   /// True until the first [initialize] finishes opening the local databases.
