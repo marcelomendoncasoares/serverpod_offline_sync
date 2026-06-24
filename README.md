@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-marcelomendoncasoares-181717.svg?style=flat&logo=github)](https://github.com/marcelomendoncasoares)
 [![Pub Package](https://img.shields.io/pub/v/serverpod_offline_sync.svg)](https://pub.dev/packages/serverpod_offline_sync)
 [![Dart SDK Version](https://badgen.net/pub/sdk-version/serverpod_offline_sync.svg)](https://pub.dev/packages/serverpod_offline_sync)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/marcelomendoncasoares/serverpod_offline_sync/blob/main/LICENSE)
+[![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD_3--Clause-yellow.svg)](https://github.com/marcelomendoncasoares/serverpod_offline_sync/blob/main/LICENSE)
 [![CI](https://github.com/marcelomendoncasoares/serverpod_offline_sync/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/marcelomendoncasoares/serverpod_offline_sync/actions/workflows/ci.yaml)
 
 A plugin to build offline-first applications with Serverpod. Develop your app
@@ -47,5 +47,5 @@ from the package authors, and more. -->
 
 ## License
 
-This package is distributed under the MIT License. See the LICENSE file for
-more information.
+This package is distributed under the BSD 3-Clause License. See the LICENSE
+file for more information.
