@@ -1,7 +1,8 @@
 # Row ownership and scope isolation
 
 Status: implemented.
-The *Future: shared scopes* section is direction, not commitment.
+Shared-scope behavior is implemented and specified in `shared-scopes.md`; this
+document records the ownership contract it builds on.
 
 ## Summary
 
@@ -20,9 +21,8 @@ This document makes ownership explicit. The core decisions:
 > never materialize or sync the same `(table, uuidRowId)`. Cross-scope UUID
 > reuse is a terminal ownership collision, not valid multi-tenant state. Sync
 > fails on that collision, records a durable violation, and does not advance
-> the sender past the rejected change. Sharing, when it arrives, will be
-> modeled as shared scopes that multiple identities subscribe to — never as
-> two scopes aliasing one row.
+> the sender past the rejected change. Sharing is modeled as shared scopes that
+> multiple identities subscribe to — never as two scopes aliasing one row.
 
 > **Every synced table declares `scopeId`, identically on server and
 > client.** The column is a hard requirement, never `scope=serverOnly`, so
@@ -129,9 +129,9 @@ enforces that the answer is unique, and the domain storage assumes it is.
 "Leave it up to users" is rejected explicitly: symptom 2 means the storage
 model cannot represent what multi-scope tracking promises, so allowing it is
 not granting flexibility — it is permitting silent cross-tenant data
-corruption. Applications that need shared data need shared *scopes* (see
-*Future: shared scopes*), which preserve the one-chain-per-row property that
-makes LWW merging coherent.
+corruption. Applications that need shared data use shared *scopes* (see
+`shared-scopes.md`), which preserve the one-chain-per-row property that makes
+LWW merging coherent.
 
 ## The `scopeId` column
 
@@ -476,8 +476,8 @@ actually key — scopes:
   `crdt_scopes` (`CrdtUser` → `CrdtScope`, `uuidUserId` → `uuidScopeId`),
   `crdt_data_rows.userId` → `scopeId` (matching the domain column),
   `userForTransaction`, the effective-user helpers, and the HLC manager
-  keys. Doing this now is what keeps the *Future: shared scopes* section a
-  pure addition instead of a rename project.
+  keys. Doing this now is what kept shared scopes a membership layer instead of
+  a rename project.
 - **Unscoped reads** remain supported as admin reads.
 
 Consequences for application code, stated as contract:
@@ -560,7 +560,7 @@ tested **once**, not per combination:
   `withServerpod` sync roundtrip proving the wiring end to end. These exist
   to prove deployment shapes compose, not to re-verify mechanisms.
 
-## Future: shared scopes
+## Shared scopes
 
 `crdt_scopes` is the entity everything is keyed by: sync, locking, HLC
 chains, and visibility. Sharing becomes an indirection in front of it, not a
@@ -575,9 +575,9 @@ change to row ownership:
   changes.
 
 This is the standard shape of sharing in local-first systems, and it is the
-reason the column and concept are named `scope` rather than `user`. The rest
-of this section sketches the direction in enough detail to keep today's
-decisions compatible with it; it is not committed design.
+reason the column and concept are named `scope` rather than `user`.
+Implementation details and current limits live in `shared-scopes.md`; the rest
+of this section summarizes why the ownership rules remain compatible.
 
 ### Users authenticate, scopes act
 
@@ -641,10 +641,10 @@ filter and RLS become two enforcements of one predicate.
 
 ### Sync and clients
 
-- A device syncs one chain per scope it holds: the sync session (or one
-  session per scope) enumerates the authenticated user's member scopes,
-  verified server-side against `crdt_scope_members` at the handshake; the
-  membership table itself is not synced.
+- A device syncs one chain per scope it holds: each sync call enumerates the
+  authenticated user's member scopes, verified server-side against
+  `crdt_scope_members` at the start of every sync cycle; the membership table
+  itself is not synced.
 - Every database is already sharing-capable schema-wise — the column is
   universal — so a sharing-enabled client simply holds several scopes' rows.
   One database file per scope remains a valid alternative layout.
@@ -729,11 +729,11 @@ not relitigated by accident:
    application with a pre-existing, semantically different `scopeId` column
    on a synced table has no escape hatch other than renaming its column.
    Acceptable for now; revisit if it bites real users.
-3. **Membership revocation semantics (sharing).** When a user loses
-   membership of a scope, the server stops streaming it at the next
-   handshake, but the device still holds the scope's data and may hold
-   unsynced local changes for it. Purge-vs-keep policy, and whether revoked
-   unsynced changes are surfaced or dropped, need their own design.
+3. **Membership revocation semantics (sharing).** When a user loses membership
+   of a scope, the server stops streaming it at the next sync cycle, but the
+   device still holds the scope's data and may hold unsynced local changes for
+   it. Purge-vs-keep policy, and whether revoked unsynced changes are surfaced
+   or dropped, need their own design.
 4. **Roles within a scope (sharing).** `crdt_scope_members.role` is sketched
    but undefined: read-only members would need write rejection at merge time
    (another fail-and-record case), and the interaction with offline-written

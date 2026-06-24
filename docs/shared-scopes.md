@@ -1,16 +1,15 @@
 # Shared scopes
 
-Status: planned. Implements the direction sketched in `row-ownership.md`
-§*Future: shared scopes* and depends on the row-ownership work (implemented).
-This document is the committed plan for that section; where the two disagree,
+Status: implemented. This records the shared-scope behavior built on top of
+the row-ownership work in `row-ownership.md`. Revocation cleanup and roles are
+still deferred follow-ups; where the ownership summary and this document differ,
 this one wins.
 
 ## Summary
 
 A user is an authentication identity; a scope is the unit of replication and
-ownership. Today every user has exactly one scope — their personal one — and a
-sync session is pinned to it. Shared scopes let one identity belong to its
-personal scope plus any number of shared scopes, and the load-bearing
+ownership. Each user has a personal scope and may also belong to any number of
+shared scopes. The load-bearing
 requirement is:
 
 > **A single `sync` call syncs every scope the authenticated user has access
@@ -18,9 +17,9 @@ requirement is:
 > continuous session keeps cycling forever. There is no separate stream or
 > separate call per scope.
 
-The row-ownership work already keys storage, locking, HLC chains, visibility,
-and ownership by **scope**, not user, so sharing is an indirection in front of
-`crdt_scopes`, not a re-architecture. The two new pieces are a server-side
+The row-ownership work keys storage, locking, HLC chains, visibility, and
+ownership by **scope**, not user, so sharing is an indirection in front of
+`crdt_scopes`, not a re-architecture. The implemented pieces are a server-side
 membership relation and a sync protocol that iterates scopes.
 
 > **Scopes are synced one at a time, sequentially.** Within a session the unit
@@ -34,8 +33,10 @@ membership relation and a sync protocol that iterates scopes.
 > scopes a session syncs is computed server-side from `crdt_scope_members` and
 > re-resolved at the start of every sync cycle, so access changes take effect
 > mid-session. The server dictates the set; the client adopts scopes it
-> announces and drops the ones it does not. The reconciliation is directional —
-> not a set operation toggled by a flag — and membership itself is never synced.
+> announces and stops cycling the ones it omits. The reconciliation is
+> directional — not a set operation toggled by a flag — and membership itself is
+> never synced. Local data cleanup for omitted scopes is a separate revocation
+> policy, not part of the sync loop.
 
 > **Row ownership is unchanged.** Every row still has exactly one owning
 > `scopeId`, `(table, uuidRowId)` stays globally identified, and every
@@ -118,11 +119,14 @@ topology, not the access list.
 `crdt_scope_members` is **server-only**. The client does not replicate it and
 does not need it to scope reads and writes:
 
-- The client's `crdt_scopes` rows already *are* its membership view. Every local
-  scope is one the server authorized — the personal scope plus shares the client
-  adopted from the server's announcements — and the per-cycle reconcile keeps it
-  current (adopt on grant, drop on revoke). So a membership-wide read filters
-  over the client's local scopes; it needs no `(scopeId, userUuid)` table.
+- The client's `crdt_scopes` rows are its local membership view. Local scopes
+  are the personal scope plus shares the client adopted from the server's
+  announcements. So a membership-wide read filters over the client's local
+  scopes; it needs no `(scopeId, userUuid)` table.
+- A revoke takes effect for sync as soon as the server omits the scope from a
+  cycle's `ScopeSet`: the client stops cycling it and discards in-memory
+  checkpoint state for it. The scope row and domain rows remain local until the
+  deferred revocation cleanup policy decides whether to purge or keep them.
 - Writes are bounded by the scopes the client holds (it cannot act in a scope it
   has no local row for) and are re-verified by the server on sync, which remains
   the security boundary. Client-side checks are early-failure UX, not the
@@ -245,8 +249,8 @@ conforms.** Each cycle:
   `crdt_scope_members`. It never reads the client's `ScopeSet` for authority
   (constraint 4); the client's list is informational.
 - **Client**: takes the server's `ScopeSet` as the set to cycle —
-  `getOrCreate` (`CrdtScopeManager`) any scope it lacks, drop any local scope the
-  server omitted — then `orderedScopes = sort(peer scopeIds)`.
+  `getOrCreate` (`CrdtScopeManager`) any scope it lacks, ignore any local scope
+  the server omitted for this cycle — then `orderedScopes = sort(peer scopeIds)`.
 
 This asymmetry is **not a boolean flag**. A flag invites the exact footgun of
 "both sides set it" (→ neither adopts → intersection → new shares lost) or
@@ -316,9 +320,10 @@ db.transactionForUser(userId, fn, scopeId: listId); // acts in a shared scope
 - Without `scopeId`, the scope resolves to the user's personal scope —
   `userId` itself by convention — which is exactly today's behavior.
 - With `scopeId`, the package asserts `membership(userId, scopeId)` before
-  acting. The pair reads as "authenticated as `userId`, acting in `scopeId`,
-  verified member". The caller remains responsible for `userId` being
-  authenticated, as today.
+  acting when a `CrdtScopeMembershipValidator` is configured. Server wrappers
+  should wire that validator to `CrdtScopeMembership.isMember`. A persistent
+  client without a validator may act in a locally held scope for offline UX, but
+  the server remains the security boundary and re-verifies on sync.
 - A transaction acts in **exactly one** scope (constraint 5). The write path —
   stamp-or-assert, the scoped `WHERE`, `scopeId` immutability — is unchanged
   beyond which scope is resolved.
@@ -328,12 +333,16 @@ db.transactionForUser(userId, fn, scopeId: listId); // acts in a shared scope
 A user-scoped read in a sharing world means "rows in any scope I am a member
 of". The single-scope resolver becomes a set:
 
-- `mergeWhereWithTombstone` currently isolates a scoped read with
-  `scopeId = <scope>` via a `CrdtScopeIdResolver` returning one `int?`.
-  Generalize it to `scopeId IN (<member scope ids>)`. The visibility probe is
-  already the row-keyed form for the multi-scope case, so sharing simplifies the
-  predicate matrix rather than growing it: reads differ only in their membership
-  filter (one scope, a user's scopes, or none for admin).
+- `mergeWhereWithTombstone` isolates scoped reads with `scopeId IN (<member
+  scope ids>)` through `CrdtScopeIdsResolver`. For writes, the resolver supplies
+  the single acting scope. For reads, server sessions can inject
+  `CrdtScopeMembershipResolver` (typically `CrdtScopeMembership.memberScopes`);
+  persistent clients use their local `crdt_scopes` rows; unscoped admin reads
+  still pass no scope filter.
+- The visibility probe is the row-keyed form for the multi-scope case, so
+  sharing simplifies the predicate matrix rather than growing it: reads differ
+  only in their membership filter (one scope, a user's scopes, or none for
+  admin).
 - This is the shape of a Postgres row-level-security policy
   (`scopeId IN (SELECT scopeId FROM crdt_scope_members WHERE userUuid = …)`); the
   package's application-level filter and RLS become two enforcements of one
@@ -351,16 +360,17 @@ applies with the transaction's resolved scope; the durable
 `crdt_sync_integrity_violations` contract is untouched. The merge, FK, and
 unique engines already key on the scope the merge runs in and need no changes.
 
-## Implementation plan
+## Implementation status
 
-Each phase lands independently green; later phases depend on earlier ones only
-where stated. Run tests with `--concurrency=1`.
+The implementation landed in independently green phases. Tests should continue
+to run with `--concurrency=1`.
 
-- **Phase 1 — membership foundation.** Add `crdt_scope_members`
-  (server-only, unsynced) and its migration. Add the server enumeration helper
+- **Phase 1 — membership foundation.** Implemented `crdt_scope_members`
+  (server-only, unsynced) and its migration. Added the server enumeration helper
   `memberScopes(userUuid)`. No behavior change yet: a personal-scope-only set
   reproduces today's single-scope sync exactly.
-- **Phase 2 — sequential multi-scope sync (the requirement).** Protocol model
+- **Phase 2 — sequential multi-scope sync (the requirement).** Implemented
+  protocol model
   changes (`Connect` minus `scopeIds`/`localNodeId`, new per-cycle
   `CrdtSyncScopeSet`, per-scope `SinceHlc`, `MergeChunk.uuidScopeId`) plus
   generate/migrate. Outer cycle loop in `CrdtSync.sync` with per-cycle
@@ -370,12 +380,14 @@ where stated. Run tests with `--concurrency=1`.
   membership resolver; the client driver supplies a follower that adopts the
   server's set. Scope-aware `onMergeSuccess`. A personal-scope-only device
   behaves identically to today.
-- **Phase 3 — transaction API.** `transactionForUser(userId, fn, {scopeId})`
-  with the membership assertion; one scope per transaction.
-- **Phase 4 — membership-wide reads.** Generalize the scoped read filter to
+- **Phase 3 — transaction API.** Implemented
+  `transactionForUser(userId, fn, {scopeId})` with the membership assertion;
+  one scope per transaction.
+- **Phase 4 — membership-wide reads.** Implemented the scoped read filter as
   `scopeId IN (…)` over the user's member scopes.
-- **Phase 5 — lifecycle and docs.** Client adoption of newly announced shares;
-  reconcile with the scope-purge semantics in `sync-non-sync-relations.md`.
+- **Phase 5 — lifecycle and docs.** Documented client adoption of newly
+  announced shares; reconcile with the scope-purge semantics in
+  `sync-non-sync-relations.md`.
   Revocation cleanup and roles are deferred (see *Follow-ups*).
 
 ## Test plan
