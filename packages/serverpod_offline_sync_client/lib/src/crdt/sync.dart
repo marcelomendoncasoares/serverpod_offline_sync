@@ -68,38 +68,6 @@ class CrdtSync {
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
 
-  static CrdtSync? _instance;
-
-  /// The singleton instance of [CrdtSync]. Throws a [StateError] if it is not
-  /// initialized.
-  static CrdtSync get instance =>
-      _instance ??
-      (throw StateError(
-        'The CrdtSync has not been initialized. Call pod.initializeCrdtSync(...) '
-        'during server startup to configure the CRDT sync.',
-      ));
-
-  /// Configures the shared singleton used by server endpoints.
-  ///
-  /// Use [syncBatchSize] to control the maximum number of merge changes carried
-  /// by each [CrdtSyncMergeChunk] stream event.
-  ///
-  /// The [continuousSyncInterval] controls how long a continuous sync session
-  /// waits after completing one sync round before checking for local changes.
-  static void initialize({
-    required List<Table> syncTables,
-    required DatabaseSerializationManager serializationManager,
-    int syncBatchSize = defaultSyncBatchSize,
-    Duration continuousSyncInterval = defaultContinuousSyncInterval,
-  }) {
-    _instance = CrdtSync(
-      syncTables: syncTables,
-      serializationManager: serializationManager,
-      syncBatchSize: syncBatchSize,
-      continuousSyncInterval: continuousSyncInterval,
-    );
-  }
-
   /// Wraps [database] in a CRDT-aware database using this sync context.
   CrdtDatabase wrapDatabase(Database database, {UuidValue? persistentUserId}) {
     if (database is CrdtDatabase) return database;
