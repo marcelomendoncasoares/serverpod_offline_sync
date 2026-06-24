@@ -266,17 +266,6 @@ class CrdtMutationRecorder {
   _CrdtSchema get _schema => _context._schemaSnapshot;
   Map<String, TableDefinition> get _tableDefinitionsByName =>
       _context._tableDefinitionsByName;
-  Map<String, List<_ReferencingForeignKey>> get _foreignKeysByReferencedTable =>
-      _context._foreignKeysByReferencedTable;
-  List<_ForeignKeyEdge> get _foreignKeyEdges => _context._foreignKeyEdges;
-  Map<String, List<_ForeignKeyEdge>> get _foreignKeyEdgesByParentTable =>
-      _context._foreignKeyEdgesByParentTable;
-  Map<String, List<_ForeignKeyEdge>> get _foreignKeyEdgesByChildTable =>
-      _context._foreignKeyEdgesByChildTable;
-  Map<String, List<_UniqueIndexConflictRelease>> get _uniqueIndexesByTableName =>
-      _context._uniqueIndexesByTableName;
-  Map<String, Map<String, ColumnDefinition>> get _columnsByTableAndName =>
-      _context._columnsByTableAndName;
 
   /// Initializes the CRDT recorder.
   ///
@@ -1039,7 +1028,7 @@ WHERE c."id" IN ($whereRowIds)
 
     final cascadeDeletes = <String, Set<UuidValue>>{};
     final foreignKeys =
-        _foreignKeysByReferencedTable[parentTableName] ??
+        _context._foreignKeysByReferencedTable[parentTableName] ??
         const <_ReferencingForeignKey>[];
     for (final reference in foreignKeys) {
       final parentValuesById = reference.parentColumn == 'id'
@@ -1084,7 +1073,7 @@ WHERE c."id" IN ($whereRowIds)
               transaction,
             );
           case ForeignKeyAction.setDefault:
-            final defaultValue = _defaultValueForColumn(
+            final defaultValue = _context._defaultValueForColumn(
               reference.childTableName,
               reference.childColumn,
             );
@@ -1169,7 +1158,7 @@ WHERE c."id" IN ($whereRowIds)
   List<_UniqueIndexConflictRelease> _uniqueIndexesForTable(
     TableDefinition tableDefinition,
   ) {
-    return _uniqueIndexesByTableName.putIfAbsent(
+    return _context._uniqueIndexesByTableName.putIfAbsent(
       tableDefinition.name,
       () => _syncableUniqueIndexesForTable(
         tableDefinition,
@@ -1294,10 +1283,6 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
             columnName: row[index + 1],
         },
     };
-  }
-
-  Object? _defaultValueForColumn(String tableName, String columnName) {
-    return _context._defaultValueForColumn(tableName, columnName);
   }
 
   Object? _conflictFreeValue(

@@ -643,6 +643,9 @@ class CrdtDatabase implements Database {
     TransactionFunction<R> transactionFunction, {
     TransactionSettings? settings,
   }) async {
+    // Do not initialize CRDT here. Serverpod runs database migrations inside
+    // [transaction] before CRDT tables exist. Callers that need CRDT state
+    // ([transactionForUser], mutating ORM methods) initialize explicitly.
     return _delegate.transaction(
       transactionFunction,
       settings: settings,
