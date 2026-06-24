@@ -117,6 +117,26 @@ final class CrdtSyncIntegrityViolationException extends CrdtSyncException {
   }
 }
 
+/// Thrown when a user attempts to act in a scope they are not a member of.
+final class CrdtScopeMembershipException implements Exception {
+  /// Creates a [CrdtScopeMembershipException].
+  const CrdtScopeMembershipException({
+    required this.userId,
+    required this.scopeId,
+  });
+
+  /// The authenticated user id supplied to `transactionForUser`.
+  final UuidValue userId;
+
+  /// The scope id the transaction attempted to act in.
+  final UuidValue scopeId;
+
+  @override
+  String toString() =>
+      'CrdtScopeMembershipException: user "$userId" is not a member of '
+      'scope "$scopeId".';
+}
+
 @internal
 final class PendingOutboundIntegrityViolation implements Exception {
   const PendingOutboundIntegrityViolation({

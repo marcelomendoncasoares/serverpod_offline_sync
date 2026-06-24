@@ -2,6 +2,8 @@
 // flag internal Serverpod APIs used by generated code.
 // ignore_for_file: invalid_use_of_internal_member
 
+import 'dart:async';
+
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +18,14 @@ import 'session.dart';
 import 'tombstone.dart';
 
 part 'scope.dart';
+
+/// Checks whether [userId] may act in [scopeId].
+typedef CrdtScopeMembershipValidator =
+    FutureOr<bool> Function(
+      DatabaseSession session, {
+      required UuidValue userId,
+      required UuidValue scopeId,
+    });
 
 /// Map of transaction hashes to the scope they are associated with.
 final scopeForTransaction = <Transaction, CrdtScope>{};
@@ -40,9 +50,13 @@ class CrdtDatabase implements Database {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
+
+    /// Validates explicit shared-scope transactions.
+    CrdtScopeMembershipValidator? scopeMembershipValidator,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval,
+       _scopeMembershipValidator = scopeMembershipValidator,
        _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
@@ -53,6 +67,7 @@ class CrdtDatabase implements Database {
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
+  final CrdtScopeMembershipValidator? _scopeMembershipValidator;
 
   final CrdtMutationRecorder _recorder;
   bool _initialized = false;
@@ -648,22 +663,26 @@ class CrdtDatabase implements Database {
 
   /// Executes the [transactionFunction] in a transaction with the provided [userId].
   ///
-  /// The [userId] is used to record the CRDT operations in the database. This method
-  /// must be used instead of [transaction] when performing operations on the server,
-  /// where the database knows multiple users.
+  /// Without [scopeId], writes act in the user's personal scope. With [scopeId],
+  /// [userId] stays the authenticated identity and [scopeId] is the scope being
+  /// acted in; the pair is checked before the transaction starts.
   Future<R> transactionForUser<R>(
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
+    UuidValue? scopeId,
     TransactionSettings? settings,
   }) async {
     await _ensureInitialized();
-    // Ensure that the user exists with a node before starting the transaction.
-    final user = await _recorder.getOrCreateScope(userId);
+    final effectiveScopeId = scopeId ?? userId;
+    await _assertCanActInScope(userId, effectiveScopeId);
+
+    // Ensure that the scope exists with a node before starting the transaction.
+    final scope = await _recorder.getOrCreateScope(effectiveScopeId);
 
     return transaction<R>(
       (tx) async {
         try {
-          scopeForTransaction[tx] = user;
+          scopeForTransaction[tx] = scope;
           return await transactionFunction(tx);
         } finally {
           scopeForTransaction.remove(tx);
@@ -671,6 +690,38 @@ class CrdtDatabase implements Database {
       },
       settings: settings,
     );
+  }
+
+  Future<void> _assertCanActInScope(UuidValue userId, UuidValue scopeId) async {
+    if (userId == scopeId) return;
+
+    final validator = _scopeMembershipValidator;
+    if (validator != null) {
+      final isMember = await validator(
+        _delegate.session,
+        userId: userId,
+        scopeId: scopeId,
+      );
+      if (isMember) return;
+      throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
+    }
+
+    final persistentUserId = _recorder.persistentUserId;
+    if (persistentUserId != null &&
+        persistentUserId == userId &&
+        await _hasLocalScope(scopeId)) {
+      return;
+    }
+
+    throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
+  }
+
+  Future<bool> _hasLocalScope(UuidValue scopeId) async {
+    final scope = await CrdtScope.db.findFirstRow(
+      _delegate.session,
+      where: (t) => t.uuidScopeId.equals(scopeId),
+    );
+    return scope != null;
   }
 
   Future<UuidValue> _requireUserId(UuidValue? userId) async {

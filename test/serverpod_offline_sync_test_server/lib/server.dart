@@ -20,6 +20,12 @@ Future<void> run(List<String> args) async {
     databaseInterceptor: (_, inner) => CrdtDatabase(
       inner,
       syncTables: demoSyncTables,
+      scopeMembershipValidator: (session, {required userId, required scopeId}) =>
+          CrdtScopeMembership.isMember(
+            session,
+            userUuid: userId,
+            scopeUuid: scopeId,
+          ),
     ),
   )..initializeCrdtSync(syncTables: demoSyncTables);
 

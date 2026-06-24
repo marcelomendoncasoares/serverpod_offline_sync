@@ -65,6 +65,7 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
+          scopeMembershipValidator: _scopeMembershipValidator,
         );
         await serverSession.db.initialize();
       });
@@ -143,6 +144,15 @@ void main() {
             final clientOutboundEvents = <CrdtSyncStreamEvent>[];
             final serverOutboundEvents = <CrdtSyncStreamEvent>[];
 
+            void addIfOpen(
+              StreamController<CrdtSyncStreamEvent> controller,
+              CrdtSyncStreamEvent event,
+            ) {
+              if (!controller.isClosed) {
+                controller.add(event);
+              }
+            }
+
             final clientSync = CrdtSync(
               syncTables: clientSyncTables,
               serializationManager: clientSession.db.serializationManager,
@@ -157,7 +167,7 @@ void main() {
                 )
                 .listen((event) {
                   clientOutboundEvents.add(event);
-                  clientToServer.add(event);
+                  addIfOpen(clientToServer, event);
                 });
 
             final serverSubscription = CrdtSync.instance
@@ -169,22 +179,22 @@ void main() {
                 )
                 .listen((event) {
                   serverOutboundEvents.add(event);
-                  serverToClient.add(event);
+                  addIfOpen(serverToClient, event);
                 });
 
             addTearDown(() async {
-              await clientSubscription.cancel();
-              await serverSubscription.cancel();
               await clientToServer.close();
               await serverToClient.close();
+              await clientSubscription.cancel();
+              await serverSubscription.cancel();
             });
 
             await Future<void>.delayed(const Duration(seconds: 2));
 
-            await clientSubscription.cancel();
-            await serverSubscription.cancel();
             await clientToServer.close();
             await serverToClient.close();
+            await clientSubscription.cancel();
+            await serverSubscription.cancel();
 
             for (final events in [clientOutboundEvents, serverOutboundEvents]) {
               expect(events.whereType<CrdtSyncMergeChunk>(), isEmpty);
@@ -221,12 +231,13 @@ void main() {
               ),
             );
             final sharedPerson = await serverSession.db.transactionForUser(
-              sharedScopeId,
+              testCrdtUserId,
               (tx) => server.Person.db.insertRow(
                 serverSession,
                 server.Person(name: 'shared-server-person'),
                 transaction: tx,
               ),
+              scopeId: sharedScopeId,
             );
 
             await testClient.crdt.syncOnce(clientSession);
@@ -236,12 +247,13 @@ void main() {
               personalPerson.id!,
             );
             final sharedClientPerson = await clientSession.db.transactionForUser(
-              sharedScopeId,
+              testCrdtUserId,
               (tx) => client.Person.db.findById(
                 clientSession,
                 sharedPerson.id!,
                 transaction: tx,
               ),
+              scopeId: sharedScopeId,
             );
 
             expect(personalClientPerson, isNotNull);
@@ -259,32 +271,64 @@ void main() {
             addTearDown(syncSession.cancel);
 
             final laterScopeId = const Uuid().v7obj();
-            final sharedPerson = await serverSession.db.transactionForUser(
-              laterScopeId,
-              (tx) => server.Person.db.insertRow(
-                serverSession,
-                server.Person(name: 'later-shared-person'),
-                transaction: tx,
-              ),
-            );
-
             await _grantScopeMembership(
               rawServerSession,
               userUuid: testCrdtUserId,
               scopeUuid: laterScopeId,
             );
 
+            final sharedPerson = await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'later-shared-person'),
+                transaction: tx,
+              ),
+              scopeId: laterScopeId,
+            );
+
             await _waitUntil(() async {
-              final clientPerson = await clientSession.db.transactionForUser(
-                laterScopeId,
-                (tx) => client.Person.db.findById(
-                  clientSession,
-                  sharedPerson.id!,
+              try {
+                final clientPerson = await clientSession.db.transactionForUser(
+                  testCrdtUserId,
+                  (tx) => client.Person.db.findById(
+                    clientSession,
+                    sharedPerson.id!,
+                    transaction: tx,
+                  ),
+                  scopeId: laterScopeId,
+                );
+                return clientPerson?.name == 'later-shared-person';
+              } on CrdtScopeMembershipException {
+                return false;
+              }
+            });
+          },
+        );
+      });
+
+      group('and the user is not a member of a shared scope', () {
+        test(
+          'when a transaction is started for that scope '
+          'then it is rejected before writing.',
+          () async {
+            final ungrantedScopeId = const Uuid().v7obj();
+            await CrdtScopeManager(rawServerSession).getOrCreate(
+              ungrantedScopeId,
+            );
+
+            await expectLater(
+              serverSession.db.transactionForUser(
+                testCrdtUserId,
+                (tx) => server.Person.db.insertRow(
+                  serverSession,
+                  server.Person(name: 'ungranted-server-person'),
                   transaction: tx,
                 ),
-              );
-              return clientPerson?.name == 'later-shared-person';
-            });
+                scopeId: ungrantedScopeId,
+              ),
+              throwsA(isA<CrdtScopeMembershipException>()),
+            );
           },
         );
       });
@@ -736,6 +780,7 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
+          scopeMembershipValidator: _scopeMembershipValidator,
         );
         await serverSession.db.initialize();
       });
@@ -903,6 +948,7 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
+          scopeMembershipValidator: _scopeMembershipValidator,
         );
         await serverSession.db.initialize();
       });
@@ -963,6 +1009,18 @@ Future<void> _grantScopeMembership(
     'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid") '
     'VALUES ($encodedScopeId, $encodedUserUuid) '
     'ON CONFLICT ("scopeId", "userUuid") DO NOTHING',
+  );
+}
+
+Future<bool> _scopeMembershipValidator(
+  DatabaseSession session, {
+  required UuidValue userId,
+  required UuidValue scopeId,
+}) {
+  return CrdtScopeMembership.isMember(
+    session,
+    userUuid: userId,
+    scopeUuid: scopeId,
   );
 }
 

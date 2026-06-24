@@ -1,6 +1,4 @@
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
-    show CrdtScope;
 
 /// Server-side membership helpers for shared CRDT scopes.
 ///
@@ -15,7 +13,7 @@ class CrdtScopeMembership {
   /// memberships, de-duplicated and sorted by UUID string so both peers can
   /// iterate deterministically.
   static Future<List<UuidValue>> memberScopes(
-    Session session,
+    DatabaseSession session,
     UuidValue userUuid, {
     Transaction? transaction,
   }) async {
@@ -27,13 +25,13 @@ class CrdtScopeMembership {
     );
 
     if (scopeIds.isNotEmpty) {
-      final scopes = await CrdtScope.db.find(
+      final scopes = await _scopeUuidsForIds(
         session,
-        where: (t) => t.id.inSet(scopeIds),
+        scopeIds,
         transaction: transaction,
       );
-      for (final scope in scopes) {
-        scopesByUuid[scope.uuidScopeId.uuid] = scope.uuidScopeId;
+      for (final scopeUuid in scopes) {
+        scopesByUuid[scopeUuid.uuid] = scopeUuid;
       }
     }
 
@@ -44,19 +42,18 @@ class CrdtScopeMembership {
   ///
   /// The implicit personal scope is accepted without a membership row.
   static Future<bool> isMember(
-    Session session, {
+    DatabaseSession session, {
     required UuidValue userUuid,
     required UuidValue scopeUuid,
     Transaction? transaction,
   }) async {
     if (userUuid == scopeUuid) return true;
 
-    final scope = await CrdtScope.db.findFirstRow(
+    final scopeId = await _scopeIdForUuid(
       session,
-      where: (t) => t.uuidScopeId.equals(scopeUuid),
+      scopeUuid,
       transaction: transaction,
     );
-    final scopeId = scope?.id;
     if (scopeId == null) return false;
 
     final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
@@ -73,7 +70,7 @@ class CrdtScopeMembership {
 }
 
 Future<Set<int>> _explicitMemberScopeIds(
-  Session session,
+  DatabaseSession session,
   UuidValue userUuid, {
   Transaction? transaction,
 }) async {
@@ -86,4 +83,43 @@ Future<Set<int>> _explicitMemberScopeIds(
   return {
     for (final row in result) row[0] as int,
   };
+}
+
+Future<List<UuidValue>> _scopeUuidsForIds(
+  DatabaseSession session,
+  Set<int> scopeIds, {
+  Transaction? transaction,
+}) async {
+  if (scopeIds.isEmpty) return [];
+  final encodedScopeIds = scopeIds.map(ValueEncoder.instance.convert).join(', ');
+  final result = await session.db.unsafeQuery(
+    'SELECT "uuidScopeId" FROM "crdt_scopes" '
+    'WHERE "id" IN ($encodedScopeIds)',
+    transaction: transaction,
+  );
+  return [
+    for (final row in result) _uuidValueFromDatabase(row[0]),
+  ];
+}
+
+Future<int?> _scopeIdForUuid(
+  DatabaseSession session,
+  UuidValue scopeUuid, {
+  Transaction? transaction,
+}) async {
+  final encodedScopeUuid = ValueEncoder.instance.convert(scopeUuid);
+  final result = await session.db.unsafeQuery(
+    'SELECT "id" FROM "crdt_scopes" '
+    'WHERE "uuidScopeId" = $encodedScopeUuid '
+    'LIMIT 1',
+    transaction: transaction,
+  );
+  if (result.isEmpty) return null;
+  return result.first[0] as int;
+}
+
+UuidValue _uuidValueFromDatabase(Object? value) {
+  if (value is UuidValue) return value;
+  if (value is String) return UuidValue.withValidation(value);
+  return UuidValueJsonExtension.fromJson(value);
 }
