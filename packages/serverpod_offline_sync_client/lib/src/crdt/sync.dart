@@ -232,7 +232,7 @@ class CrdtSync {
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
-    final crdtDb = await _openCrdtDatabase(session);
+    final crdtDb = _openCrdtDatabase(session);
     await crdtDb.mergeChanges(mergeSet, scopeId: userId);
     if (maxSyncedHlc != null) {
       await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
@@ -422,15 +422,12 @@ class CrdtSync {
     }
   }
 
-  Future<CrdtDatabase> _openCrdtDatabase(DatabaseSession session) async {
+  CrdtDatabase _openCrdtDatabase(DatabaseSession session) {
     final db = session.db;
-    if (db is CrdtDatabase) {
-      return db;
-    }
-
-    final crdtDb = wrapDatabase(db);
-    await crdtDb.initialize();
-    return crdtDb;
+    // The wrapper is ephemeral and every operation performed on it lazily
+    // ensures initialization, so there is nothing to eagerly initialize here.
+    // Calling `initialize()` would re-run the per-session setup.
+    return db is CrdtDatabase ? db : wrapDatabase(db);
   }
 
   Stream<CrdtMergeChange> _streamPendingChanges(
