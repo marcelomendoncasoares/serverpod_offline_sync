@@ -37,7 +37,7 @@ void main() {
         'when resolving the CRDT sync for the pod, '
         'then the configured instance is returned.',
         () {
-          expect(crdtSyncForServerpod(session.serverpod), isNotNull);
+          expect(session.crdt, isNotNull);
         },
       );
     },
@@ -62,7 +62,7 @@ void main() {
         'when resolving the CRDT sync for the pod, '
         'then a StateError is thrown.',
         () {
-          expect(() => crdtSyncForServerpod(session.serverpod), throwsStateError);
+          expect(() => session.crdt, throwsStateError);
         },
       );
     },

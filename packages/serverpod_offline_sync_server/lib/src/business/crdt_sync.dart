@@ -8,16 +8,6 @@ import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart
 /// process-wide singleton.
 final _crdtSyncByServerpod = Expando<CrdtSync>('crdtSync');
 
-/// Returns the CRDT sync configured for [pod].
-CrdtSync crdtSyncForServerpod(Serverpod pod) {
-  return _crdtSyncByServerpod[pod] ??
-      (throw StateError(
-        'The CrdtSync has not been initialized for this Serverpod instance. '
-        'Call pod.initializeCrdtSync(...) during server startup to configure '
-        'the CRDT sync.',
-      ));
-}
-
 /// Intercepts each Serverpod session database with a CRDT-aware database once
 /// [CrdtSyncInitialize.initializeCrdtSync] has configured sync.
 ///
@@ -57,4 +47,16 @@ extension CrdtSyncInitialize on Serverpod {
       continuousSyncInterval: continuousSyncInterval,
     );
   }
+}
+
+/// Extension to access the CRDT sync for [Session] from the [Serverpod] instance.
+extension CrdtSessionExtension on Session {
+  /// Returns the CRDT sync configured for this session.
+  CrdtSync get crdt =>
+      _crdtSyncByServerpod[server.serverpod] ??
+      (throw StateError(
+        'The CrdtSync has not been initialized for this Serverpod instance. '
+        'Call pod.initializeCrdtSync(...) during server startup to configure '
+        'the CRDT sync.',
+      ));
 }

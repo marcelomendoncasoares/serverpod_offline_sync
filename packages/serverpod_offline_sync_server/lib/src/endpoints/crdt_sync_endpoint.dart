@@ -16,7 +16,7 @@ class CrdtSyncEndpoint extends Endpoint {
     required Stream<CrdtSyncStreamEvent> changes,
     bool once = false,
   }) async* {
-    yield* crdtSyncForServerpod(session.server.serverpod).sync(
+    yield* session.crdt.sync(
       session,
       userId: UuidValue.withValidation(session.authenticated!.userIdentifier),
       inbound: changes,
