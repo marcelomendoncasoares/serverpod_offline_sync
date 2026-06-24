@@ -273,6 +273,55 @@ void main() {
         );
 
         test(
+          'when a read is narrowed with whereScope by scope uuid '
+          "then only that scope's rows are returned.",
+          () async {
+            final personalPerson = await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'personal-scope-person'),
+                transaction: tx,
+              ),
+            );
+            final sharedPerson = await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'shared-scope-person'),
+                transaction: tx,
+              ),
+              scopeId: sharedScopeId,
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            // Sanity check: a plain read is membership-wide.
+            final allPeople = await client.Person.db.find(clientSession);
+            expect(allPeople.map((person) => person.id).toSet(), {
+              personalPerson.id,
+              sharedPerson.id,
+            });
+
+            final sharedOnly = await client.Person.db.find(
+              clientSession,
+              where: (t) => t.scopeEquals(sharedScopeId),
+            );
+            final personalOnly = await client.Person.db.find(
+              clientSession,
+              where: (t) => t.scopeEquals(testCrdtUserId),
+            );
+
+            expect(sharedOnly.map((person) => person.id).toList(), [
+              sharedPerson.id,
+            ]);
+            expect(personalOnly.map((person) => person.id).toList(), [
+              personalPerson.id,
+            ]);
+          },
+        );
+
+        test(
           'when client syncContinuously is already running and a shared scope is granted '
           'then the client adopts and syncs the scope in the next cycle.',
           () async {

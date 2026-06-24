@@ -27,29 +27,26 @@ final class _IncludeHiddenSentinel extends Expression<String> {
 
 /// Extension on [Table] that exposes [includeHiddenRows] for use in `where`
 /// clauses to bypass the CRDT tombstone/visibility filter.
-///
-/// When included in a `where` clause, all rows are returned — including those
-/// that are tombstoned (soft-deleted) — instead of being hidden. The placeholder
-/// is stripped before the query reaches the database, so no invalid SQL is
-/// generated.
-///
-/// Example:
-/// ```dart
-/// // Returns all persons, including tombstoned ones.
-/// final allPersons = await Person.db.find(
-///   session,
-///   where: (t) => t.includeHiddenRows,
-/// );
-///
-/// // Returns all persons named 'Alice', including tombstoned ones.
-/// final alicePersons = await Person.db.find(
-///   session,
-///   where: (t) => t.name.equals('Alice') & t.includeHiddenRows,
-/// );
-/// ```
 extension IncludeTombstonedRows on Table {
-  /// Placeholder expression that signals the CRDT visibility filter should be
-  /// skipped, returning tombstoned rows alongside live rows.
+  /// Expression that bypasses the CRDT tombstone/visibility filter.
+  ///
+  /// When included in a `where` clause, all rows are returned — including those
+  /// that are tombstoned (soft-deleted) — instead of being hidden.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Returns all persons, including tombstoned ones.
+  /// final allPersons = await Person.db.find(
+  ///   session,
+  ///   where: (t) => t.includeHiddenRows,
+  /// );
+  ///
+  /// // Returns all persons named 'Alice', including tombstoned ones.
+  /// final alicePersons = await Person.db.find(
+  ///   session,
+  ///   where: (t) => t.name.equals('Alice') & t.includeHiddenRows,
+  /// );
+  /// ```
   Expression get includeHiddenRows => const _IncludeHiddenSentinel();
 }
 
