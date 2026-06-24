@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../crdt/sync.dart';
 import 'database.dart';
+import 'recorder.dart';
 
 /// Wraps a [DatabaseSession] to provide a [CrdtDatabase] as [DatabaseSession.db].
 class CrdtDatabaseSession implements DatabaseSession {
@@ -13,6 +14,9 @@ class CrdtDatabaseSession implements DatabaseSession {
 
     /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
+
+    /// Shared CRDT database metadata.
+    CrdtDatabaseContext? context,
 
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
@@ -24,13 +28,16 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-  }) : _db = CrdtDatabase(
-         db,
-         syncTables: syncTables,
-         syncBatchSize: syncBatchSize,
-         continuousSyncInterval: continuousSyncInterval,
-         persistentUserId: persistentUserId,
-       );
+  }) : _db = db is CrdtDatabase
+           ? db
+           : CrdtDatabase(
+               db,
+               syncTables: syncTables,
+               context: context,
+               syncBatchSize: syncBatchSize,
+               continuousSyncInterval: continuousSyncInterval,
+               persistentUserId: persistentUserId,
+             );
 
   /// Creates a [CrdtDatabaseSession] instance that wraps a [DatabaseSession].
   factory CrdtDatabaseSession.wraps(
@@ -38,6 +45,9 @@ class CrdtDatabaseSession implements DatabaseSession {
 
     /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
+
+    /// Shared CRDT database metadata.
+    CrdtDatabaseContext? context,
 
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
@@ -52,6 +62,7 @@ class CrdtDatabaseSession implements DatabaseSession {
   }) => CrdtDatabaseSession(
     session.db,
     syncTables: syncTables,
+    context: context,
     syncBatchSize: syncBatchSize,
     continuousSyncInterval: continuousSyncInterval,
     persistentUserId: persistentUserId,

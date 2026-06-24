@@ -165,7 +165,7 @@ void main() {
                   clientToServer.add(event);
                 });
 
-            final serverSubscription = CrdtSync.instance
+            final serverSubscription = rawServerSession.crdt
                 .sync(
                   serverSession,
                   userId: testCrdtUserId,

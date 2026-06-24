@@ -5,6 +5,7 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../database/recorder.dart';
 import '../managers/scope.dart';
 import '../protocol/protocol.dart';
 import '../utils/case_when.dart' show Case;
@@ -32,6 +33,9 @@ class CrdtSync {
     /// The serialization manager to use for deserializing merge changes.
     required DatabaseSerializationManager serializationManager,
 
+    /// Shared CRDT database metadata.
+    CrdtDatabaseContext? databaseContext,
+
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = defaultSyncBatchSize,
 
@@ -39,6 +43,12 @@ class CrdtSync {
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
+       _databaseContext =
+           databaseContext ??
+           CrdtDatabaseContext(
+             syncTables: syncTables,
+             serializationManager: serializationManager,
+           ),
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval {
     if (syncBatchSize < 1) {
@@ -54,38 +64,20 @@ class CrdtSync {
 
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
+  final CrdtDatabaseContext _databaseContext;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
 
-  static CrdtSync? _instance;
-
-  /// The singleton instance of [CrdtSync]. Throws a [StateError] if it is not
-  /// initialized.
-  static CrdtSync get instance =>
-      _instance ??
-      (throw StateError(
-        'The CrdtSync has not been initialized. Call pod.initializeCrdtSync(...) '
-        'during server startup to configure the CRDT sync.',
-      ));
-
-  /// Configures the shared singleton used by server endpoints.
-  ///
-  /// Use [syncBatchSize] to control the maximum number of merge changes carried
-  /// by each [CrdtSyncMergeChunk] stream event.
-  ///
-  /// The [continuousSyncInterval] controls how long a continuous sync session
-  /// waits after completing one sync round before checking for local changes.
-  static void initialize({
-    required List<Table> syncTables,
-    required DatabaseSerializationManager serializationManager,
-    int syncBatchSize = defaultSyncBatchSize,
-    Duration continuousSyncInterval = defaultContinuousSyncInterval,
-  }) {
-    _instance = CrdtSync(
-      syncTables: syncTables,
-      serializationManager: serializationManager,
-      syncBatchSize: syncBatchSize,
-      continuousSyncInterval: continuousSyncInterval,
+  /// Wraps [database] in a CRDT-aware database using this sync context.
+  CrdtDatabase wrapDatabase(Database database, {UuidValue? persistentUserId}) {
+    if (database is CrdtDatabase) return database;
+    return CrdtDatabase(
+      database,
+      syncTables: _syncTables,
+      syncBatchSize: _syncBatchSize,
+      continuousSyncInterval: _continuousSyncInterval,
+      persistentUserId: persistentUserId,
+      context: _databaseContext,
     );
   }
 
@@ -208,7 +200,7 @@ class CrdtSync {
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
-    final crdtDb = await _openCrdtDatabase(session);
+    final crdtDb = _openCrdtDatabase(session);
     await crdtDb.mergeChanges(mergeSet, scopeId: userId);
     if (maxSyncedHlc != null) {
       await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
@@ -398,15 +390,12 @@ class CrdtSync {
     }
   }
 
-  Future<CrdtDatabase> _openCrdtDatabase(DatabaseSession session) async {
+  CrdtDatabase _openCrdtDatabase(DatabaseSession session) {
     final db = session.db;
-    if (db is CrdtDatabase) {
-      return db;
-    }
-
-    final crdtDb = CrdtDatabase(db, syncTables: _syncTables);
-    await crdtDb.initialize();
-    return crdtDb;
+    // The wrapper is ephemeral and every operation performed on it lazily
+    // ensures initialization, so there is nothing to eagerly initialize here.
+    // Calling `initialize()` would re-run the per-session setup.
+    return db is CrdtDatabase ? db : wrapDatabase(db);
   }
 
   Stream<CrdtMergeChange> _streamPendingChanges(

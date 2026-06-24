@@ -32,6 +32,12 @@ typedef _ForeignKeyDefaultProjection = ({bool valid, UuidValue? value});
 typedef _DomainRowUpdatesByKey = Map<_MergeRowKey, Map<String, Object?>>;
 
 extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
+  List<_ForeignKeyEdge> get _foreignKeyEdges => _context._foreignKeyEdges;
+  Map<String, List<_ForeignKeyEdge>> get _foreignKeyEdgesByParentTable =>
+      _context._foreignKeyEdgesByParentTable;
+  Map<String, List<_ForeignKeyEdge>> get _foreignKeyEdgesByChildTable =>
+      _context._foreignKeyEdgesByChildTable;
+
   bool _mergeOperationsMayAffectForeignKeys(
     List<CrdtMergeChange> operations,
   ) {
