@@ -92,16 +92,11 @@ class CrdtSync {
     int syncBatchSize = defaultSyncBatchSize,
     Duration continuousSyncInterval = defaultContinuousSyncInterval,
   }) {
-    final databaseContext = CrdtDatabaseContext(
-      syncTables: syncTables,
-      serializationManager: serializationManager,
-    );
     _instance = CrdtSync(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
-      databaseContext: databaseContext,
     );
   }
 
@@ -240,11 +235,7 @@ class CrdtSync {
     final crdtDb = await _openCrdtDatabase(session);
     await crdtDb.mergeChanges(mergeSet, scopeId: userId);
     if (maxSyncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(
-        otherNodeId,
-        maxSyncedHlc,
-        userId: userId,
-      );
+      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
     }
     return maxSyncedHlc;
   }
@@ -257,11 +248,15 @@ class CrdtSync {
     required List<Hlc> nodeCheckpoints,
   }) async* {
     yield* collectPendingChanges(
-      session,
-      userId: userId,
-      peerNodeId: peerNodeId,
-      nodeCheckpoints: nodeCheckpoints,
-    ).chunked(_syncBatchSize).map((changes) => CrdtSyncMergeChunk(changes: changes));
+          session,
+          userId: userId,
+          peerNodeId: peerNodeId,
+          nodeCheckpoints: nodeCheckpoints,
+        )
+        .chunked(_syncBatchSize)
+        .map(
+          (changes) => CrdtSyncMergeChunk(changes: changes),
+        );
     yield CrdtSyncEndOfBatch();
   }
 
@@ -332,15 +327,11 @@ class CrdtSync {
         );
 
         var hasChanges = false;
-        await for (final changes in pendingLocalChanges.chunked(
-          _syncBatchSize,
-        )) {
+        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
           hasChanges = true;
           for (final change in changes) {
             final lastCheckpoint = nodeCheckpoints[change.uuidNodeId];
-            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(
-              lastCheckpoint,
-            );
+            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(lastCheckpoint);
           }
           yield CrdtSyncMergeChunk(changes: changes);
         }
@@ -694,12 +685,7 @@ class CrdtSync {
       'LIMIT 1',
     );
     if (result.isEmpty) {
-      final owner = await _readDomainRowOwner(
-        session,
-        tableName,
-        rowId,
-        ownerCache,
-      );
+      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
       return (exists: owner.exists, ownerScopeId: owner.scopeId, row: null);
     }
     ownerCache[(tableName, rowId)] = (exists: true, scopeId: scopeId);
@@ -734,23 +720,14 @@ class CrdtSync {
     DomainRowOwnerCache ownerCache,
   ) async {
     if (projection != null && projection.hasOverride) {
-      final owner = await _readDomainRowOwner(
-        session,
-        tableName,
-        rowId,
-        ownerCache,
-      );
+      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
       if (!owner.exists || owner.scopeId != scopeId) {
         return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
       }
       return (
         exists: true,
         ownerScopeId: scopeId,
-        value: _decodeColumnValue(
-          tableName,
-          columnName,
-          projection.attemptedValue,
-        ),
+        value: _decodeColumnValue(tableName, columnName, projection.attemptedValue),
       );
     }
 
@@ -772,12 +749,7 @@ class CrdtSync {
       );
     }
 
-    final owner = await _readDomainRowOwner(
-      session,
-      tableName,
-      rowId,
-      ownerCache,
-    );
+    final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
     return (exists: owner.exists, ownerScopeId: owner.scopeId, value: null);
   }
 
@@ -898,11 +870,7 @@ class CrdtSync {
     return fieldsByRowId;
   }
 
-  dynamic _decodeColumnValue(
-    String tableName,
-    String columnName,
-    Object? value,
-  ) {
+  dynamic _decodeColumnValue(String tableName, String columnName, Object? value) {
     if (value == null) return null;
 
     final definition = _columnDefinitionsByTableName[tableName]?[columnName];
@@ -1026,9 +994,7 @@ extension on Map<String, dynamic> {
   /// [CrdtDataForeignKey.attemptedValue] preserves what was actually tried.
   /// Outbound sync must send the attempted value so peers can apply their own
   /// projection from the same fact.
-  void applyProjectedForeignKeyAttempts(
-    List<CrdtDataField>? foreignKeyAttemptFields,
-  ) {
+  void applyProjectedForeignKeyAttempts(List<CrdtDataField>? foreignKeyAttemptFields) {
     if (foreignKeyAttemptFields == null) return;
     for (final field in foreignKeyAttemptFields) {
       final projection = field.foreignKey;

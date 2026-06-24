@@ -1,6 +1,11 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
+/// The CRDT sync configured per [Serverpod] instance.
+///
+/// Keyed by the [Serverpod] instance so each pod owns its own [CrdtSync] (and
+/// the [CrdtDatabaseContext] it carries) instead of sharing a single
+/// process-wide singleton.
 final _crdtSyncByServerpod = Expando<CrdtSync>('crdtSync');
 
 /// Returns the CRDT sync configured for [pod].
@@ -15,20 +20,25 @@ CrdtSync crdtSyncForServerpod(Serverpod pod) {
 
 /// Intercepts each Serverpod session database with a CRDT-aware database once
 /// [CrdtSyncInitialize.initializeCrdtSync] has configured sync.
+///
+/// When sync has not been configured for the session's [Serverpod], the
+/// original [inner] database is returned unchanged.
 Database crdtDatabaseInterceptor(Session session, Database inner) {
-  return _crdtSyncByServerpod[session.server.serverpod]?.wrapDatabase(inner) ?? inner;
+  final crdtSync = _crdtSyncByServerpod[session.server.serverpod];
+  return crdtSync?.wrapDatabase(inner) ?? inner;
 }
 
 /// Extension methods for [Serverpod] to configure the CRDT sync on the server.
 extension CrdtSyncInitialize on Serverpod {
-  /// Configures the endpoint with the given sync tables.
+  /// Configures the CRDT sync with the given sync tables.
   ///
   /// Must be called during server startup before any sync requests are made.
-  /// Will override any previous initialization.
+  /// Will override any previous initialization for this [Serverpod] instance.
   ///
-  /// The [Serverpod] instance should be constructed with
-  /// [crdtDatabaseInterceptor] as its `databaseInterceptor` so each ephemeral
-  /// session database gets wrapped in a CRDT-aware database.
+  /// The [Serverpod] instance must be constructed with [crdtDatabaseInterceptor]
+  /// as its `databaseInterceptor`. Otherwise each session's [Session.db] stays a
+  /// plain database and server-side ORM mutations on synced tables are not
+  /// CRDT-tracked.
   ///
   /// [syncBatchSize] controls the maximum number of merge changes carried by
   /// each sync stream chunk.
@@ -40,13 +50,11 @@ extension CrdtSyncInitialize on Serverpod {
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
     Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
   }) {
-    CrdtSync.initialize(
+    _crdtSyncByServerpod[this] = CrdtSync(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
     );
-
-    _crdtSyncByServerpod[this] = CrdtSync.instance;
   }
 }

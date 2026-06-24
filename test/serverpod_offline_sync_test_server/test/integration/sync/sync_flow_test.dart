@@ -135,7 +135,7 @@ void main() {
                   clientToServer.add(event);
                 });
 
-            final serverSubscription = CrdtSync.instance
+            final serverSubscription = crdtSyncForServerpod(rawServerSession.serverpod)
                 .sync(
                   serverSession,
                   userId: testCrdtUserId,

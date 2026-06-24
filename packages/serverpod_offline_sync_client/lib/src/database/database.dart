@@ -80,7 +80,7 @@ class CrdtDatabase implements Database {
 
   final CrdtMutationRecorder _recorder;
 
-  late final CrdtSync _sync = CrdtSync(
+  late final _sync = CrdtSync(
     syncTables: _syncTables,
     serializationManager: serializationManager,
     syncBatchSize: _syncBatchSize,
@@ -146,7 +146,10 @@ class CrdtDatabase implements Database {
   /// When [scopeId] is omitted, this uses the recorder's persistent user id.
   /// The merge locks the current scope's CRDT tables and executes atomically
   /// inside [transactionForUser].
-  Future<void> mergeChanges(CrdtMergeSet mergeSet, {UuidValue? scopeId}) async {
+  Future<void> mergeChanges(
+    CrdtMergeSet mergeSet, {
+    UuidValue? scopeId,
+  }) async {
     if (mergeSet.isEmpty) return;
     await _ensureInitialized();
 
@@ -289,20 +292,22 @@ class CrdtDatabase implements Database {
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
-    return DatabaseUtil.runInTransactionOrSavepoint(_delegate, transaction, (
-      tx,
-    ) async {
-      final prepared = _prepareRowsForInsert(rows, tx);
-      final result = await _delegate.insert<T>(
-        prepared.rows,
-        transaction: tx,
-        ignoreConflicts: ignoreConflicts,
-      );
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final prepared = _prepareRowsForInsert(rows, tx);
+        final result = await _delegate.insert<T>(
+          prepared.rows,
+          transaction: tx,
+          ignoreConflicts: ignoreConflicts,
+        );
 
-      await _recorder.afterInsert<T>(result, tx);
-      _stripStampedRows(result, prepared);
-      return result;
-    });
+        await _recorder.afterInsert<T>(result, tx);
+        _stripStampedRows(result, prepared);
+        return result;
+      },
+    );
   }
 
   @override
@@ -311,27 +316,29 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     await _ensureInitialized();
-    return DatabaseUtil.runInTransactionOrSavepoint(_delegate, transaction, (
-      tx,
-    ) async {
-      final prepared = _prepareRowsForInsert([row], tx);
-      final databaseRow = prepared.rows.single;
-      late final T result;
-      try {
-        result = await _delegate.insertRow<T>(databaseRow, transaction: tx);
-      } on DatabaseQueryException {
-        if (!await _recorder.isDeleted(row, tx)) rethrow;
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final prepared = _prepareRowsForInsert([row], tx);
+        final databaseRow = prepared.rows.single;
+        late final T result;
+        try {
+          result = await _delegate.insertRow<T>(databaseRow, transaction: tx);
+        } on DatabaseQueryException {
+          if (!await _recorder.isDeleted(row, tx)) rethrow;
 
-        result = await _delegate.updateRow<T>(databaseRow, transaction: tx);
-        await _recorder.afterReinsert([result], tx);
+          result = await _delegate.updateRow<T>(databaseRow, transaction: tx);
+          await _recorder.afterReinsert([result], tx);
+          _stripStampedRows([result], prepared);
+          return result;
+        }
+
+        await _recorder.afterInsert([result], tx);
         _stripStampedRows([result], prepared);
         return result;
-      }
-
-      await _recorder.afterInsert([result], tx);
-      _stripStampedRows([result], prepared);
-      return result;
-    });
+      },
+    );
   }
 
   @override
@@ -375,22 +382,24 @@ class CrdtDatabase implements Database {
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
-    return DatabaseUtil.runInTransactionOrSavepoint(_delegate, transaction, (
-      tx,
-    ) async {
-      final updatedRows = [
-        for (final row in rows)
-          await _updateRowWithoutRecording(
-            row,
-            stripScopeId: _shouldStripReturnedScopeId(row, tx),
-            transaction: tx,
-            columns: columns,
-          ),
-      ];
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final updatedRows = [
+          for (final row in rows)
+            await _updateRowWithoutRecording(
+              row,
+              stripScopeId: _shouldStripReturnedScopeId(row, tx),
+              transaction: tx,
+              columns: columns,
+            ),
+        ];
 
-      await _recorder.afterUpdate(updatedRows, columns, tx);
-      return updatedRows;
-    });
+        await _recorder.afterUpdate(updatedRows, columns, tx);
+        return updatedRows;
+      },
+    );
   }
 
   @override
@@ -400,20 +409,22 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     await _ensureInitialized();
-    return DatabaseUtil.runInTransactionOrSavepoint(_delegate, transaction, (
-      tx,
-    ) async {
-      final stripScopeId = _shouldStripReturnedScopeId(row, tx);
-      final updatedRow = await _updateRowWithoutRecording(
-        row,
-        stripScopeId: stripScopeId,
-        transaction: tx,
-        columns: columns,
-      );
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final stripScopeId = _shouldStripReturnedScopeId(row, tx);
+        final updatedRow = await _updateRowWithoutRecording(
+          row,
+          stripScopeId: stripScopeId,
+          transaction: tx,
+          columns: columns,
+        );
 
-      await _recorder.afterUpdate([updatedRow], columns, tx);
-      return updatedRow;
-    });
+        await _recorder.afterUpdate([updatedRow], columns, tx);
+        return updatedRow;
+      },
+    );
   }
 
   Future<T> _updateRowWithoutRecording<T extends TableRow>(
@@ -481,29 +492,31 @@ class CrdtDatabase implements Database {
       _assertNoScopeIdColumnValues<T>(columnValues);
     }
 
-    return DatabaseUtil.runInTransactionOrSavepoint(_delegate, transaction, (
-      tx,
-    ) async {
-      final result = await _delegate.updateWhere<T>(
-        columnValues: columnValues,
-        where: _whereVisibleWithTombstone<T>(where, null, tx)!,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        orderByList: orderByList,
-        // Remove this once the deprecated member is removed.
-        // ignore: deprecated_member_use
-        orderDescending: orderDescending,
-        transaction: tx,
-      );
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final result = await _delegate.updateWhere<T>(
+          columnValues: columnValues,
+          where: _whereVisibleWithTombstone<T>(where, null, tx)!,
+          limit: limit,
+          offset: offset,
+          orderBy: orderBy,
+          orderByList: orderByList,
+          // Remove this once the deprecated member is removed.
+          // ignore: deprecated_member_use
+          orderDescending: orderDescending,
+          transaction: tx,
+        );
 
-      final columns = columnValues.map((e) => e.column).toList();
-      await _recorder.afterUpdate(result, columns, tx);
-      if (_recorder.isCrdtTracked<T>()) {
-        result.forEach(_stripScopeId);
-      }
-      return result;
-    });
+        final columns = columnValues.map((e) => e.column).toList();
+        await _recorder.afterUpdate(result, columns, tx);
+        if (_recorder.isCrdtTracked<T>()) {
+          result.forEach(_stripScopeId);
+        }
+        return result;
+      },
+    );
   }
 
   @override
@@ -570,22 +583,24 @@ class CrdtDatabase implements Database {
       );
     }
 
-    return DatabaseUtil.runInTransactionOrSavepoint(_delegate, transaction, (
-      tx,
-    ) async {
-      final rows = await _delegate.find<T>(
-        where: _whereVisibleWithTombstone<T>(where, null, tx),
-        orderBy: orderBy,
-        orderByList: orderByList,
-        // Remove this once the deprecated member is removed.
-        // ignore: deprecated_member_use
-        orderDescending: orderDescending,
-        transaction: tx,
-      );
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final rows = await _delegate.find<T>(
+          where: _whereVisibleWithTombstone<T>(where, null, tx),
+          orderBy: orderBy,
+          orderByList: orderByList,
+          // Remove this once the deprecated member is removed.
+          // ignore: deprecated_member_use
+          orderDescending: orderDescending,
+          transaction: tx,
+        );
 
-      await _recorder.insteadOfDelete<T>(rows, tx);
-      return _stripScopeIdFromScopedRead(rows, null, tx);
-    });
+        await _recorder.insteadOfDelete<T>(rows, tx);
+        return _stripScopeIdFromScopedRead(rows, null, tx);
+      },
+    );
   }
 
   @override
@@ -625,7 +640,10 @@ class CrdtDatabase implements Database {
     TransactionFunction<R> transactionFunction, {
     TransactionSettings? settings,
   }) async {
-    return _delegate.transaction(transactionFunction, settings: settings);
+    return _delegate.transaction(
+      transactionFunction,
+      settings: settings,
+    );
   }
 
   /// Executes the [transactionFunction] in a transaction with the provided [userId].
@@ -642,14 +660,17 @@ class CrdtDatabase implements Database {
     // Ensure that the user exists with a node before starting the transaction.
     final user = await _recorder.getOrCreateScope(userId);
 
-    return transaction<R>((tx) async {
-      try {
-        scopeForTransaction[tx] = user;
-        return await transactionFunction(tx);
-      } finally {
-        scopeForTransaction.remove(tx);
-      }
-    }, settings: settings);
+    return transaction<R>(
+      (tx) async {
+        try {
+          scopeForTransaction[tx] = user;
+          return await transactionFunction(tx);
+        } finally {
+          scopeForTransaction.remove(tx);
+        }
+      },
+      settings: settings,
+    );
   }
 
   Future<UuidValue> _requireUserId(UuidValue? userId) async {
