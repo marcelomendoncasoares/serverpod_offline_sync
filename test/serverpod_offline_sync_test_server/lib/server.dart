@@ -15,19 +15,7 @@ Future<void> run(List<String> args) async {
     Protocol(),
     Endpoints(),
     authenticationHandler: demoAuthenticationHandler,
-    // TODO: Remove the duplicate [syncTables] argument from here and the
-    // [initializeCrdtSync] call below.
-    databaseInterceptor: (_, inner) => CrdtDatabase(
-      inner,
-      syncTables: demoSyncTables,
-      scopeMembershipValidator: (session, {required userId, required scopeId}) =>
-          CrdtScopeMembership.isMember(
-            session,
-            userUuid: userId,
-            scopeUuid: scopeId,
-          ),
-      scopeMembershipResolver: CrdtScopeMembership.memberScopes,
-    ),
+    databaseInterceptor: crdtDatabaseInterceptor,
   )..initializeCrdtSync(syncTables: demoSyncTables);
 
   // Start the server.

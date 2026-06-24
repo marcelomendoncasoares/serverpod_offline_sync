@@ -4,6 +4,7 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
 import '../business/crdt_scope_membership.dart';
+import '../business/crdt_sync.dart';
 
 /// Endpoint for CRDT-based offline-first synchronization.
 class CrdtSyncEndpoint extends Endpoint {
@@ -16,7 +17,7 @@ class CrdtSyncEndpoint extends Endpoint {
     required Stream<CrdtSyncStreamEvent> changes,
     bool once = false,
   }) async* {
-    yield* CrdtSync.instance.sync(
+    yield* session.crdt.sync(
       session,
       userId: UuidValue.withValidation(session.authenticated!.userIdentifier),
       inbound: changes,

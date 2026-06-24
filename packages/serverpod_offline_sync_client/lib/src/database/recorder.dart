@@ -58,38 +58,96 @@ enum _ForeignKeyTargetPresence {
   hidden,
 }
 
-/// Persists additional CRDT rows after a mutating ORM operation completes.
+typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
+
+/// Process-level CRDT database metadata shared by ephemeral database wrappers.
 ///
-/// Callbacks receive the underlying database (not the CRDT proxy) and the
-/// active transaction. Use that database for follow-up inserts so work is not
-/// wrapped again by the proxy.
-class CrdtMutationRecorder {
-  /// Creates a [CrdtMutationRecorder] instance.
-  CrdtMutationRecorder(
-    this._db, {
-    required this.persistentUserId,
+/// A single context is created per `CrdtSync` (i.e. once per Serverpod
+/// instance) and shared by every ephemeral [CrdtDatabase], so the schema is
+/// synchronized once per process rather than once per `Session`.
+///
+/// The cached schema holds database-assigned identifiers and is never
+/// invalidated for the lifetime of the context. This assumes the CRDT schema
+/// rows stay stable while the process is alive, which holds for a normal server
+/// whose database is not reset underneath it. If the schema rows are dropped and
+/// re-created with different identifiers while the process lives, a new context
+/// must be created.
+class CrdtDatabaseContext {
+  /// Creates a [CrdtDatabaseContext] for the configured synchronized tables.
+  CrdtDatabaseContext({
     required this.syncTables,
-  }) : assert(
-         _db is! CrdtDatabase,
-         'The database must be the user database, not the CRDT database. '
-         'Passing a CRDT database would cause an infinite recursion.',
-       );
+    required DatabaseSerializationManager serializationManager,
+  }) : _tableDefinitions = serializationManager.getTargetTableDefinitions();
 
-  final Database _db;
+  /// The list of tables to sync with CRDT.
+  final List<Table> syncTables;
 
-  late final DatabaseSession _dbSession = _db.session;
+  final List<TableDefinition> _tableDefinitions;
 
-  late final _session = BasicDatabaseSession(_db);
+  _CrdtSchema? _schema;
+  Future<_CrdtSchema>? _schemaFuture;
 
-  late final CrdtScopeManager _scopeManager = CrdtScopeManager(_dbSession);
+  /// Initializes shared schema rows and caches their generated identifiers.
+  Future<void> initialize(DatabaseSession session) async {
+    if (_schema != null) return;
 
-  final Map<UuidValue, HlcManager> _hlcManagers = {};
+    final schemaFuture = _schemaFuture ??= _loadSchema(session);
+    try {
+      _schema = await schemaFuture;
+    } catch (_) {
+      if (identical(_schemaFuture, schemaFuture)) {
+        _schemaFuture = null;
+      }
+      rethrow;
+    }
+  }
 
-  late Map<String, (int, Map<String, CrdtSchemaColumn>)> _schema;
+  Future<_CrdtSchema> _loadSchema(DatabaseSession session) async {
+    final schemaRegistry = CrdtSchemaRegistry(
+      session,
+      syncTables: syncTables,
+      tableDefinitions: _tableDefinitions,
+    );
+    final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
 
-  late final _tableDefinitionsByName = {
-    for (final table in _db.serializationManager.getTargetTableDefinitions())
-      table.name: table,
+    final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
+    for (final column in columnRows) {
+      columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;
+    }
+
+    return {
+      for (final t in tableRows) t.name: (t.id!, columnsByTableId[t.id!] ?? {}),
+    };
+  }
+
+  _CrdtSchema get _schemaSnapshot =>
+      _schema ??
+      (throw StateError(
+        'The CRDT database has not been initialized. Call '
+        'CrdtDatabase.initialize() before using CRDT database operations.',
+      ));
+
+  /// Returns the local [CrdtSchemaTable] id for [tableName], or null when the
+  /// table is not registered for CRDT synchronization.
+  int? _tableIdForName(String tableName) => _schemaSnapshot[tableName]?.$1;
+
+  late final Map<String, Table> _syncTableByName = {
+    for (final t in syncTables) t.tableName: t,
+  };
+
+  late final Map<String, TableDefinition> _tableDefinitionsByName = {
+    for (final table in _tableDefinitions) table.name: table,
+  };
+
+  late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
+    for (final table in _tableDefinitionsByName.values)
+      table.name: {for (final column in table.columns) column.name: column},
+  };
+
+  late final Map<String, Set<String>> _syncedTableColumnNamesForMerge = {
+    for (final MapEntry(key: k, value: cols) in _columnsByTableAndName.entries)
+      if (_syncTableByName.containsKey(k))
+        k: cols.keys.where((columnName) => columnName != 'scopeId').toSet(),
   };
 
   late final Map<String, List<_ReferencingForeignKey>> _foreignKeysByReferencedTable =
@@ -157,38 +215,94 @@ class CrdtMutationRecorder {
 
   final _uniqueIndexesByTableName = <String, List<_UniqueIndexConflictRelease>>{};
 
-  late final Map<String, Map<String, ColumnDefinition>> _columnsByTableAndName = {
-    for (final table in _tableDefinitionsByName.values)
-      table.name: {for (final column in table.columns) column.name: column},
-  };
+  bool _isCrdtTrackedTableName(String tableName) {
+    return _syncTableByName.containsKey(tableName);
+  }
+
+  Object? _defaultValueForColumn(String tableName, String columnName) {
+    final column = _columnsByTableAndName[tableName]?[columnName];
+    if (column == null) return null;
+    final defaultValue = column.columnDefault;
+    if (defaultValue == null) return null;
+    if (column.columnType == ColumnType.uuid) {
+      final unquoted = defaultValue.replaceAll("'", '');
+      if (unquoted == 'random' || unquoted == 'random_v7') return null;
+      return UuidValue.withValidation(unquoted);
+    }
+    return defaultValue.replaceAll("'", '');
+  }
+}
+
+/// Persists additional CRDT rows after a mutating ORM operation completes.
+///
+/// Callbacks receive the underlying database (not the CRDT proxy) and the
+/// active transaction. Use that database for follow-up inserts so work is not
+/// wrapped again by the proxy.
+class CrdtMutationRecorder {
+  /// Creates a [CrdtMutationRecorder] instance.
+  CrdtMutationRecorder(
+    this._db, {
+    required CrdtDatabaseContext context,
+    required this.persistentUserId,
+  }) : _context = context,
+       assert(
+         _db is! CrdtDatabase,
+         'The database must be the user database, not the CRDT database. '
+         'Passing a CRDT database would cause an infinite recursion.',
+       );
+
+  final Database _db;
+  final CrdtDatabaseContext _context;
+
+  /// The raw database session used for CRDT metadata reads and writes.
+  late final _session = _db.session;
+
+  late final _scopeManager = CrdtScopeManager(_session);
+
+  final Map<UuidValue, HlcManager> _hlcManagers = {};
+  Future<void>? _ensureInitializedFuture;
+  var _isInitialized = false;
+
+  _CrdtSchema get _schema => _context._schemaSnapshot;
+  Map<String, TableDefinition> get _tableDefinitionsByName =>
+      _context._tableDefinitionsByName;
 
   /// Initializes the CRDT recorder.
   ///
-  /// Safe to call again after the database was wiped (e.g. test `tearDown`)
-  /// for in-memory schema ids to match new rows.
+  /// Clears this recorder's live scope/HLC caches, then ensures the shared
+  /// [CrdtDatabaseContext] metadata is loaded. The shared schema is loaded only
+  /// once per process and is not reloaded here; see [CrdtDatabaseContext] for
+  /// the cache lifetime assumptions.
   Future<void> initialize() async {
     _scopeManager.clearCache();
     _hlcManagers.clear();
+    _ensureInitializedFuture = null;
+    _isInitialized = false;
 
+    await ensureInitialized();
+  }
+
+  /// Ensures the recorder is ready without clearing live per-session caches.
+  Future<void> ensureInitialized() async {
+    if (_isInitialized) return;
+
+    final initializeFuture = _ensureInitializedFuture ??= _initializeOnce();
+    try {
+      await initializeFuture;
+    } catch (_) {
+      if (identical(_ensureInitializedFuture, initializeFuture)) {
+        _ensureInitializedFuture = null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _initializeOnce() async {
+    await _context.initialize(_session);
     if (persistentUserId != null) {
       await _scopeManager.getOrCreate(persistentUserId!);
     }
-
-    final schemaRegistry = CrdtSchemaRegistry(_dbSession, syncTables: syncTables);
-    final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
-
-    final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
-    for (final column in columnRows) {
-      columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;
-    }
-
-    _schema = {
-      for (final t in tableRows)
-        t.name: (
-          t.id!,
-          columnsByTableId[t.id!] ?? {},
-        ),
-    };
+    _isInitialized = true;
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for
@@ -197,17 +311,12 @@ class CrdtMutationRecorder {
   final UuidValue? persistentUserId;
 
   /// The list of tables to sync with CRDT.
-  final List<Table> syncTables;
+  List<Table> get syncTables => _context.syncTables;
 
-  late final _syncTableByName = {
-    for (final t in syncTables) t.tableName: t,
-  };
+  Map<String, Table> get _syncTableByName => _context._syncTableByName;
 
-  late final Map<String, Set<String>> _syncedTableColumnNamesForMerge = {
-    for (final MapEntry(key: k, value: cols) in _columnsByTableAndName.entries)
-      if (_syncTableByName.containsKey(k))
-        k: cols.keys.where((columnName) => columnName != 'scopeId').toSet(),
-  };
+  Map<String, Set<String>> get _syncedTableColumnNamesForMerge =>
+      _context._syncedTableColumnNamesForMerge;
 
   /// Whether the given table is tracked by CRDT.
   bool isCrdtTracked<T extends TableRow>([Table? table]) {
@@ -218,12 +327,12 @@ class CrdtMutationRecorder {
 
   /// Whether the given table name is tracked by CRDT.
   bool _isCrdtTrackedTableName(String tableName) {
-    return _syncTableByName.containsKey(tableName);
+    return _context._isCrdtTrackedTableName(tableName);
   }
 
   /// Returns the local [CrdtSchemaTable] id for [tableName], or null when the
   /// table is not registered for CRDT synchronization.
-  int? tableIdForName(String tableName) => _schema[tableName]?.$1;
+  int? tableIdForName(String tableName) => _context._tableIdForName(tableName);
 
   /// Returns the user scoping CRDT visibility for queries, or null when no
   /// user is associated with [transaction] and no persistent user exists.
@@ -919,7 +1028,7 @@ WHERE c."id" IN ($whereRowIds)
 
     final cascadeDeletes = <String, Set<UuidValue>>{};
     final foreignKeys =
-        _foreignKeysByReferencedTable[parentTableName] ??
+        _context._foreignKeysByReferencedTable[parentTableName] ??
         const <_ReferencingForeignKey>[];
     for (final reference in foreignKeys) {
       final parentValuesById = reference.parentColumn == 'id'
@@ -964,7 +1073,7 @@ WHERE c."id" IN ($whereRowIds)
               transaction,
             );
           case ForeignKeyAction.setDefault:
-            final defaultValue = _defaultValueForColumn(
+            final defaultValue = _context._defaultValueForColumn(
               reference.childTableName,
               reference.childColumn,
             );
@@ -1049,7 +1158,7 @@ WHERE c."id" IN ($whereRowIds)
   List<_UniqueIndexConflictRelease> _uniqueIndexesForTable(
     TableDefinition tableDefinition,
   ) {
-    return _uniqueIndexesByTableName.putIfAbsent(
+    return _context._uniqueIndexesByTableName.putIfAbsent(
       tableDefinition.name,
       () => _syncableUniqueIndexesForTable(
         tableDefinition,
@@ -1174,19 +1283,6 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
             columnName: row[index + 1],
         },
     };
-  }
-
-  Object? _defaultValueForColumn(String tableName, String columnName) {
-    final column = _columnsByTableAndName[tableName]?[columnName];
-    if (column == null) return null;
-    final defaultValue = column.columnDefault;
-    if (defaultValue == null) return null;
-    if (column.columnType == ColumnType.uuid) {
-      final unquoted = defaultValue.replaceAll("'", '');
-      if (unquoted == 'random' || unquoted == 'random_v7') return null;
-      return UuidValue.withValidation(unquoted);
-    }
-    return defaultValue.replaceAll("'", '');
   }
 
   Object? _conflictFreeValue(

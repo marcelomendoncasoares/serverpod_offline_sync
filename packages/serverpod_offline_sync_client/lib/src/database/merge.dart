@@ -828,7 +828,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     String tableName,
     Map<String, Object?> data,
   ) {
-    final columns = _columnsByTableAndName[tableName];
+    final columns = _context._columnsByTableAndName[tableName];
     if (columns == null) return {};
 
     return {

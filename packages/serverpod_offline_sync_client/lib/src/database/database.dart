@@ -42,10 +42,13 @@ final userForTransaction = <Transaction, UuidValue>{};
 class CrdtDatabase implements Database {
   /// Creates a CRDT-aware database wrapper around the inner database.
   CrdtDatabase(
-    this._delegate, {
+    Database delegate, {
 
     /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
+
+    /// Shared CRDT database metadata.
+    CrdtDatabaseContext? context,
 
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = CrdtSync.defaultSyncBatchSize,
@@ -63,6 +66,30 @@ class CrdtDatabase implements Database {
 
     /// Resolves membership-wide read scopes for explicit users.
     CrdtScopeMembershipResolver? scopeMembershipResolver,
+  }) : this._(
+         delegate,
+         context ??
+             CrdtDatabaseContext(
+               syncTables: syncTables,
+               serializationManager: delegate.serializationManager,
+             ),
+         syncTables: syncTables,
+         syncBatchSize: syncBatchSize,
+         continuousSyncInterval: continuousSyncInterval,
+         persistentUserId: persistentUserId,
+         scopeMembershipValidator: scopeMembershipValidator,
+         scopeMembershipResolver: scopeMembershipResolver,
+       );
+
+  CrdtDatabase._(
+    this._delegate,
+    this._context, {
+    required List<Table> syncTables,
+    required int syncBatchSize,
+    required Duration continuousSyncInterval,
+    required UuidValue? persistentUserId,
+    required CrdtScopeMembershipValidator? scopeMembershipValidator,
+    required CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval,
@@ -70,11 +97,12 @@ class CrdtDatabase implements Database {
        _scopeMembershipResolver = scopeMembershipResolver,
        _recorder = CrdtMutationRecorder(
          _delegate,
+         context: _context,
          persistentUserId: persistentUserId,
-         syncTables: syncTables,
        );
 
   final Database _delegate;
+  final CrdtDatabaseContext _context;
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
@@ -82,39 +110,22 @@ class CrdtDatabase implements Database {
   final CrdtScopeMembershipResolver? _scopeMembershipResolver;
 
   final CrdtMutationRecorder _recorder;
-  bool _initialized = false;
-  Future<void>? _initializing;
 
-  late final CrdtSync _sync = CrdtSync(
+  late final _sync = CrdtSync(
     syncTables: _syncTables,
     serializationManager: serializationManager,
     syncBatchSize: _syncBatchSize,
     continuousSyncInterval: _continuousSyncInterval,
+    databaseContext: _context,
   );
 
   /// Initializes the CRDT database.
   Future<void> initialize() async {
-    final initializing = _recorder.initialize().then((_) {
-      _initialized = true;
-    });
-    _initializing = initializing;
-    try {
-      await initializing;
-    } finally {
-      if (identical(_initializing, initializing)) {
-        _initializing = null;
-      }
-    }
+    await _recorder.initialize();
   }
 
   Future<void> _ensureInitialized() async {
-    if (_initialized) return;
-    final initializing = _initializing;
-    if (initializing != null) {
-      await initializing;
-      return;
-    }
-    await initialize();
+    await _recorder.ensureInitialized();
   }
 
   /// The hash describing the synchronized schema configured for this database.
@@ -392,6 +403,7 @@ class CrdtDatabase implements Database {
     Expression? updateWhere,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     // TODO: Implement CRDT upsert.
     throw UnimplementedError('CRDT upsert is not implemented.');
   }
