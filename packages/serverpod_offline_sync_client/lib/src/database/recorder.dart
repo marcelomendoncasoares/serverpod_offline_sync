@@ -52,6 +52,12 @@ enum _UniqueConflictReleaseKind {
   syntheticUuid,
 }
 
+enum _ForeignKeyTargetPresence {
+  absent,
+  visible,
+  hidden,
+}
+
 /// Persists additional CRDT rows after a mutating ORM operation completes.
 ///
 /// Callbacks receive the underlying database (not the CRDT proxy) and the
@@ -73,11 +79,7 @@ class CrdtMutationRecorder {
 
   late final DatabaseSession _dbSession = _db.session;
 
-  late final _session = CrdtDatabaseSession(
-    _db,
-    syncTables: syncTables,
-    persistentUserId: persistentUserId,
-  );
+  late final _session = BasicDatabaseSession(_db);
 
   late final CrdtScopeManager _scopeManager = CrdtScopeManager(_dbSession);
 
@@ -1090,6 +1092,35 @@ WHERE (${predicates.join(') AND (')})
     return {
       for (final row in result) UuidValueJsonExtension.fromJson(row.first),
     };
+  }
+
+  Future<_ForeignKeyTargetPresence> _lookupForeignKeyTargetPresence({
+    required String parentTableName,
+    required String parentColumn,
+    required UuidValue value,
+    required Transaction transaction,
+  }) async {
+    final (tableId, _) = _schema[parentTableName]!;
+    final scopeId = _getHlcManager(transaction).normalizedScopeId;
+    final result = await _db.unsafeQuery(
+      '''
+SELECT CASE
+  WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
+  ELSE 0
+END AS visible
+FROM "${_escapeIdentifier(parentTableName)}" d
+LEFT JOIN "crdt_data_rows" r
+  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+WHERE (${_domainColumnPredicate('scopeId', scopeId)})
+  AND (${_domainColumnPredicate(parentColumn, value)})
+LIMIT 1
+''',
+      transaction: transaction,
+    );
+    if (result.isEmpty) return _ForeignKeyTargetPresence.absent;
+    return (result.first[0] as num) == 1
+        ? _ForeignKeyTargetPresence.visible
+        : _ForeignKeyTargetPresence.hidden;
   }
 
   Future<void> _updateDomainRows(

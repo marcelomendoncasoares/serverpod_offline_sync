@@ -1,0 +1,7 @@
+[mcp_servers.serverpod]
+command = "serverpod"
+args = ["mcp-server", "--server-dir", "test/serverpod_offline_sync_test_server"]
+
+[mcp_servers.dart_mcp]
+command = "dart"
+args = ["mcp-server", "--force-roots-fallback"]

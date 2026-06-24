@@ -1858,6 +1858,86 @@ void main() {
     },
   );
 
+  group(
+    'Given a remote insert with a cascade foreign key that points to a hidden parent in scope, ',
+    () {
+      late Organization organization;
+      late Person person;
+      late CrdtMergeInsert remotePersonInsert;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          organization = await Organization.db.insertRow(
+            session,
+            Organization(id: const Uuid().v7obj(), name: 'cascade organization'),
+            transaction: tx,
+          );
+        });
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Organization.db.deleteRow(session, organization, transaction: tx);
+        });
+
+        person = Person(
+          id: const Uuid().v7obj(),
+          name: 'cascade person',
+          organizationId: organization.id,
+        );
+
+        final remoteNodeId = const Uuid().v7obj();
+        final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+        remotePersonInsert = CrdtMergeInsert(
+          tableName: Person.t.tableName,
+          uuidRowId: person.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: hlc.datetime,
+          hlcCounter: hlc.counter,
+          data: person,
+        );
+      });
+
+      group('when the remote insert is merged, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            [remotePersonInsert],
+            scopeId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the child is hidden and preserves the organization foreign key.',
+          () async {
+            expect(await Organization.db.findById(session, organization.id!), isNull);
+            expect(await Person.db.findById(session, person.id!), isNull);
+
+            final hiddenPerson = await Person.db.findFirstRow(
+              session,
+              where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+            );
+
+            expect(hiddenPerson, isNotNull);
+            expect(hiddenPerson!.organizationId, organization.id);
+          },
+        );
+
+        test(
+          'then no missing-parent projection override is materialized.',
+          () async {
+            final projection = await _findForeignKeyProjection(
+              rowId: person.id!,
+              columnName: Person.t.organizationId.columnName,
+            );
+
+            expect(projection, isNotNull);
+            expect(projection!.attemptedValue, organization.id);
+            expect(projection.hasOverride, isFalse);
+            expect(projection.overrideReason, isNull);
+          },
+        );
+      });
+    },
+  );
+
   // Merge sets are causally complete by protocol: a sync batch is a full causal
   // snapshot, so the parent facts needed by its foreign key attempts always
   // precede or accompany the child fact. A non-nullable set-default attempt
