@@ -66,6 +66,7 @@ void main() {
           rawServerSession,
           syncTables: serverSyncTables,
           scopeMembershipValidator: _scopeMembershipValidator,
+          scopeMembershipResolver: CrdtScopeMembership.memberScopes,
         );
         await serverSession.db.initialize();
       });
@@ -239,6 +240,10 @@ void main() {
               ),
               scopeId: sharedScopeId,
             );
+            final allServerPeopleForUser = await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.find(serverSession, transaction: tx),
+            );
 
             await testClient.crdt.syncOnce(clientSession);
 
@@ -246,20 +251,24 @@ void main() {
               clientSession,
               personalPerson.id!,
             );
-            final sharedClientPerson = await clientSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => client.Person.db.findById(
-                clientSession,
-                sharedPerson.id!,
-                transaction: tx,
-              ),
-              scopeId: sharedScopeId,
+            final sharedClientPerson = await client.Person.db.findById(
+              clientSession,
+              sharedPerson.id!,
             );
+            final allClientPeople = await client.Person.db.find(clientSession);
 
             expect(personalClientPerson, isNotNull);
             expect(personalClientPerson!.name, 'personal-server-person');
             expect(sharedClientPerson, isNotNull);
             expect(sharedClientPerson!.name, 'shared-server-person');
+            expect(allServerPeopleForUser.map((person) => person.id).toSet(), {
+              personalPerson.id,
+              sharedPerson.id,
+            });
+            expect(allClientPeople.map((person) => person.id).toSet(), {
+              personalPerson.id,
+              sharedPerson.id,
+            });
           },
         );
 
@@ -288,20 +297,11 @@ void main() {
             );
 
             await _waitUntil(() async {
-              try {
-                final clientPerson = await clientSession.db.transactionForUser(
-                  testCrdtUserId,
-                  (tx) => client.Person.db.findById(
-                    clientSession,
-                    sharedPerson.id!,
-                    transaction: tx,
-                  ),
-                  scopeId: laterScopeId,
-                );
-                return clientPerson?.name == 'later-shared-person';
-              } on CrdtScopeMembershipException {
-                return false;
-              }
+              final clientPerson = await client.Person.db.findById(
+                clientSession,
+                sharedPerson.id!,
+              );
+              return clientPerson?.name == 'later-shared-person';
             });
           },
         );
@@ -781,6 +781,7 @@ void main() {
           rawServerSession,
           syncTables: serverSyncTables,
           scopeMembershipValidator: _scopeMembershipValidator,
+          scopeMembershipResolver: CrdtScopeMembership.memberScopes,
         );
         await serverSession.db.initialize();
       });
@@ -949,6 +950,7 @@ void main() {
           rawServerSession,
           syncTables: serverSyncTables,
           scopeMembershipValidator: _scopeMembershipValidator,
+          scopeMembershipResolver: CrdtScopeMembership.memberScopes,
         );
         await serverSession.db.initialize();
       });

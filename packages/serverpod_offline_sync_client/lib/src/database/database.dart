@@ -27,8 +27,15 @@ typedef CrdtScopeMembershipValidator =
       required UuidValue scopeId,
     });
 
+/// Resolves the scope UUIDs readable by [userId].
+typedef CrdtScopeMembershipResolver =
+    FutureOr<List<UuidValue>> Function(DatabaseSession session, UuidValue userId);
+
 /// Map of transaction hashes to the scope they are associated with.
 final scopeForTransaction = <Transaction, CrdtScope>{};
+
+/// Map of transaction hashes to the authenticated user associated with them.
+final userForTransaction = <Transaction, UuidValue>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -53,10 +60,14 @@ class CrdtDatabase implements Database {
 
     /// Validates explicit shared-scope transactions.
     CrdtScopeMembershipValidator? scopeMembershipValidator,
+
+    /// Resolves membership-wide read scopes for explicit users.
+    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval,
        _scopeMembershipValidator = scopeMembershipValidator,
+       _scopeMembershipResolver = scopeMembershipResolver,
        _recorder = CrdtMutationRecorder(
          _delegate,
          persistentUserId: persistentUserId,
@@ -68,6 +79,7 @@ class CrdtDatabase implements Database {
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
   final CrdtScopeMembershipValidator? _scopeMembershipValidator;
+  final CrdtScopeMembershipResolver? _scopeMembershipResolver;
 
   final CrdtMutationRecorder _recorder;
   bool _initialized = false;
@@ -194,20 +206,26 @@ class CrdtDatabase implements Database {
       _delegate.serializationManager;
 
   /// Merges [where] with the CRDT visibility predicates scoped to the queried
-  /// tables and the user associated with [transaction] (or the persistent
-  /// user). Without a user scope (e.g. server-side admin reads), a row is
-  /// only hidden when every user tracking it has it hidden.
-  Expression? _whereVisibleWithTombstone<T extends TableRow>(
+  /// tables and the user associated with [transaction] (or the persistent user).
+  ///
+  /// Read filters are membership-wide. Write filters stay pinned to the acting
+  /// scope so mutations cannot cross scope boundaries.
+  Future<Expression?> _whereVisibleWithTombstone<T extends TableRow>(
     Expression? where,
     Include? include,
-    Transaction? transaction,
-  ) {
+    Transaction? transaction, {
+    required bool membershipWide,
+  }) async {
+    final scopeIds = await _scopeIdsForQueries(
+      transaction,
+      membershipWide: membershipWide,
+    );
     return mergeWhereWithTombstone<T>(
       serializationManager,
       where,
       include,
       tableIdForName: _recorder.tableIdForName,
-      scopeId: () => _recorder.scopeForQueries(transaction)?.id,
+      scopeIds: () => scopeIds,
     );
   }
 
@@ -226,7 +244,12 @@ class CrdtDatabase implements Database {
   }) async {
     await _ensureInitialized();
     final result = await _delegate.find<T>(
-      where: _whereVisibleWithTombstone<T>(where, include, transaction),
+      where: await _whereVisibleWithTombstone<T>(
+        where,
+        include,
+        transaction,
+        membershipWide: true,
+      ),
       limit: limit,
       offset: offset,
       orderBy: orderBy,
@@ -254,7 +277,12 @@ class CrdtDatabase implements Database {
     final table = serializationManager.getTableForType(T);
     final where = table?.id.equals(id);
     final result = await _delegate.findFirstRow<T>(
-      where: _whereVisibleWithTombstone<T>(where, include, transaction),
+      where: await _whereVisibleWithTombstone<T>(
+        where,
+        include,
+        transaction,
+        membershipWide: true,
+      ),
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -278,7 +306,12 @@ class CrdtDatabase implements Database {
   }) async {
     await _ensureInitialized();
     final result = await _delegate.findFirstRow<T>(
-      where: _whereVisibleWithTombstone<T>(where, include, transaction),
+      where: await _whereVisibleWithTombstone<T>(
+        where,
+        include,
+        transaction,
+        membershipWide: true,
+      ),
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
@@ -453,7 +486,12 @@ class CrdtDatabase implements Database {
     final where = row.table.id.equals(row.id);
     final updatedRows = await _delegate.updateWhere<T>(
       columnValues: columnValues,
-      where: _whereVisibleWithTombstone<T>(where, null, transaction)!,
+      where: (await _whereVisibleWithTombstone<T>(
+        where,
+        null,
+        transaction,
+        membershipWide: false,
+      ))!,
       transaction: transaction,
     );
 
@@ -510,7 +548,12 @@ class CrdtDatabase implements Database {
       (tx) async {
         final result = await _delegate.updateWhere<T>(
           columnValues: columnValues,
-          where: _whereVisibleWithTombstone<T>(where, null, tx)!,
+          where: (await _whereVisibleWithTombstone<T>(
+            where,
+            null,
+            tx,
+            membershipWide: false,
+          ))!,
           limit: limit,
           offset: offset,
           orderBy: orderBy,
@@ -600,7 +643,12 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final rows = await _delegate.find<T>(
-          where: _whereVisibleWithTombstone<T>(where, null, tx),
+          where: await _whereVisibleWithTombstone<T>(
+            where,
+            null,
+            tx,
+            membershipWide: false,
+          ),
           orderBy: orderBy,
           orderByList: orderByList,
           // Remove this once the deprecated member is removed.
@@ -624,7 +672,12 @@ class CrdtDatabase implements Database {
   }) async {
     await _ensureInitialized();
     return _delegate.count<T>(
-      where: _whereVisibleWithTombstone<T>(where, null, transaction),
+      where: await _whereVisibleWithTombstone<T>(
+        where,
+        null,
+        transaction,
+        membershipWide: true,
+      ),
       limit: limit,
       useCache: useCache,
       transaction: transaction,
@@ -640,7 +693,12 @@ class CrdtDatabase implements Database {
   }) async {
     await _ensureInitialized();
     return _delegate.lockRows<T>(
-      where: _whereVisibleWithTombstone<T>(where, null, transaction)!,
+      where: (await _whereVisibleWithTombstone<T>(
+        where,
+        null,
+        transaction,
+        membershipWide: false,
+      ))!,
       lockMode: lockMode,
       transaction: transaction,
       lockBehavior: lockBehavior,
@@ -683,9 +741,11 @@ class CrdtDatabase implements Database {
       (tx) async {
         try {
           scopeForTransaction[tx] = scope;
+          userForTransaction[tx] = userId;
           return await transactionFunction(tx);
         } finally {
           scopeForTransaction.remove(tx);
+          userForTransaction.remove(tx);
         }
       },
       settings: settings,
@@ -722,6 +782,63 @@ class CrdtDatabase implements Database {
       where: (t) => t.uuidScopeId.equals(scopeId),
     );
     return scope != null;
+  }
+
+  Future<List<int>?> _scopeIdsForQueries(
+    Transaction? transaction, {
+    required bool membershipWide,
+  }) async {
+    if (!membershipWide) {
+      return _actingScopeIdsForQueries(transaction);
+    }
+
+    final userId = _userIdForQueries(transaction);
+    if (userId == null) return null;
+
+    final resolver = _scopeMembershipResolver;
+    if (resolver != null) {
+      return _scopeIdsForUuids(await resolver(_delegate.session, userId));
+    }
+
+    final persistentUserId = _recorder.persistentUserId;
+    if (persistentUserId != null && persistentUserId == userId) {
+      return _allLocalScopeIds();
+    }
+
+    return _actingScopeIdsForQueries(transaction);
+  }
+
+  List<int>? _actingScopeIdsForQueries(Transaction? transaction) {
+    final scopeId = _recorder.scopeForQueries(transaction)?.id;
+    return scopeId == null ? null : [scopeId];
+  }
+
+  UuidValue? _userIdForQueries(Transaction? transaction) {
+    if (transaction != null) {
+      final userId = userForTransaction[transaction];
+      if (userId != null) return userId;
+    }
+    return _recorder.persistentUserId;
+  }
+
+  Future<List<int>> _scopeIdsForUuids(List<UuidValue> scopeUuids) async {
+    if (scopeUuids.isEmpty) return [];
+    final scopes = await CrdtScope.db.find(
+      _delegate.session,
+      where: (t) => t.uuidScopeId.inSet(scopeUuids.toSet()),
+    );
+    return [
+      for (final scope in scopes)
+        if (scope.id != null) scope.id!,
+    ];
+  }
+
+  Future<List<int>> _allLocalScopeIds() async {
+    final scopes = await CrdtScope.db.find(_delegate.session);
+    return [
+      for (final scope in scopes)
+        if (scope.id != null) scope.id!,
+    ];
   }
 
   Future<UuidValue> _requireUserId(UuidValue? userId) async {

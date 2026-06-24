@@ -26,6 +26,7 @@ Future<void> run(List<String> args) async {
             userUuid: userId,
             scopeUuid: scopeId,
           ),
+      scopeMembershipResolver: CrdtScopeMembership.memberScopes,
     ),
   )..initializeCrdtSync(syncTables: demoSyncTables);
 

@@ -27,6 +27,9 @@ class CrdtDatabaseSession implements DatabaseSession {
 
     /// Validates explicit shared-scope transactions.
     CrdtScopeMembershipValidator? scopeMembershipValidator,
+
+    /// Resolves membership-wide read scopes for explicit users.
+    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) : _db = CrdtDatabase(
          db,
          syncTables: syncTables,
@@ -34,6 +37,7 @@ class CrdtDatabaseSession implements DatabaseSession {
          continuousSyncInterval: continuousSyncInterval,
          persistentUserId: persistentUserId,
          scopeMembershipValidator: scopeMembershipValidator,
+         scopeMembershipResolver: scopeMembershipResolver,
        );
 
   /// Creates a [CrdtDatabaseSession] instance that wraps a [DatabaseSession].
@@ -56,6 +60,9 @@ class CrdtDatabaseSession implements DatabaseSession {
 
     /// Validates explicit shared-scope transactions.
     CrdtScopeMembershipValidator? scopeMembershipValidator,
+
+    /// Resolves membership-wide read scopes for explicit users.
+    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) => CrdtDatabaseSession(
     session.db,
     syncTables: syncTables,
@@ -63,6 +70,7 @@ class CrdtDatabaseSession implements DatabaseSession {
     continuousSyncInterval: continuousSyncInterval,
     persistentUserId: persistentUserId,
     scopeMembershipValidator: scopeMembershipValidator,
+    scopeMembershipResolver: scopeMembershipResolver,
   );
 
   final CrdtDatabase _db;

@@ -8,11 +8,11 @@ import '../protocol/protocol.dart';
 /// null when the table is not registered for CRDT synchronization.
 typedef CrdtTableIdResolver = int? Function(String tableName);
 
-/// Resolves the [CrdtScope] id scoping the current query. Returns null when
-/// no scope is available (e.g. server-side reads outside `transactionForUser`
+/// Resolves the [CrdtScope] ids scoping the current query. Returns null when no
+/// scope is available (e.g. server-side reads outside `transactionForUser`
 /// without a persistent user), in which case the query is an admin read: rows
 /// are not isolated and a row is hidden only when its owning scope hides it.
-typedef CrdtScopeIdResolver = int? Function();
+typedef CrdtScopeIdsResolver = List<int>? Function();
 
 /// Private sentinel class used to signal that the CRDT visibility filter
 /// should be bypassed. Detected via `is` type check instead of string
@@ -60,8 +60,8 @@ extension IncludeTombstonedRows on Table {
 /// is null, only the root table and [where] are merged.
 ///
 /// Each predicate only considers [CrdtDataRow]s recorded for the queried table
-/// ([tableIdForName]) and, when a scope is available ([scopeId]), isolates the
-/// query to that scope's rows. This prevents a tombstone recorded for another
+/// ([tableIdForName]) and, when scopes are available ([scopeIds]), isolates the
+/// query to those scopes' rows. This prevents a tombstone recorded for another
 /// table or scope from masking an unrelated row that reuses the same UUID.
 /// Without a scope (admin reads), rows are not isolated and a row stays
 /// visible as long as its owning scope still sees it.
@@ -85,13 +85,13 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   Expression? where,
   Include? include, {
   required CrdtTableIdResolver tableIdForName,
-  required CrdtScopeIdResolver scopeId,
+  required CrdtScopeIdsResolver scopeIds,
 }) {
   final includeObjectPredicates = _walkIncludeGraphForTombstone(
     include,
     null,
     tableIdForName: tableIdForName,
-    scopeId: scopeId,
+    scopeIds: scopeIds,
   );
 
   final rootTable = serializationManager.getTableForType(T);
@@ -99,7 +99,7 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
       ? where
       : _mergeWhereOptional(
           where,
-          rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeId),
+          rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeIds),
         );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -111,7 +111,7 @@ Expression? _walkIncludeGraphForTombstone(
   Include? inc,
   Expression? includeObjectPredicates, {
   required CrdtTableIdResolver tableIdForName,
-  required CrdtScopeIdResolver scopeId,
+  required CrdtScopeIdsResolver scopeIds,
 }) {
   if (inc == null) return includeObjectPredicates;
   if (inc is IncludeList) {
@@ -119,14 +119,14 @@ Expression? _walkIncludeGraphForTombstone(
     if (!_includesHiddenSentinel(inc.where)) {
       inc.where = _mergeWhereOptional(
         inc.where,
-        inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeId),
+        inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeIds),
       );
     }
     return _walkIncludeGraphForTombstone(
       inc.include,
       includeObjectPredicates,
       tableIdForName: tableIdForName,
-      scopeId: scopeId,
+      scopeIds: scopeIds,
     );
   }
   var acc = includeObjectPredicates;
@@ -140,7 +140,7 @@ Expression? _walkIncludeGraphForTombstone(
         nested,
         acc,
         tableIdForName: tableIdForName,
-        scopeId: scopeId,
+        scopeIds: scopeIds,
       );
       continue;
     }
@@ -150,14 +150,14 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          childTable.whereVisibleOnCrdtRow(tableIdForName, scopeId),
+          childTable.whereVisibleOnCrdtRow(tableIdForName, scopeIds),
         );
       }
       acc = _walkIncludeGraphForTombstone(
         nested,
         acc,
         tableIdForName: tableIdForName,
-        scopeId: scopeId,
+        scopeIds: scopeIds,
       );
     }
   }
@@ -190,15 +190,15 @@ extension on Table {
   /// registered for CRDT synchronization. Keeps rows when the id is null
   /// (unmatched [IncludeObject] joins) or no hidden CRDT row matches.
   ///
-  /// With a scope, rows are isolated to it (`scopeId = <scope>`) and checked
-  /// against the scope's tombstones with a correlated `NOT EXISTS` probe
-  /// covered by the (scopeId, tblId, uuidRowId) unique index. Without a
+  /// With scopes, rows are isolated to them (`scopeId IN (<scopes>)`) and
+  /// checked against those scopes' tombstones with a correlated `NOT EXISTS`
+  /// probe covered by the (scopeId, tblId, uuidRowId) unique index. Without a
   /// scope (admin reads), there is no isolation filter and the probe is
   /// keyed by the row's own `scopeId` column instead — covered by the same
   /// index — so a row stays visible while its owning scope sees it.
   Expression? whereVisibleOnCrdtRow(
     CrdtTableIdResolver tableIdForName,
-    CrdtScopeIdResolver scopeId,
+    CrdtScopeIdsResolver scopeIds,
   ) {
     if (id is! ColumnUuid) return null;
     final tableId = tableIdForName(tableName);
@@ -214,19 +214,26 @@ extension on Table {
         ));
 
     final crdtRow = CrdtDataRow.t;
-    final effectiveScopeId = scopeId();
+    final effectiveScopeIds = scopeIds();
+    if (effectiveScopeIds != null && effectiveScopeIds.isEmpty) {
+      return id.equals(null) | const Expression('FALSE');
+    }
+
+    final scopeFilter = effectiveScopeIds == null
+        ? '${crdtRow.scopeId} = $scopeColumn'
+        : '${crdtRow.scopeId} IN (${_sqlIntList(effectiveScopeIds)})';
     final notExistsExpr = Expression(
       'NOT EXISTS '
       '(SELECT 1 FROM "${crdtRow.tableName}" '
-      'WHERE ${crdtRow.scopeId} = ${effectiveScopeId ?? scopeColumn} '
+      'WHERE $scopeFilter '
       'AND ${crdtRow.tblId} = $tableId '
       'AND ${crdtRow.uuidRowId} = $id '
       'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
     );
 
     return id.equals(null) |
-        ((effectiveScopeId != null)
-            ? (scopeColumn.equals(effectiveScopeId) & notExistsExpr)
+        ((effectiveScopeIds != null)
+            ? (scopeColumn.inSet(effectiveScopeIds.toSet()) & notExistsExpr)
             : notExistsExpr);
   }
 
@@ -238,4 +245,8 @@ extension on Table {
     }
     return null;
   }
+}
+
+String _sqlIntList(Iterable<int> values) {
+  return values.map(ValueEncoder.instance.convert).join(', ');
 }
