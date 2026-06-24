@@ -92,7 +92,7 @@ indexes:
   scope has the user's own UUID (already true: the scope UUID keys the chain),
   so no `crdt_scope_members` row is stored for it. Shared scopes are
   `crdt_scopes` rows whose UUID is no user's id, with explicit membership rows.
-- `role` is sketched but unenforced (see *Open questions*).
+- `role` is sketched but unenforced (see *Follow-ups*).
 
 ### Members vs. nodes
 
@@ -131,7 +131,7 @@ does not need it to scope reads and writes:
   (e.g. read-only). When roles arrive, the client needs the role *per held
   scope*, delivered as a per-scope datum at handshake — a field on the client's
   scope row, not a replicated `(scopeId, userUuid, role)` table. (Deferred; see
-  *Open questions*.)
+  *Follow-ups*.)
 
 ### Scope enumeration (server is the authority)
 
@@ -376,7 +376,7 @@ where stated. Run tests with `--concurrency=1`.
   `scopeId IN (…)` over the user's member scopes.
 - **Phase 5 — lifecycle and docs.** Client adoption of newly announced shares;
   reconcile with the scope-purge semantics in `sync-non-sync-relations.md`.
-  Revocation cleanup and roles are deferred (see *Open questions*).
+  Revocation cleanup and roles are deferred (see *Follow-ups*).
 
 ## Test plan
 
@@ -436,8 +436,20 @@ tested once, not per combination.
   anyway.
 - **Membership table is server-only and unsynced:** it is server/app state, not
   CRDT data.
+- **Idle chatter accepted for the initial implementation:** an idle continuous
+  cycle does one empty scope-turn per accessible scope rather than one per
+  session. It is proportional to scope count and harmless to start; skipping
+  scopes with no local pending changes and no expected inbound is an optional
+  later optimization, not a launch blocker.
+- **Initial-sync ordering is not a current concern:** a device joining many
+  scopes cycles them one at a time on first sync. Prioritizing recently active
+  scopes in the iteration order is a compatible refinement if cold-start latency
+  over large scope counts ever matters, but it is not a present worry.
 
-## Open questions
+## Follow-ups
+
+Deferred work, each needing its own design pass. Neither blocks the phased plan
+above; both are tracked so the first implementation does not foreclose them.
 
 1. **Membership revocation.** When a user loses membership, the server omits the
    scope from the next cycle's `ScopeSet` and both sides stop syncing it
@@ -447,14 +459,7 @@ tested once, not per combination.
    open question 3.)
 2. **Roles within a scope.** `crdt_scope_members.role` is stored but unenforced.
    Read-only members would need write rejection at merge time (another
-   fail-and-record case), which overlaps with revocation of offline-written
-   changes by a demoted member. (Carried from `row-ownership.md` open
-   question 4.)
-3. **Idle chatter.** An idle continuous cycle now does one empty scope-turn per
-   accessible scope instead of one per session. It is proportional to scope
-   count and harmless, but if it bites, a later optimization can skip scopes
-   with no local pending changes and no expected inbound.
-4. **Initial-sync latency at scale.** A device joining many scopes cycles them
-   one at a time on first sync. If cold-start latency over large scope counts
-   becomes a problem, prioritizing recently active scopes in the iteration order
-   is a compatible refinement.
+   fail-and-record case) and a per-scope role datum on the client to reject
+   writes offline (see *The client needs no membership table*), which overlaps
+   with revocation of offline-written changes by a demoted member. (Carried from
+   `row-ownership.md` open question 4.)
