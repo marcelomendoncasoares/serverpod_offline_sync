@@ -1,0 +1,22 @@
+### Server-side authorization membership for shared CRDT scopes.
+###
+### Personal-scope membership is implicit: a user always belongs to the scope
+### whose UUID equals their auth user UUID. Rows in this table represent shared
+### scopes only.
+class: CrdtScopeMember
+table: crdt_scope_members
+database: server
+fields:
+  ### Shared scope this membership grants access to.
+  scope: CrdtScope?, relation(onDelete=Cascade)
+
+  ### Auth user UUID that may access the scope.
+  userUuid: UuidValue
+
+  ### Application-defined role. Stored but not enforced by this package yet.
+  role: String?
+
+indexes:
+  crdt_scope_member_unique_idx:
+    fields: scopeId, userUuid
+    unique: true
