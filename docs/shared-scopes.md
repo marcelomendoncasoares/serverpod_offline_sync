@@ -31,9 +31,11 @@ membership relation and a sync protocol that iterates scopes.
 > a near-verbatim repetition of today's frames.
 
 > **The server is the authority on membership; the client follows.** The set of
-> scopes a session syncs is computed server-side from `crdt_scope_members` at
-> the handshake. The client adopts scopes the server announces and drops its
-> own scopes the server does not. Membership itself is never synced.
+> scopes a session syncs is computed server-side from `crdt_scope_members` and
+> re-resolved at the start of every sync cycle, so access changes take effect
+> mid-session. The server dictates the set; the client adopts scopes it
+> announces and drops the ones it does not. The reconciliation is directional —
+> not a set operation toggled by a flag — and membership itself is never synced.
 
 > **Row ownership is unchanged.** Every row still has exactly one owning
 > `scopeId`, `(table, uuidRowId)` stays globally identified, and every
@@ -46,16 +48,17 @@ membership relation and a sync protocol that iterates scopes.
    `syncContinuously`) does not change shape: callers pass a session, never a
    scope. A device with only a personal scope behaves exactly as today.
 2. **Smallest protocol delta.** The per-scope exchange is today's frames. The
-   only additions are a scope list in the handshake and a scope tag on the
+   only additions are a per-cycle scope-set exchange and a scope tag on the
    per-scope frames. `collectNextBatch`, `collectPendingChanges`,
    `mergeInboundBatch`, and `recordSyncCheckpoint` are reused per scope without
    logic changes.
 3. **Bounded memory.** A scope's changes are collected, streamed, merged, and
    released before the next scope is visited. A session never holds all scopes'
    pending changes at once.
-4. **Membership cannot be forged.** The server verifies every scope against
-   `crdt_scope_members` (plus the implicit personal scope). A client-announced
-   scope the user is not a member of is refused, never synced.
+4. **Membership cannot be forged.** The server computes its own scope set from
+   `crdt_scope_members` (plus the implicit personal scope) and never widens it
+   from anything the client sends. A scope the user is not a member of is never
+   synced, even if the client names it.
 5. **One scope per transaction.** Reads are membership-wide; writes stay pinned
    to exactly one scope. This is deliberate honesty about CRDT semantics: two
    scopes' chains replicate independently and a remote replica can never
@@ -91,9 +94,48 @@ indexes:
   `crdt_scopes` rows whose UUID is no user's id, with explicit membership rows.
 - `role` is sketched but unenforced (see *Open questions*).
 
+### Members vs. nodes
+
+`crdt_scope_members` and the `nodes` list on a scope are orthogonal layers and
+both stay:
+
+- A **member** is an authorization fact: a user identity allowed to access a
+  scope. It answers *who may sync, read, and write*.
+- A **node** (`crdt_nodes`, the scope's `nodes` relation) is a CRDT causality
+  fact: one replica's participation in one scope's HLC chain. It answers *whose
+  changes, up to which HLC* and is what per-`(scope, node)` checkpoints key on.
+
+They do not map one-to-one and neither replaces the other. One member may have
+many nodes (one per device). The **server is a node** in every scope it syncs
+but is not a member row. A freshly invited member has **zero nodes** until their
+first device syncs. Nodes are created implicitly by sync (`getOrCreate`,
+`recordSyncCheckpoint`); members are created by application code. Removing the
+`nodes` list would break checkpointing and causal filtering — it is the chain
+topology, not the access list.
+
+### The client needs no membership table
+
+`crdt_scope_members` is **server-only**. The client does not replicate it and
+does not need it to scope reads and writes:
+
+- The client's `crdt_scopes` rows already *are* its membership view. Every local
+  scope is one the server authorized — the personal scope plus shares the client
+  adopted from the server's announcements — and the per-cycle reconcile keeps it
+  current (adopt on grant, drop on revoke). So a membership-wide read filters
+  over the client's local scopes; it needs no `(scopeId, userUuid)` table.
+- Writes are bounded by the scopes the client holds (it cannot act in a scope it
+  has no local row for) and are re-verified by the server on sync, which remains
+  the security boundary. Client-side checks are early-failure UX, not the
+  enforcement point.
+- The one thing the client cannot derive from holding a scope is a **role**
+  (e.g. read-only). When roles arrive, the client needs the role *per held
+  scope*, delivered as a per-scope datum at handshake — a field on the client's
+  scope row, not a replicated `(scopeId, userUuid, role)` table. (Deferred; see
+  *Open questions*.)
+
 ### Scope enumeration (server is the authority)
 
-At the sync handshake the server resolves the authoritative set:
+At the start of each sync cycle the server resolves the authoritative set:
 
 ```
 memberScopes(userUuid) =
@@ -101,8 +143,8 @@ memberScopes(userUuid) =
   ∪ { m.scopeUuid : crdt_scope_members where userUuid = <auth user> }
 ```
 
-This set bounds everything the session may sync. The client never expands it;
-it only learns of additions through what the server announces.
+This set bounds everything the cycle may sync. The client never expands it; it
+only learns of additions through what the server announces.
 
 ## Sync: one call syncs every accessible scope
 
@@ -119,20 +161,29 @@ lighter on memory.
 
 ### Protocol frames
 
-One `Connect` per session; the per-scope exchange is the repeating unit. Frame
-changes (regenerated models + a migration on both client and server schemas):
+`Connect` opens the session once; a scope-set exchange opens each cycle; the
+per-scope exchange repeats within a cycle. Frame changes (regenerated models + a
+migration on both client and server schemas):
 
-- `CrdtSyncConnect { syncTablesHash, scopeIds: List<UuidValue> }` — sent once by
-  each peer. The schema hash is validated once. `scopeIds` is the peer's offered
-  scope set, used to agree on the ordered cycle (below). The single
-  `localNodeId` is removed from `Connect`; node ids are per scope.
+- `CrdtSyncConnect { syncTablesHash }` — sent once by each peer. The schema hash
+  is validated once, before any scope work. The scope list and the single
+  `localNodeId` both leave `Connect`: the scope set is dynamic (per cycle) and
+  node ids are per scope.
+- `CrdtSyncScopeSet { scopeIds: List<UuidValue> }` — exchanged at the **start of
+  every cycle**. The server's content is authoritative (re-resolved from
+  `crdt_scope_members` each cycle); the client's is informational. This is the
+  one frame that carries access changes mid-session — keeping it out of the
+  one-time `Connect` is what lets a grant or a revoke take effect on the next
+  cycle. For a one-shot `syncOnce` there is a single cycle, so it is exchanged
+  exactly once.
 - `CrdtSyncSinceHlc { uuidScopeId, localNodeId, nodeCheckpoints }` — per scope.
   Carries that scope's node id and per-node checkpoints. Exchanged on a scope's
-  first visit; checkpoints then live in memory for the rest of the session.
+  first visit (and again if a dropped scope is later re-adopted); checkpoints
+  then live in memory for the rest of the session.
 - `CrdtSyncMergeChunk { uuidScopeId, changes }` — a chunk tagged with its scope.
 - `CrdtSyncEndOfBatch`, `CrdtSyncClose`, `CrdtSyncIdleTimeout` — unchanged.
   `EndOfBatch` terminates the current scope's batch; `Close` terminates the
-  whole session after the single pass.
+  whole session after the final cycle.
 
 `collectNextBatch` is unchanged: it is still called once per scope visit and
 returns that scope's `CrdtMergeSet`. There is no per-round grouping map.
@@ -140,22 +191,24 @@ returns that scope's `CrdtMergeSet`. There is no per-round grouping map.
 ### The session state machine
 
 ```
-handshake (once):
-  send Connect(syncTablesHash, myScopeIds)
-  read peer Connect; validate syncTablesHash
-  reconcile → orderedScopes        (see "reconciliation and lockstep")
+handshake (once per session):
+  send Connect(syncTablesHash); read peer Connect; validate syncTablesHash
   nodeCheckpoints: Map<scopeUuid, Map<nodeId, Hlc>> = {}
+  handshaked: Set<scopeUuid> = {}
 
-pass (once: a single pass; continuous: forever):
+cycle (once: exactly one; continuous: forever):
+  resolve my set; send ScopeSet(myScopeIds); read peer ScopeSet
+  reconcile → orderedScopes        (see "reconciliation and lockstep")
+  discard nodeCheckpoints/handshaked for scopes no longer in orderedScopes
   for scope in orderedScopes:
-    if first visit:
-      exchange SinceHlc(scope) → seed nodeCheckpoints[scope]
+    if scope not in handshaked:
+      exchange SinceHlc(scope) → seed nodeCheckpoints[scope]; handshaked.add(scope)
     collect pending for scope → send MergeChunk(scope)* + EndOfBatch   # send
     read peer batch for scope → mergeInboundBatch(scope)               # merge
       → advance nodeCheckpoints[scope]
-  continuous: delay continuousSyncInterval after each full cycle, then repeat
+  continuous: delay continuousSyncInterval, then next cycle
 
-once: after the single pass → send Close, read Close, drain (today's teardown)
+once: after the single cycle → send Close, read Close, drain (today's teardown)
 ```
 
 This is today's `while (true) { collect → send → receive → merge }` lifted one
@@ -171,23 +224,51 @@ session, preserving today's fail-fast semantics.
 `onMergeSuccess` becomes scope-aware: `Function(UuidValue scopeUuid, Hlc hlc)`.
 This touches three test call sites and the example app's `demo_controller`.
 
-### Scope-list reconciliation and lockstep
+### Scope-set reconciliation and lockstep
 
-Both peers must cycle the **same ordered scope list** or send/receive desyncs.
-Membership is asymmetric — the server is the authority — so the reconciliation
-rule is the one honest asymmetry, passed into `CrdtSync.sync` as a role:
+Both peers must cycle the **same ordered scope set** or send/receive desyncs.
+Membership is asymmetric — the client trusts the server's membership claims, the
+server trusts none of the client's — so the reconciliation is **directional**,
+not a symmetric set operation:
 
-- **Server**: `orderedScopes = sort(memberScopes(userUuid))`. It ignores any
-  client-announced scope not in that set (constraint 4).
-- **Client**: it adopts server-announced scopes it lacks
-  (`CrdtScopeManager.getOrCreate`), drops its own scopes the server did not
-  announce, then `orderedScopes = sort(peer scopeIds)`.
+- **Union is wrong** (insecure): a client could name a scope the user is not a
+  member of and force the server to sync it.
+- **Intersection is wrong** (cannot adopt): a brand-new share is not in the
+  client's set yet, so it would never enter the intersection and never sync —
+  the client cannot hold what it has not synced, and cannot sync what it does
+  not hold.
 
-After the handshake both iterate `sort(memberScopes)`. Sorting by scope UUID
-makes the order deterministic on both sides with no extra negotiation. Frames
-carry `uuidScopeId` even though strict lockstep makes position predictable: the
-tag is cheap, self-describing, and fails loud on desync rather than merging a
-batch into the wrong scope.
+The correct operation is neither: **the server dictates its set; the client
+conforms.** Each cycle:
+
+- **Server**: `orderedScopes = sort(memberScopes(userUuid))`, computed from
+  `crdt_scope_members`. It never reads the client's `ScopeSet` for authority
+  (constraint 4); the client's list is informational.
+- **Client**: takes the server's `ScopeSet` as the set to cycle —
+  `getOrCreate` (`CrdtScopeManager`) any scope it lacks, drop any local scope the
+  server omitted — then `orderedScopes = sort(peer scopeIds)`.
+
+This asymmetry is **not a boolean flag**. A flag invites the exact footgun of
+"both sides set it" (→ neither adopts → intersection → new shares lost) or
+"neither sets it" (→ both adopt → union → insecure). Instead it is a **resolver
+injected at the call site**: the server endpoint constructs a membership
+resolver (with `crdt_scope_members` access); the client driver constructs a
+follower resolver. The two live at the two already-distinct call sites, so
+"both authoritative" is unrepresentable, not merely discouraged. Frames stay
+symmetric in *shape* — both carry `scopeIds` — exactly as `userId` is already
+sourced differently per side today.
+
+Because the client adopts straight from the cycle's `ScopeSet` *before* it
+iterates, a newly granted scope syncs in the **same cycle**, not the next.
+Sorting by scope UUID makes the order deterministic on both sides with no extra
+negotiation. Frames carry `uuidScopeId` even though strict lockstep makes
+position predictable: the tag is cheap, self-describing, and fails loud on
+desync rather than merging a batch into the wrong scope.
+
+Re-resolving `memberScopes` every cycle is an indexed `crdt_scope_members`
+lookup on the server only; it may be throttled or invalidated by an
+application hook if per-cycle querying becomes hot, at the cost of slower
+propagation of access changes.
 
 ### Checkpoints, once vs. continuous
 
@@ -203,15 +284,24 @@ The continuous interval delay moves to **after each full cycle**, not after each
 scope, to keep per-scope latency low while still preventing a busy loop when
 idle.
 
-### Newly shared scopes
+### Access changes during a session
 
-A client announces its scope list in `Connect` before it has read the server's,
-so a brand-new share is absent from the client's first `Connect`. The client
-adopts it on reading the server's `Connect` and syncs it starting the **next
-cycle** (continuous) or the **next `syncOnce`** call. A first share therefore
-carries one round of latency. A mid-session re-handshake to pull new scopes
-sooner is deliberately not added; the latency is marginal and continuous
-sessions absorb it on the following cycle.
+Because the authoritative scope set is re-resolved and re-exchanged at the top of
+every cycle (not pinned at `Connect`), a continuous session absorbs membership
+changes without reconnecting:
+
+- **Grant.** The server's next `ScopeSet` includes the new scope; the client
+  adopts it before iterating and syncs it in that same cycle.
+- **Revoke.** The server's next `ScopeSet` omits the scope; both sides stop
+  cycling it immediately and discard its in-memory checkpoint state. The device
+  still *holds* the revoked scope's rows; purging them (and the fate of any
+  unsynced local changes) is the deferred revocation question, not a sync-loop
+  concern.
+
+The set changes only at a cycle boundary, where both sides exchange and reconcile
+`ScopeSet` before iterating, so lockstep is preserved across the change. A
+one-shot `syncOnce` has a single cycle, so it captures the set once; the next
+`syncOnce` call picks up any change.
 
 ## Transaction API
 
@@ -271,13 +361,15 @@ where stated. Run tests with `--concurrency=1`.
   `memberScopes(userUuid)`. No behavior change yet: a personal-scope-only set
   reproduces today's single-scope sync exactly.
 - **Phase 2 — sequential multi-scope sync (the requirement).** Protocol model
-  changes (`Connect.scopeIds`, per-scope `SinceHlc`, `MergeChunk.uuidScopeId`)
-  plus generate/migrate. Outer scope loop in `CrdtSync.sync` with per-scope
-  handshake-on-first-visit, in-memory per-scope checkpoints, the once/continuous
-  cycle, and reconciliation with the server as authority. Scope-aware
-  `onMergeSuccess`. The endpoint passes the authenticated user plus the
-  membership resolver; the client resolves its local set and adopts announced
-  scopes. A personal-scope-only device behaves identically to today.
+  changes (`Connect` minus `scopeIds`/`localNodeId`, new per-cycle
+  `CrdtSyncScopeSet`, per-scope `SinceHlc`, `MergeChunk.uuidScopeId`) plus
+  generate/migrate. Outer cycle loop in `CrdtSync.sync` with per-cycle
+  `ScopeSet` exchange, per-scope handshake-on-first-visit, in-memory per-scope
+  checkpoints, and the once/continuous cadence. Reconciliation via an injected
+  resolver: the server endpoint supplies a `crdt_scope_members`-backed
+  membership resolver; the client driver supplies a follower that adopts the
+  server's set. Scope-aware `onMergeSuccess`. A personal-scope-only device
+  behaves identically to today.
 - **Phase 3 — transaction API.** `transactionForUser(userId, fn, {scopeId})`
   with the membership assertion; one scope per transaction.
 - **Phase 4 — membership-wide reads.** Generalize the scoped read filter to
@@ -300,8 +392,11 @@ tested once, not per combination.
   a continuous session keeps cycling; memory holds only one scope's pending
   changes at a time.
 - **Membership.** The server syncs personal + shared scopes; a client-announced
-  non-member scope is refused and never streamed; a newly shared scope is
-  adopted and syncs on the following cycle.
+  non-member scope is refused and never streamed; a newly granted scope is
+  adopted and syncs in the same cycle.
+- **Access changes mid-session.** During a continuous session, a grant added to
+  `crdt_scope_members` appears and syncs on the next cycle; a revoke stops
+  cycling that scope without dropping the session.
 - **Isolation under sharing.** Two users sharing scope X both converge on X
   while their personal scopes stay isolated; an ownership collision in one scope
   records a durable violation and fails the session without corrupting another
@@ -315,9 +410,25 @@ tested once, not per combination.
   serialize regardless, so multiplexing buys no throughput while costing
   protocol surface and memory. Sequencing reuses the existing per-scope state
   machine as the inner loop.
-- **Membership authority:** the server, from `crdt_scope_members`. The client
-  follows the server's announced list. The asymmetry is explicit (a role passed
-  into `CrdtSync.sync`), not smuggled into otherwise-symmetric frames.
+- **Membership authority:** the server, from `crdt_scope_members`. The
+  reconciliation is directional — server dictates, client conforms — and is
+  neither union (insecure) nor intersection (cannot adopt). It is an injected
+  **resolver**, not a boolean: a flag invites the "both set it / neither sets
+  it" footgun, whereas distinct resolvers at the two call sites make "both
+  authoritative" unrepresentable. Frames stay symmetric in shape; only the
+  values and the dictate-vs-conform behavior differ, as `userId` already does.
+- **Scope set is per cycle, not per connect:** re-resolved and re-exchanged each
+  cycle so grants and revokes take effect mid-session without reconnecting. A
+  newly granted scope syncs in the *same* cycle, since the client adopts from the
+  cycle's `ScopeSet` before iterating.
+- **Members vs. nodes:** orthogonal layers, both kept. Members are authorization
+  (`who`); nodes are CRDT causality (`whose changes, up to which HLC`). One
+  member maps to many nodes; the server is a node but not a member; a new member
+  has no node until first sync.
+- **No client membership table:** the client's `crdt_scopes` is its membership
+  view; reads filter over local scopes and the server re-verifies on sync. Only
+  roles (read-only) would need a per-scope datum on the client, delivered at
+  handshake — not a replicated members table.
 - **Iteration order:** sorted scope UUIDs, so both peers stay in lockstep
   without negotiation. Frames are still scope-tagged to fail loud on desync.
 - **One scope per transaction:** kept. Cross-scope writes need separate
@@ -325,16 +436,15 @@ tested once, not per combination.
   anyway.
 - **Membership table is server-only and unsynced:** it is server/app state, not
   CRDT data.
-- **New-share latency of one cycle:** accepted. A mid-session re-handshake is
-  not worth the protocol surface.
 
 ## Open questions
 
-1. **Membership revocation.** When a user loses membership, the server stops
-   announcing the scope at the next handshake, but the device still holds the
-   scope's data and may hold unsynced local changes. Purge-vs-keep policy, and
-   whether revoked unsynced changes are surfaced or dropped, need their own
-   design. (Carried from `row-ownership.md` open question 3.)
+1. **Membership revocation.** When a user loses membership, the server omits the
+   scope from the next cycle's `ScopeSet` and both sides stop syncing it
+   promptly, but the device still holds the scope's data and may hold unsynced
+   local changes. Purge-vs-keep policy, and whether revoked unsynced changes are
+   surfaced or dropped, need their own design. (Carried from `row-ownership.md`
+   open question 3.)
 2. **Roles within a scope.** `crdt_scope_members.role` is stored but unenforced.
    Read-only members would need write rejection at merge time (another
    fail-and-record case), which overlaps with revocation of offline-written
