@@ -38,11 +38,7 @@ class CrdtSyncClient {
     DatabaseSession session, {
     CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async {
-    await _startSyncSession(
-      session,
-      once: true,
-      onMergeSuccess: onMergeSuccess,
-    ).done;
+    await _startSyncSession(session, once: true, onMergeSuccess: onMergeSuccess).done;
   }
 
   /// Keeps synchronizing [session] with the remote peer until cancelled through

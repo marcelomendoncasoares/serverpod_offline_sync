@@ -90,17 +90,9 @@ panel, with a global toolbar on top and a status line at the bottom.
 
 ## Running
 
-Run the test server first, then start this app from the repository root:
+Simply run the serverpod server and the app will be started together:
 
 ```sh
 cd test/serverpod_offline_sync_test_server
-dart bin/main.dart
+serverpod start
 ```
-
-```sh
-cd example/offline_sync_demo
-flutter run -d linux
-```
-
-The app accepts `--dart-define=SERVERPOD_URL=http://host:port/` when the server
-is not running on `http://localhost:8080/`.

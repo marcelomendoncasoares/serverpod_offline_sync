@@ -15,6 +15,8 @@ Future<void> run(List<String> args) async {
     Protocol(),
     Endpoints(),
     authenticationHandler: demoAuthenticationHandler,
+    // TODO: Remove the duplicate [syncTables] argument from here and the
+    // [initializeCrdtSync] call below.
     databaseInterceptor: (_, inner) => CrdtDatabase(
       inner,
       syncTables: demoSyncTables,

@@ -78,6 +78,8 @@ class DemoDebugEndpoint extends Endpoint {
     final scopeId = scope?.id;
     if (scopeId != null) {
       await db.transaction((transaction) async {
+        // TODO: Remove this explicit call to defer foreign keys once foreign
+        // keys are deferrable by default on the Serverpod package.
         await db.unsafeExecute(
           'PRAGMA defer_foreign_keys = ON',
           transaction: transaction,
@@ -104,10 +106,14 @@ class DemoDebugEndpoint extends Endpoint {
     );
 
     final db = session.db;
-    if (db is! CrdtDatabase) return;
+    if (db is! CrdtDatabase) {
+      throw StateError('This endpoint only works with a CRDT database.');
+    }
 
     final tag = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 
+    // TODO: Expose the [transactionForUser] through an extension method on the
+    // base [Database] class so the cast is unnecessary.
     await db.transactionForUser(userId, (transaction) async {
       switch (kind) {
         case 'basicGraph':
