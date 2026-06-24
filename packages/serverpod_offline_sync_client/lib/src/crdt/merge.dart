@@ -32,12 +32,23 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
   /// partial batch is still treated as an error.
   Future<CrdtMergeSet?> collectNextBatch({
     bool allowCloseBeforeBatch = false,
+    UuidValue? expectedScopeId,
   }) async {
     final mergeSet = <CrdtMergeChange>[];
 
     while (await moveNext()) {
       switch (current) {
-        case CrdtSyncMergeChunk(changes: final changes):
+        case CrdtSyncMergeChunk(
+          uuidScopeId: final uuidScopeId,
+          changes: final changes,
+        ):
+          if (expectedScopeId != null && uuidScopeId != expectedScopeId) {
+            throw CrdtSyncScopeMismatchException(
+              frameName: 'CrdtSyncMergeChunk',
+              receivedScopeId: uuidScopeId,
+              expectedScopeId: expectedScopeId,
+            );
+          }
           mergeSet.addAll(changes);
         case CrdtSyncIdleTimeout():
           if (mergeSet.isEmpty) return mergeSet;
@@ -67,6 +78,22 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
       );
     }
     throw CrdtSyncStreamClosedException(phase: '"$T"');
+  }
+
+  /// Moves to the next event of type [T], returning `null` if the stream closes.
+  ///
+  /// This is used by continuous sync sessions where peer-side cancellation is a
+  /// normal shutdown path. Unexpected event types still fail the session.
+  Future<T?> moveOrNullIfClosed<T extends CrdtSyncStreamEvent>() async {
+    while (await moveNext()) {
+      if (current is CrdtSyncIdleTimeout) continue;
+      if (current is T) return current as T;
+      throw CrdtSyncUnexpectedEventException(
+        expected: '"$T"',
+        received: current,
+      );
+    }
+    return null;
   }
 }
 

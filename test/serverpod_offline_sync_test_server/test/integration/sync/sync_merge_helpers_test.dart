@@ -44,6 +44,7 @@ void main() {
 
     final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
       CrdtSyncMergeChunk(
+        uuidScopeId: const Uuid().v7obj(),
         changes: [
           CrdtMergeInsert(
             hlcDatetime: DateTime.utc(2026, 5, 10, 12),
@@ -57,6 +58,7 @@ void main() {
       ),
       CrdtSyncEndOfBatch(),
       CrdtSyncMergeChunk(
+        uuidScopeId: const Uuid().v7obj(),
         changes: [
           CrdtMergeDelete(
             hlcDatetime: DateTime.utc(2026, 5, 10, 13),
@@ -97,6 +99,7 @@ void main() {
       () async {
         final singleBatchStream = Stream<CrdtSyncStreamEvent>.fromIterable([
           CrdtSyncMergeChunk(
+            uuidScopeId: const Uuid().v7obj(),
             changes: [
               CrdtMergeInsert(
                 hlcDatetime: DateTime.utc(2026, 5, 10, 16),
@@ -162,6 +165,7 @@ void main() {
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
+          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
@@ -191,6 +195,7 @@ void main() {
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
+          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
@@ -256,6 +261,7 @@ void main() {
       final requesterNodeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
+          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
@@ -287,6 +293,7 @@ void main() {
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
+          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
@@ -382,10 +389,7 @@ void main() {
     'then it throws a CrdtSyncUnexpectedEventException.',
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncConnect(
-          localNodeId: const Uuid().v7obj(),
-          syncTablesHash: 'hash',
-        ),
+        CrdtSyncConnect(syncTablesHash: 'hash'),
       ]);
       final iterator = StreamIterator(stream);
 

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
+import '../business/crdt_scope_membership.dart';
+
 /// Endpoint for CRDT-based offline-first synchronization.
 class CrdtSyncEndpoint extends Endpoint {
   @override
@@ -19,6 +21,9 @@ class CrdtSyncEndpoint extends Endpoint {
       userId: UuidValue.withValidation(session.authenticated!.userIdentifier),
       inbound: changes,
       once: once,
+      scopeResolver: CrdtSyncScopeResolver.authoritative(
+        (_, userId) => CrdtScopeMembership.memberScopes(session, userId),
+      ),
     );
   }
 }

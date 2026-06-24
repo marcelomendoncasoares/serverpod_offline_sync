@@ -68,7 +68,12 @@ class CrdtSyncClient {
       );
 
       final subscription = session.crdtDb
-          .sync(inbound: remoteStream, once: once, onMergeSuccess: onMergeSuccess)
+          .sync(
+            inbound: remoteStream,
+            once: once,
+            onMergeSuccess: onMergeSuccess,
+            scopeResolver: CrdtSyncScopeResolver.follower(),
+          )
           .listen(
             outboundChanges.addIfNotClosed,
             onDone: doneCompleter.completeOrSkip,

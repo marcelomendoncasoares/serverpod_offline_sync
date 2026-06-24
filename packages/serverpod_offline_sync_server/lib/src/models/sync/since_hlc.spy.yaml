@@ -1,8 +1,13 @@
-### One-time checkpoint sent by each peer after connect to exchange required
-### information for the sync session.
+### Per-scope checkpoint sent by each peer before the first visit to a scope.
 class: CrdtSyncSinceHlc
 extends: CrdtSyncStreamEvent
 fields:
+  ### Scope this checkpoint belongs to.
+  uuidScopeId: UuidValue
+
+  ### This peer's node identifier within [uuidScopeId].
+  localNodeId: UuidValue
+
   ### Per-node checkpoints that describe which changes the sender already has.
   ###
   ### Each checkpoint is an [Hlc] whose `nodeId` is the source node being

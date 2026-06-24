@@ -1,0 +1,9 @@
+### Authoritative or informational scope set exchanged at the start of a cycle.
+###
+### The server sends the authoritative membership set. The client sends its
+### local view for observability; the server never widens access from it.
+class: CrdtSyncScopeSet
+extends: CrdtSyncStreamEvent
+fields:
+  ### Scope UUIDs this peer reports for the next sync cycle.
+  scopeIds: List<UuidValue>

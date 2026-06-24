@@ -124,7 +124,7 @@ void main() {
             var mergeSuccessCount = 0;
             final syncSession = testClient.crdt.syncContinuously(
               clientSession,
-              onMergeSuccess: (_) => mergeSuccessCount++,
+              onMergeSuccess: (_, _) => mergeSuccessCount++,
             );
             addTearDown(syncSession.cancel);
 
@@ -136,17 +136,12 @@ void main() {
 
         test(
           'when client syncContinuously runs '
-          'then neither side sends merge chunk or batch boundary events over the stream.',
+          'then neither side sends merge chunks while idle.',
           () async {
             final clientToServer = StreamController<CrdtSyncStreamEvent>();
             final serverToClient = StreamController<CrdtSyncStreamEvent>();
             final clientOutboundEvents = <CrdtSyncStreamEvent>[];
             final serverOutboundEvents = <CrdtSyncStreamEvent>[];
-
-            addTearDown(() async {
-              await clientToServer.close();
-              await serverToClient.close();
-            });
 
             final clientSync = CrdtSync(
               syncTables: clientSyncTables,
@@ -177,19 +172,156 @@ void main() {
                   serverToClient.add(event);
                 });
 
+            addTearDown(() async {
+              await clientSubscription.cancel();
+              await serverSubscription.cancel();
+              await clientToServer.close();
+              await serverToClient.close();
+            });
+
             await Future<void>.delayed(const Duration(seconds: 2));
 
-            await clientToServer.close();
-            await serverToClient.close();
             await clientSubscription.cancel();
             await serverSubscription.cancel();
+            await clientToServer.close();
+            await serverToClient.close();
 
             for (final events in [clientOutboundEvents, serverOutboundEvents]) {
               expect(events.whereType<CrdtSyncMergeChunk>(), isEmpty);
-              expect(events.whereType<CrdtSyncEndOfBatch>(), isEmpty);
+              expect(events.whereType<CrdtSyncEndOfBatch>(), isNotEmpty);
               expect(events.whereType<CrdtSyncClose>(), isEmpty);
               expect(events.whereType<CrdtSyncIdleTimeout>(), isEmpty);
             }
+          },
+        );
+      });
+
+      group('and the user is a member of a shared scope', () {
+        late UuidValue sharedScopeId;
+
+        setUp(() async {
+          sharedScopeId = const Uuid().v7obj();
+          await _grantScopeMembership(
+            rawServerSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+          );
+        });
+
+        test(
+          'when client syncOnce is called '
+          'then personal and shared scope rows converge in the same call.',
+          () async {
+            final personalPerson = await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'personal-server-person'),
+                transaction: tx,
+              ),
+            );
+            final sharedPerson = await serverSession.db.transactionForUser(
+              sharedScopeId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'shared-server-person'),
+                transaction: tx,
+              ),
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            final personalClientPerson = await client.Person.db.findById(
+              clientSession,
+              personalPerson.id!,
+            );
+            final sharedClientPerson = await clientSession.db.transactionForUser(
+              sharedScopeId,
+              (tx) => client.Person.db.findById(
+                clientSession,
+                sharedPerson.id!,
+                transaction: tx,
+              ),
+            );
+
+            expect(personalClientPerson, isNotNull);
+            expect(personalClientPerson!.name, 'personal-server-person');
+            expect(sharedClientPerson, isNotNull);
+            expect(sharedClientPerson!.name, 'shared-server-person');
+          },
+        );
+
+        test(
+          'when client syncContinuously is already running and a shared scope is granted '
+          'then the client adopts and syncs the scope in the next cycle.',
+          () async {
+            final syncSession = testClient.crdt.syncContinuously(clientSession);
+            addTearDown(syncSession.cancel);
+
+            final laterScopeId = const Uuid().v7obj();
+            final sharedPerson = await serverSession.db.transactionForUser(
+              laterScopeId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'later-shared-person'),
+                transaction: tx,
+              ),
+            );
+
+            await _grantScopeMembership(
+              rawServerSession,
+              userUuid: testCrdtUserId,
+              scopeUuid: laterScopeId,
+            );
+
+            await _waitUntil(() async {
+              final clientPerson = await clientSession.db.transactionForUser(
+                laterScopeId,
+                (tx) => client.Person.db.findById(
+                  clientSession,
+                  sharedPerson.id!,
+                  transaction: tx,
+                ),
+              );
+              return clientPerson?.name == 'later-shared-person';
+            });
+          },
+        );
+      });
+
+      group('and the client has a local scope that the server has not granted', () {
+        test(
+          'when client syncOnce is called '
+          'then the ungranted scope is not streamed to the server.',
+          () async {
+            final ungrantedScopeId = const Uuid().v7obj();
+            final personalPerson = await client.Person.db.insertRow(
+              clientSession,
+              client.Person(name: 'personal-client-person'),
+            );
+            final ungrantedPerson = await clientSession.db.transactionForUser(
+              ungrantedScopeId,
+              (tx) => client.Person.db.insertRow(
+                clientSession,
+                client.Person(name: 'ungranted-client-person'),
+                transaction: tx,
+              ),
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            final serverPersonalPerson = await server.Person.db.findById(
+              serverSession,
+              personalPerson.id!,
+            );
+            final serverUngrantedPerson = await server.Person.db.findById(
+              serverSession,
+              ungrantedPerson.id!,
+            );
+
+            expect(serverPersonalPerson, isNotNull);
+            expect(serverPersonalPerson!.name, 'personal-client-person');
+            expect(serverUngrantedPerson, isNull);
           },
         );
       });
@@ -525,7 +657,7 @@ void main() {
 
             syncSession = testClient.crdt.syncContinuously(
               clientSession,
-              onMergeSuccess: mergeSuccessCompleter.complete,
+              onMergeSuccess: (_, hlc) => mergeSuccessCompleter.complete(hlc),
             );
           });
 
@@ -691,7 +823,7 @@ void main() {
 
           final syncSession = testClient.crdt.syncContinuously(
             clientSession,
-            onMergeSuccess: (_) {
+            onMergeSuccess: (_, _) {
               switch (++mergeSuccessCount) {
                 case 1:
                   firstMergeCompleter.complete();
@@ -817,6 +949,21 @@ Future<void> _waitUntil(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   throw TimeoutException('Condition was not met within $timeout.');
+}
+
+Future<void> _grantScopeMembership(
+  Session session, {
+  required UuidValue userUuid,
+  required UuidValue scopeUuid,
+}) async {
+  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
+  final encodedScopeId = ValueEncoder.instance.convert(scope.id);
+  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+  await session.db.unsafeExecute(
+    'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid") '
+    'VALUES ($encodedScopeId, $encodedUserUuid) '
+    'ON CONFLICT ("scopeId", "userUuid") DO NOTHING',
+  );
 }
 
 class TestClientAuthKeyProvider implements ClientAuthKeyProvider {

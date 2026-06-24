@@ -348,9 +348,10 @@ void main() {
       final sinceHlc = await crdtSync.createSyncSinceHlc(
         testSession,
         userId: testCrdtUserId,
-        peerNodeId: const Uuid().v7obj(),
       );
 
+      expect(sinceHlc.uuidScopeId, testCrdtUserId);
+      expect(sinceHlc.localNodeId, scope.currentNode!.uuidNodeId);
       expect(sinceHlc.nodeCheckpoints, hasLength(1));
       expect(sinceHlc.nodeCheckpoints.single.nodeId, scope.currentNode!.uuidNodeId);
       expect(

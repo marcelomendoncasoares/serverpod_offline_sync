@@ -43,24 +43,28 @@ final class CrdtSyncUnexpectedEventException<T extends CrdtSyncStreamEvent>
       'received "${received.runtimeType.className}" instead.';
 }
 
-/// Thrown when a peer's since-HLC frame does not reference the local node id.
-final class CrdtSyncInvalidSinceHlcException extends CrdtSyncException {
-  /// Creates a [CrdtSyncInvalidSinceHlcException].
-  const CrdtSyncInvalidSinceHlcException({
-    required this.receivedNodeId,
-    required this.expectedNodeId,
+/// Thrown when a scope-tagged frame is received for the wrong scope.
+final class CrdtSyncScopeMismatchException extends CrdtSyncException {
+  /// Creates a [CrdtSyncScopeMismatchException].
+  const CrdtSyncScopeMismatchException({
+    required this.frameName,
+    required this.receivedScopeId,
+    required this.expectedScopeId,
   });
 
-  /// The node id carried by the peer's since-HLC frame.
-  final UuidValue receivedNodeId;
+  /// The protocol frame whose scope tag did not match.
+  final String frameName;
 
-  /// The local node id that was expected.
-  final UuidValue expectedNodeId;
+  /// The scope id carried by the peer's frame.
+  final UuidValue receivedScopeId;
+
+  /// The scope id expected by the current lockstep turn.
+  final UuidValue expectedScopeId;
 
   @override
   String toString() =>
-      'CrdtSyncInvalidSinceHlcException: peer since HLC node id '
-      '"$receivedNodeId" does not match local node id "$expectedNodeId".';
+      'CrdtSyncScopeMismatchException: $frameName for scope '
+      '"$receivedScopeId" arrived while syncing scope "$expectedScopeId".';
 }
 
 /// Thrown when the sync tables hash sent by a peer does not match locally.

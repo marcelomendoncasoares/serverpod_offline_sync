@@ -14,7 +14,105 @@ import 'integrity_violation.dart';
 import 'merge.dart';
 
 /// Callback function for when a merge is successful.
-typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
+typedef CrdtSyncOnMergeSuccess =
+    FutureOr<void> Function(UuidValue scopeUuid, Hlc syncedHlc);
+
+/// Resolves this peer's local scope set for the next sync cycle.
+typedef CrdtSyncLocalScopeIdsResolver =
+    FutureOr<List<UuidValue>> Function(DatabaseSession session, UuidValue userId);
+
+/// Reconciles the local and peer scope sets into the ordered scopes to cycle.
+typedef CrdtSyncOrderedScopeIdsResolver =
+    FutureOr<List<UuidValue>> Function(
+      DatabaseSession session, {
+      required UuidValue userId,
+      required List<UuidValue> localScopeIds,
+      required List<UuidValue> peerScopeIds,
+    });
+
+/// Resolves scope membership and sync-cycle ordering for one peer.
+class CrdtSyncScopeResolver {
+  /// Creates a resolver from local-set and ordered-set callbacks.
+  const CrdtSyncScopeResolver({
+    required this.localScopeIds,
+    required this.orderedScopeIds,
+  });
+
+  /// Personal-scope-only resolver used by low-level sync callers by default.
+  factory CrdtSyncScopeResolver.personalOnly() {
+    return CrdtSyncScopeResolver(
+      localScopeIds: (session, userId) async {
+        await CrdtScopeManager(session).getOrCreate(userId);
+        return [userId];
+      },
+      orderedScopeIds:
+          (
+            session, {
+            required userId,
+            required localScopeIds,
+            required peerScopeIds,
+          }) {
+            return _sortedUniqueScopeIds(localScopeIds);
+          },
+    );
+  }
+
+  /// Server-authoritative resolver backed by application membership state.
+  factory CrdtSyncScopeResolver.authoritative(
+    CrdtSyncLocalScopeIdsResolver memberScopeIds,
+  ) {
+    return CrdtSyncScopeResolver(
+      localScopeIds: (session, userId) async {
+        return _sortedUniqueScopeIds(await memberScopeIds(session, userId));
+      },
+      orderedScopeIds:
+          (
+            session, {
+            required userId,
+            required localScopeIds,
+            required peerScopeIds,
+          }) {
+            return _sortedUniqueScopeIds(localScopeIds);
+          },
+    );
+  }
+
+  /// Client-side follower resolver that adopts the server's announced scopes.
+  factory CrdtSyncScopeResolver.follower() {
+    return CrdtSyncScopeResolver(
+      localScopeIds: (session, userId) async {
+        final manager = CrdtScopeManager(session);
+        await manager.getOrCreate(userId);
+        return _sortedUniqueScopeIds(await manager.listScopeIds());
+      },
+      orderedScopeIds:
+          (
+            session, {
+            required userId,
+            required localScopeIds,
+            required peerScopeIds,
+          }) async {
+            final manager = CrdtScopeManager(session);
+            final scopeIds = _sortedUniqueScopeIds(peerScopeIds);
+            for (final scopeId in scopeIds) {
+              await manager.getOrCreate(scopeId);
+            }
+            return scopeIds;
+          },
+    );
+  }
+
+  /// Computes the local scope ids sent in this peer's [CrdtSyncScopeSet].
+  final CrdtSyncLocalScopeIdsResolver localScopeIds;
+
+  /// Computes the ordered lockstep scope ids for the current cycle.
+  final CrdtSyncOrderedScopeIdsResolver orderedScopeIds;
+}
+
+List<UuidValue> _sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) {
+  final byUuid = {for (final scopeId in scopeIds) scopeId.uuid: scopeId};
+  return byUuid.values.toList()..sort((a, b) => a.uuid.compareTo(b.uuid));
+}
 
 /// A tuple representing the ownership of a domain row.
 typedef DomainRowOwner = ({bool exists, int? scopeId});
@@ -163,28 +261,28 @@ class CrdtSync {
     }
   }
 
-  /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
+  /// Creates the [CrdtSyncSinceHlc] checkpoint for a scope handshake.
   ///
   /// [CrdtSyncSinceHlc.nodeCheckpoints] reflects the latest change this node
   /// has received from each known node, tagged with the source node id.
   Future<CrdtSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
     required UuidValue userId,
-    required UuidValue peerNodeId,
   }) async {
     final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
+    final localNodeId = crdtUser.currentNode!.uuidNodeId;
 
     final nodes = await CrdtNode.db.find(
       session,
-      where: (t) =>
-          t.scopeId.equals(crdtUser.id) &
-          t.uuidNodeId.notEquals(crdtUser.currentNode!.uuidNodeId),
+      where: (t) => t.scopeId.equals(crdtUser.id) & t.uuidNodeId.notEquals(localNodeId),
     );
 
     return CrdtSyncSinceHlc(
+      uuidScopeId: userId,
+      localNodeId: localNodeId,
       nodeCheckpoints: [
         // The local node is always included to avoid collecting its own changes.
-        Hlc.now(crdtUser.currentNode!.uuidNodeId),
+        Hlc.now(localNodeId),
         for (final node in nodes) node.lastReceivedHlc ?? Hlc.zero(node.uuidNodeId),
       ],
     );
@@ -231,24 +329,27 @@ class CrdtSync {
         )
         .chunked(_syncBatchSize)
         .map(
-          (changes) => CrdtSyncMergeChunk(changes: changes),
+          (changes) => CrdtSyncMergeChunk(
+            uuidScopeId: userId,
+            changes: changes,
+          ),
         );
     yield CrdtSyncEndOfBatch();
   }
 
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
   ///
-  /// Both peers send [CrdtSyncConnect], read the peer connect frame, then send
-  /// and read [CrdtSyncSinceHlc] once. After that, both sides exchange framed
-  /// data batches using the peer's per-node checkpoints. Sent changes advance
-  /// the corresponding in-memory checkpoints for subsequent sends within the
-  /// session.
+  /// Both peers send [CrdtSyncConnect] once and validate the schema hash. Each
+  /// cycle then exchanges [CrdtSyncScopeSet], reconciles to an ordered scope
+  /// list through [scopeResolver], and runs today's send/receive/merge state
+  /// machine once per scope. Sent changes advance the corresponding in-memory
+  /// checkpoints for subsequent sends within the session.
   ///
   /// If a batch fails to merge, the exception propagates and the stream closes.
   /// The next sync attempt resumes from the last persisted checkpoint on the
   /// side that failed to merge.
   ///
-  /// When [once] is true, each peer sends one batch, reads one batch, sends a
+  /// When [once] is true, each peer runs exactly one full scope cycle, sends a
   /// [CrdtSyncClose] frame and awaits for the other to send its closing event
   /// to complete the session.
   Stream<CrdtSyncStreamEvent> sync(
@@ -257,6 +358,7 @@ class CrdtSync {
     required Stream<CrdtSyncStreamEvent> inbound,
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
+    CrdtSyncScopeResolver? scopeResolver,
   }) async* {
     final inboundIterator = StreamIterator(
       // Inject a timeout event if the inbound stream is idle for too long to
@@ -268,72 +370,139 @@ class CrdtSync {
       ),
     );
 
+    final effectiveScopeResolver =
+        scopeResolver ?? CrdtSyncScopeResolver.personalOnly();
     var sessionCompleted = false;
     try {
-      final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
-      final localNodeId = crdtUser.currentNode!.uuidNodeId;
+      yield CrdtSyncConnect(syncTablesHash: currentSyncTablesHash);
 
-      yield CrdtSyncConnect(
-        localNodeId: localNodeId,
-        syncTablesHash: currentSyncTablesHash,
-      );
-
-      final peerConnect = await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>();
-      final peerNodeId = peerConnect.localNodeId;
+      final peerConnect = once
+          ? await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>()
+          : await inboundIterator.moveOrNullIfClosed<CrdtSyncConnect>();
+      if (peerConnect == null) {
+        sessionCompleted = true;
+        return;
+      }
       _validateSyncTablesHash(peerConnect.syncTablesHash);
 
-      yield await createSyncSinceHlc(
-        session,
-        userId: userId,
-        peerNodeId: peerNodeId,
-      );
-
-      final peerSinceHlc = await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
-      final nodeCheckpoints = {
-        for (final checkpoint in peerSinceHlc.nodeCheckpoints)
-          checkpoint.nodeId: checkpoint,
-      };
+      final nodeCheckpointsByScope = <UuidValue, Map<UuidValue, Hlc>>{};
+      final peerNodeIdsByScope = <UuidValue, UuidValue>{};
+      final handshakedScopeUuids = <String>{};
 
       while (true) {
-        final pendingLocalChanges = collectPendingChanges(
-          session,
-          userId: userId,
-          peerNodeId: peerNodeId,
-          nodeCheckpoints: nodeCheckpoints.values.toList(),
+        final localScopeIds = _sortedUniqueScopeIds(
+          await effectiveScopeResolver.localScopeIds(session, userId),
         );
+        yield CrdtSyncScopeSet(scopeIds: localScopeIds);
 
-        var hasChanges = false;
-        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
-          hasChanges = true;
-          for (final change in changes) {
-            final lastCheckpoint = nodeCheckpoints[change.uuidNodeId];
-            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(lastCheckpoint);
-          }
-          yield CrdtSyncMergeChunk(changes: changes);
-        }
-        if (hasChanges || once) {
-          yield CrdtSyncEndOfBatch();
-        }
-
-        final inboundMergeSet = await inboundIterator.collectNextBatch(
-          allowCloseBeforeBatch: !once,
-        );
-        if (inboundMergeSet == null) {
+        final peerScopeSet = once
+            ? await inboundIterator.moveAndThrowIfNot<CrdtSyncScopeSet>()
+            : await inboundIterator.moveOrNullIfClosed<CrdtSyncScopeSet>();
+        if (peerScopeSet == null) {
           sessionCompleted = true;
           return;
         }
-
-        final lastReceivedFromPeer = await mergeInboundBatch(
-          session,
-          userId: userId,
-          otherNodeId: peerNodeId,
-          mergeSet: inboundMergeSet,
+        final orderedScopeIds = _sortedUniqueScopeIds(
+          await effectiveScopeResolver.orderedScopeIds(
+            session,
+            userId: userId,
+            localScopeIds: localScopeIds,
+            peerScopeIds: peerScopeSet.scopeIds,
+          ),
         );
 
-        if (hasChanges || inboundMergeSet.isNotEmpty) {
-          await onMergeSuccess?.call(
-            nodeCheckpoints.values.max.maxBetween(lastReceivedFromPeer),
+        final activeScopeUuids = {
+          for (final scopeId in orderedScopeIds) scopeId.uuid,
+        };
+        nodeCheckpointsByScope.removeWhere(
+          (scopeId, _) => !activeScopeUuids.contains(scopeId.uuid),
+        );
+        peerNodeIdsByScope.removeWhere(
+          (scopeId, _) => !activeScopeUuids.contains(scopeId.uuid),
+        );
+        handshakedScopeUuids.removeWhere(
+          (scopeUuid) => !activeScopeUuids.contains(scopeUuid),
+        );
+
+        for (final scopeId in orderedScopeIds) {
+          final scopeUuid = scopeId.uuid;
+          if (!handshakedScopeUuids.contains(scopeUuid)) {
+            yield await createSyncSinceHlc(session, userId: scopeId);
+
+            final peerSinceHlc = once
+                ? await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>()
+                : await inboundIterator.moveOrNullIfClosed<CrdtSyncSinceHlc>();
+            if (peerSinceHlc == null) {
+              sessionCompleted = true;
+              return;
+            }
+            _validateScopeFrame(
+              frameName: 'CrdtSyncSinceHlc',
+              expectedScopeId: scopeId,
+              receivedScopeId: peerSinceHlc.uuidScopeId,
+            );
+
+            peerNodeIdsByScope[scopeId] = peerSinceHlc.localNodeId;
+            nodeCheckpointsByScope[scopeId] = {
+              for (final checkpoint in peerSinceHlc.nodeCheckpoints)
+                checkpoint.nodeId: checkpoint,
+            };
+            handshakedScopeUuids.add(scopeUuid);
+          }
+
+          final peerNodeId =
+              peerNodeIdsByScope[scopeId] ??
+              (throw StateError('Missing peer node id for scope $scopeId.'));
+          final nodeCheckpoints = nodeCheckpointsByScope.putIfAbsent(
+            scopeId,
+            () => {},
           );
+
+          final pendingLocalChanges = collectPendingChanges(
+            session,
+            userId: scopeId,
+            peerNodeId: peerNodeId,
+            nodeCheckpoints: nodeCheckpoints.values.toList(),
+          );
+
+          var hasChanges = false;
+          await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
+            hasChanges = true;
+            for (final change in changes) {
+              final lastCheckpoint = nodeCheckpoints[change.uuidNodeId];
+              nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(
+                lastCheckpoint,
+              );
+            }
+            yield CrdtSyncMergeChunk(
+              uuidScopeId: scopeId,
+              changes: changes,
+            );
+          }
+          yield CrdtSyncEndOfBatch();
+
+          final inboundMergeSet = await inboundIterator.collectNextBatch(
+            allowCloseBeforeBatch: !once,
+            expectedScopeId: scopeId,
+          );
+          if (inboundMergeSet == null) {
+            sessionCompleted = true;
+            return;
+          }
+
+          final lastReceivedFromPeer = await mergeInboundBatch(
+            session,
+            userId: scopeId,
+            otherNodeId: peerNodeId,
+            mergeSet: inboundMergeSet,
+          );
+
+          if (hasChanges || inboundMergeSet.isNotEmpty) {
+            await onMergeSuccess?.call(
+              scopeId,
+              nodeCheckpoints.values.max.maxBetween(lastReceivedFromPeer),
+            );
+          }
         }
 
         if (once) {
@@ -354,7 +523,7 @@ class CrdtSync {
           return;
         }
 
-        // Wait for the configured interval before checking for local changes again.
+        // Wait once per full scope cycle before checking for local changes again.
         await Future<void>.delayed(_continuousSyncInterval);
       }
     } finally {
@@ -387,6 +556,19 @@ class CrdtSync {
     } on Object catch (_) {
       // Best-effort: the transport is shutting down.
     }
+  }
+
+  void _validateScopeFrame({
+    required String frameName,
+    required UuidValue expectedScopeId,
+    required UuidValue receivedScopeId,
+  }) {
+    if (receivedScopeId == expectedScopeId) return;
+    throw CrdtSyncScopeMismatchException(
+      frameName: frameName,
+      receivedScopeId: receivedScopeId,
+      expectedScopeId: expectedScopeId,
+    );
   }
 
   void _validateSyncTablesHash(String syncTablesHash) {

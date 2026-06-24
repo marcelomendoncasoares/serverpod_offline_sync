@@ -1,6 +1,6 @@
 import 'package:serverpod/serverpod.dart';
-
-import '../generated/protocol.dart';
+import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
+    show CrdtScope;
 
 /// Server-side membership helpers for shared CRDT scopes.
 ///
@@ -19,18 +19,21 @@ class CrdtScopeMembership {
     UuidValue userUuid, {
     Transaction? transaction,
   }) async {
-    final memberships = await CrdtScopeMember.db.find(
+    final scopesByUuid = <String, UuidValue>{userUuid.uuid: userUuid};
+    final scopeIds = await _explicitMemberScopeIds(
       session,
-      where: (t) => t.userUuid.equals(userUuid),
-      include: CrdtScopeMember.include(scope: CrdtScope.include()),
+      userUuid,
       transaction: transaction,
     );
 
-    final scopesByUuid = <String, UuidValue>{userUuid.uuid: userUuid};
-    for (final membership in memberships) {
-      final scopeUuid = membership.scope?.uuidScopeId;
-      if (scopeUuid != null) {
-        scopesByUuid[scopeUuid.uuid] = scopeUuid;
+    if (scopeIds.isNotEmpty) {
+      final scopes = await CrdtScope.db.find(
+        session,
+        where: (t) => t.id.inSet(scopeIds),
+        transaction: transaction,
+      );
+      for (final scope in scopes) {
+        scopesByUuid[scope.uuidScopeId.uuid] = scope.uuidScopeId;
       }
     }
 
@@ -48,11 +51,39 @@ class CrdtScopeMembership {
   }) async {
     if (userUuid == scopeUuid) return true;
 
-    final membership = await CrdtScopeMember.db.findFirstRow(
+    final scope = await CrdtScope.db.findFirstRow(
       session,
-      where: (t) => t.userUuid.equals(userUuid) & t.scope.uuidScopeId.equals(scopeUuid),
+      where: (t) => t.uuidScopeId.equals(scopeUuid),
       transaction: transaction,
     );
-    return membership != null;
+    final scopeId = scope?.id;
+    if (scopeId == null) return false;
+
+    final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+    final result = await session.db.unsafeQuery(
+      'SELECT 1 FROM "crdt_scope_members" '
+      'WHERE "userUuid" = $encodedUserUuid '
+      'AND "scopeId" = $encodedScopeId '
+      'LIMIT 1',
+      transaction: transaction,
+    );
+    return result.isNotEmpty;
   }
+}
+
+Future<Set<int>> _explicitMemberScopeIds(
+  Session session,
+  UuidValue userUuid, {
+  Transaction? transaction,
+}) async {
+  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+  final result = await session.db.unsafeQuery(
+    'SELECT "scopeId" FROM "crdt_scope_members" '
+    'WHERE "userUuid" = $encodedUserUuid',
+    transaction: transaction,
+  );
+  return {
+    for (final row in result) row[0] as int,
+  };
 }

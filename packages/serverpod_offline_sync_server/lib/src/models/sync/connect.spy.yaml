@@ -1,12 +1,10 @@
-### Session handshake sent once by each peer before the first sync batch.
+### Session handshake sent once by each peer before any scope work.
 ###
-### [localNodeId] identifies the sending peer. [syncTablesHash] is the
-### deterministic schema hash both sides must agree on before merging data.
+### [syncTablesHash] is the deterministic schema hash both sides must agree on
+### before merging data. Scope membership and node ids are exchanged after this:
+### membership is resolved per cycle, and node ids are per scope.
 class: CrdtSyncConnect
 extends: CrdtSyncStreamEvent
 fields:
-  ### This peer's node identifier.
-  localNodeId: UuidValue
-
   ### The hash of the synchronized schema configured on this peer.
   syncTablesHash: String

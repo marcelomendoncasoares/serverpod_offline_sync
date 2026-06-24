@@ -34,6 +34,12 @@ class CrdtScopeManager {
     );
   }
 
+  /// Returns all locally known scope UUIDs.
+  Future<List<UuidValue>> listScopeIds() async {
+    final scopes = await CrdtScope.db.find(_session);
+    return [for (final scope in scopes) scope.uuidScopeId];
+  }
+
   Future<CrdtScope> _getOrCreate(
     UuidValue uuidScopeId,
     Transaction transaction,

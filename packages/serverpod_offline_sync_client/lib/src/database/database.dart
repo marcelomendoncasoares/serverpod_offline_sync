@@ -107,6 +107,7 @@ class CrdtDatabase implements Database {
     UuidValue? userId,
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
+    CrdtSyncScopeResolver? scopeResolver,
   }) async* {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
@@ -116,6 +117,7 @@ class CrdtDatabase implements Database {
       inbound: inbound,
       once: once,
       onMergeSuccess: onMergeSuccess,
+      scopeResolver: scopeResolver,
     );
   }
 
