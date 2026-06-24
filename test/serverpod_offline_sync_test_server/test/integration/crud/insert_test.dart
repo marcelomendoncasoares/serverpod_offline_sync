@@ -342,7 +342,10 @@ void main() {
       );
 
       expect(
-        await Unique.db.findById(testSession, deletedRow.id!),
+        await Unique.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(deletedRow.id) & t.includeHiddenRows,
+        ),
         isNotNull,
       );
     });
@@ -362,11 +365,20 @@ void main() {
       });
 
       test('then the deleted row is still soft-deleted.', () async {
-        expect(await Unique.db.findById(testSession, deletedRow.id!), isNotNull);
+        expect(
+          await Unique.db.findFirstRow(
+            session,
+            where: (t) => t.id.equals(deletedRow.id) & t.includeHiddenRows,
+          ),
+          isNotNull,
+        );
       });
 
       test('then the soft-deleted row has another conflict-free name.', () async {
-        final row = await Unique.db.findById(testSession, deletedRow.id!);
+        final row = await Unique.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(deletedRow.id) & t.includeHiddenRows,
+        );
 
         expect(row, isNotNull);
         expect(row!.name, startsWith(name));

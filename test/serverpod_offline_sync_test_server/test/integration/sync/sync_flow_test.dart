@@ -88,6 +88,36 @@ void main() {
         );
 
         test(
+          'when client syncOnce is called repeatedly on a reused client '
+          'then the rounds complete promptly instead of stalling on teardown.',
+          () async {
+            // The first round opens the shared websocket connection; later
+            // rounds reuse it. If a finished round leaves its inbound transport
+            // stream paused, closing that stream stalls for the transport close
+            // timeout (~6s), and the stall lands on the next round's critical
+            // path. Empty rounds should each take milliseconds, so several of
+            // them together must stay well under a single close-timeout budget,
+            // independent of how much data was synced.
+            const rounds = 6;
+            final stopwatch = Stopwatch()..start();
+            for (var round = 0; round < rounds; round++) {
+              await testClient.crdt.syncOnce(clientSession);
+            }
+            stopwatch.stop();
+
+            expect(
+              stopwatch.elapsed,
+              lessThan(const Duration(seconds: 10)),
+              reason:
+                  '$rounds empty reused syncOnce rounds took '
+                  '${stopwatch.elapsed}; a leaked paused inbound stream stalls '
+                  'each reused round on the ~6s transport close timeout.',
+            );
+          },
+          timeout: const Timeout(Duration(seconds: 90)),
+        );
+
+        test(
           'when client syncContinuously is called '
           'then neither side reports a successful merge.',
           () async {

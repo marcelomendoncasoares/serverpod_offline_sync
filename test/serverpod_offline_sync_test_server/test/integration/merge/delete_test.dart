@@ -57,7 +57,13 @@ void main() {
 
       test('then the row is hidden by the tombstone.', () async {
         expect(await Person.db.findById(session, person.id!), isNull);
-        expect(await Person.db.findById(testSession, person.id!), isNotNull);
+        expect(
+          await Person.db.findFirstRow(
+            session,
+            where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+          ),
+          isNotNull,
+        );
       });
 
       test('then the tombstone is recorded as deleted.', () async {

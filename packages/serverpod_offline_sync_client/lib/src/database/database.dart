@@ -349,6 +349,7 @@ class CrdtDatabase implements Database {
     Expression? updateWhere,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     // TODO: Implement CRDT upsert.
     throw UnimplementedError('CRDT upsert is not implemented.');
   }
@@ -361,6 +362,7 @@ class CrdtDatabase implements Database {
     Expression? updateWhere,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     if (T == CrdtSyncIntegrityViolation) {
       return _delegate.upsertRow<T>(
         row,
@@ -463,6 +465,7 @@ class CrdtDatabase implements Database {
     required List<ColumnValue> columnValues,
     Transaction? transaction,
   }) async {
+    await _ensureInitialized();
     final table = serializationManager.getTableForType(T);
     if (table == null) return null;
 

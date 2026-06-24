@@ -364,6 +364,17 @@ class CrdtSync {
           yield CrdtSyncClose();
           await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
           sessionCompleted = true;
+          // Keep reading until the peer closes its side so the underlying
+          // transport subscription reaches "done" instead of being left paused.
+          // A paused inbound controller stalls the peer's stream teardown for
+          // several seconds (the transport's close timeout), which lands on the
+          // critical path of the next sync round over a shared connection.
+          //
+          // The drain runs detached: awaiting it here would deadlock the
+          // symmetric close handshake, since the peer only closes its side once
+          // our own outbound stream closes, which happens after this generator
+          // returns.
+          unawaited(_drainUntilDone(inboundIterator));
           return;
         }
 
@@ -372,13 +383,33 @@ class CrdtSync {
       }
     } finally {
       // Cancelling inbound on normal completion races with WebSocket stream
-      // teardown and produces "connection closed" errors on the peer. Keep
-      // cleanup for abnormal exits so listener cancellation can unblock.
+      // teardown and produces "connection closed" errors on the peer. On normal
+      // completion the inbound is instead drained to "done" (see above). Keep
+      // forced cancellation for abnormal exits so listener cancellation can
+      // unblock.
       if (!sessionCompleted) {
         // Best-effort cleanup, since the transport will close the socket anyway.
         const waitTimeout = Duration(milliseconds: 200);
         await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
       }
+    }
+  }
+
+  /// Drains [iterator] until the peer closes the stream.
+  ///
+  /// Used to settle the inbound transport after the `once` close handshake so
+  /// its controller reaches "done" with an active listener instead of being
+  /// torn down while paused. Trailing events (idle timeouts, late frames) are
+  /// discarded; errors are swallowed since the transport is closing anyway.
+  static Future<void> _drainUntilDone(
+    StreamIterator<CrdtSyncStreamEvent> iterator,
+  ) async {
+    try {
+      while (await iterator.moveNext()) {
+        // Discard whatever the peer sends before it closes its side.
+      }
+    } on Object catch (_) {
+      // Best-effort: the transport is shutting down.
     }
   }
 

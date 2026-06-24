@@ -188,7 +188,7 @@ void main() {
       });
 
       test('then the owner row is not overwritten.', () async {
-        final row = await Person.db.findById(testSession, rowId);
+        final row = await Person.db.findById(session, rowId);
 
         expect(row, isNotNull);
         expect(row!.name, 'shared row');

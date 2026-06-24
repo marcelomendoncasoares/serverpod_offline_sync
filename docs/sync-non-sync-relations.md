@@ -24,7 +24,7 @@ The ownership link is:
 fields:
   id: UuidValue?, defaultPersist=random_v7
   ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(optional, parent=crdt_scopes, onDelete=Cascade)
+  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
 ```
 
 `scopeId == null` remains valid persisted state, but it means the row is
@@ -262,7 +262,7 @@ The error message should explain the allowed alternatives:
 
 The implementation issue should add schema/initialize tests for:
 
-- accepting `scopeId: int?, relation(optional, parent=crdt_scopes,
+- accepting `scopeId: int?, relation(parent=crdt_scopes,
   onDelete=Cascade)` on every synced table;
 - rejecting `sync -> non-sync` restricted reference-table FKs with
   `onDelete=Restrict` while the reference-data sync phase is absent;

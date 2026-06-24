@@ -575,9 +575,9 @@ void main() {
         test(
           'then the hidden row keeps its released unique value.',
           () async {
-            final hiddenRow = await Unique.db.findById(
-              testSession,
-              deletedRow.id!,
+            final hiddenRow = await Unique.db.findFirstRow(
+              session,
+              where: (t) => t.id.equals(deletedRow.id) & t.includeHiddenRows,
             );
 
             expect(hiddenRow, isNotNull);

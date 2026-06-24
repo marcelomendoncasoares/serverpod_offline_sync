@@ -52,6 +52,12 @@ enum _UniqueConflictReleaseKind {
   syntheticUuid,
 }
 
+enum _ForeignKeyTargetPresence {
+  absent,
+  visible,
+  hidden,
+}
+
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 
 /// Process-level CRDT database metadata shared by ephemeral database wrappers.
@@ -1206,6 +1212,35 @@ WHERE (${predicates.join(') AND (')})
     return {
       for (final row in result) UuidValueJsonExtension.fromJson(row.first),
     };
+  }
+
+  Future<_ForeignKeyTargetPresence> _lookupForeignKeyTargetPresence({
+    required String parentTableName,
+    required String parentColumn,
+    required UuidValue value,
+    required Transaction transaction,
+  }) async {
+    final (tableId, _) = _schema[parentTableName]!;
+    final scopeId = _getHlcManager(transaction).normalizedScopeId;
+    final result = await _db.unsafeQuery(
+      '''
+SELECT CASE
+  WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
+  ELSE 0
+END AS visible
+FROM "${_escapeIdentifier(parentTableName)}" d
+LEFT JOIN "crdt_data_rows" r
+  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+WHERE (${_domainColumnPredicate('scopeId', scopeId)})
+  AND (${_domainColumnPredicate(parentColumn, value)})
+LIMIT 1
+''',
+      transaction: transaction,
+    );
+    if (result.isEmpty) return _ForeignKeyTargetPresence.absent;
+    return (result.first[0] as num) == 1
+        ? _ForeignKeyTargetPresence.visible
+        : _ForeignKeyTargetPresence.hidden;
   }
 
   Future<void> _updateDomainRows(

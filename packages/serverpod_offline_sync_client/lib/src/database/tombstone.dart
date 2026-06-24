@@ -14,6 +14,45 @@ typedef CrdtTableIdResolver = int? Function(String tableName);
 /// are not isolated and a row is hidden only when its owning scope hides it.
 typedef CrdtScopeIdResolver = int? Function();
 
+/// Private sentinel class used to signal that the CRDT visibility filter
+/// should be bypassed. Detected via `is` type check instead of string
+/// comparison.
+///
+/// It renders as the inert SQL literal `TRUE`, so it is always valid wherever
+/// it appears in a `where` clause and never needs to be stripped out before the
+/// query reaches the database.
+final class _IncludeHiddenSentinel extends Expression<String> {
+  const _IncludeHiddenSentinel() : super('TRUE');
+}
+
+/// Extension on [Table] that exposes [includeHiddenRows] for use in `where`
+/// clauses to bypass the CRDT tombstone/visibility filter.
+///
+/// When included in a `where` clause, all rows are returned — including those
+/// that are tombstoned (soft-deleted) — instead of being hidden. The placeholder
+/// is stripped before the query reaches the database, so no invalid SQL is
+/// generated.
+///
+/// Example:
+/// ```dart
+/// // Returns all persons, including tombstoned ones.
+/// final allPersons = await Person.db.find(
+///   session,
+///   where: (t) => t.includeHiddenRows,
+/// );
+///
+/// // Returns all persons named 'Alice', including tombstoned ones.
+/// final alicePersons = await Person.db.find(
+///   session,
+///   where: (t) => t.name.equals('Alice') & t.includeHiddenRows,
+/// );
+/// ```
+extension IncludeTombstonedRows on Table {
+  /// Placeholder expression that signals the CRDT visibility filter should be
+  /// skipped, returning tombstoned rows alongside live rows.
+  Expression get includeHiddenRows => const _IncludeHiddenSentinel();
+}
+
 /// Merges [where] with CRDT visibility predicates and mutates [include] in place.
 ///
 /// This method ensures that no rows with a hidden [CrdtDataRow.visibility] are
@@ -35,6 +74,11 @@ typedef CrdtScopeIdResolver = int? Function();
 /// [IncludeList] - visibility filtering for that path is already handled via the
 /// list subquery [where] (and many-relations are not the same join shape as a
 /// single [IncludeObject]).
+///
+/// If [where] contains the [IncludeTombstonedRows.includeHiddenRows] sentinel
+/// anywhere in the expression tree, the visibility filter is skipped for the
+/// root table. The sentinel itself renders as the inert SQL literal `TRUE`, so
+/// it is left in place without producing invalid SQL.
 @internal
 Expression? mergeWhereWithTombstone<T extends TableRow>(
   DatabaseSerializationManager serializationManager,
@@ -51,10 +95,12 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   );
 
   final rootTable = serializationManager.getTableForType(T);
-  var merged = _mergeWhereOptional(
-    where,
-    rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeId),
-  );
+  var merged = _includesHiddenSentinel(where)
+      ? where
+      : _mergeWhereOptional(
+          where,
+          rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeId),
+        );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
 }
@@ -70,10 +116,12 @@ Expression? _walkIncludeGraphForTombstone(
   if (inc == null) return includeObjectPredicates;
   if (inc is IncludeList) {
     // List relation: filter inside the list subquery only.
-    inc.where = _mergeWhereOptional(
-      inc.where,
-      inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeId),
-    );
+    if (!_includesHiddenSentinel(inc.where)) {
+      inc.where = _mergeWhereOptional(
+        inc.where,
+        inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeId),
+      );
+    }
     return _walkIncludeGraphForTombstone(
       inc.include,
       includeObjectPredicates,
@@ -120,6 +168,18 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
   if (addition == null) return where;
   if (where == null) return addition;
   return where & addition;
+}
+
+/// Returns `true` when [where] contains the [_IncludeHiddenSentinel] anywhere
+/// in its expression tree.
+///
+/// Walks the tree via [Expression.depthFirst], which every expression type
+/// implements, so the sentinel is detected regardless of how deeply it is
+/// nested or which operators (`AND`, `OR`, `NOT`) combine it. The sentinel
+/// renders as inert SQL (`TRUE`), so no rewriting of [where] is needed.
+bool _includesHiddenSentinel(Expression? where) {
+  if (where == null) return false;
+  return where.depthFirst.any((e) => e is _IncludeHiddenSentinel);
 }
 
 extension on Table {

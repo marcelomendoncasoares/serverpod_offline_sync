@@ -1,7 +1,9 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
-    show crdtDatabaseInterceptor;
+    hide Endpoints, Protocol;
 
+import 'src/demo_auth.dart';
+import 'src/demo_sync_tables.dart';
 import 'src/generated/endpoints.dart';
 import 'src/generated/protocol.dart';
 
@@ -12,8 +14,9 @@ Future<void> run(List<String> args) async {
     args,
     Protocol(),
     Endpoints(),
+    authenticationHandler: demoAuthenticationHandler,
     databaseInterceptor: crdtDatabaseInterceptor,
-  );
+  )..initializeCrdtSync(syncTables: demoSyncTables);
 
   // Start the server.
   await pod.start();

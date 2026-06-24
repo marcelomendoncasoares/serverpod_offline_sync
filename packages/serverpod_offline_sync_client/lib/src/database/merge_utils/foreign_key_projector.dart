@@ -239,7 +239,15 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       attempts[fieldKey] = (value: attemptedValue, reason: null);
       if (attemptedValue == null) continue;
 
-      if (await _foreignKeyTargetVisible(edge, attemptedValue, transaction)) {
+      final targetPresence = await _lookupForeignKeyTargetPresence(
+        parentTableName: edge.parentTableName,
+        parentColumn: edge.parentColumn,
+        value: attemptedValue,
+        transaction: transaction,
+      );
+      if (targetPresence == _ForeignKeyTargetPresence.visible ||
+          (targetPresence == _ForeignKeyTargetPresence.hidden &&
+              edge.action == ForeignKeyAction.cascade)) {
         continue;
       }
 
@@ -1053,25 +1061,6 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
     return (valid: true, value: defaultValue);
   }
 
-  Future<bool> _foreignKeyTargetVisible(
-    _ForeignKeyEdge edge,
-    UuidValue value,
-    Transaction transaction,
-  ) async {
-    final rowIds = await _findVisibleDomainRowIdsWhere(
-      tableName: edge.parentTableName,
-      predicates: [
-        _domainColumnPredicate(
-          'scopeId',
-          _getHlcManager(transaction).normalizedScopeId,
-        ),
-        _domainColumnPredicate(edge.parentColumn, value),
-      ],
-      transaction: transaction,
-    );
-    return rowIds.isNotEmpty;
-  }
-
   Future<_ForeignKeyDefaultProjection> _defaultProjectionValueFromDatabase(
     _ForeignKeyEdge edge,
     Transaction transaction,
@@ -1081,14 +1070,16 @@ extension _CrdtForeignKeyProjector on CrdtMutationRecorder {
       return (valid: edge.childNullable, value: null);
     }
 
-    final targetVisible = await _foreignKeyTargetVisible(
-      edge,
-      defaultValue,
-      transaction,
+    final targetVisible = await _lookupForeignKeyTargetPresence(
+      parentTableName: edge.parentTableName,
+      parentColumn: edge.parentColumn,
+      value: defaultValue,
+      transaction: transaction,
     );
-    if (!targetVisible) return (valid: false, value: null);
-
-    return (valid: true, value: defaultValue);
+    if (targetVisible == _ForeignKeyTargetPresence.visible) {
+      return (valid: true, value: defaultValue);
+    }
+    return (valid: false, value: null);
   }
 
   UuidValue? _parentReferenceValue(

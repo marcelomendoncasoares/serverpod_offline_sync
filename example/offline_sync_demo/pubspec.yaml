@@ -1,0 +1,61 @@
+name: offline_sync_demo
+description: Demo app for Serverpod Offline Sync.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+
+  http: ^1.5.0
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  serverpod_database: 3.5.0-beta.10
+  serverpod_offline_sync_client:
+    path: ../../packages/serverpod_offline_sync_client
+  serverpod_offline_sync_test_client:
+    path: ../../test/serverpod_offline_sync_test_client
+  shadcn_flutter: 0.0.52
+  uuid: ^4.5.3
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+dependency_overrides:
+  meta: 1.18.2
+  serverpod_auth_core_client:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_client
+      ref: fix-double-generator-bug
+  serverpod_client:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_client
+      ref: fix-double-generator-bug
+  serverpod_database:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_database
+      ref: fix-double-generator-bug
+  serverpod_offline_sync_shared:
+    path: ../../packages/serverpod_offline_sync_shared
+  serverpod_serialization:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_serialization
+      ref: fix-double-generator-bug
+  serverpod_shared:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod.git
+      path: packages/serverpod_shared
+      ref: fix-double-generator-bug
+
+flutter:
+  uses-material-design: true
