@@ -27,17 +27,17 @@ void main() {
           server.CrdtScope(uuidScopeId: otherScopeUuid),
         );
 
-        await CrdtScopeMember.db.insertRow(
+        await server.CrdtScopeMember.db.insertRow(
           session,
-          CrdtScopeMember(
+          server.CrdtScopeMember(
             scopeId: sharedScope.id!,
             userUuid: userUuid,
             role: 'editor',
           ),
         );
-        await CrdtScopeMember.db.insertRow(
+        await server.CrdtScopeMember.db.insertRow(
           session,
-          CrdtScopeMember(
+          server.CrdtScopeMember(
             scopeId: otherScope.id!,
             userUuid: otherUserUuid,
           ),

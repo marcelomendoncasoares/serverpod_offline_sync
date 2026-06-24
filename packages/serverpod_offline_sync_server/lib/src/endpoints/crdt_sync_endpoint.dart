@@ -23,7 +23,7 @@ class CrdtSyncEndpoint extends Endpoint {
       inbound: changes,
       once: once,
       scopeResolver: CrdtSyncScopeResolver.authoritative(
-        (_, userId) => CrdtScopeMembership.memberScopes(session, userId),
+        CrdtScopeMembership.memberScopes,
       ),
     );
   }

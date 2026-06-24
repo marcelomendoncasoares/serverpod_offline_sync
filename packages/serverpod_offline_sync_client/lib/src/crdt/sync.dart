@@ -328,10 +328,7 @@ class CrdtSync {
         )
         .chunked(_syncBatchSize)
         .map(
-          (changes) => CrdtSyncMergeChunk(
-            uuidScopeId: userId,
-            changes: changes,
-          ),
+          (changes) => CrdtSyncMergeChunk(uuidScopeId: userId, changes: changes),
         );
     yield CrdtSyncEndOfBatch();
   }

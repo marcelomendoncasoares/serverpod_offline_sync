@@ -85,15 +85,11 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
   /// This is used by continuous sync sessions where peer-side cancellation is a
   /// normal shutdown path. Unexpected event types still fail the session.
   Future<T?> moveOrNullIfClosed<T extends CrdtSyncStreamEvent>() async {
-    while (await moveNext()) {
-      if (current is CrdtSyncIdleTimeout) continue;
-      if (current is T) return current as T;
-      throw CrdtSyncUnexpectedEventException(
-        expected: '"$T"',
-        received: current,
-      );
+    try {
+      return await moveAndThrowIfNot<T>();
+    } on CrdtSyncStreamClosedException catch (_) {
+      return null;
     }
-    return null;
   }
 }
 

@@ -1,11 +1,15 @@
 import 'package:serverpod/serverpod.dart';
 
+import '../generated/protocol.dart' show CrdtScope, CrdtScopeMember, Protocol;
+
 /// Server-side membership helpers for shared CRDT scopes.
 ///
 /// A user's personal scope is implicit and is always included. Explicit rows in
 /// `crdt_scope_members` grant access to additional shared scopes.
 class CrdtScopeMembership {
   const CrdtScopeMembership._();
+  // TODO: Remove the manual queries from this class once this package uses
+  // shared tables instead of mixing client and server tables.
 
   /// Returns the authoritative scope UUIDs the authenticated [userUuid] may sync.
   ///
@@ -59,9 +63,9 @@ class CrdtScopeMembership {
     final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
     final encodedScopeId = ValueEncoder.instance.convert(scopeId);
     final result = await session.db.unsafeQuery(
-      'SELECT 1 FROM "crdt_scope_members" '
-      'WHERE "userUuid" = $encodedUserUuid '
-      'AND "scopeId" = $encodedScopeId '
+      'SELECT 1 FROM "${CrdtScopeMember.t.tableName}" '
+      'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid '
+      'AND "${CrdtScopeMember.t.scopeId.columnName}" = $encodedScopeId '
       'LIMIT 1',
       transaction: transaction,
     );
@@ -76,13 +80,11 @@ Future<Set<int>> _explicitMemberScopeIds(
 }) async {
   final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
   final result = await session.db.unsafeQuery(
-    'SELECT "scopeId" FROM "crdt_scope_members" '
-    'WHERE "userUuid" = $encodedUserUuid',
+    'SELECT "${CrdtScopeMember.t.scopeId.columnName}" FROM "${CrdtScopeMember.t.tableName}" '
+    'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid',
     transaction: transaction,
   );
-  return {
-    for (final row in result) row[0] as int,
-  };
+  return {for (final row in result) row[0] as int};
 }
 
 Future<List<UuidValue>> _scopeUuidsForIds(
@@ -93,13 +95,11 @@ Future<List<UuidValue>> _scopeUuidsForIds(
   if (scopeIds.isEmpty) return [];
   final encodedScopeIds = scopeIds.map(ValueEncoder.instance.convert).join(', ');
   final result = await session.db.unsafeQuery(
-    'SELECT "uuidScopeId" FROM "crdt_scopes" '
-    'WHERE "id" IN ($encodedScopeIds)',
+    'SELECT "${CrdtScope.t.uuidScopeId.columnName}" FROM "${CrdtScope.t.tableName}" '
+    'WHERE "${CrdtScope.t.id.columnName}" IN ($encodedScopeIds)',
     transaction: transaction,
   );
-  return [
-    for (final row in result) _uuidValueFromDatabase(row[0]),
-  ];
+  return [for (final row in result) Protocol().deserialize<UuidValue>(row[0])];
 }
 
 Future<int?> _scopeIdForUuid(
@@ -109,17 +109,10 @@ Future<int?> _scopeIdForUuid(
 }) async {
   final encodedScopeUuid = ValueEncoder.instance.convert(scopeUuid);
   final result = await session.db.unsafeQuery(
-    'SELECT "id" FROM "crdt_scopes" '
-    'WHERE "uuidScopeId" = $encodedScopeUuid '
+    'SELECT "${CrdtScope.t.id.columnName}" FROM "${CrdtScope.t.tableName}" '
+    'WHERE "${CrdtScope.t.uuidScopeId.columnName}" = $encodedScopeUuid '
     'LIMIT 1',
     transaction: transaction,
   );
-  if (result.isEmpty) return null;
-  return result.first[0] as int;
-}
-
-UuidValue _uuidValueFromDatabase(Object? value) {
-  if (value is UuidValue) return value;
-  if (value is String) return UuidValue.withValidation(value);
-  return UuidValueJsonExtension.fromJson(value);
+  return result.isEmpty ? null : result.first[0] as int;
 }
