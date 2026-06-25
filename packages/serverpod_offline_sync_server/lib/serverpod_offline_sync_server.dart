@@ -1,6 +1,5 @@
 export 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
-export 'src/business/crdt_scope_membership.dart';
 export 'src/business/crdt_sync.dart';
 export 'src/endpoints/crdt_sync_endpoint.dart';
 export 'src/generated/endpoints.dart';

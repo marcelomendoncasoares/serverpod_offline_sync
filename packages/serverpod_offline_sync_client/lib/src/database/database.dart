@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../crdt/exceptions.dart';
 import '../crdt/integrity_violation.dart';
 import '../crdt/merge.dart';
+import '../crdt/scope_membership.dart';
 import '../crdt/sync.dart';
 import '../protocol/protocol.dart';
 import 'recorder.dart';
@@ -18,18 +19,6 @@ import 'session.dart';
 import 'tombstone.dart';
 
 part 'scope.dart';
-
-/// Checks whether [userId] may act in [scopeId].
-typedef CrdtScopeMembershipValidator =
-    FutureOr<bool> Function(
-      DatabaseSession session, {
-      required UuidValue userId,
-      required UuidValue scopeId,
-    });
-
-/// Resolves the scope UUIDs readable by [userId].
-typedef CrdtScopeMembershipResolver =
-    FutureOr<List<UuidValue>> Function(DatabaseSession session, UuidValue userId);
 
 /// Map of transaction hashes to the scope they are associated with.
 final scopeForTransaction = <Transaction, CrdtScope>{};
@@ -60,12 +49,6 @@ class CrdtDatabase implements Database {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-
-    /// Validates explicit shared-scope transactions.
-    CrdtScopeMembershipValidator? scopeMembershipValidator,
-
-    /// Resolves membership-wide read scopes for explicit users.
-    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) : this._(
          delegate,
          context ??
@@ -77,8 +60,6 @@ class CrdtDatabase implements Database {
          syncBatchSize: syncBatchSize,
          continuousSyncInterval: continuousSyncInterval,
          persistentUserId: persistentUserId,
-         scopeMembershipValidator: scopeMembershipValidator,
-         scopeMembershipResolver: scopeMembershipResolver,
        );
 
   CrdtDatabase._(
@@ -88,13 +69,9 @@ class CrdtDatabase implements Database {
     required int syncBatchSize,
     required Duration continuousSyncInterval,
     required UuidValue? persistentUserId,
-    required CrdtScopeMembershipValidator? scopeMembershipValidator,
-    required CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) : _syncTables = syncTables,
        _syncBatchSize = syncBatchSize,
        _continuousSyncInterval = continuousSyncInterval,
-       _scopeMembershipValidator = scopeMembershipValidator,
-       _scopeMembershipResolver = scopeMembershipResolver,
        _recorder = CrdtMutationRecorder(
          _delegate,
          context: _context,
@@ -106,8 +83,6 @@ class CrdtDatabase implements Database {
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
-  final CrdtScopeMembershipValidator? _scopeMembershipValidator;
-  final CrdtScopeMembershipResolver? _scopeMembershipResolver;
 
   final CrdtMutationRecorder _recorder;
 
@@ -145,7 +120,7 @@ class CrdtDatabase implements Database {
     UuidValue? userId,
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
-    CrdtSyncScopeResolver? scopeResolver,
+    CrdtSyncPeerMode mode = CrdtSyncPeerMode.personalOnly,
   }) async* {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
@@ -155,7 +130,7 @@ class CrdtDatabase implements Database {
       inbound: inbound,
       once: once,
       onMergeSuccess: onMergeSuccess,
-      scopeResolver: scopeResolver,
+      mode: mode,
     );
   }
 
@@ -773,17 +748,18 @@ class CrdtDatabase implements Database {
   Future<void> _assertCanActInScope(UuidValue userId, UuidValue scopeId) async {
     if (userId == scopeId) return;
 
-    final validator = _scopeMembershipValidator;
-    if (validator != null) {
-      final isMember = await validator(
-        _delegate.session,
-        userId: userId,
-        scopeId: scopeId,
-      );
-      if (isMember) return;
-      throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
+    // Authoritative membership: the source of truth on the server, the
+    // read-only cache on a follower (empty until populated).
+    if (await CrdtScopeMembership.isMember(
+      _delegate.session,
+      userUuid: userId,
+      scopeUuid: scopeId,
+    )) {
+      return;
     }
 
+    // On a client every materialized scope is one the authoritative peer
+    // already granted, so holding the scope locally proves membership.
     final persistentUserId = _recorder.persistentUserId;
     if (persistentUserId != null &&
         persistentUserId == userId &&
@@ -813,17 +789,17 @@ class CrdtDatabase implements Database {
     final userId = _userIdForQueries(transaction);
     if (userId == null) return null;
 
-    final resolver = _scopeMembershipResolver;
-    if (resolver != null) {
-      return _scopeIdsForUuids(await resolver(_delegate.session, userId));
-    }
-
+    // On a client, every materialized scope is a granted one, so the local
+    // scope set is the membership-wide read set.
     final persistentUserId = _recorder.persistentUserId;
     if (persistentUserId != null && persistentUserId == userId) {
       return _allLocalScopeIds();
     }
 
-    return _actingScopeIdsForQueries(transaction);
+    // Otherwise resolve authoritative membership from the shared table.
+    return _scopeIdsForUuids(
+      await CrdtScopeMembership.memberScopes(_delegate.session, userId),
+    );
   }
 
   List<int>? _actingScopeIdsForQueries(Transaction? transaction) {

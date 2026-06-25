@@ -74,19 +74,24 @@ membership relation and a sync protocol that iterates scopes.
 ```yaml
 class: CrdtScopeMember
 table: crdt_scope_members
-database: server
+database: all
 fields:
-  scope: CrdtScope?, relation(name=scope_members, onDelete=Cascade)
+  scope: CrdtScope?, relation(onDelete=Cascade)
   userUuid: UuidValue
   role: String?
 indexes:
   crdt_scope_member_unique_idx:
-    fields: scopeId, userUuid
+    fields: userUuid, scopeId
     unique: true
 ```
 
-- The table is **server-only** (`database: server`) and **not** in
-  `syncTables`. It is application/server state, never CRDT-replicated.
+- The table is **`database: all`** but **not** in `syncTables`. It exists on
+  every node so membership resolves with the same code on both ends, but it is
+  never CRDT-replicated by this package. The server is the authoritative writer;
+  a client copy (once populated) is a read-only cache for UI and offline role
+  checks — see *The client membership table*.
+- The index **leads with `userUuid`** so the per-cycle `WHERE userUuid = ?`
+  resolution is index-covered.
 - Rows are managed by application code: invitations, acceptance, and role
   assignment are app domain, outside this package.
 - **Personal-scope membership is implicit.** By convention a user's personal
@@ -114,15 +119,20 @@ first device syncs. Nodes are created implicitly by sync (`getOrCreate`,
 `nodes` list would break checkpointing and causal filtering — it is the chain
 topology, not the access list.
 
-### The client needs no membership table
+### The client membership table
 
-`crdt_scope_members` is **server-only**. The client does not replicate it and
-does not need it to scope reads and writes:
+`crdt_scope_members` is `database: all`, so the table now **exists** on the
+client — but it is **not yet synced or populated**, and the client does not need
+it to scope reads and writes:
 
 - The client's `crdt_scopes` rows are its local membership view. Local scopes
   are the personal scope plus shares the client adopted from the server's
   announcements. So a membership-wide read filters over the client's local
   scopes; it needs no `(scopeId, userUuid)` table.
+- The table is present so the same `CrdtScopeMembership` code runs on both ends
+  and so a future server→client push can populate a read-only cache (enabling
+  membership UI and offline role-gated writes). Until that push exists the client
+  copy stays empty and the `crdt_scopes`-presence rule above governs.
 - A revoke takes effect for sync as soon as the server omits the scope from a
   cycle's `ScopeSet`: the client stops cycling it and discards in-memory
   checkpoint state for it. The scope row and domain rows remain local until the
@@ -252,15 +262,18 @@ conforms.** Each cycle:
   `getOrCreate` (`CrdtScopeManager`) any scope it lacks, ignore any local scope
   the server omitted for this cycle — then `orderedScopes = sort(peer scopeIds)`.
 
-This asymmetry is **not a boolean flag**. A flag invites the exact footgun of
-"both sides set it" (→ neither adopts → intersection → new shares lost) or
-"neither sets it" (→ both adopt → union → insecure). Instead it is a **resolver
-injected at the call site**: the server endpoint constructs a membership
-resolver (with `crdt_scope_members` access); the client driver constructs a
-follower resolver. The two live at the two already-distinct call sites, so
-"both authoritative" is unrepresentable, not merely discouraged. Frames stay
-symmetric in *shape* — both carry `scopeIds` — exactly as `userId` is already
-sourced differently per side today.
+This asymmetry is expressed by a **`CrdtSyncPeerMode` enum**
+(`authoritative` / `follower` / `personalOnly`) passed at the call site: the
+server endpoint passes `authoritative`, the client driver passes `follower`.
+Both sides enumerate membership from the same shared `crdt_scope_members` table
+(via `CrdtScopeMembership`), so the only thing the mode varies is the cycle
+*direction* — authoritative dictates its own set, follower adopts the peer's.
+Once the data is unified, a closed enum is the right shape: there is no
+per-role enumeration callback left to inject. Security does not rest on the
+enum — a malicious client passing `authoritative` only fails to adopt the
+peer's set; writes are still gated server-side by `CrdtScopeMembership.isMember`
+against the authoritative table. Frames stay symmetric in *shape* — both carry
+`scopeIds` — exactly as `userId` is already sourced differently per side today.
 
 Because the client adopts straight from the cycle's `ScopeSet` *before* it
 iterates, a newly granted scope syncs in the **same cycle**, not the next.
@@ -319,11 +332,11 @@ db.transactionForUser(userId, fn, scopeId: listId); // acts in a shared scope
 
 - Without `scopeId`, the scope resolves to the user's personal scope —
   `userId` itself by convention — which is exactly today's behavior.
-- With `scopeId`, the package asserts `membership(userId, scopeId)` before
-  acting when a `CrdtScopeMembershipValidator` is configured. Server wrappers
-  should wire that validator to `CrdtScopeMembership.isMember`. A persistent
-  client without a validator may act in a locally held scope for offline UX, but
-  the server remains the security boundary and re-verifies on sync.
+- With `scopeId`, the package asserts membership before acting by calling
+  `CrdtScopeMembership.isMember` directly against the shared table — no injected
+  validator. On the server that table is authoritative; a persistent client
+  whose copy is empty falls back to "holds the scope locally" for offline UX,
+  and the server remains the security boundary and re-verifies on sync.
 - A transaction acts in **exactly one** scope (constraint 5). The write path —
   stamp-or-assert, the scoped `WHERE`, `scopeId` immutability — is unchanged
   beyond which scope is resolved.
@@ -335,10 +348,9 @@ of". The single-scope resolver becomes a set:
 
 - `mergeWhereWithTombstone` isolates scoped reads with `scopeId IN (<member
   scope ids>)` through `CrdtScopeIdsResolver`. For writes, the resolver supplies
-  the single acting scope. For reads, server sessions can inject
-  `CrdtScopeMembershipResolver` (typically `CrdtScopeMembership.memberScopes`);
-  persistent clients use their local `crdt_scopes` rows; unscoped admin reads
-  still pass no scope filter.
+  the single acting scope. For reads, non-persistent (server) sessions resolve
+  the set from `CrdtScopeMembership.memberScopes`; persistent clients use their
+  local `crdt_scopes` rows; unscoped admin reads still pass no scope filter.
 - The visibility probe is the row-keyed form for the multi-scope case, so
   sharing simplifies the predicate matrix rather than growing it: reads differ
   only in their membership filter (one scope, a user's scopes, or none for
@@ -366,20 +378,20 @@ The implementation landed in independently green phases. Tests should continue
 to run with `--concurrency=1`.
 
 - **Phase 1 — membership foundation.** Implemented `crdt_scope_members`
-  (server-only, unsynced) and its migration. Added the server enumeration helper
-  `memberScopes(userUuid)`. No behavior change yet: a personal-scope-only set
-  reproduces today's single-scope sync exactly.
+  (`database: all`, unsynced) and its migration. Added the shared
+  `CrdtScopeMembership` helpers (`memberScopes` / `isMember`). No behavior change
+  yet: a personal-scope-only set reproduces today's single-scope sync exactly.
 - **Phase 2 — sequential multi-scope sync (the requirement).** Implemented
   protocol model
   changes (`Connect` minus `scopeIds`/`localNodeId`, new per-cycle
   `CrdtSyncScopeSet`, per-scope `SinceHlc`, `MergeChunk.uuidScopeId`) plus
   generate/migrate. Outer cycle loop in `CrdtSync.sync` with per-cycle
   `ScopeSet` exchange, per-scope handshake-on-first-visit, in-memory per-scope
-  checkpoints, and the once/continuous cadence. Reconciliation via an injected
-  resolver: the server endpoint supplies a `crdt_scope_members`-backed
-  membership resolver; the client driver supplies a follower that adopts the
-  server's set. Scope-aware `onMergeSuccess`. A personal-scope-only device
-  behaves identically to today.
+  checkpoints, and the once/continuous cadence. Reconciliation via a
+  `CrdtSyncPeerMode` enum: the server endpoint passes `authoritative` (cycles
+  `CrdtScopeMembership.memberScopes`); the client driver passes `follower`
+  (adopts the server's set). Scope-aware `onMergeSuccess`. A personal-scope-only
+  device behaves identically to today.
 - **Phase 3 — transaction API.** Implemented
   `transactionForUser(userId, fn, {scopeId})` with the membership assertion;
   one scope per transaction.
@@ -424,11 +436,14 @@ tested once, not per combination.
   machine as the inner loop.
 - **Membership authority:** the server, from `crdt_scope_members`. The
   reconciliation is directional — server dictates, client conforms — and is
-  neither union (insecure) nor intersection (cannot adopt). It is an injected
-  **resolver**, not a boolean: a flag invites the "both set it / neither sets
-  it" footgun, whereas distinct resolvers at the two call sites make "both
-  authoritative" unrepresentable. Frames stay symmetric in shape; only the
-  values and the dictate-vs-conform behavior differ, as `userId` already does.
+  neither union (insecure) nor intersection (cannot adopt). It is a
+  **`CrdtSyncPeerMode` enum** (`authoritative` / `follower` / `personalOnly`):
+  with the table shared, both sides enumerate via the same `CrdtScopeMembership`
+  query, so the only residual variation is cycle direction — a closed enum, not
+  a callback. The enum is not the security boundary; server-side
+  `CrdtScopeMembership.isMember` gates every applied write regardless of the
+  client's declared mode. Frames stay symmetric in shape; only the values and
+  the dictate-vs-conform behavior differ, as `userId` already does.
 - **Scope set is per cycle, not per connect:** re-resolved and re-exchanged each
   cycle so grants and revokes take effect mid-session without reconnecting. A
   newly granted scope syncs in the *same* cycle, since the client adopts from the
@@ -437,17 +452,20 @@ tested once, not per combination.
   (`who`); nodes are CRDT causality (`whose changes, up to which HLC`). One
   member maps to many nodes; the server is a node but not a member; a new member
   has no node until first sync.
-- **No client membership table:** the client's `crdt_scopes` is its membership
-  view; reads filter over local scopes and the server re-verifies on sync. Only
-  roles (read-only) would need a per-scope datum on the client, delivered at
-  handshake — not a replicated members table.
+- **Client membership table:** `database: all` puts the table on the client too,
+  but it is not yet synced/populated. The client's `crdt_scopes` remains its
+  membership view; reads filter over local scopes and the server re-verifies on
+  sync. The shared table lets the same `CrdtScopeMembership` code run on both
+  ends and leaves room for a future server→client push (read-only cache for UI
+  and offline role gating) — a server-authored, client-read-only projection,
+  never a bidirectionally-synced members table.
 - **Iteration order:** sorted scope UUIDs, so both peers stay in lockstep
   without negotiation. Frames are still scope-tagged to fail loud on desync.
 - **One scope per transaction:** kept. Cross-scope writes need separate
   transactions; remote replicas cannot observe a cross-scope write atomically
   anyway.
-- **Membership table is server-only and unsynced:** it is server/app state, not
-  CRDT data.
+- **Membership table is `database: all` but unsynced:** the schema exists on
+  every node, yet it is server-authoritative app state, never CRDT-replicated.
 - **Idle chatter accepted for the initial implementation:** an idle continuous
   cycle does one empty scope-turn per accessible scope rather than one per
   session. It is proportional to scope count and harmless to start; skipping
@@ -472,6 +490,7 @@ above; both are tracked so the first implementation does not foreclose them.
 2. **Roles within a scope.** `crdt_scope_members.role` is stored but unenforced.
    Read-only members would need write rejection at merge time (another
    fail-and-record case) and a per-scope role datum on the client to reject
-   writes offline (see *The client needs no membership table*), which overlaps
-   with revocation of offline-written changes by a demoted member. (Carried from
+   writes offline (see *The client membership table*; the shared table now
+   exists for exactly this, pending a populate mechanism), which overlaps with
+   revocation of offline-written changes by a demoted member. (Carried from
    `row-ownership.md` open question 4.)

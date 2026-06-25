@@ -13,101 +13,28 @@ import 'exceptions.dart';
 import 'extensions.dart';
 import 'integrity_violation.dart';
 import 'merge.dart';
+import 'scope_membership.dart';
 
 /// Callback function for when a merge is successful.
 typedef CrdtSyncOnMergeSuccess =
     FutureOr<void> Function(UuidValue scopeUuid, Hlc syncedHlc);
 
-/// Resolves this peer's local scope set for the next sync cycle.
-typedef CrdtSyncLocalScopeIdsResolver =
-    FutureOr<List<UuidValue>> Function(DatabaseSession session, UuidValue userId);
+/// How a peer decides which scopes it syncs and which side dictates the cycle.
+///
+/// Both sides enumerate membership from the same shared `crdt_scope_members`
+/// table, so the only thing that varies per role is the cycle direction.
+enum CrdtSyncPeerMode {
+  /// Dictates the scope set from authoritative membership (the server, or a
+  /// designated authoritative peer in a P2P scheme). Announces and cycles its
+  /// own [CrdtScopeMembership.memberScopes].
+  authoritative,
 
-/// Reconciles the local and peer scope sets into the ordered scopes to cycle.
-typedef CrdtSyncOrderedScopeIdsResolver =
-    FutureOr<List<UuidValue>> Function(
-      DatabaseSession session, {
-      required UuidValue userId,
-      required List<UuidValue> localScopeIds,
-      required List<UuidValue> peerScopeIds,
-    });
+  /// Adopts the scope set announced by the authoritative peer, materializing
+  /// each announced scope locally. Used by client followers.
+  follower,
 
-/// Resolves scope membership and sync-cycle ordering for one peer.
-class CrdtSyncScopeResolver {
-  /// Creates a resolver from local-set and ordered-set callbacks.
-  const CrdtSyncScopeResolver({
-    required this.localScopeIds,
-    required this.orderedScopeIds,
-  });
-
-  /// Personal-scope-only resolver used by low-level sync callers by default.
-  factory CrdtSyncScopeResolver.personalOnly() {
-    return CrdtSyncScopeResolver(
-      localScopeIds: (session, userId) async {
-        await CrdtScopeManager(session).getOrCreate(userId);
-        return [userId];
-      },
-      orderedScopeIds:
-          (
-            session, {
-            required userId,
-            required localScopeIds,
-            required peerScopeIds,
-          }) {
-            return _sortedUniqueScopeIds(localScopeIds);
-          },
-    );
-  }
-
-  /// Server-authoritative resolver backed by application membership state.
-  factory CrdtSyncScopeResolver.authoritative(
-    CrdtSyncLocalScopeIdsResolver memberScopeIds,
-  ) {
-    return CrdtSyncScopeResolver(
-      localScopeIds: (session, userId) async {
-        return _sortedUniqueScopeIds(await memberScopeIds(session, userId));
-      },
-      orderedScopeIds:
-          (
-            session, {
-            required userId,
-            required localScopeIds,
-            required peerScopeIds,
-          }) {
-            return _sortedUniqueScopeIds(localScopeIds);
-          },
-    );
-  }
-
-  /// Client-side follower resolver that adopts the server's announced scopes.
-  factory CrdtSyncScopeResolver.follower() {
-    return CrdtSyncScopeResolver(
-      localScopeIds: (session, userId) async {
-        final manager = CrdtScopeManager(session);
-        await manager.getOrCreate(userId);
-        return _sortedUniqueScopeIds(await manager.listScopeIds());
-      },
-      orderedScopeIds:
-          (
-            session, {
-            required userId,
-            required localScopeIds,
-            required peerScopeIds,
-          }) async {
-            final manager = CrdtScopeManager(session);
-            final scopeIds = _sortedUniqueScopeIds(peerScopeIds);
-            for (final scopeId in scopeIds) {
-              await manager.getOrCreate(scopeId);
-            }
-            return scopeIds;
-          },
-    );
-  }
-
-  /// Computes the local scope ids sent in this peer's [CrdtSyncScopeSet].
-  final CrdtSyncLocalScopeIdsResolver localScopeIds;
-
-  /// Computes the ordered lockstep scope ids for the current cycle.
-  final CrdtSyncOrderedScopeIdsResolver orderedScopeIds;
+  /// Syncs only the user's personal scope and ignores shared memberships.
+  personalOnly,
 }
 
 List<UuidValue> _sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) {
@@ -170,8 +97,6 @@ class CrdtSync {
   CrdtDatabase wrapDatabase(
     Database database, {
     UuidValue? persistentUserId,
-    CrdtScopeMembershipValidator? scopeMembershipValidator,
-    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) {
     if (database is CrdtDatabase) return database;
     return CrdtDatabase(
@@ -180,8 +105,6 @@ class CrdtSync {
       syncBatchSize: _syncBatchSize,
       continuousSyncInterval: _continuousSyncInterval,
       persistentUserId: persistentUserId,
-      scopeMembershipValidator: scopeMembershipValidator,
-      scopeMembershipResolver: scopeMembershipResolver,
       context: _databaseContext,
     );
   }
@@ -337,7 +260,7 @@ class CrdtSync {
   ///
   /// Both peers send [CrdtSyncConnect] once and validate the schema hash. Each
   /// cycle then exchanges [CrdtSyncScopeSet], reconciles to an ordered scope
-  /// list through [scopeResolver], and runs today's send/receive/merge state
+  /// list according to [mode], and runs today's send/receive/merge state
   /// machine once per scope. Sent changes advance the corresponding in-memory
   /// checkpoints for subsequent sends within the session.
   ///
@@ -354,7 +277,7 @@ class CrdtSync {
     required Stream<CrdtSyncStreamEvent> inbound,
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
-    CrdtSyncScopeResolver? scopeResolver,
+    CrdtSyncPeerMode mode = CrdtSyncPeerMode.personalOnly,
   }) async* {
     final inboundIterator = StreamIterator(
       // Inject a timeout event if the inbound stream is idle for too long to
@@ -366,8 +289,6 @@ class CrdtSync {
       ),
     );
 
-    final effectiveScopeResolver =
-        scopeResolver ?? CrdtSyncScopeResolver.personalOnly();
     var sessionCompleted = false;
     try {
       yield CrdtSyncConnect(syncTablesHash: currentSyncTablesHash);
@@ -387,7 +308,7 @@ class CrdtSync {
 
       while (true) {
         final localScopeIds = _sortedUniqueScopeIds(
-          await effectiveScopeResolver.localScopeIds(session, userId),
+          await _localScopeIds(session, userId, mode),
         );
         yield CrdtSyncScopeSet(scopeIds: localScopeIds);
 
@@ -399,9 +320,9 @@ class CrdtSync {
           return;
         }
         final orderedScopeIds = _sortedUniqueScopeIds(
-          await effectiveScopeResolver.orderedScopeIds(
+          await _orderedScopeIds(
             session,
-            userId: userId,
+            mode: mode,
             localScopeIds: localScopeIds,
             peerScopeIds: peerScopeSet.scopeIds,
           ),
@@ -551,6 +472,53 @@ class CrdtSync {
       }
     } on Object catch (_) {
       // Best-effort: the transport is shutting down.
+    }
+  }
+
+  /// Resolves the local scope set this peer announces in its [CrdtSyncScopeSet].
+  ///
+  /// Authoritative peers enumerate [CrdtScopeMembership.memberScopes] from the
+  /// shared membership table; followers announce every scope they hold;
+  /// personal-only peers announce just their own scope.
+  Future<List<UuidValue>> _localScopeIds(
+    DatabaseSession session,
+    UuidValue userId,
+    CrdtSyncPeerMode mode,
+  ) async {
+    switch (mode) {
+      case CrdtSyncPeerMode.authoritative:
+        return CrdtScopeMembership.memberScopes(session, userId);
+      case CrdtSyncPeerMode.follower:
+        final manager = CrdtScopeManager(session);
+        await manager.getOrCreate(userId);
+        return manager.listScopeIds();
+      case CrdtSyncPeerMode.personalOnly:
+        await CrdtScopeManager(session).getOrCreate(userId);
+        return [userId];
+    }
+  }
+
+  /// Resolves the ordered lockstep scopes cycled this round.
+  ///
+  /// Authoritative and personal-only peers dictate their own set; followers
+  /// adopt the peer's announced set, materializing each scope locally.
+  Future<List<UuidValue>> _orderedScopeIds(
+    DatabaseSession session, {
+    required CrdtSyncPeerMode mode,
+    required List<UuidValue> localScopeIds,
+    required List<UuidValue> peerScopeIds,
+  }) async {
+    switch (mode) {
+      case CrdtSyncPeerMode.authoritative:
+      case CrdtSyncPeerMode.personalOnly:
+        return localScopeIds;
+      case CrdtSyncPeerMode.follower:
+        final manager = CrdtScopeManager(session);
+        final scopeIds = _sortedUniqueScopeIds(peerScopeIds);
+        for (final scopeId in scopeIds) {
+          await manager.getOrCreate(scopeId);
+        }
+        return scopeIds;
     }
   }
 

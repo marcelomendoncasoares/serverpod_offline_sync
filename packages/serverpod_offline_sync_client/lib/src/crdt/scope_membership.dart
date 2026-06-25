@@ -1,21 +1,31 @@
-import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
+import 'package:uuid/uuid.dart';
 
-import '../generated/protocol.dart' show CrdtScope, CrdtScopeMember, Protocol;
+import '../protocol/protocol.dart';
 
-/// Server-side membership helpers for shared CRDT scopes.
+/// Resolves shared-scope membership from the `crdt_scope_members` table.
 ///
-/// A user's personal scope is implicit and is always included. Explicit rows in
-/// `crdt_scope_members` grant access to additional shared scopes.
+/// The table is `database: all`, so the same code runs on every node:
+/// authoritatively on the server (the source of truth) and against the local
+/// read-only cache on a follower. A user's personal scope is implicit — a user
+/// always belongs to the scope whose UUID equals their own user UUID — and
+/// needs no membership row. Explicit rows grant access to additional shared
+/// scopes.
+///
+/// Queries are raw SQL rather than the generated ORM on purpose: `find<T>`
+/// resolves the table through the session's serialization manager keyed by the
+/// model [Type], and a server session only registers the server-package model
+/// classes — never this client-package [CrdtScopeMember]. Raw SQL is
+/// serialization-manager-agnostic and runs identically on both ends, matching
+/// the rest of the CRDT engine's cross-node queries.
 class CrdtScopeMembership {
   const CrdtScopeMembership._();
-  // TODO: Remove the manual queries from this class once this package uses
-  // shared tables instead of mixing client and server tables.
 
-  /// Returns the authoritative scope UUIDs the authenticated [userUuid] may sync.
+  /// Returns the scope UUIDs [userUuid] may sync.
   ///
-  /// The returned set includes the implicit personal scope and explicit shared
-  /// memberships, de-duplicated and sorted by UUID string so both peers can
-  /// iterate deterministically.
+  /// Includes the implicit personal scope and every explicit shared membership,
+  /// de-duplicated and sorted by UUID string so both peers iterate
+  /// deterministically.
   static Future<List<UuidValue>> memberScopes(
     DatabaseSession session,
     UuidValue userUuid, {
@@ -39,7 +49,8 @@ class CrdtScopeMembership {
       }
     }
 
-    return scopesByUuid.values.toList()..sort((a, b) => a.uuid.compareTo(b.uuid));
+    return scopesByUuid.values.toList()
+      ..sort((a, b) => a.uuid.compareTo(b.uuid));
   }
 
   /// Returns whether [userUuid] may act in [scopeUuid].
@@ -80,7 +91,8 @@ Future<Set<int>> _explicitMemberScopeIds(
 }) async {
   final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
   final result = await session.db.unsafeQuery(
-    'SELECT "${CrdtScopeMember.t.scopeId.columnName}" FROM "${CrdtScopeMember.t.tableName}" '
+    'SELECT "${CrdtScopeMember.t.scopeId.columnName}" '
+    'FROM "${CrdtScopeMember.t.tableName}" '
     'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid',
     transaction: transaction,
   );

@@ -65,8 +65,6 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
-          scopeMembershipValidator: _scopeMembershipValidator,
-          scopeMembershipResolver: CrdtScopeMembership.memberScopes,
         );
         await serverSession.db.initialize();
       });
@@ -829,8 +827,6 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
-          scopeMembershipValidator: _scopeMembershipValidator,
-          scopeMembershipResolver: CrdtScopeMembership.memberScopes,
         );
         await serverSession.db.initialize();
       });
@@ -998,8 +994,6 @@ void main() {
         serverSession = CrdtDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
-          scopeMembershipValidator: _scopeMembershipValidator,
-          scopeMembershipResolver: CrdtScopeMembership.memberScopes,
         );
         await serverSession.db.initialize();
       });
@@ -1060,18 +1054,6 @@ Future<void> _grantScopeMembership(
     'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid") '
     'VALUES ($encodedScopeId, $encodedUserUuid) '
     'ON CONFLICT ("scopeId", "userUuid") DO NOTHING',
-  );
-}
-
-Future<bool> _scopeMembershipValidator(
-  DatabaseSession session, {
-  required UuidValue userId,
-  required UuidValue scopeId,
-}) {
-  return CrdtScopeMembership.isMember(
-    session,
-    userUuid: userId,
-    scopeUuid: scopeId,
   );
 }
 

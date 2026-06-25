@@ -72,7 +72,7 @@ class CrdtSyncClient {
             inbound: remoteStream,
             once: once,
             onMergeSuccess: onMergeSuccess,
-            scopeResolver: CrdtSyncScopeResolver.follower(),
+            mode: CrdtSyncPeerMode.follower,
           )
           .listen(
             outboundChanges.addIfNotClosed,

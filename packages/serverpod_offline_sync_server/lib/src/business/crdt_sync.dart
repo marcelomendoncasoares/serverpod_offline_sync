@@ -1,8 +1,6 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
-import 'crdt_scope_membership.dart';
-
 /// The CRDT sync configured per [Serverpod] instance.
 ///
 /// Keyed by the [Serverpod] instance so each pod owns its own [CrdtSync] (and
@@ -17,17 +15,9 @@ final _crdtSyncByServerpod = Expando<CrdtSync>('crdtSync');
 /// original [inner] database is returned unchanged.
 Database crdtDatabaseInterceptor(Session session, Database inner) {
   final crdtSync = _crdtSyncByServerpod[session.server.serverpod];
-  return crdtSync?.wrapDatabase(
-        inner,
-        scopeMembershipValidator: (session, {required userId, required scopeId}) =>
-            CrdtScopeMembership.isMember(
-              session,
-              userUuid: userId,
-              scopeUuid: scopeId,
-            ),
-        scopeMembershipResolver: CrdtScopeMembership.memberScopes,
-      ) ??
-      inner;
+  // Membership is resolved from the shared `crdt_scope_members` table by the
+  // CRDT database itself, so no membership callbacks are injected here.
+  return crdtSync?.wrapDatabase(inner) ?? inner;
 }
 
 /// Extension methods for [Serverpod] to configure the CRDT sync on the server.

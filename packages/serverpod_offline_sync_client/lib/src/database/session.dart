@@ -28,12 +28,6 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-
-    /// Validates explicit shared-scope transactions.
-    CrdtScopeMembershipValidator? scopeMembershipValidator,
-
-    /// Resolves membership-wide read scopes for explicit users.
-    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) : _db = db is CrdtDatabase
            ? db
            : CrdtDatabase(
@@ -43,8 +37,6 @@ class CrdtDatabaseSession implements DatabaseSession {
                syncBatchSize: syncBatchSize,
                continuousSyncInterval: continuousSyncInterval,
                persistentUserId: persistentUserId,
-         scopeMembershipValidator: scopeMembershipValidator,
-         scopeMembershipResolver: scopeMembershipResolver,
              );
 
   /// Creates a [CrdtDatabaseSession] instance that wraps a [DatabaseSession].
@@ -67,12 +59,6 @@ class CrdtDatabaseSession implements DatabaseSession {
     /// databases operating on the client side, where all data is for the same user.
     /// Otherwise, the user ID must be passed through the transaction.
     UuidValue? persistentUserId,
-
-    /// Validates explicit shared-scope transactions.
-    CrdtScopeMembershipValidator? scopeMembershipValidator,
-
-    /// Resolves membership-wide read scopes for explicit users.
-    CrdtScopeMembershipResolver? scopeMembershipResolver,
   }) => CrdtDatabaseSession(
     session.db,
     syncTables: syncTables,
@@ -80,8 +66,6 @@ class CrdtDatabaseSession implements DatabaseSession {
     syncBatchSize: syncBatchSize,
     continuousSyncInterval: continuousSyncInterval,
     persistentUserId: persistentUserId,
-    scopeMembershipValidator: scopeMembershipValidator,
-    scopeMembershipResolver: scopeMembershipResolver,
   );
 
   final CrdtDatabase _db;
