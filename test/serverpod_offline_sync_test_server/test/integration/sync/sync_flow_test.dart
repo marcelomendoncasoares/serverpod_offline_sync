@@ -352,6 +352,48 @@ void main() {
             });
           },
         );
+
+        test(
+          'when client syncOnce is called '
+          'then the follower projects shared memberships (with roles) into its '
+          'local cache, and a later revoke removes them.',
+          () async {
+            final roleScopeId = const Uuid().v7obj();
+            await _grantScopeMembership(
+              rawServerSession,
+              userUuid: testCrdtUserId,
+              scopeUuid: roleScopeId,
+              role: 'editor',
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            final granted = await CrdtScopeMembership.memberGrants(
+              clientSession,
+              testCrdtUserId,
+            );
+            final projected =
+                granted.where((g) => g.uuidScopeId == roleScopeId).toList();
+            expect(projected, hasLength(1));
+            expect(projected.single.role, 'editor');
+
+            await _revokeScopeMembership(
+              rawServerSession,
+              userUuid: testCrdtUserId,
+              scopeUuid: roleScopeId,
+            );
+            await testClient.crdt.syncOnce(clientSession);
+
+            final afterRevoke = await CrdtScopeMembership.memberGrants(
+              clientSession,
+              testCrdtUserId,
+            );
+            expect(
+              afterRevoke.where((g) => g.uuidScopeId == roleScopeId),
+              isEmpty,
+            );
+          },
+        );
       });
 
       group('and the user is not a member of a shared scope', () {
@@ -1046,14 +1088,30 @@ Future<void> _grantScopeMembership(
   Session session, {
   required UuidValue userUuid,
   required UuidValue scopeUuid,
+  String? role,
+}) async {
+  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
+  final encodedScopeId = ValueEncoder.instance.convert(scope.id);
+  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+  final encodedRole = role == null ? 'NULL' : ValueEncoder.instance.convert(role);
+  await session.db.unsafeExecute(
+    'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid", "role") '
+    'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
+    'ON CONFLICT ("scopeId", "userUuid") DO UPDATE SET "role" = $encodedRole',
+  );
+}
+
+Future<void> _revokeScopeMembership(
+  Session session, {
+  required UuidValue userUuid,
+  required UuidValue scopeUuid,
 }) async {
   final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
   final encodedScopeId = ValueEncoder.instance.convert(scope.id);
   final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
   await session.db.unsafeExecute(
-    'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid") '
-    'VALUES ($encodedScopeId, $encodedUserUuid) '
-    'ON CONFLICT ("scopeId", "userUuid") DO NOTHING',
+    'DELETE FROM "crdt_scope_members" '
+    'WHERE "scopeId" = $encodedScopeId AND "userUuid" = $encodedUserUuid',
   );
 }
 

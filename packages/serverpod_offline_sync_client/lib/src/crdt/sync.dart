@@ -42,6 +42,22 @@ List<UuidValue> _sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) {
   return byUuid.values.toList()..sort((a, b) => a.uuid.compareTo(b.uuid));
 }
 
+List<CrdtScopeGrant> _sortedUniqueGrants(Iterable<CrdtScopeGrant> grants) {
+  final byUuid = {for (final grant in grants) grant.uuidScopeId.uuid: grant};
+  return byUuid.values.toList()
+    ..sort((a, b) => a.uuidScopeId.uuid.compareTo(b.uuidScopeId.uuid));
+}
+
+/// Whether the previous follower projection [a] equals the current one [b], so
+/// an unchanged grant set can skip re-projecting into `crdt_scope_members`.
+bool _sameProjection(Map<String, String?>? a, Map<String, String?> b) {
+  if (a == null || a.length != b.length) return false;
+  for (final entry in b.entries) {
+    if (!a.containsKey(entry.key) || a[entry.key] != entry.value) return false;
+  }
+  return true;
+}
+
 /// A tuple representing the ownership of a domain row.
 typedef DomainRowOwner = ({bool exists, int? scopeId});
 
@@ -305,12 +321,14 @@ class CrdtSync {
       final nodeCheckpointsByScope = <UuidValue, Map<UuidValue, Hlc>>{};
       final peerNodeIdsByScope = <UuidValue, UuidValue>{};
       final handshakedScopeUuids = <String>{};
+      Map<String, String?>? lastFollowerProjection;
 
       while (true) {
-        final localScopeIds = _sortedUniqueScopeIds(
-          await _localScopeIds(session, userId, mode),
+        final localGrants = _sortedUniqueGrants(
+          await _localScopeGrants(session, userId, mode),
         );
-        yield CrdtSyncScopeSet(scopeIds: localScopeIds);
+        final localScopeIds = [for (final g in localGrants) g.uuidScopeId];
+        yield CrdtSyncScopeSet(scopes: localGrants);
 
         final peerScopeSet = once
             ? await inboundIterator.moveAndThrowIfNot<CrdtSyncScopeSet>()
@@ -319,14 +337,34 @@ class CrdtSync {
           sessionCompleted = true;
           return;
         }
+        final peerGrants = peerScopeSet.scopes;
         final orderedScopeIds = _sortedUniqueScopeIds(
           await _orderedScopeIds(
             session,
             mode: mode,
             localScopeIds: localScopeIds,
-            peerScopeIds: peerScopeSet.scopeIds,
+            peerScopeIds: [for (final g in peerGrants) g.uuidScopeId],
           ),
         );
+
+        // Followers project the authoritative grant set into the local
+        // `crdt_scope_members` cache (roles included), but only when it changed
+        // since the last cycle to avoid per-cycle write churn while idle.
+        if (mode == CrdtSyncPeerMode.follower) {
+          final projection = {
+            for (final grant in peerGrants)
+              if (grant.uuidScopeId != userId)
+                grant.uuidScopeId.uuid: grant.role,
+          };
+          if (!_sameProjection(lastFollowerProjection, projection)) {
+            await CrdtScopeMembership.projectFollowerMembership(
+              session,
+              userUuid: userId,
+              grants: peerGrants,
+            );
+            lastFollowerProjection = projection;
+          }
+        }
 
         final activeScopeUuids = {
           for (final scopeId in orderedScopeIds) scopeId.uuid,
@@ -475,26 +513,30 @@ class CrdtSync {
     }
   }
 
-  /// Resolves the local scope set this peer announces in its [CrdtSyncScopeSet].
+  /// Resolves the local scope grants this peer announces in its
+  /// [CrdtSyncScopeSet].
   ///
-  /// Authoritative peers enumerate [CrdtScopeMembership.memberScopes] from the
-  /// shared membership table; followers announce every scope they hold;
-  /// personal-only peers announce just their own scope.
-  Future<List<UuidValue>> _localScopeIds(
+  /// Authoritative peers enumerate [CrdtScopeMembership.memberGrants] (with
+  /// roles) from the shared membership table; followers announce every scope
+  /// they hold (roles null); personal-only peers announce just their own scope.
+  Future<List<CrdtScopeGrant>> _localScopeGrants(
     DatabaseSession session,
     UuidValue userId,
     CrdtSyncPeerMode mode,
   ) async {
     switch (mode) {
       case CrdtSyncPeerMode.authoritative:
-        return CrdtScopeMembership.memberScopes(session, userId);
+        return CrdtScopeMembership.memberGrants(session, userId);
       case CrdtSyncPeerMode.follower:
         final manager = CrdtScopeManager(session);
         await manager.getOrCreate(userId);
-        return manager.listScopeIds();
+        return [
+          for (final scopeId in await manager.listScopeIds())
+            CrdtScopeGrant(uuidScopeId: scopeId),
+        ];
       case CrdtSyncPeerMode.personalOnly:
         await CrdtScopeManager(session).getOrCreate(userId);
-        return [userId];
+        return [CrdtScopeGrant(uuidScopeId: userId)];
     }
   }
 

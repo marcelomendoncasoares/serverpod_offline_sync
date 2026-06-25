@@ -53,6 +53,92 @@ class CrdtScopeMembership {
       ..sort((a, b) => a.uuid.compareTo(b.uuid));
   }
 
+  /// Returns the authoritative scope grants for [userUuid].
+  ///
+  /// Like [memberScopes] but carries each shared scope's `role`. The implicit
+  /// personal scope is included with a null role. Used to build the
+  /// authoritative [CrdtSyncScopeSet] announcement so a follower can project
+  /// roles into its local cache.
+  static Future<List<CrdtScopeGrant>> memberGrants(
+    DatabaseSession session,
+    UuidValue userUuid, {
+    Transaction? transaction,
+  }) async {
+    final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+    final result = await session.db.unsafeQuery(
+      'SELECT s."${CrdtScope.t.uuidScopeId.columnName}", '
+      'm."${CrdtScopeMember.t.role.columnName}" '
+      'FROM "${CrdtScopeMember.t.tableName}" m '
+      'JOIN "${CrdtScope.t.tableName}" s '
+      'ON s."${CrdtScope.t.id.columnName}" = m."${CrdtScopeMember.t.scopeId.columnName}" '
+      'WHERE m."${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid',
+      transaction: transaction,
+    );
+
+    final grantsByUuid = <String, CrdtScopeGrant>{
+      userUuid.uuid: CrdtScopeGrant(uuidScopeId: userUuid),
+    };
+    for (final row in result) {
+      final scopeUuid = Protocol().deserialize<UuidValue>(row[0]);
+      grantsByUuid[scopeUuid.uuid] = CrdtScopeGrant(
+        uuidScopeId: scopeUuid,
+        role: row[1] as String?,
+      );
+    }
+
+    return grantsByUuid.values.toList()
+      ..sort((a, b) => a.uuidScopeId.uuid.compareTo(b.uuidScopeId.uuid));
+  }
+
+  /// Reconciles the local `crdt_scope_members` cache from an authoritative
+  /// [grants] announcement — a follower's read-only projection of its own
+  /// memberships.
+  ///
+  /// Upserts a row per shared grant (the implicit personal scope is skipped)
+  /// and deletes rows for [userUuid] whose scope is no longer granted, so a
+  /// revoked or demoted membership does not linger offline. Scopes must already
+  /// be materialized locally; a grant whose scope is unknown is skipped.
+  static Future<void> projectFollowerMembership(
+    DatabaseSession session, {
+    required UuidValue userUuid,
+    required List<CrdtScopeGrant> grants,
+  }) async {
+    final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+    final keptScopeIds = <int>[];
+
+    for (final grant in grants) {
+      if (grant.uuidScopeId == userUuid) continue; // personal scope is implicit
+      final scopeId = await _scopeIdForUuid(session, grant.uuidScopeId);
+      if (scopeId == null) continue; // not materialized locally yet
+
+      keptScopeIds.add(scopeId);
+      final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+      final encodedRole = grant.role == null
+          ? 'NULL'
+          : ValueEncoder.instance.convert(grant.role);
+      await session.db.unsafeExecute(
+        'INSERT INTO "${CrdtScopeMember.t.tableName}" '
+        '("${CrdtScopeMember.t.scopeId.columnName}", '
+        '"${CrdtScopeMember.t.userUuid.columnName}", '
+        '"${CrdtScopeMember.t.role.columnName}") '
+        'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
+        'ON CONFLICT ("${CrdtScopeMember.t.userUuid.columnName}", '
+        '"${CrdtScopeMember.t.scopeId.columnName}") '
+        'DO UPDATE SET "${CrdtScopeMember.t.role.columnName}" = $encodedRole',
+      );
+    }
+
+    final notInClause = keptScopeIds.isEmpty
+        ? ''
+        : 'AND "${CrdtScopeMember.t.scopeId.columnName}" NOT IN '
+              '(${keptScopeIds.map(ValueEncoder.instance.convert).join(', ')})';
+    await session.db.unsafeExecute(
+      'DELETE FROM "${CrdtScopeMember.t.tableName}" '
+      'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid '
+      '$notInClause',
+    );
+  }
+
   /// Returns whether [userUuid] may act in [scopeUuid].
   ///
   /// The implicit personal scope is accepted without a membership row.
