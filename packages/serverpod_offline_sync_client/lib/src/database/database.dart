@@ -343,6 +343,7 @@ class CrdtDatabase implements Database {
     List<T> rows, {
     Transaction? transaction,
     bool ignoreConflicts = false,
+    bool noReturn = false,
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
@@ -402,6 +403,7 @@ class CrdtDatabase implements Database {
     List<Column>? updateColumns,
     Expression? updateWhere,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     await _ensureInitialized();
     // TODO: Implement CRDT upsert.
@@ -435,6 +437,7 @@ class CrdtDatabase implements Database {
     List<T> rows, {
     List<Column>? columns,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
@@ -548,6 +551,7 @@ class CrdtDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     await _ensureInitialized();
     if (_recorder.isCrdtTracked<T>()) {
@@ -593,6 +597,7 @@ class CrdtDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
@@ -636,6 +641,7 @@ class CrdtDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>()) {
