@@ -38,10 +38,7 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
 
     while (await moveNext()) {
       switch (current) {
-        case CrdtSyncMergeChunk(
-          uuidScopeId: final uuidScopeId,
-          changes: final changes,
-        ):
+        case CrdtSyncMergeChunk(uuidScopeId: final uuidScopeId, changes: final changes):
           if (expectedScopeId != null && uuidScopeId != expectedScopeId) {
             throw CrdtSyncScopeMismatchException(
               frameName: 'CrdtSyncMergeChunk',

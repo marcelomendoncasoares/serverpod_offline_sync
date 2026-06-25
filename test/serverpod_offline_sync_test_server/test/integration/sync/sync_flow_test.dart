@@ -197,6 +197,8 @@ void main() {
 
             for (final events in [clientOutboundEvents, serverOutboundEvents]) {
               expect(events.whereType<CrdtSyncMergeChunk>(), isEmpty);
+              // TODO: We need to fix this regression. Multi-scope sync should
+              // not return an endless idle chatter.
               expect(events.whereType<CrdtSyncEndOfBatch>(), isNotEmpty);
               expect(events.whereType<CrdtSyncClose>(), isEmpty);
               expect(events.whereType<CrdtSyncIdleTimeout>(), isEmpty);
@@ -205,7 +207,7 @@ void main() {
         );
       });
 
-      group('and the user is a member of a shared scope', () {
+      group('and the user is a member of a shared scope,', () {
         late UuidValue sharedScopeId;
 
         setUp(() async {
@@ -217,10 +219,11 @@ void main() {
           );
         });
 
-        test(
-          'when client syncOnce is called '
-          'then personal and shared scope rows converge in the same call.',
-          () async {
+        group('and personal and shared scope rows exist on the server,', () {
+          late UuidValue personalPersonId;
+          late UuidValue sharedPersonId;
+
+          setUp(() async {
             final personalPerson = await serverSession.db.transactionForUser(
               testCrdtUserId,
               (tx) => server.Person.db.insertRow(
@@ -229,6 +232,8 @@ void main() {
                 transaction: tx,
               ),
             );
+            personalPersonId = personalPerson.id!;
+
             final sharedPerson = await serverSession.db.transactionForUser(
               testCrdtUserId,
               (tx) => server.Person.db.insertRow(
@@ -238,89 +243,83 @@ void main() {
               ),
               scopeId: sharedScopeId,
             );
-            final allServerPeopleForUser = await serverSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => server.Person.db.find(serverSession, transaction: tx),
-            );
+            sharedPersonId = sharedPerson.id!;
+          });
 
-            await testClient.crdt.syncOnce(clientSession);
+          test(
+            'when client syncOnce is called '
+            'then personal and shared scope rows converge in the same call.',
+            () async {
+              await testClient.crdt.syncOnce(clientSession);
 
-            final personalClientPerson = await client.Person.db.findById(
-              clientSession,
-              personalPerson.id!,
-            );
-            final sharedClientPerson = await client.Person.db.findById(
-              clientSession,
-              sharedPerson.id!,
-            );
-            final allClientPeople = await client.Person.db.find(clientSession);
+              final personalClientPerson = await client.Person.db.findById(
+                clientSession,
+                personalPersonId,
+              );
+              final sharedClientPerson = await client.Person.db.findById(
+                clientSession,
+                sharedPersonId,
+              );
+              final allClientPeople = await client.Person.db.find(clientSession);
+              final allServerPeopleForUser = await serverSession.db.transactionForUser(
+                testCrdtUserId,
+                (tx) => server.Person.db.find(serverSession, transaction: tx),
+              );
 
-            expect(personalClientPerson, isNotNull);
-            expect(personalClientPerson!.name, 'personal-server-person');
-            expect(sharedClientPerson, isNotNull);
-            expect(sharedClientPerson!.name, 'shared-server-person');
-            expect(allServerPeopleForUser.map((person) => person.id).toSet(), {
-              personalPerson.id,
-              sharedPerson.id,
+              expect(personalClientPerson, isNotNull);
+              expect(personalClientPerson!.name, 'personal-server-person');
+              expect(sharedClientPerson, isNotNull);
+              expect(sharedClientPerson!.name, 'shared-server-person');
+              expect(allServerPeopleForUser.map((person) => person.id).toSet(), {
+                personalPersonId,
+                sharedPersonId,
+              });
+              expect(allClientPeople.map((person) => person.id).toSet(), {
+                personalPersonId,
+                sharedPersonId,
+              });
+            },
+          );
+
+          group('and the rows were synced to the client,', () {
+            setUp(() async {
+              await testClient.crdt.syncOnce(clientSession);
             });
-            expect(allClientPeople.map((person) => person.id).toSet(), {
-              personalPerson.id,
-              sharedPerson.id,
-            });
-          },
-        );
+
+            test(
+              'when finding people scoped to the shared scope uuid, '
+              'then only the shared scope row is returned.',
+              () async {
+                final sharedOnly = await client.Person.db.find(
+                  clientSession,
+                  where: (t) => t.scopeEquals(sharedScopeId),
+                );
+
+                expect(sharedOnly.map((person) => person.id).toList(), [
+                  sharedPersonId,
+                ]);
+              },
+            );
+
+            test(
+              'when finding people scoped to the personal scope uuid, '
+              'then only the personal scope row is returned.',
+              () async {
+                final personalOnly = await client.Person.db.find(
+                  clientSession,
+                  where: (t) => t.scopeEquals(testCrdtUserId),
+                );
+
+                expect(personalOnly.map((person) => person.id).toList(), [
+                  personalPersonId,
+                ]);
+              },
+            );
+          });
+        });
 
         test(
-          'when a read is narrowed with whereScope by scope uuid '
-          "then only that scope's rows are returned.",
-          () async {
-            final personalPerson = await serverSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => server.Person.db.insertRow(
-                serverSession,
-                server.Person(name: 'personal-scope-person'),
-                transaction: tx,
-              ),
-            );
-            final sharedPerson = await serverSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => server.Person.db.insertRow(
-                serverSession,
-                server.Person(name: 'shared-scope-person'),
-                transaction: tx,
-              ),
-              scopeId: sharedScopeId,
-            );
-
-            await testClient.crdt.syncOnce(clientSession);
-
-            // Sanity check: a plain read is membership-wide.
-            final allPeople = await client.Person.db.find(clientSession);
-            expect(allPeople.map((person) => person.id).toSet(), {
-              personalPerson.id,
-              sharedPerson.id,
-            });
-
-            final sharedOnly = await client.Person.db.find(
-              clientSession,
-              where: (t) => t.scopeEquals(sharedScopeId),
-            );
-            final personalOnly = await client.Person.db.find(
-              clientSession,
-              where: (t) => t.scopeEquals(testCrdtUserId),
-            );
-
-            expect(sharedOnly.map((person) => person.id).toList(), [
-              sharedPerson.id,
-            ]);
-            expect(personalOnly.map((person) => person.id).toList(), [
-              personalPerson.id,
-            ]);
-          },
-        );
-
-        test(
-          'when client syncContinuously is already running and a shared scope is granted '
+          'when client syncContinuously is already running and a shared scope is granted, '
           'then the client adopts and syncs the scope in the next cycle.',
           () async {
             final syncSession = testClient.crdt.syncContinuously(clientSession);
@@ -353,59 +352,96 @@ void main() {
           },
         );
 
-        test(
-          'when client syncOnce is called '
-          'then the follower projects shared memberships (with roles) into its '
-          'local cache, and a later revoke removes them.',
-          () async {
-            final roleScopeId = const Uuid().v7obj();
-            await _grantScopeMembership(
-              rawServerSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: roleScopeId,
-              role: 'editor',
-            );
+        group(
+          'and a shared scope membership with the editor role is granted, '
+          'when client syncOnce is called,',
+          () {
+            late UuidValue roleScopeId;
 
-            await testClient.crdt.syncOnce(clientSession);
+            setUp(() async {
+              roleScopeId = const Uuid().v7obj();
+              await _grantScopeMembership(
+                rawServerSession,
+                userUuid: testCrdtUserId,
+                scopeUuid: roleScopeId,
+                role: 'editor',
+              );
+              await testClient.crdt.syncOnce(clientSession);
+            });
 
-            final granted = await CrdtScopeMembership.memberGrants(
-              clientSession,
-              testCrdtUserId,
-            );
-            final projected =
-                granted.where((g) => g.uuidScopeId == roleScopeId).toList();
-            expect(projected, hasLength(1));
-            expect(projected.single.role, 'editor');
+            test(
+              'then the follower projects the membership with its role into the local cache.',
+              () async {
+                final granted = await CrdtScopeMembership.memberGrants(
+                  clientSession,
+                  testCrdtUserId,
+                );
+                final projected = granted
+                    .where((g) => g.uuidScopeId == roleScopeId)
+                    .toList();
 
-            await _revokeScopeMembership(
-              rawServerSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: roleScopeId,
+                expect(projected, hasLength(1));
+                expect(projected.single.role, 'editor');
+              },
             );
-            await testClient.crdt.syncOnce(clientSession);
+          },
+        );
 
-            final afterRevoke = await CrdtScopeMembership.memberGrants(
-              clientSession,
-              testCrdtUserId,
-            );
-            expect(
-              afterRevoke.where((g) => g.uuidScopeId == roleScopeId),
-              isEmpty,
+        group(
+          'and a previously synced shared scope membership is revoked, '
+          'when client syncOnce is called,',
+          () {
+            late UuidValue roleScopeId;
+
+            setUp(() async {
+              roleScopeId = const Uuid().v7obj();
+              await _grantScopeMembership(
+                rawServerSession,
+                userUuid: testCrdtUserId,
+                scopeUuid: roleScopeId,
+                role: 'editor',
+              );
+              await testClient.crdt.syncOnce(clientSession);
+              await _revokeScopeMembership(
+                rawServerSession,
+                userUuid: testCrdtUserId,
+                scopeUuid: roleScopeId,
+              );
+              await testClient.crdt.syncOnce(clientSession);
+            });
+
+            test(
+              'then the revoked membership is absent from the local cache.',
+              () async {
+                final grants = await CrdtScopeMembership.memberGrants(
+                  clientSession,
+                  testCrdtUserId,
+                );
+
+                expect(
+                  grants.where((g) => g.uuidScopeId == roleScopeId),
+                  isEmpty,
+                );
+              },
             );
           },
         );
       });
 
-      group('and the user is not a member of a shared scope', () {
-        test(
-          'when a transaction is started for that scope '
-          'then it is rejected before writing.',
-          () async {
-            final ungrantedScopeId = const Uuid().v7obj();
+      group(
+        'and the user is not a member of a shared scope, '
+        'when a transaction is started for that scope,',
+        () {
+          late UuidValue ungrantedScopeId;
+
+          setUp(() async {
+            ungrantedScopeId = const Uuid().v7obj();
             await CrdtScopeManager(rawServerSession).getOrCreate(
               ungrantedScopeId,
             );
+          });
 
+          test('then it is rejected before writing.', () async {
             await expectLater(
               serverSession.db.transactionForUser(
                 testCrdtUserId,
@@ -418,16 +454,20 @@ void main() {
               ),
               throwsA(isA<CrdtScopeMembershipException>()),
             );
-          },
-        );
-      });
+          });
+        },
+      );
 
-      group('and the client has a local scope that the server has not granted', () {
-        test(
-          'when client syncOnce is called '
-          'then the ungranted scope is not streamed to the server.',
-          () async {
-            final ungrantedScopeId = const Uuid().v7obj();
+      group(
+        'and the client has a local scope that the server has not granted, '
+        'when client syncOnce is called,',
+        () {
+          late UuidValue ungrantedScopeId;
+          late UuidValue personalPersonId;
+          late UuidValue ungrantedPersonId;
+
+          setUp(() async {
+            ungrantedScopeId = const Uuid().v7obj();
             final personalPerson = await client.Person.db.insertRow(
               clientSession,
               client.Person(name: 'personal-client-person'),
@@ -440,24 +480,31 @@ void main() {
                 transaction: tx,
               ),
             );
+            personalPersonId = personalPerson.id!;
+            ungrantedPersonId = ungrantedPerson.id!;
 
             await testClient.crdt.syncOnce(clientSession);
+          });
 
-            final serverPersonalPerson = await server.Person.db.findById(
-              serverSession,
-              personalPerson.id!,
-            );
-            final serverUngrantedPerson = await server.Person.db.findById(
-              serverSession,
-              ungrantedPerson.id!,
-            );
+          test(
+            'then the ungranted scope is not streamed to the server.',
+            () async {
+              final serverPersonalPerson = await server.Person.db.findById(
+                serverSession,
+                personalPersonId,
+              );
+              final serverUngrantedPerson = await server.Person.db.findById(
+                serverSession,
+                ungrantedPersonId,
+              );
 
-            expect(serverPersonalPerson, isNotNull);
-            expect(serverPersonalPerson!.name, 'personal-client-person');
-            expect(serverUngrantedPerson, isNull);
-          },
-        );
-      });
+              expect(serverPersonalPerson, isNotNull);
+              expect(serverPersonalPerson!.name, 'personal-client-person');
+              expect(serverUngrantedPerson, isNull);
+            },
+          );
+        },
+      );
 
       group('and an inserted client person', () {
         late UuidValue personId;

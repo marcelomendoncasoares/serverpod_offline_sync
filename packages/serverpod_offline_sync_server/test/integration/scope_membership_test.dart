@@ -6,7 +6,8 @@ import 'test_tools/serverpod_test_tools.dart';
 
 void main() {
   withServerpod(
-    'Given personal and shared CRDT scope memberships,',
+    'Given a user with personal scope access and membership in one shared CRDT scope, '
+    'and another user with membership in another scope,',
     (sessionBuilder, _) {
       final userUuid = const Uuid().v7obj();
       final otherUserUuid = const Uuid().v7obj();
@@ -46,7 +47,7 @@ void main() {
 
       test(
         'when member scopes are resolved, '
-        'then personal and shared scopes are returned in deterministic order.',
+        'then only the personal scope and the granted shared scope are included.',
         () async {
           final session = sessionBuilder.build();
           final scopes = await CrdtScopeMembership.memberScopes(session, userUuid);
@@ -58,34 +59,52 @@ void main() {
       );
 
       test(
-        'when membership is checked, '
-        'then personal and shared scopes are accepted and non-member scopes are rejected.',
+        'when membership is checked for the personal scope, '
+        'then the user is a member.',
         () async {
           final session = sessionBuilder.build();
 
-          await expectLater(
-            CrdtScopeMembership.isMember(
+          expect(
+            await CrdtScopeMembership.isMember(
               session,
               userUuid: userUuid,
               scopeUuid: userUuid,
             ),
-            completion(isTrue),
+            isTrue,
           );
-          await expectLater(
-            CrdtScopeMembership.isMember(
+        },
+      );
+
+      test(
+        'when membership is checked for the granted shared scope, '
+        'then the user is a member.',
+        () async {
+          final session = sessionBuilder.build();
+
+          expect(
+            await CrdtScopeMembership.isMember(
               session,
               userUuid: userUuid,
               scopeUuid: sharedScopeUuid,
             ),
-            completion(isTrue),
+            isTrue,
           );
-          await expectLater(
-            CrdtScopeMembership.isMember(
+        },
+      );
+
+      test(
+        'when membership is checked for a scope the user does not belong to, '
+        'then the user is not a member.',
+        () async {
+          final session = sessionBuilder.build();
+
+          expect(
+            await CrdtScopeMembership.isMember(
               session,
               userUuid: userUuid,
               scopeUuid: otherScopeUuid,
             ),
-            completion(isFalse),
+            isFalse,
           );
         },
       );
