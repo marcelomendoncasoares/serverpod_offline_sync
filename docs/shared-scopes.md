@@ -130,11 +130,12 @@ is **populated as a read-only projection** of the server's authoritative grants
   rule authorizes writes. The members table adds **roles**, for UI and (future)
   offline role-gated writes.
 - The authoritative `CrdtSyncScopeSet` carries `CrdtScopeGrant`s — `(scopeUuid,
-  role)` — not bare UUIDs. Each follower cycle, `projectFollowerMembership`
-  reconciles the local table from the announcement: upsert a row per shared
-  grant (the personal scope is implicit and skipped), delete rows whose scope is
-  no longer granted. It runs only when the grant set changed since the last
-  cycle, so an idle session writes nothing.
+  role)` — not bare UUIDs. When the follower *receives* an announcement,
+  `projectFollowerMembership` reconciles the local table from it: upsert a row
+  per shared grant (the personal scope is implicit and skipped), delete rows
+  whose scope is no longer granted. Since the authoritative peer announces only
+  when its grants change, projection runs only on change and an idle session
+  writes nothing.
 - This is a **server-authored, client-read-only projection**, never a synced
   members table: the client never writes membership the server reads, so it
   cannot self-grant. The server stays the security boundary and re-verifies on
@@ -168,79 +169,114 @@ only learns of additions through what the server announces.
 
 ## Sync: one call syncs every accessible scope
 
-### Why sequential, one scope per turn
+### Two cadences: bounded `once`, idle-silent `continuous`
 
 Merge is inherently one scope at a time: a merge runs in exactly one scope's
-transaction and lock. Syncing all scopes inside one round would force
-scope-tagged framing, per-scope grouping inside `collectNextBatch`, and several
-scopes' checkpoint state and pending changes held at once — protocol and memory
-cost for no throughput gain, since the merges still serialize. Sequencing the
-scopes instead reuses the existing per-scope state machine as the inner body
-and adds an outer loop. It is a strictly smaller diff, cleaner on the wire, and
-lighter on memory.
+transaction and lock, so the scopes always serialize regardless of framing. The
+two drivers want different things around that core, so they take different
+shapes:
+
+- **`syncOnce` (`_syncOnce`)** runs a single bounded round. It keeps the simple
+  per-scope state machine: exchange the scope set, then for each scope
+  handshake → send `MergeChunk`\* + `EndOfBatch` → read that scope's batch →
+  merge, then close. One round-trip per scope *is* the whole session, so there
+  is no idle phase to optimize and no reason to coalesce.
+- **`syncContinuously` (`_syncContinuously`)** runs forever, so a per-scope
+  request/response *every* cycle is a problem: an idle session would re-announce
+  the scope set and emit an `EndOfBatch` per scope on every tick, and would idle
+  out once *per scope* (latency growing with scope count). So the continuous
+  loop coalesces each cycle into **one combined batch**: the scope announcement,
+  per-scope `SinceHlc`s and scope-tagged `MergeChunk`s all ride one batch closed
+  by a single `EndOfBatch`, and every frame is emitted only when there is
+  something to say. An idle cycle sends nothing and idles out **once**,
+  regardless of scope count — the scope-tagged framing and per-scope grouping
+  this needs (rejected earlier as throughput-only cost) earn their keep here by
+  buying zero idle chatter and constant idle latency, not throughput.
 
 ### Protocol frames
 
-`Connect` opens the session once; a scope-set exchange opens each cycle; the
-per-scope exchange repeats within a cycle. Frame changes (regenerated models + a
-migration on both client and server schemas):
+`Connect` opens the session once. After that the frames are the same in both
+cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
+`continuous`: only on change, inside one combined batch). Frame changes
+(regenerated models + a migration on both client and server schemas):
 
 - `CrdtSyncConnect { syncTablesHash }` — sent once by each peer. The schema hash
   is validated once, before any scope work. The scope list and the single
-  `localNodeId` both leave `Connect`: the scope set is dynamic (per cycle) and
-  node ids are per scope.
+  `localNodeId` both leave `Connect`: the scope set is dynamic and node ids are
+  per scope.
 - `CrdtSyncScopeSet { scopes: List<CrdtScopeGrant> }` (each grant a
-  `scopeUuid` + `role`) — exchanged at the **start of every cycle**. The
-  server's content is authoritative (re-resolved from `crdt_scope_members` each
-  cycle, roles included); the client's is informational. This is the one frame
-  that carries access changes mid-session — keeping it out of the
-  one-time `Connect` is what lets a grant or a revoke take effect on the next
-  cycle. For a one-shot `syncOnce` there is a single cycle, so it is exchanged
-  exactly once.
+  `scopeUuid` + `role`) — the server's content is authoritative (resolved from
+  `crdt_scope_members`, roles included); the client's is informational. In
+  `once` it is exchanged exactly once. In `continuous` a peer re-announces it
+  **only when its own grant set changed** since the last announcement — this is
+  the frame that carries access changes mid-session, and gating it on change is
+  what keeps an idle session silent while still letting a grant or revoke take
+  effect.
 - `CrdtSyncSinceHlc { uuidScopeId, localNodeId, nodeCheckpoints }` — per scope.
-  Carries that scope's node id and per-node checkpoints. Exchanged on a scope's
-  first visit (and again if a dropped scope is later re-adopted); checkpoints
-  then live in memory for the rest of the session.
+  Carries that scope's node id and per-node checkpoints. Exchanged when a scope
+  first becomes active (and again if a dropped scope is later re-adopted);
+  checkpoints then live in memory for the rest of the session.
 - `CrdtSyncMergeChunk { uuidScopeId, changes }` — a chunk tagged with its scope.
-- `CrdtSyncEndOfBatch`, `CrdtSyncClose`, `CrdtSyncIdleTimeout` — unchanged.
-  `EndOfBatch` terminates the current scope's batch; `Close` terminates the
-  whole session after the final cycle.
+  The tag is what lets `continuous` carry every scope's changes in one batch and
+  regroup them on receive.
+- `CrdtSyncEndOfBatch`, `CrdtSyncClose`, `CrdtSyncIdleTimeout` — unchanged. In
+  `once`, `EndOfBatch` terminates the current scope's batch; in `continuous` a
+  single `EndOfBatch` terminates the whole cycle's combined batch (and is itself
+  omitted when nothing was sent, so the peer idles out instead). `Close`
+  terminates a `once` session after its final scope.
 
-`collectNextBatch` is unchanged: it is still called once per scope visit and
-returns that scope's `CrdtMergeSet`. There is no per-round grouping map.
+`once` uses `collectNextBatch` once per scope visit, exactly as before.
+`continuous` uses `_collectCycleBatch`, which demultiplexes one cycle's frames
+by type and scope into `{ scopeSet?, sinceHlcs, groups }`, returning on the
+single `EndOfBatch` or — when the peer was idle — on the idle timeout.
 
 ### The session state machine
 
 ```
-handshake (once per session):
+handshake (both cadences):
   send Connect(syncTablesHash); read peer Connect; validate syncTablesHash
-  nodeCheckpoints: Map<scopeUuid, Map<nodeId, Hlc>> = {}
-  handshaked: Set<scopeUuid> = {}
 
-cycle (once: exactly one; continuous: forever):
-  resolve my set; send ScopeSet(myScopeIds); read peer ScopeSet
-  reconcile → orderedScopes        (see "reconciliation and lockstep")
-  discard nodeCheckpoints/handshaked for scopes no longer in orderedScopes
+once (_syncOnce) — one bounded round, then close:
+  send ScopeSet(myGrants); read peer ScopeSet → reconcile → orderedScopes
   for scope in orderedScopes:
-    if scope not in handshaked:
-      exchange SinceHlc(scope) → seed nodeCheckpoints[scope]; handshaked.add(scope)
+    exchange SinceHlc(scope) → seed nodeCheckpoints[scope]
     collect pending for scope → send MergeChunk(scope)* + EndOfBatch   # send
-    read peer batch for scope → mergeInboundBatch(scope)               # merge
-      → advance nodeCheckpoints[scope]
-  continuous: delay continuousSyncInterval, then next cycle
+    read peer batch for scope (collectNextBatch) → mergeInboundBatch   # merge
+  send Close; read Close; drain (today's teardown)
 
-once: after the single cycle → send Close, read Close, drain (today's teardown)
+continuous (_syncContinuously) — forever, one combined batch per cycle:
+  announcedGrants = null; peerGrants = []; sinceHlcSent = {}; checkpoints = {}
+  loop:
+    resolve activeScopes      (authoritative: my set; follower: adopted peerGrants)
+    discard state for scopes no longer active
+    # send phase — emit only what changed; track whether any frame was sent
+    if myGrants != announcedGrants: send ScopeSet(myGrants)
+    for scope in activeScopes not yet sinceHlcSent: send SinceHlc(scope)
+    for scope in activeScopes with peer checkpoints: send MergeChunk(scope)*
+    if anything was sent: send EndOfBatch
+    # receive phase
+    batch = collectCycleBatch()         # {scopeSet?, sinceHlcs, groups} | idle | closed
+    if closed: return
+    adopt batch.scopeSet (follower: project membership); store sinceHlcs;
+      mergeInboundBatch each group  (only for authorized scopes)
+    delay continuousSyncInterval
 ```
 
-This is today's `while (true) { collect → send → receive → merge }` lifted one
-level: the inner body is one scope-turn, the outer loop is the scope cycle.
 `collectPendingChanges`, `mergeInboundBatch`, `recordSyncCheckpoint`, and the
 ownership-violation internals (`_streamInserts`/`Updates`/`Deletes`,
 `_fetchDomainRow`, the durable-violation path) are already scope-parameterized
-and are invoked per scope unchanged. Each scope merges in its own
+and are invoked per scope unchanged by both flows. Each scope merges in its own
 `transactionForUser`/lock, so scopes do not contend; any scope's merge failure
 (for example an ownership collision) records the durable violation and fails the
 session, preserving today's fail-fast semantics.
+
+Because `continuous` defers a scope's data until both peers have exchanged its
+`SinceHlc`, a newly active scope is established over the **following** cycles
+rather than in lockstep — the deliberate trade for keeping the steady state
+silent. A peer only honors inbound `SinceHlc`/`MergeChunk` frames for scopes it
+authorizes (authoritative: its own membership; follower: the announced set), so
+the combined batch tolerates a peer's informational extras without widening
+access.
 
 `onMergeSuccess` becomes scope-aware: `Function(UuidValue scopeUuid, Hlc hlc)`.
 This touches three test call sites and the example app's `demo_controller`.
@@ -283,12 +319,13 @@ against the authoritative table. Frames stay symmetric in *shape* — both carry
 `scopes` (the follower's roles null) — exactly as `userId` is already sourced
 differently per side today.
 
-Because the client adopts straight from the cycle's `ScopeSet` *before* it
-iterates, a newly granted scope syncs in the **same cycle**, not the next.
-Sorting by scope UUID makes the order deterministic on both sides with no extra
-negotiation. Frames carry `uuidScopeId` even though strict lockstep makes
-position predictable: the tag is cheap, self-describing, and fails loud on
-desync rather than merging a batch into the wrong scope.
+In `once`, the client adopts straight from the cycle's `ScopeSet` *before* it
+iterates, so a newly granted scope syncs in that same round. In `continuous`,
+adoption happens when the announcement arrives and the scope's data follows over
+the next cycles once its `SinceHlc` round-trips. Sorting by scope UUID makes the
+order deterministic on both sides with no extra negotiation. Frames carry
+`uuidScopeId` so a receiver groups each chunk into the right scope and fails loud
+on an unauthorized tag rather than merging a batch into the wrong scope.
 
 Re-resolving `memberScopes` every cycle is an indexed `crdt_scope_members`
 lookup on the server only; it may be throttled or invalidated by an
@@ -311,22 +348,25 @@ idle.
 
 ### Access changes during a session
 
-Because the authoritative scope set is re-resolved and re-exchanged at the top of
-every cycle (not pinned at `Connect`), a continuous session absorbs membership
-changes without reconnecting:
+Because the authoritative scope set is re-resolved every cycle and re-announced
+whenever it changes (not pinned at `Connect`), a continuous session absorbs
+membership changes without reconnecting:
 
-- **Grant.** The server's next `ScopeSet` includes the new scope; the client
-  adopts it before iterating and syncs it in that same cycle.
-- **Revoke.** The server's next `ScopeSet` omits the scope; both sides stop
-  cycling it immediately and discard its in-memory checkpoint state. The device
-  still *holds* the revoked scope's rows; purging them (and the fate of any
-  unsynced local changes) is the deferred revocation question, not a sync-loop
-  concern.
+- **Grant.** The server re-announces a `ScopeSet` that includes the new scope;
+  the client adopts and materializes it, then handshakes and syncs it over the
+  next cycles. (The server detects the grant on its next cycle, so propagation
+  is bounded by one idle poll plus the handshake round-trip.)
+- **Revoke.** The server re-announces a `ScopeSet` that omits the scope; both
+  sides stop cycling it and discard its in-memory checkpoint state, and the
+  follower's `projectFollowerMembership` deletes its members-table row. The
+  device still *holds* the revoked scope's rows; purging them (and the fate of
+  any unsynced local changes) is the deferred revocation question, not a
+  sync-loop concern.
 
-The set changes only at a cycle boundary, where both sides exchange and reconcile
-`ScopeSet` before iterating, so lockstep is preserved across the change. A
-one-shot `syncOnce` has a single cycle, so it captures the set once; the next
-`syncOnce` call picks up any change.
+The authoritative peer originates every set change, so both sides converge on
+the same active set from the same announcement and stay in step across it. A
+one-shot `syncOnce` captures the set once; the next `syncOnce` call picks up any
+change.
 
 ## Transaction API
 
@@ -409,6 +449,15 @@ to run with `--concurrency=1`.
   announced shares; reconcile with the scope-purge semantics in
   `sync-non-sync-relations.md`.
   Revocation cleanup and roles are deferred (see *Follow-ups*).
+- **Phase 6 — idle-silent continuous loop.** Split the cadences:
+  `_syncOnce` keeps Phase 2's per-scope round; `_syncContinuously` coalesces each
+  cycle into one combined, scope-tagged batch terminated by a single
+  `EndOfBatch`, sends `ScopeSet`/`SinceHlc`/`MergeChunk` only on change, and
+  reads via `_collectCycleBatch`. An idle continuous session now sends zero
+  frames and idles out once per cycle regardless of scope count (Phase 2's outer
+  loop re-announced the set and an `EndOfBatch` per scope every tick). A scope's
+  data is deferred until its `SinceHlc` round-trips, and inbound frames are
+  honored only for authorized scopes.
 
 ## Test plan
 
@@ -421,11 +470,15 @@ tested once, not per combination.
   route to the correct scope by `uuidScopeId`; per-scope checkpoints advance
   independently across cycles.
 - **One call, every scope.** A single `syncOnce` converges N scopes in one pass;
-  a continuous session keeps cycling; memory holds only one scope's pending
-  changes at a time.
+  a continuous session keeps cycling. `syncOnce` holds only one scope's pending
+  changes at a time; the continuous receive groups a cycle's inbound chunks by
+  scope before merging.
+- **Idle silence.** A continuous session with no pending changes settles and then
+  emits no further frames — neither peer re-announces the scope set nor sends an
+  `EndOfBatch` while idle.
 - **Membership.** The server syncs personal + shared scopes; a client-announced
   non-member scope is refused and never streamed; a newly granted scope is
-  adopted and syncs in the same cycle.
+  adopted and syncs within the same `syncOnce` call.
 - **Access changes mid-session.** During a continuous session, a grant added to
   `crdt_scope_members` appears and syncs on the next cycle; a revoke stops
   cycling that scope without dropping the session.
@@ -438,10 +491,12 @@ tested once, not per combination.
 
 ## Resolved during review
 
-- **Sequential vs. multiplexed sync:** sequential, one scope per turn. Merges
-  serialize regardless, so multiplexing buys no throughput while costing
-  protocol surface and memory. Sequencing reuses the existing per-scope state
-  machine as the inner loop.
+- **Sequential vs. multiplexed sync:** merges serialize regardless, so
+  multiplexing never buys *throughput*. `syncOnce` therefore stays sequential,
+  one scope per turn, reusing the per-scope state machine. `syncContinuously`
+  does coalesce each cycle's scopes into one scope-tagged batch — not for
+  throughput but to keep an idle session silent and its idle latency constant
+  in scope count (a per-scope round every tick cannot).
 - **Membership authority:** the server, from `crdt_scope_members`. The
   reconciliation is directional — server dictates, client conforms — and is
   neither union (insecure) nor intersection (cannot adopt). It is a
@@ -452,10 +507,13 @@ tested once, not per combination.
   `CrdtScopeMembership.isMember` gates every applied write regardless of the
   client's declared mode. Frames stay symmetric in shape; only the values and
   the dictate-vs-conform behavior differ, as `userId` already does.
-- **Scope set is per cycle, not per connect:** re-resolved and re-exchanged each
-  cycle so grants and revokes take effect mid-session without reconnecting. A
-  newly granted scope syncs in the *same* cycle, since the client adopts from the
-  cycle's `ScopeSet` before iterating.
+- **Scope set is dynamic, not pinned at connect:** the authoritative peer
+  re-resolves its set every cycle and re-announces a `ScopeSet` whenever it
+  changed, so grants and revokes take effect mid-session without reconnecting.
+  In `syncOnce` the client adopts from the round's `ScopeSet` before iterating,
+  so a grant syncs in that same round; in `syncContinuously` a newly announced
+  scope is adopted then established over the next cycles as its `SinceHlc`
+  round-trips.
 - **Members vs. nodes:** orthogonal layers, both kept. Members are authorization
   (`who`); nodes are CRDT causality (`whose changes, up to which HLC`). One
   member maps to many nodes; the server is a node but not a member; a new member

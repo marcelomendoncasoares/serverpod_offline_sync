@@ -136,7 +136,7 @@ void main() {
 
         test(
           'when client syncContinuously runs '
-          'then neither side sends merge chunks while idle.',
+          'then neither side keeps sending frames while idle.',
           () async {
             final clientToServer = StreamController<CrdtSyncStreamEvent>();
             final serverToClient = StreamController<CrdtSyncStreamEvent>();
@@ -188,7 +188,26 @@ void main() {
               await serverSubscription.cancel();
             });
 
-            await Future<void>.delayed(const Duration(seconds: 2));
+            // Let the session establish: connect, scope handshake, first batch.
+            await Future<void>.delayed(const Duration(seconds: 1));
+            final clientSettled = clientOutboundEvents.length;
+            final serverSettled = serverOutboundEvents.length;
+
+            // An idle multi-scope session must then stay silent. The old loop
+            // re-announced the scope set and an end-of-batch every cycle, so
+            // the frame counts kept climbing; now they must hold steady.
+            await Future<void>.delayed(const Duration(seconds: 1));
+
+            expect(
+              clientOutboundEvents.length,
+              clientSettled,
+              reason: 'the client kept sending frames while idle',
+            );
+            expect(
+              serverOutboundEvents.length,
+              serverSettled,
+              reason: 'the server kept sending frames while idle',
+            );
 
             await clientToServer.close();
             await serverToClient.close();
@@ -197,9 +216,6 @@ void main() {
 
             for (final events in [clientOutboundEvents, serverOutboundEvents]) {
               expect(events.whereType<CrdtSyncMergeChunk>(), isEmpty);
-              // TODO: We need to fix this regression. Multi-scope sync should
-              // not return an endless idle chatter.
-              expect(events.whereType<CrdtSyncEndOfBatch>(), isNotEmpty);
               expect(events.whereType<CrdtSyncClose>(), isEmpty);
               expect(events.whereType<CrdtSyncIdleTimeout>(), isEmpty);
             }
