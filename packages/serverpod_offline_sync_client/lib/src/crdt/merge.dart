@@ -20,46 +20,49 @@ typedef CrdtMergeMetadataLookup = ({
 extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEvent> {
   /// Collects the next framed sync batch from this iterator.
   ///
-  /// Each batch is zero or more [CrdtSyncMergeChunk] events followed by
-  /// [CrdtSyncEndOfBatch]. If the stream is idle before a batch starts, an
+  /// Each batch is zero or more scope, handshake, and/or merge frames followed
+  /// by [CrdtSyncEndOfBatch]. If the stream is idle before a batch starts, an
   /// empty batch is returned.
   ///
   /// When [allowCloseBeforeBatch] is true, returns `null` if the stream closes
-  /// before the next batch starts. Otherwise, closing before a batch starts is
-  /// treated as a [CrdtSyncStreamClosedException].
+  /// before the next batch starts. [CrdtSyncClose] also returns `null`.
+  /// Otherwise, closing before a batch starts is treated as a
+  /// [CrdtSyncStreamClosedException].
   ///
-  /// If the stream closes after a merge change was already received, the
-  /// partial batch is still treated as an error.
-  Future<CrdtMergeSet?> collectNextBatch({
+  /// If the stream closes after a frame was already received, the partial batch
+  /// is still treated as an error.
+  ///
+  /// An idle timeout only ends an *empty* batch: once any frame has been
+  /// collected the timeout is ignored and collection waits for the explicit
+  /// terminator.
+  Future<CrdtSyncCycleBatch?> collectNextBatch({
     bool allowCloseBeforeBatch = false,
-    UuidValue? expectedScopeId,
   }) async {
-    final mergeSet = <CrdtMergeChange>[];
+    final batch = CrdtSyncCycleBatch();
 
     while (await moveNext()) {
       switch (current) {
-        case CrdtSyncMergeChunk(uuidScopeId: final uuidScopeId, changes: final changes):
-          if (expectedScopeId != null && uuidScopeId != expectedScopeId) {
-            throw CrdtSyncScopeMismatchException(
-              frameName: 'CrdtSyncMergeChunk',
-              receivedScopeId: uuidScopeId,
-              expectedScopeId: expectedScopeId,
-            );
-          }
-          mergeSet.addAll(changes);
+        case final CrdtSyncScopeSet event:
+          batch.scopeSet = event;
+        case final CrdtSyncSinceHlc event:
+          batch.sinceHlcs[event.uuidScopeId] = event;
+        case CrdtSyncMergeChunk(:final changes):
+          batch.changes.addAll(changes);
         case CrdtSyncIdleTimeout():
-          if (mergeSet.isEmpty) return mergeSet;
+          if (batch.isEmpty) return batch;
         case CrdtSyncEndOfBatch():
-          return mergeSet;
+          return batch;
+        case CrdtSyncClose():
+          return null;
         default:
           throw CrdtSyncUnexpectedEventException(
-            expected: '"CrdtSyncMergeChunk" or "CrdtSyncEndOfBatch"',
+            expected: 'a sync cycle frame',
             received: current,
           );
       }
     }
 
-    if (mergeSet.isEmpty && allowCloseBeforeBatch) return null;
+    if (batch.isEmpty && allowCloseBeforeBatch) return null;
     throw const CrdtSyncStreamClosedException(phase: 'end-of-batch');
   }
 
@@ -76,69 +79,9 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
     }
     throw CrdtSyncStreamClosedException(phase: '"$T"');
   }
-
-  /// Moves to the next event of type [T], returning `null` if the stream closes.
-  ///
-  /// This is used by continuous sync sessions where peer-side cancellation is a
-  /// normal shutdown path. Unexpected event types still fail the session.
-  Future<T?> moveOrNullIfClosed<T extends CrdtSyncStreamEvent>() async {
-    try {
-      return await moveAndThrowIfNot<T>();
-    } on CrdtSyncStreamClosedException catch (_) {
-      return null;
-    }
-  }
-
-  /// Reads the next event of type [T], dispatching on [throwIfClosed]: a `once`
-  /// round treats a peer that closes mid-handshake as an error, continuous sync
-  /// as a clean shutdown that returns `null`.
-  Future<T?> nextFrame<T extends CrdtSyncStreamEvent>({
-    required bool throwIfClosed,
-  }) => throwIfClosed ? moveAndThrowIfNot<T>() : moveOrNullIfClosed<T>();
-
-  /// Collects one sync cycle's inbound frames until the terminating
-  /// [CrdtSyncEndOfBatch] or an idle timeout, demultiplexed by type and scope.
-  ///
-  /// Returns the collected [CrdtSyncCycleBatch], an empty batch when the peer
-  /// was idle (it sent nothing this cycle, only honored if [allowIdleReturn]),
-  /// or `null` when the inbound stream closed.
-  ///
-  /// An idle timeout only ends an *empty* cycle: once any frame has been
-  /// collected the timeout is ignored and collection waits for the explicit
-  /// terminator, so a peer's frames can never leak across cycle boundaries. With
-  /// [allowIdleReturn] false (the `once` round, where the peer always sends a
-  /// terminator) idle timeouts are ignored entirely and collection blocks for
-  /// the terminator.
-  Future<CrdtSyncCycleBatch?> collectCycleBatch({
-    required bool allowIdleReturn,
-  }) async {
-    final batch = CrdtSyncCycleBatch();
-    while (await moveNext()) {
-      switch (current) {
-        case final CrdtSyncScopeSet event:
-          batch.scopeSet = event;
-        case final CrdtSyncSinceHlc event:
-          batch.sinceHlcs[event.uuidScopeId] = event;
-        case CrdtSyncMergeChunk(:final uuidScopeId, :final changes):
-          batch.groups.putIfAbsent(uuidScopeId, () => []).addAll(changes);
-        case CrdtSyncEndOfBatch():
-          return batch;
-        case CrdtSyncIdleTimeout():
-          if (allowIdleReturn && batch.isEmpty) return batch;
-        case CrdtSyncClose():
-          return null;
-        case final event:
-          throw CrdtSyncUnexpectedEventException(
-            expected: 'a sync cycle frame',
-            received: event,
-          );
-      }
-    }
-    return null;
-  }
 }
 
-/// One sync cycle's inbound frames, demultiplexed by type and scope.
+/// One sync cycle's inbound frames.
 class CrdtSyncCycleBatch {
   /// The peer's scope announcement for this cycle, if it sent one.
   CrdtSyncScopeSet? scopeSet;
@@ -146,11 +89,11 @@ class CrdtSyncCycleBatch {
   /// The peer's resume vectors, keyed by scope.
   final Map<UuidValue, CrdtSyncSinceHlc> sinceHlcs = {};
 
-  /// The peer's merge changes for this cycle, grouped by scope.
-  final Map<UuidValue, List<CrdtMergeChange>> groups = {};
+  /// The peer's merge changes for this cycle.
+  final List<CrdtMergeChange> changes = [];
 
   /// Whether the peer sent nothing this cycle (it was idle).
-  bool get isEmpty => scopeSet == null && sinceHlcs.isEmpty && groups.isEmpty;
+  bool get isEmpty => scopeSet == null && sinceHlcs.isEmpty && changes.isEmpty;
 }
 
 /// Helpers for grouping merge changes into stream payload batches.

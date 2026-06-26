@@ -117,10 +117,10 @@ class CrdtDatabase implements Database {
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
   Stream<CrdtSyncStreamEvent> sync({
     required Stream<CrdtSyncStreamEvent> inbound,
+    required CrdtSyncPeerMode mode,
     UuidValue? userId,
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
-    CrdtSyncPeerMode mode = CrdtSyncPeerMode.personalOnly,
   }) async* {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);

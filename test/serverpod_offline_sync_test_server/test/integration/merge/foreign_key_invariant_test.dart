@@ -1218,6 +1218,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
+                uuidScopeId: testCrdtUserId,
                 tableName: Town.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1279,6 +1280,7 @@ void main() {
 
         final childHlc = await _rowHlc(child.id!);
         remoteMissingParentUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Town.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -1579,6 +1581,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
+                uuidScopeId: testCrdtUserId,
                 tableName: Company.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1723,6 +1726,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
+                uuidScopeId: testCrdtUserId,
                 tableName: Address.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1800,6 +1804,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
+                uuidScopeId: testCrdtUserId,
                 tableName: Organization.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1887,6 +1892,7 @@ void main() {
         final remoteNodeId = const Uuid().v7obj();
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remotePersonInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -1963,6 +1969,7 @@ void main() {
         final remoteNodeId = const Uuid().v7obj();
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Company.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: remoteNodeId,
@@ -2991,6 +2998,7 @@ void main() {
             .maxBetween(singleBatchChildHlc)
             .maxBetween(splitBatchChildHlc);
         remoteChildUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Town.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -3107,6 +3115,7 @@ void main() {
           parentId: parent.id,
         );
         remoteChildInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: RestrictChild.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -3179,6 +3188,7 @@ CrdtMergeDelete _deleteChange({
   required Hlc after,
 }) {
   return CrdtMergeDelete(
+    uuidScopeId: testCrdtUserId,
     tableName: tableName,
     uuidRowId: rowId,
     uuidNodeId: const Uuid().v7obj(),
@@ -3197,6 +3207,7 @@ CrdtMergeUpdate _updateChange({
   required Hlc after,
 }) {
   return CrdtMergeUpdate(
+    uuidScopeId: testCrdtUserId,
     tableName: tableName,
     uuidRowId: rowId,
     uuidNodeId: const Uuid().v7obj(),
@@ -3213,6 +3224,7 @@ CrdtMergeDelete _restoreChange({
   required Hlc after,
 }) {
   return CrdtMergeDelete(
+    uuidScopeId: testCrdtUserId,
     tableName: tableName,
     uuidRowId: rowId,
     uuidNodeId: const Uuid().v7obj(),

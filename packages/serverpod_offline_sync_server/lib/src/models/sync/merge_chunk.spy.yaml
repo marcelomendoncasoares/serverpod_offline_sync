@@ -2,8 +2,5 @@
 class: CrdtSyncMergeChunk
 extends: CrdtSyncStreamEvent
 fields:
-  ### Scope this chunk belongs to.
-  uuidScopeId: UuidValue
-
   ### The merge changes to apply.
   changes: List<CrdtMergeChange>

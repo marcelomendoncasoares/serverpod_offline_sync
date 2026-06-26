@@ -38,15 +38,16 @@ void main() {
   });
 
   group('Given a sync stream with complete framed sync batches', () {
+    final scopeId = const Uuid().v7obj();
     final rowId = const Uuid().v7obj();
     final requesterNodeId = const Uuid().v7obj();
     final row = CrdtNode(scopeId: 1, uuidNodeId: rowId);
 
     final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
       CrdtSyncMergeChunk(
-        uuidScopeId: const Uuid().v7obj(),
         changes: [
           CrdtMergeInsert(
+            uuidScopeId: scopeId,
             hlcDatetime: DateTime.utc(2026, 5, 10, 12),
             hlcCounter: 1,
             tableName: 'person',
@@ -58,9 +59,9 @@ void main() {
       ),
       CrdtSyncEndOfBatch(),
       CrdtSyncMergeChunk(
-        uuidScopeId: const Uuid().v7obj(),
         changes: [
           CrdtMergeDelete(
+            uuidScopeId: scopeId,
             hlcDatetime: DateTime.utc(2026, 5, 10, 13),
             hlcCounter: 2,
             tableName: 'person',
@@ -83,10 +84,10 @@ void main() {
 
         expect(firstBatch, isNotNull);
         expect(secondBatch, isNotNull);
-        expect(firstBatch!.inserts, hasLength(1));
-        expect(firstBatch.deletes, isEmpty);
-        expect(secondBatch!.inserts, isEmpty);
-        expect(secondBatch.deletes, hasLength(1));
+        expect(firstBatch!.changes.inserts, hasLength(1));
+        expect(firstBatch.changes.deletes, isEmpty);
+        expect(secondBatch!.changes.inserts, isEmpty);
+        expect(secondBatch.changes.deletes, hasLength(1));
         expect(
           iterator.collectNextBatch,
           throwsA(isA<CrdtSyncStreamClosedException>()),
@@ -99,9 +100,9 @@ void main() {
       () async {
         final singleBatchStream = Stream<CrdtSyncStreamEvent>.fromIterable([
           CrdtSyncMergeChunk(
-            uuidScopeId: const Uuid().v7obj(),
             changes: [
               CrdtMergeInsert(
+                uuidScopeId: scopeId,
                 hlcDatetime: DateTime.utc(2026, 5, 10, 16),
                 hlcCounter: 1,
                 tableName: 'person',
@@ -110,6 +111,7 @@ void main() {
                 data: row,
               ),
               CrdtMergeDelete(
+                uuidScopeId: scopeId,
                 hlcDatetime: DateTime.utc(2026, 5, 10, 17),
                 hlcCounter: 2,
                 tableName: 'person',
@@ -126,7 +128,7 @@ void main() {
         final batch = await StreamIterator(singleBatchStream).collectNextBatch();
 
         expect(batch, isNotNull);
-        expect(batch, hasLength(2));
+        expect(batch!.changes, hasLength(2));
       },
     );
   });
@@ -163,11 +165,12 @@ void main() {
     'when collecting the next batch '
     'then collection fails.',
     () async {
+      final scopeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
-          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
+              uuidScopeId: scopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -193,11 +196,12 @@ void main() {
     'when collecting the next batch allowing close before batch '
     'then collection fails.',
     () async {
+      final scopeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
-          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
+              uuidScopeId: scopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -231,7 +235,8 @@ void main() {
       final batch = await iterator.collectNextBatch();
 
       expect(batch, isNotNull);
-      expect(batch, isEmpty);
+      expect(batch!.isEmpty, isTrue);
+      expect(batch.changes, isEmpty);
     },
   );
 
@@ -248,7 +253,8 @@ void main() {
       final batch = await iterator.collectNextBatch();
 
       expect(batch, isNotNull);
-      expect(batch, isEmpty);
+      expect(batch!.isEmpty, isTrue);
+      expect(batch.changes, isEmpty);
     },
   );
 
@@ -257,13 +263,14 @@ void main() {
     'when collecting the next batch '
     'then the idle event does not end the batch.',
     () async {
+      final scopeId = const Uuid().v7obj();
       final rowId = const Uuid().v7obj();
       final requesterNodeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
-          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
+              uuidScopeId: scopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -282,20 +289,21 @@ void main() {
       final batch = await iterator.collectNextBatch();
 
       expect(batch, isNotNull);
-      expect(batch!.deletes, hasLength(1));
+      expect(batch!.changes.deletes, hasLength(1));
     },
   );
 
   test(
     'Given a stream with CrdtSyncClose before CrdtSyncEndOfBatch '
     'when collecting the next batch '
-    'then collection fails with CrdtSyncUnexpectedEventException.',
+    'then null is returned.',
     () async {
+      final scopeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
-          uuidScopeId: const Uuid().v7obj(),
           changes: [
             CrdtMergeDelete(
+              uuidScopeId: scopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -310,24 +318,9 @@ void main() {
       ]);
       final iterator = StreamIterator(stream);
 
-      expect(
-        iterator.collectNextBatch,
-        throwsA(
-          isA<CrdtSyncUnexpectedEventException>()
-              .having(
-                (exception) => exception.received,
-                'received',
-                isA<CrdtSyncClose>(),
-              )
-              .having(
-                (exception) => exception.toString(),
-                'toString',
-                'CrdtSyncUnexpectedEventException: expected "CrdtSyncMergeChunk" '
-                    'or "CrdtSyncEndOfBatch", but '
-                    'received "CrdtSyncClose" instead.',
-              ),
-        ),
-      );
+      final batch = await iterator.collectNextBatch();
+
+      expect(batch, isNull);
     },
   );
 

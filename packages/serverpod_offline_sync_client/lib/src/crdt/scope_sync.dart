@@ -7,44 +7,31 @@ import '../protocol/protocol.dart';
 import 'merge.dart';
 import 'scope_membership.dart';
 
-/// How a peer decides which scopes it syncs and which side dictates the cycle.
-///
-/// Both sides enumerate membership from the same shared `crdt_scope_members`
-/// table, so the only thing that varies per role is the cycle direction.
+/// How a peer decides which scopes it syncs.
 enum CrdtSyncPeerMode {
-  /// Dictates the scope set from authoritative membership (the server, or a
-  /// designated authoritative peer in a P2P scheme). Announces and cycles its
-  /// own [CrdtScopeMembership.memberScopes].
+  /// Dictates the scope set from authoritative membership.
   authoritative,
 
-  /// Adopts the scope set announced by the authoritative peer, materializing
-  /// each announced scope locally. Used by client followers.
+  /// Adopts the scope set announced by the authoritative peer.
   follower,
-
-  /// Syncs only the user's personal scope and ignores shared memberships.
-  personalOnly,
 }
 
 /// De-duplicates [scopeIds] and sorts them by UUID string so both peers iterate
 /// scopes in the same deterministic order.
-List<UuidValue> sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) {
+List<UuidValue> _sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) {
   final byUuid = {for (final scopeId in scopeIds) scopeId.uuid: scopeId};
   return byUuid.values.toList()..sort((a, b) => a.uuid.compareTo(b.uuid));
 }
 
 /// De-duplicates [grants] by scope and sorts them by scope UUID string.
-List<CrdtScopeGrant> sortedUniqueGrants(Iterable<CrdtScopeGrant> grants) {
+List<CrdtScopeGrant> _sortedUniqueGrants(Iterable<CrdtScopeGrant> grants) {
   final byUuid = {for (final grant in grants) grant.uuidScopeId.uuid: grant};
   return byUuid.values.toList()
     ..sort((a, b) => a.uuidScopeId.uuid.compareTo(b.uuidScopeId.uuid));
 }
 
 /// Whether the grant list [a] last announced equals the current list [b].
-///
-/// Both lists are sorted by scope UUID (see [sortedUniqueGrants]), so a
-/// positional comparison of scope and role decides whether a continuous peer
-/// needs to re-announce its [CrdtSyncScopeSet] this cycle.
-bool grantsEqual(List<CrdtScopeGrant>? a, List<CrdtScopeGrant> b) {
+bool _grantsEqual(List<CrdtScopeGrant>? a, List<CrdtScopeGrant> b) {
   if (a == null || a.length != b.length) return false;
   for (var i = 0; i < b.length; i++) {
     if (a[i].uuidScopeId != b[i].uuidScopeId || a[i].role != b[i].role) {
@@ -73,6 +60,11 @@ class CrdtScopeSyncSession {
   final DatabaseSession _session;
   final UuidValue _userId;
   final CrdtSyncPeerMode _mode;
+
+  /// Session-lived scope manager. Reused across cycles so its in-memory cache
+  /// of already-materialized scopes survives, sparing a follower a per-cycle
+  /// `getOrCreate` round-trip for scopes it has already created this session.
+  late final CrdtScopeManager _scopeManager = CrdtScopeManager(_session);
 
   /// The grant set this peer last announced (null until the first announcement).
   List<CrdtScopeGrant>? _announcedGrants;
@@ -108,7 +100,7 @@ class CrdtScopeSyncSession {
   List<UuidValue> get activeScopeIds => _activeScopeIds;
 
   /// Whether the local grants changed since the last announcement.
-  bool get shouldAnnounce => !grantsEqual(_announcedGrants, _localGrants);
+  bool get shouldAnnounce => !_grantsEqual(_announcedGrants, _localGrants);
 
   /// Records that [localGrants] was just announced, so it is not re-sent until
   /// it changes again.
@@ -122,7 +114,7 @@ class CrdtScopeSyncSession {
   /// that lands mid-handshake cannot make this peer handshake a different scope
   /// count than it announced.
   Future<void> reconcile() async {
-    _localGrants = sortedUniqueGrants(await _resolveLocalGrants());
+    _localGrants = _sortedUniqueGrants(await _resolveLocalGrants());
     await _recomputeActiveScopes();
   }
 
@@ -132,7 +124,7 @@ class CrdtScopeSyncSession {
   /// members cache (projection needs the scope rows to exist); an authoritative
   /// peer keeps cycling its own membership.
   Future<void> adoptPeerGrants(List<CrdtScopeGrant> peerGrants) async {
-    _peerGrants = sortedUniqueGrants(peerGrants);
+    _peerGrants = _sortedUniqueGrants(peerGrants);
     _peerUuids = {for (final g in _peerGrants) g.uuidScopeId.uuid};
     await _recomputeActiveScopes();
     if (_mode == CrdtSyncPeerMode.follower) {
@@ -148,7 +140,7 @@ class CrdtScopeSyncSession {
   /// (materializing a follower's adopted scopes), then prunes in-session state
   /// for scopes that left the set — e.g. a membership the peer revoked.
   Future<void> _recomputeActiveScopes() async {
-    _activeScopeIds = sortedUniqueScopeIds(
+    _activeScopeIds = _sortedUniqueScopeIds(
       await _resolveOrderedScopeIds(
         localScopeIds: [for (final g in _localGrants) g.uuidScopeId],
         peerScopeIds: [for (final g in _peerGrants) g.uuidScopeId],
@@ -169,8 +161,7 @@ class CrdtScopeSyncSession {
   void recordPeerHandshake(UuidValue scopeId, CrdtSyncSinceHlc sinceHlc) {
     _peerNodeIdByScope[scopeId] = sinceHlc.localNodeId;
     _checkpointsByScope[scopeId] = {
-      for (final checkpoint in sinceHlc.nodeCheckpoints)
-        checkpoint.nodeId: checkpoint,
+      for (final checkpoint in sinceHlc.nodeCheckpoints) checkpoint.nodeId: checkpoint,
     };
   }
 
@@ -178,8 +169,7 @@ class CrdtScopeSyncSession {
   /// scope — the input to a pending-change collection pass.
   Map<UuidValue, List<Hlc>> get sendableCheckpoints => {
     for (final scopeId in _activeScopeIds)
-      if (_checkpointsByScope[scopeId] != null &&
-          _peerNodeIdByScope[scopeId] != null)
+      if (_checkpointsByScope[scopeId] != null && _peerNodeIdByScope[scopeId] != null)
         scopeId: _checkpointsByScope[scopeId]!.values.toList(),
   };
 
@@ -213,43 +203,34 @@ class CrdtScopeSyncSession {
 
   /// Resolves the local grants this peer announces in its [CrdtSyncScopeSet].
   ///
-  /// Authoritative peers enumerate [CrdtScopeMembership.memberGrants] (with
-  /// roles); followers announce every scope they hold (roles null); personal-only
-  /// peers announce just their own scope.
+  /// Authoritative peers enumerate [CrdtScopeMembership.memberGrants].
+  /// Followers send an empty set because the authoritative peer never widens
+  /// access from follower-reported scope state.
   Future<List<CrdtScopeGrant>> _resolveLocalGrants() async {
     switch (_mode) {
       case CrdtSyncPeerMode.authoritative:
         return CrdtScopeMembership.memberGrants(_session, _userId);
       case CrdtSyncPeerMode.follower:
-        final manager = CrdtScopeManager(_session);
-        await manager.getOrCreate(_userId);
-        return [
-          for (final scopeId in await manager.listScopeIds())
-            CrdtScopeGrant(uuidScopeId: scopeId),
-        ];
-      case CrdtSyncPeerMode.personalOnly:
-        await CrdtScopeManager(_session).getOrCreate(_userId);
-        return [CrdtScopeGrant(uuidScopeId: _userId)];
+        await _scopeManager.getOrCreate(_userId);
+        return const [];
     }
   }
 
   /// Resolves the ordered lockstep scopes cycled this round.
   ///
-  /// Authoritative and personal-only peers dictate their own set; followers
-  /// adopt the peer's announced set, materializing each scope locally.
+  /// Authoritative peers dictate their own set; followers adopt the peer's
+  /// announced set, materializing each scope locally.
   Future<List<UuidValue>> _resolveOrderedScopeIds({
     required List<UuidValue> localScopeIds,
     required List<UuidValue> peerScopeIds,
   }) async {
     switch (_mode) {
       case CrdtSyncPeerMode.authoritative:
-      case CrdtSyncPeerMode.personalOnly:
         return localScopeIds;
       case CrdtSyncPeerMode.follower:
-        final manager = CrdtScopeManager(_session);
-        final scopeIds = sortedUniqueScopeIds(peerScopeIds);
+        final scopeIds = _sortedUniqueScopeIds(peerScopeIds);
         for (final scopeId in scopeIds) {
-          await manager.getOrCreate(scopeId);
+          await _scopeManager.getOrCreate(scopeId);
         }
         return scopeIds;
     }

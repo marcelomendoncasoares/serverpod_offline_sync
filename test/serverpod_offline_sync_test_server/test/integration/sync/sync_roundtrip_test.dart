@@ -66,9 +66,7 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              peerNodeId: const Uuid().v7obj(),
-              userId: testCrdtUserId,
-              nodeCheckpoints: const [],
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -86,16 +84,8 @@ void main() {
     );
   });
 
-  group('Given inserted CRDT rows and a sync batch size of two', () {
-    late CrdtSync batchingCrdtSync;
-
+  group('Given inserted CRDT rows', () {
     setUp(() async {
-      batchingCrdtSync = CrdtSync(
-        syncTables: syncTables,
-        serializationManager: testSession.db.serializationManager,
-        syncBatchSize: 2,
-      );
-
       for (var i = 0; i < 3; i++) {
         await crdtSession.db.transactionForUser(
           testCrdtUserId,
@@ -111,25 +101,21 @@ void main() {
     });
 
     test(
-      'when streaming an outbound sync batch '
-      'then pending changes are chunked into merge chunk events.',
+      'when collected pending changes are chunked '
+      'then each chunk is no larger than the batch size.',
       () async {
-        final events = await batchingCrdtSync
-            .streamOutboundBatch(
+        final chunks = await crdtSync
+            .collectPendingChanges(
               testSession,
-              userId: testCrdtUserId,
-              peerNodeId: const Uuid().v7obj(),
-              nodeCheckpoints: const [],
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
             )
+            .chunked(2)
             .toList();
 
-        final mergeChunks = events.whereType<CrdtSyncMergeChunk>().toList();
-
-        expect(mergeChunks, hasLength(2));
-        expect(mergeChunks.map((chunk) => chunk.changes.length), [2, 1]);
-        final changes = mergeChunks.expand((chunk) => chunk.changes).toList();
+        expect(chunks, hasLength(2));
+        expect(chunks.map((chunk) => chunk.length), [2, 1]);
+        final changes = chunks.expand((chunk) => chunk).toList();
         expect(changes.whereType<CrdtMergeInsert>(), hasLength(3));
-        expect(events.last, isA<CrdtSyncEndOfBatch>());
       },
     );
   });
@@ -187,9 +173,7 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              peerNodeId: const Uuid().v7obj(),
-              userId: testCrdtUserId,
-              nodeCheckpoints: const [],
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -237,6 +221,7 @@ void main() {
       await crdtSession.db.mergeChanges(
         [
           CrdtMergeDelete(
+            uuidScopeId: testCrdtUserId,
             tableName: Person.t.tableName,
             uuidRowId: attemptedParent.id!,
             uuidNodeId: const Uuid().v7obj(),
@@ -261,9 +246,7 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              peerNodeId: const Uuid().v7obj(),
-              userId: testCrdtUserId,
-              nodeCheckpoints: const [],
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -295,6 +278,7 @@ void main() {
       await crdtSession.db.mergeChanges(
         [
           CrdtMergeUpdate(
+            uuidScopeId: testCrdtUserId,
             tableName: Town.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: const Uuid().v7obj(),
@@ -319,9 +303,7 @@ void main() {
         final mergeSet = await crdtSync
             .collectPendingChanges(
               testSession,
-              peerNodeId: const Uuid().v7obj(),
-              userId: testCrdtUserId,
-              nodeCheckpoints: const [],
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
             )
             .toList();
 

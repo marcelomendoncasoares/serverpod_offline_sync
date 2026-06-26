@@ -43,30 +43,6 @@ final class CrdtSyncUnexpectedEventException<T extends CrdtSyncStreamEvent>
       'received "${received.runtimeType.className}" instead.';
 }
 
-/// Thrown when a scope-tagged frame is received for the wrong scope.
-final class CrdtSyncScopeMismatchException extends CrdtSyncException {
-  /// Creates a [CrdtSyncScopeMismatchException].
-  const CrdtSyncScopeMismatchException({
-    required this.frameName,
-    required this.receivedScopeId,
-    required this.expectedScopeId,
-  });
-
-  /// The protocol frame whose scope tag did not match.
-  final String frameName;
-
-  /// The scope id carried by the peer's frame.
-  final UuidValue receivedScopeId;
-
-  /// The scope id expected by the current lockstep turn.
-  final UuidValue expectedScopeId;
-
-  @override
-  String toString() =>
-      'CrdtSyncScopeMismatchException: $frameName for scope '
-      '"$receivedScopeId" arrived while syncing scope "$expectedScopeId".';
-}
-
 /// Thrown when the sync tables hash sent by a peer does not match locally.
 final class SyncTablesHashMismatchException extends CrdtSyncException {
   /// Creates a [SyncTablesHashMismatchException].

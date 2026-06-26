@@ -163,6 +163,7 @@ void main() {
                   userId: testCrdtUserId,
                   inbound: serverToClient.stream,
                   once: false,
+                  mode: CrdtSyncPeerMode.follower,
                 )
                 .listen((event) {
                   clientOutboundEvents.add(event);
@@ -175,6 +176,7 @@ void main() {
                   userId: testCrdtUserId,
                   inbound: clientToServer.stream,
                   once: false,
+                  mode: CrdtSyncPeerMode.authoritative,
                 )
                 .listen((event) {
                   serverOutboundEvents.add(event);
@@ -321,12 +323,12 @@ void main() {
               'when finding people scoped to the personal scope uuid, '
               'then only the personal scope row is returned.',
               () async {
-                final personalOnly = await client.Person.db.find(
+                final personalRows = await client.Person.db.find(
                   clientSession,
                   where: (t) => t.scopeEquals(testCrdtUserId),
                 );
 
-                expect(personalOnly.map((person) => person.id).toList(), [
+                expect(personalRows.map((person) => person.id).toList(), [
                   personalPersonId,
                 ]);
               },

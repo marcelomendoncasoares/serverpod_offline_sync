@@ -1,3 +1,4 @@
+import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
 import 'package:uuid/uuid.dart';
 
@@ -31,26 +32,12 @@ class CrdtScopeMembership {
     UuidValue userUuid, {
     Transaction? transaction,
   }) async {
-    final scopesByUuid = <String, UuidValue>{userUuid.uuid: userUuid};
-    final scopeIds = await _explicitMemberScopeIds(
+    final grants = await memberGrants(
       session,
       userUuid,
       transaction: transaction,
     );
-
-    if (scopeIds.isNotEmpty) {
-      final scopes = await _scopeUuidsForIds(
-        session,
-        scopeIds,
-        transaction: transaction,
-      );
-      for (final scopeUuid in scopes) {
-        scopesByUuid[scopeUuid.uuid] = scopeUuid;
-      }
-    }
-
-    return scopesByUuid.values.toList()
-      ..sort((a, b) => a.uuid.compareTo(b.uuid));
+    return [for (final grant in grants) grant.uuidScopeId];
   }
 
   /// Returns the authoritative scope grants for [userUuid].
@@ -98,6 +85,7 @@ class CrdtScopeMembership {
   /// and deletes rows for [userUuid] whose scope is no longer granted, so a
   /// revoked or demoted membership does not linger offline. Scopes must already
   /// be materialized locally; a grant whose scope is unknown is skipped.
+  @internal
   static Future<void> projectFollowerMembership(
     DatabaseSession session, {
     required UuidValue userUuid,
@@ -168,36 +156,6 @@ class CrdtScopeMembership {
     );
     return result.isNotEmpty;
   }
-}
-
-Future<Set<int>> _explicitMemberScopeIds(
-  DatabaseSession session,
-  UuidValue userUuid, {
-  Transaction? transaction,
-}) async {
-  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-  final result = await session.db.unsafeQuery(
-    'SELECT "${CrdtScopeMember.t.scopeId.columnName}" '
-    'FROM "${CrdtScopeMember.t.tableName}" '
-    'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid',
-    transaction: transaction,
-  );
-  return {for (final row in result) row[0] as int};
-}
-
-Future<List<UuidValue>> _scopeUuidsForIds(
-  DatabaseSession session,
-  Set<int> scopeIds, {
-  Transaction? transaction,
-}) async {
-  if (scopeIds.isEmpty) return [];
-  final encodedScopeIds = scopeIds.map(ValueEncoder.instance.convert).join(', ');
-  final result = await session.db.unsafeQuery(
-    'SELECT "${CrdtScope.t.uuidScopeId.columnName}" FROM "${CrdtScope.t.tableName}" '
-    'WHERE "${CrdtScope.t.id.columnName}" IN ($encodedScopeIds)',
-    transaction: transaction,
-  );
-  return [for (final row in result) Protocol().deserialize<UuidValue>(row[0])];
 }
 
 Future<int?> _scopeIdForUuid(

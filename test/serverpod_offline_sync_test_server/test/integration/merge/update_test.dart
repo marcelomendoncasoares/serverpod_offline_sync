@@ -38,6 +38,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -121,6 +122,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         final remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -175,6 +177,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: const Uuid().v7obj(),
           uuidNodeId: remoteNodeId,
@@ -240,6 +243,7 @@ void main() {
         );
 
         remoteDelete = CrdtMergeDelete(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -254,6 +258,7 @@ void main() {
         );
 
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -299,6 +304,7 @@ void main() {
       group('when merging together with a newer remote restore, ', () {
         setUp(() async {
           final remoteRestore = CrdtMergeDelete(
+            uuidScopeId: testCrdtUserId,
             tableName: Person.t.tableName,
             uuidRowId: person.id!,
             uuidNodeId: const Uuid().v7obj(),
@@ -362,6 +368,7 @@ void main() {
         );
 
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: UniqueComposite.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -442,6 +449,7 @@ void main() {
         );
 
         final remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: UniqueUuid.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),

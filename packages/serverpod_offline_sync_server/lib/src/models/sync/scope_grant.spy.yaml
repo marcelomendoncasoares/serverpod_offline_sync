@@ -2,7 +2,7 @@
 ###
 ### Carries the scope UUID and the authoritative [role] the receiving user
 ### holds in it. The [role] is null for the personal scope and whenever roles
-### are not tracked (e.g. a follower reporting its own local view).
+### are not tracked.
 class: CrdtScopeGrant
 fields:
   ### Scope UUID being announced.

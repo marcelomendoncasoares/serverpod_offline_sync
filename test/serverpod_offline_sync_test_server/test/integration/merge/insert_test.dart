@@ -21,6 +21,7 @@ void main() {
 
       final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
       remoteInsert = CrdtMergeInsert(
+        uuidScopeId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: remotePerson.id!,
         uuidNodeId: hlc.nodeId,
@@ -75,6 +76,7 @@ void main() {
 
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: hlc.nodeId,
@@ -84,6 +86,7 @@ void main() {
         );
 
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: remoteNodeId,
@@ -179,6 +182,7 @@ void main() {
 
         remotePerson = person.copyWith(name: 'remote');
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -295,6 +299,7 @@ void main() {
 
         remotePerson = person.copyWith(name: 'remote', surname: 'remote');
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -393,6 +398,7 @@ void main() {
         localRowHlc = row!.hlc;
 
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -458,6 +464,7 @@ void main() {
 
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: hlc.nodeId,
@@ -466,6 +473,7 @@ void main() {
           data: remotePerson,
         );
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: remoteNodeId,
@@ -530,6 +538,7 @@ void main() {
 
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         final remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: hlc.nodeId,
@@ -538,6 +547,7 @@ void main() {
           data: remotePerson,
         );
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: remoteNodeId,
@@ -648,6 +658,7 @@ void main() {
         );
 
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -713,6 +724,7 @@ void main() {
         await session.db.mergeChanges(
           [
             CrdtMergeInsert(
+              uuidScopeId: testCrdtUserId,
               tableName: Person.t.tableName,
               uuidRowId: person.id!,
               uuidNodeId: remoteNodeId,
