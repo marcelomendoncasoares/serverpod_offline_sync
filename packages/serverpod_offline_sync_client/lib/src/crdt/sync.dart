@@ -317,23 +317,31 @@ class CrdtSync {
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
   ///
   /// Both peers send [CrdtSyncConnect] once and validate the schema hash, then
-  /// dispatch by [once]:
+  /// **establish** the session in lockstep: exchange the [CrdtSyncScopeSet] and
+  /// handshake every initially-agreed scope with a synchronous [CrdtSyncSinceHlc]
+  /// exchange, so neither peer acts before it knows the agreed set.
   ///
-  /// - `once` ([_syncOnce]) runs a single bounded round: it exchanges the scope
-  ///   set, handshakes every agreed scope, streams one framed batch per scope,
-  ///   and completes with the symmetric [CrdtSyncClose] handshake.
-  /// - continuous ([_syncContinuously]) runs a long-lived loop where every
-  ///   cycle is one idle-bounded batch: the scope announcement, per-scope
-  ///   handshakes and merge chunks all ride the same batch, terminated by a
-  ///   single [CrdtSyncEndOfBatch]. Frames are emitted only when there is
-  ///   something to say, so an idle session sends nothing and each peer simply
-  ///   polls once per idle timeout — no per-cycle chatter regardless of how
-  ///   many scopes are active.
+  /// After establishment every cycle is one combined batch: the scope
+  /// announcement (only when this peer's grants changed), a [CrdtSyncSinceHlc]
+  /// for each newly active scope, and scope-tagged [CrdtSyncMergeChunk]s,
+  /// terminated by a single [CrdtSyncEndOfBatch] that is itself omitted when
+  /// nothing was sent. The receive phase ([_collectCycleBatch]) demultiplexes the
+  /// peer's batch by type and scope until that terminator or — when the peer was
+  /// idle — an idle timeout, so two idle peers exchange no frames and each polls
+  /// once per idle timeout regardless of scope count.
   ///
-  /// Sent changes advance the corresponding in-memory checkpoints for
-  /// subsequent sends within the session. If a batch fails to merge, the
-  /// exception propagates and the stream closes; the next attempt resumes from
-  /// the last persisted checkpoint on the side that failed to merge.
+  /// When [once] is true the loop runs exactly one combined cycle and then
+  /// performs the symmetric [CrdtSyncClose] handshake; because establishment
+  /// already handshaked every scope, that single cycle exchanges all pending
+  /// changes both ways. Continuous sync loops instead, absorbing membership
+  /// changes mid-session: a newly granted scope is announced, adopted, and
+  /// established over the following cycles (its data deferred until its
+  /// `SinceHlc` round-trips) — the trade for keeping the steady state silent.
+  ///
+  /// Sent changes advance the corresponding in-memory checkpoints for subsequent
+  /// sends within the session. If a batch fails to merge, the exception
+  /// propagates and the stream closes; the next attempt resumes from the last
+  /// persisted checkpoint on the side that failed to merge.
   Stream<CrdtSyncStreamEvent> sync(
     DatabaseSession session, {
     required UuidValue userId,
@@ -343,50 +351,255 @@ class CrdtSync {
     CrdtSyncPeerMode mode = CrdtSyncPeerMode.personalOnly,
   }) async* {
     final inboundIterator = StreamIterator(
-      // Inject a timeout event if the inbound stream is idle for too long to
-      // allow returning an empty batch and waiting for a change without closing
-      // the stream.
+      // Inject a timeout event if the inbound stream is idle for too long, so a
+      // cycle can resolve to an empty batch and wait without closing the stream.
       inbound.timeout(
         const Duration(seconds: 1),
         onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
       ),
     );
 
+    // `once` treats a peer that closes mid-handshake as an error (its reads
+    // throw); continuous treats it as a clean shutdown (the read returns null).
+    Future<T?> readFrame<T extends CrdtSyncStreamEvent>() => once
+        ? inboundIterator.moveAndThrowIfNot<T>()
+        : inboundIterator.moveOrNullIfClosed<T>();
+
     var sessionCompleted = false;
     try {
       yield CrdtSyncConnect(syncTablesHash: currentSyncTablesHash);
-
-      final peerConnect = once
-          ? await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>()
-          : await inboundIterator.moveOrNullIfClosed<CrdtSyncConnect>();
+      final peerConnect = await readFrame<CrdtSyncConnect>();
       if (peerConnect == null) {
         sessionCompleted = true;
         return;
       }
       _validateSyncTablesHash(peerConnect.syncTablesHash);
 
-      if (once) {
-        yield* _syncOnce(
+      final peerNodeIdByScope = <UuidValue, UuidValue>{};
+      final checkpointsByScope = <UuidValue, Map<UuidValue, Hlc>>{};
+      final sinceHlcSentScopes = <String>{};
+
+      // === Establishment (lockstep): announce the scope set and synchronously
+      // handshake the initially-agreed scopes. Doing this before the loop keeps
+      // `once` a single bounded round and gives continuous a settled start with
+      // no announce/adopt offset. ===
+      var announcedGrants = _sortedUniqueGrants(
+        await _localScopeGrants(session, userId, mode),
+      );
+      yield CrdtSyncScopeSet(scopes: announcedGrants);
+      final peerScopeSet = await readFrame<CrdtSyncScopeSet>();
+      if (peerScopeSet == null) {
+        sessionCompleted = true;
+        return;
+      }
+      var peerGrants = _sortedUniqueGrants(peerScopeSet.scopes);
+      // Reconcile first so a follower materializes the announced scopes locally,
+      // then project their roles into the members cache (projection needs the
+      // scope row to exist).
+      var activeScopeIds = _sortedUniqueScopeIds(
+        await _orderedScopeIds(
           session,
-          userId: userId,
           mode: mode,
-          inboundIterator: inboundIterator,
-          onMergeSuccess: onMergeSuccess,
-        );
-      } else {
-        yield* _syncContinuously(
+          localScopeIds: [for (final g in announcedGrants) g.uuidScopeId],
+          peerScopeIds: [for (final g in peerGrants) g.uuidScopeId],
+        ),
+      );
+      if (mode == CrdtSyncPeerMode.follower) {
+        await CrdtScopeMembership.projectFollowerMembership(
           session,
-          userId: userId,
-          mode: mode,
-          inboundIterator: inboundIterator,
-          onMergeSuccess: onMergeSuccess,
+          userUuid: userId,
+          grants: peerGrants,
         );
       }
-      // Both flows return only on their own terminal condition (the `once`
-      // close handshake, or the continuous inbound stream closing). Reaching
-      // here is therefore a clean completion: the inbound is already settled,
-      // so the finally below must not force-cancel it.
-      sessionCompleted = true;
+      for (final scopeId in activeScopeIds) {
+        yield await createSyncSinceHlc(session, userId: scopeId);
+        final peerSinceHlc = await readFrame<CrdtSyncSinceHlc>();
+        if (peerSinceHlc == null) {
+          sessionCompleted = true;
+          return;
+        }
+        _validateScopeFrame(
+          frameName: 'CrdtSyncSinceHlc',
+          expectedScopeId: scopeId,
+          receivedScopeId: peerSinceHlc.uuidScopeId,
+        );
+        sinceHlcSentScopes.add(scopeId.uuid);
+        peerNodeIdByScope[scopeId] = peerSinceHlc.localNodeId;
+        checkpointsByScope[scopeId] = {
+          for (final checkpoint in peerSinceHlc.nodeCheckpoints)
+            checkpoint.nodeId: checkpoint,
+        };
+      }
+
+      // === Data loop: one combined, idle-silent batch per cycle. `once` runs a
+      // single cycle then closes; continuous loops, absorbing membership changes
+      // as they are announced. ===
+      while (true) {
+        final localGrants = _sortedUniqueGrants(
+          await _localScopeGrants(session, userId, mode),
+        );
+        activeScopeIds = _sortedUniqueScopeIds(
+          await _orderedScopeIds(
+            session,
+            mode: mode,
+            localScopeIds: [for (final g in localGrants) g.uuidScopeId],
+            peerScopeIds: [for (final g in peerGrants) g.uuidScopeId],
+          ),
+        );
+        final activeUuids = {for (final s in activeScopeIds) s.uuid};
+
+        // Drop in-session state for scopes that left the active set, e.g. a
+        // membership the authoritative peer revoked.
+        sinceHlcSentScopes.removeWhere((uuid) => !activeUuids.contains(uuid));
+        peerNodeIdByScope.removeWhere((s, _) => !activeUuids.contains(s.uuid));
+        checkpointsByScope.removeWhere((s, _) => !activeUuids.contains(s.uuid));
+
+        // ---- send phase: emit only what changed; track whether anything was
+        // sent so the terminating end-of-batch (and idle silence) follow. ----
+        var sentFrame = false;
+        if (!_grantsEqual(announcedGrants, localGrants)) {
+          yield CrdtSyncScopeSet(scopes: localGrants);
+          announcedGrants = localGrants;
+          sentFrame = true;
+        }
+        for (final scopeId in activeScopeIds) {
+          if (sinceHlcSentScopes.add(scopeId.uuid)) {
+            yield await createSyncSinceHlc(session, userId: scopeId);
+            sentFrame = true;
+          }
+        }
+
+        // Collect every handshaked scope's pending changes in one pass. A scope
+        // with no peer checkpoint has not completed its handshake both ways, so
+        // there is nothing to resume from for it yet.
+        final checkpointsByScopeUuid = <UuidValue, List<Hlc>>{
+          for (final scopeId in activeScopeIds)
+            if (checkpointsByScope[scopeId] != null &&
+                peerNodeIdByScope[scopeId] != null)
+              scopeId: checkpointsByScope[scopeId]!.values.toList(),
+        };
+        final pendingByScope = <UuidValue, List<CrdtMergeChange>>{};
+        await for (final (scopeId, change) in collectAllPendingChanges(
+          session,
+          checkpointsByScopeUuid: checkpointsByScopeUuid,
+        )) {
+          pendingByScope.putIfAbsent(scopeId, () => []).add(change);
+        }
+
+        final outboundScopes = <UuidValue>{};
+        for (final entry in pendingByScope.entries) {
+          final scopeId = entry.key;
+          final changes = entry.value;
+          final checkpoints = checkpointsByScope[scopeId]!;
+          for (var start = 0; start < changes.length; start += _syncBatchSize) {
+            final chunk = changes.sublist(
+              start,
+              min(start + _syncBatchSize, changes.length),
+            );
+            outboundScopes.add(scopeId);
+            for (final change in chunk) {
+              checkpoints[change.uuidNodeId] = change.hlc.maxBetween(
+                checkpoints[change.uuidNodeId],
+              );
+            }
+            yield CrdtSyncMergeChunk(uuidScopeId: scopeId, changes: chunk);
+            sentFrame = true;
+          }
+        }
+
+        // `once` always terminates so the peer's read returns promptly rather
+        // than waiting out the idle timeout.
+        if (sentFrame || once) yield CrdtSyncEndOfBatch();
+
+        // ---- receive phase. `once` blocks for the terminator (the peer always
+        // sends one); continuous lets an idle peer resolve to an empty batch. ----
+        final batch = await _collectCycleBatch(
+          inboundIterator,
+          allowIdleReturn: !once,
+        );
+        if (batch == null) {
+          sessionCompleted = true;
+          return;
+        }
+
+        // ---- process phase ----
+        if (batch.scopeSet != null) {
+          peerGrants = _sortedUniqueGrants(batch.scopeSet!.scopes);
+          if (mode == CrdtSyncPeerMode.follower) {
+            // Materialize the announced scopes before projecting their roles
+            // (projection needs the scope row); the next cycle's reconciliation
+            // adopts them as active.
+            await _orderedScopeIds(
+              session,
+              mode: mode,
+              localScopeIds: [for (final g in localGrants) g.uuidScopeId],
+              peerScopeIds: [for (final g in peerGrants) g.uuidScopeId],
+            );
+            await CrdtScopeMembership.projectFollowerMembership(
+              session,
+              userUuid: userId,
+              grants: peerGrants,
+            );
+          }
+        }
+
+        // Only honor frames for scopes this peer authorizes: an authoritative
+        // peer trusts its own membership, a follower trusts the announced set.
+        // This is the wire-side counterpart of the server's membership gate.
+        final acceptedUuids = mode == CrdtSyncPeerMode.follower
+            ? {for (final g in peerGrants) g.uuidScopeId.uuid}
+            : activeUuids;
+
+        for (final entry in batch.sinceHlcs.entries) {
+          if (!acceptedUuids.contains(entry.key.uuid)) continue;
+          peerNodeIdByScope[entry.key] = entry.value.localNodeId;
+          checkpointsByScope[entry.key] = {
+            for (final checkpoint in entry.value.nodeCheckpoints)
+              checkpoint.nodeId: checkpoint,
+          };
+        }
+
+        final receivedHlcByScope = <UuidValue, Hlc?>{};
+        for (final entry in batch.groups.entries) {
+          final scopeId = entry.key;
+          final peerNodeId = peerNodeIdByScope[scopeId];
+          if (!acceptedUuids.contains(scopeId.uuid) || peerNodeId == null) {
+            continue;
+          }
+          receivedHlcByScope[scopeId] = await mergeInboundBatch(
+            session,
+            userId: scopeId,
+            otherNodeId: peerNodeId,
+            mergeSet: entry.value,
+          );
+        }
+
+        for (final scopeId in {...outboundScopes, ...receivedHlcByScope.keys}) {
+          final checkpoints = checkpointsByScope[scopeId];
+          if (checkpoints == null || checkpoints.isEmpty) continue;
+          await onMergeSuccess?.call(
+            scopeId,
+            checkpoints.values.max.maxBetween(receivedHlcByScope[scopeId]),
+          );
+        }
+
+        if (once) {
+          yield CrdtSyncClose();
+          await readFrame<CrdtSyncClose>();
+          sessionCompleted = true;
+          // Keep reading until the peer closes its side so the underlying
+          // transport reaches "done" instead of being left paused; a paused
+          // controller stalls teardown for the transport close timeout, landing
+          // on the next round's critical path over a shared connection. The
+          // drain runs detached: awaiting it would deadlock the symmetric close,
+          // since the peer only closes once our outbound stream does, which
+          // happens after this generator returns.
+          unawaited(_drainUntilDone(inboundIterator));
+          return;
+        }
+
+        await Future<void>.delayed(_continuousSyncInterval);
+      }
     } finally {
       // Cancelling inbound on normal completion races with WebSocket stream
       // teardown and produces "connection closed" errors on the peer. On normal
@@ -416,276 +629,6 @@ class CrdtSync {
       }
     } on Object catch (_) {
       // Best-effort: the transport is shutting down.
-    }
-  }
-
-  /// Runs a single bounded sync round and closes.
-  ///
-  /// Exchanges the scope set, handshakes every agreed scope, then streams one
-  /// framed batch per scope before the symmetric [CrdtSyncClose] handshake.
-  /// Used by `syncOnce`, where one full round-trip per scope is the whole
-  /// session, so there is no idle phase to optimize.
-  Stream<CrdtSyncStreamEvent> _syncOnce(
-    DatabaseSession session, {
-    required UuidValue userId,
-    required CrdtSyncPeerMode mode,
-    required StreamIterator<CrdtSyncStreamEvent> inboundIterator,
-    CrdtSyncOnMergeSuccess? onMergeSuccess,
-  }) async* {
-    final localGrants = _sortedUniqueGrants(
-      await _localScopeGrants(session, userId, mode),
-    );
-    yield CrdtSyncScopeSet(scopes: localGrants);
-
-    final peerScopeSet =
-        await inboundIterator.moveAndThrowIfNot<CrdtSyncScopeSet>();
-    final peerGrants = peerScopeSet.scopes;
-    final orderedScopeIds = _sortedUniqueScopeIds(
-      await _orderedScopeIds(
-        session,
-        mode: mode,
-        localScopeIds: [for (final g in localGrants) g.uuidScopeId],
-        peerScopeIds: [for (final g in peerGrants) g.uuidScopeId],
-      ),
-    );
-
-    if (mode == CrdtSyncPeerMode.follower) {
-      await CrdtScopeMembership.projectFollowerMembership(
-        session,
-        userUuid: userId,
-        grants: peerGrants,
-      );
-    }
-
-    for (final scopeId in orderedScopeIds) {
-      yield await createSyncSinceHlc(session, userId: scopeId);
-      final peerSinceHlc =
-          await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
-      _validateScopeFrame(
-        frameName: 'CrdtSyncSinceHlc',
-        expectedScopeId: scopeId,
-        receivedScopeId: peerSinceHlc.uuidScopeId,
-      );
-
-      final peerNodeId = peerSinceHlc.localNodeId;
-      final nodeCheckpoints = {
-        for (final checkpoint in peerSinceHlc.nodeCheckpoints)
-          checkpoint.nodeId: checkpoint,
-      };
-
-      var hasChanges = false;
-      await for (final changes in collectPendingChanges(
-        session,
-        userId: scopeId,
-        peerNodeId: peerNodeId,
-        nodeCheckpoints: nodeCheckpoints.values.toList(),
-      ).chunked(_syncBatchSize)) {
-        hasChanges = true;
-        for (final change in changes) {
-          nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(
-            nodeCheckpoints[change.uuidNodeId],
-          );
-        }
-        yield CrdtSyncMergeChunk(uuidScopeId: scopeId, changes: changes);
-      }
-      yield CrdtSyncEndOfBatch();
-
-      final inboundMergeSet = await inboundIterator.collectNextBatch(
-        allowCloseBeforeBatch: false,
-        expectedScopeId: scopeId,
-      );
-      if (inboundMergeSet == null) return;
-
-      final lastReceivedFromPeer = await mergeInboundBatch(
-        session,
-        userId: scopeId,
-        otherNodeId: peerNodeId,
-        mergeSet: inboundMergeSet,
-      );
-
-      if (hasChanges || inboundMergeSet.isNotEmpty) {
-        await onMergeSuccess?.call(
-          scopeId,
-          nodeCheckpoints.values.max.maxBetween(lastReceivedFromPeer),
-        );
-      }
-    }
-
-    yield CrdtSyncClose();
-    await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
-    // Keep reading until the peer closes its side so the underlying transport
-    // subscription reaches "done" instead of being left paused. A paused
-    // controller stalls the peer's teardown for the transport close timeout,
-    // landing on the next round's critical path over a shared connection.
-    //
-    // The drain runs detached: awaiting it would deadlock the symmetric close
-    // handshake, since the peer only closes its side once our outbound stream
-    // closes, which happens after this generator returns.
-    unawaited(_drainUntilDone(inboundIterator));
-  }
-
-  /// Runs the long-lived continuous sync loop with no idle chatter.
-  ///
-  /// Every cycle is a single combined batch. The send phase emits, only when
-  /// there is something to say, the scope announcement (when this peer's grants
-  /// changed), a [CrdtSyncSinceHlc] for each newly active scope, and merge
-  /// chunks tagged with their scope; a single [CrdtSyncEndOfBatch] terminates
-  /// the batch and is itself omitted when nothing was sent. The receive phase
-  /// ([_collectCycleBatch]) demultiplexes the peer's batch by frame type and
-  /// scope until its terminator or an idle timeout, so when both peers are idle
-  /// no frames cross the wire and each side simply polls once per idle timeout.
-  ///
-  /// A scope's data flows only once both peers have exchanged their
-  /// [CrdtSyncSinceHlc] for it, so a newly granted scope is fully established
-  /// over the following cycles rather than in lockstep — the trade for keeping
-  /// the steady state silent. Returns when the inbound stream closes.
-  Stream<CrdtSyncStreamEvent> _syncContinuously(
-    DatabaseSession session, {
-    required UuidValue userId,
-    required CrdtSyncPeerMode mode,
-    required StreamIterator<CrdtSyncStreamEvent> inboundIterator,
-    CrdtSyncOnMergeSuccess? onMergeSuccess,
-  }) async* {
-    List<CrdtScopeGrant>? announcedGrants;
-    var peerGrants = const <CrdtScopeGrant>[];
-    final sinceHlcSentScopes = <String>{};
-    final peerNodeIdByScope = <UuidValue, UuidValue>{};
-    final checkpointsByScope = <UuidValue, Map<UuidValue, Hlc>>{};
-
-    while (true) {
-      final localGrants = _sortedUniqueGrants(
-        await _localScopeGrants(session, userId, mode),
-      );
-      final activeScopeIds = _sortedUniqueScopeIds(
-        await _orderedScopeIds(
-          session,
-          mode: mode,
-          localScopeIds: [for (final g in localGrants) g.uuidScopeId],
-          peerScopeIds: [for (final g in peerGrants) g.uuidScopeId],
-        ),
-      );
-      final activeUuids = {for (final scopeId in activeScopeIds) scopeId.uuid};
-
-      // Drop in-session state for scopes that left the active set, e.g. a
-      // membership the authoritative peer revoked.
-      sinceHlcSentScopes.removeWhere((uuid) => !activeUuids.contains(uuid));
-      peerNodeIdByScope.removeWhere((s, _) => !activeUuids.contains(s.uuid));
-      checkpointsByScope.removeWhere((s, _) => !activeUuids.contains(s.uuid));
-
-      // ---- send phase ----
-      var sentFrame = false;
-
-      if (!_grantsEqual(announcedGrants, localGrants)) {
-        yield CrdtSyncScopeSet(scopes: localGrants);
-        announcedGrants = localGrants;
-        sentFrame = true;
-      }
-
-      for (final scopeId in activeScopeIds) {
-        if (sinceHlcSentScopes.add(scopeId.uuid)) {
-          yield await createSyncSinceHlc(session, userId: scopeId);
-          sentFrame = true;
-        }
-      }
-
-      // Collect every handshaked scope's pending changes in one pass. A scope
-      // with no peer checkpoint has not completed its handshake both ways, so
-      // there is nothing to resume from for it yet.
-      final checkpointsByScopeUuid = <UuidValue, List<Hlc>>{
-        for (final scopeId in activeScopeIds)
-          if (checkpointsByScope[scopeId] != null &&
-              peerNodeIdByScope[scopeId] != null)
-            scopeId: checkpointsByScope[scopeId]!.values.toList(),
-      };
-
-      final pendingByScope = <UuidValue, List<CrdtMergeChange>>{};
-      await for (final (scopeId, change) in collectAllPendingChanges(
-        session,
-        checkpointsByScopeUuid: checkpointsByScopeUuid,
-      )) {
-        pendingByScope.putIfAbsent(scopeId, () => []).add(change);
-      }
-
-      final outboundScopes = <UuidValue>{};
-      for (final entry in pendingByScope.entries) {
-        final scopeId = entry.key;
-        final changes = entry.value;
-        final checkpoints = checkpointsByScope[scopeId]!;
-        for (var start = 0; start < changes.length; start += _syncBatchSize) {
-          final chunk = changes.sublist(
-            start,
-            min(start + _syncBatchSize, changes.length),
-          );
-          outboundScopes.add(scopeId);
-          for (final change in chunk) {
-            checkpoints[change.uuidNodeId] = change.hlc.maxBetween(
-              checkpoints[change.uuidNodeId],
-            );
-          }
-          yield CrdtSyncMergeChunk(uuidScopeId: scopeId, changes: chunk);
-          sentFrame = true;
-        }
-      }
-
-      if (sentFrame) yield CrdtSyncEndOfBatch();
-
-      // ---- receive phase ----
-      final batch = await _collectCycleBatch(inboundIterator);
-      if (batch == null) return;
-
-      // ---- process phase ----
-      if (batch.scopeSet != null) {
-        peerGrants = _sortedUniqueGrants(batch.scopeSet!.scopes);
-        if (mode == CrdtSyncPeerMode.follower) {
-          await CrdtScopeMembership.projectFollowerMembership(
-            session,
-            userUuid: userId,
-            grants: peerGrants,
-          );
-        }
-      }
-
-      // Only honor frames for scopes this peer authorizes: an authoritative
-      // peer trusts its own membership, a follower trusts the announced set.
-      // This is the wire-side counterpart of the server's membership gate.
-      final acceptedUuids = mode == CrdtSyncPeerMode.follower
-          ? {for (final g in peerGrants) g.uuidScopeId.uuid}
-          : activeUuids;
-
-      for (final entry in batch.sinceHlcs.entries) {
-        if (!acceptedUuids.contains(entry.key.uuid)) continue;
-        peerNodeIdByScope[entry.key] = entry.value.localNodeId;
-        checkpointsByScope[entry.key] = {
-          for (final checkpoint in entry.value.nodeCheckpoints)
-            checkpoint.nodeId: checkpoint,
-        };
-      }
-
-      final receivedHlcByScope = <UuidValue, Hlc?>{};
-      for (final entry in batch.groups.entries) {
-        final scopeId = entry.key;
-        final peerNodeId = peerNodeIdByScope[scopeId];
-        if (!acceptedUuids.contains(scopeId.uuid) || peerNodeId == null) {
-          continue;
-        }
-        receivedHlcByScope[scopeId] = await mergeInboundBatch(
-          session,
-          userId: scopeId,
-          otherNodeId: peerNodeId,
-          mergeSet: entry.value,
-        );
-      }
-
-      for (final scopeId in {...outboundScopes, ...receivedHlcByScope.keys}) {
-        final checkpoints = checkpointsByScope[scopeId];
-        if (checkpoints == null || checkpoints.isEmpty) continue;
-        await onMergeSuccess?.call(
-          scopeId,
-          checkpoints.values.max.maxBetween(receivedHlcByScope[scopeId]),
-        );
-      }
-
-      await Future<void>.delayed(_continuousSyncInterval);
     }
   }
 
@@ -1424,14 +1367,18 @@ class _CycleBatch {
 /// [CrdtSyncEndOfBatch] or an idle timeout.
 ///
 /// Returns the collected [_CycleBatch], an empty batch when the peer was idle
-/// (it sent nothing this cycle), or `null` when the inbound stream closed.
+/// (it sent nothing this cycle, only honored if [allowIdleReturn]), or `null`
+/// when the inbound stream closed.
 ///
-/// An idle timeout only ends an empty cycle: once any frame has been collected
-/// the timeout is ignored and collection waits for the explicit terminator, so
-/// a peer's frames can never leak across cycle boundaries.
+/// An idle timeout only ends an *empty* cycle: once any frame has been collected
+/// the timeout is ignored and collection waits for the explicit terminator, so a
+/// peer's frames can never leak across cycle boundaries. With [allowIdleReturn]
+/// false (the `once` round, where the peer always sends a terminator) idle
+/// timeouts are ignored entirely and collection blocks for the terminator.
 Future<_CycleBatch?> _collectCycleBatch(
-  StreamIterator<CrdtSyncStreamEvent> inbound,
-) async {
+  StreamIterator<CrdtSyncStreamEvent> inbound, {
+  required bool allowIdleReturn,
+}) async {
   final batch = _CycleBatch();
   while (await inbound.moveNext()) {
     switch (inbound.current) {
@@ -1444,12 +1391,12 @@ Future<_CycleBatch?> _collectCycleBatch(
       case CrdtSyncEndOfBatch():
         return batch;
       case CrdtSyncIdleTimeout():
-        if (batch.isEmpty) return batch;
+        if (allowIdleReturn && batch.isEmpty) return batch;
       case CrdtSyncClose():
         return null;
       case final event:
         throw CrdtSyncUnexpectedEventException(
-          expected: 'a continuous-sync cycle frame',
+          expected: 'a sync cycle frame',
           received: event,
         );
     }

@@ -169,29 +169,37 @@ only learns of additions through what the server announces.
 
 ## Sync: one call syncs every accessible scope
 
-### Two cadences: bounded `once`, idle-silent `continuous`
+### One `sync`, two cadences: bounded `once`, idle-silent `continuous`
 
 Merge is inherently one scope at a time: a merge runs in exactly one scope's
-transaction and lock, so the scopes always serialize regardless of framing. The
-two drivers want different things around that core, so they take different
-shapes:
+transaction and lock, so the scopes always serialize regardless of framing. A
+single `sync` method serves both `syncOnce` and `syncContinuously`, branching on
+`once` only where they genuinely differ — read discipline and termination — so
+there is no duplicated send/merge logic:
 
-- **`syncOnce` (`_syncOnce`)** runs a single bounded round. It keeps the simple
-  per-scope state machine: exchange the scope set, then for each scope
-  handshake → send `MergeChunk`\* + `EndOfBatch` → read that scope's batch →
-  merge, then close. One round-trip per scope *is* the whole session, so there
-  is no idle phase to optimize and no reason to coalesce.
-- **`syncContinuously` (`_syncContinuously`)** runs forever, so a per-scope
-  request/response *every* cycle is a problem: an idle session would re-announce
-  the scope set and emit an `EndOfBatch` per scope on every tick, and would idle
-  out once *per scope* (latency growing with scope count). So the continuous
-  loop coalesces each cycle into **one combined batch**: the scope announcement,
-  per-scope `SinceHlc`s and scope-tagged `MergeChunk`s all ride one batch closed
-  by a single `EndOfBatch`, and every frame is emitted only when there is
-  something to say. An idle cycle sends nothing and idles out **once**,
-  regardless of scope count — the scope-tagged framing and per-scope grouping
-  this needs (rejected earlier as throughput-only cost) earn their keep here by
-  buying zero idle chatter and constant idle latency, not throughput.
+1. **Establishment (shared, lockstep).** After `Connect`, both peers exchange
+   the `ScopeSet` and then synchronously handshake every initially-agreed scope
+   (`SinceHlc` out, `SinceHlc` in, per scope). Doing this *before* the loop is
+   what removes the announce/adopt offset that would otherwise make a follower
+   act before it knows the agreed set, and it leaves both peers with every scope
+   already handshaked.
+2. **Data loop (shared, idle-silent).** Each cycle is **one combined batch**: the
+   scope announcement (only when this peer's grants changed), a `SinceHlc` for
+   each newly active scope, and scope-tagged `MergeChunk`s, all closed by a
+   single `EndOfBatch` that is itself omitted when nothing was sent. The receive
+   phase demultiplexes the peer's batch by type and scope until that terminator
+   or — when the peer was idle — an idle timeout. An idle cycle therefore sends
+   nothing and idles out **once**, regardless of scope count.
+
+`once` runs the data loop exactly once and then performs the symmetric `Close`
+handshake; because establishment already handshaked every scope, that single
+cycle exchanges all pending changes both ways. `continuous` loops instead, with
+no per-cycle chatter, and absorbs membership changes as they are announced (a
+newly granted scope is announced, adopted, and established over the following
+cycles — its data deferred until its `SinceHlc` round-trips). The scope-tagged
+framing and per-scope grouping the combined batch needs (rejected earlier as
+throughput-only cost) earn their keep here by buying zero idle chatter and
+constant idle latency, not throughput.
 
 ### Protocol frames
 
@@ -219,16 +227,18 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
 - `CrdtSyncMergeChunk { uuidScopeId, changes }` — a chunk tagged with its scope.
   The tag is what lets `continuous` carry every scope's changes in one batch and
   regroup them on receive.
-- `CrdtSyncEndOfBatch`, `CrdtSyncClose`, `CrdtSyncIdleTimeout` — unchanged. In
-  `once`, `EndOfBatch` terminates the current scope's batch; in `continuous` a
-  single `EndOfBatch` terminates the whole cycle's combined batch (and is itself
-  omitted when nothing was sent, so the peer idles out instead). `Close`
-  terminates a `once` session after its final scope.
+- `CrdtSyncEndOfBatch`, `CrdtSyncClose`, `CrdtSyncIdleTimeout` — unchanged. A
+  single `EndOfBatch` terminates a cycle's combined batch (and is itself omitted
+  when nothing was sent, so an idle peer resolves to an empty batch instead).
+  `Close` ends a `once` session after its single data cycle.
 
-`once` uses `collectNextBatch` once per scope visit, exactly as before.
-`continuous` uses `_collectCycleBatch`, which demultiplexes one cycle's frames
-by type and scope into `{ scopeSet?, sinceHlcs, groups }`, returning on the
-single `EndOfBatch` or — when the peer was idle — on the idle timeout.
+The data cycle's receive uses `_collectCycleBatch`, which demultiplexes one
+cycle's frames by type and scope into `{ scopeSet?, sinceHlcs, groups }`,
+returning on the single `EndOfBatch` or — when the peer was idle — on the idle
+timeout. `once` passes `allowIdleReturn: false` (its peer always sends a
+terminator, so it blocks for it); `continuous` passes `true` so an idle cycle
+ends on the timeout. The synchronous establishment handshake reads its frames
+directly rather than through the cycle collector.
 
 ### The session state machine
 
@@ -236,16 +246,13 @@ single `EndOfBatch` or — when the peer was idle — on the idle timeout.
 handshake (both cadences):
   send Connect(syncTablesHash); read peer Connect; validate syncTablesHash
 
-once (_syncOnce) — one bounded round, then close:
-  send ScopeSet(myGrants); read peer ScopeSet → reconcile → orderedScopes
-  for scope in orderedScopes:
-    exchange SinceHlc(scope) → seed nodeCheckpoints[scope]
-    collect pending for scope → send MergeChunk(scope)* + EndOfBatch   # send
-    read peer batch for scope (collectNextBatch) → mergeInboundBatch   # merge
-  send Close; read Close; drain (today's teardown)
+establishment (both cadences, lockstep):
+  send ScopeSet(myGrants); read peer ScopeSet → reconcile → activeScopes
+  follower: materialize activeScopes, project membership
+  for scope in activeScopes:                       # synchronous handshake
+    send SinceHlc(scope); read peer SinceHlc(scope) → seed checkpoints[scope]
 
-continuous (_syncContinuously) — forever, one combined batch per cycle:
-  announcedGrants = null; peerGrants = []; sinceHlcSent = {}; checkpoints = {}
+data loop (both cadences, one combined batch per cycle):
   loop:
     resolve activeScopes      (authoritative: my set; follower: adopted peerGrants)
     discard state for scopes no longer active
@@ -253,19 +260,25 @@ continuous (_syncContinuously) — forever, one combined batch per cycle:
     if myGrants != announcedGrants: send ScopeSet(myGrants)
     for scope in activeScopes not yet sinceHlcSent: send SinceHlc(scope)
     for scope in activeScopes with peer checkpoints: send MergeChunk(scope)*
-    if anything was sent: send EndOfBatch
+    if anything was sent (or once): send EndOfBatch
     # receive phase
-    batch = collectCycleBatch()         # {scopeSet?, sinceHlcs, groups} | idle | closed
+    batch = collectCycleBatch(allowIdleReturn: !once)   # {scopeSet?, sinceHlcs, groups} | idle | closed
     if closed: return
-    adopt batch.scopeSet (follower: project membership); store sinceHlcs;
+    adopt batch.scopeSet (follower: materialize + project); store sinceHlcs;
       mergeInboundBatch each group  (only for authorized scopes)
+    if once: send Close; read Close; drain; return
     delay continuousSyncInterval
 ```
 
-`collectPendingChanges`, `mergeInboundBatch`, `recordSyncCheckpoint`, and the
+The shared establishment handshakes every initial scope synchronously (so `once`
+exchanges all data in its single loop cycle and a follower never acts before it
+knows the agreed set); mid-session scopes added during `continuous` are instead
+established through the loop's own `SinceHlc` exchange over the following cycles.
+
+`collectAllPendingChanges`, `mergeInboundBatch`, `recordSyncCheckpoint`, and the
 ownership-violation internals (`_streamInserts`/`Updates`/`Deletes`,
-`_fetchDomainRow`, the durable-violation path) are already scope-parameterized
-and are invoked per scope unchanged by both flows. Each scope merges in its own
+`_fetchDomainRow`, the durable-violation path) are scope-parameterized and merge
+each scope in its own
 `transactionForUser`/lock, so scopes do not contend; any scope's merge failure
 (for example an ownership collision) records the durable violation and fails the
 session, preserving today's fail-fast semantics.
@@ -449,15 +462,16 @@ to run with `--concurrency=1`.
   announced shares; reconcile with the scope-purge semantics in
   `sync-non-sync-relations.md`.
   Revocation cleanup and roles are deferred (see *Follow-ups*).
-- **Phase 6 — idle-silent continuous loop.** Split the cadences:
-  `_syncOnce` keeps Phase 2's per-scope round; `_syncContinuously` coalesces each
-  cycle into one combined, scope-tagged batch terminated by a single
-  `EndOfBatch`, sends `ScopeSet`/`SinceHlc`/`MergeChunk` only on change, and
-  reads via `_collectCycleBatch`. An idle continuous session now sends zero
-  frames and idles out once per cycle regardless of scope count (Phase 2's outer
-  loop re-announced the set and an `EndOfBatch` per scope every tick). A scope's
-  data is deferred until its `SinceHlc` round-trips, and inbound frames are
-  honored only for authorized scopes.
+- **Phase 6 — idle-silent sync, one method.** Reworked the single `sync` method
+  (no separate once/continuous bodies) into a shared lockstep establishment plus
+  a shared combined data loop: each cycle coalesces into one scope-tagged batch
+  terminated by a single `EndOfBatch`, with `ScopeSet`/`SinceHlc`/`MergeChunk`
+  sent only on change and read via `_collectCycleBatch`. An idle continuous
+  session now sends zero frames and idles out once per cycle regardless of scope
+  count (Phase 2's loop re-announced the set and an `EndOfBatch` per scope every
+  tick). `once` runs one data cycle then closes; mid-session continuous scopes are
+  deferred until their `SinceHlc` round-trips, and inbound frames are honored
+  only for authorized scopes.
 
 ## Test plan
 
