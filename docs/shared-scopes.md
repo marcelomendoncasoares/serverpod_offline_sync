@@ -561,3 +561,11 @@ above; both are tracked so the first implementation does not foreclose them.
    role to reject writes offline (the datum is now present — see *The client
    membership table*), which overlaps with revocation of offline-written changes
    by a demoted member. (Carried from `row-ownership.md` open question 4.)
+3. **Outbound collection consistency.** Collection reads CRDT metadata and the
+   domain data separately and lock-free, so a concurrent delete — or an FK
+   reference to a row inserted after the insert snapshot — can fail a healthy
+   stream sync and record a durable violation for a race that the next round
+   would resolve. The single-pass multi-scope collection widened this window.
+   Failing the session for a transient, self-correcting race is the weakness to
+   fix; the leading direction is a read-only snapshot (MVCC, not a lock). See
+   `outbound-collection-consistency.md`.
