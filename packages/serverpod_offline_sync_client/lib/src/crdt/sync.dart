@@ -326,10 +326,11 @@ class CrdtSync {
       }
       _validateSyncTablesHash(peerConnect.syncTablesHash);
 
-      // === Establishment (lockstep): announce the scope set and synchronously
-      // handshake the initially-agreed scopes, so neither peer acts before it
-      // knows the agreed set. This keeps `once` a single bounded round and gives
-      // continuous a settled start with no announce/adopt offset. ===
+      // === Establishment: exchange the scope set in lockstep so a follower
+      // learns the agreed set before the loop's send phase (otherwise it would
+      // act before knowing its scopes). Active scopes are recomputed from the
+      // grants just exchanged, not a fresh read, so both peers agree on the
+      // set even if a membership change lands mid-handshake. ===
       await scopes.reconcile();
       yield CrdtSyncScopeSet(scopes: scopes.localGrants);
       scopes.markAnnounced();
@@ -340,30 +341,33 @@ class CrdtSync {
         sessionCompleted = true;
         return;
       }
-      // Adopt the announced set (recomputing active scopes from the grants we
-      // just exchanged, not a fresh read) so both peers handshake the same set.
       await scopes.adoptPeerGrants(peerScopeSet.scopes);
-      for (final scopeId in scopes.activeScopeIds) {
-        yield await createSyncSinceHlc(session, userId: scopeId);
-        scopes.markHandshakeSent(scopeId);
-        final peerSinceHlc = await inboundIterator.nextFrame<CrdtSyncSinceHlc>(
-          throwIfClosed: once,
-        );
-        if (peerSinceHlc == null) {
-          sessionCompleted = true;
-          return;
+
+      // `once` must also handshake every scope synchronously, so its single data
+      // cycle below already has each scope's checkpoint. Continuous handshakes
+      // lazily in the loop (one combined batch), so it skips this.
+      if (once) {
+        for (final scopeId in scopes.activeScopeIds) {
+          yield await createSyncSinceHlc(session, userId: scopeId);
+          scopes.markHandshakeSent(scopeId);
+          final peerSinceHlc = await inboundIterator
+              .nextFrame<CrdtSyncSinceHlc>(throwIfClosed: once);
+          if (peerSinceHlc == null) {
+            sessionCompleted = true;
+            return;
+          }
+          _validateScopeFrame(
+            frameName: 'CrdtSyncSinceHlc',
+            expectedScopeId: scopeId,
+            receivedScopeId: peerSinceHlc.uuidScopeId,
+          );
+          scopes.recordPeerHandshake(scopeId, peerSinceHlc);
         }
-        _validateScopeFrame(
-          frameName: 'CrdtSyncSinceHlc',
-          expectedScopeId: scopeId,
-          receivedScopeId: peerSinceHlc.uuidScopeId,
-        );
-        scopes.recordPeerHandshake(scopeId, peerSinceHlc);
       }
 
       // === Data loop: one combined, idle-silent batch per cycle. `once` runs a
-      // single cycle then closes; continuous loops, absorbing membership changes
-      // as they are announced. ===
+      // single cycle then closes; continuous loops, handshaking newly active
+      // scopes and absorbing membership changes as they are announced. ===
       while (true) {
         await scopes.reconcile();
 

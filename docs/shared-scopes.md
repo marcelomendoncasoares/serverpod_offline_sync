@@ -177,26 +177,28 @@ single `sync` method serves both `syncOnce` and `syncContinuously`, branching on
 `once` only where they genuinely differ — read discipline and termination — so
 there is no duplicated send/merge logic:
 
-1. **Establishment (shared, lockstep).** After `Connect`, both peers exchange
-   the `ScopeSet` and then synchronously handshake every initially-agreed scope
-   (`SinceHlc` out, `SinceHlc` in, per scope). Doing this *before* the loop is
-   what removes the announce/adopt offset that would otherwise make a follower
-   act before it knows the agreed set, and it leaves both peers with every scope
-   already handshaked.
+1. **Establishment (shared, lockstep).** After `Connect`, both peers exchange the
+   `ScopeSet`. Doing this *before* the loop is what removes the announce/adopt
+   offset that would otherwise make a follower act before it knows the agreed
+   set. `once` then also handshakes every agreed scope synchronously (`SinceHlc`
+   out, `SinceHlc` in, per scope) so its single data cycle already has each
+   scope's checkpoint; `continuous` skips this and handshakes lazily in the loop.
 2. **Data loop (shared, idle-silent).** Each cycle is **one combined batch**: the
    scope announcement (only when this peer's grants changed), a `SinceHlc` for
-   each newly active scope, and scope-tagged `MergeChunk`s, all closed by a
-   single `EndOfBatch` that is itself omitted when nothing was sent. The receive
-   phase demultiplexes the peer's batch by type and scope until that terminator
-   or — when the peer was idle — an idle timeout. An idle cycle therefore sends
-   nothing and idles out **once**, regardless of scope count.
+   each newly active scope (so continuous handshakes new scopes here), and
+   scope-tagged `MergeChunk`s, all closed by a single `EndOfBatch` that is itself
+   omitted when nothing was sent. The receive phase demultiplexes the peer's
+   batch by type and scope until that terminator or — when the peer was idle — an
+   idle timeout. An idle cycle therefore sends nothing and idles out **once**,
+   regardless of scope count.
 
 `once` runs the data loop exactly once and then performs the symmetric `Close`
 handshake; because establishment already handshaked every scope, that single
 cycle exchanges all pending changes both ways. `continuous` loops instead, with
-no per-cycle chatter, and absorbs membership changes as they are announced (a
-newly granted scope is announced, adopted, and established over the following
-cycles — its data deferred until its `SinceHlc` round-trips). The scope-tagged
+no per-cycle chatter; it handshakes its initial scopes in the first cycle and
+absorbs membership changes as they are announced (a newly granted scope is
+announced, adopted, and established over the following cycles — its data deferred
+until its `SinceHlc` round-trips). The scope-tagged
 framing and per-scope grouping the combined batch needs (rejected earlier as
 throughput-only cost) earn their keep here by buying zero idle chatter and
 constant idle latency, not throughput.
@@ -237,8 +239,8 @@ cycle's frames by type and scope into `{ scopeSet?, sinceHlcs, groups }`,
 returning on the single `EndOfBatch` or — when the peer was idle — on the idle
 timeout. `once` passes `allowIdleReturn: false` (its peer always sends a
 terminator, so it blocks for it); `continuous` passes `true` so an idle cycle
-ends on the timeout. The synchronous establishment handshake reads its frames
-directly rather than through the cycle collector.
+ends on the timeout. `once`'s synchronous establishment handshake reads its
+frames directly rather than through the cycle collector.
 
 ### The session state machine
 
@@ -247,10 +249,11 @@ handshake (both cadences):
   send Connect(syncTablesHash); read peer Connect; validate syncTablesHash
 
 establishment (both cadences, lockstep):
-  send ScopeSet(myGrants); read peer ScopeSet → reconcile → activeScopes
+  send ScopeSet(myGrants); read peer ScopeSet → adopt → activeScopes
   follower: materialize activeScopes, project membership
-  for scope in activeScopes:                       # synchronous handshake
-    send SinceHlc(scope); read peer SinceHlc(scope) → seed checkpoints[scope]
+  once only:                                       # synchronous handshake
+    for scope in activeScopes:
+      send SinceHlc(scope); read peer SinceHlc(scope) → seed checkpoints[scope]
 
 data loop (both cadences, one combined batch per cycle):
   loop:
@@ -270,10 +273,11 @@ data loop (both cadences, one combined batch per cycle):
     delay continuousSyncInterval
 ```
 
-The shared establishment handshakes every initial scope synchronously (so `once`
-exchanges all data in its single loop cycle and a follower never acts before it
-knows the agreed set); mid-session scopes added during `continuous` are instead
-established through the loop's own `SinceHlc` exchange over the following cycles.
+The shared establishment exchanges the scope set so a follower never acts before
+it knows the agreed set; `once` additionally handshakes every initial scope
+synchronously so it exchanges all data in its single loop cycle. `continuous`
+handshakes both its initial scopes and any added mid-session through the loop's
+own `SinceHlc` exchange over the following cycles.
 
 `collectAllPendingChanges`, `mergeInboundBatch`, `recordSyncCheckpoint`, and the
 ownership-violation internals (`_streamInserts`/`Updates`/`Deletes`,
