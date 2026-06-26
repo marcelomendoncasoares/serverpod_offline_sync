@@ -232,7 +232,7 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
   when nothing was sent, so an idle peer resolves to an empty batch instead).
   `Close` ends a `once` session after its single data cycle.
 
-The data cycle's receive uses `_collectCycleBatch`, which demultiplexes one
+The data cycle's receive uses `collectCycleBatch`, which demultiplexes one
 cycle's frames by type and scope into `{ scopeSet?, sinceHlcs, groups }`,
 returning on the single `EndOfBatch` or — when the peer was idle — on the idle
 timeout. `once` passes `allowIdleReturn: false` (its peer always sends a
@@ -466,7 +466,7 @@ to run with `--concurrency=1`.
   (no separate once/continuous bodies) into a shared lockstep establishment plus
   a shared combined data loop: each cycle coalesces into one scope-tagged batch
   terminated by a single `EndOfBatch`, with `ScopeSet`/`SinceHlc`/`MergeChunk`
-  sent only on change and read via `_collectCycleBatch`. An idle continuous
+  sent only on change and read via `collectCycleBatch`. An idle continuous
   session now sends zero frames and idles out once per cycle regardless of scope
   count (Phase 2's loop re-announced the set and an `EndOfBatch` per scope every
   tick). `once` runs one data cycle then closes; mid-session continuous scopes are
