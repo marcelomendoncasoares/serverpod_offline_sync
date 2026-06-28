@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../managers/scope.dart';
 import '../protocol/protocol.dart';
 import 'merge.dart';
+import 'roles.dart';
 import 'scope_membership.dart';
 
 /// How a peer decides which scopes it syncs.
@@ -82,6 +83,9 @@ class CrdtScopeSyncSession {
   Set<String> _activeUuids = const {};
   Set<String> _peerUuids = const {};
 
+  /// Active scopes this peer may send local writes for.
+  Set<String> _writableUuids = const {};
+
   /// Scopes for which this peer has already sent its [CrdtSyncSinceHlc].
   final Set<String> _sinceHlcSent = {};
 
@@ -98,6 +102,12 @@ class CrdtScopeSyncSession {
 
   /// The scopes cycled this round (sorted, deterministic on both peers).
   List<UuidValue> get activeScopeIds => _activeScopeIds;
+
+  /// The authenticated user this sync session represents.
+  UuidValue get userId => _userId;
+
+  /// Whether this peer is authoritative for scope membership.
+  bool get isAuthoritative => _mode == CrdtSyncPeerMode.authoritative;
 
   /// Whether the local grants changed since the last announcement.
   bool get shouldAnnounce => !_grantsEqual(_announcedGrants, _localGrants);
@@ -116,6 +126,7 @@ class CrdtScopeSyncSession {
   Future<void> reconcile() async {
     _localGrants = _sortedUniqueGrants(await _resolveLocalGrants());
     await _recomputeActiveScopes();
+    await _refreshWritableScopes();
   }
 
   /// Adopts the peer's announced [peerGrants] and recomputes the active scope
@@ -134,6 +145,7 @@ class CrdtScopeSyncSession {
         grants: _peerGrants,
       );
     }
+    await _refreshWritableScopes();
   }
 
   /// Recomputes the active scope set from the current local and peer grants
@@ -150,6 +162,31 @@ class CrdtScopeSyncSession {
     _sinceHlcSent.removeWhere((uuid) => !_activeUuids.contains(uuid));
     _peerNodeIdByScope.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
     _checkpointsByScope.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
+  }
+
+  Future<void> _refreshWritableScopes() async {
+    if (_mode == CrdtSyncPeerMode.authoritative) {
+      _writableUuids = _activeUuids;
+      return;
+    }
+
+    final writableUuids = <String>{};
+    for (final scopeId in _activeScopeIds) {
+      if (scopeId == _userId) {
+        writableUuids.add(scopeId.uuid);
+        continue;
+      }
+
+      final role = await CrdtScopeMembership.roleOf(
+        _session,
+        userUuid: _userId,
+        scopeUuid: scopeId,
+      );
+      if (role.canWrite) {
+        writableUuids.add(scopeId.uuid);
+      }
+    }
+    _writableUuids = writableUuids;
   }
 
   /// Marks that this peer is sending its [CrdtSyncSinceHlc] for [scopeId],
@@ -169,7 +206,9 @@ class CrdtScopeSyncSession {
   /// scope — the input to a pending-change collection pass.
   Map<UuidValue, List<Hlc>> get sendableCheckpoints => {
     for (final scopeId in _activeScopeIds)
-      if (_checkpointsByScope[scopeId] != null && _peerNodeIdByScope[scopeId] != null)
+      if (_checkpointsByScope[scopeId] != null &&
+          _peerNodeIdByScope[scopeId] != null &&
+          _writableUuids.contains(scopeId.uuid))
         scopeId: _checkpointsByScope[scopeId]!.values.toList(),
   };
 

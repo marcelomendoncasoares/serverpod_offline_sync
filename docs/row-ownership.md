@@ -644,7 +644,9 @@ filter and RLS become two enforcements of one predicate.
 - A device syncs one chain per scope it holds: each sync call enumerates the
   authenticated user's member scopes, verified server-side against
   `crdt_scope_members` at the start of every sync cycle; the membership table
-  itself is not synced.
+  itself is not synced. `CrdtScopeRole` is enforced as described in
+  `shared-scopes.md`: reads stay membership-wide, writes are role-gated, and the
+  server records `unauthorizedWrite` for rejected inbound changes.
 - Every database is already sharing-capable schema-wise — the column is
   universal — so a sharing-enabled client simply holds several scopes' rows.
   One database file per scope remains a valid alternative layout.
@@ -734,7 +736,9 @@ not relitigated by accident:
    device still holds the scope's data and may hold unsynced local changes for
    it. Purge-vs-keep policy, and whether revoked unsynced changes are surfaced
    or dropped, need their own design.
-4. **Roles within a scope (sharing).** `crdt_scope_members.role` is sketched
-   but undefined: read-only members would need write rejection at merge time
-   (another fail-and-record case), and the interaction with offline-written
-   changes by a demoted member overlaps with question 3.
+4. **Roles within a scope (sharing).** Resolved in `shared-scopes.md`.
+   `crdt_scope_members.role` is enforced for writes through the closed
+   `CrdtScopeRole` enum: the server rejects and records unauthorized inbound
+   writes, the client rejects local writes from projected `readOnly` roles, and
+   reads remain membership-wide. The remaining cleanup question for demoted or
+   revoked unsynced local changes is part of question 3.

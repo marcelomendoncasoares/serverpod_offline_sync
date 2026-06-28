@@ -69,12 +69,46 @@ class CrdtScopeMembership {
       final scopeUuid = Protocol().deserialize<UuidValue>(row[0]);
       grantsByUuid[scopeUuid.uuid] = CrdtScopeGrant(
         uuidScopeId: scopeUuid,
-        role: row[1] as String?,
+        role: _roleFromDatabase(row[1]),
       );
     }
 
     return grantsByUuid.values.toList()
       ..sort((a, b) => a.uuidScopeId.uuid.compareTo(b.uuidScopeId.uuid));
+  }
+
+  /// The role [userUuid] holds in [scopeUuid], or null if none is recorded.
+  ///
+  /// The implicit personal scope is represented by a null role. On the server
+  /// this reads authoritative membership; on a client it reads the projected
+  /// membership cache.
+  @internal
+  static Future<CrdtScopeRole?> roleOf(
+    DatabaseSession session, {
+    required UuidValue userUuid,
+    required UuidValue scopeUuid,
+    Transaction? transaction,
+  }) async {
+    if (userUuid == scopeUuid) return null;
+
+    final scopeId = await _scopeIdForUuid(
+      session,
+      scopeUuid,
+      transaction: transaction,
+    );
+    if (scopeId == null) return null;
+
+    final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
+    final result = await session.db.unsafeQuery(
+      'SELECT "${CrdtScopeMember.t.role.columnName}" '
+      'FROM "${CrdtScopeMember.t.tableName}" '
+      'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid '
+      'AND "${CrdtScopeMember.t.scopeId.columnName}" = $encodedScopeId '
+      'LIMIT 1',
+      transaction: transaction,
+    );
+    return result.isEmpty ? null : _roleFromDatabase(result.first[0]);
   }
 
   /// Reconciles the local `crdt_scope_members` cache from an authoritative
@@ -103,7 +137,7 @@ class CrdtScopeMembership {
       final encodedScopeId = ValueEncoder.instance.convert(scopeId);
       final encodedRole = grant.role == null
           ? 'NULL'
-          : ValueEncoder.instance.convert(grant.role);
+          : ValueEncoder.instance.convert(grant.role!.toJson());
       await session.db.unsafeExecute(
         'INSERT INTO "${CrdtScopeMember.t.tableName}" '
         '("${CrdtScopeMember.t.scopeId.columnName}", '
@@ -157,6 +191,9 @@ class CrdtScopeMembership {
     return result.isNotEmpty;
   }
 }
+
+CrdtScopeRole? _roleFromDatabase(Object? value) =>
+    value == null ? null : CrdtScopeRole.fromJson(value as String);
 
 Future<int?> _scopeIdForUuid(
   DatabaseSession session,

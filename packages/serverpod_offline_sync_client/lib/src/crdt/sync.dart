@@ -14,6 +14,8 @@ import 'exceptions.dart';
 import 'extensions.dart';
 import 'integrity_violation.dart';
 import 'merge.dart';
+import 'roles.dart';
+import 'scope_membership.dart';
 import 'scope_sync.dart';
 
 export 'scope_sync.dart' show CrdtSyncPeerMode;
@@ -273,7 +275,11 @@ class CrdtSync {
               onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
             ),
     );
-    final scopes = CrdtScopeSyncSession(session, userId: userId, mode: mode);
+    final scopes = CrdtScopeSyncSession(
+      session,
+      userId: userId,
+      mode: mode,
+    );
 
     var sessionCompleted = false;
     try {
@@ -402,6 +408,14 @@ class CrdtSync {
       final peerNodeId = scopes.peerNodeIdOf(scopeId);
       if (!scopes.accepts(scopeId) || peerNodeId == null) continue;
       mergedScopes.add(scopeId);
+      if (scopes.isAuthoritative) {
+        await _assertCanMergeInboundScope(
+          session,
+          scopeId: scopeId,
+          userId: scopes.userId,
+          changes: entry.value,
+        );
+      }
       final receivedHlc = await _mergeInboundBatch(
         session,
         userId: scopeId,
@@ -413,6 +427,53 @@ class CrdtSync {
     for (final scopeId in outboundScopes.difference(mergedScopes)) {
       await _reportMerge(onMergeSuccess, scopes, scopeId, null);
     }
+  }
+
+  Future<void> _assertCanMergeInboundScope(
+    DatabaseSession session, {
+    required UuidValue scopeId,
+    required UuidValue userId,
+    required List<CrdtMergeChange> changes,
+  }) async {
+    if (changes.isEmpty || userId == scopeId) return;
+
+    final role = await CrdtScopeMembership.roleOf(
+      session,
+      userUuid: userId,
+      scopeUuid: scopeId,
+    );
+    if (role.canWrite) return;
+
+    final firstChange = changes.first;
+    final now = DateTime.now().toUtc();
+    final violation = CrdtSyncIntegrityViolation(
+      type: CrdtSyncViolationType.unauthorizedWrite,
+      domainTableName: firstChange.tableName,
+      uuidRowId: firstChange.uuidRowId,
+      ownerScopeUuid: null,
+      incomingScopeUuid: scopeId,
+      operation: _operationForInboundChange(firstChange),
+      uuidNodeId: firstChange.uuidNodeId,
+      crdtDataRowId: null,
+      hlcDatetime: firstChange.hlcDatetime,
+      hlcCounter: firstChange.hlcCounter,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      occurrences: 1,
+    );
+    final persisted = await recordCrdtSyncIntegrityViolation(
+      session,
+      violation: violation,
+    );
+    throw CrdtSyncIntegrityViolationException(persisted);
+  }
+
+  CrdtSyncViolationOperation _operationForInboundChange(CrdtMergeChange change) {
+    return switch (change) {
+      CrdtMergeInsert() => CrdtSyncViolationOperation.mergeInsert,
+      CrdtMergeUpdate() => CrdtSyncViolationOperation.mergeUpdate,
+      CrdtMergeDelete() => CrdtSyncViolationOperation.mergeDelete,
+    };
   }
 
   /// Reports a successful merge for [scopeId] to [onMergeSuccess], combining the

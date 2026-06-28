@@ -371,7 +371,7 @@ void main() {
         );
 
         group(
-          'and a shared scope membership with the editor role is granted, '
+          'and a shared scope membership with the readWrite role is granted, '
           'when client syncOnce is called,',
           () {
             late UuidValue roleScopeId;
@@ -382,7 +382,7 @@ void main() {
                 rawServerSession,
                 userUuid: testCrdtUserId,
                 scopeUuid: roleScopeId,
-                role: 'editor',
+                role: CrdtScopeRole.readWrite,
               );
               await testClient.crdt.syncOnce(clientSession);
             });
@@ -399,7 +399,52 @@ void main() {
                     .toList();
 
                 expect(projected, hasLength(1));
-                expect(projected.single.role, 'editor');
+                expect(projected.single.role, CrdtScopeRole.readWrite);
+              },
+            );
+          },
+        );
+
+        group(
+          'and a shared scope membership with the readWrite role is granted,',
+          () {
+            late UuidValue roleScopeId;
+            late UuidValue clientPersonId;
+
+            setUp(() async {
+              roleScopeId = const Uuid().v7obj();
+              await _grantScopeMembership(
+                rawServerSession,
+                userUuid: testCrdtUserId,
+                scopeUuid: roleScopeId,
+                role: CrdtScopeRole.readWrite,
+              );
+              await testClient.crdt.syncOnce(clientSession);
+
+              final clientPerson = await clientSession.db.transactionForUser(
+                testCrdtUserId,
+                (tx) => client.Person.db.insertRow(
+                  clientSession,
+                  client.Person(name: 'read-write-member-write'),
+                  transaction: tx,
+                ),
+                scopeId: roleScopeId,
+              );
+              clientPersonId = clientPerson.id!;
+              await testClient.crdt.syncOnce(clientSession);
+            });
+
+            test(
+              'when the readWrite member writes and syncs, '
+              'then the server accepts the write.',
+              () async {
+                final serverPerson = await server.Person.db.findById(
+                  serverSession,
+                  clientPersonId,
+                );
+
+                expect(serverPerson, isNotNull);
+                expect(serverPerson!.name, 'read-write-member-write');
               },
             );
           },
@@ -417,7 +462,7 @@ void main() {
                 rawServerSession,
                 userUuid: testCrdtUserId,
                 scopeUuid: roleScopeId,
-                role: 'editor',
+                role: CrdtScopeRole.readWrite,
               );
               await testClient.crdt.syncOnce(clientSession);
               await _revokeScopeMembership(
@@ -898,6 +943,311 @@ void main() {
   );
 
   withServerpod(
+    'Given shared-scope roles are enforced',
+    rollbackDatabase: RollbackDatabase.disabled,
+    (sessionBuilder, _) {
+      final rawServerSession = sessionBuilder.build();
+
+      rawServerSession.serverpod
+        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..authenticationHandler = (session, token) async => AuthenticationInfo(
+          testCrdtUserId.toString(),
+          <Scope>{},
+          authId: const Uuid().v4(),
+        );
+
+      setUp(() async {
+        testClient = client.Client(
+          'http://localhost:${rawServerSession.server.port}',
+        )..authKeyProvider = TestClientAuthKeyProvider();
+
+        clientSession = CrdtDatabaseSession.wraps(
+          testSession,
+          syncTables: clientSyncTables,
+          persistentUserId: testCrdtUserId,
+        );
+        await clientSession.db.initialize();
+
+        serverSession = CrdtDatabaseSession.wraps(
+          rawServerSession,
+          syncTables: serverSyncTables,
+        );
+        await serverSession.db.initialize();
+      });
+
+      tearDown(() async {
+        await serverSession.clearUserTables();
+      });
+
+      test(
+        'when a readOnly member syncs a server row and then tries to write in that shared scope, '
+        'then reading succeeds and the local write is rejected before mutation.',
+        () async {
+          final sharedScopeId = const Uuid().v7obj();
+          await _grantScopeMembership(
+            rawServerSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+            role: CrdtScopeRole.readOnly,
+          );
+          final serverPerson = await serverSession.db.transactionForUser(
+            sharedScopeId,
+            (tx) => server.Person.db.insertRow(
+              serverSession,
+              server.Person(name: 'read-only-readable-server-person'),
+              transaction: tx,
+            ),
+          );
+
+          await testClient.crdt.syncOnce(clientSession);
+
+          final clientPerson = await client.Person.db.findById(
+            clientSession,
+            serverPerson.id!,
+          );
+          expect(clientPerson, isNotNull);
+          expect(clientPerson!.name, 'read-only-readable-server-person');
+
+          await expectLater(
+            clientSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => client.Person.db.insertRow(
+                clientSession,
+                client.Person(name: 'blocked-read-only-client-person'),
+                transaction: tx,
+              ),
+              scopeId: sharedScopeId,
+            ),
+            throwsA(isA<CrdtScopeRoleException>()),
+          );
+
+          final blockedRows = await client.Person.db.find(
+            clientSession,
+            where: (t) => t.name.equals('blocked-read-only-client-person'),
+          );
+          expect(blockedRows, isEmpty);
+        },
+      );
+
+      test(
+        'when a readWrite member writes in a shared scope and syncs, '
+        'then the server accepts the write.',
+        () async {
+          final sharedScopeId = const Uuid().v7obj();
+          await _grantScopeMembership(
+            rawServerSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+            role: CrdtScopeRole.readWrite,
+          );
+          await testClient.crdt.syncOnce(clientSession);
+
+          final clientPerson = await clientSession.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => client.Person.db.insertRow(
+              clientSession,
+              client.Person(name: 'read-write-client-person'),
+              transaction: tx,
+            ),
+            scopeId: sharedScopeId,
+          );
+
+          await testClient.crdt.syncOnce(clientSession);
+
+          final serverPerson = await server.Person.db.findById(
+            serverSession,
+            clientPerson.id!,
+          );
+          expect(serverPerson, isNotNull);
+          expect(serverPerson!.name, 'read-write-client-person');
+        },
+      );
+
+      test(
+        'when a follower is demoted to readOnly with unsynced shared-scope changes and then syncs, '
+        'then it receives inbound rows and does not stream the pending read-only change.',
+        () async {
+          final sharedScopeId = const Uuid().v7obj();
+          await _grantScopeMembership(
+            rawServerSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+            role: CrdtScopeRole.readWrite,
+          );
+          await testClient.crdt.syncOnce(clientSession);
+
+          final pendingClientPerson = await clientSession.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => client.Person.db.insertRow(
+              clientSession,
+              client.Person(name: 'pending-before-demotion'),
+              transaction: tx,
+            ),
+            scopeId: sharedScopeId,
+          );
+
+          await _grantScopeMembership(
+            rawServerSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+            role: CrdtScopeRole.readOnly,
+          );
+          final inboundServerPerson = await serverSession.db.transactionForUser(
+            sharedScopeId,
+            (tx) => server.Person.db.insertRow(
+              serverSession,
+              server.Person(name: 'inbound-after-demotion'),
+              transaction: tx,
+            ),
+          );
+
+          await testClient.crdt.syncOnce(clientSession);
+
+          final projectedGrants = await CrdtScopeMembership.memberGrants(
+            clientSession,
+            testCrdtUserId,
+          );
+          expect(
+            projectedGrants.singleWhere((g) => g.uuidScopeId == sharedScopeId).role,
+            CrdtScopeRole.readOnly,
+          );
+
+          final receivedServerPerson = await client.Person.db.findById(
+            clientSession,
+            inboundServerPerson.id!,
+          );
+          expect(receivedServerPerson, isNotNull);
+          expect(receivedServerPerson!.name, 'inbound-after-demotion');
+
+          final streamedClientPerson = await server.Person.db.findById(
+            serverSession,
+            pendingClientPerson.id!,
+          );
+          expect(streamedClientPerson, isNull);
+
+          final violations = await CrdtSyncIntegrityViolation.db.find(
+            rawServerSession,
+            where: (t) => t.type.equals(CrdtSyncViolationType.unauthorizedWrite),
+          );
+          expect(violations, isEmpty);
+
+          await expectLater(
+            clientSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => client.Person.db.insertRow(
+                clientSession,
+                client.Person(name: 'blocked-after-demotion'),
+                transaction: tx,
+              ),
+              scopeId: sharedScopeId,
+            ),
+            throwsA(isA<CrdtScopeRoleException>()),
+          );
+        },
+      );
+
+      test(
+        'when a readOnly member sends a crafted shared-scope write batch, '
+        'then the server records an unauthorized write violation and does not apply it.',
+        () async {
+          final sharedScopeId = const Uuid().v7obj();
+          await _grantScopeMembership(
+            rawServerSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+            role: CrdtScopeRole.readOnly,
+          );
+          final staleSession = CrdtDatabaseSession.wraps(
+            await createAdditionalTestSession(),
+            syncTables: clientSyncTables,
+            persistentUserId: testCrdtUserId,
+          );
+          await staleSession.db.initialize();
+          await _projectLocalScopeMembership(
+            staleSession,
+            userUuid: testCrdtUserId,
+            scopeUuid: sharedScopeId,
+            role: CrdtScopeRole.readWrite,
+          );
+
+          final clientPerson = await staleSession.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => client.Person.db.insertRow(
+              staleSession,
+              client.Person(name: 'demoted-pending-write'),
+              transaction: tx,
+            ),
+            scopeId: sharedScopeId,
+          );
+
+          final maliciousClientSync = CrdtSync(
+            syncTables: clientSyncTables,
+            serializationManager: staleSession.db.serializationManager,
+          );
+          final changes = await maliciousClientSync
+              .collectPendingChanges(
+                staleSession,
+                checkpointsByScopeUuid: {sharedScopeId: const []},
+              )
+              .toList();
+          expect(changes, isNotEmpty);
+
+          await expectLater(
+            _sendCraftedWriteBatchToServer(
+              rawServerSession.crdt,
+              serverSession,
+              userUuid: testCrdtUserId,
+              scopeUuid: sharedScopeId,
+              changes: changes,
+            ),
+            throwsA(isA<CrdtSyncIntegrityViolationException>()),
+          );
+
+          final serverPerson = await server.Person.db.findById(
+            serverSession,
+            clientPerson.id!,
+          );
+          expect(serverPerson, isNull);
+
+          final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
+            rawServerSession,
+            where: (t) =>
+                t.type.equals(CrdtSyncViolationType.unauthorizedWrite) &
+                t.uuidRowId.equals(clientPerson.id),
+          );
+          expect(violation, isNotNull);
+          expect(violation!.operation, CrdtSyncViolationOperation.mergeInsert);
+          expect(violation.incomingScopeUuid, sharedScopeId);
+        },
+      );
+
+      test(
+        'when a personal-scope transaction is started without an explicit role, '
+        'then the personal scope remains writable.',
+        () async {
+          final personalSession = CrdtDatabaseSession.wraps(
+            await createAdditionalTestSession(),
+            syncTables: clientSyncTables,
+            persistentUserId: testCrdtUserId,
+          );
+          await personalSession.db.initialize();
+
+          final person = await personalSession.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => client.Person.db.insertRow(
+              personalSession,
+              client.Person(name: 'personal-scope-write'),
+              transaction: tx,
+            ),
+          );
+
+          expect(person.name, 'personal-scope-write');
+        },
+      );
+    },
+  );
+
+  withServerpod(
     'Given a server and two client CRDT sessions for the same user that are initialized with the same sync tables',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
@@ -1153,17 +1503,115 @@ Future<void> _grantScopeMembership(
   Session session, {
   required UuidValue userUuid,
   required UuidValue scopeUuid,
-  String? role,
+  CrdtScopeRole? role,
 }) async {
   final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
   final encodedScopeId = ValueEncoder.instance.convert(scope.id);
   final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-  final encodedRole = role == null ? 'NULL' : ValueEncoder.instance.convert(role);
+  final encodedRole = role == null
+      ? 'NULL'
+      : ValueEncoder.instance.convert(role.toJson());
   await session.db.unsafeExecute(
     'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid", "role") '
     'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
     'ON CONFLICT ("scopeId", "userUuid") DO UPDATE SET "role" = $encodedRole',
   );
+}
+
+Future<void> _projectLocalScopeMembership(
+  DatabaseSession session, {
+  required UuidValue userUuid,
+  required UuidValue scopeUuid,
+  required CrdtScopeRole role,
+}) async {
+  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
+  final encodedScopeId = ValueEncoder.instance.convert(scope.id);
+  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
+  final encodedRole = ValueEncoder.instance.convert(role.toJson());
+  await session.db.unsafeExecute(
+    'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid", "role") '
+    'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
+    'ON CONFLICT ("scopeId", "userUuid") DO UPDATE SET "role" = $encodedRole',
+  );
+}
+
+Future<void> _sendCraftedWriteBatchToServer(
+  CrdtSync serverSync,
+  DatabaseSession serverSession, {
+  required UuidValue userUuid,
+  required UuidValue scopeUuid,
+  required List<CrdtMergeChange> changes,
+}) async {
+  final inbound = StreamController<CrdtSyncStreamEvent>();
+  final completion = Completer<({Object? error, StackTrace? stackTrace})>();
+  var sentPeerScopeSet = false;
+  var sentWriteBatch = false;
+
+  late final StreamSubscription<CrdtSyncStreamEvent> subscription;
+  subscription = serverSync
+      .sync(
+        serverSession,
+        userId: userUuid,
+        inbound: inbound.stream,
+        once: true,
+        mode: CrdtSyncPeerMode.authoritative,
+      )
+      .listen(
+        (event) {
+          switch (event) {
+            case CrdtSyncConnect():
+              inbound.add(
+                CrdtSyncConnect(syncTablesHash: serverSync.currentSyncTablesHash),
+              );
+            case CrdtSyncScopeSet() when !sentPeerScopeSet:
+              sentPeerScopeSet = true;
+              inbound.add(CrdtSyncScopeSet(scopes: const []));
+            case CrdtSyncEndOfBatch() when !sentWriteBatch:
+              sentWriteBatch = true;
+              inbound
+                ..add(
+                  CrdtSyncSinceHlc(
+                    uuidScopeId: scopeUuid,
+                    localNodeId: changes.first.uuidNodeId,
+                    nodeCheckpoints: const [],
+                  ),
+                )
+                ..add(CrdtSyncMergeChunk(changes: changes))
+                ..add(CrdtSyncEndOfBatch());
+            case CrdtSyncClose():
+              inbound.add(CrdtSyncClose());
+            default:
+              break;
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!completion.isCompleted) {
+            completion.complete((error: error, stackTrace: stackTrace));
+          }
+        },
+        onDone: () {
+          if (!completion.isCompleted) {
+            completion.complete((error: null, stackTrace: null));
+          }
+        },
+      );
+
+  try {
+    final result = await completion.future.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => (
+        error: TimeoutException('Server did not reject crafted write batch.'),
+        stackTrace: StackTrace.current,
+      ),
+    );
+    if (result.error != null) {
+      Error.throwWithStackTrace(result.error!, result.stackTrace!);
+    }
+    throw StateError('Server accepted crafted write batch.');
+  } finally {
+    await inbound.close();
+    await subscription.cancel();
+  }
 }
 
 Future<void> _revokeScopeMembership(

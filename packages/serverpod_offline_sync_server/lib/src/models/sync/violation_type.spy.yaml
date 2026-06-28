@@ -4,3 +4,4 @@ serialized: byName
 values:
   - ownershipCollision
   - missingDomainRow
+  - unauthorizedWrite

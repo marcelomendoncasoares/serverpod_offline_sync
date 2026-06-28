@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../crdt/exceptions.dart';
 import '../crdt/integrity_violation.dart';
 import '../crdt/merge.dart';
+import '../crdt/roles.dart';
 import '../crdt/scope_membership.dart';
 import '../crdt/sync.dart';
 import '../protocol/protocol.dart';
@@ -755,6 +756,7 @@ class CrdtDatabase implements Database {
       userUuid: userId,
       scopeUuid: scopeId,
     )) {
+      await _assertRoleCanWrite(userId, scopeId);
       return;
     }
 
@@ -764,10 +766,28 @@ class CrdtDatabase implements Database {
     if (persistentUserId != null &&
         persistentUserId == userId &&
         await _hasLocalScope(scopeId)) {
+      await _assertRoleCanWrite(userId, scopeId);
       return;
     }
 
     throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
+  }
+
+  Future<void> _assertRoleCanWrite(UuidValue userId, UuidValue scopeId) async {
+    if (userId == scopeId) return;
+
+    final role = await CrdtScopeMembership.roleOf(
+      _delegate.session,
+      userUuid: userId,
+      scopeUuid: scopeId,
+    );
+    if (role.canWrite) return;
+
+    throw CrdtScopeRoleException(
+      userId: userId,
+      scopeId: scopeId,
+      role: role,
+    );
   }
 
   Future<bool> _hasLocalScope(UuidValue scopeId) async {

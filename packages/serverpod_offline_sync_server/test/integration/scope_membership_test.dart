@@ -1,3 +1,6 @@
+// Tests package-internal membership helpers through the server package.
+// ignore_for_file: invalid_use_of_internal_member
+
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_server/src/generated/protocol.dart' as server;
 import 'package:test/test.dart';
@@ -33,7 +36,7 @@ void main() {
           server.CrdtScopeMember(
             scopeId: sharedScope.id!,
             userUuid: userUuid,
-            role: 'editor',
+            role: server.CrdtScopeRole.readWrite,
           ),
         );
         await server.CrdtScopeMember.db.insertRow(
@@ -88,6 +91,40 @@ void main() {
               scopeUuid: sharedScopeUuid,
             ),
             isTrue,
+          );
+        },
+      );
+
+      test(
+        'when the role is resolved for the granted shared scope, '
+        'then the stored membership role is returned.',
+        () async {
+          final session = sessionBuilder.build();
+
+          expect(
+            await CrdtScopeMembership.roleOf(
+              session,
+              userUuid: userUuid,
+              scopeUuid: sharedScopeUuid,
+            ),
+            CrdtScopeRole.readWrite,
+          );
+        },
+      );
+
+      test(
+        'when the role is resolved for the personal scope, '
+        'then no role is returned.',
+        () async {
+          final session = sessionBuilder.build();
+
+          expect(
+            await CrdtScopeMembership.roleOf(
+              session,
+              userUuid: userUuid,
+              scopeUuid: userUuid,
+            ),
+            isNull,
           );
         },
       );

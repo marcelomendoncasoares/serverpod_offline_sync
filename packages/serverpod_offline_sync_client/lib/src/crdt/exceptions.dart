@@ -89,6 +89,10 @@ final class CrdtSyncIntegrityViolationException extends CrdtSyncException {
             '${violation.type.name}/${violation.operation.name} references '
             'missing domain row $row for scope '
             '${violation.incomingScopeUuid}.$persisted',
+      CrdtSyncViolationType.unauthorizedWrite =>
+        'CrdtSyncIntegrityViolationException: '
+            '${violation.type.name}/${violation.operation.name} rejected '
+            'write to $row in scope ${violation.incomingScopeUuid}.$persisted',
     };
   }
 }
@@ -111,6 +115,30 @@ final class CrdtScopeMembershipException implements Exception {
   String toString() =>
       'CrdtScopeMembershipException: user "$userId" is not a member of '
       'scope "$scopeId".';
+}
+
+/// Thrown when a user attempts to write in a scope with a non-writable role.
+final class CrdtScopeRoleException implements Exception {
+  /// Creates a [CrdtScopeRoleException].
+  const CrdtScopeRoleException({
+    required this.userId,
+    required this.scopeId,
+    this.role,
+  });
+
+  /// The authenticated user id supplied to `transactionForUser`.
+  final UuidValue userId;
+
+  /// The scope id the transaction attempted to write in.
+  final UuidValue scopeId;
+
+  /// The role that does not allow writes.
+  final CrdtScopeRole? role;
+
+  @override
+  String toString() =>
+      'CrdtScopeRoleException: user "$userId" with role "$role" cannot write '
+      'in scope "$scopeId".';
 }
 
 @internal

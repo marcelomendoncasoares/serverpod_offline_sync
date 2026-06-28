@@ -18,8 +18,8 @@ fields:
   ### Auth user UUID that may access the scope.
   userUuid: UuidValue
 
-  ### Application-defined role. Stored but not enforced by this package yet.
-  role: String?
+  ### CRDT access role for this shared-scope membership.
+  role: CrdtScopeRole?
 
 indexes:
   ### Leads with userUuid so the per-cycle membership resolution
