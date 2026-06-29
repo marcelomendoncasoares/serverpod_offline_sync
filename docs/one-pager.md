@@ -8,7 +8,7 @@
 
 It sits nearly alone in the space of offline-first solutions, because most other solutions either use a non-relational database, require a new data API, or don't preserve foreign-key/unique invariants while merging data. The solution is built on top of the Serverpod framework, leveraging its ORM, server and client to expose such complex capabilities with minimal configuration.
 
-The work on this package was inspired by the excellent work on [Synql](https://github.com/coast-team/synql) ([Ignat et al., DAIS 2024](https://inria.hal.science/hal-04969158v4/document)), which provided the foundation for the CRDT layer. However, it goes beyond `Synql` by adding full support for all foreign-key `onDelete` actions and unique constraints, with a production-ready implementation.
+The work on this package was inspired by the excellent work on [Synql](https://github.com/coast-team/synql) ([Ignat et al., DAIS 2024](https://inria.hal.science/hal-04969158v4/document)), which provided the foundation for the CRDT layer. This package goes beyond `Synql` by covering the full set of foreign-key `onDelete` actions, extending unique-constraint handling to deeply relational schemas, and shipping a production-ready implementation.
 
 ### The developer experience
 
@@ -70,7 +70,7 @@ The four steps below contain all required changes on a project to use the packag
 
 After this setup, the app can be developed using normal repository calls against the `session` instance.
 
-The sync engine is a **black box that "just works"**: operations are tracked atomically with each operation and the developer never intervenes in conflict resolution. Conflicts that need a human decision **bubble up as visible state** for the end user of the app to act on (e.g. a delete reverted by a concurrent constraint reappears, so the user can simply delete it again). Migrations work normally, and also applies for deleted rows - which never leave their tables, but are transparently hidden from the user.
+The sync engine is a **black box that "just works"**: changes are tracked atomically with each operation and the developer never intervenes in conflict resolution. Conflicts that need a human decision **bubble up as visible state** for the end user of the app to act on (e.g. a delete reverted by a concurrent constraint reappears, so the user can simply delete it again). Migrations work normally, and the same applies to deleted rows — which never leave their tables, but are transparently hidden from the user.
 
 Understanding the behavior is also straightforward: conflict resolution respects unique and relational constraints, mirroring what would be expected if the merged data existed in a single database at the time of each operation.
 
@@ -94,7 +94,7 @@ Respecting these limitations, all other database invariants, including foreign-k
 
 ### The end-user experience
 
-The bundled desktop demo shows the model directly: two independent replicas of one account side by side, plus the server's merged truth. Drive each replica's sync independently and watch them converge under all common usage scenarios. It visualizes hidden / tombstoned rows, every foreign-key `onDelete` action, and guided scenarios for restrict / cascade / set-null / unique-conflict cases.
+The bundled desktop demo shows the model directly: two independent replicas of one account side by side, plus the server's merged truth. Drive each replica's sync independently and watch them converge under all common usage scenarios. It visualizes hidden / tombstoned rows and every foreign-key `onDelete` action, with guided scenarios for the restrict / cascade / set-null / set-default / unique-conflict cases.
 
 ### Performance
 
@@ -148,7 +148,7 @@ Below is one of the last performance reports of the package (available at each p
   Storage overhead range: 62.07% --> 300.00%
 ```
 
-Despite the high percentage of slowdown in the insert/update/delete operations, the absolute impact is mostly on the microseconds range, making it barely noticeable in most cases - and way below a network delay if those operations were to be performed through an online endpoint.
+Despite the high percentage of slowdown in the insert/update/delete operations, the absolute impact is mostly in the microsecond range, making it barely noticeable in most cases - and way below a network delay if those operations were to be performed through an online endpoint.
 
 The storage impact is also minimal, reaching at most 3x the base storage size, which is perfectly acceptable for the benefits of offline-first speed and availability.
 
@@ -160,11 +160,11 @@ A report similar to the one above is generated per pull request as a comment on 
 
 **Metadata model.** Three metadata tables track change history *without copying row data*: `crdt_data_rows` (insert + visibility), `crdt_data_fields` (update), and `crdt_data_tombstone` (delete/restore). HLCs are used to order field-level values and break ties. A monotone causal-length tombstone governs row existence, so add/delete/restore advance generations forward and can never oscillate. All metadata is normalized, with normalized IDs cached, to keep both the storage and performance impact minimal.
 
-**Visibility as a pure function.** Replicas never coordinate. Each merge applies remote facts monotonically, then derives the visible database — tombstone state, unique-conflict winners, and foreign-key repair — as a deterministic projection computed to a fixed point. This is the architecture proven by *Synql* (Ignat et al., DAIS 2024), extended here to cover the full set of `ON DELETE` actions and unique constraints over deeply relational schemas.
+**Visibility as a pure function.** Replicas never coordinate. Each merge applies remote facts monotonically, then derives the visible database — tombstone state, unique-conflict winners, and foreign-key repair — as a deterministic projection computed to a fixed point. This is the architecture introduced by *Synql* (Ignat et al., DAIS 2024), extended here to the full set of `ON DELETE` actions and to unique constraints over deeply relational schemas.
 
 **Ownership & scopes.** A *scope* is the unit of replication and ownership; a *user* is an authentication identity. Each row is globally identified by `(table, rowId)` and owned by exactly one scope (`scopeId`), so merging is always one chain per row. Sharing is a membership layer in front of scopes, not a change to row ownership. Scopes can be purged for GDPR / account erasure via a database-enforced cascade. Ownership collisions (the same `(table, rowId)` claimed by two scopes, which is mostly a malicious attack vector) fail the sync and are recorded in a durable `crdt_sync_integrity_violations` table.
 
-**Sync protocol.** A session handshakes once to validate both ends have the same tables schema and ensure that a merge will reach the same result. Then, per cycle the server sends the authoritative scope set and all scopes that the user has access to are synced (data is transferred all at once, but merged one at a time). The data is transferred in chunks to avoid pressuring the bandwidth with too many small messages. This same stream-based implementation is used for both "one-shot" and "continuous" sync modes, so a one-shot sync with large amounts of data will be as performant as a continuous sync. It also means that all tests hold for both sync modes with minimal duplication.
+**Sync protocol.** A session handshakes once to validate both ends have the same table schema and ensure that a merge will reach the same result. Then, per cycle the server sends the authoritative scope set and all scopes that the user has access to are synced (data is transferred all at once, but merged one at a time). The data is transferred in chunks to avoid pressuring the bandwidth with too many small messages. This same stream-based implementation is used for both "one-shot" and "continuous" sync modes, so a one-shot sync with large amounts of data will be as performant as a continuous sync. It also means that all tests hold for both sync modes with minimal duplication.
 
 ## Testing
 
@@ -196,9 +196,9 @@ Given that all these changes are on the `serverpod_cli`, it doesn't even require
 
 ### Review strategy
 
-Besides not being that big (~30k LOC for the packages, ~10k LOC for the tests), the codebase is dense on the logic. So the best way to review it is to read the performance reports first, then all tests, and finally the main files of the packages as needed.
+Besides not being that big (~35k LOC for the packages, ~11k LOC for the tests), the codebase is dense on the logic. So the best way to review it is to read the performance reports first, then all tests, and finally the main files of the packages as needed.
 
-The design docs can also be used as a reference to understand the architecture and the implementation, as they were kept in sync through all the development process.
+The design docs can also be used as a reference to understand the architecture and the implementation, as they were kept in sync throughout the development process.
 
 ### Transference process
 
