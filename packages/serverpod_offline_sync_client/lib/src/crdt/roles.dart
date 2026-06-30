@@ -2,10 +2,9 @@ import '../protocol/protocol.dart';
 
 /// CRDT write capability for a scope role.
 ///
-/// A null role represents a user's implicit personal scope or a legacy shared
-/// membership without an explicit role. Those remain writable for backwards
-/// compatibility.
+/// The implicit personal scope resolves to [CrdtScopeRole.readWrite]. A missing
+/// role means no shared membership row was found and does not grant writes.
 extension CrdtScopeRoleWriteAccess on CrdtScopeRole? {
   /// Whether this role may write CRDT rows in the scope.
-  bool get canWrite => this != CrdtScopeRole.readOnly;
+  bool get canWrite => this == CrdtScopeRole.readWrite;
 }

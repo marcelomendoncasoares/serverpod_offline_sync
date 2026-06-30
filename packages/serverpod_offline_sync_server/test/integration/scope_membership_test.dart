@@ -44,6 +44,7 @@ void main() {
           server.CrdtScopeMember(
             scopeId: otherScope.id!,
             userUuid: otherUserUuid,
+            role: server.CrdtScopeRole.readOnly,
           ),
         );
       });
@@ -114,7 +115,7 @@ void main() {
 
       test(
         'when the role is resolved for the personal scope, '
-        'then no role is returned.',
+        'then the readWrite role is returned.',
         () async {
           final session = sessionBuilder.build();
 
@@ -124,7 +125,7 @@ void main() {
               userUuid: userUuid,
               scopeUuid: userUuid,
             ),
-            isNull,
+            CrdtScopeRole.readWrite,
           );
         },
       );

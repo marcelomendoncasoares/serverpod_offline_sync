@@ -1,11 +1,11 @@
 ### Authoritative or informational scope set exchanged at the start of a cycle.
 ###
 ### The server sends the authoritative membership set (with roles). The client
-### sends its local view for observability (roles null); the server never widens
-### access from it.
+### sends an empty set; the server never widens access from follower-reported
+### state.
 class: CrdtSyncScopeSet
 extends: CrdtSyncStreamEvent
 fields:
   ### Scopes this peer reports for the next sync cycle, each with the receiving
-  ### user's authoritative role when known.
+  ### user's authoritative role.
   scopes: List<CrdtScopeGrant>

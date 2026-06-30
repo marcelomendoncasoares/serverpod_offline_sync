@@ -732,10 +732,11 @@ not relitigated by accident:
    on a synced table has no escape hatch other than renaming its column.
    Acceptable for now; revisit if it bites real users.
 3. **Membership revocation semantics (sharing).** When a user loses membership
-   of a scope, the server stops streaming it at the next sync cycle, but the
-   device still holds the scope's data and may hold unsynced local changes for
-   it. Purge-vs-keep policy, and whether revoked unsynced changes are surfaced
-   or dropped, need their own design.
+   of a scope, the server stops streaming it at the next sync cycle. The device
+   may still store the scope's data and unsynced local changes, though
+   membership-wide reads no longer expose revoked rows. Purge-vs-keep policy,
+   and whether revoked unsynced changes are surfaced or dropped, need their own
+   design.
 4. **Roles within a scope (sharing).** Resolved in `shared-scopes.md`.
    `crdt_scope_members.role` is enforced for writes through the closed
    `CrdtScopeRole` enum: the server rejects and records unauthorized inbound

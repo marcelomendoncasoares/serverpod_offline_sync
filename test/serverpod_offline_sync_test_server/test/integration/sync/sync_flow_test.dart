@@ -455,6 +455,7 @@ void main() {
           'when client syncOnce is called,',
           () {
             late UuidValue roleScopeId;
+            late UuidValue revokedPersonId;
 
             setUp(() async {
               roleScopeId = const Uuid().v7obj();
@@ -464,6 +465,16 @@ void main() {
                 scopeUuid: roleScopeId,
                 role: CrdtScopeRole.readWrite,
               );
+              final revokedPerson = await serverSession.db.transactionForUser(
+                testCrdtUserId,
+                (tx) => server.Person.db.insertRow(
+                  serverSession,
+                  server.Person(name: 'revoked-scope-person'),
+                  transaction: tx,
+                ),
+                scopeId: roleScopeId,
+              );
+              revokedPersonId = revokedPerson.id!;
               await testClient.crdt.syncOnce(clientSession);
               await _revokeScopeMembership(
                 rawServerSession,
@@ -485,6 +496,42 @@ void main() {
                   grants.where((g) => g.uuidScopeId == roleScopeId),
                   isEmpty,
                 );
+              },
+            );
+
+            test(
+              'then rows from the revoked scope are no longer returned by membership-wide reads.',
+              () async {
+                final revokedPerson = await client.Person.db.findById(
+                  clientSession,
+                  revokedPersonId,
+                );
+
+                expect(revokedPerson, isNull);
+              },
+            );
+
+            test(
+              'then starting a local transaction for the revoked scope is rejected before writing.',
+              () async {
+                await expectLater(
+                  clientSession.db.transactionForUser(
+                    testCrdtUserId,
+                    (tx) => client.Person.db.insertRow(
+                      clientSession,
+                      client.Person(name: 'blocked-after-revoke'),
+                      transaction: tx,
+                    ),
+                    scopeId: roleScopeId,
+                  ),
+                  throwsA(isA<CrdtScopeMembershipException>()),
+                );
+
+                final blockedRows = await client.Person.db.find(
+                  clientSession,
+                  where: (t) => t.name.equals('blocked-after-revoke'),
+                );
+                expect(blockedRows, isEmpty);
               },
             );
           },
@@ -1503,14 +1550,12 @@ Future<void> _grantScopeMembership(
   Session session, {
   required UuidValue userUuid,
   required UuidValue scopeUuid,
-  CrdtScopeRole? role,
+  CrdtScopeRole role = CrdtScopeRole.readWrite,
 }) async {
   final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
   final encodedScopeId = ValueEncoder.instance.convert(scope.id);
   final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-  final encodedRole = role == null
-      ? 'NULL'
-      : ValueEncoder.instance.convert(role.toJson());
+  final encodedRole = ValueEncoder.instance.convert(role.toJson());
   await session.db.unsafeExecute(
     'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid", "role") '
     'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '

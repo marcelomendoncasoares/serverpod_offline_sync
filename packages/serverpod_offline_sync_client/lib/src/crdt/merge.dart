@@ -24,13 +24,17 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
   /// by [CrdtSyncEndOfBatch]. If the stream is idle before a batch starts, an
   /// empty batch is returned.
   ///
-  /// When [allowCloseBeforeBatch] is true, returns `null` if the stream closes
-  /// before the next batch starts. [CrdtSyncClose] also returns `null`.
+  /// When [allowCloseBeforeBatch] is true, returns `null` if the transport
+  /// stream closes before the next batch starts. [CrdtSyncClose] is an
+  /// intentional peer request to end the streaming session and returns `null`
+  /// even after frames for a partial batch have already arrived. The caller
+  /// must not persist checkpoint progress for such a discarded partial batch.
   /// Otherwise, closing before a batch starts is treated as a
   /// [CrdtSyncStreamClosedException].
   ///
-  /// If the stream closes after a frame was already received, the partial batch
-  /// is still treated as an error.
+  /// If the transport stream closes after a frame was already received without
+  /// a [CrdtSyncClose] control frame, the partial batch is still treated as an
+  /// error.
   ///
   /// An idle timeout only ends an *empty* batch: once any frame has been
   /// collected the timeout is ignored and collection waits for the explicit

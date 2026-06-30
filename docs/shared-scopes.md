@@ -70,10 +70,11 @@ membership relation and a sync protocol that iterates scopes.
    scopes' chains replicate independently and a remote replica can never
    observe a cross-scope write atomically.
 6. **Roles are closed CRDT access roles.** The package stores and projects
-   `CrdtScopeRole?`: `readOnly` blocks CRDT writes, `readWrite` allows them,
-   and `null` remains writable for personal scopes and legacy shared
-   memberships. Single-tenant servers and multi-account devices remain the same
-   code path with different scope counts.
+   non-null `CrdtScopeRole` values in scope grants and shared memberships:
+   `readWrite` allows CRDT writes and `readOnly` blocks them. The implicit
+   personal scope is announced as a `readWrite` grant, so single-tenant servers
+   and multi-account devices remain the same code path with different scope
+   counts.
 
 ## Membership
 
@@ -86,7 +87,7 @@ database: all
 fields:
   scope: CrdtScope?, relation(onDelete=Cascade)
   userUuid: UuidValue
-  role: CrdtScopeRole?
+  role: CrdtScopeRole
 indexes:
   crdt_scope_member_unique_idx:
     fields: userUuid, scopeId
@@ -106,8 +107,9 @@ indexes:
   scope has the user's own UUID (already true: the scope UUID keys the chain),
   so no `crdt_scope_members` row is stored for it. Shared scopes are
   `crdt_scopes` rows whose UUID is no user's id, with explicit membership rows.
-- `role` is a CRDT access enum. `readOnly` denies writes, `readWrite` allows
-  writes, and `null` is treated as writable for backward compatibility.
+- `role` is a required CRDT access enum. Shared memberships always store an
+  explicit role: `readWrite` allows writes, while `readOnly` denies
+  shared-scope writes.
 
 ### Members vs. nodes
 
@@ -134,29 +136,31 @@ topology, not the access list.
 is **populated as a read-only projection** of the server's authoritative grants
 — without being bidirectionally CRDT-synced:
 
-- The client's `crdt_scopes` rows remain its membership view for *membership
-  gating*: a membership-wide read filters over local scopes, and holding a scope
-  proves membership offline. The members table adds **roles**, which the client
-  consults before local writes.
+- The client's projected `crdt_scope_members` rows plus the implicit personal
+  scope are its membership view for *membership gating*: a membership-wide read
+  filters over projected membership, and a local `crdt_scopes` row by itself
+  does not grant access. The members table also carries **roles**, which the
+  client consults before local writes.
 - The authoritative `CrdtSyncScopeSet` carries `CrdtScopeGrant`s — `(scopeUuid,
-  role)` — not bare UUIDs. When the follower *receives* an announcement,
-  `projectFollowerMembership` reconciles the local table from it: upsert a row
-  per shared grant (the personal scope is implicit and skipped), delete rows
-  whose scope is no longer granted. Since the authoritative peer announces only
-  when its grants change, projection runs only on change and an idle session
-  writes nothing.
+  role)` — not bare UUIDs. Every grant has an explicit role; the personal scope
+  is announced as `readWrite` but remains implicit in storage. When the follower
+  *receives* an announcement, `projectFollowerMembership` reconciles the local
+  table from it: upsert a row per shared grant (the personal scope is skipped),
+  delete rows whose scope is no longer granted. Since the authoritative peer
+  announces only when its grants change, projection runs only on change and an
+  idle session writes nothing.
 - This is a **server-authored, client-read-only projection**, never a synced
   members table: the client never writes membership the server reads, so it
   cannot self-grant. The server stays the security boundary and re-verifies on
   sync.
 - A revoke takes effect for sync as soon as the server omits the scope from a
   cycle's `ScopeSet`: the client stops cycling it and discards in-memory
-  checkpoint state for it. The scope row and domain rows remain local until the
-  deferred revocation cleanup policy decides whether to purge or keep them.
-- Writes are bounded by the scopes the client holds (it cannot act in a scope it
-  has no local row for) and by the projected role. They are re-verified by the
-  server on sync, which remains the security boundary. Client-side checks are
-  early-failure UX, not the enforcement point.
+  checkpoint state for it. The scope row and domain rows may remain stored
+  locally until the deferred revocation cleanup policy decides whether to purge
+  or keep them, but membership-wide reads stop returning those rows.
+- Writes are bounded by projected membership and by the projected role. They are
+  re-verified by the server on sync, which remains the security boundary.
+  Client-side checks are early-failure UX, not the enforcement point.
 
 ### Role write access
 
@@ -170,16 +174,16 @@ enum CrdtScopeRole {
 }
 ```
 
-Only `readOnly` blocks writes. `readWrite` allows writes. `null` also allows
-writes so personal scopes and legacy shared memberships without an explicit role
-keep their previous behavior.
+Only `readWrite` allows writes. `readOnly` denies writes. The implicit personal
+scope has no stored membership row, but its authoritative grant and role lookup
+resolve to `readWrite`.
 
 Roles gate **writes only**. Reads stay membership-wide and role-independent.
 The authoritative server enforces role writes before applying inbound changes:
 for each accepted inbound scope group, it resolves the authenticated user's
-role from `crdt_scope_members`; if the role is `readOnly`, the server records
-`CrdtSyncIntegrityViolation(type: unauthorizedWrite)` and fails the sync
-session before opening the merge transaction for that scope. The rejected
+role from `crdt_scope_members`; if the role is not `readWrite`, the server
+records `CrdtSyncIntegrityViolation(type: unauthorizedWrite)` and fails the
+sync session before opening the merge transaction for that scope. The rejected
 change is not applied and checkpoints do not advance past it.
 
 The client uses the same enum as early UX: `transactionForUser(userId, fn,
@@ -262,12 +266,16 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
 - `CrdtSyncEndOfBatch`, `CrdtSyncClose`, `CrdtSyncIdleTimeout` — unchanged. A
   single `EndOfBatch` terminates a cycle's combined batch (and is itself omitted
   when nothing was sent, so an idle peer resolves to an empty batch instead).
-  `Close` ends a `once` session after its single data cycle.
+  `Close` ends the streaming session. Because it is an intentional peer control
+  frame, it may arrive even after frames for a partial cycle; the receiver
+  discards that partial cycle and records no checkpoint progress for it.
 
 The data cycle's receive uses `collectNextBatch`, which demultiplexes one
 cycle's frames by type into `{ scopeSet?, sinceHlcs, changes }`,
-returning on the single `EndOfBatch` or — when the peer was idle — on the idle
-timeout.
+returning on the single `EndOfBatch`, on `Close` with a closed result, or —
+when the peer was idle — on the idle timeout. A raw transport close without a
+`Close` frame is stricter: it is graceful only between continuous-session
+batches and is treated as truncation once a partial batch has arrived.
 
 ### The session state machine
 
@@ -395,9 +403,9 @@ membership changes without reconnecting:
 - **Revoke.** The server re-announces a `ScopeSet` that omits the scope; both
   sides stop cycling it and discard its in-memory checkpoint state, and the
   follower's `projectFollowerMembership` deletes its members-table row. The
-  device still *holds* the revoked scope's rows; purging them (and the fate of
-  any unsynced local changes) is the deferred revocation question, not a
-  sync-loop concern.
+  device can still store the revoked scope's rows locally, but membership-wide
+  reads no longer return them. Purging stored rows (and the fate of any unsynced
+  local changes) is the deferred revocation question, not a sync-loop concern.
 - **Demote.** The server re-announces the same scope with a different role; the
   follower projection updates the cached role. The next local write consults
   the new role and fails early if it is read-only. Pending local changes already
@@ -425,12 +433,10 @@ db.transactionForUser(userId, fn, scopeId: listId); // acts in a shared scope
   `userId` itself by convention — which is exactly today's behavior.
 - With `scopeId`, the package asserts membership before acting by calling
   `CrdtScopeMembership.isMember` directly against the shared table — no injected
-  validator. On the server that table is authoritative; a persistent client
-  whose copy is empty falls back to "holds the scope locally" for offline UX,
-  and the server remains the security boundary and re-verifies on sync. After
-  membership passes, shared-scope writes also resolve the member role; `readOnly`
-  writes throw `CrdtScopeRoleException` before
-  the transaction starts.
+  validator. On the server that table is authoritative; on a persistent client
+  it is the server-projected membership cache. After membership passes,
+  shared-scope writes also resolve the member role; anything other than
+  `readWrite` throws `CrdtScopeRoleException` before the transaction starts.
 - A transaction acts in **exactly one** scope (constraint 5). The write path —
   stamp-or-assert, the scoped `WHERE`, `scopeId` immutability — is unchanged
   beyond which scope is resolved.
@@ -442,9 +448,10 @@ of". The single-scope resolver becomes a set:
 
 - `mergeWhereWithTombstone` isolates scoped reads with `scopeId IN (<member
   scope ids>)` through `CrdtScopeIdsResolver`. For writes, the resolver supplies
-  the single acting scope. For reads, non-persistent (server) sessions resolve
-  the set from `CrdtScopeMembership.memberScopes`; persistent clients use their
-  local `crdt_scopes` rows; unscoped admin reads still pass no scope filter.
+  the single acting scope. For reads, both server sessions and persistent
+  clients resolve the set from `CrdtScopeMembership.memberScopes`
+  (authoritative on the server, projected on the client); unscoped admin reads
+  still pass no scope filter.
 - The visibility probe is the row-keyed form for the multi-scope case, so
   sharing simplifies the predicate matrix rather than growing it: reads differ
   only in their membership filter (one scope, a user's scopes, or none for
@@ -507,9 +514,9 @@ to run with `--concurrency=1`.
   deferred until their `SinceHlc` round-trips, and inbound frames are honored
   only for authorized scopes.
 - **Phase 7 — roles within a scope.** Implemented the closed
-  `CrdtScopeRole` enum (`readOnly`, `readWrite`) on server and client. `null`
-  roles remain writable for personal scopes and legacy shared memberships.
-  Added authoritative inbound enforcement that records
+  `CrdtScopeRole` enum (`readOnly`, `readWrite`) on server and client.
+  `readWrite` is the only shared-scope write grant. Added authoritative inbound
+  enforcement that records
   `unauthorizedWrite` and fails before merge, client-side
   `CrdtScopeRoleException` early rejection, and follower outbound skipping for
   non-writable shared scopes while reads remain membership-wide.
@@ -539,8 +546,8 @@ tested once, not per combination.
   mutation, `readWrite` syncs normally, a follower skips outbound pending changes
   for non-writable scopes while still receiving inbound changes, and a stale or
   hostile client write is rejected and recorded by the server as
-  `unauthorizedWrite`. Personal scopes and legacy null-role shared memberships
-  remain writable.
+  `unauthorizedWrite`. Personal scopes remain writable through their explicit
+  `readWrite` grant.
 - **Access changes mid-session.** During a continuous session, a grant added to
   `crdt_scope_members` appears and syncs on the next cycle; a revoke stops
   cycling that scope without dropping the session.
@@ -582,9 +589,10 @@ tested once, not per combination.
   populated as a read-only projection. The `CrdtSyncScopeSet` carries
   `CrdtScopeGrant`s (`scopeUuid` + `role`), and each follower cycle reconciles
   the local table from the announcement (upsert granted, delete revoked; only
-  when the set changed). The client's `crdt_scopes` still drives membership
-  gating; the members table adds roles for UI and offline role-gated writes. It
-  is a server-authored, client-read-only projection — never a
+  when the set changed). The projected members table drives shared-scope
+  membership gating and roles for UI and offline role-gated writes; local
+  `crdt_scopes` rows alone do not grant access. It is a server-authored,
+  client-read-only projection — never a
   bidirectionally-synced members table, so a client cannot self-grant.
 - **Iteration order:** sorted scope UUIDs, so both peers stay in lockstep
   without negotiation. Each merge change carries its scope UUID, so receive can
@@ -611,10 +619,11 @@ role enforcement above.
 
 1. **Membership revocation.** When a user loses membership, the server omits the
    scope from the next cycle's `ScopeSet` and both sides stop syncing it
-   promptly, but the device still holds the scope's data and may hold unsynced
-   local changes. Purge-vs-keep policy, and whether revoked or demoted unsynced
-   changes are surfaced, dropped, or kept pending locally, need their own
-   design. (Carried from `row-ownership.md` open question 3.)
+   promptly. The device may still store the scope's data and unsynced local
+   changes, though membership-wide reads no longer expose revoked rows.
+   Purge-vs-keep policy, and whether revoked or demoted unsynced changes are
+   surfaced, dropped, or kept pending locally, need their own design. (Carried
+   from `row-ownership.md` open question 3.)
 2. **Outbound collection consistency.** Collection reads CRDT metadata and the
    domain data separately and lock-free, so a concurrent delete — or an FK
    reference to a row inserted after the insert snapshot — can fail a healthy

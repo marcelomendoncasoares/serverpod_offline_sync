@@ -19,7 +19,7 @@ fields:
   userUuid: UuidValue
 
   ### CRDT access role for this shared-scope membership.
-  role: CrdtScopeRole?
+  role: CrdtScopeRole
 
 indexes:
   ### Leads with userUuid so the per-cycle membership resolution

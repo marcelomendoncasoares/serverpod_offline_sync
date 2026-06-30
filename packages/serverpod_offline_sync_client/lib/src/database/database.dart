@@ -760,16 +760,6 @@ class CrdtDatabase implements Database {
       return;
     }
 
-    // On a client every materialized scope is one the authoritative peer
-    // already granted, so holding the scope locally proves membership.
-    final persistentUserId = _recorder.persistentUserId;
-    if (persistentUserId != null &&
-        persistentUserId == userId &&
-        await _hasLocalScope(scopeId)) {
-      await _assertRoleCanWrite(userId, scopeId);
-      return;
-    }
-
     throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
   }
 
@@ -790,14 +780,6 @@ class CrdtDatabase implements Database {
     );
   }
 
-  Future<bool> _hasLocalScope(UuidValue scopeId) async {
-    final scope = await CrdtScope.db.findFirstRow(
-      _delegate.session,
-      where: (t) => t.uuidScopeId.equals(scopeId),
-    );
-    return scope != null;
-  }
-
   Future<List<int>?> _scopeIdsForQueries(
     Transaction? transaction, {
     required bool membershipWide,
@@ -809,14 +791,8 @@ class CrdtDatabase implements Database {
     final userId = _userIdForQueries(transaction);
     if (userId == null) return null;
 
-    // On a client, every materialized scope is a granted one, so the local
-    // scope set is the membership-wide read set.
-    final persistentUserId = _recorder.persistentUserId;
-    if (persistentUserId != null && persistentUserId == userId) {
-      return _allLocalScopeIds();
-    }
-
-    // Otherwise resolve authoritative membership from the shared table.
+    // On the server this is authoritative membership; on a persistent client it
+    // is the server-projected membership cache.
     return _scopeIdsForUuids(
       await CrdtScopeMembership.memberScopes(_delegate.session, userId),
     );
@@ -841,14 +817,6 @@ class CrdtDatabase implements Database {
       _delegate.session,
       where: (t) => t.uuidScopeId.inSet(scopeUuids.toSet()),
     );
-    return [
-      for (final scope in scopes)
-        if (scope.id != null) scope.id!,
-    ];
-  }
-
-  Future<List<int>> _allLocalScopeIds() async {
-    final scopes = await CrdtScope.db.find(_delegate.session);
     return [
       for (final scope in scopes)
         if (scope.id != null) scope.id!,

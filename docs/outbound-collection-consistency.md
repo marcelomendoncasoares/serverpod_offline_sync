@@ -12,7 +12,7 @@ weakness to fix; no data is ever applied incorrectly, so this is a
 robustness/liveness problem, not a corruption one.
 
 This is **not yet implemented** — it is tracked design debt. The single-pass
-multi-scope collection (`collectAllPendingChanges`) did not introduce the race
+multi-scope collection (`collectPendingChanges`) did not introduce the race
 but widened its window, which is what surfaced it.
 
 ## The mechanism
