@@ -194,8 +194,8 @@ class CrdtScopeSyncSession {
     };
   }
 
-  /// Checkpoints for the scopes whose handshake completed both ways, keyed by
-  /// scope — the input to a pending-change collection pass.
+  /// Checkpoints for writable scopes whose handshake completed both ways, keyed
+  /// by scope — the input to a pending-change collection pass.
   Map<UuidValue, List<Hlc>> get sendableCheckpoints => {
     for (final scopeId in _activeScopeIds)
       if (_checkpointsByScope[scopeId] != null &&
@@ -203,6 +203,12 @@ class CrdtScopeSyncSession {
           _writableUuids.contains(scopeId.uuid))
         scopeId: _checkpointsByScope[scopeId]!.values.toList(),
   };
+
+  /// Whether any active scope still lacks the peer handshake state.
+  bool get hasIncompleteActiveHandshake => _activeScopeIds.any(
+    (scopeId) =>
+        _checkpointsByScope[scopeId] == null || _peerNodeIdByScope[scopeId] == null,
+  );
 
   /// Advances the in-session checkpoint for [scopeId] past a just-sent [change],
   /// so the next collection does not resend it.

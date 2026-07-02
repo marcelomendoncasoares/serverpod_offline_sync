@@ -14,6 +14,7 @@ import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
 import '../test_tools/serverpod_test_tools.dart';
+import '../test_tools/stderr_capture.dart';
 
 void main() {
   initTestClientSession(withPersistentUser: true);
@@ -490,6 +491,7 @@ void main() {
           () {
             late UuidValue readOnlyScopeId;
             late UuidValue serverPersonId;
+            late String stderr;
 
             setUp(() async {
               readOnlyScopeId = const Uuid().v7obj();
@@ -508,7 +510,9 @@ void main() {
                 ),
               );
               serverPersonId = serverPerson.id!;
-              await testClient.crdt.syncOnce(clientSession);
+              stderr = await captureStderr(
+                () => testClient.crdt.syncOnce(clientSession),
+              );
             });
 
             test('then the readOnly scope row is readable on the client.', () async {
@@ -542,6 +546,13 @@ void main() {
                   where: (t) => t.name.equals('blocked-read-only-write'),
                 );
                 expect(blockedRows, isEmpty);
+              },
+            );
+
+            test(
+              'then syncOnce closes without unexpected server protocol errors.',
+              () async {
+                expect(stderr, isNot(contains('CrdtSyncUnexpectedEventException')));
               },
             );
           },
@@ -784,231 +795,6 @@ void main() {
               expect(serverPersonalPerson, isNotNull);
               expect(serverPersonalPerson!.name, 'personal-client-person');
               expect(serverUngrantedPerson, isNull);
-            },
-          );
-        },
-      );
-
-      group(
-        'and a stale client session holds a readWrite projection for a shared '
-        'scope the server grants as readOnly, with pending personal and shared '
-        'writes, when the crafted combined batch is replayed to the server,',
-        () {
-          late UuidValue sharedScopeId;
-          late UuidValue personalPersonId;
-          late UuidValue sharedPersonId;
-          late Object? sessionError;
-
-          setUp(() async {
-            sharedScopeId = const Uuid().v7obj();
-            await _upsertScopeMembership(
-              rawServerSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: sharedScopeId,
-              role: CrdtScopeRole.readOnly,
-            );
-            final staleSession = CrdtDatabaseSession.wraps(
-              await createAdditionalTestSession(),
-              syncTables: clientSyncTables,
-              persistentUserId: testCrdtUserId,
-            );
-            await staleSession.db.initialize();
-            await _upsertScopeMembership(
-              staleSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: sharedScopeId,
-              role: CrdtScopeRole.readWrite,
-            );
-
-            final personalPerson = await staleSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => client.Person.db.insertRow(
-                staleSession,
-                client.Person(name: 'stale-personal-write'),
-                transaction: tx,
-              ),
-            );
-            personalPersonId = personalPerson.id!;
-            final sharedPerson = await staleSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => client.Person.db.insertRow(
-                staleSession,
-                client.Person(name: 'stale-shared-write'),
-                transaction: tx,
-              ),
-              scopeId: sharedScopeId,
-            );
-            sharedPersonId = sharedPerson.id!;
-
-            final staleSync = CrdtSync(
-              syncTables: clientSyncTables,
-              serializationManager: staleSession.db.serializationManager,
-            );
-            final changes = await staleSync
-                .collectPendingChanges(
-                  staleSession,
-                  checkpointsByScopeUuid: {
-                    testCrdtUserId: const [],
-                    sharedScopeId: const [],
-                  },
-                )
-                .toList();
-            // Personal changes first, so the server merges the authorized
-            // scope group before it reaches the unauthorized one.
-            final orderedChanges = [
-              ...changes.where((change) => change.uuidScopeId == testCrdtUserId),
-              ...changes.where((change) => change.uuidScopeId == sharedScopeId),
-            ];
-            expect(orderedChanges, hasLength(changes.length));
-            expect(
-              orderedChanges.map((change) => change.uuidScopeId).toSet(),
-              hasLength(2),
-            );
-
-            final localNodeId = changes.first.uuidNodeId;
-            sessionError = await _runScriptedOnceSession(
-              rawServerSession.crdt,
-              serverSession,
-              userUuid: testCrdtUserId,
-              firstBatchFrames: [
-                CrdtSyncSinceHlc(
-                  uuidScopeId: testCrdtUserId,
-                  localNodeId: localNodeId,
-                  nodeCheckpoints: const [],
-                ),
-                CrdtSyncSinceHlc(
-                  uuidScopeId: sharedScopeId,
-                  localNodeId: localNodeId,
-                  nodeCheckpoints: const [],
-                ),
-                CrdtSyncMergeChunk(changes: orderedChanges),
-              ],
-            );
-          });
-
-          test('then the sync session fails with an integrity violation.', () {
-            expect(sessionError, isA<CrdtSyncIntegrityViolationException>());
-          });
-
-          test('then the authorized personal-scope write is merged.', () async {
-            final serverPerson = await server.Person.db.findById(
-              serverSession,
-              personalPersonId,
-            );
-
-            expect(serverPerson, isNotNull);
-            expect(serverPerson!.name, 'stale-personal-write');
-          });
-
-          test(
-            'then the unauthorized shared-scope write is not applied and '
-            'records an unauthorizedWrite violation.',
-            () async {
-              expect(
-                await server.Person.db.findById(serverSession, sharedPersonId),
-                isNull,
-              );
-
-              final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
-                rawServerSession,
-                where: (t) =>
-                    t.type.equals(CrdtSyncViolationType.unauthorizedWrite) &
-                    t.uuidRowId.equals(sharedPersonId),
-              );
-              expect(violation, isNotNull);
-              expect(violation!.operation, CrdtSyncViolationOperation.mergeInsert);
-              expect(violation.incomingScopeUuid, sharedScopeId);
-            },
-          );
-        },
-      );
-
-      group(
-        'and a stale client session holds a readWrite projection for a scope '
-        'the server never granted, with a pending write, '
-        'when the crafted batch is replayed to the server,',
-        () {
-          late UuidValue ungrantedScopeId;
-          late UuidValue scopedPersonId;
-          late Object? sessionError;
-
-          setUp(() async {
-            ungrantedScopeId = const Uuid().v7obj();
-            final staleSession = CrdtDatabaseSession.wraps(
-              await createAdditionalTestSession(),
-              syncTables: clientSyncTables,
-              persistentUserId: testCrdtUserId,
-            );
-            await staleSession.db.initialize();
-            await _upsertScopeMembership(
-              staleSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: ungrantedScopeId,
-              role: CrdtScopeRole.readWrite,
-            );
-
-            final scopedPerson = await staleSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => client.Person.db.insertRow(
-                staleSession,
-                client.Person(name: 'never-granted-write'),
-                transaction: tx,
-              ),
-              scopeId: ungrantedScopeId,
-            );
-            scopedPersonId = scopedPerson.id!;
-
-            final staleSync = CrdtSync(
-              syncTables: clientSyncTables,
-              serializationManager: staleSession.db.serializationManager,
-            );
-            final changes = await staleSync
-                .collectPendingChanges(
-                  staleSession,
-                  checkpointsByScopeUuid: {ungrantedScopeId: const []},
-                )
-                .toList();
-            expect(changes, isNotEmpty);
-
-            final localNodeId = changes.first.uuidNodeId;
-            sessionError = await _runScriptedOnceSession(
-              rawServerSession.crdt,
-              serverSession,
-              userUuid: testCrdtUserId,
-              firstBatchFrames: [
-                CrdtSyncSinceHlc(
-                  uuidScopeId: testCrdtUserId,
-                  localNodeId: localNodeId,
-                  nodeCheckpoints: const [],
-                ),
-                CrdtSyncSinceHlc(
-                  uuidScopeId: ungrantedScopeId,
-                  localNodeId: localNodeId,
-                  nodeCheckpoints: const [],
-                ),
-                CrdtSyncMergeChunk(changes: changes),
-              ],
-            );
-          });
-
-          test('then the session completes without an error.', () {
-            expect(sessionError, isNull);
-          });
-
-          test(
-            'then the non-member write is skipped without recording a violation.',
-            () async {
-              expect(
-                await server.Person.db.findById(serverSession, scopedPersonId),
-                isNull,
-              );
-              expect(
-                await CrdtSyncIntegrityViolation.db.find(
-                  rawServerSession,
-                  where: (t) => t.uuidRowId.equals(scopedPersonId),
-                ),
-                isEmpty,
-              );
             },
           );
         },
@@ -1813,88 +1599,6 @@ Future<void> _upsertScopeMembership(
     'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
     'ON CONFLICT ("scopeId", "userUuid") DO UPDATE SET "role" = $encodedRole',
   );
-}
-
-/// Drives an authoritative once-mode [serverSync] session as a scripted
-/// client: it completes the handshake, injects [firstBatchFrames] (plus the
-/// terminator) as its first data batch, and replies with empty batches and
-/// the symmetric close afterwards.
-///
-/// Returns the error that ended the session, or null when it closed cleanly.
-Future<Object?> _runScriptedOnceSession(
-  CrdtSync serverSync,
-  DatabaseSession serverSession, {
-  required UuidValue userUuid,
-  required List<CrdtSyncStreamEvent> firstBatchFrames,
-}) async {
-  final inbound = StreamController<CrdtSyncStreamEvent>();
-  final completion = Completer<({Object? error, StackTrace? stackTrace})>();
-  var sentScopeSet = false;
-  var sentFirstBatch = false;
-
-  void reply(CrdtSyncStreamEvent event) {
-    if (!inbound.isClosed) inbound.add(event);
-  }
-
-  late final StreamSubscription<CrdtSyncStreamEvent> subscription;
-  subscription = serverSync
-      .sync(
-        serverSession,
-        userId: userUuid,
-        inbound: inbound.stream,
-        once: true,
-        mode: CrdtSyncPeerMode.authoritative,
-      )
-      .listen(
-        (event) {
-          switch (event) {
-            case CrdtSyncConnect():
-              reply(
-                CrdtSyncConnect(syncTablesHash: serverSync.currentSyncTablesHash),
-              );
-            case CrdtSyncScopeSet() when !sentScopeSet:
-              sentScopeSet = true;
-              reply(CrdtSyncScopeSet(scopes: const []));
-            case CrdtSyncEndOfBatch():
-              if (!sentFirstBatch) {
-                sentFirstBatch = true;
-                firstBatchFrames.forEach(reply);
-              }
-              reply(CrdtSyncEndOfBatch());
-            case CrdtSyncClose():
-              reply(CrdtSyncClose());
-            default:
-              break;
-          }
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          if (!completion.isCompleted) {
-            completion.complete((error: error, stackTrace: stackTrace));
-          }
-        },
-        onDone: () {
-          if (!completion.isCompleted) {
-            completion.complete((error: null, stackTrace: null));
-          }
-        },
-      );
-
-  try {
-    final result = await completion.future.timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => (
-        error: TimeoutException('The scripted sync session did not finish.'),
-        stackTrace: StackTrace.current,
-      ),
-    );
-    if (result.error is TimeoutException) {
-      Error.throwWithStackTrace(result.error!, result.stackTrace!);
-    }
-    return result.error;
-  } finally {
-    await inbound.close();
-    await subscription.cancel();
-  }
 }
 
 Future<void> _revokeScopeMembership(

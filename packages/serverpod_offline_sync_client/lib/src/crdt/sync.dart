@@ -350,9 +350,7 @@ class CrdtSync {
         );
 
         if (once) {
-          if (scopes.activeScopeIds.any(
-            (scopeId) => !scopes.sendableCheckpoints.containsKey(scopeId),
-          )) {
+          if (scopes.hasIncompleteActiveHandshake) {
             continue;
           }
           if (!hadSendableCheckpoints && scopes.sendableCheckpoints.isNotEmpty) {
