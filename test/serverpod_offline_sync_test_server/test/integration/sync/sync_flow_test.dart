@@ -1508,6 +1508,9 @@ void main() {
   withServerpod(
     'Given a server and client CRDT session that are initialized with different sync tables',
     rollbackDatabase: RollbackDatabase.disabled,
+    // Silent mode is used to avoid the symmetric `SyncTablesHashMismatchException`
+    // to be printed to the console. The exception is already asserted on the client.
+    testServerOutputMode: TestServerOutputMode.silent,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
 
@@ -1542,13 +1545,27 @@ void main() {
         await serverSession.clearUserTables();
       });
 
+      final expectedHashMismatch = isA<SyncTablesHashMismatchException>()
+          .having(
+            (e) => e.toString(),
+            'message',
+            contains('SyncTablesHashMismatchException: schema hash mismatch.'),
+          )
+          .having(
+            (e) => e.toString(),
+            'message',
+            contains(
+              'Ensure both sides are on the same schema version before syncing.',
+            ),
+          );
+
       test(
         'when client syncOnce is called '
         'then SyncTablesHashMismatchException is thrown.',
         () async {
           await expectLater(
             testClient.crdt.syncOnce(clientSession),
-            throwsA(isA<SyncTablesHashMismatchException>()),
+            throwsA(expectedHashMismatch),
           );
         },
       );
@@ -1562,7 +1579,7 @@ void main() {
 
           await expectLater(
             syncSession.done,
-            throwsA(isA<SyncTablesHashMismatchException>()),
+            throwsA(expectedHashMismatch),
           );
         },
       );
