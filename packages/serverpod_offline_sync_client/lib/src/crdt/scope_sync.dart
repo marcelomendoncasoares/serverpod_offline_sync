@@ -126,7 +126,7 @@ class CrdtScopeSyncSession {
   Future<void> reconcile() async {
     _localGrants = _sortedUniqueGrants(await _resolveLocalGrants());
     await _recomputeActiveScopes();
-    await _refreshWritableScopes();
+    _refreshWritableScopes();
   }
 
   /// Adopts the peer's announced [peerGrants] and recomputes the active scope
@@ -145,7 +145,7 @@ class CrdtScopeSyncSession {
         grants: _peerGrants,
       );
     }
-    await _refreshWritableScopes();
+    _refreshWritableScopes();
   }
 
   /// Recomputes the active scope set from the current local and peer grants
@@ -164,29 +164,21 @@ class CrdtScopeSyncSession {
     _checkpointsByScope.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
   }
 
-  Future<void> _refreshWritableScopes() async {
+  void _refreshWritableScopes() {
     if (_mode == CrdtSyncPeerMode.authoritative) {
       _writableUuids = _activeUuids;
       return;
     }
 
-    final writableUuids = <String>{};
-    for (final scopeId in _activeScopeIds) {
-      if (scopeId == _userId) {
-        writableUuids.add(scopeId.uuid);
-        continue;
-      }
-
-      final role = await CrdtScopeMembership.roleOf(
-        _session,
-        userUuid: _userId,
-        scopeUuid: scopeId,
-      );
-      if (role.canWrite) {
-        writableUuids.add(scopeId.uuid);
-      }
-    }
-    _writableUuids = writableUuids;
+    // The peer's announced grants already carry the authoritative roles, so a
+    // follower derives writability in memory instead of re-reading the cache
+    // it projected from these same grants. The personal scope is always
+    // writable; consumers only consult scopes in the active set.
+    _writableUuids = {
+      _userId.uuid,
+      for (final grant in _peerGrants)
+        if (grant.role.canWrite) grant.uuidScopeId.uuid,
+    };
   }
 
   /// Marks that this peer is sending its [CrdtSyncSinceHlc] for [scopeId],

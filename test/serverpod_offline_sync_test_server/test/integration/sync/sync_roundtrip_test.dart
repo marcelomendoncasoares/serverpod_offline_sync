@@ -477,7 +477,7 @@ void main() {
       final scope = await CrdtScopeManager(testSession).getOrCreate(testCrdtUserId);
       final sinceHlc = await crdtSync.createSyncSinceHlc(
         testSession,
-        userId: testCrdtUserId,
+        scopeId: testCrdtUserId,
       );
 
       expect(sinceHlc.uuidScopeId, testCrdtUserId);

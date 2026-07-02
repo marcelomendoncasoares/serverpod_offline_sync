@@ -750,34 +750,20 @@ class CrdtDatabase implements Database {
     if (userId == scopeId) return;
 
     // Authoritative membership: the source of truth on the server, the
-    // read-only cache on a follower (empty until populated).
-    if (await CrdtScopeMembership.isMember(
-      _delegate.session,
-      userUuid: userId,
-      scopeUuid: scopeId,
-    )) {
-      await _assertRoleCanWrite(userId, scopeId);
-      return;
-    }
-
-    throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
-  }
-
-  Future<void> _assertRoleCanWrite(UuidValue userId, UuidValue scopeId) async {
-    if (userId == scopeId) return;
-
+    // read-only cache on a follower (empty until populated). A null role means
+    // no membership row at all; a non-writable role means membership without
+    // write access.
     final role = await CrdtScopeMembership.roleOf(
       _delegate.session,
       userUuid: userId,
       scopeUuid: scopeId,
     );
-    if (role.canWrite) return;
-
-    throw CrdtScopeRoleException(
-      userId: userId,
-      scopeId: scopeId,
-      role: role,
-    );
+    if (role == null) {
+      throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
+    }
+    if (!role.canWrite) {
+      throw CrdtScopeRoleException(userId: userId, scopeId: scopeId, role: role);
+    }
   }
 
   Future<List<int>?> _scopeIdsForQueries(

@@ -62,12 +62,7 @@ class CrdtScopeMembership {
       transaction: transaction,
     );
 
-    final grantsByUuid = <String, CrdtScopeGrant>{
-      userUuid.uuid: CrdtScopeGrant(
-        uuidScopeId: userUuid,
-        role: CrdtScopeRole.readWrite,
-      ),
-    };
+    final grantsByUuid = <String, CrdtScopeGrant>{};
     for (final row in result) {
       final scopeUuid = Protocol().deserialize<UuidValue>(row[0]);
       grantsByUuid[scopeUuid.uuid] = CrdtScopeGrant(
@@ -75,6 +70,12 @@ class CrdtScopeMembership {
         role: _roleFromDatabase(row[1]),
       );
     }
+    // Assigned after the shared rows so the personal grant stays readWrite
+    // even if a stray membership row exists for it, matching [roleOf].
+    grantsByUuid[userUuid.uuid] = CrdtScopeGrant(
+      uuidScopeId: userUuid,
+      role: CrdtScopeRole.readWrite,
+    );
 
     return grantsByUuid.values.toList()
       ..sort((a, b) => a.uuidScopeId.uuid.compareTo(b.uuidScopeId.uuid));
@@ -171,25 +172,13 @@ class CrdtScopeMembership {
     required UuidValue scopeUuid,
     Transaction? transaction,
   }) async {
-    if (userUuid == scopeUuid) return true;
-
-    final scopeId = await _scopeIdForUuid(
+    final role = await roleOf(
       session,
-      scopeUuid,
+      userUuid: userUuid,
+      scopeUuid: scopeUuid,
       transaction: transaction,
     );
-    if (scopeId == null) return false;
-
-    final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
-    final result = await session.db.unsafeQuery(
-      'SELECT 1 FROM "${CrdtScopeMember.t.tableName}" '
-      'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUserUuid '
-      'AND "${CrdtScopeMember.t.scopeId.columnName}" = $encodedScopeId '
-      'LIMIT 1',
-      transaction: transaction,
-    );
-    return result.isNotEmpty;
+    return role != null;
   }
 }
 

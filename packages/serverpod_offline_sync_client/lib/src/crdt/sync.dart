@@ -195,20 +195,20 @@ class CrdtSync {
   @visibleForTesting
   Future<CrdtSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
-    required UuidValue userId,
+    required UuidValue scopeId,
   }) async {
-    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
-    final localNodeId = crdtUser.currentNode!.uuidNodeId;
+    final scope = await CrdtScopeManager(session).getOrCreate(scopeId);
+    final localNodeId = scope.currentNode!.uuidNodeId;
 
     final scopeNodes = await CrdtScopeNode.db.find(
       session,
       where: (t) =>
-          t.scopeId.equals(crdtUser.id) & t.nodeId.notEquals(crdtUser.currentNodeId),
+          t.scopeId.equals(scope.id) & t.nodeId.notEquals(scope.currentNodeId),
       include: CrdtScopeNode.include(node: CrdtNode.include()),
     );
 
     return CrdtSyncSinceHlc(
-      uuidScopeId: userId,
+      uuidScopeId: scopeId,
       localNodeId: localNodeId,
       nodeCheckpoints: [
         // The local node is always included to avoid collecting its own changes.
@@ -231,16 +231,16 @@ class CrdtSync {
   /// empty.
   Future<Hlc?> _mergeInboundBatch(
     DatabaseSession session, {
-    required UuidValue userId,
+    required UuidValue scopeId,
     required UuidValue otherNodeId,
     required CrdtMergeSet mergeSet,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final crdtDb = _openCrdtDatabase(session);
-    await crdtDb.mergeChanges(mergeSet, scopeId: userId);
+    await crdtDb.mergeChanges(mergeSet, scopeId: scopeId);
     if (maxSyncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
+      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: scopeId);
     }
     return maxSyncedHlc;
   }
@@ -312,7 +312,7 @@ class CrdtSync {
 
         for (final scopeId in scopes.activeScopeIds) {
           if (!scopes.markHandshakeSent(scopeId)) continue;
-          yield await createSyncSinceHlc(session, userId: scopeId);
+          yield await createSyncSinceHlc(session, scopeId: scopeId);
           hasChanges = true;
         }
 
@@ -422,7 +422,7 @@ class CrdtSync {
       }
       final receivedHlc = await _mergeInboundBatch(
         session,
-        userId: scopeId,
+        scopeId: scopeId,
         otherNodeId: peerNodeId,
         mergeSet: entry.value,
       );
