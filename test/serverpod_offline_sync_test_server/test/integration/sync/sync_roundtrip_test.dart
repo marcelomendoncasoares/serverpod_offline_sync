@@ -120,6 +120,154 @@ void main() {
     );
   });
 
+  group('Given personal and shared scope rows authored by the same local node', () {
+    late UuidValue sharedScopeId;
+    late Person sharedPerson;
+    late Person personalPerson;
+
+    setUp(() async {
+      sharedScopeId = const Uuid().v7obj();
+      final sharedScope = await CrdtScopeManager(
+        testSession,
+      ).getOrCreate(sharedScopeId);
+      await CrdtScopeMember.db.insertRow(
+        testSession,
+        CrdtScopeMember(
+          scopeId: sharedScope.id!,
+          userUuid: testCrdtUserId,
+          role: CrdtScopeRole.readWrite,
+        ),
+      );
+
+      sharedPerson = await crdtSession.db.transactionForUser(
+        testCrdtUserId,
+        scopeId: sharedScopeId,
+        (tx) => Person.db.insertRow(
+          crdtSession,
+          Person(id: const Uuid().v7obj(), name: 'shared-person'),
+          transaction: tx,
+        ),
+      );
+      personalPerson = await crdtSession.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          crdtSession,
+          Person(id: const Uuid().v7obj(), name: 'personal-person'),
+          transaction: tx,
+        ),
+      );
+    });
+
+    test(
+      'when only the personal scope checkpoint has advanced '
+      'then the shared scope row is still collected.',
+      () async {
+        final personalScope = await CrdtScope.db.findFirstRow(
+          testSession,
+          where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+          include: CrdtScope.include(currentNode: CrdtNode.include()),
+        );
+        final sharedScope = await CrdtScope.db.findFirstRow(
+          testSession,
+          where: (t) => t.uuidScopeId.equals(sharedScopeId),
+          include: CrdtScope.include(currentNode: CrdtNode.include()),
+        );
+        final personalTracker = await CrdtDataRow.db.findFirstRow(
+          testSession,
+          where: (t) => t.uuidRowId.equals(personalPerson.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        expect(
+          personalScope!.currentNode!.uuidNodeId,
+          sharedScope!.currentNode!.uuidNodeId,
+        );
+
+        final changes = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              checkpointsByScopeUuid: {
+                testCrdtUserId: [personalTracker!.hlc],
+                sharedScopeId: const [],
+              },
+            )
+            .toList();
+
+        expect(changes.map((change) => change.uuidRowId), contains(sharedPerson.id));
+        expect(
+          changes.map((change) => change.uuidRowId),
+          isNot(contains(personalPerson.id)),
+        );
+      },
+    );
+  });
+
+  group('Given existing scopes with different current CRDT nodes', () {
+    late UuidValue firstScopeId;
+    late UuidValue secondScopeId;
+    late CrdtNode firstNode;
+    late Hlc newerSecondNodeHlc;
+    late CrdtScope secondScope;
+
+    setUp(() async {
+      firstScopeId = const Uuid().v7obj();
+      secondScopeId = const Uuid().v7obj();
+      final firstNodeId = const Uuid().v7obj();
+      final secondNodeId = const Uuid().v7obj();
+      firstNode = await CrdtNode.db.insertRow(
+        testSession,
+        CrdtNode(
+          uuidNodeId: firstNodeId,
+          lastHlc: Hlc(DateTime.utc(2026, 5, 8), 1, firstNodeId),
+        ),
+      );
+      newerSecondNodeHlc = Hlc(DateTime.utc(2026, 5, 9), 1, secondNodeId);
+      final secondNode = await CrdtNode.db.insertRow(
+        testSession,
+        CrdtNode(uuidNodeId: secondNodeId, lastHlc: newerSecondNodeHlc),
+      );
+      await CrdtScope.db.insertRow(
+        testSession,
+        CrdtScope(uuidScopeId: firstScopeId, currentNodeId: firstNode.id),
+      );
+      secondScope = await CrdtScope.db.insertRow(
+        testSession,
+        CrdtScope(uuidScopeId: secondScopeId, currentNodeId: secondNode.id),
+      );
+    });
+
+    test(
+      'when the second scope is opened '
+      'then it adopts the stable current node and preserves the newest clock.',
+      () async {
+        final adoptedScope = await CrdtScopeManager(
+          testSession,
+        ).getOrCreate(secondScopeId);
+        final expectedHlc = newerSecondNodeHlc.copyWith(
+          nodeId: firstNode.uuidNodeId,
+        );
+
+        expect(adoptedScope.currentNodeId, firstNode.id);
+        expect(adoptedScope.currentNode!.lastHlc, expectedHlc);
+
+        final persistedSecondScope = await CrdtScope.db.findById(
+          testSession,
+          secondScope.id!,
+          include: CrdtScope.include(currentNode: CrdtNode.include()),
+        );
+        final scopeNode = await CrdtScopeNode.db.findFirstRow(
+          testSession,
+          where: (t) =>
+              t.scopeId.equals(secondScope.id) & t.nodeId.equals(firstNode.id),
+        );
+
+        expect(persistedSecondScope!.currentNodeId, firstNode.id);
+        expect(persistedSecondScope.currentNode!.lastHlc, expectedHlc);
+        expect(scopeNode, isNotNull);
+      },
+    );
+  });
+
   group('Given an updated typed CRDT row', () {
     late Types row;
     late Types updatedRow;

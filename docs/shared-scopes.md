@@ -118,17 +118,19 @@ both stay:
 
 - A **member** is an authorization fact: a user identity allowed to access a
   scope. It answers *who may sync, read, and write*.
-- A **node** (`crdt_nodes`, the scope's `nodes` relation) is a CRDT causality
-  fact: one replica's participation in one scope's HLC chain. It answers *whose
-  changes, up to which HLC* and is what per-`(scope, node)` checkpoints key on.
+- A **node** (`crdt_nodes`) is a stable CRDT replica identity. A scope's
+  `nodes` relation points at `crdt_scope_nodes`, which records that replica's
+  participation and checkpoint state in that scope. Together they answer
+  *whose changes, up to which HLC* and are what per-`(scope, node)` checkpoints
+  key on.
 
 They do not map one-to-one and neither replaces the other. One member may have
-many nodes (one per device). The **server is a node** in every scope it syncs
-but is not a member row. A freshly invited member has **zero nodes** until their
-first device syncs. Nodes are created implicitly by sync (`getOrCreate`,
-`recordSyncCheckpoint`); members are created by application code. Removing the
-`nodes` list would break checkpointing and causal filtering — it is the chain
-topology, not the access list.
+many nodes (one per replica/database install). The **server is a node** in every
+scope it syncs but is not a member row. A freshly invited member has **zero
+scope-node rows** until their first device syncs. Nodes and scope-node rows are
+created implicitly by sync (`getOrCreate`, `recordSyncCheckpoint`); members are
+created by application code. Removing the `nodes` list would break checkpointing
+and causal filtering — it is the chain topology, not the access list.
 
 ### The client membership table
 
@@ -378,10 +380,11 @@ propagation of access changes.
 
 ### Checkpoints, once vs. continuous
 
-Checkpoints stay per `(scope, node)`, exactly as today
-(`CrdtNode.scopeId` + `lastReceivedHlc`, resolved by `recordSyncCheckpoint`). A
-device is a distinct node in each scope's chain. `SinceHlc` is exchanged once
-per scope on first visit; later cycles reuse the in-memory
+Checkpoint rows stay per `(scope, node)` in `crdt_scope_nodes`, while
+`crdt_nodes` stores the stable replica identity. The same local replica node can
+participate in multiple scopes, with separate `lastReceivedHlc` values per
+scope. `SinceHlc` is exchanged once per scope on first visit; later cycles reuse
+the in-memory
 `nodeCheckpoints[scope]`, advanced as chunks are sent and as inbound batches
 merge — the multi-scope analogue of today's single-scope continuous loop, which
 already keeps checkpoints in memory across rounds.

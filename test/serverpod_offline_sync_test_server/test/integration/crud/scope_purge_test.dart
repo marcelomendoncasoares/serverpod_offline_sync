@@ -92,7 +92,7 @@ void main() {
             greaterThan(0),
           );
           expect(
-            await CrdtNode.db.count(
+            await CrdtScopeNode.db.count(
               session,
               where: (t) => t.scopeId.equals(purgedScope.id),
             ),
@@ -154,7 +154,7 @@ void main() {
         test('then the scope and all its CRDT metadata are removed.', () async {
           expect(await CrdtScope.db.findById(session, purgedScope.id!), isNull);
           expect(
-            await CrdtNode.db.count(
+            await CrdtScopeNode.db.count(
               session,
               where: (t) => t.scopeId.equals(purgedScope.id),
             ),
@@ -195,7 +195,7 @@ void main() {
               isNotNull,
             );
             expect(
-              await CrdtNode.db.count(
+              await CrdtScopeNode.db.count(
                 session,
                 where: (t) => t.scopeId.equals(survivingScope.id),
               ),

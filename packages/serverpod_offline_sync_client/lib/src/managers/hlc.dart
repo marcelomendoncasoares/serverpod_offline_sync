@@ -19,7 +19,7 @@ class HlcManager {
       scope.uuidScopeId,
       scope.id!,
       scope.currentNodeId!,
-      scope.currentNode!.lastReceivedHlc ?? Hlc.zero(scope.currentNode!.uuidNodeId),
+      scope.currentNode!.lastHlc ?? Hlc.zero(scope.currentNode!.uuidNodeId),
     );
   }
 
@@ -52,8 +52,7 @@ class HlcManager {
   /// Converts this manager state to the persisted current-node model.
   CrdtNode getNode() => CrdtNode(
     id: normalizedNodeId,
-    scopeId: normalizedScopeId,
     uuidNodeId: uuidNodeId,
-    lastReceivedHlc: lastHlc,
+    lastHlc: lastHlc,
   );
 }

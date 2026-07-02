@@ -342,7 +342,11 @@ void main() {
 
         otherNode = await CrdtNode.db.insertRow(
           session,
-          CrdtNode(scopeId: scope!.id!),
+          CrdtNode(),
+        );
+        await CrdtScopeNode.db.insertRow(
+          session,
+          CrdtScopeNode(scopeId: scope!.id!, nodeId: otherNode.id!),
         );
 
         final crdtDataRow = await CrdtDataRow.db

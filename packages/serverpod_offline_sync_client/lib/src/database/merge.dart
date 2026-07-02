@@ -10,6 +10,10 @@ typedef _MergeContext = ({
   Map<_MergeRowKey, CrdtDataDeleted> tombstones,
   Map<_MergeRowKey, _DomainOwner> domainOwners,
 });
+typedef _MergeNodes = ({
+  Map<UuidValue, CrdtNode> nodesByUuid,
+  Map<UuidValue, CrdtScopeNode> scopeNodesByUuid,
+});
 
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
@@ -47,6 +51,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       {for (final change in operations) change.uuidNodeId},
       transaction,
     );
+    final nodesByUuid = remoteNodes.nodesByUuid;
     final context = await _loadMergeContext(mergeSet, transaction);
 
     for (final operation in operations) {
@@ -58,21 +63,21 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         case final CrdtMergeInsert insert:
           await _applyMergeInsert(
             insert,
-            remoteNodes,
+            nodesByUuid,
             context,
             transaction,
           );
         case final CrdtMergeUpdate update:
           await _applyMergeUpdate(
             update,
-            remoteNodes,
+            nodesByUuid,
             context,
             transaction,
           );
         case final CrdtMergeDelete delete:
           await _applyMergeDelete(
             delete,
-            remoteNodes,
+            nodesByUuid,
             context,
             transaction,
           );
@@ -91,14 +96,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
   Future<void> _updateHlcFromIncomingOperations(
     List<CrdtMergeChange> operations,
-    Map<UuidValue, CrdtNode> remoteNodes,
+    _MergeNodes remoteNodes,
     Transaction transaction,
   ) async {
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
       (current, change) => change.hlc.maxBetween(current),
     );
-    final nodesToUpdate = <CrdtNode>[];
+    final scopeNodesToUpdate = <CrdtScopeNode>[];
 
     if (maxIncomingHlc != null) {
       final hlcManager = _getHlcManager(transaction);
@@ -110,7 +115,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         hlcManager.merge(maxIncomingHlc);
       }
 
-      nodesToUpdate.add(hlcManager.getNode());
+      await _persistCurrentNodeHlc(hlcManager, transaction);
     }
 
     final maxIncomingHlcByNode = <UuidValue, Hlc>{};
@@ -122,66 +127,77 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     for (final MapEntry(key: nodeId, value: incomingHlc)
         in maxIncomingHlcByNode.entries) {
-      final remoteNode = remoteNodes[nodeId];
+      final remoteNode = remoteNodes.scopeNodesByUuid[nodeId];
       if (remoteNode == null) continue;
-      final updatedNode = remoteNode.copyWith(
+      final updatedScopeNode = remoteNode.copyWith(
         lastReceivedHlc: incomingHlc.maxBetween(remoteNode.lastReceivedHlc),
       );
-      if (updatedNode.lastReceivedHlc == remoteNode.lastReceivedHlc) continue;
+      if (updatedScopeNode.lastReceivedHlc == remoteNode.lastReceivedHlc) {
+        continue;
+      }
 
-      nodesToUpdate.add(updatedNode);
-      remoteNodes[nodeId] = updatedNode;
+      scopeNodesToUpdate.add(updatedScopeNode);
+      remoteNodes.scopeNodesByUuid[nodeId] = updatedScopeNode;
     }
 
-    if (nodesToUpdate.isNotEmpty) {
-      await CrdtNode.db.update(
+    if (scopeNodesToUpdate.isNotEmpty) {
+      await CrdtScopeNode.db.update(
         _session,
-        nodesToUpdate,
+        scopeNodesToUpdate,
         columns: (t) => [t.lastReceivedHlc],
         transaction: transaction,
       );
     }
   }
 
-  Future<Map<UuidValue, CrdtNode>> _findOrCreateNodesForMerge(
+  Future<_MergeNodes> _findOrCreateNodesForMerge(
     int userId,
     Set<UuidValue> nodeIds,
     Transaction transaction,
   ) async {
-    if (nodeIds.isEmpty) return {};
-
-    var nodes = await CrdtNode.db.find(
-      _session,
-      where: (t) => t.scopeId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
-      transaction: transaction,
-    );
-    final existingNodeIds = nodes.map((node) => node.uuidNodeId).toSet();
-    final missingNodeIds = nodeIds.difference(existingNodeIds);
-
-    if (missingNodeIds.isNotEmpty) {
-      await CrdtNode.db.insert(
-        _session,
-        [
-          for (final uuidNodeId in missingNodeIds)
-            CrdtNode(
-              scopeId: userId,
-              uuidNodeId: uuidNodeId,
-            ),
-        ],
-        transaction: transaction,
-        ignoreConflicts: true,
-      );
-
-      nodes = await CrdtNode.db.find(
-        _session,
-        where: (t) => t.scopeId.equals(userId) & t.uuidNodeId.inSet(nodeIds),
-        transaction: transaction,
+    if (nodeIds.isEmpty) {
+      return (
+        nodesByUuid: const <UuidValue, CrdtNode>{},
+        scopeNodesByUuid: const <UuidValue, CrdtScopeNode>{},
       );
     }
 
-    return {
+    for (final uuidNodeId in nodeIds) {
+      await _findOrCreateNode(uuidNodeId, transaction);
+    }
+
+    final nodes = await CrdtNode.db.find(
+      _session,
+      where: (t) => t.uuidNodeId.inSet(nodeIds),
+      transaction: transaction,
+    );
+    final nodesByUuid = {
       for (final node in nodes) node.uuidNodeId: node,
     };
+
+    for (final node in nodesByUuid.values) {
+      await _findOrCreateScopeNode(
+        userId,
+        node.id!,
+        transaction,
+      );
+    }
+
+    final scopeNodes = await CrdtScopeNode.db.find(
+      _session,
+      where: (t) =>
+          t.scopeId.equals(userId) &
+          t.nodeId.inSet(nodesByUuid.values.map((node) => node.id!).toSet()),
+      include: CrdtScopeNode.include(node: CrdtNode.include()),
+      transaction: transaction,
+    );
+
+    return (
+      nodesByUuid: nodesByUuid,
+      scopeNodesByUuid: {
+        for (final scopeNode in scopeNodes) scopeNode.node!.uuidNodeId: scopeNode,
+      },
+    );
   }
 
   Future<_MergeContext> _loadMergeContext(

@@ -17,9 +17,8 @@ void main() {
         currentNodeId: 9,
         currentNode: CrdtNode(
           id: 9,
-          scopeId: 42,
           uuidNodeId: nodeId,
-          lastReceivedHlc: lastHlc,
+          lastHlc: lastHlc,
         ),
       ),
     );
@@ -30,9 +29,8 @@ void main() {
         final node = manager.getNode();
 
         expect(node.id, 9);
-        expect(node.scopeId, 42);
         expect(node.uuidNodeId, nodeId);
-        expect(node.lastReceivedHlc, lastHlc);
+        expect(node.lastHlc, lastHlc);
       },
     );
   });
@@ -41,7 +39,7 @@ void main() {
     final scopeId = const Uuid().v7obj();
     final rowId = const Uuid().v7obj();
     final requesterNodeId = const Uuid().v7obj();
-    final row = CrdtNode(scopeId: 1, uuidNodeId: rowId);
+    final row = CrdtNode(uuidNodeId: rowId);
 
     final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
       CrdtSyncMergeChunk(

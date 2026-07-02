@@ -650,8 +650,9 @@ filter and RLS become two enforcements of one predicate.
 - Every database is already sharing-capable schema-wise — the column is
   universal — so a sharing-enabled client simply holds several scopes' rows.
   One database file per scope remains a valid alternative layout.
-- Checkpoints stay per `(scope, node)`; a device is a node in each scope's
-  chain it participates in.
+- Checkpoints stay per `(scope, node)`: `crdt_nodes` stores the stable replica
+  identity, while `crdt_scope_nodes` stores each scope's checkpoint for that
+  node.
 
 ### What sharing does not change
 

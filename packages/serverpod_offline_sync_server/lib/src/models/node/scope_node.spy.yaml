@@ -1,0 +1,19 @@
+### A CRDT node's participation and checkpoint state within one scope.
+class: CrdtScopeNode
+table: crdt_scope_nodes
+database: all
+fields:
+  ### Scope this participation row belongs to.
+  scope: CrdtScope?, relation(name=scope_nodes, onDelete=Cascade)
+
+  ### Stable replica identity participating in the scope.
+  node: CrdtNode?, relation(onDelete=Cascade)
+
+  ### Latest HLC from this node acknowledged for this scope.
+  lastReceivedHlc: Hlc?
+
+indexes:
+  ### Enforces one checkpoint row per (scope, node).
+  crdt_scope_node_unique_idx:
+    fields: scopeId, nodeId
+    unique: true

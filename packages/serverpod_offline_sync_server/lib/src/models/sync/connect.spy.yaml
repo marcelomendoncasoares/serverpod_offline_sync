@@ -1,8 +1,9 @@
 ### Session handshake sent once by each peer before any scope work.
 ###
 ### [syncTablesHash] is the deterministic schema hash both sides must agree on
-### before merging data. Scope membership and node ids are exchanged after this:
-### membership is resolved per cycle, and node ids are per scope.
+### before merging data. Scope membership and node participation are exchanged
+### after this: membership is resolved per cycle, and checkpoint state is per
+### scope.
 class: CrdtSyncConnect
 extends: CrdtSyncStreamEvent
 fields:

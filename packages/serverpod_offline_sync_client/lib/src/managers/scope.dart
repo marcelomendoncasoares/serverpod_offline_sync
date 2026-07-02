@@ -51,26 +51,92 @@ class CrdtScopeManager {
       transaction: transaction,
     );
 
-    if (scope.currentNode != null) {
-      return scope;
+    var currentNode = await _getOrCreateCurrentNode(transaction);
+    currentNode = await _preserveLatestCurrentNodeHlc(
+      currentNode,
+      scope.currentNode,
+      transaction,
+    );
+    if (scope.currentNodeId != currentNode.id) {
+      await CrdtScope.db.attachRow.currentNode(
+        _session,
+        scope,
+        currentNode,
+        transaction: transaction,
+      );
     }
 
-    final currentNode = await CrdtNode.db.insertRow(
-      _session,
-      CrdtNode(scopeId: scope.id!),
-      transaction: transaction,
-    );
-
-    await CrdtScope.db.attachRow.currentNode(
-      _session,
-      scope,
-      currentNode,
-      transaction: transaction,
-    );
+    await _ensureScopeNode(scope.id!, currentNode.id!, transaction);
 
     return scope.copyWith(
       currentNodeId: currentNode.id,
       currentNode: currentNode,
+    );
+  }
+
+  Future<CrdtNode> _getOrCreateCurrentNode(Transaction transaction) async {
+    final result = await _session.db.unsafeQuery(
+      'SELECT "${CrdtScope.t.currentNodeId.columnName}" '
+      'FROM "${CrdtScope.t.tableName}" '
+      'WHERE "${CrdtScope.t.currentNodeId.columnName}" IS NOT NULL '
+      'ORDER BY "${CrdtScope.t.id.columnName}" '
+      'LIMIT 1',
+      transaction: transaction,
+    );
+
+    if (result.isNotEmpty) {
+      final node = await CrdtNode.db.findById(
+        _session,
+        result.first[0] as int,
+        transaction: transaction,
+      );
+      if (node != null) return node;
+    }
+
+    return CrdtNode.db.insertRow(
+      _session,
+      CrdtNode(),
+      transaction: transaction,
+    );
+  }
+
+  Future<CrdtNode> _preserveLatestCurrentNodeHlc(
+    CrdtNode currentNode,
+    CrdtNode? scopeCurrentNode,
+    Transaction transaction,
+  ) async {
+    final scopeLastHlc = scopeCurrentNode?.lastHlc;
+    if (scopeLastHlc == null || scopeCurrentNode?.id == currentNode.id) {
+      return currentNode;
+    }
+
+    final currentLastHlc = currentNode.lastHlc;
+    if (currentLastHlc != null && currentLastHlc >= scopeLastHlc) {
+      return currentNode;
+    }
+
+    final updatedNode = currentNode.copyWith(
+      lastHlc: scopeLastHlc.copyWith(nodeId: currentNode.uuidNodeId),
+    );
+    await CrdtNode.db.updateRow(
+      _session,
+      updatedNode,
+      columns: (t) => [t.lastHlc],
+      transaction: transaction,
+    );
+    return updatedNode;
+  }
+
+  Future<void> _ensureScopeNode(
+    int scopeId,
+    int nodeId,
+    Transaction transaction,
+  ) async {
+    await CrdtScopeNode.db.insert(
+      _session,
+      [CrdtScopeNode(scopeId: scopeId, nodeId: nodeId)],
+      transaction: transaction,
+      ignoreConflicts: true,
     );
   }
 }

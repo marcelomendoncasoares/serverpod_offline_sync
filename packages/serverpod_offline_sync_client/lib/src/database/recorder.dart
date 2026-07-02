@@ -357,28 +357,23 @@ class CrdtMutationRecorder {
     UuidValue otherNodeId,
     Hlc syncedHlc,
   ) async {
-    final user = await _scopeManager.getOrCreate(userId);
+    final scope = await _scopeManager.getOrCreate(userId);
     await _db.transaction((transaction) async {
-      var node = await CrdtNode.db.findFirstRow(
-        _session,
-        where: (t) => t.scopeId.equals(user.id) & t.uuidNodeId.equals(otherNodeId),
-        transaction: transaction,
+      final node = await _findOrCreateNode(otherNodeId, transaction);
+      final scopeNode = await _findOrCreateScopeNode(
+        scope.id!,
+        node.id!,
+        transaction,
       );
 
-      node ??= await CrdtNode.db.insertRow(
-        _session,
-        CrdtNode(scopeId: user.id!, uuidNodeId: otherNodeId),
-        transaction: transaction,
-      );
-
-      final currentSyncHlc = node.lastReceivedHlc;
+      final currentSyncHlc = scopeNode.lastReceivedHlc;
       if (currentSyncHlc != null && currentSyncHlc >= syncedHlc) {
         return;
       }
 
-      await CrdtNode.db.updateRow(
+      await CrdtScopeNode.db.updateRow(
         _session,
-        node.copyWith(lastReceivedHlc: syncedHlc),
+        scopeNode.copyWith(lastReceivedHlc: syncedHlc),
         columns: (t) => [t.lastReceivedHlc],
         transaction: transaction,
       );
@@ -607,11 +602,13 @@ WHERE c."id" IN ($whereRowIds)
     if (rows.isEmpty) return;
     if (!isCrdtTracked<T>(rows.first.table)) return;
 
+    final hlcManager = _getHlcManager(transaction);
     await record(
       rows.first.table.tableName,
       rows.uuidRowIds,
-      _getHlcManager(transaction),
+      hlcManager,
     );
+    await _persistCurrentNodeHlc(hlcManager, transaction);
   }
 
   CrdtDataRow _newCrdtDataRow(
@@ -1329,6 +1326,72 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
       user.uuidScopeId,
       () => HlcManager.forScope(user),
     );
+  }
+
+  Future<void> _persistCurrentNodeHlc(
+    HlcManager hlcManager,
+    Transaction transaction,
+  ) async {
+    await CrdtNode.db.updateRow(
+      _session,
+      hlcManager.getNode(),
+      columns: (t) => [t.lastHlc],
+      transaction: transaction,
+    );
+  }
+
+  Future<CrdtNode> _findOrCreateNode(
+    UuidValue uuidNodeId,
+    Transaction transaction,
+  ) async {
+    var node = await CrdtNode.db.findFirstRow(
+      _session,
+      where: (t) => t.uuidNodeId.equals(uuidNodeId),
+      transaction: transaction,
+    );
+    if (node != null) return node;
+
+    await CrdtNode.db.insert(
+      _session,
+      [CrdtNode(uuidNodeId: uuidNodeId)],
+      transaction: transaction,
+      ignoreConflicts: true,
+    );
+    node = await CrdtNode.db.findFirstRow(
+      _session,
+      where: (t) => t.uuidNodeId.equals(uuidNodeId),
+      transaction: transaction,
+    );
+    return node ?? (throw StateError('Could not create CRDT node "$uuidNodeId".'));
+  }
+
+  Future<CrdtScopeNode> _findOrCreateScopeNode(
+    int scopeId,
+    int nodeId,
+    Transaction transaction,
+  ) async {
+    var scopeNode = await CrdtScopeNode.db.findFirstRow(
+      _session,
+      where: (t) => t.scopeId.equals(scopeId) & t.nodeId.equals(nodeId),
+      transaction: transaction,
+    );
+    if (scopeNode != null) return scopeNode;
+
+    await CrdtScopeNode.db.insert(
+      _session,
+      [CrdtScopeNode(scopeId: scopeId, nodeId: nodeId)],
+      transaction: transaction,
+      ignoreConflicts: true,
+    );
+    scopeNode = await CrdtScopeNode.db.findFirstRow(
+      _session,
+      where: (t) => t.scopeId.equals(scopeId) & t.nodeId.equals(nodeId),
+      transaction: transaction,
+    );
+    return scopeNode ??
+        (throw StateError(
+          'Could not create CRDT scope-node row for scope $scopeId and node $nodeId.',
+        ));
   }
 
   CrdtScope _getEffectiveScope(Transaction transaction) {

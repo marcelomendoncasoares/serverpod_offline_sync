@@ -140,12 +140,12 @@ class CrdtSync {
   /// in the domain table. Peers need the attempted fact to converge; local FK
   /// projection materializes only the safe visible value into domain tables.
   ///
-  /// Resolves the scopes' internal ids once and unions their per-node checkpoint
-  /// vectors — node ids are unique per scope, so a row's node already pins it to
-  /// exactly one scope — then runs the three collection queries bounded to that
-  /// scope set (`scopeId IN (…)`). This is three queries for the whole pass
-  /// instead of three per scope. Per-row ownership and integrity checks resolve
-  /// against each row's own scope.
+  /// Resolves the scopes' internal ids once and keeps their checkpoint vectors
+  /// scoped by those internal ids. Node ids are stable per replica and may
+  /// appear in multiple scopes, so checkpoint filtering must compare both
+  /// `scopeId` and `uuidNodeId`. This still runs one query per change kind for
+  /// the whole pass. Per-row ownership and integrity checks resolve against
+  /// each row's own scope.
   ///
   /// All changes for nodes that are not present in a scope's checkpoint list are
   /// collected and emitted. Passing an empty list for a scope will collect all
@@ -167,15 +167,16 @@ class CrdtSync {
     final scopeUuidById = {
       for (final scope in scopes) scope.id!: scope.uuidScopeId,
     };
-    final nodeCheckpoints = [
-      for (final checkpoints in checkpointsByScopeUuid.values) ...checkpoints,
-    ];
+    final checkpointsByScopeId = {
+      for (final scope in scopes)
+        scope.id!: checkpointsByScopeUuid[scope.uuidScopeId] ?? const <Hlc>[],
+    };
 
     try {
       await for (final change in _streamPendingChanges(
         session,
         scopeUuidById,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       )) {
         yield change;
       }
@@ -199,9 +200,11 @@ class CrdtSync {
     final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
     final localNodeId = crdtUser.currentNode!.uuidNodeId;
 
-    final nodes = await CrdtNode.db.find(
+    final scopeNodes = await CrdtScopeNode.db.find(
       session,
-      where: (t) => t.scopeId.equals(crdtUser.id) & t.uuidNodeId.notEquals(localNodeId),
+      where: (t) =>
+          t.scopeId.equals(crdtUser.id) & t.nodeId.notEquals(crdtUser.currentNodeId),
+      include: CrdtScopeNode.include(node: CrdtNode.include()),
     );
 
     return CrdtSyncSinceHlc(
@@ -210,7 +213,8 @@ class CrdtSync {
       nodeCheckpoints: [
         // The local node is always included to avoid collecting its own changes.
         Hlc.now(localNodeId),
-        for (final node in nodes) node.lastReceivedHlc ?? Hlc.zero(node.uuidNodeId),
+        for (final scopeNode in scopeNodes)
+          scopeNode.lastReceivedHlc ?? Hlc.zero(scopeNode.node!.uuidNodeId),
       ],
     );
   }
@@ -527,26 +531,25 @@ class CrdtSync {
   Stream<CrdtMergeChange> _streamPendingChanges(
     DatabaseSession session,
     Map<int, UuidValue> scopeUuidById,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) async* {
     // Domain ownership is immutable while a collection runs, so read each
     // row's owner at most once across all three streams.
     final ownerCache = DomainRowOwnerCache();
-    yield* _streamInserts(session, scopeUuidById, nodeCheckpoints, ownerCache);
-    yield* _streamUpdates(session, scopeUuidById, nodeCheckpoints, ownerCache);
-    yield* _streamDeletes(session, scopeUuidById, nodeCheckpoints, ownerCache);
+    yield* _streamInserts(session, scopeUuidById, checkpointsByScopeId, ownerCache);
+    yield* _streamUpdates(session, scopeUuidById, checkpointsByScopeId, ownerCache);
+    yield* _streamDeletes(session, scopeUuidById, checkpointsByScopeId, ownerCache);
   }
 
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     Map<int, UuidValue> scopeUuidById,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
     DomainRowOwnerCache ownerCache,
   ) async* {
-    final scopeIds = scopeUuidById.keys.toSet();
     final rows = await CrdtDataRow.db.find(
       session,
-      where: (t) => _rowHlcAfterFilter(t, scopeIds, nodeCheckpoints),
+      where: (t) => _rowHlcAfterFilter(t, checkpointsByScopeId),
       include: CrdtDataRow.include(
         tbl: CrdtSchemaTable.include(),
         node: CrdtNode.include(),
@@ -621,13 +624,12 @@ class CrdtSync {
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
     Map<int, UuidValue> scopeUuidById,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
     DomainRowOwnerCache ownerCache,
   ) async* {
-    final scopeIds = scopeUuidById.keys.toSet();
     final fields = await CrdtDataField.db.find(
       session,
-      where: (t) => _fieldHlcAfterFilter(t, scopeIds, nodeCheckpoints),
+      where: (t) => _fieldHlcAfterFilter(t, checkpointsByScopeId),
       include: CrdtDataField.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         column: CrdtSchemaColumn.include(),
@@ -700,13 +702,12 @@ class CrdtSync {
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
     Map<int, UuidValue> scopeUuidById,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
     DomainRowOwnerCache ownerCache,
   ) async* {
-    final scopeIds = scopeUuidById.keys.toSet();
     final tombstones = await CrdtDataDeleted.db.find(
       session,
-      where: (t) => _tombstoneHlcAfterFilter(t, scopeIds, nodeCheckpoints),
+      where: (t) => _tombstoneHlcAfterFilter(t, checkpointsByScopeId),
       include: CrdtDataDeleted.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         node: CrdtNode.include(),
@@ -756,41 +757,41 @@ class CrdtSync {
 
   Expression _rowHlcAfterFilter(
     CrdtDataRowTable t,
-    Set<int> scopeIds,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) =>
-      t.scopeId.inSet(scopeIds) &
-      t.node.afterAnyCheckpointFilter(
+      t.scopeId.inSet(checkpointsByScopeId.keys.toSet()) &
+      _afterAnyScopeCheckpointFilter(
+        t.scopeId,
         t.node.uuidNodeId,
         t.hlcDatetime,
         t.hlcCounter,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       );
 
   Expression _fieldHlcAfterFilter(
     CrdtDataFieldTable t,
-    Set<int> scopeIds,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) =>
-      t.row.scopeId.inSet(scopeIds) &
-      t.node.afterAnyCheckpointFilter(
+      t.row.scopeId.inSet(checkpointsByScopeId.keys.toSet()) &
+      _afterAnyScopeCheckpointFilter(
+        t.row.scopeId,
         t.node.uuidNodeId,
         t.hlcDatetime,
         t.hlcCounter,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       );
 
   Expression _tombstoneHlcAfterFilter(
     CrdtDataDeletedTable t,
-    Set<int> scopeIds,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) =>
-      t.row.scopeId.inSet(scopeIds) &
-      t.node.afterAnyCheckpointFilter(
+      t.row.scopeId.inSet(checkpointsByScopeId.keys.toSet()) &
+      _afterAnyScopeCheckpointFilter(
+        t.row.scopeId,
         t.node.uuidNodeId,
         t.hlcDatetime,
         t.hlcCounter,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       );
 
   /// Loads a domain row for outbound insert sync.
@@ -1099,27 +1100,31 @@ class CrdtSync {
   }
 }
 
-extension on CrdtNodeTable {
-  Expression afterAnyCheckpointFilter(
-    ColumnUuid uuidNodeId,
-    ColumnDateTime hlcDatetime,
-    ColumnInt hlcCounter,
-    List<Hlc> nodeCheckpoints,
-  ) {
-    if (nodeCheckpoints.isEmpty) return Constant.bool(true);
-
-    final caseExpression = Case();
-    for (final checkpoint in nodeCheckpoints) {
+Expression _afterAnyScopeCheckpointFilter(
+  ColumnInt scopeId,
+  ColumnUuid uuidNodeId,
+  ColumnDateTime hlcDatetime,
+  ColumnInt hlcCounter,
+  Map<int, List<Hlc>> checkpointsByScopeId,
+) {
+  final caseExpression = Case();
+  var hasCheckpoint = false;
+  for (final MapEntry(key: normalizedScopeId, value: checkpoints)
+      in checkpointsByScopeId.entries) {
+    for (final checkpoint in checkpoints) {
+      hasCheckpoint = true;
       caseExpression.when(
-        uuidNodeId.equals(checkpoint.nodeId),
+        scopeId.equals(normalizedScopeId) & uuidNodeId.equals(checkpoint.nodeId),
         then:
             (hlcDatetime > checkpoint.datetime) |
             (hlcDatetime.equals(checkpoint.datetime) &
                 (hlcCounter > checkpoint.counter)),
       );
     }
-    return caseExpression.orElse(Constant.bool(true));
   }
+  return hasCheckpoint
+      ? caseExpression.orElse(Constant.bool(true))
+      : Constant.bool(true);
 }
 
 extension on Map<String, dynamic> {
