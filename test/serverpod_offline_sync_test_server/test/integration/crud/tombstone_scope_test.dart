@@ -104,6 +104,7 @@ void main() {
 
       otherUserInsertHlc = Hlc(DateTime.now().toUtc(), 0, otherUserNodeId);
       otherUserInsert = CrdtMergeInsert(
+        uuidScopeId: otherUserId,
         tableName: Person.t.tableName,
         uuidRowId: rowId,
         uuidNodeId: otherUserNodeId,
@@ -245,6 +246,7 @@ void main() {
 
         final otherUserInsertHlc = Hlc(DateTime.now().toUtc(), 0, otherUserNodeId);
         final otherUserInsert = CrdtMergeInsert(
+          uuidScopeId: otherUserId,
           tableName: Person.t.tableName,
           uuidRowId: rowId,
           uuidNodeId: otherUserNodeId,
@@ -290,9 +292,7 @@ void main() {
             sync
                 .collectPendingChanges(
                   session,
-                  userId: otherUserId,
-                  peerNodeId: const Uuid().v7obj(),
-                  nodeCheckpoints: const [],
+                  checkpointsByScopeUuid: {otherUserId: const []},
                 )
                 .toList(),
             throwsA(
@@ -383,9 +383,7 @@ void main() {
           sync
               .collectPendingChanges(
                 session,
-                userId: testCrdtUserId,
-                peerNodeId: const Uuid().v7obj(),
-                nodeCheckpoints: const [],
+                checkpointsByScopeUuid: {testCrdtUserId: const []},
               )
               .toList(),
           throwsA(
@@ -497,9 +495,9 @@ void main() {
           sync
               .collectPendingChanges(
                 session,
-                userId: testCrdtUserId,
-                peerNodeId: const Uuid().v7obj(),
-                nodeCheckpoints: [insertCheckpoint],
+                checkpointsByScopeUuid: {
+                  testCrdtUserId: [insertCheckpoint],
+                },
               )
               .toList(),
           throwsA(
@@ -602,9 +600,9 @@ void main() {
         final changes = await sync
             .collectPendingChanges(
               session,
-              userId: testCrdtUserId,
-              peerNodeId: const Uuid().v7obj(),
-              nodeCheckpoints: [insertCheckpoint],
+              checkpointsByScopeUuid: {
+                testCrdtUserId: [insertCheckpoint],
+              },
             )
             .toList();
 

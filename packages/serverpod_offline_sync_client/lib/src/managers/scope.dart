@@ -12,6 +12,9 @@ class CrdtScopeManager {
 
   final Map<UuidValue, CrdtScope> _instances = {};
 
+  /// Canonical [CrdtNode] shared across all scopes on this database.
+  CrdtNode? _cachedCurrentNode;
+
   /// Returns the cached [CrdtScope] for the given scope ID.
   CrdtScope getCached(UuidValue uuidScopeId) =>
       _instances[uuidScopeId] ??
@@ -23,6 +26,7 @@ class CrdtScopeManager {
   /// Clears the in-memory cache so state is reloaded from the store.
   void clearCache() {
     _instances.clear();
+    _cachedCurrentNode = null;
   }
 
   /// Returns the [CrdtScope] for the given scope ID.
@@ -51,26 +55,101 @@ class CrdtScopeManager {
       transaction: transaction,
     );
 
-    if (scope.currentNode != null) {
-      return scope;
+    var currentNode = await _getOrCreateCurrentNode(transaction);
+
+    currentNode = await _preserveLatestCurrentNodeHlc(
+      currentNode,
+      scope.currentNode,
+      transaction,
+    );
+    if (scope.currentNodeId != currentNode.id) {
+      await CrdtScope.db.attachRow.currentNode(
+        _session,
+        scope,
+        currentNode,
+        transaction: transaction,
+      );
     }
 
-    final currentNode = await CrdtNode.db.insertRow(
-      _session,
-      CrdtNode(scopeId: scope.id!),
-      transaction: transaction,
-    );
+    await _ensureScopeNode(scope.id!, currentNode.id!, transaction);
 
-    await CrdtScope.db.attachRow.currentNode(
-      _session,
-      scope,
-      currentNode,
-      transaction: transaction,
-    );
+    _cachedCurrentNode = currentNode;
 
     return scope.copyWith(
       currentNodeId: currentNode.id,
       currentNode: currentNode,
+    );
+  }
+
+  Future<CrdtNode> _getOrCreateCurrentNode(Transaction transaction) async {
+    final cachedId = _cachedCurrentNode?.id;
+    if (cachedId != null) {
+      final node = await CrdtNode.db.findById(
+        _session,
+        cachedId,
+        transaction: transaction,
+      );
+      if (node != null) return node;
+      _cachedCurrentNode = null;
+    }
+
+    final existingScope = await CrdtScope.db.findFirstRow(
+      _session,
+      where: (t) => t.currentNodeId.notEquals(null),
+      orderBy: (t) => t.id,
+      include: CrdtScope.include(currentNode: CrdtNode.include()),
+      transaction: transaction,
+    );
+
+    final existingNode = existingScope?.currentNode;
+    if (existingNode != null) {
+      return _cachedCurrentNode = existingNode;
+    }
+
+    return _cachedCurrentNode = await CrdtNode.db.insertRow(
+      _session,
+      CrdtNode(),
+      transaction: transaction,
+    );
+  }
+
+  Future<CrdtNode> _preserveLatestCurrentNodeHlc(
+    CrdtNode currentNode,
+    CrdtNode? scopeCurrentNode,
+    Transaction transaction,
+  ) async {
+    final scopeLastHlc = scopeCurrentNode?.lastHlc;
+    if (scopeLastHlc == null || scopeCurrentNode?.id == currentNode.id) {
+      return currentNode;
+    }
+
+    final currentLastHlc = currentNode.lastHlc;
+    if (currentLastHlc != null && currentLastHlc >= scopeLastHlc) {
+      return currentNode;
+    }
+
+    final updatedNode = currentNode.copyWith(
+      lastHlc: scopeLastHlc.copyWith(nodeId: currentNode.uuidNodeId),
+    );
+    await CrdtNode.db.updateRow(
+      _session,
+      updatedNode,
+      columns: (t) => [t.lastHlc],
+      transaction: transaction,
+    );
+    return updatedNode;
+  }
+
+  Future<void> _ensureScopeNode(
+    int scopeId,
+    int nodeId,
+    Transaction transaction,
+  ) async {
+    await CrdtScopeNode.db.insert(
+      _session,
+      [CrdtScopeNode(scopeId: scopeId, nodeId: nodeId)],
+      transaction: transaction,
+      ignoreConflicts: true,
     );
   }
 }

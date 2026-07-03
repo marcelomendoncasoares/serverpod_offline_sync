@@ -43,26 +43,6 @@ final class CrdtSyncUnexpectedEventException<T extends CrdtSyncStreamEvent>
       'received "${received.runtimeType.className}" instead.';
 }
 
-/// Thrown when a peer's since-HLC frame does not reference the local node id.
-final class CrdtSyncInvalidSinceHlcException extends CrdtSyncException {
-  /// Creates a [CrdtSyncInvalidSinceHlcException].
-  const CrdtSyncInvalidSinceHlcException({
-    required this.receivedNodeId,
-    required this.expectedNodeId,
-  });
-
-  /// The node id carried by the peer's since-HLC frame.
-  final UuidValue receivedNodeId;
-
-  /// The local node id that was expected.
-  final UuidValue expectedNodeId;
-
-  @override
-  String toString() =>
-      'CrdtSyncInvalidSinceHlcException: peer since HLC node id '
-      '"$receivedNodeId" does not match local node id "$expectedNodeId".';
-}
-
 /// Thrown when the sync tables hash sent by a peer does not match locally.
 final class SyncTablesHashMismatchException extends CrdtSyncException {
   /// Creates a [SyncTablesHashMismatchException].
@@ -109,8 +89,56 @@ final class CrdtSyncIntegrityViolationException extends CrdtSyncException {
             '${violation.type.name}/${violation.operation.name} references '
             'missing domain row $row for scope '
             '${violation.incomingScopeUuid}.$persisted',
+      CrdtSyncViolationType.unauthorizedWrite =>
+        'CrdtSyncIntegrityViolationException: '
+            '${violation.type.name}/${violation.operation.name} rejected '
+            'write to $row in scope ${violation.incomingScopeUuid}.$persisted',
     };
   }
+}
+
+/// Thrown when a user attempts to act in a scope they are not a member of.
+final class CrdtScopeMembershipException implements Exception {
+  /// Creates a [CrdtScopeMembershipException].
+  const CrdtScopeMembershipException({
+    required this.userId,
+    required this.scopeId,
+  });
+
+  /// The authenticated user id supplied to `transactionForUser`.
+  final UuidValue userId;
+
+  /// The scope id the transaction attempted to act in.
+  final UuidValue scopeId;
+
+  @override
+  String toString() =>
+      'CrdtScopeMembershipException: user "$userId" is not a member of '
+      'scope "$scopeId".';
+}
+
+/// Thrown when a user attempts to write in a scope with a non-writable role.
+final class CrdtScopeRoleException implements Exception {
+  /// Creates a [CrdtScopeRoleException].
+  const CrdtScopeRoleException({
+    required this.userId,
+    required this.scopeId,
+    this.role,
+  });
+
+  /// The authenticated user id supplied to `transactionForUser`.
+  final UuidValue userId;
+
+  /// The scope id the transaction attempted to write in.
+  final UuidValue scopeId;
+
+  /// The role that does not allow writes.
+  final CrdtScopeRole? role;
+
+  @override
+  String toString() =>
+      'CrdtScopeRoleException: user "$userId" with role "$role" cannot write '
+      'in scope "$scopeId".';
 }
 
 @internal

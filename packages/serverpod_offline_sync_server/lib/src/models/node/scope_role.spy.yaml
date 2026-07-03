@@ -1,0 +1,8 @@
+### CRDT access role for a member of a shared scope.
+###
+### The role gates CRDT writes only. Reads remain membership-wide.
+enum: CrdtScopeRole
+serialized: byName
+values:
+  - readOnly
+  - readWrite

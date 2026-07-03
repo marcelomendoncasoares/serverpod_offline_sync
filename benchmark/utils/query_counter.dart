@@ -107,12 +107,14 @@ class QueryCountingDatabase implements Database {
     List<T> rows, {
     Transaction? transaction,
     bool ignoreConflicts = false,
+    bool noReturn = false,
   }) async {
     queryCount++;
     return _delegate.insert<T>(
       rows,
       transaction: transaction,
       ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
     );
   }
 
@@ -132,6 +134,7 @@ class QueryCountingDatabase implements Database {
     List<Column>? updateColumns,
     Expression? updateWhere,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     queryCount++;
     return _delegate.upsert<T>(
@@ -140,6 +143,7 @@ class QueryCountingDatabase implements Database {
       updateColumns: updateColumns,
       updateWhere: updateWhere,
       transaction: transaction,
+      noReturn: noReturn,
     );
   }
 
@@ -166,9 +170,15 @@ class QueryCountingDatabase implements Database {
     List<T> rows, {
     List<Column>? columns,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     queryCount++;
-    return _delegate.update<T>(rows, columns: columns, transaction: transaction);
+    return _delegate.update<T>(
+      rows,
+      columns: columns,
+      transaction: transaction,
+      noReturn: noReturn,
+    );
   }
 
   @override
@@ -205,6 +215,7 @@ class QueryCountingDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     queryCount++;
     return _delegate.updateWhere<T>(
@@ -218,6 +229,7 @@ class QueryCountingDatabase implements Database {
       // ignore: deprecated_member_use
       orderDescending: orderDescending,
       transaction: transaction,
+      noReturn: noReturn,
     );
   }
 
@@ -228,6 +240,7 @@ class QueryCountingDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     queryCount++;
     return _delegate.delete<T>(
@@ -238,6 +251,7 @@ class QueryCountingDatabase implements Database {
       // ignore: deprecated_member_use
       orderDescending: orderDescending,
       transaction: transaction,
+      noReturn: noReturn,
     );
   }
 
@@ -257,6 +271,7 @@ class QueryCountingDatabase implements Database {
     List<Column>? orderByList,
     bool orderDescending = false,
     Transaction? transaction,
+    bool noReturn = false,
   }) async {
     queryCount++;
     return _delegate.deleteWhere<T>(
@@ -267,6 +282,7 @@ class QueryCountingDatabase implements Database {
       // ignore: deprecated_member_use
       orderDescending: orderDescending,
       transaction: transaction,
+      noReturn: noReturn,
     );
   }
 

@@ -95,8 +95,8 @@ melos:
     generate:
       # Must run the module first, or the test project won't have the tables.
       run: |
-        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate &&
-        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate
+        melos exec --scope="serverpod_offline_sync_server" -- dart run serverpod_cli generate --force &&
+        melos exec --scope="serverpod_offline_sync_test_server" -- dart run serverpod_cli generate --force
     create-migration:
       # If the module does not run first, the test project will see no module tables.
       run: >-
@@ -107,8 +107,9 @@ melos:
     downgrade:
       exec: dart pub downgrade
     test:
-      run: |
-        dart test packages/ --reporter=failures-only
+      run: >-
+        melos exec --scope="serverpod_offline_sync_shared" -- dart test test/ --reporter=failures-only &&
+        melos exec --scope="serverpod_offline_sync_server" -- dart test test/ --reporter=failures-only --concurrency=1 &&
         melos exec --scope="serverpod_offline_sync_test_server" -- dart test test/ --reporter=failures-only --concurrency=1
     reset:
       exec: rm -f test.db*

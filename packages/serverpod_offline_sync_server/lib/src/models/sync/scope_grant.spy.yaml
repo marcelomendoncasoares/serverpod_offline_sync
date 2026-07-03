@@ -1,0 +1,11 @@
+### A single scope a peer announces in a [CrdtSyncScopeSet].
+###
+### Carries the scope UUID and the authoritative [role] the receiving user
+### holds in it. The personal scope is announced with [CrdtScopeRole.readWrite].
+class: CrdtScopeGrant
+fields:
+  ### Scope UUID being announced.
+  uuidScopeId: UuidValue
+
+  ### Authoritative CRDT access role of the receiving user in this scope.
+  role: CrdtScopeRole

@@ -94,6 +94,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   CrdtMergeInsert insertChangeFor(TableRow<UuidValue?> row) {
     final hlc = _nextRemoteHlc();
     return CrdtMergeInsert(
+      uuidScopeId: _userId,
       tableName: row.table.tableName,
       uuidRowId: row.id!,
       uuidNodeId: hlc.nodeId,
@@ -110,6 +111,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   ) {
     final hlc = _nextRemoteHlc();
     return CrdtMergeUpdate(
+      uuidScopeId: _userId,
       tableName: row.table.tableName,
       uuidRowId: row.id!,
       uuidNodeId: hlc.nodeId,
@@ -123,6 +125,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   CrdtMergeDelete deleteChangeFor(TableRow<UuidValue?> row) {
     final hlc = _nextRemoteHlc();
     return CrdtMergeDelete(
+      uuidScopeId: _userId,
       tableName: row.table.tableName,
       uuidRowId: row.id!,
       uuidNodeId: hlc.nodeId,

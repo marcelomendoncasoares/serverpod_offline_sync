@@ -21,6 +21,7 @@ class CrdtSyncEndpoint extends Endpoint {
       userId: UuidValue.withValidation(session.authenticated!.userIdentifier),
       inbound: changes,
       once: once,
+      mode: CrdtSyncPeerMode.authoritative,
     );
   }
 }

@@ -28,6 +28,7 @@ void main() {
 
         loser = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -126,6 +127,7 @@ void main() {
         await session.db.mergeChanges(
           [
             CrdtMergeInsert(
+              uuidScopeId: testCrdtUserId,
               tableName: Unique.t.tableName,
               uuidRowId: incoming.id!,
               uuidNodeId: const Uuid().v7obj(),
@@ -171,6 +173,7 @@ void main() {
 
         incomingWinner = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: incomingWinner.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -251,6 +254,7 @@ void main() {
         );
 
         remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: updatedWinner.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -327,6 +331,7 @@ void main() {
         final parentHlc = await _rowHlc(parent.id!);
         final winnerClaimHlc = winnerHlc.maxBetween(parentHlc);
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: UniqueSetNullChild.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -392,6 +397,7 @@ void main() {
         olderClaimRow = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         newerClaimRow = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         olderClaimInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: olderClaimRow.id!,
           uuidNodeId: nodeIds.first,
@@ -400,6 +406,7 @@ void main() {
           data: olderClaimRow,
         );
         newerClaimInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: newerClaimRow.id!,
           uuidNodeId: nodeIds.last,
@@ -476,6 +483,7 @@ void main() {
 
         loser = UniqueUuid(id: const Uuid().v7obj(), value: sharedValue);
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: UniqueUuid.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -543,6 +551,7 @@ void main() {
 
         incomingRow = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         remoteInsert = CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: incomingRow.id!,
           uuidNodeId: const Uuid().v7obj(),

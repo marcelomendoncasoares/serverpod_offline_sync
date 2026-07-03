@@ -1,7 +1,6 @@
 # Row ownership and scope isolation
 
 Status: implemented.
-The *Future: shared scopes* section is direction, not commitment.
 
 ## Summary
 
@@ -20,9 +19,8 @@ This document makes ownership explicit. The core decisions:
 > never materialize or sync the same `(table, uuidRowId)`. Cross-scope UUID
 > reuse is a terminal ownership collision, not valid multi-tenant state. Sync
 > fails on that collision, records a durable violation, and does not advance
-> the sender past the rejected change. Sharing, when it arrives, will be
-> modeled as shared scopes that multiple identities subscribe to — never as
-> two scopes aliasing one row.
+> the sender past the rejected change. Sharing is modeled as shared scopes that
+> multiple identities subscribe to — never as two scopes aliasing one row.
 
 > **Every synced table declares `scopeId`, identically on server and
 > client.** The column is a hard requirement, never `scope=serverOnly`, so
@@ -129,9 +127,9 @@ enforces that the answer is unique, and the domain storage assumes it is.
 "Leave it up to users" is rejected explicitly: symptom 2 means the storage
 model cannot represent what multi-scope tracking promises, so allowing it is
 not granting flexibility — it is permitting silent cross-tenant data
-corruption. Applications that need shared data need shared *scopes* (see
-*Future: shared scopes*), which preserve the one-chain-per-row property that
-makes LWW merging coherent.
+corruption. Applications that need shared data use shared *scopes* (see
+`shared-scopes.md`), which preserve the one-chain-per-row property that makes
+LWW merging coherent.
 
 ## The `scopeId` column
 
@@ -475,9 +473,7 @@ actually key — scopes:
 - **Internals and storage** adopt scope naming in one sweep: `crdt_users` →
   `crdt_scopes` (`CrdtUser` → `CrdtScope`, `uuidUserId` → `uuidScopeId`),
   `crdt_data_rows.userId` → `scopeId` (matching the domain column),
-  `userForTransaction`, the effective-user helpers, and the HLC manager
-  keys. Doing this now is what keeps the *Future: shared scopes* section a
-  pure addition instead of a rename project.
+  `userForTransaction`, the effective-user helpers, and the HLC manager keys.
 - **Unscoped reads** remain supported as admin reads.
 
 Consequences for application code, stated as contract:
@@ -560,7 +556,7 @@ tested **once**, not per combination:
   `withServerpod` sync roundtrip proving the wiring end to end. These exist
   to prove deployment shapes compose, not to re-verify mechanisms.
 
-## Future: shared scopes
+## Shared scopes
 
 `crdt_scopes` is the entity everything is keyed by: sync, locking, HLC
 chains, and visibility. Sharing becomes an indirection in front of it, not a
@@ -575,9 +571,9 @@ change to row ownership:
   changes.
 
 This is the standard shape of sharing in local-first systems, and it is the
-reason the column and concept are named `scope` rather than `user`. The rest
-of this section sketches the direction in enough detail to keep today's
-decisions compatible with it; it is not committed design.
+reason the column and concept are named `scope` rather than `user`.
+Implementation details and current limits live in `shared-scopes.md`; the rest
+of this section summarizes why the ownership rules remain compatible.
 
 ### Users authenticate, scopes act
 
@@ -641,15 +637,18 @@ filter and RLS become two enforcements of one predicate.
 
 ### Sync and clients
 
-- A device syncs one chain per scope it holds: the sync session (or one
-  session per scope) enumerates the authenticated user's member scopes,
-  verified server-side against `crdt_scope_members` at the handshake; the
-  membership table itself is not synced.
+- A device syncs one chain per scope it holds: each sync call enumerates the
+  authenticated user's member scopes, verified server-side against
+  `crdt_scope_members` at the start of every sync cycle; the membership table
+  itself is not synced. `CrdtScopeRole` is enforced as described in
+  `shared-scopes.md`: reads stay membership-wide, writes are role-gated, and the
+  server records `unauthorizedWrite` for rejected inbound changes.
 - Every database is already sharing-capable schema-wise — the column is
   universal — so a sharing-enabled client simply holds several scopes' rows.
   One database file per scope remains a valid alternative layout.
-- Checkpoints stay per `(scope, node)`; a device is a node in each scope's
-  chain it participates in.
+- Checkpoints stay per `(scope, node)`: `crdt_nodes` stores the stable replica
+  identity, while `crdt_scope_nodes` stores each scope's checkpoint for that
+  node.
 
 ### What sharing does not change
 
@@ -729,12 +728,15 @@ not relitigated by accident:
    application with a pre-existing, semantically different `scopeId` column
    on a synced table has no escape hatch other than renaming its column.
    Acceptable for now; revisit if it bites real users.
-3. **Membership revocation semantics (sharing).** When a user loses
-   membership of a scope, the server stops streaming it at the next
-   handshake, but the device still holds the scope's data and may hold
-   unsynced local changes for it. Purge-vs-keep policy, and whether revoked
-   unsynced changes are surfaced or dropped, need their own design.
-4. **Roles within a scope (sharing).** `crdt_scope_members.role` is sketched
-   but undefined: read-only members would need write rejection at merge time
-   (another fail-and-record case), and the interaction with offline-written
-   changes by a demoted member overlaps with question 3.
+3. **Membership revocation semantics (sharing).** When a user loses membership
+   of a scope, the server stops streaming it at the next sync cycle. The device
+   may still store the scope's data and unsynced local changes, though
+   membership-wide reads no longer expose revoked rows. Purge-vs-keep policy,
+   and whether revoked unsynced changes are surfaced or dropped, need their own
+   design.
+4. **Roles within a scope (sharing).** Resolved in `shared-scopes.md`.
+   `crdt_scope_members.role` is enforced for writes through the closed
+   `CrdtScopeRole` enum: the server rejects and records unauthorized inbound
+   writes, the client rejects local writes from projected `readOnly` roles, and
+   reads remain membership-wide. The remaining cleanup question for demoted or
+   revoked unsynced local changes is part of question 3.

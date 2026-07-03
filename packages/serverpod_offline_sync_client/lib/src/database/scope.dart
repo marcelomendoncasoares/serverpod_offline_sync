@@ -170,3 +170,48 @@ extension _CrdtDatabaseScope on CrdtDatabase {
     }
   }
 }
+
+/// Extension on [Table] that exposes [scopeEquals] for use in `where`
+/// clauses to restrict membership-wide reads to a single scope.
+extension ScopeUuidFilter on Table {
+  /// Expression that narrows a membership-wide read to [scopeUuid].
+  ///
+  /// Reads are membership-wide and strip the database-local `scopeId`, so a
+  /// caller holding several scopes cannot otherwise restrict a query to one scope
+  /// or tell which scope a row came from. The placeholder is resolved to a
+  /// filter on the reserved `scopeId` column before the query runs. When the
+  /// scope UUID is not known locally the filter matches no rows.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Returns only persons in the shared scope.
+  /// final sharedPeople = await Person.db.find(
+  ///   session,
+  ///   where: (t) => t.scopeEquals(sharedScopeUuid),
+  /// );
+  ///
+  /// // Combines with other filters.
+  /// final aliceInShared = await Person.db.find(
+  ///   session,
+  ///   where: (t) => t.name.equals('Alice') & t.scopeEquals(sharedScopeUuid),
+  /// );
+  /// ```
+  Expression scopeEquals(UuidValue scopeUuid) =>
+      _crdtScope.uuidScopeId.equals(scopeUuid);
+
+  CrdtScopeTable get _crdtScope {
+    return createRelationTable<CrdtScopeTable>(
+      relationFieldName: '${tableName}_crdt_scope',
+      field: _scopeIdColumn,
+      foreignField: CrdtScope.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          CrdtScopeTable(tableRelation: foreignTableRelation),
+    );
+  }
+
+  Column get _scopeIdColumn => columns.singleWhere(
+    (column) => column.columnName == 'scopeId' && column is ColumnInt,
+    orElse: () => throw StateError('Table "$tableName" has no scopeId column.'),
+  );
+}

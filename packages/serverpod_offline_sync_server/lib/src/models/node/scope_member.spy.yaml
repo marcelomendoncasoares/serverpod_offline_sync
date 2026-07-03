@@ -1,0 +1,31 @@
+### Authorization membership for shared CRDT scopes.
+###
+### `database: all`, so the table exists on every node and membership resolves
+### with the same code on both ends. The server is the authoritative writer; a
+### client copy (once populated) is a read-only cache for UI and offline role
+### checks.
+###
+### Personal-scope membership is implicit: a user always belongs to the scope
+### whose UUID equals their auth user UUID. Rows in this table represent shared
+### scopes only.
+class: CrdtScopeMember
+table: crdt_scope_members
+database: all
+fields:
+  ### Shared scope this membership grants access to.
+  scope: CrdtScope?, relation(onDelete=Cascade)
+
+  ### Auth user UUID that may access the scope.
+  userUuid: UuidValue
+
+  ### CRDT access role for this shared-scope membership.
+  role: CrdtScopeRole
+
+indexes:
+  ### Leads with userUuid so the per-cycle membership resolution
+  ### (`WHERE userUuid = ?`) is index-covered, while still enforcing one row
+  ### per (scope, user). `isMember` (`WHERE userUuid AND scopeId`) is covered
+  ### too.
+  crdt_scope_member_unique_idx:
+    fields: userUuid, scopeId
+    unique: true

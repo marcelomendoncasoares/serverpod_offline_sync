@@ -13,9 +13,14 @@ import 'exceptions.dart';
 import 'extensions.dart';
 import 'integrity_violation.dart';
 import 'merge.dart';
+import 'scope_membership.dart';
+import 'scope_sync.dart';
+
+export 'scope_sync.dart' show CrdtSyncPeerMode;
 
 /// Callback function for when a merge is successful.
-typedef CrdtSyncOnMergeSuccess = FutureOr<void> Function(Hlc syncedHlc);
+typedef CrdtSyncOnMergeSuccess =
+    FutureOr<void> Function(UuidValue scopeUuid, Hlc syncedHlc);
 
 /// A tuple representing the ownership of a domain row.
 typedef DomainRowOwner = ({bool exists, int? scopeId});
@@ -123,7 +128,7 @@ class CrdtSync {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Streams local CRDT changes that a peer node has not seen yet.
+  /// Streams pending changes for every scope in [checkpointsByScopeUuid].
   ///
   /// Changes are emitted in insert, update, then delete order. Domain row and
   /// column payloads are resolved incrementally as each change is yielded.
@@ -133,20 +138,39 @@ class CrdtSync {
   /// in the domain table. Peers need the attempted fact to converge; local FK
   /// projection materializes only the safe visible value into domain tables.
   ///
-  /// All changes for nodes that are not present in the [nodeCheckpoints] list
-  /// are collected and emitted. Passing an empty list will collect all changes.
+  /// Resolves the scopes' internal ids once and keeps their checkpoint vectors
+  /// scoped by those internal ids. Node ids are stable per replica and may
+  /// appear in multiple scopes, so checkpoint filtering must compare both
+  /// `scopeId` and `uuidNodeId`. This still runs one query per change kind for
+  /// the whole pass. Per-row ownership and integrity checks resolve against
+  /// each row's own scope.
+  ///
+  /// All changes for nodes that are not present in a scope's checkpoint list
+  /// are collected and emitted. Passing an empty list for a scope will collect
+  /// all of its changes. Each change carries its [CrdtMergeChange.uuidScopeId].
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
-    required UuidValue userId,
-    required UuidValue peerNodeId,
-    required List<Hlc> nodeCheckpoints,
+    required Map<UuidValue, List<Hlc>> checkpointsByScopeUuid,
   }) async* {
-    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
+    if (checkpointsByScopeUuid.isEmpty) return;
+
+    final scopes = await CrdtScope.db.find(
+      session,
+      where: (t) => t.uuidScopeId.inSet(checkpointsByScopeUuid.keys.toSet()),
+    );
+    final scopeUuidById = {
+      for (final scope in scopes) scope.id!: scope.uuidScopeId,
+    };
+    final checkpointsByScopeId = {
+      for (final scope in scopes)
+        scope.id!: checkpointsByScopeUuid[scope.uuidScopeId] ?? const <Hlc>[],
+    };
+
     try {
       await for (final change in _streamPendingChanges(
         session,
-        crdtUser,
-        nodeCheckpoints,
+        scopeUuidById,
+        checkpointsByScopeId,
       )) {
         yield change;
       }
@@ -155,29 +179,31 @@ class CrdtSync {
     }
   }
 
-  /// Creates the [CrdtSyncSinceHlc] checkpoint for the post-connect handshake.
+  /// Creates the [CrdtSyncSinceHlc] checkpoint for a scope handshake.
   ///
   /// [CrdtSyncSinceHlc.nodeCheckpoints] reflects the latest change this node
   /// has received from each known node, tagged with the source node id.
   Future<CrdtSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
-    required UuidValue userId,
-    required UuidValue peerNodeId,
+    required UuidValue scopeId,
   }) async {
-    final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
+    final scope = await CrdtScopeManager(session).getOrCreate(scopeId);
+    final localNodeId = scope.currentNode!.uuidNodeId;
 
-    final nodes = await CrdtNode.db.find(
+    final scopeNodes = await CrdtScopeNode.db.find(
       session,
       where: (t) =>
-          t.scopeId.equals(crdtUser.id) &
-          t.uuidNodeId.notEquals(crdtUser.currentNode!.uuidNodeId),
+          t.scopeId.equals(scope.id) & t.nodeId.notEquals(scope.currentNodeId),
+      include: CrdtScopeNode.include(node: CrdtNode.include()),
     );
 
     return CrdtSyncSinceHlc(
+      uuidScopeId: scopeId,
       nodeCheckpoints: [
         // The local node is always included to avoid collecting its own changes.
-        Hlc.now(crdtUser.currentNode!.uuidNodeId),
-        for (final node in nodes) node.lastReceivedHlc ?? Hlc.zero(node.uuidNodeId),
+        Hlc.now(localNodeId),
+        for (final scopeNode in scopeNodes)
+          scopeNode.lastReceivedHlc ?? Hlc.zero(scopeNode.node!.uuidNodeId),
       ],
     );
   }
@@ -192,114 +218,111 @@ class CrdtSync {
   ///
   /// Returns the greatest HLC synced in the batch, or `null` if the batch is
   /// empty.
-  Future<Hlc?> mergeInboundBatch(
+  Future<Hlc?> _mergeInboundBatch(
     DatabaseSession session, {
-    required UuidValue userId,
+    required UuidValue scopeId,
     required UuidValue otherNodeId,
     required CrdtMergeSet mergeSet,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final crdtDb = _openCrdtDatabase(session);
-    await crdtDb.mergeChanges(mergeSet, scopeId: userId);
+    await crdtDb.mergeChanges(mergeSet, scopeId: scopeId);
     if (maxSyncedHlc != null) {
-      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: userId);
+      await crdtDb.recordSyncCheckpoint(otherNodeId, maxSyncedHlc, userId: scopeId);
     }
     return maxSyncedHlc;
   }
 
-  /// Streams a framed outbound sync batch of merge changes.
-  Stream<CrdtSyncStreamEvent> streamOutboundBatch(
-    DatabaseSession session, {
-    required UuidValue userId,
-    required UuidValue peerNodeId,
-    required List<Hlc> nodeCheckpoints,
-  }) async* {
-    yield* collectPendingChanges(
-          session,
-          userId: userId,
-          peerNodeId: peerNodeId,
-          nodeCheckpoints: nodeCheckpoints,
-        )
-        .chunked(_syncBatchSize)
-        .map(
-          (changes) => CrdtSyncMergeChunk(changes: changes),
-        );
-    yield CrdtSyncEndOfBatch();
-  }
-
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
   ///
-  /// Both peers send [CrdtSyncConnect], read the peer connect frame, then send
-  /// and read [CrdtSyncSinceHlc] once. After that, both sides exchange framed
-  /// data batches using the peer's per-node checkpoints. Sent changes advance
-  /// the corresponding in-memory checkpoints for subsequent sends within the
-  /// session.
+  /// Both peers exchange [CrdtSyncConnect] and a lockstep [CrdtSyncScopeSet]
+  /// before the data loop. Each cycle sends a combined batch — scope
+  /// announcement when grants changed, [CrdtSyncSinceHlc] for newly active
+  /// scopes, and [CrdtSyncMergeChunk]s — closed by [CrdtSyncEndOfBatch] when
+  /// anything was sent. Inbound frames are de-multiplexed by collectNextBatch
+  /// until [CrdtSyncEndOfBatch] when this peer sent a batch, or an idle timeout
+  /// when both peers had nothing to send.
   ///
-  /// If a batch fails to merge, the exception propagates and the stream closes.
-  /// The next sync attempt resumes from the last persisted checkpoint on the
-  /// side that failed to merge.
-  ///
-  /// When [once] is true, each peer sends one batch, reads one batch, sends a
-  /// [CrdtSyncClose] frame and awaits for the other to send its closing event
-  /// to complete the session.
+  /// When [once] is true the loop may run an extra cycle after handshakes
+  /// complete so merge data can flow; then it closes symmetrically. Continuous
+  /// mode loops with [_continuousSyncInterval] between idle cycles.
   Stream<CrdtSyncStreamEvent> sync(
     DatabaseSession session, {
     required UuidValue userId,
     required Stream<CrdtSyncStreamEvent> inbound,
+    required CrdtSyncPeerMode mode,
     bool once = false,
     CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
+    // Idle timeouts are a continuous-only affordance: they let an idle cycle
+    // settle into an empty batch without closing the stream. A `once` session
+    // is strictly lockstep — every batch ends with a [CrdtSyncEndOfBatch] and
+    // the session with a [CrdtSyncClose] — so it must wait for those end frames
+    // rather than truncate a slow peer's batch on a timeout.
     final inboundIterator = StreamIterator(
-      // Inject a timeout event if the inbound stream is idle for too long to
-      // allow returning an empty batch and waiting for a change without closing
-      // the stream.
-      inbound.timeout(
-        const Duration(seconds: 1),
-        onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
-      ),
+      once
+          ? inbound
+          : inbound.timeout(
+              const Duration(seconds: 1),
+              onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
+            ),
     );
 
     var sessionCompleted = false;
     try {
-      final crdtUser = await CrdtScopeManager(session).getOrCreate(userId);
-      final localNodeId = crdtUser.currentNode!.uuidNodeId;
-
+      final scope = await CrdtScopeManager(session).getOrCreate(userId);
+      final localNodeId = scope.currentNode!.uuidNodeId;
       yield CrdtSyncConnect(
         localNodeId: localNodeId,
         syncTablesHash: currentSyncTablesHash,
       );
 
       final peerConnect = await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>();
-      final peerNodeId = peerConnect.localNodeId;
       _validateSyncTablesHash(peerConnect.syncTablesHash);
 
-      yield await createSyncSinceHlc(
+      final scopes = CrdtScopeSyncSession(
         session,
         userId: userId,
-        peerNodeId: peerNodeId,
+        mode: mode,
+        peerNodeId: peerConnect.localNodeId,
       );
 
-      final peerSinceHlc = await inboundIterator.moveAndThrowIfNot<CrdtSyncSinceHlc>();
-      final nodeCheckpoints = {
-        for (final checkpoint in peerSinceHlc.nodeCheckpoints)
-          checkpoint.nodeId: checkpoint,
-      };
+      await scopes.reconcile();
+      yield CrdtSyncScopeSet(scopes: scopes.localGrants);
+      scopes.markAnnounced();
+      final peerScopeSet = await inboundIterator.moveAndThrowIfNot<CrdtSyncScopeSet>();
+      await scopes.adoptPeerGrants(peerScopeSet.scopes);
 
       while (true) {
+        await scopes.reconcile();
+
+        final hadSendableCheckpoints = scopes.sendableCheckpoints.isNotEmpty;
+        var hasChanges = false;
+        final outboundScopes = <UuidValue>{};
+
+        if (scopes.shouldAnnounce) {
+          yield CrdtSyncScopeSet(scopes: scopes.localGrants);
+          scopes.markAnnounced();
+          hasChanges = true;
+        }
+
+        for (final scopeId in scopes.activeScopeIds) {
+          if (!scopes.markHandshakeSent(scopeId)) continue;
+          yield await createSyncSinceHlc(session, scopeId: scopeId);
+          hasChanges = true;
+        }
+
         final pendingLocalChanges = collectPendingChanges(
           session,
-          userId: userId,
-          peerNodeId: peerNodeId,
-          nodeCheckpoints: nodeCheckpoints.values.toList(),
+          checkpointsByScopeUuid: scopes.sendableCheckpoints,
         );
 
-        var hasChanges = false;
         await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
           hasChanges = true;
           for (final change in changes) {
-            final lastCheckpoint = nodeCheckpoints[change.uuidNodeId];
-            nodeCheckpoints[change.uuidNodeId] = change.hlc.maxBetween(lastCheckpoint);
+            scopes.advanceCheckpoint(change.uuidScopeId, change);
+            outboundScopes.add(change.uuidScopeId);
           }
           yield CrdtSyncMergeChunk(changes: changes);
         }
@@ -307,28 +330,32 @@ class CrdtSync {
           yield CrdtSyncEndOfBatch();
         }
 
-        final inboundMergeSet = await inboundIterator.collectNextBatch(
+        final batch = await inboundIterator.collectNextBatch(
           allowCloseBeforeBatch: !once,
         );
-        if (inboundMergeSet == null) {
+        if (batch == null) {
+          if (once) {
+            yield CrdtSyncClose();
+          }
           sessionCompleted = true;
           return;
         }
 
-        final lastReceivedFromPeer = await mergeInboundBatch(
+        await _applyCycleBatch(
           session,
-          userId: userId,
-          otherNodeId: peerNodeId,
-          mergeSet: inboundMergeSet,
+          scopes,
+          batch,
+          outboundScopes,
+          onMergeSuccess,
         );
 
-        if (hasChanges || inboundMergeSet.isNotEmpty) {
-          await onMergeSuccess?.call(
-            nodeCheckpoints.values.max.maxBetween(lastReceivedFromPeer),
-          );
-        }
-
         if (once) {
+          if (scopes.hasIncompleteActiveHandshake) {
+            continue;
+          }
+          if (!hadSendableCheckpoints && scopes.sendableCheckpoints.isNotEmpty) {
+            continue;
+          }
           yield CrdtSyncClose();
           await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
           sessionCompleted = true;
@@ -349,6 +376,17 @@ class CrdtSync {
         // Wait for the configured interval before checking for local changes again.
         await Future<void>.delayed(_continuousSyncInterval);
       }
+    } on CrdtSyncStreamClosedException {
+      // A continuous session ending is normal: the peer closed its outbound
+      // (typically a cancel). Whether the stream closed between batches or
+      // mid-batch, nothing is left to do — complete gracefully so the `finally`
+      // skips the force-cancel that races WebSocket teardown and surfaces
+      // spurious "connection closed" errors on the peer. A `once` session has a
+      // completion contract (full handshake plus the symmetric Close), so a
+      // close before that is a real truncation and must propagate.
+      if (once) rethrow;
+      sessionCompleted = true;
+      return;
     } finally {
       // Cancelling inbound on normal completion races with WebSocket stream
       // teardown and produces "connection closed" errors on the peer. On normal
@@ -361,6 +399,112 @@ class CrdtSync {
         await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
       }
     }
+  }
+
+  Future<void> _applyCycleBatch(
+    DatabaseSession session,
+    CrdtScopeSyncSession scopes,
+    CrdtSyncCycleBatch batch,
+    Set<UuidValue> outboundScopes,
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
+  ) async {
+    if (batch.scopeSet != null) {
+      await scopes.adoptPeerGrants(batch.scopeSet!.scopes);
+    }
+    for (final entry in batch.sinceHlcs.entries) {
+      if (scopes.accepts(entry.key)) {
+        scopes.recordPeerHandshake(entry.key, entry.value);
+      }
+    }
+
+    final mergedScopes = <UuidValue>{};
+    final changesByScope = <UuidValue, List<CrdtMergeChange>>{};
+    for (final change in batch.changes) {
+      changesByScope.putIfAbsent(change.uuidScopeId, () => []).add(change);
+    }
+    for (final entry in changesByScope.entries) {
+      final scopeId = entry.key;
+      if (!scopes.accepts(scopeId)) continue;
+      mergedScopes.add(scopeId);
+      if (scopes.isAuthoritative) {
+        await _assertCanMergeInboundScope(
+          session,
+          scopeId: scopeId,
+          userId: scopes.userId,
+          changes: entry.value,
+        );
+      }
+      final receivedHlc = await _mergeInboundBatch(
+        session,
+        scopeId: scopeId,
+        otherNodeId: scopes.peerNodeId,
+        mergeSet: entry.value,
+      );
+      await _reportMerge(onMergeSuccess, scopes, scopeId, receivedHlc);
+    }
+    for (final scopeId in outboundScopes.difference(mergedScopes)) {
+      await _reportMerge(onMergeSuccess, scopes, scopeId, null);
+    }
+  }
+
+  Future<void> _assertCanMergeInboundScope(
+    DatabaseSession session, {
+    required UuidValue scopeId,
+    required UuidValue userId,
+    required List<CrdtMergeChange> changes,
+  }) async {
+    if (changes.isEmpty || userId == scopeId) return;
+
+    final role = await CrdtScopeMembership.roleOf(
+      session,
+      userUuid: userId,
+      scopeUuid: scopeId,
+    );
+    if (role.canWrite) return;
+
+    final firstChange = changes.first;
+    final now = DateTime.now().toUtc();
+    final violation = CrdtSyncIntegrityViolation(
+      type: CrdtSyncViolationType.unauthorizedWrite,
+      domainTableName: firstChange.tableName,
+      uuidRowId: firstChange.uuidRowId,
+      ownerScopeUuid: null,
+      incomingScopeUuid: scopeId,
+      operation: _operationForInboundChange(firstChange),
+      uuidNodeId: firstChange.uuidNodeId,
+      crdtDataRowId: null,
+      hlcDatetime: firstChange.hlcDatetime,
+      hlcCounter: firstChange.hlcCounter,
+      firstSeenAt: now,
+      lastSeenAt: now,
+      occurrences: 1,
+    );
+    final persisted = await recordCrdtSyncIntegrityViolation(
+      session,
+      violation: violation,
+    );
+    throw CrdtSyncIntegrityViolationException(persisted);
+  }
+
+  CrdtSyncViolationOperation _operationForInboundChange(CrdtMergeChange change) {
+    return switch (change) {
+      CrdtMergeInsert() => CrdtSyncViolationOperation.mergeInsert,
+      CrdtMergeUpdate() => CrdtSyncViolationOperation.mergeUpdate,
+      CrdtMergeDelete() => CrdtSyncViolationOperation.mergeDelete,
+    };
+  }
+
+  /// Reports a successful merge for [scopeId] to [onMergeSuccess], combining the
+  /// scope's checkpoint high-water mark with the [receivedHlc] just merged.
+  Future<void> _reportMerge(
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
+    CrdtScopeSyncSession scopes,
+    UuidValue scopeId,
+    Hlc? receivedHlc,
+  ) async {
+    final checkpointMax = scopes.checkpointMaxOf(scopeId);
+    if (checkpointMax == null) return;
+    await onMergeSuccess?.call(scopeId, checkpointMax.maxBetween(receivedHlc));
   }
 
   /// Drains [iterator] until the peer closes the stream.
@@ -400,26 +544,26 @@ class CrdtSync {
 
   Stream<CrdtMergeChange> _streamPendingChanges(
     DatabaseSession session,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, UuidValue> scopeUuidById,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) async* {
     // Domain ownership is immutable while a collection runs, so read each
     // row's owner at most once across all three streams.
     final ownerCache = DomainRowOwnerCache();
-    yield* _streamInserts(session, crdtUser, nodeCheckpoints, ownerCache);
-    yield* _streamUpdates(session, crdtUser, nodeCheckpoints, ownerCache);
-    yield* _streamDeletes(session, crdtUser, nodeCheckpoints, ownerCache);
+    yield* _streamInserts(session, scopeUuidById, checkpointsByScopeId, ownerCache);
+    yield* _streamUpdates(session, scopeUuidById, checkpointsByScopeId, ownerCache);
+    yield* _streamDeletes(session, scopeUuidById, checkpointsByScopeId, ownerCache);
   }
 
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, UuidValue> scopeUuidById,
+    Map<int, List<Hlc>> checkpointsByScopeId,
     DomainRowOwnerCache ownerCache,
   ) async* {
     final rows = await CrdtDataRow.db.find(
       session,
-      where: (t) => _rowHlcAfterFilter(t, crdtUser, nodeCheckpoints),
+      where: (t) => _rowHlcAfterFilter(t, checkpointsByScopeId),
       include: CrdtDataRow.include(
         tbl: CrdtSchemaTable.include(),
         node: CrdtNode.include(),
@@ -439,6 +583,9 @@ class CrdtSync {
       final dartName = _classNamesByTableName[tableName];
       if (dartName == null) continue;
 
+      final scopeId = row.scopeId;
+      final scopeUuid = scopeUuidById[scopeId]!;
+
       final domainRow = await _fetchDomainRow(
         session,
         tableName,
@@ -446,7 +593,7 @@ class CrdtSync {
         table,
         dartName,
         foreignKeyAttemptFieldsByRowId[row.id!],
-        crdtUser.id!,
+        scopeId,
         ownerCache,
       );
       if (!domainRow.exists) {
@@ -457,12 +604,12 @@ class CrdtSync {
           tableName: tableName,
           rowId: row.uuidRowId,
           ownerScopeId: null,
-          incomingScopeUuid: crdtUser.uuidScopeId,
+          incomingScopeUuid: scopeUuid,
           uuidNodeId: row.node!.uuidNodeId,
           hlc: row.hlc,
         );
       }
-      if (domainRow.ownerScopeId != crdtUser.id) {
+      if (domainRow.ownerScopeId != scopeId) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: row.id,
           type: CrdtSyncViolationType.ownershipCollision,
@@ -470,13 +617,14 @@ class CrdtSync {
           tableName: tableName,
           rowId: row.uuidRowId,
           ownerScopeId: domainRow.ownerScopeId,
-          incomingScopeUuid: crdtUser.uuidScopeId,
+          incomingScopeUuid: scopeUuid,
           uuidNodeId: row.node!.uuidNodeId,
           hlc: row.hlc,
         );
       }
 
       yield CrdtMergeInsert(
+        uuidScopeId: scopeUuid,
         hlcDatetime: row.hlcDatetime,
         hlcCounter: row.hlcCounter,
         tableName: tableName,
@@ -489,13 +637,13 @@ class CrdtSync {
 
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, UuidValue> scopeUuidById,
+    Map<int, List<Hlc>> checkpointsByScopeId,
     DomainRowOwnerCache ownerCache,
   ) async* {
     final fields = await CrdtDataField.db.find(
       session,
-      where: (t) => _fieldHlcAfterFilter(t, crdtUser, nodeCheckpoints),
+      where: (t) => _fieldHlcAfterFilter(t, checkpointsByScopeId),
       include: CrdtDataField.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         column: CrdtSchemaColumn.include(),
@@ -513,6 +661,8 @@ class CrdtSync {
         continue;
       }
 
+      final scopeId = field.row!.scopeId;
+      final scopeUuid = scopeUuidById[scopeId]!;
       final columnName = field.column!.name;
       final columnValue = await _fetchOwnedColumnValue(
         session,
@@ -520,7 +670,7 @@ class CrdtSync {
         field.row!.uuidRowId,
         columnName,
         field.foreignKey,
-        crdtUser.id!,
+        scopeId,
         ownerCache,
       );
       if (!columnValue.exists) {
@@ -531,12 +681,12 @@ class CrdtSync {
           tableName: tableName,
           rowId: field.row!.uuidRowId,
           ownerScopeId: null,
-          incomingScopeUuid: crdtUser.uuidScopeId,
+          incomingScopeUuid: scopeUuid,
           uuidNodeId: field.node!.uuidNodeId,
           hlc: field.hlc,
         );
       }
-      if (columnValue.ownerScopeId != crdtUser.id) {
+      if (columnValue.ownerScopeId != scopeId) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: field.row!.id,
           type: CrdtSyncViolationType.ownershipCollision,
@@ -544,13 +694,14 @@ class CrdtSync {
           tableName: tableName,
           rowId: field.row!.uuidRowId,
           ownerScopeId: columnValue.ownerScopeId,
-          incomingScopeUuid: crdtUser.uuidScopeId,
+          incomingScopeUuid: scopeUuid,
           uuidNodeId: field.node!.uuidNodeId,
           hlc: field.hlc,
         );
       }
 
       yield CrdtMergeUpdate(
+        uuidScopeId: scopeUuid,
         hlcDatetime: field.hlcDatetime,
         hlcCounter: field.hlcCounter,
         tableName: tableName,
@@ -564,13 +715,13 @@ class CrdtSync {
 
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, UuidValue> scopeUuidById,
+    Map<int, List<Hlc>> checkpointsByScopeId,
     DomainRowOwnerCache ownerCache,
   ) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
-      where: (t) => _tombstoneHlcAfterFilter(t, crdtUser, nodeCheckpoints),
+      where: (t) => _tombstoneHlcAfterFilter(t, checkpointsByScopeId),
       include: CrdtDataDeleted.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         node: CrdtNode.include(),
@@ -582,13 +733,16 @@ class CrdtSync {
 
       final tableName = tombstone.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
+
+      final scopeId = tombstone.row!.scopeId;
+      final scopeUuid = scopeUuidById[scopeId]!;
       final owner = await _readDomainRowOwner(
         session,
         tableName,
         tombstone.row!.uuidRowId,
         ownerCache,
       );
-      if (owner.exists && owner.scopeId != crdtUser.id) {
+      if (owner.exists && owner.scopeId != scopeId) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: tombstone.row!.id,
           type: CrdtSyncViolationType.ownershipCollision,
@@ -596,13 +750,14 @@ class CrdtSync {
           tableName: tableName,
           rowId: tombstone.row!.uuidRowId,
           ownerScopeId: owner.scopeId,
-          incomingScopeUuid: crdtUser.uuidScopeId,
+          incomingScopeUuid: scopeUuid,
           uuidNodeId: tombstone.node!.uuidNodeId,
           hlc: tombstone.hlc,
         );
       }
 
       yield CrdtMergeDelete(
+        uuidScopeId: scopeUuid,
         hlcDatetime: tombstone.hlcDatetime,
         hlcCounter: tombstone.hlcCounter,
         tableName: tableName,
@@ -616,41 +771,41 @@ class CrdtSync {
 
   Expression _rowHlcAfterFilter(
     CrdtDataRowTable t,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) =>
-      t.scopeId.equals(crdtUser.id) &
-      t.node.afterAnyCheckpointFilter(
+      t.scopeId.inSet(checkpointsByScopeId.keys.toSet()) &
+      _afterAnyScopeCheckpointFilter(
+        t.scopeId,
         t.node.uuidNodeId,
         t.hlcDatetime,
         t.hlcCounter,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       );
 
   Expression _fieldHlcAfterFilter(
     CrdtDataFieldTable t,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) =>
-      t.row.scopeId.equals(crdtUser.id) &
-      t.node.afterAnyCheckpointFilter(
+      t.row.scopeId.inSet(checkpointsByScopeId.keys.toSet()) &
+      _afterAnyScopeCheckpointFilter(
+        t.row.scopeId,
         t.node.uuidNodeId,
         t.hlcDatetime,
         t.hlcCounter,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       );
 
   Expression _tombstoneHlcAfterFilter(
     CrdtDataDeletedTable t,
-    CrdtScope crdtUser,
-    List<Hlc> nodeCheckpoints,
+    Map<int, List<Hlc>> checkpointsByScopeId,
   ) =>
-      t.row.scopeId.equals(crdtUser.id) &
-      t.node.afterAnyCheckpointFilter(
+      t.row.scopeId.inSet(checkpointsByScopeId.keys.toSet()) &
+      _afterAnyScopeCheckpointFilter(
+        t.row.scopeId,
         t.node.uuidNodeId,
         t.hlcDatetime,
         t.hlcCounter,
-        nodeCheckpoints,
+        checkpointsByScopeId,
       );
 
   /// Loads a domain row for outbound insert sync.
@@ -959,27 +1114,31 @@ class CrdtSync {
   }
 }
 
-extension on CrdtNodeTable {
-  Expression afterAnyCheckpointFilter(
-    ColumnUuid uuidNodeId,
-    ColumnDateTime hlcDatetime,
-    ColumnInt hlcCounter,
-    List<Hlc> nodeCheckpoints,
-  ) {
-    if (nodeCheckpoints.isEmpty) return Constant.bool(true);
-
-    final caseExpression = Case();
-    for (final checkpoint in nodeCheckpoints) {
+Expression _afterAnyScopeCheckpointFilter(
+  ColumnInt scopeId,
+  ColumnUuid uuidNodeId,
+  ColumnDateTime hlcDatetime,
+  ColumnInt hlcCounter,
+  Map<int, List<Hlc>> checkpointsByScopeId,
+) {
+  final caseExpression = Case();
+  var hasCheckpoint = false;
+  for (final MapEntry(key: normalizedScopeId, value: checkpoints)
+      in checkpointsByScopeId.entries) {
+    for (final checkpoint in checkpoints) {
+      hasCheckpoint = true;
       caseExpression.when(
-        uuidNodeId.equals(checkpoint.nodeId),
+        scopeId.equals(normalizedScopeId) & uuidNodeId.equals(checkpoint.nodeId),
         then:
             (hlcDatetime > checkpoint.datetime) |
             (hlcDatetime.equals(checkpoint.datetime) &
                 (hlcCounter > checkpoint.counter)),
       );
     }
-    return caseExpression.orElse(Constant.bool(true));
   }
+  return hasCheckpoint
+      ? caseExpression.orElse(Constant.bool(true))
+      : Constant.bool(true);
 }
 
 extension on Map<String, dynamic> {

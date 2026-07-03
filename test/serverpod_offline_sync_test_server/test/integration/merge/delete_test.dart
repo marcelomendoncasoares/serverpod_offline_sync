@@ -35,6 +35,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteDelete = CrdtMergeDelete(
+        uuidScopeId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -109,6 +110,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteDelete = CrdtMergeDelete(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -179,6 +181,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteDelete = CrdtMergeDelete(
+        uuidScopeId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -244,6 +247,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteRestore = CrdtMergeDelete(
+        uuidScopeId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -321,6 +325,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteRestore = CrdtMergeDelete(
+        uuidScopeId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -398,6 +403,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteDelete = CrdtMergeDelete(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -462,6 +468,7 @@ void main() {
         );
 
         remoteDelete = CrdtMergeDelete(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -514,6 +521,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteDelete = CrdtMergeDelete(
+          uuidScopeId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: const Uuid().v7obj(),
           uuidNodeId: remoteNodeId,
