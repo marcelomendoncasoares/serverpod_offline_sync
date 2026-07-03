@@ -24,6 +24,7 @@ final demoSyncTables = <Table>[
   Types.t,
   Unique.t,
   UniqueComposite.t,
+  UniqueDiscriminator.t,
   UniqueSetNullChild.t,
   UniqueUuid.t,
 ];

@@ -58,6 +58,19 @@ class CrdtSchemaRegistry {
       );
     }
 
+    final nonReleasableUniqueIndexes = crdtNonReleasableUniqueIndexViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (nonReleasableUniqueIndexes.isNotEmpty) {
+      throw StateError(
+        'CRDT unique conflict resolution requires at least one releasable '
+        'non-scope column for ${nonReleasableUniqueIndexes.length} unique '
+        'index(es): ${nonReleasableUniqueIndexes.join(', ')}. '
+        'Only nullable, text, and non-FK UUID unique columns are supported.',
+      );
+    }
+
     final tablesMissingScopeIdRelation = _missingCrdtScopeRelations(
       syncTables,
       tableDefinitionsByName,
@@ -217,12 +230,7 @@ bool _isForbiddenGlobalUniqueIndex(
   Set<String> syncTableNames,
 ) {
   if (!index.isUnique || index.isPrimary) return false;
-  final includesScopeId = index.elements.any(
-    (element) =>
-        element.type == IndexElementDefinitionType.column &&
-        element.definition == 'scopeId',
-  );
-  if (includesScopeId) return false;
+  if (isCrdtScopedUniqueIndex(index)) return false;
 
   return !isCrdtAllowedForeignKeyOnlyUniqueIndex(
     tableDefinition,

@@ -31,13 +31,19 @@ For each unique index conflict group:
    full HLC ordering as the rest of CRDT merge. This includes node id as the HLC
    tie-break. Row id is only a final fallback for identical HLCs.
 3. Leave the winner's unique value unchanged.
-4. Rewrite each loser's visible unique-indexed value to a deterministic
-   conflict-free value:
+4. Rewrite each loser's visible releasable unique-indexed value to a
+   deterministic conflict-free value:
    - nullable unique values may be released to `null`;
    - text values receive a stable `__conflict__<rowId>` suffix;
    - UUID values receive a deterministic synthetic UUID.
 5. Keep all rows visible. Application code can decide whether and how to surface
    the changed visible value as a business conflict.
+
+For a composite unique index, fixed partition columns such as `scopeId` are not
+released, and not every remaining indexed column has to be releasable. The index
+is supported when at least one non-`scopeId` column can be released
+deterministically. Stable discriminator columns may remain unchanged; changing
+the releasable column or columns is enough to make the unique tuple conflict-free.
 
 The rewritten value is a materialized data value, not a synced conflict class.
 The core CRDT protocol does not need to expose unique conflict objects to users.
@@ -183,22 +189,27 @@ visibility and FK values, without also needing row aliasing and field folding.
    when the loser is released, then the materialized UUID is deterministic from
    the table, column, original value, and loser row id.
 
+7. Given a scoped composite unique index contains a stable non-releasable
+   discriminator and a releasable text column, when a loser is released, then the
+   discriminator remains unchanged and the text column receives the deterministic
+   conflict suffix.
+
 ### Deferred Merge And Overwrite Policies
 
-7. Given overwrite is enabled for a unique index, when a loser has visible
+8. Given overwrite is enabled for a unique index, when a loser has visible
    restrict children, then FK projection retargets those children through the
    row alias or blocks the projection deterministically; no visible orphan is
    produced.
 
-8. Given merge is enabled for a unique index, when loser rows contain newer
+9. Given merge is enabled for a unique index, when loser rows contain newer
    non-key field values, then field folding follows documented per-column
    policies and every replica computes the same winner row.
 
-9. Given a row participates in multiple unique conflict groups, when merge or
+10. Given a row participates in multiple unique conflict groups, when merge or
    overwrite projection runs, then row aliases are deterministic and do not form
    cycles.
 
-10. Given FK repair changes a unique-indexed visible value, when combined unique
+11. Given FK repair changes a unique-indexed visible value, when combined unique
     and FK projection runs, then the fixed-point result matches a full
     recomputation oracle.
 

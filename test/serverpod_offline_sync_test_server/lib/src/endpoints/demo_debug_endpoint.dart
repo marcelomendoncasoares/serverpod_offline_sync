@@ -295,6 +295,7 @@ class DemoDebugEndpoint extends Endpoint {
     await add<Unique>();
     await add<UniqueUuid>();
     await add<UniqueComposite>();
+    await add<UniqueDiscriminator>();
     await add<UniqueSetNullChild>();
     await add<Types>();
     await add<FkChainRoot>();
