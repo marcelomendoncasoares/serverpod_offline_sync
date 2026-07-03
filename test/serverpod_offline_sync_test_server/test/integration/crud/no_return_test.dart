@@ -164,4 +164,65 @@ void main() {
       },
     );
   });
+
+  group('Given a row on a table not tracked by CRDT,', () {
+    late CrdtSyncIntegrityViolation violation;
+
+    setUp(() async {
+      violation = await CrdtSyncIntegrityViolation.db.insertRow(
+        session,
+        CrdtSyncIntegrityViolation(
+          type: CrdtSyncViolationType.ownershipCollision,
+          domainTableName: Person.t.tableName,
+          uuidRowId: const Uuid().v7obj(),
+          incomingScopeUuid: testCrdtUserId,
+          operation: CrdtSyncViolationOperation.mergeInsert,
+          firstSeenAt: DateTime.now(),
+          lastSeenAt: DateTime.now(),
+          occurrences: 1,
+        ),
+      );
+    });
+
+    test(
+      'when updating the row with update and noReturn, '
+      'then no rows are returned and the change is persisted.',
+      () async {
+        final updated = await CrdtSyncIntegrityViolation.db.update(
+          session,
+          [violation.copyWith(occurrences: 2)],
+          noReturn: true,
+        );
+
+        expect(updated, isEmpty);
+
+        final row = await CrdtSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(row?.occurrences, 2);
+      },
+    );
+
+    test(
+      'when updating the row with updateWhere and noReturn, '
+      'then no rows are returned and the change is persisted.',
+      () async {
+        final updated = await CrdtSyncIntegrityViolation.db.updateWhere(
+          session,
+          columnValues: (t) => [t.occurrences(3)],
+          where: (t) => t.id.equals(violation.id),
+          noReturn: true,
+        );
+
+        expect(updated, isEmpty);
+
+        final row = await CrdtSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(row?.occurrences, 3);
+      },
+    );
+  });
 }

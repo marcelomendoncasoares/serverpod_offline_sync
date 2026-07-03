@@ -328,13 +328,14 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
-        final canSkipReturn =
+        // Tracked rows can only skip RETURNING when the prepared rows are
+        // exactly what gets inserted: every id is caller-provided and a
+        // conflict throws instead of silently dropping rows.
+        final skipReturn =
             noReturn &&
-            prepared.isCrdtTracked &&
-            !ignoreConflicts &&
-            !rows.any((row) => row.id == null);
-
-        if (noReturn && prepared.isCrdtTracked && !canSkipReturn) {
+            (!prepared.isCrdtTracked ||
+                (!ignoreConflicts && !rows.any((row) => row.id == null)));
+        if (noReturn && !skipReturn) {
           await _delegate.session.warnNoReturnIgnored('insert');
         }
 
@@ -342,10 +343,12 @@ class CrdtDatabase implements Database {
           prepared.rows,
           transaction: tx,
           ignoreConflicts: ignoreConflicts,
-          noReturn: noReturn && (!prepared.isCrdtTracked || canSkipReturn),
+          noReturn: skipReturn,
         );
 
-        final insertedRows = canSkipReturn ? prepared.rows : result;
+        final insertedRows = skipReturn && prepared.isCrdtTracked
+            ? prepared.rows
+            : result;
         await _recorder.afterInsert<T>(insertedRows, tx);
         _stripStampedRows(insertedRows, prepared);
         return insertedRows;
@@ -429,6 +432,14 @@ class CrdtDatabase implements Database {
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return _delegate.update<T>(
+        rows,
+        columns: columns,
+        transaction: transaction,
+        noReturn: noReturn,
+      );
+    }
     if (noReturn) {
       await _delegate.session.warnNoReturnIgnored('update');
     }
@@ -545,9 +556,22 @@ class CrdtDatabase implements Database {
     bool noReturn = false,
   }) async {
     await _ensureInitialized();
-    if (_recorder.isCrdtTracked<T>()) {
-      _assertNoScopeIdColumnValues<T>(columnValues);
+    if (!_recorder.isCrdtTracked<T>()) {
+      return _delegate.updateWhere<T>(
+        columnValues: columnValues,
+        where: where,
+        limit: limit,
+        offset: offset,
+        orderBy: orderBy,
+        orderByList: orderByList,
+        // Remove this once the deprecated member is removed.
+        // ignore: deprecated_member_use
+        orderDescending: orderDescending,
+        transaction: transaction,
+        noReturn: noReturn,
+      );
     }
+    _assertNoScopeIdColumnValues<T>(columnValues);
     if (noReturn) {
       await _delegate.session.warnNoReturnIgnored('updateWhere');
     }
@@ -576,9 +600,7 @@ class CrdtDatabase implements Database {
 
         final columns = columnValues.map((e) => e.column).toList();
         await _recorder.afterUpdate(result, columns, tx);
-        if (_recorder.isCrdtTracked<T>()) {
-          result.forEach(_stripScopeId);
-        }
+        result.forEach(_stripScopeId);
         return result;
       },
     );
