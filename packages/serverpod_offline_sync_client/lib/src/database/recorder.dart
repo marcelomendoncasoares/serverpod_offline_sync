@@ -37,7 +37,8 @@ typedef _ForeignKeyEdge = ({
 typedef _ForeignKeyValueKey = (String tableName, String columnName, String value);
 
 typedef _UniqueIndexConflictRelease = ({
-  List<_UniqueColumnConflictRelease> columns,
+  List<String> indexedColumns,
+  List<_UniqueColumnConflictRelease> releaseColumns,
   bool scoped,
 });
 
@@ -299,6 +300,12 @@ class CrdtMutationRecorder {
 
   Future<void> _initializeOnce() async {
     await _context.initialize(_session);
+    for (final table in syncTables) {
+      final tableDefinition = _tableDefinitionsByName[table.tableName];
+      if (tableDefinition != null) {
+        _uniqueIndexesForTable(tableDefinition);
+      }
+    }
     if (persistentUserId != null) {
       await _scopeManager.getOrCreate(persistentUserId!);
     }
@@ -1113,12 +1120,13 @@ WHERE c."id" IN ($whereRowIds)
 
     final uniqueIndexes = _uniqueIndexesForTable(tableDefinition);
     for (final uniqueIndex in uniqueIndexes) {
-      final columnNames = uniqueIndex.columnNames.toList();
+      final indexedColumnNames = uniqueIndex.indexedColumnNames.toList();
+      final releaseColumnNames = uniqueIndex.releaseColumnNames.toList();
 
       final valuesByRowId = await _readDomainColumnValues(
         tableName,
         rowIds,
-        columnNames,
+        indexedColumnNames,
         transaction,
       );
       final updatedRowIds = <UuidValue>{};
@@ -1127,7 +1135,7 @@ WHERE c."id" IN ($whereRowIds)
         if (values.values.any((value) => value == null)) continue;
 
         final updates = <String, Object?>{};
-        for (final column in uniqueIndex.columns) {
+        for (final column in uniqueIndex.releaseColumns) {
           updates[column.columnName] = _conflictFreeValue(
             column,
             values[column.columnName],
@@ -1145,7 +1153,7 @@ WHERE c."id" IN ($whereRowIds)
         await recordFieldsUpdatedByTable(
           tableName,
           updatedRowIds,
-          columnNames,
+          releaseColumnNames,
           transaction,
         );
       }
@@ -1452,21 +1460,38 @@ _UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
   IndexDefinition index,
 ) {
   final columnNames = index.elements.map((element) => element.definition).toList();
+  final indexedColumns = [
+    for (final columnName in columnNames)
+      if (columnName != 'scopeId') columnName,
+  ];
+  final releaseColumns = <_UniqueColumnConflictRelease>[];
+  for (final columnName in indexedColumns) {
+    final releaseColumn = _uniqueConflictReleaseForColumn(
+      table,
+      columnsByName[columnName],
+      columnName,
+    );
+    if (releaseColumn != null) {
+      releaseColumns.add(releaseColumn);
+    }
+  }
+
+  if (releaseColumns.isEmpty) {
+    throw StateError(
+      'CRDT unique conflict resolution requires at least one releasable '
+      'non-scope column for ${table.name}.${index.indexName}. '
+      'Only nullable, text, and non-FK UUID unique columns are supported.',
+    );
+  }
+
   return (
     scoped: columnNames.contains('scopeId'),
-    columns: [
-      for (final columnName in columnNames)
-        if (columnName != 'scopeId')
-          _uniqueConflictReleaseForColumn(
-            table,
-            columnsByName[columnName],
-            columnName,
-          ),
-    ],
+    indexedColumns: indexedColumns,
+    releaseColumns: releaseColumns,
   );
 }
 
-_UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
+_UniqueColumnConflictRelease? _uniqueConflictReleaseForColumn(
   TableDefinition table,
   ColumnDefinition? column,
   String columnName,
@@ -1487,10 +1512,7 @@ _UniqueColumnConflictRelease _uniqueConflictReleaseForColumn(
     return (columnName: columnName, kind: _UniqueConflictReleaseKind.syntheticUuid);
   }
 
-  throw StateError(
-    'CRDT soft deletes cannot release unique conflicts for ${table.name}.$columnName. '
-    'Only nullable, text, and non-FK UUID unique columns are supported.',
-  );
+  return null;
 }
 
 bool _isForeignKeyColumn(TableDefinition table, String columnName) {

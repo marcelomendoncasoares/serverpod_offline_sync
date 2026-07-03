@@ -71,12 +71,12 @@ class CrdtUniqueConflictResolver {
     required _MergeContext context,
   }) {
     var uniqueHlc = insert.hlc;
-    for (final column in uniqueIndex.columns) {
+    for (final columnName in uniqueIndex.indexedColumns) {
       uniqueHlc = uniqueHlc.maxBetween(
         context.incomingFieldHlcs[(
           insert.tableName,
           insert.uuidRowId,
-          column.columnName,
+          columnName,
         )],
       );
     }
@@ -120,7 +120,7 @@ class CrdtUniqueConflictResolver {
 
     final uniqueColumnNamesToRead = {
       for (final uniqueIndex in _recorder._uniqueIndexesForTable(tableDefinition))
-        for (final column in uniqueIndex.columns) column.columnName,
+        ...uniqueIndex.indexedColumns,
     };
     if (uniqueColumnNamesToRead.isEmpty) {
       return updates;
@@ -168,7 +168,7 @@ class CrdtUniqueConflictResolver {
           values,
           conflict.uniqueIndex,
         );
-        for (final columnName in conflict.uniqueIndex.columnNames) {
+        for (final columnName in conflict.uniqueIndex.releaseColumnNames) {
           if (releasedValues.containsKey(columnName)) {
             resolvedUpdates[columnName] = releasedValues[columnName];
             values[columnName] = releasedValues[columnName];
@@ -198,12 +198,12 @@ class CrdtUniqueConflictResolver {
 
     final released = Map<String, Object?>.from(data);
     final values = {
-      for (final column in uniqueIndex.columns)
-        column.columnName: released[column.columnName],
+      for (final columnName in uniqueIndex.indexedColumns)
+        columnName: released[columnName],
     };
     if (values.values.any((value) => value == null)) return released;
 
-    for (final column in uniqueIndex.columns) {
+    for (final column in uniqueIndex.releaseColumns) {
       released[column.columnName] = _recorder._conflictFreeValue(
         column,
         values[column.columnName],
@@ -221,7 +221,7 @@ class CrdtUniqueConflictResolver {
     required _UniqueIndexConflictRelease uniqueIndex,
     required Transaction transaction,
   }) async {
-    final columnNames = uniqueIndex.columnNames.toList();
+    final columnNames = uniqueIndex.indexedColumnNames.toList();
     final valuesByRowId = await _recorder._readDomainColumnValues(
       tableName,
       {rowId},
@@ -255,9 +255,8 @@ class CrdtUniqueConflictResolver {
     final uniqueIndexesByConflictId = <UuidValue, Set<_UniqueIndexConflictRelease>>{};
     for (final uniqueIndex in uniqueIndexes) {
       final columnValues = {
-        for (final column in uniqueIndex.columns)
-          if (values.containsKey(column.columnName))
-            column.columnName: values[column.columnName],
+        for (final columnName in uniqueIndex.indexedColumns)
+          if (values.containsKey(columnName)) columnName: values[columnName],
       };
       if (uniqueIndex.scoped) {
         columnValues['scopeId'] = _recorder
@@ -265,7 +264,7 @@ class CrdtUniqueConflictResolver {
             .normalizedScopeId;
       }
       final expectedValueCount =
-          uniqueIndex.columns.length + (uniqueIndex.scoped ? 1 : 0);
+          uniqueIndex.indexedColumns.length + (uniqueIndex.scoped ? 1 : 0);
       if (columnValues.length != expectedValueCount) continue;
       if (columnValues.values.any((value) => value == null)) continue;
 
@@ -314,7 +313,7 @@ class CrdtUniqueConflictResolver {
     required Transaction transaction,
   }) async {
     final uniqueColumnNames = {
-      for (final column in uniqueIndex.columns) column.columnName,
+      ...uniqueIndex.indexedColumns,
     };
     final missingColumnIds = <int>{};
     final maxFieldHlc = <Hlc>[];
@@ -374,12 +373,14 @@ class CrdtUniqueConflictResolver {
     if (tableDefinition == null) return false;
     return _recorder
         ._uniqueIndexesForTable(tableDefinition)
-        .any((i) => i.columns.any((c) => c.columnName == columnName));
+        .any((i) => i.indexedColumns.contains(columnName));
   }
 }
 
 extension on _UniqueIndexConflictRelease {
-  Set<String> get columnNames => {
-    for (final column in columns) column.columnName,
+  Set<String> get indexedColumnNames => indexedColumns.toSet();
+
+  Set<String> get releaseColumnNames => {
+    for (final column in releaseColumns) column.columnName,
   };
 }

@@ -422,6 +422,94 @@ void main() {
   );
 
   group(
+    'Given a remote update that loses a composite unique conflict with a stable discriminator, ',
+    () {
+      late UniqueDiscriminator loser;
+      late CrdtMergeUpdate remoteUpdate;
+
+      setUp(() async {
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueDiscriminator.db.insertRow(
+            session,
+            UniqueDiscriminator(
+              id: const Uuid().v7obj(),
+              categoryId: 7,
+              name: 'shared-name',
+            ),
+            transaction: tx,
+          );
+          loser = await UniqueDiscriminator.db.insertRow(
+            session,
+            UniqueDiscriminator(
+              id: const Uuid().v7obj(),
+              categoryId: 7,
+              name: 'original-name',
+            ),
+            transaction: tx,
+          );
+        });
+
+        final loserCrdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(loser.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        remoteUpdate = CrdtMergeUpdate(
+          uuidScopeId: testCrdtUserId,
+          tableName: UniqueDiscriminator.t.tableName,
+          uuidRowId: loser.id!,
+          uuidNodeId: const Uuid().v7obj(),
+          hlcDatetime: loserCrdtRow!.hlc.datetime.advance(),
+          hlcCounter: loserCrdtRow.hlc.counter,
+          columnName: UniqueDiscriminator.t.name.columnName,
+          value: 'shared-name',
+        );
+
+        mergeSet = [remoteUpdate];
+      });
+
+      group('when merging, ', () {
+        setUp(() async {
+          await session.db.mergeChanges(
+            mergeSet,
+            scopeId: testCrdtUserId,
+          );
+        });
+
+        test(
+          'then the losing row keeps the discriminator and receives a conflict-free name.',
+          () async {
+            final row = await UniqueDiscriminator.db.findById(session, loser.id!);
+
+            expect(row, isNotNull);
+            expect(row!.categoryId, 7);
+            expect(row.name, 'shared-name__conflict__${loser.id!.uuid}');
+          },
+        );
+
+        test(
+          'then the stable discriminator does not receive CRDT field metadata.',
+          () async {
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.equals(loser.id),
+              include: CrdtDataField.include(
+                column: CrdtSchemaColumn.include(),
+                node: CrdtNode.include(),
+              ),
+            );
+
+            expect(fields, hasLength(1));
+            expect(fields.first.column!.name, UniqueDiscriminator.t.name.columnName);
+            expect(fields.first.hlc, remoteUpdate.hlc);
+          },
+        );
+      });
+    },
+  );
+
+  group(
     'Given a remote update that loses a UUID unique conflict, ',
     () {
       final sharedValue = const Uuid().v7obj();

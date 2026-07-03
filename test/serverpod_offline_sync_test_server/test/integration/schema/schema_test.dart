@@ -298,6 +298,46 @@ void main() {
   );
 
   test(
+    'Given a CRDT database with a scoped composite unique index that has a stable discriminator and a releasable column, '
+    'when the database is initialized, '
+    'then the unique index metadata is accepted.',
+    () async {
+      final crdtSession = CrdtDatabaseSession.wraps(
+        testSession,
+        syncTables: [UniqueDiscriminator.t],
+      );
+
+      await expectLater(crdtSession.db.initialize(), completes);
+    },
+  );
+
+  test(
+    'Given a CRDT database with a scoped unique index that has no releasable non-scope column, '
+    'when the database is initialized, '
+    'then an error is thrown.',
+    () async {
+      final crdtSession = CrdtDatabaseSession.wraps(
+        testSession,
+        syncTables: [UniqueNoRelease.t],
+      );
+
+      await expectLater(
+        crdtSession.db.initialize(),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT unique conflict resolution requires at least one '
+              'releasable non-scope column',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
     'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
     'when the registry is created, '
     'then no error is thrown.',

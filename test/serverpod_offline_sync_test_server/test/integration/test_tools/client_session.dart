@@ -98,6 +98,7 @@ Future<void> _initialize() async {
       Town.t,
       Unique.t,
       UniqueComposite.t,
+      UniqueDiscriminator.t,
       UniqueSetNullChild.t,
       UniqueUuid.t,
     ],
