@@ -431,8 +431,18 @@ class CrdtDatabase implements Database {
           transaction: tx,
         );
 
-        await _recorder.afterInsert(await _rowsWithoutCrdtMetadata(result, tx), tx);
-        await _recorder.afterUpdate(result, updateColumns, tx);
+        final insertedRows = await _rowsWithoutCrdtMetadata(result, tx);
+        await _recorder.afterInsert(insertedRows, tx);
+
+        final insertedRowIds = {
+          for (final row in insertedRows)
+            if (row.id is UuidValue) row.id as UuidValue,
+        };
+        final updatedRows = [
+          for (final row in result)
+            if (row.id is! UuidValue || !insertedRowIds.contains(row.id)) row,
+        ];
+        await _recorder.afterUpdate(updatedRows, updateColumns, tx);
         if (noReturn) return <T>[];
         _stripStampedRows(result, prepared);
         return result;
