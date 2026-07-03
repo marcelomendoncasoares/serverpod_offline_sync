@@ -172,6 +172,79 @@ void main() {
         expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
       });
     });
+
+    group('when inserting a Person with a caller-provided id and noReturn,', () {
+      late UuidValue id;
+      late List<Person> inserted;
+
+      setUp(() async {
+        id = const Uuid().v7obj();
+        inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(id: id, name: 'fixed')],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(inserted, isEmpty);
+      });
+
+      test('then the row exists in the person table.', () async {
+        final row = await Person.db.findById(session, id);
+        expect(row?.name, 'fixed');
+      });
+
+      test('then CRDT metadata is recorded for the row.', () async {
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(id),
+        );
+        expect(crdtRow, isNotNull);
+      });
+    });
+
+    group('when inserting a Person without a caller-provided id and noReturn,', () {
+      late List<Person> inserted;
+      late Person? row;
+
+      setUp(() async {
+        inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(name: 'generated')],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+
+        row = await Person.db.findFirstRow(
+          session,
+          where: (t) => t.name.equals('generated'),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(inserted, isEmpty);
+      });
+
+      test('then the row exists in the person table.', () async {
+        expect(row, isNotNull);
+      });
+
+      test('then CRDT metadata is recorded for the row.', () async {
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(row!.id),
+        );
+        expect(crdtRow, isNotNull);
+      });
+    });
   });
 
   group('Given a person row with a fixed id,', () {

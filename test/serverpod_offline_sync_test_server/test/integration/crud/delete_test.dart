@@ -56,6 +56,62 @@ void main() {
         expect(deletedPerson.scopeId, isNull);
       });
     });
+
+    group('when deleting the Person with delete and noReturn,', () {
+      late List<Person> deleted;
+
+      setUp(() async {
+        deleted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.delete(
+            session,
+            [person],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(deleted, isEmpty);
+      });
+
+      test('then a CRDT tombstone is created for the row.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+        expect(tombstone?.isDeleted, isTrue);
+      });
+    });
+
+    group('when deleting the Person with deleteWhere and noReturn,', () {
+      late List<Person> deleted;
+
+      setUp(() async {
+        deleted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.deleteWhere(
+            session,
+            where: (t) => t.id.equals(person.id),
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(deleted, isEmpty);
+      });
+
+      test('then a CRDT tombstone is created for the row.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+        expect(tombstone?.isDeleted, isTrue);
+      });
+    });
   });
 
   group('Given a person table with a deleted row,', () {

@@ -323,20 +323,37 @@ class CrdtDatabase implements Database {
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return _delegate.insert<T>(
+        rows,
+        transaction: transaction,
+        ignoreConflicts: ignoreConflicts,
+        noReturn: noReturn,
+      );
+    }
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
+        // Tracked rows can only skip RETURNING when the prepared rows are
+        // exactly what gets inserted: every id is caller-provided and a
+        // conflict throws instead of silently dropping rows.
+        final skipReturn =
+            noReturn && !ignoreConflicts && !rows.any((row) => row.id == null);
+
         final result = await _delegate.insert<T>(
           prepared.rows,
           transaction: tx,
           ignoreConflicts: ignoreConflicts,
+          noReturn: skipReturn,
         );
 
-        await _recorder.afterInsert<T>(result, tx);
-        _stripStampedRows(result, prepared);
-        return result;
+        final insertedRows = skipReturn ? prepared.rows : result;
+        await _recorder.afterInsert<T>(insertedRows, tx);
+        if (noReturn) return <T>[];
+        _stripStampedRows(insertedRows, prepared);
+        return insertedRows;
       },
     );
   }
@@ -417,6 +434,14 @@ class CrdtDatabase implements Database {
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return _delegate.update<T>(
+        rows,
+        columns: columns,
+        transaction: transaction,
+        noReturn: noReturn,
+      );
+    }
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -432,7 +457,7 @@ class CrdtDatabase implements Database {
         ];
 
         await _recorder.afterUpdate(updatedRows, columns, tx);
-        return updatedRows;
+        return noReturn ? <T>[] : updatedRows;
       },
     );
   }
@@ -530,10 +555,23 @@ class CrdtDatabase implements Database {
     bool noReturn = false,
   }) async {
     await _ensureInitialized();
-    if (_recorder.isCrdtTracked<T>()) {
-      _assertNoScopeIdColumnValues<T>(columnValues);
+    if (!_recorder.isCrdtTracked<T>()) {
+      return _delegate.updateWhere<T>(
+        columnValues: columnValues,
+        where: where,
+        limit: limit,
+        offset: offset,
+        orderBy: orderBy,
+        orderByList: orderByList,
+        // Remove this once the deprecated member is removed.
+        // ignore: deprecated_member_use
+        orderDescending: orderDescending,
+        transaction: transaction,
+        noReturn: noReturn,
+      );
     }
 
+    _assertNoScopeIdColumnValues<T>(columnValues);
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -558,9 +596,8 @@ class CrdtDatabase implements Database {
 
         final columns = columnValues.map((e) => e.column).toList();
         await _recorder.afterUpdate(result, columns, tx);
-        if (_recorder.isCrdtTracked<T>()) {
-          result.forEach(_stripScopeId);
-        }
+        if (noReturn) return <T>[];
+        result.forEach(_stripScopeId);
         return result;
       },
     );
@@ -587,6 +624,7 @@ class CrdtDatabase implements Database {
       // ignore: deprecated_member_use
       orderDescending: orderDescending,
       transaction: transaction,
+      noReturn: noReturn,
     );
   }
 
@@ -629,6 +667,7 @@ class CrdtDatabase implements Database {
         // ignore: deprecated_member_use
         orderDescending: orderDescending,
         transaction: transaction,
+        noReturn: noReturn,
       );
     }
 
@@ -652,6 +691,7 @@ class CrdtDatabase implements Database {
         );
 
         await _recorder.insteadOfDelete<T>(rows, tx);
+        if (noReturn) return <T>[];
         return _stripScopeIdFromScopedRead(rows, null, tx);
       },
     );
