@@ -221,11 +221,10 @@ class CrdtUniqueConflictResolver {
     required _UniqueIndexConflictRelease uniqueIndex,
     required Transaction transaction,
   }) async {
-    final columnNames = uniqueIndex.indexedColumnNames.toList();
     final valuesByRowId = await _recorder._readDomainColumnValues(
       tableName,
       {rowId},
-      columnNames,
+      uniqueIndex.indexedColumns,
       transaction,
     );
     final values = valuesByRowId[rowId];
@@ -378,8 +377,6 @@ class CrdtUniqueConflictResolver {
 }
 
 extension on _UniqueIndexConflictRelease {
-  Set<String> get indexedColumnNames => indexedColumns.toSet();
-
   Set<String> get releaseColumnNames => {
     for (final column in releaseColumns) column.columnName,
   };

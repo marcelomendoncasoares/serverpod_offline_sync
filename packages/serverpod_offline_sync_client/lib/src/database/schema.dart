@@ -230,12 +230,7 @@ bool _isForbiddenGlobalUniqueIndex(
   Set<String> syncTableNames,
 ) {
   if (!index.isUnique || index.isPrimary) return false;
-  final includesScopeId = index.elements.any(
-    (element) =>
-        element.type == IndexElementDefinitionType.column &&
-        element.definition == 'scopeId',
-  );
-  if (includesScopeId) return false;
+  if (isCrdtScopedUniqueIndex(index)) return false;
 
   return !isCrdtAllowedForeignKeyOnlyUniqueIndex(
     tableDefinition,

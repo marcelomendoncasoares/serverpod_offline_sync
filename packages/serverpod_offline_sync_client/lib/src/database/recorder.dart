@@ -44,14 +44,8 @@ typedef _UniqueIndexConflictRelease = ({
 
 typedef _UniqueColumnConflictRelease = ({
   String columnName,
-  _UniqueConflictReleaseKind kind,
+  CrdtUniqueConflictReleaseKind kind,
 });
-
-enum _UniqueConflictReleaseKind {
-  setNull,
-  textSuffix,
-  syntheticUuid,
-}
 
 enum _ForeignKeyTargetPresence {
   absent,
@@ -300,12 +294,6 @@ class CrdtMutationRecorder {
 
   Future<void> _initializeOnce() async {
     await _context.initialize(_session);
-    for (final table in syncTables) {
-      final tableDefinition = _tableDefinitionsByName[table.tableName];
-      if (tableDefinition != null) {
-        _uniqueIndexesForTable(tableDefinition);
-      }
-    }
     if (persistentUserId != null) {
       await _scopeManager.getOrCreate(persistentUserId!);
     }
@@ -1120,13 +1108,12 @@ WHERE c."id" IN ($whereRowIds)
 
     final uniqueIndexes = _uniqueIndexesForTable(tableDefinition);
     for (final uniqueIndex in uniqueIndexes) {
-      final indexedColumnNames = uniqueIndex.indexedColumnNames.toList();
       final releaseColumnNames = uniqueIndex.releaseColumnNames.toList();
 
       final valuesByRowId = await _readDomainColumnValues(
         tableName,
         rowIds,
-        indexedColumnNames,
+        uniqueIndex.indexedColumns,
         transaction,
       );
       final updatedRowIds = <UuidValue>{};
@@ -1298,13 +1285,13 @@ WHERE "id" IN (${_sqlLiteralList(rowIds)})
     String releaseSuffix,
   ) {
     switch (column.kind) {
-      case _UniqueConflictReleaseKind.setNull:
+      case CrdtUniqueConflictReleaseKind.setNull:
         return null;
-      case _UniqueConflictReleaseKind.textSuffix:
+      case CrdtUniqueConflictReleaseKind.textSuffix:
         if (value is String) {
           return '${value}__${releaseSuffix}__${conflictingId.uuid}';
         }
-      case _UniqueConflictReleaseKind.syntheticUuid:
+      case CrdtUniqueConflictReleaseKind.syntheticUuid:
         if (value != null) {
           return const Uuid().v5obj(
             Namespace.oid.value,
@@ -1441,13 +1428,13 @@ _UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
   ];
   final releaseColumns = <_UniqueColumnConflictRelease>[];
   for (final columnName in indexedColumns) {
-    final releaseColumn = _uniqueConflictReleaseForColumn(
-      table,
-      columnsByName[columnName],
-      columnName,
-    );
-    if (releaseColumn != null) {
-      releaseColumns.add(releaseColumn);
+    final column = columnsByName[columnName];
+    if (column == null) {
+      throw StateError('No column definition found for ${table.name}.$columnName.');
+    }
+    final kind = crdtUniqueConflictReleaseKindForColumn(table, column);
+    if (kind != null) {
+      releaseColumns.add((columnName: columnName, kind: kind));
     }
   }
 
@@ -1456,31 +1443,6 @@ _UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
     indexedColumns: indexedColumns,
     releaseColumns: releaseColumns,
   );
-}
-
-_UniqueColumnConflictRelease? _uniqueConflictReleaseForColumn(
-  TableDefinition table,
-  ColumnDefinition? column,
-  String columnName,
-) {
-  if (column == null) {
-    throw StateError('No column definition found for ${table.name}.$columnName.');
-  }
-
-  if (column.isNullable) {
-    return (columnName: columnName, kind: _UniqueConflictReleaseKind.setNull);
-  }
-
-  if (column.columnType == ColumnType.text) {
-    return (columnName: columnName, kind: _UniqueConflictReleaseKind.textSuffix);
-  }
-
-  if (column.columnType == ColumnType.uuid &&
-      !isCrdtForeignKeyColumn(table, columnName)) {
-    return (columnName: columnName, kind: _UniqueConflictReleaseKind.syntheticUuid);
-  }
-
-  return null;
 }
 
 String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);

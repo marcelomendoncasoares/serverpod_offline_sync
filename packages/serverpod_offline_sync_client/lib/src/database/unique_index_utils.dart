@@ -67,18 +67,29 @@ bool isCrdtForeignKeyColumn(TableDefinition table, String columnName) {
   );
 }
 
+/// How a unique-indexed column can be released to a conflict-free value, or
+/// null when the column cannot be released deterministically.
 @internal
-bool isCrdtReleasableUniqueConflictColumn(
+enum CrdtUniqueConflictReleaseKind {
+  setNull,
+  textSuffix,
+  syntheticUuid,
+}
+
+@internal
+CrdtUniqueConflictReleaseKind? crdtUniqueConflictReleaseKindForColumn(
   TableDefinition table,
   ColumnDefinition column,
 ) {
-  if (column.isNullable) return true;
-  if (column.columnType == ColumnType.text) return true;
+  if (column.isNullable) return CrdtUniqueConflictReleaseKind.setNull;
+  if (column.columnType == ColumnType.text) {
+    return CrdtUniqueConflictReleaseKind.textSuffix;
+  }
   if (column.columnType == ColumnType.uuid &&
       !isCrdtForeignKeyColumn(table, column.name)) {
-    return true;
+    return CrdtUniqueConflictReleaseKind.syntheticUuid;
   }
-  return false;
+  return null;
 }
 
 @internal
@@ -106,7 +117,9 @@ bool _hasReleasableNonScopeUniqueColumn(
   TableDefinition table,
   IndexDefinition index,
 ) {
-  final columnsByName = {for (final column in table.columns) column.name: column};
+  final columnsByName = {
+    for (final column in table.columns) column.name: column,
+  };
   for (final element in index.elements) {
     if (element.type != IndexElementDefinitionType.column) continue;
     if (element.definition == 'scopeId') continue;
@@ -116,7 +129,7 @@ bool _hasReleasableNonScopeUniqueColumn(
         'No column definition found for ${table.name}.${element.definition}.',
       );
     }
-    if (isCrdtReleasableUniqueConflictColumn(table, column)) {
+    if (crdtUniqueConflictReleaseKindForColumn(table, column) != null) {
       return true;
     }
   }
