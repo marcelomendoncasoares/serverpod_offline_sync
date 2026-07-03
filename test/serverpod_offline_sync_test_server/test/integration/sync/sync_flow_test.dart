@@ -1,6 +1,3 @@
-// Uses serverpod_database and serverpod_test types already available transitively from the test setup.
-// ignore_for_file: depend_on_referenced_packages
-
 import 'dart:async';
 
 import 'package:serverpod/serverpod.dart';

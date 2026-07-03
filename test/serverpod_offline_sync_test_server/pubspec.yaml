@@ -18,6 +18,9 @@ dependencies:
 dev_dependencies:
   lints: '>=3.0.0 <7.0.0'
   path: ^1.9.1
+  serverpod_database: 3.5.0-beta.10
+  serverpod_offline_sync_client:
+    path: ../../packages/serverpod_offline_sync_client
   serverpod_offline_sync_test_client:
     path: ../serverpod_offline_sync_test_client
   serverpod_test: 3.5.0-beta.10

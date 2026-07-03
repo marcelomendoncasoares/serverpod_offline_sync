@@ -1,6 +1,3 @@
-// Uses serverpod_database types already available transitively from the test setup.
-// ignore_for_file: depend_on_referenced_packages
-
 import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
     hide Protocol;

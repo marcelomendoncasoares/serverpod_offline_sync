@@ -1,6 +1,3 @@
-// Tests need the same stdout sink used by Serverpod's generated test harness.
-// ignore_for_file: implementation_imports
-
 import 'dart:async';
 import 'dart:io';
 
