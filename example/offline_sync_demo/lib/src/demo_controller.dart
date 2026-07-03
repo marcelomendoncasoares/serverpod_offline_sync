@@ -1011,9 +1011,10 @@ class DemoController extends ChangeNotifier {
     if (!dbDir.existsSync()) {
       dbDir.createSync(recursive: true);
     }
-    final replica = await OfflineReplica.open(
+    final databasePath = p.join(dbDir.path, '${user.username}-${slot.name}.db');
+    final replica = await OfflineReplica.openOrReset(
       client: client,
-      databasePath: p.join(dbDir.path, '${user.username}-${slot.name}.db'),
+      databasePath: databasePath,
       persistentUserId: user.authUserId,
     );
     _sessions[key] = replica;

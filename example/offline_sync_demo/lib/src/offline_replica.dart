@@ -1,4 +1,7 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:path/path.dart' as p;
 import 'package:serverpod_database/serverpod_database.dart'
     show ClientDatabaseSession;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
@@ -13,8 +16,10 @@ import 'table_ops.dart' show demoSyncTables;
 /// understand the package. The four steps are:
 ///
 ///   1. [open] opens a local SQLite database ([Client.createSession])
-///      and wraps it in a [CrdtDatabaseSession]. The rest of the app
-///      reads and writes generated models through [session].
+///      and wraps it in a [CrdtDatabaseSession]. Use
+///      [openOrReset] when the file may predate the shipped
+///      schema. The rest of the app reads and writes generated models through
+///      [session].
 ///   2. CRUD happens against [session] with the generated model APIs (see
 ///      the `seed*` methods in `DemoController` for the plain, recommended form,
 ///      e.g. `Person.db.insertRow(crdtSession, person)`).
@@ -61,6 +66,41 @@ class OfflineReplica {
     );
     await crdtSession.db.initialize();
     return OfflineReplica._(rawSession, crdtSession, persistentUserId);
+  }
+
+  /// Like [open], but deletes [databasePath] and retries once when opening
+  /// fails — for example when migrations were regenerated during development
+  /// and a leftover file records a version this build no longer ships.
+  ///
+  /// A replica is a disposable local cache; syncing re-pulls server state.
+  static Future<OfflineReplica> openOrReset({
+    required Client client,
+    required String databasePath,
+    required UuidValue persistentUserId,
+  }) async {
+    var retry = true;
+    while (true) {
+      try {
+        return await open(
+          client: client,
+          databasePath: databasePath,
+          persistentUserId: persistentUserId,
+        );
+      } catch (_) {
+        if (!retry) rethrow;
+        retry = false;
+        for (final suffix in const ['', '-wal', '-shm']) {
+          final file = File('$databasePath$suffix');
+          if (file.existsSync()) file.deleteSync();
+        }
+        if (kDebugMode) {
+          debugPrint(
+            'offline_sync_demo: discarded stale replica '
+            '${p.basename(databasePath)}.',
+          );
+        }
+      }
+    }
   }
 
   /// Pushes local pending changes through [client] and merges remote ones once.
