@@ -323,6 +323,14 @@ class CrdtDatabase implements Database {
   }) async {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return _delegate.insert<T>(
+        rows,
+        transaction: transaction,
+        ignoreConflicts: ignoreConflicts,
+        noReturn: noReturn,
+      );
+    }
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -332,12 +340,7 @@ class CrdtDatabase implements Database {
         // exactly what gets inserted: every id is caller-provided and a
         // conflict throws instead of silently dropping rows.
         final skipReturn =
-            noReturn &&
-            (!prepared.isCrdtTracked ||
-                (!ignoreConflicts && !rows.any((row) => row.id == null)));
-        if (noReturn && !skipReturn) {
-          await _delegate.session.warnNoReturnIgnored('insert');
-        }
+            noReturn && !ignoreConflicts && !rows.any((row) => row.id == null);
 
         final result = await _delegate.insert<T>(
           prepared.rows,
@@ -346,12 +349,11 @@ class CrdtDatabase implements Database {
           noReturn: skipReturn,
         );
 
-        final insertedRows = skipReturn && prepared.isCrdtTracked
-            ? prepared.rows
-            : result;
+        final insertedRows = skipReturn ? prepared.rows : result;
         await _recorder.afterInsert<T>(insertedRows, tx);
+        if (noReturn) return <T>[];
         _stripStampedRows(insertedRows, prepared);
-        return noReturn ? [] : insertedRows;
+        return insertedRows;
       },
     );
   }
@@ -439,9 +441,6 @@ class CrdtDatabase implements Database {
         transaction: transaction,
         noReturn: noReturn,
       );
-    }
-    if (noReturn) {
-      await _delegate.session.warnNoReturnIgnored('update');
     }
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
@@ -571,11 +570,8 @@ class CrdtDatabase implements Database {
         noReturn: noReturn,
       );
     }
-    _assertNoScopeIdColumnValues<T>(columnValues);
-    if (noReturn) {
-      await _delegate.session.warnNoReturnIgnored('updateWhere');
-    }
 
+    _assertNoScopeIdColumnValues<T>(columnValues);
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -600,8 +596,9 @@ class CrdtDatabase implements Database {
 
         final columns = columnValues.map((e) => e.column).toList();
         await _recorder.afterUpdate(result, columns, tx);
+        if (noReturn) return <T>[];
         result.forEach(_stripScopeId);
-        return noReturn ? <T>[] : result;
+        return result;
       },
     );
   }
@@ -672,9 +669,6 @@ class CrdtDatabase implements Database {
         transaction: transaction,
         noReturn: noReturn,
       );
-    }
-    if (noReturn) {
-      await _delegate.session.warnNoReturnIgnored('deleteWhere');
     }
 
     return DatabaseUtil.runInTransactionOrSavepoint(
@@ -921,13 +915,4 @@ class CrdtDatabase implements Database {
 
   @override
   Future<bool> testConnection() => _delegate.testConnection();
-}
-
-extension on DatabaseSession {
-  Future<void> warnNoReturnIgnored(String operation) async {
-    await logWarning?.call(
-      'CrdtDatabase.$operation ignored noReturn because CRDT change tracking '
-      'requires the affected rows.',
-    );
-  }
 }

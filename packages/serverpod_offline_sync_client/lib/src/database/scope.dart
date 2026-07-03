@@ -5,19 +5,13 @@ extension _CrdtDatabaseScope on CrdtDatabase {
     List<T> rows,
     Set<int> stampedIndexes,
     Set<Object> explicitRowIds,
-    bool isCrdtTracked,
   })
   _prepareRowsForInsert<T extends TableRow>(
     List<T> rows,
     Transaction transaction,
   ) {
     if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
-      return (
-        rows: rows,
-        stampedIndexes: const {},
-        explicitRowIds: const {},
-        isCrdtTracked: false,
-      );
+      return (rows: rows, stampedIndexes: const {}, explicitRowIds: const {});
     }
 
     final scope = _requireEffectiveScope(transaction);
@@ -50,7 +44,6 @@ extension _CrdtDatabaseScope on CrdtDatabase {
       rows: databaseRows,
       stampedIndexes: stampedIndexes,
       explicitRowIds: explicitRowIds,
-      isCrdtTracked: true,
     );
   }
 
@@ -106,7 +99,6 @@ extension _CrdtDatabaseScope on CrdtDatabase {
       List<T> rows,
       Set<int> stampedIndexes,
       Set<Object> explicitRowIds,
-      bool isCrdtTracked,
     })
     prepared,
   ) {
