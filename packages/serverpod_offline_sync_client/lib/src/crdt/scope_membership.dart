@@ -86,7 +86,6 @@ class CrdtScopeMembership {
   /// The implicit personal scope resolves to [CrdtScopeRole.readWrite]. On the
   /// server this reads authoritative membership; on a client it reads the
   /// projected membership cache.
-  @internal
   static Future<CrdtScopeRole?> roleOf(
     DatabaseSession session, {
     required UuidValue userUuid,

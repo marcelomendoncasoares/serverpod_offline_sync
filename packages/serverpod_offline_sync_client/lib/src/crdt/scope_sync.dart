@@ -4,8 +4,8 @@ import 'package:uuid/uuid.dart';
 
 import '../managers/scope.dart';
 import '../protocol/protocol.dart';
+import 'extensions.dart';
 import 'merge.dart';
-import 'roles.dart';
 import 'scope_membership.dart';
 
 /// How a peer decides which scopes it syncs.

@@ -1,7 +1,6 @@
 export 'src/crdt/client_sync.dart';
 export 'src/crdt/exceptions.dart' hide PendingOutboundIntegrityViolation;
 export 'src/crdt/merge.dart';
-export 'src/crdt/roles.dart';
 export 'src/crdt/scope_membership.dart';
 export 'src/crdt/sync.dart';
 export 'src/database/database.dart';

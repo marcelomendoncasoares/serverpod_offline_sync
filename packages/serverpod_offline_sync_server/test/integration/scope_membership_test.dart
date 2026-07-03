@@ -1,6 +1,3 @@
-// Tests package-internal membership helpers through the server package.
-// ignore_for_file: invalid_use_of_internal_member
-
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_server/src/generated/protocol.dart' as server;
 import 'package:test/test.dart';
@@ -143,6 +140,23 @@ void main() {
               scopeUuid: otherScopeUuid,
             ),
             isFalse,
+          );
+        },
+      );
+
+      test(
+        "when the role is resolved for the other user's scope, "
+        'then the correct role is returned.',
+        () async {
+          final session = sessionBuilder.build();
+
+          expect(
+            await CrdtScopeMembership.roleOf(
+              session,
+              userUuid: otherUserUuid,
+              scopeUuid: otherScopeUuid,
+            ),
+            CrdtScopeRole.readOnly,
           );
         },
       );

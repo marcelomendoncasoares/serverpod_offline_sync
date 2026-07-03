@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:uuid/uuid.dart';
@@ -14,7 +13,6 @@ import 'exceptions.dart';
 import 'extensions.dart';
 import 'integrity_violation.dart';
 import 'merge.dart';
-import 'roles.dart';
 import 'scope_membership.dart';
 import 'scope_sync.dart';
 
@@ -147,13 +145,9 @@ class CrdtSync {
   /// the whole pass. Per-row ownership and integrity checks resolve against
   /// each row's own scope.
   ///
-  /// All changes for nodes that are not present in a scope's checkpoint list are
-  /// collected and emitted. Passing an empty list for a scope will collect all
-  /// of its changes. Each change carries its [CrdtMergeChange.uuidScopeId].
-  ///
-  /// Public only so white-box tests can assert collection output; the session
-  /// driver calls it internally.
-  @visibleForTesting
+  /// All changes for nodes that are not present in a scope's checkpoint list
+  /// are collected and emitted. Passing an empty list for a scope will collect
+  /// all of its changes. Each change carries its [CrdtMergeChange.uuidScopeId].
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
     required Map<UuidValue, List<Hlc>> checkpointsByScopeUuid,
@@ -189,10 +183,6 @@ class CrdtSync {
   ///
   /// [CrdtSyncSinceHlc.nodeCheckpoints] reflects the latest change this node
   /// has received from each known node, tagged with the source node id.
-  ///
-  /// Public only so white-box tests can build a handshake frame; the session
-  /// driver calls it internally.
-  @visibleForTesting
   Future<CrdtSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
     required UuidValue scopeId,
@@ -250,7 +240,7 @@ class CrdtSync {
   /// before the data loop. Each cycle sends a combined batch — scope
   /// announcement when grants changed, [CrdtSyncSinceHlc] for newly active
   /// scopes, and [CrdtSyncMergeChunk]s — closed by [CrdtSyncEndOfBatch] when
-  /// anything was sent. Inbound frames are demultiplexed by collectNextBatch
+  /// anything was sent. Inbound frames are de-multiplexed by collectNextBatch
   /// until [CrdtSyncEndOfBatch] when this peer sent a batch, or an idle timeout
   /// when both peers had nothing to send.
   ///
@@ -266,10 +256,10 @@ class CrdtSync {
     CrdtSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
     // Idle timeouts are a continuous-only affordance: they let an idle cycle
-    // settle into an empty batch without closing the stream. A `once` session is
-    // strictly lockstep — every batch ends with an explicit [CrdtSyncEndOfBatch]
-    // and the session with [CrdtSyncClose] — so it must wait for those
-    // terminators rather than truncate a slow peer's batch on a timeout.
+    // settle into an empty batch without closing the stream. A `once` session
+    // is strictly lockstep — every batch ends with a [CrdtSyncEndOfBatch] and
+    // the session with a [CrdtSyncClose] — so it must wait for those end frames
+    // rather than truncate a slow peer's batch on a timeout.
     final inboundIterator = StreamIterator(
       once
           ? inbound
@@ -278,15 +268,16 @@ class CrdtSync {
               onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
             ),
     );
+
     var sessionCompleted = false;
     try {
-      final localNodeId = (await CrdtScopeManager(
-        session,
-      ).getOrCreate(userId)).currentNode!.uuidNodeId;
+      final scope = await CrdtScopeManager(session).getOrCreate(userId);
+      final localNodeId = scope.currentNode!.uuidNodeId;
       yield CrdtSyncConnect(
-        syncTablesHash: currentSyncTablesHash,
         localNodeId: localNodeId,
+        syncTablesHash: currentSyncTablesHash,
       );
+
       final peerConnect = await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>();
       _validateSyncTablesHash(peerConnect.syncTablesHash);
 
@@ -322,10 +313,12 @@ class CrdtSync {
           hasChanges = true;
         }
 
-        await for (final changes in collectPendingChanges(
+        final pendingLocalChanges = collectPendingChanges(
           session,
           checkpointsByScopeUuid: scopes.sendableCheckpoints,
-        ).chunked(_syncBatchSize)) {
+        );
+
+        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
           hasChanges = true;
           for (final change in changes) {
             scopes.advanceCheckpoint(change.uuidScopeId, change);
@@ -333,8 +326,9 @@ class CrdtSync {
           }
           yield CrdtSyncMergeChunk(changes: changes);
         }
-
-        if (hasChanges || once) yield CrdtSyncEndOfBatch();
+        if (hasChanges || once) {
+          yield CrdtSyncEndOfBatch();
+        }
 
         final batch = await inboundIterator.collectNextBatch(
           allowCloseBeforeBatch: !once,
@@ -365,10 +359,21 @@ class CrdtSync {
           yield CrdtSyncClose();
           await inboundIterator.moveAndThrowIfNot<CrdtSyncClose>();
           sessionCompleted = true;
+          // Keep reading until the peer closes its side so the underlying
+          // transport subscription reaches "done" instead of being left paused.
+          // A paused inbound controller stalls the peer's stream teardown for
+          // several seconds (the transport's close timeout), which lands on the
+          // critical path of the next sync round over a shared connection.
+          //
+          // The drain runs detached: awaiting it here would deadlock the
+          // symmetric close handshake, since the peer only closes its side once
+          // our own outbound stream closes, which happens after this generator
+          // returns.
           unawaited(_drainUntilDone(inboundIterator));
           return;
         }
 
+        // Wait for the configured interval before checking for local changes again.
         await Future<void>.delayed(_continuousSyncInterval);
       }
     } on CrdtSyncStreamClosedException {
@@ -383,7 +388,13 @@ class CrdtSync {
       sessionCompleted = true;
       return;
     } finally {
+      // Cancelling inbound on normal completion races with WebSocket stream
+      // teardown and produces "connection closed" errors on the peer. On normal
+      // completion the inbound is instead drained to "done" (see above). Keep
+      // forced cancellation for abnormal exits so listener cancellation can
+      // unblock.
       if (!sessionCompleted) {
+        // Best-effort cleanup, since the transport will close the socket anyway.
         const waitTimeout = Duration(milliseconds: 200);
         await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
       }

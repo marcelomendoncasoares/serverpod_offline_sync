@@ -9,9 +9,9 @@ import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart
 import 'package:uuid/uuid.dart';
 
 import '../crdt/exceptions.dart';
+import '../crdt/extensions.dart';
 import '../crdt/integrity_violation.dart';
 import '../crdt/merge.dart';
-import '../crdt/roles.dart';
 import '../crdt/scope_membership.dart';
 import '../crdt/sync.dart';
 import '../protocol/protocol.dart';

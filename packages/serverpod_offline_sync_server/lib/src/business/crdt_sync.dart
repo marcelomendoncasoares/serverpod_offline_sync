@@ -15,8 +15,6 @@ final _crdtSyncByServerpod = Expando<CrdtSync>('crdtSync');
 /// original [inner] database is returned unchanged.
 Database crdtDatabaseInterceptor(Session session, Database inner) {
   final crdtSync = _crdtSyncByServerpod[session.server.serverpod];
-  // Membership is resolved from the shared `crdt_scope_members` table by the
-  // CRDT database itself, so no membership callbacks are injected here.
   return crdtSync?.wrapDatabase(inner) ?? inner;
 }
 

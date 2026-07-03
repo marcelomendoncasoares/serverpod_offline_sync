@@ -162,41 +162,23 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       );
     }
 
-    for (final uuidNodeId in nodeIds) {
-      await _findOrCreateNode(uuidNodeId, transaction);
-    }
-
-    final nodes = await CrdtNode.db.find(
-      _session,
-      where: (t) => t.uuidNodeId.inSet(nodeIds),
-      transaction: transaction,
-    );
     final nodesByUuid = {
-      for (final node in nodes) node.uuidNodeId: node,
+      for (final uuidNodeId in nodeIds)
+        uuidNodeId: await _findOrCreateNode(uuidNodeId, transaction),
     };
 
-    for (final node in nodesByUuid.values) {
-      await _findOrCreateScopeNode(
-        userId,
-        node.id!,
-        transaction,
-      );
-    }
-
-    final scopeNodes = await CrdtScopeNode.db.find(
-      _session,
-      where: (t) =>
-          t.scopeId.equals(userId) &
-          t.nodeId.inSet(nodesByUuid.values.map((node) => node.id!).toSet()),
-      include: CrdtScopeNode.include(node: CrdtNode.include()),
-      transaction: transaction,
-    );
+    final scopeNodesByUuid = {
+      for (final entry in nodesByUuid.entries)
+        entry.key: await _findOrCreateScopeNode(
+          userId,
+          entry.value.id!,
+          transaction,
+        ),
+    };
 
     return (
       nodesByUuid: nodesByUuid,
-      scopeNodesByUuid: {
-        for (final scopeNode in scopeNodes) scopeNode.node!.uuidNodeId: scopeNode,
-      },
+      scopeNodesByUuid: scopeNodesByUuid,
     );
   }
 

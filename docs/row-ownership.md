@@ -1,8 +1,6 @@
 # Row ownership and scope isolation
 
 Status: implemented.
-Shared-scope behavior is implemented and specified in `shared-scopes.md`; this
-document records the ownership contract it builds on.
 
 ## Summary
 
@@ -475,9 +473,7 @@ actually key — scopes:
 - **Internals and storage** adopt scope naming in one sweep: `crdt_users` →
   `crdt_scopes` (`CrdtUser` → `CrdtScope`, `uuidUserId` → `uuidScopeId`),
   `crdt_data_rows.userId` → `scopeId` (matching the domain column),
-  `userForTransaction`, the effective-user helpers, and the HLC manager
-  keys. Doing this now is what kept shared scopes a membership layer instead of
-  a rename project.
+  `userForTransaction`, the effective-user helpers, and the HLC manager keys.
 - **Unscoped reads** remain supported as admin reads.
 
 Consequences for application code, stated as contract:

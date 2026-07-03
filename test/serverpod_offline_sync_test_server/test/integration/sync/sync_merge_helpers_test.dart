@@ -36,7 +36,7 @@ void main() {
   });
 
   group('Given a sync stream with complete framed sync batches', () {
-    final scopeId = const Uuid().v7obj();
+    final uuidScopeId = const Uuid().v7obj();
     final rowId = const Uuid().v7obj();
     final requesterNodeId = const Uuid().v7obj();
     final row = CrdtNode(uuidNodeId: rowId);
@@ -45,7 +45,7 @@ void main() {
       CrdtSyncMergeChunk(
         changes: [
           CrdtMergeInsert(
-            uuidScopeId: scopeId,
+            uuidScopeId: uuidScopeId,
             hlcDatetime: DateTime.utc(2026, 5, 10, 12),
             hlcCounter: 1,
             tableName: 'person',
@@ -59,7 +59,7 @@ void main() {
       CrdtSyncMergeChunk(
         changes: [
           CrdtMergeDelete(
-            uuidScopeId: scopeId,
+            uuidScopeId: uuidScopeId,
             hlcDatetime: DateTime.utc(2026, 5, 10, 13),
             hlcCounter: 2,
             tableName: 'person',
@@ -100,7 +100,7 @@ void main() {
           CrdtSyncMergeChunk(
             changes: [
               CrdtMergeInsert(
-                uuidScopeId: scopeId,
+                uuidScopeId: uuidScopeId,
                 hlcDatetime: DateTime.utc(2026, 5, 10, 16),
                 hlcCounter: 1,
                 tableName: 'person',
@@ -109,7 +109,7 @@ void main() {
                 data: row,
               ),
               CrdtMergeDelete(
-                uuidScopeId: scopeId,
+                uuidScopeId: uuidScopeId,
                 hlcDatetime: DateTime.utc(2026, 5, 10, 17),
                 hlcCounter: 2,
                 tableName: 'person',
@@ -163,12 +163,12 @@ void main() {
     'when collecting the next batch '
     'then collection fails.',
     () async {
-      final scopeId = const Uuid().v7obj();
+      final uuidScopeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: scopeId,
+              uuidScopeId: uuidScopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -194,12 +194,12 @@ void main() {
     'when collecting the next batch allowing close before batch '
     'then collection fails.',
     () async {
-      final scopeId = const Uuid().v7obj();
+      final uuidScopeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: scopeId,
+              uuidScopeId: uuidScopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -261,14 +261,14 @@ void main() {
     'when collecting the next batch '
     'then the idle event does not end the batch.',
     () async {
-      final scopeId = const Uuid().v7obj();
+      final uuidScopeId = const Uuid().v7obj();
       final rowId = const Uuid().v7obj();
       final requesterNodeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: scopeId,
+              uuidScopeId: uuidScopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -294,14 +294,14 @@ void main() {
   test(
     'Given a stream with CrdtSyncClose before CrdtSyncEndOfBatch '
     'when collecting the next batch '
-    'then null is returned.',
+    'then changes are discarded and null is returned.',
     () async {
-      final scopeId = const Uuid().v7obj();
+      final uuidScopeId = const Uuid().v7obj();
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
         CrdtSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: scopeId,
+              uuidScopeId: uuidScopeId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
