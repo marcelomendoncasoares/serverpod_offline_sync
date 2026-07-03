@@ -172,6 +172,56 @@ void main() {
         expect(crdt.map((e) => e.uuidRowId).toSet(), insertedIds);
       });
     });
+
+    test(
+      'when inserting a Person with a caller-provided id and noReturn, '
+      'then the row and CRDT metadata are recorded.',
+      () async {
+        final id = const Uuid().v7obj();
+
+        final inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(id: id, name: 'fixed')],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+
+        expect(inserted, hasLength(1));
+        expect(inserted.single.id, id);
+        expect(inserted.single.scopeId, isNull);
+
+        final row = await Person.db.findById(session, id);
+        expect(row?.name, 'fixed');
+
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(id),
+        );
+        expect(crdtRow, isNotNull);
+      },
+    );
+
+    test(
+      'when inserting a Person without a caller-provided id and noReturn, '
+      'then the inserted row is returned.',
+      () async {
+        final inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [Person(name: 'generated')],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+
+        expect(inserted, hasLength(1));
+        expect(inserted.single.id, isNotNull);
+      },
+    );
   });
 
   group('Given a person row with a fixed id,', () {

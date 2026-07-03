@@ -56,6 +56,50 @@ void main() {
         expect(deletedPerson.scopeId, isNull);
       });
     });
+
+    test(
+      'when deleting the Person with delete and noReturn, '
+      'then the deleted row is returned.',
+      () async {
+        final deleted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.delete(
+            session,
+            [person],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+
+        expect(deleted, hasLength(1));
+        expect(deleted.single.id, person.id);
+
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+        expect(tombstone?.isDeleted, isTrue);
+      },
+    );
+
+    test(
+      'when deleting the Person with deleteWhere and noReturn, '
+      'then the deleted row is returned.',
+      () async {
+        final deleted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.deleteWhere(
+            session,
+            where: (t) => t.id.equals(person.id),
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+
+        expect(deleted, hasLength(1));
+        expect(deleted.single.id, person.id);
+      },
+    );
   });
 
   group('Given a person table with a deleted row,', () {
