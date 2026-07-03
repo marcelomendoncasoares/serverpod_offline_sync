@@ -398,9 +398,46 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
     bool noReturn = false,
   }) async {
+    if (rows.isEmpty) return [];
     await _ensureInitialized();
-    // TODO: Implement CRDT upsert.
-    throw UnimplementedError('CRDT upsert is not implemented.');
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return _delegate.upsert<T>(
+        rows,
+        conflictColumns: conflictColumns,
+        updateColumns: updateColumns,
+        updateWhere: updateWhere,
+        transaction: transaction,
+        noReturn: noReturn,
+      );
+    }
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final prepared = _prepareRowsForInsert(rows, tx);
+
+        // CRDT metadata needs the affected rows even when the public call uses
+        // noReturn, because inserted rows may have database-generated ids.
+        final result = await _delegate.upsert<T>(
+          prepared.rows,
+          conflictColumns: conflictColumns,
+          updateColumns: updateColumns,
+          updateWhere: await _whereVisibleWithTombstone<T>(
+            updateWhere,
+            null,
+            tx,
+            membershipWide: false,
+          ),
+          transaction: tx,
+        );
+
+        await _recorder.afterInsert(await _rowsWithoutCrdtMetadata(result, tx), tx);
+        await _recorder.afterUpdate(result, updateColumns, tx);
+        if (noReturn) return <T>[];
+        _stripStampedRows(result, prepared);
+        return result;
+      },
+    );
   }
 
   @override
@@ -421,8 +458,20 @@ class CrdtDatabase implements Database {
         transaction: transaction,
       );
     }
-    // TODO: Implement CRDT upsert.
-    throw UnimplementedError('CRDT upsert is not implemented.');
+    final result = await upsert<T>(
+      [row],
+      conflictColumns: conflictColumns,
+      updateColumns: updateColumns,
+      updateWhere: updateWhere,
+      transaction: transaction,
+    );
+    if (result.isEmpty) return null;
+    if (result.length > 1) {
+      throw StateError(
+        'Failed to upsert row, affected number of rows is ${result.length} != 1',
+      );
+    }
+    return result.single;
   }
 
   @override
@@ -915,4 +964,34 @@ class CrdtDatabase implements Database {
 
   @override
   Future<bool> testConnection() => _delegate.testConnection();
+
+  Future<List<T>> _rowsWithoutCrdtMetadata<T extends TableRow>(
+    List<T> rows,
+    Transaction transaction,
+  ) async {
+    if (rows.isEmpty) return [];
+
+    final rowIds = {
+      for (final row in rows)
+        if (row.id is UuidValue) row.id as UuidValue,
+    };
+    if (rowIds.isEmpty) return [];
+
+    final tableId = _recorder.tableIdForName(rows.first.table.tableName)!;
+    final scopeId = _requireEffectiveScope(transaction).id!;
+    final crdtRows = await CrdtDataRow.db.find(
+      _delegate.session,
+      where: (t) =>
+          t.scopeId.equals(scopeId) &
+          t.tblId.equals(tableId) &
+          t.uuidRowId.inSet(rowIds),
+      transaction: transaction,
+    );
+    final existingRowIds = crdtRows.map((row) => row.uuidRowId).toSet();
+
+    return [
+      for (final row in rows)
+        if (row.id is UuidValue && !existingRowIds.contains(row.id)) row,
+    ];
+  }
 }
