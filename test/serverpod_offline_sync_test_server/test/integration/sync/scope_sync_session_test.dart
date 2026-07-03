@@ -23,9 +23,7 @@ void main() {
         'then only the authoritative session announces grants.',
         () async {
           final userUuid = _uuid(30);
-          final sharedScopeUuid = await session.crdt.scopes.create(
-            owner: userUuid,
-          );
+          final sharedScopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           final authoritative = CrdtScopeSyncSession(
             session,
@@ -73,9 +71,7 @@ void main() {
         () async {
           final userUuid = _uuid(31);
           final peerOnlyScopeUuid = _uuid(11);
-          final localSharedScopeUuid = await session.crdt.scopes.create(
-            owner: userUuid,
-          );
+          final localSharedScopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           final authoritative = CrdtScopeSyncSession(
             session,
@@ -110,9 +106,7 @@ void main() {
           await authoritative.reconcile();
           authoritative.markAnnounced();
 
-          final laterSharedScopeUuid = await session.crdt.scopes.create(
-            owner: userUuid,
-          );
+          final laterSharedScopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           await authoritative.adoptPeerGrants(const []);
 
@@ -319,9 +313,7 @@ void main() {
             peerNodeId: _uuid(98),
           );
 
-          final scopeUuid = await session.crdt.scopes.create(
-            owner: userUuid,
-          );
+          final scopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           await authoritative.reconcile();
           authoritative.recordPeerHandshake(

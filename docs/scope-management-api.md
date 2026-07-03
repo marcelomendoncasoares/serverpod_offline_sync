@@ -23,7 +23,7 @@ personal-scope-UUID == user-UUID). This proposal replaces that with a small,
 honest server-side service:
 
 ```dart
-final scopeId = await session.crdt.scopes.create(owner: creatorUuid);
+final scopeId = await session.crdt.scopes.createFor(creatorUuid);
 await session.crdt.scopes.grant(scope: scopeId, user: bob, role: CrdtScopeRole.readWrite);
 await session.crdt.scopes.revoke(scope: scopeId, user: bob);
 ```
@@ -111,21 +111,29 @@ domain member also calls `scopes.grant` — the same split Serverpod has between
 
 ## Proposed API
 
-Server-side, hung off the existing `session.crdt` (`CrdtSync`) accessor as
-`session.crdt.scopes`. A pure data layer: atomic, transaction-threaded, no
-internal auth.
+Server-side, hung off the `session.crdt` accessor (the session-bound
+`CrdtSession` facade) as `session.crdt.scopes`. A pure data layer: atomic,
+transaction-threaded, no internal auth.
 
 ```dart
 /// Creates a shared scope and returns its UUID.
 ///
-/// [owner], if given, is granted [CrdtScopeRole.readWrite]. [grants] adds any
-/// further members. Both are applied in one transaction with the scope insert.
-/// With no owner and no grants the scope is created dormant — it exists but no
-/// one can sync it until membership is granted. Throws [ArgumentError] if
-/// [owner] also appears in [grants].
+/// [grants], if given, adds each user as a member with its role, applied in
+/// one transaction with the scope insert. With no grants the scope is created
+/// dormant — it exists but no one can sync it until membership is granted.
 Future<UuidValue> create({
-  UuidValue? owner,
   Map<UuidValue, CrdtScopeRole>? grants,
+  Transaction? transaction,
+});
+
+/// Creates a shared scope granting [user] the given [role], in one
+/// transaction.
+///
+/// Pure sugar for [create] with a single-entry grants map — the member has no
+/// special bond to the scope and can be re-granted or revoked like any other.
+Future<UuidValue> createFor(
+  UuidValue user, {
+  CrdtScopeRole role = CrdtScopeRole.readWrite,
   Transaction? transaction,
 });
 
@@ -168,12 +176,15 @@ Future<Map<UuidValue, CrdtScopeRole>> members(
 
 Notes:
 
-- **`owner` is nullable** — a scope with no owner (and no grants) is valid but
-  dormant. `create` skips the membership insert when `owner` is null.
-- **`owner` and `grants` compose.** `owner` is ergonomic sugar for
-  `{owner: readWrite}`; `grants` adds the rest. If `owner` also appears in
-  `grants`, throw `ArgumentError` rather than silently pick a winner — a creator
-  listed twice with a possibly-contradictory role is a caller bug.
+- **There is no "owner".** An earlier sketch had an `owner` parameter on
+  `create`, but the name implied a durable bond the data model does not have —
+  the scope row stores no owner, and the creator ends up an ordinary
+  `readWrite` member. It was replaced by `createFor`, which is honest sugar:
+  create a scope and grant one member, atomically, with no special standing.
+  Removing `owner` also dissolved the owner-appears-in-`grants` `ArgumentError`
+  special case. A durable creator/owner concept is app domain, like `admin`.
+- **`grants` may be empty or absent** — a scope with no members is valid but
+  dormant. `create()` skips the membership insert entirely.
 - **`create` and `grantAll` share one internal helper** so the create path and
   the later bulk-grant path have a single implementation.
 - **`create` returns a server-generated UUID** — the model already defaults
@@ -193,9 +204,10 @@ announcement and the follower projection already implemented in
 
 ## Test plan
 
-- **Create.** `create(owner: u)` yields a scope with `u` at `readWrite` and a
-  member-resolvable scope; `create()` (no owner) yields a dormant scope no user
-  can sync; `create(owner: u, grants: {u: ...})` throws `ArgumentError`.
+- **Create.** `createFor(u)` yields a scope with `u` at `readWrite` and a
+  member-resolvable scope; `createFor(u, role: ...)` stores the explicit role;
+  `create()` (no grants) yields a dormant scope no user can sync;
+  `create(grants: {...})` stores every entry with its role.
 - **Grant/revoke.** `grant` inserts and upserts (role change); `revoke` removes
   and is a no-op for a non-member; `grantAll` applies a map atomically.
 - **Reads.** `roleOf` returns the stored role or null; `members` returns the

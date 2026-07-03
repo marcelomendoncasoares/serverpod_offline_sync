@@ -213,9 +213,7 @@ void main() {
         late UuidValue sharedScopeId;
 
         setUp(() async {
-          sharedScopeId = await rawServerSession.crdt.scopes.create(
-            owner: testCrdtUserId,
-          );
+          sharedScopeId = await rawServerSession.crdt.scopes.createFor(testCrdtUserId);
         });
 
         group('and personal and shared scope rows exist on the server,', () {
@@ -309,8 +307,8 @@ void main() {
             final syncSession = testClient.crdt.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
 
-            final laterScopeId = await rawServerSession.crdt.scopes.create(
-              owner: testCrdtUserId,
+            final laterScopeId = await rawServerSession.crdt.scopes.createFor(
+              testCrdtUserId,
             );
 
             final sharedPerson = await serverSession.db.transactionForUser(

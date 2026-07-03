@@ -13,37 +13,28 @@ class CrdtScopes {
 
   /// Creates a shared scope and returns its UUID.
   ///
-  /// [owner], if given, is granted [CrdtScopeRole.readWrite]. [grants] adds any
-  /// further members. Both are applied in one transaction with the scope insert.
-  /// With no owner and no grants the scope is created dormant — it exists but no
-  /// one can sync it until membership is granted. Throws [ArgumentError] if
-  /// [owner] also appears in [grants].
+  /// [grants], if given, adds each user as a member with its role, applied in
+  /// one transaction with the scope insert. With no grants the scope is created
+  /// dormant — it exists but no one can sync it until membership is granted.
   Future<UuidValue> create({
-    UuidValue? owner,
     Map<UuidValue, CrdtScopeRole>? grants,
     Transaction? transaction,
   }) async {
-    final additionalGrants = grants ?? <UuidValue, CrdtScopeRole>{};
-    if (owner != null && additionalGrants.containsKey(owner)) {
-      throw ArgumentError.value(
-        owner,
-        'owner',
-        'The owner must not also appear in grants.',
-      );
-    }
-
     final scope = const Uuid().v7obj();
-    final allGrants = <UuidValue, CrdtScopeRole>{};
-    if (owner != null) {
-      allGrants[owner] = CrdtScopeRole.readWrite;
-    }
-    allGrants.addAll(additionalGrants);
-
     await _runInTransaction(transaction, (tx) async {
       final scopeId = await _insertScope(scope, tx);
-      await _applyGrants(scopeId, allGrants, tx);
+      await _applyGrants(scopeId, grants ?? const {}, tx);
     });
     return scope;
+  }
+
+  /// Creates a shared scope granting [user] the given [role], in one transaction.
+  Future<UuidValue> createFor(
+    UuidValue user, {
+    CrdtScopeRole role = CrdtScopeRole.readWrite,
+    Transaction? transaction,
+  }) {
+    return create(grants: {user: role}, transaction: transaction);
   }
 
   /// Grants [user] the given [role] in [scope], upserting an existing membership.

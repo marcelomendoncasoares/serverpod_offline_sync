@@ -18,26 +18,43 @@ void main() {
       });
 
       test(
-        'when create is called with an owner, '
-        'then the owner is granted readWrite access to the new scope.',
+        'when createFor is called with only a user, '
+        'then the user is granted readWrite access to the new scope.',
         () async {
-          final owner = const Uuid().v7obj();
+          final user = const Uuid().v7obj();
 
-          final scope = await session.crdt.scopes.create(owner: owner);
+          final scope = await session.crdt.scopes.createFor(user);
 
           expect(
-            await session.crdt.scopes.roleOf(user: owner, scope: scope),
+            await session.crdt.scopes.roleOf(user: user, scope: scope),
             CrdtScopeRole.readWrite,
           );
           expect(
-            await CrdtScopeMembership.memberScopes(session, owner),
+            await CrdtScopeMembership.memberScopes(session, user),
             contains(scope),
           );
         },
       );
 
       test(
-        'when create is called without owner or grants, '
+        'when createFor is called with an explicit role, '
+        'then the user is granted that role.',
+        () async {
+          final user = const Uuid().v7obj();
+
+          final scope = await session.crdt.scopes.createFor(
+            user,
+            role: CrdtScopeRole.readOnly,
+          );
+
+          expect(await session.crdt.scopes.members(scope), {
+            user: CrdtScopeRole.readOnly,
+          });
+        },
+      );
+
+      test(
+        'when create is called without grants, '
         'then the scope is dormant and has no explicit members.',
         () async {
           final user = const Uuid().v7obj();
@@ -57,39 +74,22 @@ void main() {
       );
 
       test(
-        'when create is called with the owner also present in grants, '
-        'then ArgumentError is thrown without writing rows.',
+        'when create is called with several grants, '
+        'then every membership is stored with its role.',
         () async {
-          final owner = const Uuid().v7obj();
-          final countsBefore = await _membershipRowCounts(session);
-
-          await expectLater(
-            session.crdt.scopes.create(
-              owner: owner,
-              grants: {owner: CrdtScopeRole.readOnly},
-            ),
-            throwsArgumentError,
-          );
-
-          expect(await _membershipRowCounts(session), countsBefore);
-        },
-      );
-
-      test(
-        'when create is called with an owner and additional grants, '
-        'then both owner and grant memberships are stored.',
-        () async {
-          final owner = const Uuid().v7obj();
-          final member = const Uuid().v7obj();
+          final writer = const Uuid().v7obj();
+          final reader = const Uuid().v7obj();
 
           final scope = await session.crdt.scopes.create(
-            owner: owner,
-            grants: {member: CrdtScopeRole.readOnly},
+            grants: {
+              writer: CrdtScopeRole.readWrite,
+              reader: CrdtScopeRole.readOnly,
+            },
           );
 
           expect(await session.crdt.scopes.members(scope), {
-            owner: CrdtScopeRole.readWrite,
-            member: CrdtScopeRole.readOnly,
+            writer: CrdtScopeRole.readWrite,
+            reader: CrdtScopeRole.readOnly,
           });
         },
       );
@@ -165,7 +165,7 @@ void main() {
         'then the membership is removed.',
         () async {
           final user = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create(owner: user);
+          final scope = await session.crdt.scopes.createFor(user);
 
           await session.crdt.scopes.revoke(scope: scope, user: user);
 
@@ -181,9 +181,9 @@ void main() {
         'when revoke is called for a non-member, '
         'then it completes without changing the scope members.',
         () async {
-          final owner = const Uuid().v7obj();
+          final member = const Uuid().v7obj();
           final nonMember = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create(owner: owner);
+          final scope = await session.crdt.scopes.createFor(member);
 
           await expectLater(
             session.crdt.scopes.revoke(scope: scope, user: nonMember),
@@ -191,7 +191,7 @@ void main() {
           );
 
           expect(await session.crdt.scopes.members(scope), {
-            owner: CrdtScopeRole.readWrite,
+            member: CrdtScopeRole.readWrite,
           });
         },
       );
@@ -220,12 +220,12 @@ void main() {
         'when roleOf is called for stored and missing memberships, '
         'then it returns the stored role or null.',
         () async {
-          final owner = const Uuid().v7obj();
+          final member = const Uuid().v7obj();
           final missing = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create(owner: owner);
+          final scope = await session.crdt.scopes.createFor(member);
 
           expect(
-            await session.crdt.scopes.roleOf(user: owner, scope: scope),
+            await session.crdt.scopes.roleOf(user: member, scope: scope),
             CrdtScopeRole.readWrite,
           );
           expect(
@@ -272,15 +272,15 @@ void main() {
       );
 
       test(
-        'when create is called inside a transaction that rolls back, '
+        'when createFor is called inside a transaction that rolls back, '
         'then no scope or membership rows leak.',
         () async {
-          final owner = const Uuid().v7obj();
+          final user = const Uuid().v7obj();
           final countsBefore = await _membershipRowCounts(session);
 
           await expectLater(
             session.db.transaction((tx) async {
-              await session.crdt.scopes.create(owner: owner, transaction: tx);
+              await session.crdt.scopes.createFor(user, transaction: tx);
               throw StateError('rollback');
             }),
             throwsStateError,
