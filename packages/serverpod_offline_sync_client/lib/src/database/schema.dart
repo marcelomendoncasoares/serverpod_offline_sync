@@ -58,6 +58,19 @@ class CrdtSchemaRegistry {
       );
     }
 
+    final nonReleasableUniqueIndexes = crdtNonReleasableUniqueIndexViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (nonReleasableUniqueIndexes.isNotEmpty) {
+      throw StateError(
+        'CRDT unique conflict resolution requires at least one releasable '
+        'non-scope column for ${nonReleasableUniqueIndexes.length} unique '
+        'index(es): ${nonReleasableUniqueIndexes.join(', ')}. '
+        'Only nullable, text, and non-FK UUID unique columns are supported.',
+      );
+    }
+
     final tablesMissingScopeIdRelation = _missingCrdtScopeRelations(
       syncTables,
       tableDefinitionsByName,

@@ -312,6 +312,30 @@ void main() {
   );
 
   test(
+    'Given a CRDT schema registry with a scoped unique index that has no releasable non-scope column, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () {
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [UniqueNoRelease.t],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT unique conflict resolution requires at least one '
+              'releasable non-scope column',
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
     'Given a CRDT database with a scoped unique index that has no releasable non-scope column, '
     'when the database is initialized, '
     'then an error is thrown.',

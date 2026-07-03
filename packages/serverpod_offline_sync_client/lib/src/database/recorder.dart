@@ -1422,36 +1422,11 @@ List<_UniqueIndexConflictRelease> _syncableUniqueIndexesForTable(
   TableDefinition table,
   Set<String> syncTableNames,
 ) {
-  final uniqueIndexes = table.indexes
-      .where(
-        (index) =>
-            index.isUnique &&
-            !index.isPrimary &&
-            index.elements.every(
-              (element) => element.type == IndexElementDefinitionType.column,
-            ) &&
-            (_isScopedUniqueIndex(index) ||
-                isCrdtAllowedForeignKeyOnlyUniqueIndex(
-                  table,
-                  index,
-                  syncTableNames,
-                )),
-      )
-      .toList();
-
   final columnsByName = {for (final column in table.columns) column.name: column};
   return [
-    for (final index in uniqueIndexes)
+    for (final index in crdtSyncableUniqueIndexesForTable(table, syncTableNames))
       _uniqueIndexConflictReleaseForIndex(table, columnsByName, index),
   ];
-}
-
-bool _isScopedUniqueIndex(IndexDefinition index) {
-  return index.elements.any(
-    (element) =>
-        element.type == IndexElementDefinitionType.column &&
-        element.definition == 'scopeId',
-  );
 }
 
 _UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
@@ -1474,14 +1449,6 @@ _UniqueIndexConflictRelease _uniqueIndexConflictReleaseForIndex(
     if (releaseColumn != null) {
       releaseColumns.add(releaseColumn);
     }
-  }
-
-  if (releaseColumns.isEmpty) {
-    throw StateError(
-      'CRDT unique conflict resolution requires at least one releasable '
-      'non-scope column for ${table.name}.${index.indexName}. '
-      'Only nullable, text, and non-FK UUID unique columns are supported.',
-    );
   }
 
   return (
@@ -1508,17 +1475,12 @@ _UniqueColumnConflictRelease? _uniqueConflictReleaseForColumn(
     return (columnName: columnName, kind: _UniqueConflictReleaseKind.textSuffix);
   }
 
-  if (column.columnType == ColumnType.uuid && !_isForeignKeyColumn(table, columnName)) {
+  if (column.columnType == ColumnType.uuid &&
+      !isCrdtForeignKeyColumn(table, columnName)) {
     return (columnName: columnName, kind: _UniqueConflictReleaseKind.syntheticUuid);
   }
 
   return null;
-}
-
-bool _isForeignKeyColumn(TableDefinition table, String columnName) {
-  return table.foreignKeys.any(
-    (fk) => fk.columns.length == 1 && fk.columns.single == columnName,
-  );
 }
 
 String _sqlLiteral(Object? value) => ValueEncoder.instance.convert(value);
