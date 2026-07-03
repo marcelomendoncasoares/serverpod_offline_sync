@@ -178,6 +178,10 @@ final Map<String, TableOps> demoTableOps = {
       create: (id, label, foreignKeys) =>
           UniqueComposite(id: id, scope: label, value: label),
     ),
+    _ops<UniqueDiscriminator>(
+      create: (id, label, foreignKeys) =>
+          UniqueDiscriminator(id: id, categoryId: 0, name: label),
+    ),
     _ops<UniqueSetNullChild>(
       create: (id, label, foreignKeys) => UniqueSetNullChild(
         id: id,
