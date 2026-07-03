@@ -195,11 +195,11 @@ void main() {
       },
     );
 
-    test(
-      'when updating the Person with update and noReturn, '
-      'then the updated row is returned.',
-      () async {
-        final updated = await session.db.transactionForUser(
+    group('when updating the Person with update and noReturn,', () {
+      late List<Person> updated;
+
+      setUp(() async {
+        updated = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.update(
             session,
@@ -209,24 +209,32 @@ void main() {
             noReturn: true,
           ),
         );
+      });
 
-        expect(updated, hasLength(1));
-        expect(updated.single.name, 'updated');
+      test('then an empty list is returned.', () async {
+        expect(updated, isEmpty);
+      });
 
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated');
+      });
+
+      test('then a CRDT field is created for the name column.', () async {
         final field = await CrdtDataField.db.findFirstRow(
           session,
           where: (t) => t.row.uuidRowId.equals(person.id),
           include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
         );
         expect(field?.column?.name, 'name');
-      },
-    );
+      });
+    });
 
-    test(
-      'when updating the Person with updateWhere and noReturn, '
-      'then the updated row is returned.',
-      () async {
-        final updated = await session.db.transactionForUser(
+    group('when updating the Person with updateWhere and noReturn,', () {
+      late List<Person> updated;
+
+      setUp(() async {
+        updated = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.updateWhere(
             session,
@@ -236,11 +244,17 @@ void main() {
             noReturn: true,
           ),
         );
+      });
 
-        expect(updated, hasLength(1));
-        expect(updated.single.name, 'updated');
-      },
-    );
+      test('then an empty list is returned.', () async {
+        expect(updated, isEmpty);
+      });
+
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated');
+      });
+    });
   });
 
   group('Given a person table with a deleted row,', () {
@@ -580,45 +594,53 @@ void main() {
       );
     });
 
-    test(
-      'when updating the row with update and noReturn, '
-      'then no rows are returned and the change is persisted.',
-      () async {
-        final updated = await CrdtSyncIntegrityViolation.db.update(
+    group('when updating the row with update and noReturn,', () {
+      late List<CrdtSyncIntegrityViolation> updated;
+
+      setUp(() async {
+        updated = await CrdtSyncIntegrityViolation.db.update(
           session,
           [violation.copyWith(occurrences: 2)],
           noReturn: true,
         );
+      });
 
+      test('then an empty list is returned.', () async {
         expect(updated, isEmpty);
+      });
 
+      test('then the row reflects the new values.', () async {
         final row = await CrdtSyncIntegrityViolation.db.findById(
           session,
           violation.id!,
         );
         expect(row?.occurrences, 2);
-      },
-    );
+      });
+    });
 
-    test(
-      'when updating the row with updateWhere and noReturn, '
-      'then no rows are returned and the change is persisted.',
-      () async {
-        final updated = await CrdtSyncIntegrityViolation.db.updateWhere(
+    group('when updating the row with updateWhere and noReturn,', () {
+      late List<CrdtSyncIntegrityViolation> updated;
+
+      setUp(() async {
+        updated = await CrdtSyncIntegrityViolation.db.updateWhere(
           session,
           columnValues: (t) => [t.occurrences(3)],
           where: (t) => t.id.equals(violation.id),
           noReturn: true,
         );
+      });
 
+      test('then an empty list is returned.', () async {
         expect(updated, isEmpty);
+      });
 
+      test('then the row reflects the new values.', () async {
         final row = await CrdtSyncIntegrityViolation.db.findById(
           session,
           violation.id!,
         );
         expect(row?.occurrences, 3);
-      },
-    );
+      });
+    });
   });
 }

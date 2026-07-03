@@ -57,11 +57,11 @@ void main() {
       });
     });
 
-    test(
-      'when deleting the Person with delete and noReturn, '
-      'then the deleted row is returned.',
-      () async {
-        final deleted = await session.db.transactionForUser(
+    group('when deleting the Person with delete and noReturn,', () {
+      late List<Person> deleted;
+
+      setUp(() async {
+        deleted = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.delete(
             session,
@@ -70,23 +70,26 @@ void main() {
             noReturn: true,
           ),
         );
+      });
 
-        expect(deleted, hasLength(1));
-        expect(deleted.single.id, person.id);
+      test('then an empty list is returned.', () async {
+        expect(deleted, isEmpty);
+      });
 
+      test('then a CRDT tombstone is created for the row.', () async {
         final tombstone = await CrdtDataDeleted.db.findFirstRow(
           session,
           where: (t) => t.row.uuidRowId.equals(person.id),
         );
         expect(tombstone?.isDeleted, isTrue);
-      },
-    );
+      });
+    });
 
-    test(
-      'when deleting the Person with deleteWhere and noReturn, '
-      'then the deleted row is returned.',
-      () async {
-        final deleted = await session.db.transactionForUser(
+    group('when deleting the Person with deleteWhere and noReturn,', () {
+      late List<Person> deleted;
+
+      setUp(() async {
+        deleted = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.deleteWhere(
             session,
@@ -95,11 +98,20 @@ void main() {
             noReturn: true,
           ),
         );
+      });
 
-        expect(deleted, hasLength(1));
-        expect(deleted.single.id, person.id);
-      },
-    );
+      test('then an empty list is returned.', () async {
+        expect(deleted, isEmpty);
+      });
+
+      test('then a CRDT tombstone is created for the row.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+        expect(tombstone?.isDeleted, isTrue);
+      });
+    });
   });
 
   group('Given a person table with a deleted row,', () {

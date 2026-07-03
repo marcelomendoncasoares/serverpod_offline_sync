@@ -351,7 +351,7 @@ class CrdtDatabase implements Database {
             : result;
         await _recorder.afterInsert<T>(insertedRows, tx);
         _stripStampedRows(insertedRows, prepared);
-        return insertedRows;
+        return noReturn ? [] : insertedRows;
       },
     );
   }
@@ -458,7 +458,7 @@ class CrdtDatabase implements Database {
         ];
 
         await _recorder.afterUpdate(updatedRows, columns, tx);
-        return updatedRows;
+        return noReturn ? <T>[] : updatedRows;
       },
     );
   }
@@ -601,7 +601,7 @@ class CrdtDatabase implements Database {
         final columns = columnValues.map((e) => e.column).toList();
         await _recorder.afterUpdate(result, columns, tx);
         result.forEach(_stripScopeId);
-        return result;
+        return noReturn ? <T>[] : result;
       },
     );
   }
@@ -697,6 +697,7 @@ class CrdtDatabase implements Database {
         );
 
         await _recorder.insteadOfDelete<T>(rows, tx);
+        if (noReturn) return <T>[];
         return _stripScopeIdFromScopedRead(rows, null, tx);
       },
     );
