@@ -170,7 +170,6 @@ void main() {
 
             final serverSubscription = rawServerSession.crdt
                 .sync(
-                  serverSession,
                   userId: testCrdtUserId,
                   inbound: clientToServer.stream,
                   once: false,
@@ -214,11 +213,8 @@ void main() {
         late UuidValue sharedScopeId;
 
         setUp(() async {
-          sharedScopeId = const Uuid().v7obj();
-          await _upsertScopeMembership(
-            rawServerSession,
-            userUuid: testCrdtUserId,
-            scopeUuid: sharedScopeId,
+          sharedScopeId = await rawServerSession.crdt.scopes.create(
+            owner: testCrdtUserId,
           );
         });
 
@@ -313,11 +309,8 @@ void main() {
             final syncSession = testClient.crdt.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
 
-            final laterScopeId = const Uuid().v7obj();
-            await _upsertScopeMembership(
-              rawServerSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: laterScopeId,
+            final laterScopeId = await rawServerSession.crdt.scopes.create(
+              owner: testCrdtUserId,
             );
 
             final sharedPerson = await serverSession.db.transactionForUser(
@@ -363,10 +356,9 @@ void main() {
                   null;
             });
 
-            await _revokeScopeMembership(
-              rawServerSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: sharedScopeId,
+            await rawServerSession.crdt.scopes.revoke(
+              scope: sharedScopeId,
+              user: testCrdtUserId,
             );
 
             // The revoked scope's rows disappear from membership-wide reads…
@@ -466,12 +458,8 @@ void main() {
             late UuidValue serverPersonId;
 
             setUp(() async {
-              readOnlyScopeId = const Uuid().v7obj();
-              await _upsertScopeMembership(
-                rawServerSession,
-                userUuid: testCrdtUserId,
-                scopeUuid: readOnlyScopeId,
-                role: CrdtScopeRole.readOnly,
+              readOnlyScopeId = await rawServerSession.crdt.scopes.create(
+                grants: {testCrdtUserId: CrdtScopeRole.readOnly},
               );
               final serverPerson = await serverSession.db.transactionForUser(
                 readOnlyScopeId,
@@ -570,10 +558,9 @@ void main() {
               );
               pendingPersonId = pendingPerson.id!;
 
-              await _upsertScopeMembership(
-                rawServerSession,
-                userUuid: testCrdtUserId,
-                scopeUuid: sharedScopeId,
+              await rawServerSession.crdt.scopes.grant(
+                scope: sharedScopeId,
+                user: testCrdtUserId,
                 role: CrdtScopeRole.readOnly,
               );
               final inboundPerson = await serverSession.db.transactionForUser(
@@ -648,10 +635,9 @@ void main() {
               );
               revokedPersonId = revokedPerson.id!;
               await testClient.crdt.syncOnce(clientSession);
-              await _revokeScopeMembership(
-                rawServerSession,
-                userUuid: testCrdtUserId,
-                scopeUuid: sharedScopeId,
+              await rawServerSession.crdt.scopes.revoke(
+                scope: sharedScopeId,
+                user: testCrdtUserId,
               );
             });
 
@@ -727,10 +713,7 @@ void main() {
           late UuidValue ungrantedScopeId;
 
           setUp(() async {
-            ungrantedScopeId = const Uuid().v7obj();
-            await CrdtScopeManager(rawServerSession).getOrCreate(
-              ungrantedScopeId,
-            );
+            ungrantedScopeId = await rawServerSession.crdt.scopes.create();
           });
 
           test('then it is rejected before writing.', () async {
@@ -1300,16 +1283,11 @@ void main() {
         );
         await serverSession.db.initialize();
 
-        sharedScopeId = const Uuid().v7obj();
-        await _upsertScopeMembership(
-          rawServerSession,
-          userUuid: testCrdtUserId,
-          scopeUuid: sharedScopeId,
-        );
-        await _upsertScopeMembership(
-          rawServerSession,
-          userUuid: secondUserId,
-          scopeUuid: sharedScopeId,
+        sharedScopeId = await rawServerSession.crdt.scopes.create(
+          grants: {
+            testCrdtUserId: CrdtScopeRole.readWrite,
+            secondUserId: CrdtScopeRole.readWrite,
+          },
         );
       });
 
@@ -1593,39 +1571,6 @@ Future<void> _waitUntil(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   throw TimeoutException('Condition was not met within $timeout.');
-}
-
-/// Upserts a `crdt_scope_members` row: an authoritative grant on the server,
-/// or a (possibly stale) locally projected grant on a client session.
-Future<void> _upsertScopeMembership(
-  DatabaseSession session, {
-  required UuidValue userUuid,
-  required UuidValue scopeUuid,
-  CrdtScopeRole role = CrdtScopeRole.readWrite,
-}) async {
-  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
-  final encodedScopeId = ValueEncoder.instance.convert(scope.id);
-  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-  final encodedRole = ValueEncoder.instance.convert(role.toJson());
-  await session.db.unsafeExecute(
-    'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid", "role") '
-    'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
-    'ON CONFLICT ("scopeId", "userUuid") DO UPDATE SET "role" = $encodedRole',
-  );
-}
-
-Future<void> _revokeScopeMembership(
-  DatabaseSession session, {
-  required UuidValue userUuid,
-  required UuidValue scopeUuid,
-}) async {
-  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
-  final encodedScopeId = ValueEncoder.instance.convert(scope.id);
-  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-  await session.db.unsafeExecute(
-    'DELETE FROM "crdt_scope_members" '
-    'WHERE "scopeId" = $encodedScopeId AND "userUuid" = $encodedUserUuid',
-  );
 }
 
 class TestClientAuthKeyProvider implements ClientAuthKeyProvider {

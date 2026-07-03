@@ -10,6 +10,9 @@ void main() {
   withServerpod(
     'Given a database-backed CRDT scope sync session,',
     (sessionBuilder, _) {
+      final bootstrapSession = sessionBuilder.build();
+      bootstrapSession.serverpod.initializeCrdtSync(syncTables: []);
+
       late Session session;
       setUp(() async {
         session = sessionBuilder.build();
@@ -20,12 +23,8 @@ void main() {
         'then only the authoritative session announces grants.',
         () async {
           final userUuid = _uuid(30);
-          final sharedScopeUuid = _uuid(20);
-
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: sharedScopeUuid,
+          final sharedScopeUuid = await session.crdt.scopes.create(
+            owner: userUuid,
           );
 
           final authoritative = CrdtScopeSyncSession(
@@ -73,13 +72,9 @@ void main() {
         'then it keeps cycling only its locally resolved scopes.',
         () async {
           final userUuid = _uuid(31);
-          final localSharedScopeUuid = _uuid(21);
           final peerOnlyScopeUuid = _uuid(11);
-
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: localSharedScopeUuid,
+          final localSharedScopeUuid = await session.crdt.scopes.create(
+            owner: userUuid,
           );
 
           final authoritative = CrdtScopeSyncSession(
@@ -104,7 +99,6 @@ void main() {
         'then adoption keeps the announced scope set until the next reconcile.',
         () async {
           final userUuid = _uuid(32);
-          final laterSharedScopeUuid = _uuid(22);
 
           final authoritative = CrdtScopeSyncSession(
             session,
@@ -116,10 +110,8 @@ void main() {
           await authoritative.reconcile();
           authoritative.markAnnounced();
 
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: laterSharedScopeUuid,
+          final laterSharedScopeUuid = await session.crdt.scopes.create(
+            owner: userUuid,
           );
 
           await authoritative.adoptPeerGrants(const []);
@@ -317,7 +309,6 @@ void main() {
         'then the tracked checkpoint moves to the change HLC.',
         () async {
           final userUuid = _uuid(37);
-          final scopeUuid = _uuid(27);
           final localNodeUuid = _uuid(47);
           final remoteNodeUuid = _uuid(107);
 
@@ -328,10 +319,8 @@ void main() {
             peerNodeId: _uuid(98),
           );
 
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: scopeUuid,
+          final scopeUuid = await session.crdt.scopes.create(
+            owner: userUuid,
           );
 
           await authoritative.reconcile();
@@ -377,6 +366,7 @@ CrdtSyncSinceHlc _since(UuidValue scopeUuid, Hlc checkpoint) =>
 Hlc _hlc(UuidValue nodeUuid, {required int minute}) =>
     Hlc(DateTime.utc(2026, 7, 2, 12, minute), 0, nodeUuid);
 
+/// Upserts a projected membership row for follower-cache reconciliation setup.
 Future<void> _upsertScopeMembership(
   DatabaseSession session, {
   required UuidValue userUuid,

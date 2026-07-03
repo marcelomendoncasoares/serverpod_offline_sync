@@ -1,6 +1,6 @@
 # Scope management API
 
-Status: proposal for a separate implementation issue. Builds on the shared-scope
+Status: implemented. Builds on the shared-scope
 membership model in `shared-scopes.md`; this document specifies the developer-
 facing API for *managing* membership, which that document deliberately left as
 "app domain".

@@ -1,6 +1,8 @@
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 
+import 'crdt_scopes.dart';
+
 /// The CRDT sync configured per [Serverpod] instance.
 ///
 /// Keyed by the [Serverpod] instance so each pod owns its own [CrdtSync] (and
@@ -49,14 +51,51 @@ extension CrdtSyncInitialize on Serverpod {
   }
 }
 
-/// Extension to access the CRDT sync for [Session] from the [Serverpod] instance.
+/// Session-bound CRDT services configured for a [Serverpod] instance.
+///
+/// This facade is ephemeral: each `Session.crdt` access creates a small wrapper
+/// around the shared [CrdtSync] instance and the current [Session].
+class CrdtSession {
+  /// Creates CRDT services bound to a session.
+  CrdtSession(this._session, this._sync);
+
+  final Session _session;
+  final CrdtSync _sync;
+
+  /// Returns the server-side scope management service.
+  CrdtScopes get scopes => CrdtScopes(_session);
+
+  /// Runs a CRDT sync session with this [CrdtSession]'s [Session] bound.
+  Stream<CrdtSyncStreamEvent> sync({
+    required UuidValue userId,
+    required Stream<CrdtSyncStreamEvent> inbound,
+    required CrdtSyncPeerMode mode,
+    bool once = false,
+    CrdtSyncOnMergeSuccess? onMergeSuccess,
+  }) {
+    return _sync.sync(
+      _session,
+      userId: userId,
+      inbound: inbound,
+      once: once,
+      mode: mode,
+      onMergeSuccess: onMergeSuccess,
+    );
+  }
+}
+
+/// Extension to access CRDT services for [Session] from the [Serverpod] instance.
 extension CrdtSessionExtension on Session {
-  /// Returns the CRDT sync configured for this session.
-  CrdtSync get crdt =>
-      _crdtSyncByServerpod[server.serverpod] ??
-      (throw StateError(
+  /// Returns the CRDT services configured for this session.
+  CrdtSession get crdt {
+    final sync = _crdtSyncByServerpod[server.serverpod];
+    if (sync == null) {
+      throw StateError(
         'The CrdtSync has not been initialized for this Serverpod instance. '
         'Call pod.initializeCrdtSync(...) during server startup to configure '
         'the CRDT sync.',
-      ));
+      );
+    }
+    return CrdtSession(this, sync);
+  }
 }

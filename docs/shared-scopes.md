@@ -101,8 +101,8 @@ indexes:
   checks — see *The client membership table*.
 - The index **leads with `userUuid`** so the per-cycle `WHERE userUuid = ?`
   resolution is index-covered.
-- Rows are managed by application code: invitations, acceptance, and role
-  assignment are app domain, outside this package.
+- Rows are managed through `session.crdt.scopes` (`CrdtScopes`). Invitations,
+  acceptance, and authorization policy remain app domain.
 - **Personal-scope membership is implicit.** By convention a user's personal
   scope has the user's own UUID (already true: the scope UUID keys the chain),
   so no `crdt_scope_members` row is stored for it. Shared scopes are
