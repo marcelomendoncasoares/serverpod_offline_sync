@@ -51,16 +51,22 @@ bool _grantsEqual(List<CrdtScopeGrant>? a, List<CrdtScopeGrant> b) {
 /// the membership helpers, so it carries no protocol or transport concerns.
 class CrdtScopeSyncSession {
   /// Creates a scope session for [userId] acting in [mode] against [_session].
+  ///
+  /// [peerNodeId] is the remote peer's CRDT node, learned from its connect
+  /// handshake before this session is constructed.
   CrdtScopeSyncSession(
     this._session, {
     required UuidValue userId,
     required CrdtSyncPeerMode mode,
+    required UuidValue peerNodeId,
   }) : _userId = userId,
-       _mode = mode;
+       _mode = mode,
+       _peerNodeId = peerNodeId;
 
   final DatabaseSession _session;
   final UuidValue _userId;
   final CrdtSyncPeerMode _mode;
+  final UuidValue _peerNodeId;
 
   /// Session-lived scope manager. Reused across cycles so its in-memory cache
   /// of already-materialized scopes survives, sparing a follower a per-cycle
@@ -89,8 +95,8 @@ class CrdtScopeSyncSession {
   /// Scopes for which this peer has already sent its [CrdtSyncSinceHlc].
   final Set<String> _sinceHlcSent = {};
 
-  /// The peer's node id per scope, learned from its [CrdtSyncSinceHlc].
-  final Map<UuidValue, UuidValue> _peerNodeIdByScope = {};
+  /// The peer's node id from its connect handshake.
+  UuidValue get peerNodeId => _peerNodeId;
 
   /// What the peer has seen per scope (advances as we send), seeded from its
   /// [CrdtSyncSinceHlc] — presence means the scope's handshake completed both
@@ -160,7 +166,6 @@ class CrdtScopeSyncSession {
     );
     _activeUuids = {for (final s in _activeScopeIds) s.uuid};
     _sinceHlcSent.removeWhere((uuid) => !_activeUuids.contains(uuid));
-    _peerNodeIdByScope.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
     _checkpointsByScope.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
   }
 
@@ -188,7 +193,6 @@ class CrdtScopeSyncSession {
   /// Records the peer's resume vector for [scopeId] from its [sinceHlc],
   /// completing the scope's handshake from this peer's side.
   void recordPeerHandshake(UuidValue scopeId, CrdtSyncSinceHlc sinceHlc) {
-    _peerNodeIdByScope[scopeId] = sinceHlc.localNodeId;
     _checkpointsByScope[scopeId] = {
       for (final checkpoint in sinceHlc.nodeCheckpoints) checkpoint.nodeId: checkpoint,
     };
@@ -198,16 +202,13 @@ class CrdtScopeSyncSession {
   /// by scope — the input to a pending-change collection pass.
   Map<UuidValue, List<Hlc>> get sendableCheckpoints => {
     for (final scopeId in _activeScopeIds)
-      if (_checkpointsByScope[scopeId] != null &&
-          _peerNodeIdByScope[scopeId] != null &&
-          _writableUuids.contains(scopeId.uuid))
+      if (_checkpointsByScope[scopeId] != null && _writableUuids.contains(scopeId.uuid))
         scopeId: _checkpointsByScope[scopeId]!.values.toList(),
   };
 
   /// Whether any active scope still lacks the peer handshake state.
   bool get hasIncompleteActiveHandshake => _activeScopeIds.any(
-    (scopeId) =>
-        _checkpointsByScope[scopeId] == null || _peerNodeIdByScope[scopeId] == null,
+    (scopeId) => _checkpointsByScope[scopeId] == null,
   );
 
   /// Advances the in-session checkpoint for [scopeId] past a just-sent [change],
@@ -227,9 +228,6 @@ class CrdtScopeSyncSession {
       (_mode == CrdtSyncPeerMode.follower ? _peerUuids : _activeUuids).contains(
         scopeId.uuid,
       );
-
-  /// The peer's node id for [scopeId], or null if it has not handshaked yet.
-  UuidValue? peerNodeIdOf(UuidValue scopeId) => _peerNodeIdByScope[scopeId];
 
   /// The greatest checkpoint HLC tracked for [scopeId], or null if none.
   Hlc? checkpointMaxOf(UuidValue scopeId) {

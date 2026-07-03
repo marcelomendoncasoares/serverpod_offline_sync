@@ -380,7 +380,10 @@ void main() {
     'then it throws a CrdtSyncUnexpectedEventException.',
     () async {
       final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncConnect(syncTablesHash: 'hash'),
+        CrdtSyncConnect(
+          localNodeId: const Uuid().v7obj(),
+          syncTablesHash: 'hash',
+        ),
       ]);
       final iterator = StreamIterator(stream);
 

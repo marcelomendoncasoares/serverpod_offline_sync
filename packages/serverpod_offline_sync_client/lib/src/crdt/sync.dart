@@ -209,7 +209,6 @@ class CrdtSync {
 
     return CrdtSyncSinceHlc(
       uuidScopeId: scopeId,
-      localNodeId: localNodeId,
       nodeCheckpoints: [
         // The local node is always included to avoid collecting its own changes.
         Hlc.now(localNodeId),
@@ -279,17 +278,24 @@ class CrdtSync {
               onTimeout: (sink) => sink.add(CrdtSyncIdleTimeout()),
             ),
     );
-    final scopes = CrdtScopeSyncSession(
-      session,
-      userId: userId,
-      mode: mode,
-    );
-
     var sessionCompleted = false;
     try {
-      yield CrdtSyncConnect(syncTablesHash: currentSyncTablesHash);
+      final localNodeId = (await CrdtScopeManager(
+        session,
+      ).getOrCreate(userId)).currentNode!.uuidNodeId;
+      yield CrdtSyncConnect(
+        syncTablesHash: currentSyncTablesHash,
+        localNodeId: localNodeId,
+      );
       final peerConnect = await inboundIterator.moveAndThrowIfNot<CrdtSyncConnect>();
       _validateSyncTablesHash(peerConnect.syncTablesHash);
+
+      final scopes = CrdtScopeSyncSession(
+        session,
+        userId: userId,
+        mode: mode,
+        peerNodeId: peerConnect.localNodeId,
+      );
 
       await scopes.reconcile();
       yield CrdtSyncScopeSet(scopes: scopes.localGrants);
@@ -407,8 +413,7 @@ class CrdtSync {
     }
     for (final entry in changesByScope.entries) {
       final scopeId = entry.key;
-      final peerNodeId = scopes.peerNodeIdOf(scopeId);
-      if (!scopes.accepts(scopeId) || peerNodeId == null) continue;
+      if (!scopes.accepts(scopeId)) continue;
       mergedScopes.add(scopeId);
       if (scopes.isAuthoritative) {
         await _assertCanMergeInboundScope(
@@ -421,7 +426,7 @@ class CrdtSync {
       final receivedHlc = await _mergeInboundBatch(
         session,
         scopeId: scopeId,
-        otherNodeId: peerNodeId,
+        otherNodeId: scopes.peerNodeId,
         mergeSet: entry.value,
       );
       await _reportMerge(onMergeSuccess, scopes, scopeId, receivedHlc);

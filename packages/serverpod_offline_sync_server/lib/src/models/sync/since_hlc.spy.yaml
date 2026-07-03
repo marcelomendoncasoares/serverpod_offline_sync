@@ -5,9 +5,6 @@ fields:
   ### Scope this checkpoint belongs to.
   uuidScopeId: UuidValue
 
-  ### This peer's node identifier within [uuidScopeId].
-  localNodeId: UuidValue
-
   ### Per-node checkpoints that describe which changes the sender already has.
   ###
   ### Each checkpoint is an [Hlc] whose `nodeId` is the source node being

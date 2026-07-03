@@ -246,10 +246,10 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
 `continuous`: only on change, inside one combined batch). Frame changes
 (regenerated models + a migration on both client and server schemas):
 
-- `CrdtSyncConnect { syncTablesHash }` — sent once by each peer. The schema hash
-  is validated once, before any scope work. The scope list and the single
-  `localNodeId` both leave `Connect`: the scope set is dynamic and node ids are
-  per scope.
+- `CrdtSyncConnect { syncTablesHash, localNodeId }` — sent once by each peer. The
+  schema hash is validated once, before any scope work. `localNodeId` identifies
+  this peer's CRDT node for the whole session. The scope list is dynamic and
+  exchanged per cycle.
 - `CrdtSyncScopeSet { scopes: List<CrdtScopeGrant> }` (each grant a
   `scopeUuid` + `role`) — the server's content is authoritative (resolved from
   `crdt_scope_members`, roles included). Followers send an empty set because the
@@ -259,9 +259,9 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
   the frame that carries access changes mid-session, and gating it on change is
   what keeps an idle session silent while still letting a grant or revoke take
   effect.
-- `CrdtSyncSinceHlc { uuidScopeId, localNodeId, nodeCheckpoints }` — per scope.
-  Carries that scope's node id and per-node checkpoints. Exchanged when a scope
-  first becomes active (and again if a dropped scope is later re-adopted);
+- `CrdtSyncSinceHlc { uuidScopeId, nodeCheckpoints }` — per scope. Carries that
+  scope's per-node checkpoints. Exchanged when a scope first becomes active
+  (and again if a dropped scope is later re-adopted);
   checkpoints then live in memory for the rest of the session.
 - `CrdtSyncMergeChunk { changes }` — each change carries `uuidScopeId`, letting
   a combined batch carry every scope's changes and regroup them on receive.
@@ -283,7 +283,8 @@ batches and is treated as truncation once a partial batch has arrived.
 
 ```
 handshake (both cadences):
-  send Connect(syncTablesHash); read peer Connect; validate syncTablesHash
+  send Connect(syncTablesHash, localNodeId); read peer Connect; validate
+  syncTablesHash; store peer localNodeId
 
 establishment (both cadences, lockstep):
   send ScopeSet(myGrants); read peer ScopeSet → adopt → activeScopes
@@ -488,7 +489,7 @@ to run with `--concurrency=1`.
   yet: a personal-scope-only set reproduces today's single-scope sync exactly.
 - **Phase 2 — sequential multi-scope sync (the requirement).** Implemented
   protocol model
-  changes (`Connect` minus `scopeIds`/`localNodeId`, new per-cycle
+  changes (`Connect` with session `localNodeId`, new per-cycle
   `CrdtSyncScopeSet`, per-scope `SinceHlc`, `MergeChunk.uuidScopeId`) plus
   generate/migrate. Outer cycle loop in `CrdtSync.sync` with per-cycle
   `ScopeSet` exchange, per-scope handshake-on-first-visit, in-memory per-scope

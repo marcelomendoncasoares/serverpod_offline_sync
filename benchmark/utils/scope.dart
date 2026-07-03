@@ -142,26 +142,37 @@ WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < $noiseU
 INSERT INTO "crdt_scopes" ("currentNodeId") SELECT NULL FROM n
 ''');
     await db.unsafeExecute('''
-INSERT INTO "crdt_nodes" ("scopeId")
-SELECT u."id" FROM "crdt_scopes" u
-WHERE NOT EXISTS (SELECT 1 FROM "crdt_nodes" n WHERE n."scopeId" = u."id")
+WITH local_node(id) AS (
+  SELECT "currentNodeId" FROM "crdt_scopes" WHERE "id" = $benchUserId
+)
+INSERT INTO "crdt_scope_nodes" ("scopeId", "nodeId")
+SELECT u."id", local_node.id
+FROM "crdt_scopes" u
+CROSS JOIN local_node
+WHERE local_node.id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "crdt_scope_nodes" sn
+    WHERE sn."scopeId" = u."id" AND sn."nodeId" = local_node.id
+  )
 ''');
 
     // Noise rows for every noise user, spread across all synced tables, with
     // 10% tombstoned. Random UUIDs keep them unrelated to the domain rows.
     await db.unsafeExecute('''
 WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < $noiseCrdtRows - 1),
-users(rowidx, uid) AS (
-  SELECT ROW_NUMBER() OVER (ORDER BY "id") - 1, "id"
-  FROM "crdt_scopes" WHERE "id" <> $benchUserId
+users(rowidx, uid, nodeId) AS (
+  SELECT ROW_NUMBER() OVER (ORDER BY s."id") - 1, s."id", sn."nodeId"
+  FROM "crdt_scopes" s
+  JOIN "crdt_scope_nodes" sn ON sn."scopeId" = s."id"
+  WHERE s."id" <> $benchUserId
 ),
 tbls(tblidx, tid) AS (
   SELECT ROW_NUMBER() OVER (ORDER BY "id") - 1, "id" FROM "crdt_schema_tables"
 )
 INSERT INTO "crdt_data_rows"
   ("hlcDatetime", "hlcCounter", "scopeId", "tblId", "uuidRowId", "nodeId", "visibility")
-SELECT 0, 0, u.uid, t.tid, randomblob(16),
-       (SELECT nd."id" FROM "crdt_nodes" nd WHERE nd."scopeId" = u.uid LIMIT 1),
+SELECT 0, 0, u.uid, t.tid, randomblob(16), u.nodeId,
        CASE WHEN n.i % 10 = 0 THEN $hiddenVisibility ELSE 0 END
 FROM n
 JOIN users u ON u.rowidx = n.i % $noiseUsers

@@ -481,7 +481,6 @@ void main() {
       );
 
       expect(sinceHlc.uuidScopeId, testCrdtUserId);
-      expect(sinceHlc.localNodeId, scope.currentNode!.uuidNodeId);
       expect(sinceHlc.nodeCheckpoints, hasLength(1));
       expect(sinceHlc.nodeCheckpoints.single.nodeId, scope.currentNode!.uuidNodeId);
       expect(
