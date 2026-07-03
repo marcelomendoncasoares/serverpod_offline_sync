@@ -12,6 +12,9 @@ class CrdtScopeManager {
 
   final Map<UuidValue, CrdtScope> _instances = {};
 
+  /// Canonical [CrdtNode] shared across all scopes on this database.
+  CrdtNode? _cachedCurrentNode;
+
   /// Returns the cached [CrdtScope] for the given scope ID.
   CrdtScope getCached(UuidValue uuidScopeId) =>
       _instances[uuidScopeId] ??
@@ -23,6 +26,7 @@ class CrdtScopeManager {
   /// Clears the in-memory cache so state is reloaded from the store.
   void clearCache() {
     _instances.clear();
+    _cachedCurrentNode = null;
   }
 
   /// Returns the [CrdtScope] for the given scope ID.
@@ -52,6 +56,7 @@ class CrdtScopeManager {
     );
 
     var currentNode = await _getOrCreateCurrentNode(transaction);
+
     currentNode = await _preserveLatestCurrentNodeHlc(
       currentNode,
       scope.currentNode,
@@ -68,6 +73,8 @@ class CrdtScopeManager {
 
     await _ensureScopeNode(scope.id!, currentNode.id!, transaction);
 
+    _cachedCurrentNode = currentNode;
+
     return scope.copyWith(
       currentNodeId: currentNode.id,
       currentNode: currentNode,
@@ -75,25 +82,31 @@ class CrdtScopeManager {
   }
 
   Future<CrdtNode> _getOrCreateCurrentNode(Transaction transaction) async {
-    final result = await _session.db.unsafeQuery(
-      'SELECT "${CrdtScope.t.currentNodeId.columnName}" '
-      'FROM "${CrdtScope.t.tableName}" '
-      'WHERE "${CrdtScope.t.currentNodeId.columnName}" IS NOT NULL '
-      'ORDER BY "${CrdtScope.t.id.columnName}" '
-      'LIMIT 1',
-      transaction: transaction,
-    );
-
-    if (result.isNotEmpty) {
+    final cachedId = _cachedCurrentNode?.id;
+    if (cachedId != null) {
       final node = await CrdtNode.db.findById(
         _session,
-        result.first[0] as int,
+        cachedId,
         transaction: transaction,
       );
       if (node != null) return node;
+      _cachedCurrentNode = null;
     }
 
-    return CrdtNode.db.insertRow(
+    final existingScope = await CrdtScope.db.findFirstRow(
+      _session,
+      where: (t) => t.currentNodeId.notEquals(null),
+      orderBy: (t) => t.id,
+      include: CrdtScope.include(currentNode: CrdtNode.include()),
+      transaction: transaction,
+    );
+
+    final existingNode = existingScope?.currentNode;
+    if (existingNode != null) {
+      return _cachedCurrentNode = existingNode;
+    }
+
+    return _cachedCurrentNode = await CrdtNode.db.insertRow(
       _session,
       CrdtNode(),
       transaction: transaction,
