@@ -431,6 +431,12 @@ class CrdtDatabase implements Database {
           transaction: tx,
         );
 
+        final reinsertedRows = await _reinsertTombstonedRows(
+          prepared.rows,
+          result,
+          tx,
+        );
+
         final insertedRows = await _rowsWithoutCrdtMetadata(result, tx);
         await _recorder.afterInsert(insertedRows, tx);
 
@@ -445,9 +451,49 @@ class CrdtDatabase implements Database {
         await _recorder.afterUpdate(updatedRows, updateColumns, tx);
         if (noReturn) return <T>[];
         _stripStampedRows(result, prepared);
-        return result;
+        for (final row in reinsertedRows) {
+          final rowId = row.id;
+          if (rowId == null || !prepared.explicitRowIds.contains(rowId)) {
+            _stripScopeId(row);
+          }
+        }
+        return [...result, ...reinsertedRows];
       },
     );
+  }
+
+  /// Reinserts upserted rows whose conflict target is a tombstoned row.
+  ///
+  /// The visibility filter merged into `updateWhere` keeps the delegate upsert
+  /// from updating hidden rows, so they come back missing from [result]. From
+  /// the caller's perspective a deleted row does not exist, so the upsert must
+  /// behave as an insert: the domain row is overwritten with the incoming
+  /// values — ignoring `updateColumns` and `updateWhere` — and the tombstone
+  /// is lifted, mirroring the [insertRow] reinsert path.
+  Future<List<T>> _reinsertTombstonedRows<T extends TableRow>(
+    List<T> preparedRows,
+    List<T> result,
+    Transaction transaction,
+  ) async {
+    final returnedIds = <Object>{
+      for (final row in result)
+        if (row.id != null) row.id as Object,
+    };
+
+    final rowsToReinsert = <T>[];
+    for (final row in preparedRows) {
+      final rowId = row.id;
+      if (rowId == null || returnedIds.contains(rowId)) continue;
+      if (await _recorder.isDeleted(row, transaction)) rowsToReinsert.add(row);
+    }
+    if (rowsToReinsert.isEmpty) return [];
+
+    final reinsertedRows = await _delegate.update<T>(
+      rowsToReinsert,
+      transaction: transaction,
+    );
+    await _recorder.afterReinsert(reinsertedRows, transaction);
+    return reinsertedRows;
   }
 
   @override
