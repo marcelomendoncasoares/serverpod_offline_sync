@@ -11,7 +11,15 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 import 'tables.dart';
 
-enum Operation { select, insert, update, delete }
+enum Operation { select, insert, update, upsertInsert, upsertUpdate, delete }
+
+extension OperationLabel on Operation {
+  String get label => switch (this) {
+    Operation.upsertInsert => 'upsert (insert)',
+    Operation.upsertUpdate => 'upsert (update)',
+    _ => name,
+  };
+}
 
 enum StorageStage { insert, update, delete }
 
@@ -175,6 +183,74 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     }
   }
 
+  /// Upserts a batch of updated copies of the seeded rows plus fresh rows
+  /// without ids up to [rowCount], so the seeded count set by [_prepareCycle]
+  /// determines the conflict-update vs insert mix.
+  Future<void> _upsertTypes() async {
+    final baseTimestamp = DateTime.now();
+    final updated = _seededRows.map((row) {
+      final i = _valueSeq++;
+      return row.copyWith(
+        aBool: i.isEven,
+        aDateTime: baseTimestamp.add(Duration(seconds: i)),
+        aText: 'Text $i',
+        anInt: i,
+        anInt64: BigInt.from(i),
+        aReal: i.toDouble(),
+        aBlob: _emptyBlob,
+        optionalUuid: const Uuid().v7obj(),
+      );
+    }).toList();
+
+    final freshCount = rowCount - updated.length;
+    final start = _valueSeq;
+    _valueSeq += freshCount;
+    final batch = [
+      ...updated,
+      for (var j = 0; j < freshCount; j++) _createTypesRow(start + j, baseTimestamp),
+    ];
+
+    if (crdtEnabled) {
+      _seededRows = await _crdtSession!.db.transactionForUser(
+        _userId,
+        (tx) async {
+          return Types.db.upsert(
+            _crdtSession!,
+            batch,
+            conflictColumns: (t) => [t.id],
+            updateColumns: (t) => [
+              t.aBool,
+              t.aDateTime,
+              t.aText,
+              t.anInt,
+              t.anInt64,
+              t.aReal,
+              t.aBlob,
+              t.optionalUuid,
+            ],
+            transaction: tx,
+          );
+        },
+      );
+    } else {
+      _seededRows = await Types.db.upsert(
+        _plainSession,
+        batch,
+        conflictColumns: (t) => [t.id],
+        updateColumns: (t) => [
+          t.aBool,
+          t.aDateTime,
+          t.aText,
+          t.anInt,
+          t.anInt64,
+          t.aReal,
+          t.aBlob,
+          t.optionalUuid,
+        ],
+      );
+    }
+  }
+
   Future<List<Types>> _selectTypes() async {
     final rows = await Types.db.find(crdtEnabled ? _crdtSession! : _plainSession);
     if (rows.length != rowCount) {
@@ -226,6 +302,11 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       case Operation.insert:
         return;
       case Operation.update:
+        _seededRows = await _insertTypes(rowCount);
+        return;
+      case Operation.upsertInsert:
+        return;
+      case Operation.upsertUpdate:
         _seededRows = await _insertTypes(rowCount);
         return;
       case Operation.delete:
@@ -303,6 +384,11 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
         return;
       case Operation.update:
         await _updateTypesInPlace();
+        _lastRowsCount = _seededRows.length;
+        return;
+      case Operation.upsertInsert:
+      case Operation.upsertUpdate:
+        await _upsertTypes();
         _lastRowsCount = _seededRows.length;
         return;
       case Operation.delete:
