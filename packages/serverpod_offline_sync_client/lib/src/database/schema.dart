@@ -58,6 +58,19 @@ class CrdtSchemaRegistry {
       );
     }
 
+    final requiredFKeyUniqueColumns = crdtRequiredForeignKeyOnlyUniqueColumnViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (requiredFKeyUniqueColumns.isNotEmpty) {
+      throw StateError(
+        'CRDT can only synchronize 1:1 relations when the foreign key column is '
+        'nullable, but ${requiredFKeyUniqueColumns.length} required foreign key '
+        'column(s) are not nullable: "${requiredFKeyUniqueColumns.join("', '")}". '
+        'Make the relation optional/nullable.',
+      );
+    }
+
     final nonReleasableUniqueIndexes = crdtNonReleasableUniqueIndexViolations(
       syncTables,
       tableDefinitionsByName,

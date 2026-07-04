@@ -45,6 +45,11 @@ is supported when at least one non-`scopeId` column can be released
 deterministically. Stable discriminator columns may remain unchanged; changing
 the releasable column or columns is enough to make the unique tuple conflict-free.
 
+For the global foreign-key-only unique indexes that Serverpod emits for synced
+relations, every indexed FK column must be nullable under the current `flag`
+policy. Required FK columns cannot be released without violating either the
+non-null constraint, the FK constraint, or the unique constraint itself.
+
 The rewritten value is a materialized data value, not a synced conflict class.
 The core CRDT protocol does not need to expose unique conflict objects to users.
 

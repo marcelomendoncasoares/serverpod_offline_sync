@@ -7,13 +7,26 @@ bool isCrdtAllowedForeignKeyOnlyUniqueIndex(
   IndexDefinition index,
   Set<String> syncTableNames,
 ) {
+  return _foreignKeyOnlyUniqueIndexColumns(
+        tableDefinition,
+        index,
+        syncTableNames,
+      ) !=
+      null;
+}
+
+List<String>? _foreignKeyOnlyUniqueIndexColumns(
+  TableDefinition tableDefinition,
+  IndexDefinition index,
+  Set<String> syncTableNames,
+) {
   final indexColumns = <String>[];
   for (final element in index.elements) {
-    if (element.type != IndexElementDefinitionType.column) return false;
+    if (element.type != IndexElementDefinitionType.column) return null;
     indexColumns.add(element.definition);
   }
   if (indexColumns.isEmpty || indexColumns.length != indexColumns.toSet().length) {
-    return false;
+    return null;
   }
 
   final indexColumnSet = indexColumns.toSet();
@@ -27,7 +40,47 @@ bool isCrdtAllowedForeignKeyOnlyUniqueIndex(
     }
   }
 
-  return indexColumns.every(coveredForeignKeyColumns.contains);
+  return indexColumns.every(coveredForeignKeyColumns.contains) ? indexColumns : null;
+}
+
+@internal
+List<String> crdtRequiredForeignKeyOnlyUniqueColumnViolations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  final syncTableNames = {for (final table in syncTables) table.tableName};
+  final violations = <String>{};
+
+  for (final tableName in syncTableNames) {
+    final table = tableDefinitionsByName[tableName];
+    if (table == null) continue;
+
+    final columnsByName = {for (final column in table.columns) column.name: column};
+    for (final index in table.indexes) {
+      if (!index.isUnique || index.isPrimary || isCrdtScopedUniqueIndex(index)) {
+        continue;
+      }
+
+      final foreignKeyOnlyColumns = _foreignKeyOnlyUniqueIndexColumns(
+        table,
+        index,
+        syncTableNames,
+      );
+      if (foreignKeyOnlyColumns == null) continue;
+
+      for (final columnName in foreignKeyOnlyColumns) {
+        final column = columnsByName[columnName];
+        if (column == null) {
+          throw StateError(
+            'No column definition found for ${table.name}.$columnName.',
+          );
+        }
+        if (!column.isNullable) violations.add('${table.name}.$columnName');
+      }
+    }
+  }
+
+  return violations.toList();
 }
 
 @internal
