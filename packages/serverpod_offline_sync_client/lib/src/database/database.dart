@@ -496,6 +496,36 @@ class CrdtDatabase implements Database {
     return reinsertedRows;
   }
 
+  Future<List<T>> _rowsWithoutCrdtMetadata<T extends TableRow>(
+    List<T> rows,
+    Transaction transaction,
+  ) async {
+    if (rows.isEmpty) return [];
+
+    final rowIds = {
+      for (final row in rows)
+        if (row.id is UuidValue) row.id as UuidValue,
+    };
+    if (rowIds.isEmpty) return [];
+
+    final tableId = _recorder.tableIdForName(rows.first.table.tableName)!;
+    final scopeId = _requireEffectiveScope(transaction).id!;
+    final crdtRows = await CrdtDataRow.db.find(
+      _delegate.session,
+      where: (t) =>
+          t.scopeId.equals(scopeId) &
+          t.tblId.equals(tableId) &
+          t.uuidRowId.inSet(rowIds),
+      transaction: transaction,
+    );
+    final existingRowIds = crdtRows.map((row) => row.uuidRowId).toSet();
+
+    return [
+      for (final row in rows)
+        if (row.id is UuidValue && !existingRowIds.contains(row.id)) row,
+    ];
+  }
+
   @override
   Future<T?> upsertRow<T extends TableRow>(
     T row, {
@@ -505,15 +535,6 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     await _ensureInitialized();
-    if (T == CrdtSyncIntegrityViolation) {
-      return _delegate.upsertRow<T>(
-        row,
-        conflictColumns: conflictColumns,
-        updateColumns: updateColumns,
-        updateWhere: updateWhere,
-        transaction: transaction,
-      );
-    }
     final result = await upsert<T>(
       [row],
       conflictColumns: conflictColumns,
@@ -521,13 +542,14 @@ class CrdtDatabase implements Database {
       updateWhere: updateWhere,
       transaction: transaction,
     );
-    if (result.isEmpty) return null;
     if (result.length > 1) {
-      throw StateError(
+      // FIXME: We can't use the proper `DatabaseUpsertRowException` because
+      // it is declared as a base type on the `serverpod_database` package.
+      throw Exception(
         'Failed to upsert row, affected number of rows is ${result.length} != 1',
       );
     }
-    return result.single;
+    return result.firstOrNull;
   }
 
   @override
@@ -1020,34 +1042,4 @@ class CrdtDatabase implements Database {
 
   @override
   Future<bool> testConnection() => _delegate.testConnection();
-
-  Future<List<T>> _rowsWithoutCrdtMetadata<T extends TableRow>(
-    List<T> rows,
-    Transaction transaction,
-  ) async {
-    if (rows.isEmpty) return [];
-
-    final rowIds = {
-      for (final row in rows)
-        if (row.id is UuidValue) row.id as UuidValue,
-    };
-    if (rowIds.isEmpty) return [];
-
-    final tableId = _recorder.tableIdForName(rows.first.table.tableName)!;
-    final scopeId = _requireEffectiveScope(transaction).id!;
-    final crdtRows = await CrdtDataRow.db.find(
-      _delegate.session,
-      where: (t) =>
-          t.scopeId.equals(scopeId) &
-          t.tblId.equals(tableId) &
-          t.uuidRowId.inSet(rowIds),
-      transaction: transaction,
-    );
-    final existingRowIds = crdtRows.map((row) => row.uuidRowId).toSet();
-
-    return [
-      for (final row in rows)
-        if (row.id is UuidValue && !existingRowIds.contains(row.id)) row,
-    ];
-  }
 }
