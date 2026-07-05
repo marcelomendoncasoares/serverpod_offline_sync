@@ -65,8 +65,8 @@ class CrdtSchemaRegistry {
     if (requiredFKeyUniqueColumns.isNotEmpty) {
       throw StateError(
         'CRDT can only synchronize 1:1 relations when the foreign key column is '
-        'nullable, but ${requiredFKeyUniqueColumns.length} required foreign key '
-        'column(s) are not nullable: "${requiredFKeyUniqueColumns.join("', '")}". '
+        'nullable, but the following foreign keys are non-nullable: '
+        '"${requiredFKeyUniqueColumns.join("', '")}". '
         'Make the relation optional/nullable.',
       );
     }

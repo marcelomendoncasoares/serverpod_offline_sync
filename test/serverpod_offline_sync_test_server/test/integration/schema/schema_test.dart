@@ -241,7 +241,7 @@ void main() {
             'message',
             contains(
               'CRDT can only synchronize 1:1 relations when the foreign key column is '
-              'nullable, but 1 required foreign key column(s) are not nullable: '
+              'nullable, but the following foreign keys are non-nullable: '
               '"address.inhabitantId". Make the relation optional/nullable.',
             ),
           ),
@@ -336,7 +336,7 @@ void main() {
             'message',
             contains(
               'CRDT can only synchronize 1:1 relations when the foreign key column is '
-              'nullable, but 1 required foreign key column(s) are not nullable: '
+              'nullable, but the following foreign keys are non-nullable: '
               '"town.cityId". Make the relation optional/nullable.',
             ),
           ),
