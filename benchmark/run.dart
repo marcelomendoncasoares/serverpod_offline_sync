@@ -30,9 +30,9 @@ Future<void> main(List<String> args) async {
 
   for (final operation in Operation.values) {
     final baselineResult = await runWithProgress(
-      'Running ${operation.name} benchmark (baseline)',
+      'Running ${operation.label} benchmark (baseline)',
       () => TypesTableBenchmark(
-        '${operation.name} (baseline)',
+        '${operation.label} (baseline)',
         crdtEnabled: false,
         operation: operation,
         rowCount: rowCount,
@@ -41,9 +41,9 @@ Future<void> main(List<String> args) async {
     );
 
     final crdtResult = await runWithProgress(
-      'Running ${operation.name} benchmark (CRDT)',
+      'Running ${operation.label} benchmark (CRDT)',
       () => TypesTableBenchmark(
-        '${operation.name} (CRDT)',
+        '${operation.label} (CRDT)',
         crdtEnabled: true,
         operation: operation,
         rowCount: rowCount,
@@ -79,7 +79,7 @@ Future<void> main(List<String> args) async {
       final baselineDelay = result.baseline.toFormattedDuration();
       final crdtDelay = result.crdt.toFormattedDuration();
       print(
-        '  - ${result.operation.name.toUpperCase()}: $baselineDelay > $crdtDelay',
+        '  - ${result.operation.label.toUpperCase()}: $baselineDelay > $crdtDelay',
       );
     }
   }

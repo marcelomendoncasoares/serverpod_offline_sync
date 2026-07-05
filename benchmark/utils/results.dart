@@ -11,7 +11,7 @@ void printPerformanceImpact(
 }) {
   print(
     '${runningInCI ? '```' : ''}'
-    '\n📊 ${results.operation.name.toUpperCase()} performance impact:',
+    '\n📊 ${results.operation.label.toUpperCase()} performance impact:',
   );
   final baselineTime = results.baseline;
   final crdtTime = results.crdt;
@@ -27,7 +27,7 @@ void printPerformanceImpact(
   print('  Time: $baselineDelay --> $crdtDelay ($runDelay)');
   print('  CRDT overhead: ${formatter2.format(slowdown)}% slower');
   if (results.operation != Operation.select) {
-    print('  Delay per ${results.operation.name}: $runDelayPerOperation');
+    print('  Delay per ${results.operation.label}: $runDelayPerOperation');
   }
   if (runningInCI) print('```');
 }

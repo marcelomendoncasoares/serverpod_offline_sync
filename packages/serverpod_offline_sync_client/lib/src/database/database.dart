@@ -398,9 +398,132 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
     bool noReturn = false,
   }) async {
+    if (rows.isEmpty) return [];
     await _ensureInitialized();
-    // TODO: Implement CRDT upsert.
-    throw UnimplementedError('CRDT upsert is not implemented.');
+    if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      return _delegate.upsert<T>(
+        rows,
+        conflictColumns: conflictColumns,
+        updateColumns: updateColumns,
+        updateWhere: updateWhere,
+        transaction: transaction,
+        noReturn: noReturn,
+      );
+    }
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
+      (tx) async {
+        final prepared = _prepareRowsForInsert(rows, tx);
+
+        // CRDT metadata needs the affected rows even when the public call uses
+        // noReturn, because inserted rows may have database-generated ids.
+        final result = await _delegate.upsert<T>(
+          prepared.rows,
+          conflictColumns: conflictColumns,
+          updateColumns: updateColumns,
+          updateWhere: await _whereVisibleWithTombstone<T>(
+            updateWhere,
+            null,
+            tx,
+            membershipWide: false,
+          ),
+          transaction: tx,
+        );
+
+        final reinsertedRows = await _reinsertTombstonedRows(
+          prepared.rows,
+          result,
+          tx,
+        );
+
+        final insertedRows = await _rowsWithoutCrdtMetadata(result, tx);
+        await _recorder.afterInsert(insertedRows, tx);
+
+        final insertedRowIds = {
+          for (final row in insertedRows)
+            if (row.id is UuidValue) row.id as UuidValue,
+        };
+        final updatedRows = [
+          for (final row in result)
+            if (row.id is! UuidValue || !insertedRowIds.contains(row.id)) row,
+        ];
+        await _recorder.afterUpdate(updatedRows, updateColumns, tx);
+        if (noReturn) return <T>[];
+        _stripStampedRows(result, prepared);
+        for (final row in reinsertedRows) {
+          final rowId = row.id;
+          if (rowId == null || !prepared.explicitRowIds.contains(rowId)) {
+            _stripScopeId(row);
+          }
+        }
+        return [...result, ...reinsertedRows];
+      },
+    );
+  }
+
+  /// Reinserts upserted rows whose conflict target is a tombstoned row.
+  ///
+  /// The visibility filter merged into `updateWhere` keeps the delegate upsert
+  /// from updating hidden rows, so they come back missing from [result]. From
+  /// the caller's perspective a deleted row does not exist, so the upsert must
+  /// behave as an insert: the domain row is overwritten with the incoming
+  /// values — ignoring `updateColumns` and `updateWhere` — and the tombstone
+  /// is lifted, mirroring the [insertRow] reinsert path.
+  Future<List<T>> _reinsertTombstonedRows<T extends TableRow>(
+    List<T> preparedRows,
+    List<T> result,
+    Transaction transaction,
+  ) async {
+    final returnedIds = <Object>{
+      for (final row in result)
+        if (row.id != null) row.id as Object,
+    };
+
+    final rowsToReinsert = <T>[];
+    for (final row in preparedRows) {
+      final rowId = row.id;
+      if (rowId == null || returnedIds.contains(rowId)) continue;
+      if (await _recorder.isDeleted(row, transaction)) rowsToReinsert.add(row);
+    }
+    if (rowsToReinsert.isEmpty) return [];
+
+    final reinsertedRows = await _delegate.update<T>(
+      rowsToReinsert,
+      transaction: transaction,
+    );
+    await _recorder.afterReinsert(reinsertedRows, transaction);
+    return reinsertedRows;
+  }
+
+  Future<List<T>> _rowsWithoutCrdtMetadata<T extends TableRow>(
+    List<T> rows,
+    Transaction transaction,
+  ) async {
+    if (rows.isEmpty) return [];
+
+    final rowIds = {
+      for (final row in rows)
+        if (row.id is UuidValue) row.id as UuidValue,
+    };
+    if (rowIds.isEmpty) return [];
+
+    final tableId = _recorder.tableIdForName(rows.first.table.tableName)!;
+    final scopeId = _requireEffectiveScope(transaction).id!;
+    final crdtRows = await CrdtDataRow.db.find(
+      _delegate.session,
+      where: (t) =>
+          t.scopeId.equals(scopeId) &
+          t.tblId.equals(tableId) &
+          t.uuidRowId.inSet(rowIds),
+      transaction: transaction,
+    );
+    final existingRowIds = crdtRows.map((row) => row.uuidRowId).toSet();
+
+    return [
+      for (final row in rows)
+        if (row.id is UuidValue && !existingRowIds.contains(row.id)) row,
+    ];
   }
 
   @override
@@ -412,17 +535,21 @@ class CrdtDatabase implements Database {
     Transaction? transaction,
   }) async {
     await _ensureInitialized();
-    if (T == CrdtSyncIntegrityViolation) {
-      return _delegate.upsertRow<T>(
-        row,
-        conflictColumns: conflictColumns,
-        updateColumns: updateColumns,
-        updateWhere: updateWhere,
-        transaction: transaction,
+    final result = await upsert<T>(
+      [row],
+      conflictColumns: conflictColumns,
+      updateColumns: updateColumns,
+      updateWhere: updateWhere,
+      transaction: transaction,
+    );
+    if (result.length > 1) {
+      // FIXME: We can't use the proper `DatabaseUpsertRowException` because
+      // it is declared as a base type on the `serverpod_database` package.
+      throw Exception(
+        'Failed to upsert row, affected number of rows is ${result.length} != 1',
       );
     }
-    // TODO: Implement CRDT upsert.
-    throw UnimplementedError('CRDT upsert is not implemented.');
+    return result.firstOrNull;
   }
 
   @override
