@@ -294,24 +294,28 @@ losing-side release in that scope's CRDT chain. "Whoever syncs first" is not
 an acceptable CRDT rule. The only permitted global unique indexes are
 foreign-key-only indexes: every index element must be a column, and the
 indexed columns must be composed only of complete foreign-key column sets whose
-referenced tables are also synced. This covers Serverpod's relation indexes,
-including one-to-one and composite FK relation indexes, without forcing
-duplicate per-scope indexes for include-query performance. Those columns point
-at globally unique synced row ids, and FK enforcement already repairs or
-rejects cross-scope references, so they are not treated as global
-application-level arbitration. The model must still declare scoped composite
-unique indexes for application uniqueness. On a deployment that happens to
-contain one scope, a composite unique with a constant `scopeId` accepts exactly
-the same rows as a plain unique; nothing degrades.
+referenced tables are also synced. Under the current `flag` unique-conflict
+policy, every indexed FK column in that exception must be nullable. A required
+unique FK has no safe loser value: `null` violates the column, a synthetic UUID
+violates the FK constraint, and keeping the original value violates uniqueness.
+This covers optional Serverpod relation indexes, including optional one-to-one
+and composite FK relation indexes, without forcing duplicate per-scope indexes
+for include-query performance. Those columns point at globally unique synced row
+ids, and FK enforcement already repairs or rejects cross-scope references, so
+they are not treated as global application-level arbitration. The model must
+still declare scoped composite unique indexes for application uniqueness. On a
+deployment that happens to contain one scope, a composite unique with a constant
+`scopeId` accepts exactly the same rows as a plain unique; nothing degrades.
 
 The unique-conflict resolver discovers indexes from the table definitions,
-uses `scopeId` as part of the lookup predicate, and releases only the
-application columns in scoped indexes. Allowed FK-only global unique indexes
-are ignored by the CRDT resolver; same-scope application conflicts are handled
-by scoped composite indexes, and cross-scope references are handled by FK
-repair. Rows in different scopes never form a conflict group under the
-required composite index. The flag policy (see
-`unique-constraint-invariants.md`) is otherwise unchanged.
+uses `scopeId` as part of the lookup predicate for scoped indexes, and releases
+only releasable non-`scopeId` columns. For allowed FK-only global unique
+indexes, nullable FK columns may be released to `null`; required FK columns are
+rejected during schema initialization. Same-scope application conflicts are
+handled by scoped composite indexes, and cross-scope references are handled by
+FK repair. Rows in different scopes never form a conflict group under the
+required composite index. The flag policy (see `unique-constraint-invariants.md`)
+is otherwise unchanged.
 
 ## Enforcement mechanics
 

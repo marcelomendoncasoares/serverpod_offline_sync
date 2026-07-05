@@ -198,7 +198,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced foreign-key-only unique index, '
+    'Given a CRDT schema registry with a synced nullable foreign-key-only unique index, '
     'when syncAndGetSchema is called, '
     'then the index is accepted.',
     () async {
@@ -211,6 +211,42 @@ void main() {
         Address.t.tableName,
         Person.t.tableName,
       });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced required foreign-key-only unique index, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final addressDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Address.t.tableName);
+      final requiredForeignKeyDefinition = addressDefinition.copyWith(
+        columns: [
+          for (final column in addressDefinition.columns)
+            column.name == 'inhabitantId' ? column.copyWith(isNullable: false) : column,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Address.t, Person.t],
+          tableDefinitions: [requiredForeignKeyDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT can only synchronize 1:1 relations when the foreign key column is '
+              'nullable, but the following foreign keys are non-nullable: '
+              '"address.inhabitantId". Make the relation optional/nullable.',
+            ),
+          ),
+        ),
+      );
     },
   );
 
@@ -253,6 +289,59 @@ void main() {
         City.t.tableName,
         Person.t.tableName,
       });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a global unique index containing a required foreign key to a synced table, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final tableDefinitions = testSession.db.serializationManager
+          .getTargetTableDefinitions();
+      final townDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Town.t.tableName,
+      );
+      final addressDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Address.t.tableName,
+      );
+      final indexTemplate = addressDefinition.indexes.singleWhere(
+        (index) => index.indexName == 'address__inhabitantId__unique_idx',
+      );
+      final requiredForeignKeyDefinition = townDefinition.copyWith(
+        columns: [
+          for (final column in townDefinition.columns)
+            column.name == 'cityId' ? column.copyWith(isNullable: false) : column,
+        ],
+        indexes: [
+          indexTemplate.copyWith(
+            indexName: 'town_global_city_mayor_unique_idx',
+            elements: [
+              indexTemplate.elements.single.copyWith(definition: 'cityId'),
+              indexTemplate.elements.single.copyWith(definition: 'mayorId'),
+            ],
+          ),
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Town.t, City.t, Person.t],
+          tableDefinitions: [requiredForeignKeyDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(
+              'CRDT can only synchronize 1:1 relations when the foreign key column is '
+              'nullable, but the following foreign keys are non-nullable: '
+              '"town.cityId". Make the relation optional/nullable.',
+            ),
+          ),
+        ),
+      );
     },
   );
 
