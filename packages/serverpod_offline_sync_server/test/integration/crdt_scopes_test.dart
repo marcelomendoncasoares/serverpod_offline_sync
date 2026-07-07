@@ -5,18 +5,15 @@ import 'package:test/test.dart';
 import 'test_tools/serverpod_test_tools.dart';
 
 void main() {
-  withServerpod(
-    'Given initialized CRDT scope management,',
-    (sessionBuilder, _) {
-      final bootstrapSession = sessionBuilder.build();
-      bootstrapSession.serverpod.initializeCrdtSync(syncTables: []);
+  withServerpod('[CRDT scopes]', (sessionBuilder, _) {
+    late Session session;
 
-      late Session session;
+    setUp(() {
+      session = sessionBuilder.build();
+      session.serverpod.initializeCrdtSync(syncTables: []);
+    });
 
-      setUp(() {
-        session = sessionBuilder.build();
-      });
-
+    group('Given a database with no shared scopes,', () {
       test(
         'when createFor is called with only a user, '
         'then the user is granted readWrite access to the new scope.',
@@ -37,7 +34,7 @@ void main() {
       );
 
       test(
-        'when createFor is called with an explicit role, '
+        'when createFor is called with a user and a role, '
         'then the user is granted that role.',
         () async {
           final user = const Uuid().v7obj();
@@ -47,15 +44,16 @@ void main() {
             role: CrdtScopeRole.readOnly,
           );
 
-          expect(await session.crdt.scopes.members(scope), {
-            user: CrdtScopeRole.readOnly,
-          });
+          expect(
+            await session.crdt.scopes.members(scope),
+            {user: CrdtScopeRole.readOnly},
+          );
         },
       );
 
       test(
         'when create is called without grants, '
-        'then the scope is dormant and has no explicit members.',
+        'then the new shared scope is dormant and has no explicit members.',
         () async {
           final user = const Uuid().v7obj();
 
@@ -95,147 +93,6 @@ void main() {
       );
 
       test(
-        'when grant is called for a dormant scope, '
-        'then the membership is inserted.',
-        () async {
-          final user = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create();
-
-          await session.crdt.scopes.grant(
-            scope: scope,
-            user: user,
-            role: CrdtScopeRole.readOnly,
-          );
-
-          expect(
-            await session.crdt.scopes.roleOf(user: user, scope: scope),
-            CrdtScopeRole.readOnly,
-          );
-          expect(await session.crdt.scopes.members(scope), {
-            user: CrdtScopeRole.readOnly,
-          });
-        },
-      );
-
-      test(
-        'when grant is called again for the same member with a different role, '
-        'then the existing membership is updated.',
-        () async {
-          final user = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create();
-
-          await session.crdt.scopes.grant(
-            scope: scope,
-            user: user,
-            role: CrdtScopeRole.readOnly,
-          );
-          await session.crdt.scopes.grant(
-            scope: scope,
-            user: user,
-            role: CrdtScopeRole.readWrite,
-          );
-
-          expect(
-            await session.crdt.scopes.roleOf(user: user, scope: scope),
-            CrdtScopeRole.readWrite,
-          );
-          expect(await session.crdt.scopes.members(scope), {
-            user: CrdtScopeRole.readWrite,
-          });
-        },
-      );
-
-      test(
-        'when grant is called for an unknown scope, '
-        'then ArgumentError is thrown.',
-        () async {
-          await expectLater(
-            session.crdt.scopes.grant(
-              scope: const Uuid().v7obj(),
-              user: const Uuid().v7obj(),
-              role: CrdtScopeRole.readWrite,
-            ),
-            throwsArgumentError,
-          );
-        },
-      );
-
-      test(
-        'when revoke is called for an existing membership, '
-        'then the membership is removed.',
-        () async {
-          final user = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.createFor(user);
-
-          await session.crdt.scopes.revoke(scope: scope, user: user);
-
-          expect(
-            await session.crdt.scopes.roleOf(user: user, scope: scope),
-            isNull,
-          );
-          expect(await session.crdt.scopes.members(scope), isEmpty);
-        },
-      );
-
-      test(
-        'when revoke is called for a non-member, '
-        'then it completes without changing the scope members.',
-        () async {
-          final member = const Uuid().v7obj();
-          final nonMember = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.createFor(member);
-
-          await expectLater(
-            session.crdt.scopes.revoke(scope: scope, user: nonMember),
-            completes,
-          );
-
-          expect(await session.crdt.scopes.members(scope), {
-            member: CrdtScopeRole.readWrite,
-          });
-        },
-      );
-
-      test(
-        'when grantAll is called with several users, '
-        'then all memberships are applied.',
-        () async {
-          final readOnlyUser = const Uuid().v7obj();
-          final readWriteUser = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create();
-
-          await session.crdt.scopes.grantAll(scope, {
-            readOnlyUser: CrdtScopeRole.readOnly,
-            readWriteUser: CrdtScopeRole.readWrite,
-          });
-
-          expect(await session.crdt.scopes.members(scope), {
-            readOnlyUser: CrdtScopeRole.readOnly,
-            readWriteUser: CrdtScopeRole.readWrite,
-          });
-        },
-      );
-
-      test(
-        'when roleOf is called for stored and missing memberships, '
-        'then it returns the stored role or null.',
-        () async {
-          final member = const Uuid().v7obj();
-          final missing = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.createFor(member);
-
-          expect(
-            await session.crdt.scopes.roleOf(user: member, scope: scope),
-            CrdtScopeRole.readWrite,
-          );
-          expect(
-            await session.crdt.scopes.roleOf(user: missing, scope: scope),
-            isNull,
-          );
-        },
-      );
-
-      test(
         'when roleOf is called for a personal scope with no row, '
         'then readWrite is returned.',
         () async {
@@ -250,24 +107,25 @@ void main() {
       );
 
       test(
-        'when members is called for populated and dormant scopes, '
-        'then explicit membership maps are returned.',
+        'when grant is called for an unknown shared scope, '
+        'then CrdtScopeNotFoundException is thrown.',
         () async {
-          final readOnlyUser = const Uuid().v7obj();
-          final readWriteUser = const Uuid().v7obj();
-          final populatedScope = await session.crdt.scopes.create(
-            grants: {
-              readOnlyUser: CrdtScopeRole.readOnly,
-              readWriteUser: CrdtScopeRole.readWrite,
-            },
-          );
-          final dormantScope = await session.crdt.scopes.create();
+          final missingScope = const Uuid().v7obj();
 
-          expect(await session.crdt.scopes.members(populatedScope), {
-            readOnlyUser: CrdtScopeRole.readOnly,
-            readWriteUser: CrdtScopeRole.readWrite,
-          });
-          expect(await session.crdt.scopes.members(dormantScope), isEmpty);
+          await expectLater(
+            session.crdt.scopes.grant(
+              scope: missingScope,
+              user: const Uuid().v7obj(),
+              role: CrdtScopeRole.readWrite,
+            ),
+            throwsA(
+              isA<CrdtScopeNotFoundException>().having(
+                (error) => error.scope,
+                'scope',
+                missingScope,
+              ),
+            ),
+          );
         },
       );
 
@@ -289,13 +147,62 @@ void main() {
           expect(await _membershipRowCounts(session), countsBefore);
         },
       );
+    });
+
+    group('Given a database with a dormant shared scope,', () {
+      late UuidValue scope;
+
+      setUp(() async {
+        scope = await session.crdt.scopes.create();
+      });
+
+      test(
+        'when grant is called, '
+        'then the membership is inserted.',
+        () async {
+          final user = const Uuid().v7obj();
+
+          await session.crdt.scopes.grant(
+            scope: scope,
+            user: user,
+            role: CrdtScopeRole.readOnly,
+          );
+
+          expect(
+            await session.crdt.scopes.roleOf(user: user, scope: scope),
+            CrdtScopeRole.readOnly,
+          );
+          expect(
+            await session.crdt.scopes.members(scope),
+            {user: CrdtScopeRole.readOnly},
+          );
+        },
+      );
+
+      test(
+        'when grantAll is called with several users, '
+        'then all memberships are applied.',
+        () async {
+          final readOnlyUser = const Uuid().v7obj();
+          final readWriteUser = const Uuid().v7obj();
+
+          await session.crdt.scopes.grantAll(scope, {
+            readOnlyUser: CrdtScopeRole.readOnly,
+            readWriteUser: CrdtScopeRole.readWrite,
+          });
+
+          expect(await session.crdt.scopes.members(scope), {
+            readOnlyUser: CrdtScopeRole.readOnly,
+            readWriteUser: CrdtScopeRole.readWrite,
+          });
+        },
+      );
 
       test(
         'when grant is called inside a transaction that rolls back, '
         'then no membership row leaks.',
         () async {
           final user = const Uuid().v7obj();
-          final scope = await session.crdt.scopes.create();
           final countsBefore = await _membershipRowCounts(session);
 
           await expectLater(
@@ -318,13 +225,137 @@ void main() {
           );
         },
       );
-    },
-  );
+    });
+
+    group('Given a database with a readOnly member on a shared scope,', () {
+      late UuidValue user;
+      late UuidValue scope;
+
+      setUp(() async {
+        user = const Uuid().v7obj();
+        scope = await session.crdt.scopes.create(
+          grants: {user: CrdtScopeRole.readOnly},
+        );
+      });
+
+      test(
+        'when grant is called again for the same member with readWrite, '
+        'then the existing membership is updated.',
+        () async {
+          await session.crdt.scopes.grant(
+            scope: scope,
+            user: user,
+            role: CrdtScopeRole.readWrite,
+          );
+
+          expect(
+            await session.crdt.scopes.roleOf(user: user, scope: scope),
+            CrdtScopeRole.readWrite,
+          );
+          expect(
+            await session.crdt.scopes.members(scope),
+            {user: CrdtScopeRole.readWrite},
+          );
+        },
+      );
+    });
+
+    group('Given a database with a shared scope that has one readWrite member,', () {
+      late UuidValue member;
+      late UuidValue nonMember;
+      late UuidValue scope;
+
+      setUp(() async {
+        member = const Uuid().v7obj();
+        nonMember = const Uuid().v7obj();
+        scope = await session.crdt.scopes.createFor(member);
+      });
+
+      test(
+        'when revoke is called for the member, '
+        'then the membership is removed.',
+        () async {
+          await session.crdt.scopes.revoke(scope: scope, user: member);
+
+          expect(
+            await session.crdt.scopes.roleOf(user: member, scope: scope),
+            isNull,
+          );
+          expect(await session.crdt.scopes.members(scope), isEmpty);
+        },
+      );
+
+      test(
+        'when revoke is called for a non-member, '
+        'then it completes without changing the scope members.',
+        () async {
+          await expectLater(
+            session.crdt.scopes.revoke(scope: scope, user: nonMember),
+            completes,
+          );
+
+          expect(
+            await session.crdt.scopes.members(scope),
+            {member: CrdtScopeRole.readWrite},
+          );
+        },
+      );
+
+      test(
+        'when roleOf is called for stored and missing memberships, '
+        'then it returns the stored role or null.',
+        () async {
+          expect(
+            await session.crdt.scopes.roleOf(user: member, scope: scope),
+            CrdtScopeRole.readWrite,
+          );
+          expect(
+            await session.crdt.scopes.roleOf(user: nonMember, scope: scope),
+            isNull,
+          );
+        },
+      );
+    });
+
+    group('Given a database with populated and dormant shared scopes,', () {
+      late UuidValue readOnlyUser;
+      late UuidValue readWriteUser;
+      late UuidValue populatedScope;
+      late UuidValue dormantScope;
+
+      setUp(() async {
+        readOnlyUser = const Uuid().v7obj();
+        readWriteUser = const Uuid().v7obj();
+        populatedScope = await session.crdt.scopes.create(
+          grants: {
+            readOnlyUser: CrdtScopeRole.readOnly,
+            readWriteUser: CrdtScopeRole.readWrite,
+          },
+        );
+        dormantScope = await session.crdt.scopes.create();
+      });
+
+      test(
+        'when members is called, '
+        'then explicit membership maps are returned.',
+        () async {
+          expect(await session.crdt.scopes.members(populatedScope), {
+            readOnlyUser: CrdtScopeRole.readOnly,
+            readWriteUser: CrdtScopeRole.readWrite,
+          });
+          expect(await session.crdt.scopes.members(dormantScope), isEmpty);
+        },
+      );
+    });
+  });
 }
 
 Future<Map<String, int>> _membershipRowCounts(Session session) async {
   return {
-    CrdtScope.t.tableName: await _countRows(session, CrdtScope.t.tableName),
+    CrdtScope.t.tableName: await _countRows(
+      session,
+      CrdtScope.t.tableName,
+    ),
     CrdtScopeMember.t.tableName: await _countRows(
       session,
       CrdtScopeMember.t.tableName,
@@ -332,7 +363,6 @@ Future<Map<String, int>> _membershipRowCounts(Session session) async {
   };
 }
 
-Future<int> _countRows(Session session, String tableName) async {
-  final result = await session.db.unsafeQuery('SELECT COUNT(*) FROM "$tableName"');
-  return (result.single[0] as num).toInt();
-}
+Future<int> _countRows(Session session, String tableName) => session.db
+    .unsafeQuery('SELECT COUNT(*) FROM "$tableName"')
+    .then((result) => (result.single[0] as num).toInt());
