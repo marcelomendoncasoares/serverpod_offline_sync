@@ -43,19 +43,7 @@ class CrdtScopes {
     required UuidValue user,
     required CrdtScopeRole role,
     Transaction? transaction,
-  }) {
-    return _runInTransaction(transaction, (tx) async {
-      final scopeId = await _scopeIdForUuid(scope, transaction: tx);
-      if (scopeId == null) {
-        throw ArgumentError.value(
-          scope,
-          'scope',
-          'No CRDT scope row exists for the scope UUID.',
-        );
-      }
-      await _applyGrants(scopeId, {user: role}, tx);
-    });
-  }
+  }) => grantAll(scope, {user: role}, transaction: transaction);
 
   /// Grants several members in one transaction; the bulk twin of [grant].
   Future<void> grantAll(
