@@ -80,12 +80,8 @@ void main() {
           late Object? sessionError;
 
           setUp(() async {
-            sharedScopeId = const Uuid().v7obj();
-            await _upsertScopeMembership(
-              rawServerSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: sharedScopeId,
-              role: CrdtScopeRole.readOnly,
+            sharedScopeId = await rawServerSession.crdt.scopes.create(
+              grants: {testCrdtUserId: CrdtScopeRole.readOnly},
             );
             await _upsertScopeMembership(
               clientSession,
@@ -137,7 +133,6 @@ void main() {
 
             sessionError = await _syncOnceWithSplicedMergeChunk(
               serverSync: rawServerSession.crdt,
-              serverSession: serverSession,
               clientSync: clientSync,
               clientSession: clientSession,
               userUuid: testCrdtUserId,
@@ -221,7 +216,6 @@ void main() {
 
             sessionError = await _syncOnceWithSplicedMergeChunk(
               serverSync: rawServerSession.crdt,
-              serverSession: serverSession,
               clientSync: clientSync,
               clientSession: clientSession,
               userUuid: testCrdtUserId,
@@ -266,8 +260,7 @@ void main() {
 /// Returns the error that ended the authoritative session, or null when it
 /// closed cleanly.
 Future<Object?> _syncOnceWithSplicedMergeChunk({
-  required CrdtSync serverSync,
-  required DatabaseSession serverSession,
+  required CrdtSession serverSync,
   required CrdtSync clientSync,
   required DatabaseSession clientSession,
   required UuidValue userUuid,
@@ -318,7 +311,6 @@ Future<Object?> _syncOnceWithSplicedMergeChunk({
 
   final serverSubscription = serverSync
       .sync(
-        serverSession,
         userId: userUuid,
         inbound: clientToServer.stream,
         once: true,
@@ -349,8 +341,8 @@ Future<Object?> _syncOnceWithSplicedMergeChunk({
   }
 }
 
-/// Upserts a `crdt_scope_members` row: an authoritative grant on the server,
-/// or a (possibly stale) locally projected grant on a client session.
+/// Upserts a projected `crdt_scope_members` row for stale or adversarial client
+/// state.
 Future<void> _upsertScopeMembership(
   DatabaseSession session, {
   required UuidValue userUuid,

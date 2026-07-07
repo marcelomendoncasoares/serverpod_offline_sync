@@ -1,29 +1,30 @@
 # Scope management API
 
-Status: proposal for a separate implementation issue. Builds on the shared-scope
+Status: implemented. Builds on the shared-scope
 membership model in `shared-scopes.md`; this document specifies the developer-
-facing API for *managing* membership, which that document deliberately left as
-"app domain".
+facing API for *managing* membership while leaving invitations, acceptance, and
+authorization policy in app domain.
 
 ## Summary
 
 The shared-scope machinery is complete for **resolving and enforcing**
 membership (`CrdtScopeMembership.memberScopes` / `memberGrants` / `roleOf` /
-`isMember`, the sync-loop enforcement, membership-wide reads). It has no API for
-**managing** membership — creating a shared scope, adding a member with a role,
-changing a role, revoking. `shared-scopes.md` says so outright: *"Rows are
-managed by application code: invitations, acceptance, and role assignment are app
-domain, outside this package."*
+`isMember`, the sync-loop enforcement, membership-wide reads), but those helpers
+are package internals. The developer-facing API for **managing** membership is
+the server-side `session.crdt.scopes` service: creating a shared scope, adding a
+member with a role, changing a role, revoking, and listing explicit members.
+`shared-scopes.md` records the same boundary: rows are managed through
+`session.crdt.scopes`, while invitations, acceptance, and authorization policy
+remain app domain.
 
-Today a developer must replicate what `scope_membership_test.dart` does — two
-non-atomic raw `insertRow` calls against the **server** package's generated
-`CrdtScope` / `CrdtScopeMember`, leaking every internal invariant
-(`scopeId` vs `uuidScopeId`, the non-null `role` contract, the unique index,
-personal-scope-UUID == user-UUID). This proposal replaces that with a small,
-honest server-side service:
+The service avoids making developers replicate what `scope_membership_test.dart`
+used to do — two non-atomic raw `insertRow` calls against the **server**
+package's generated `CrdtScope` / `CrdtScopeMember`, leaking every internal
+invariant (`scopeId` vs `uuidScopeId`, the non-null `role` contract, the unique
+index, personal-scope-UUID == user-UUID):
 
 ```dart
-final scopeId = await session.crdt.scopes.create(owner: creatorUuid);
+final scopeId = await session.crdt.scopes.createFor(creatorUuid);
 await session.crdt.scopes.grant(scope: scopeId, user: bob, role: CrdtScopeRole.readWrite);
 await session.crdt.scopes.revoke(scope: scopeId, user: bob);
 ```
@@ -97,7 +98,7 @@ own only what it enforces.*
 Everything uneasy traced back to `admin`: the forgeable `by`, the bypass, and a
 "last-admin" orphan guard all evaporate once it leaves. `CrdtScopeRole` stays
 `{ readOnly, readWrite }` — exactly what is already implemented — so this
-proposal adds **no** enum churn.
+implementation adds **no** enum churn.
 
 Apps model "admin" with what they already have: a Serverpod `Scope` on the auth
 user for global staff, or their own domain data for per-scope owners. If the
@@ -109,23 +110,31 @@ who is an admin, display name, joined-at). The app keeps them in step — adding
 domain member also calls `scopes.grant` — the same split Serverpod has between
 `AuthUser` and an app's user profile.
 
-## Proposed API
+## API
 
-Server-side, hung off the existing `session.crdt` (`CrdtSync`) accessor as
-`session.crdt.scopes`. A pure data layer: atomic, transaction-threaded, no
-internal auth.
+Server-side, hung off the `session.crdt` accessor (the session-bound
+`CrdtSession` facade) as `session.crdt.scopes`. A pure data layer: atomic,
+transaction-threaded, no internal auth.
 
 ```dart
 /// Creates a shared scope and returns its UUID.
 ///
-/// [owner], if given, is granted [CrdtScopeRole.readWrite]. [grants] adds any
-/// further members. Both are applied in one transaction with the scope insert.
-/// With no owner and no grants the scope is created dormant — it exists but no
-/// one can sync it until membership is granted. Throws [ArgumentError] if
-/// [owner] also appears in [grants].
+/// [grants], if given, adds each user as a member with its role, applied in
+/// one transaction with the scope insert. With no grants the scope is created
+/// dormant — it exists but no one can sync it until membership is granted.
 Future<UuidValue> create({
-  UuidValue? owner,
   Map<UuidValue, CrdtScopeRole>? grants,
+  Transaction? transaction,
+});
+
+/// Creates a shared scope granting [user] the given [role], in one
+/// transaction.
+///
+/// Pure sugar for [create] with a single-entry grants map — the member has no
+/// special bond to the scope and can be re-granted or revoked like any other.
+Future<UuidValue> createFor(
+  UuidValue user, {
+  CrdtScopeRole role = CrdtScopeRole.readWrite,
   Transaction? transaction,
 });
 
@@ -151,14 +160,6 @@ Future<void> revoke({
   Transaction? transaction,
 });
 
-/// The role [user] holds in [scope], or null if not a member. The read an app
-/// wraps with its own admin policy before calling [grant] / [revoke].
-Future<CrdtScopeRole?> roleOf({
-  required UuidValue user,
-  required UuidValue scope,
-  Transaction? transaction,
-});
-
 /// The members of [scope] and their roles.
 Future<Map<UuidValue, CrdtScopeRole>> members(
   UuidValue scope, {
@@ -168,14 +169,20 @@ Future<Map<UuidValue, CrdtScopeRole>> members(
 
 Notes:
 
-- **`owner` is nullable** — a scope with no owner (and no grants) is valid but
-  dormant. `create` skips the membership insert when `owner` is null.
-- **`owner` and `grants` compose.** `owner` is ergonomic sugar for
-  `{owner: readWrite}`; `grants` adds the rest. If `owner` also appears in
-  `grants`, throw `ArgumentError` rather than silently pick a winner — a creator
-  listed twice with a possibly-contradictory role is a caller bug.
+- **There is no "owner".** An earlier sketch had an `owner` parameter on
+  `create`, but the name implied a durable bond the data model does not have —
+  the scope row stores no owner, and the creator ends up an ordinary
+  `readWrite` member. It was replaced by `createFor`, which is honest sugar:
+  create a scope and grant one member, atomically, with no special standing.
+  Removing `owner` also dissolved the owner-appears-in-`grants` `ArgumentError`
+  special case. A durable creator/owner concept is app domain, like `admin`.
+- **`grants` may be empty or absent** — a scope with no members is valid but
+  dormant. `create()` skips the membership insert entirely.
 - **`create` and `grantAll` share one internal helper** so the create path and
   the later bulk-grant path have a single implementation.
+- **Unknown-scope grants throw `CrdtScopeNotFoundException`** rather than a
+  generic argument error, so callers can distinguish a stale or invalid scope
+  UUID from other failures.
 - **`create` returns a server-generated UUID** — the model already defaults
   `uuidScopeId` to `random_v7`. An optional explicit `uuidScopeId` param
   (app-chosen or idempotent create) is a compatible later addition; left out
@@ -193,14 +200,14 @@ announcement and the follower projection already implemented in
 
 ## Test plan
 
-- **Create.** `create(owner: u)` yields a scope with `u` at `readWrite` and a
-  member-resolvable scope; `create()` (no owner) yields a dormant scope no user
-  can sync; `create(owner: u, grants: {u: ...})` throws `ArgumentError`.
+- **Create.** `createFor(u)` yields a scope with `u` at `readWrite` and a
+  member-resolvable scope; `createFor(u, role: ...)` stores the explicit role;
+  `create()` (no grants) yields a dormant scope no user can sync;
+  `create(grants: {...})` stores every entry with its role.
 - **Grant/revoke.** `grant` inserts and upserts (role change); `revoke` removes
   and is a no-op for a non-member; `grantAll` applies a map atomically.
-- **Reads.** `roleOf` returns the stored role or null; `members` returns the
-  full map. Personal scope resolves to `readWrite` via the existing implicit
-  path.
+- **Reads.** `members` returns the explicit member-role map. Internal role
+  resolution still covers stored, missing, and implicit personal membership.
 - **Propagation.** After a server-side `grant`, a continuous follower session
   adopts the new scope on the next cycle (covered by the existing access-change
   suite); after `revoke`, it stops cycling it.

@@ -17,7 +17,6 @@ class CrdtSyncEndpoint extends Endpoint {
     bool once = false,
   }) async* {
     yield* session.crdt.sync(
-      session,
       userId: UuidValue.withValidation(session.authenticated!.userIdentifier),
       inbound: changes,
       once: once,

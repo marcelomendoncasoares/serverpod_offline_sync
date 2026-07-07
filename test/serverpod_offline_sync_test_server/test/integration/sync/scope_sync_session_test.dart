@@ -10,6 +10,8 @@ void main() {
   withServerpod(
     'Given a database-backed CRDT scope sync session,',
     (sessionBuilder, _) {
+      sessionBuilder.build().serverpod.initializeCrdtSync(syncTables: []);
+
       late Session session;
       setUp(() async {
         session = sessionBuilder.build();
@@ -20,13 +22,7 @@ void main() {
         'then only the authoritative session announces grants.',
         () async {
           final userUuid = _uuid(30);
-          final sharedScopeUuid = _uuid(20);
-
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: sharedScopeUuid,
-          );
+          final sharedScopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           final authoritative = CrdtScopeSyncSession(
             session,
@@ -73,14 +69,8 @@ void main() {
         'then it keeps cycling only its locally resolved scopes.',
         () async {
           final userUuid = _uuid(31);
-          final localSharedScopeUuid = _uuid(21);
           final peerOnlyScopeUuid = _uuid(11);
-
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: localSharedScopeUuid,
-          );
+          final localSharedScopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           final authoritative = CrdtScopeSyncSession(
             session,
@@ -104,7 +94,6 @@ void main() {
         'then adoption keeps the announced scope set until the next reconcile.',
         () async {
           final userUuid = _uuid(32);
-          final laterSharedScopeUuid = _uuid(22);
 
           final authoritative = CrdtScopeSyncSession(
             session,
@@ -116,11 +105,7 @@ void main() {
           await authoritative.reconcile();
           authoritative.markAnnounced();
 
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: laterSharedScopeUuid,
-          );
+          final laterSharedScopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           await authoritative.adoptPeerGrants(const []);
 
@@ -143,10 +128,17 @@ void main() {
           final announcedScopeUuid = _uuid(23);
           final staleScopeUuid = _uuid(13);
 
-          await _upsertScopeMembership(
+          final scope = await CrdtScopeManager(session).getOrCreate(staleScopeUuid);
+
+          await CrdtScopeMember.db.upsertRow(
             session,
-            userUuid: userUuid,
-            scopeUuid: staleScopeUuid,
+            CrdtScopeMember(
+              scopeId: scope.id!,
+              userUuid: userUuid,
+              role: CrdtScopeRole.readWrite,
+            ),
+            conflictColumns: (t) => [t.scopeId, t.userUuid],
+            updateColumns: (t) => [t.role],
           );
 
           final follower = CrdtScopeSyncSession(
@@ -317,7 +309,6 @@ void main() {
         'then the tracked checkpoint moves to the change HLC.',
         () async {
           final userUuid = _uuid(37);
-          final scopeUuid = _uuid(27);
           final localNodeUuid = _uuid(47);
           final remoteNodeUuid = _uuid(107);
 
@@ -328,11 +319,7 @@ void main() {
             peerNodeId: _uuid(98),
           );
 
-          await _upsertScopeMembership(
-            session,
-            userUuid: userUuid,
-            scopeUuid: scopeUuid,
-          );
+          final scopeUuid = await session.crdt.scopes.createFor(userUuid);
 
           await authoritative.reconcile();
           authoritative.recordPeerHandshake(
@@ -376,19 +363,3 @@ CrdtSyncSinceHlc _since(UuidValue scopeUuid, Hlc checkpoint) =>
 
 Hlc _hlc(UuidValue nodeUuid, {required int minute}) =>
     Hlc(DateTime.utc(2026, 7, 2, 12, minute), 0, nodeUuid);
-
-Future<void> _upsertScopeMembership(
-  DatabaseSession session, {
-  required UuidValue userUuid,
-  required UuidValue scopeUuid,
-  CrdtScopeRole role = CrdtScopeRole.readWrite,
-}) async {
-  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
-
-  await CrdtScopeMember.db.upsertRow(
-    session,
-    CrdtScopeMember(scopeId: scope.id!, userUuid: userUuid, role: role),
-    conflictColumns: (t) => [t.scopeId, t.userUuid],
-    updateColumns: (t) => [t.role],
-  );
-}

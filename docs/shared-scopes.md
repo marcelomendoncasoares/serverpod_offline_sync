@@ -101,8 +101,8 @@ indexes:
   checks — see *The client membership table*.
 - The index **leads with `userUuid`** so the per-cycle `WHERE userUuid = ?`
   resolution is index-covered.
-- Rows are managed by application code: invitations, acceptance, and role
-  assignment are app domain, outside this package.
+- Rows are managed through `session.crdt.scopes` (`CrdtScopes`). Invitations,
+  acceptance, and authorization policy remain app domain.
 - **Personal-scope membership is implicit.** By convention a user's personal
   scope has the user's own UUID (already true: the scope UUID keys the chain),
   so no `crdt_scope_members` row is stored for it. Shared scopes are
@@ -128,9 +128,10 @@ They do not map one-to-one and neither replaces the other. One member may have
 many nodes (one per replica/database install). The **server is a node** in every
 scope it syncs but is not a member row. A freshly invited member has **zero
 scope-node rows** until their first device syncs. Nodes and scope-node rows are
-created implicitly by sync (`getOrCreate`, `recordSyncCheckpoint`); members are
-created by application code. Removing the `nodes` list would break checkpointing
-and causal filtering — it is the chain topology, not the access list.
+created implicitly by sync (`getOrCreate`, `recordSyncCheckpoint`); membership
+rows are managed through `session.crdt.scopes` from application endpoints.
+Removing the `nodes` list would break checkpointing and causal filtering — it is
+the chain topology, not the access list.
 
 ### The client membership table
 
@@ -143,7 +144,7 @@ is **populated as a read-only projection** of the server's authoritative grants
   filters over projected membership, and a local `crdt_scopes` row by itself
   does not grant access. The members table also carries **roles**, which the
   client consults before local writes.
-- The authoritative `CrdtSyncScopeSet` carries `CrdtScopeGrant`s — `(scopeUuid,
+- The authoritative `CrdtSyncScopeSet` carries `CrdtScopeGrant`s — `(uuidScopeId,
   role)` — not bare UUIDs. Every grant has an explicit role; the personal scope
   is announced as `readWrite` but remains implicit in storage. When the follower
   *receives* an announcement, `projectFollowerMembership` reconciles the local
@@ -201,13 +202,17 @@ security boundary for stale, misconfigured, or hostile clients.
 At the start of each sync cycle the server resolves the authoritative set:
 
 ```
-memberScopes(userUuid) =
-    { personal scope = userUuid }
-  ∪ { m.scopeUuid : crdt_scope_members where userUuid = <auth user> }
+memberGrants(userUuid) =
+    { personal scope = userUuid, role = readWrite }
+  ∪ { (s.uuidScopeId, m.role)
+      : crdt_scope_members m
+        join crdt_scopes s on s.id = m.scopeId
+        where m.userUuid = <auth user> }
 ```
 
-This set bounds everything the cycle may sync. The client never expands it; it
-only learns of additions through what the server announces.
+This grant set bounds everything the cycle may sync and carries the role used by
+followers for outbound filtering. The client never expands it; it only learns of
+additions through what the server announces.
 
 ## Sync: one call syncs every accessible scope
 
@@ -251,7 +256,7 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per scope;
   this peer's CRDT node for the whole session. The scope list is dynamic and
   exchanged per cycle.
 - `CrdtSyncScopeSet { scopes: List<CrdtScopeGrant> }` (each grant a
-  `scopeUuid` + `role`) — the server's content is authoritative (resolved from
+  `uuidScopeId` + `role`) — the server's content is authoritative (resolved from
   `crdt_scope_members`, roles included). Followers send an empty set because the
   authoritative peer never widens access from follower-reported state. In `once`
   it is exchanged exactly once. In `continuous` a peer re-announces it
@@ -347,9 +352,9 @@ not a symmetric set operation:
 The correct operation is neither: **the server dictates its set; the client
 conforms.** Each cycle:
 
-- **Server**: `orderedScopes = sort(memberScopes(userUuid))`, computed from
-  `crdt_scope_members`. It never reads the client's `ScopeSet` for authority
-  (constraint 4).
+- **Server**: `orderedScopes = sort(memberGrants(userUuid).uuidScopeId)`,
+  computed from `crdt_scope_members` plus the implicit personal grant. It never
+  reads the client's `ScopeSet` for authority (constraint 4).
 - **Client**: takes the server's `ScopeSet` as the set to cycle —
   `getOrCreate` (`CrdtScopeManager`) any scope it lacks, ignore any local scope
   the server omitted for this cycle — then `orderedScopes = sort(peer scopeIds)`.
@@ -363,8 +368,8 @@ authoritative dictates its own set, follower adopts the peer's.
 Once the data is unified, a closed enum is the right shape: there is no
 per-role enumeration callback left to inject. Security does not rest on the
 enum — a malicious client passing `authoritative` only fails to adopt the
-peer's set; writes are still gated server-side by `CrdtScopeMembership.isMember`
-against the authoritative table.
+peer's set; writes are still gated server-side by
+`CrdtScopeMembership.roleOf(...).canWrite` against the authoritative table.
 
 In `once`, the client adopts straight from the cycle's `ScopeSet` *before* it
 iterates, so a newly granted scope syncs in that same round. In `continuous`,
@@ -374,7 +379,7 @@ order deterministic on both sides with no extra negotiation. Frames carry
 `uuidScopeId` so a receiver groups each chunk into the right scope and fails loud
 on an unauthorized tag rather than merging a batch into the wrong scope.
 
-Re-resolving `memberScopes` every cycle is an indexed `crdt_scope_members`
+Re-resolving `memberGrants` every cycle is an indexed `crdt_scope_members`
 lookup on the server only; it may be throttled or invalidated by an
 application hook if per-cycle querying becomes hot, at the cost of slower
 propagation of access changes.
@@ -435,12 +440,11 @@ db.transactionForUser(userId, fn, scopeId: listId); // acts in a shared scope
 
 - Without `scopeId`, the scope resolves to the user's personal scope —
   `userId` itself by convention — which is exactly today's behavior.
-- With `scopeId`, the package asserts membership before acting by calling
-  `CrdtScopeMembership.isMember` directly against the shared table — no injected
-  validator. On the server that table is authoritative; on a persistent client
-  it is the server-projected membership cache. After membership passes,
-  shared-scope writes also resolve the member role; anything other than
-  `readWrite` throws `CrdtScopeRoleException` before the transaction starts.
+- With `scopeId`, the package resolves the member role with
+  `CrdtScopeMembership.roleOf` — no injected validator. On the server that table
+  is authoritative; on a persistent client it is the server-projected membership
+  cache. A missing role throws `CrdtScopeMembershipException`; anything other
+  than `readWrite` throws `CrdtScopeRoleException` before the transaction starts.
 - A transaction acts in **exactly one** scope (constraint 5). The write path —
   stamp-or-assert, the scoped `WHERE`, `scopeId` immutability — is unchanged
   beyond which scope is resolved.
@@ -485,17 +489,19 @@ to run with `--concurrency=1`.
 
 - **Phase 1 — membership foundation.** Implemented `crdt_scope_members`
   (`database: all`, unsynced) and its migration. Added the shared
-  `CrdtScopeMembership` helpers (`memberScopes` / `isMember`). No behavior change
-  yet: a personal-scope-only set reproduces today's single-scope sync exactly.
+  `CrdtScopeMembership` helpers (`memberGrants`, `memberScopes`, `roleOf`,
+  `isMember`, and the follower projection path). No behavior change yet: a
+  personal-scope-only set reproduces today's single-scope sync exactly.
 - **Phase 2 — sequential multi-scope sync (the requirement).** Implemented
   protocol model
   changes (`Connect` with session `localNodeId`, new per-cycle
   `CrdtSyncScopeSet`, per-scope `SinceHlc`, `MergeChunk.uuidScopeId`) plus
   generate/migrate. Outer cycle loop in `CrdtSync.sync` with per-cycle
-  `ScopeSet` exchange, per-scope handshake-on-first-visit, in-memory per-scope
-  checkpoints, and the once/continuous cadence. Reconciliation via a
+  `ScopeSet` exchange with role-carrying `CrdtScopeGrant`s, per-scope
+  handshake-on-first-visit, in-memory per-scope checkpoints, and the
+  once/continuous cadence. Reconciliation via a
   `CrdtSyncPeerMode` enum: the server endpoint passes `authoritative` (cycles
-  `CrdtScopeMembership.memberScopes`); the client driver passes `follower`
+  `CrdtScopeMembership.memberGrants`); the client driver passes `follower`
   (adopts the server's set). Scope-aware `onMergeSuccess`. A personal-scope-only
   device behaves identically to today.
 - **Phase 3 — transaction API.** Implemented
@@ -524,6 +530,11 @@ to run with `--concurrency=1`.
   `unauthorizedWrite` and fails before merge, client-side
   `CrdtScopeRoleException` early rejection, and follower outbound skipping for
   non-writable shared scopes while reads remain membership-wide.
+- **Phase 8 — scope management service.** Implemented the server-side
+  `session.crdt.scopes` service (`create`, `createFor`, `grant`, `grantAll`,
+  `revoke`, `members`) with transaction/savepoint threading. Single grants reuse
+  the bulk-grant path; unknown-scope grants throw `CrdtScopeNotFoundException`.
+  Invitations, acceptance, and authorization policy stay in app endpoints.
 
 ## Test plan
 
@@ -550,7 +561,7 @@ tested once, not per combination.
   mutation, `readWrite` syncs normally, a follower skips outbound pending changes
   for non-writable scopes while still receiving inbound changes, and a stale or
   hostile client write is rejected and recorded by the server as
-  `unauthorizedWrite`. Personal scopes remain writable through their explicit
+  `unauthorizedWrite`. Personal scopes remain writable through their implicit
   `readWrite` grant.
 - **Access changes mid-session.** During a continuous session, a grant added to
   `crdt_scope_members` appears and syncs on the next cycle; a revoke stops
@@ -576,8 +587,8 @@ tested once, not per combination.
   resolves through `CrdtScopeMembership`, so the only residual variation is
   cycle direction — a closed enum, not a callback. The enum is not the security
   boundary; server-side
-  `CrdtScopeMembership.isMember` gates every applied write regardless of the
-  client's declared mode.
+  `CrdtScopeMembership.roleOf(...).canWrite` gates every applied write
+  regardless of the client's declared mode.
 - **Scope set is dynamic, not pinned at connect:** the authoritative peer
   re-resolves its set every cycle and re-announces a `ScopeSet` whenever it
   changed, so grants and revokes take effect mid-session without reconnecting.
@@ -591,7 +602,7 @@ tested once, not per combination.
   has no node until first sync.
 - **Client membership table:** `database: all` puts the table on the client,
   populated as a read-only projection. The `CrdtSyncScopeSet` carries
-  `CrdtScopeGrant`s (`scopeUuid` + `role`), and each follower cycle reconciles
+  `CrdtScopeGrant`s (`uuidScopeId` + `role`), and each follower cycle reconciles
   the local table from the announcement (upsert granted, delete revoked; only
   when the set changed). The projected members table drives shared-scope
   membership gating and roles for UI and offline role-gated writes; local
@@ -606,11 +617,11 @@ tested once, not per combination.
   anyway.
 - **Membership table is `database: all` but unsynced:** the schema exists on
   every node, yet it is server-authoritative app state, never CRDT-replicated.
-- **Idle chatter accepted for the initial implementation:** an idle continuous
-  cycle does one empty scope-turn per accessible scope rather than one per
-  session. It is proportional to scope count and harmless to start; skipping
-  scopes with no local pending changes and no expected inbound is an optional
-  later optimization, not a launch blocker.
+- **Idle chatter removed:** continuous sync has one combined data loop per
+  cycle. When neither peer has grants, handshakes, or changes to send, it emits
+  no `ScopeSet`, `SinceHlc`, `MergeChunk`, or `EndOfBatch`; `collectNextBatch`
+  resolves the idle cycle from the timeout once per session cycle, not once per
+  scope.
 - **Initial-sync ordering is not a current concern:** a device joining many
   scopes cycles them one at a time on first sync. Prioritizing recently active
   scopes in the iteration order is a compatible refinement if cold-start latency
