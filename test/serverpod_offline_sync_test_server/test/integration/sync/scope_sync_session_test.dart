@@ -10,8 +10,7 @@ void main() {
   withServerpod(
     'Given a database-backed CRDT scope sync session,',
     (sessionBuilder, _) {
-      final bootstrapSession = sessionBuilder.build();
-      bootstrapSession.serverpod.initializeCrdtSync(syncTables: []);
+      sessionBuilder.build().serverpod.initializeCrdtSync(syncTables: []);
 
       late Session session;
       setUp(() async {
@@ -129,10 +128,17 @@ void main() {
           final announcedScopeUuid = _uuid(23);
           final staleScopeUuid = _uuid(13);
 
-          await _upsertScopeMembership(
+          final scope = await CrdtScopeManager(session).getOrCreate(staleScopeUuid);
+
+          await CrdtScopeMember.db.upsertRow(
             session,
-            userUuid: userUuid,
-            scopeUuid: staleScopeUuid,
+            CrdtScopeMember(
+              scopeId: scope.id!,
+              userUuid: userUuid,
+              role: CrdtScopeRole.readWrite,
+            ),
+            conflictColumns: (t) => [t.scopeId, t.userUuid],
+            updateColumns: (t) => [t.role],
           );
 
           final follower = CrdtScopeSyncSession(
@@ -357,20 +363,3 @@ CrdtSyncSinceHlc _since(UuidValue scopeUuid, Hlc checkpoint) =>
 
 Hlc _hlc(UuidValue nodeUuid, {required int minute}) =>
     Hlc(DateTime.utc(2026, 7, 2, 12, minute), 0, nodeUuid);
-
-/// Upserts a projected membership row for follower-cache reconciliation setup.
-Future<void> _upsertScopeMembership(
-  DatabaseSession session, {
-  required UuidValue userUuid,
-  required UuidValue scopeUuid,
-  CrdtScopeRole role = CrdtScopeRole.readWrite,
-}) async {
-  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
-
-  await CrdtScopeMember.db.upsertRow(
-    session,
-    CrdtScopeMember(scopeId: scope.id!, userUuid: userUuid, role: role),
-    conflictColumns: (t) => [t.scopeId, t.userUuid],
-    updateColumns: (t) => [t.role],
-  );
-}
