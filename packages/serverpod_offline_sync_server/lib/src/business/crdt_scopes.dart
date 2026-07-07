@@ -21,10 +21,14 @@ class CrdtScopes {
     Transaction? transaction,
   }) async {
     final scope = const Uuid().v7obj();
-    await _runInTransaction(transaction, (tx) async {
-      final scopeId = await _insertScope(scope, tx);
-      await _applyGrants(scopeId, grants ?? const {}, tx);
-    });
+    await DatabaseUtil.runInTransactionOrSavepoint(
+      _session.db,
+      transaction,
+      (tx) async {
+        final scopeId = await _insertScope(scope, tx);
+        await _applyGrants(scopeId, grants ?? const {}, tx);
+      },
+    );
     return scope;
   }
 
@@ -33,9 +37,7 @@ class CrdtScopes {
     UuidValue user, {
     CrdtScopeRole role = CrdtScopeRole.readWrite,
     Transaction? transaction,
-  }) {
-    return create(grants: {user: role}, transaction: transaction);
-  }
+  }) => create(grants: {user: role}, transaction: transaction);
 
   /// Grants [user] the given [role] in [scope], upserting an existing membership.
   Future<void> grant({
@@ -51,17 +53,17 @@ class CrdtScopes {
     Map<UuidValue, CrdtScopeRole> grants, {
     Transaction? transaction,
   }) {
-    return _runInTransaction(transaction, (tx) async {
-      final scopeId = await _scopeIdForUuid(scope, transaction: tx);
-      if (scopeId == null) {
-        throw ArgumentError.value(
-          scope,
-          'scope',
-          'No CRDT scope row exists for the scope UUID.',
-        );
-      }
-      await _applyGrants(scopeId, grants, tx);
-    });
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _session.db,
+      transaction,
+      (tx) async {
+        final scopeId = await _scopeIdForUuid(scope, transaction: tx);
+        if (scopeId == null) {
+          throw CrdtScopeNotFoundException(scope);
+        }
+        await _applyGrants(scopeId, grants, tx);
+      },
+    );
   }
 
   /// Removes [user]'s membership in [scope]. A no-op if not a member.
@@ -84,8 +86,7 @@ class CrdtScopes {
     );
   }
 
-  /// The role [user] holds in [scope], or null if not a member. The read an app
-  /// wraps with its own admin policy before calling [grant] / [revoke].
+  /// The role [user] holds in [scope], or null if not a member.
   Future<CrdtScopeRole?> roleOf({
     required UuidValue user,
     required UuidValue scope,
@@ -120,14 +121,6 @@ class CrdtScopes {
       for (final row in result)
         Protocol().deserialize<UuidValue>(row[0]): _roleFromDatabase(row[1]),
     };
-  }
-
-  Future<T> _runInTransaction<T>(
-    Transaction? transaction,
-    Future<T> Function(Transaction transaction) fn,
-  ) {
-    if (transaction != null) return fn(transaction);
-    return _session.db.transaction(fn);
   }
 
   Future<int> _insertScope(UuidValue scope, Transaction transaction) async {
@@ -188,4 +181,17 @@ CrdtScopeRole _roleFromDatabase(Object? value) {
     throw StateError('crdt_scope_members.role must not be null.');
   }
   return CrdtScopeRole.fromJson(value as String);
+}
+
+/// Thrown when a scope-management operation targets a missing CRDT scope row.
+final class CrdtScopeNotFoundException implements Exception {
+  /// Creates a [CrdtScopeNotFoundException].
+  const CrdtScopeNotFoundException(this.scope);
+
+  /// The scope UUID that could not be found.
+  final UuidValue scope;
+
+  @override
+  String toString() =>
+      'CrdtScopeNotFoundException: no CRDT scope row exists for "$scope".';
 }
