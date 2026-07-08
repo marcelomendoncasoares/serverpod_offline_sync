@@ -99,7 +99,7 @@ class: Person
 table: person
 database: all
 fields:
-  id: UuidValue?, defaultPersist=random_v7,
+  id: UuidValue?, defaultPersist=random_v7
   ### Owner scope of this row. Maintained by the CRDT sync layer.
   ### The user never sets this field nor sees its value on reads.
   scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
@@ -182,7 +182,7 @@ the design and can never be lifted.
 - All 1:1 relations must have the foreign-key column nullable (`optional`
   relation).
 - The only allowed non-synced-to-synced relation is `scopeId -> crdt_scopes.id`.
-- All foreign-key relations must be `deferrable`.
+- All foreign-key relations must be `deferrable` (pending [serverpod#5338](https://github.com/serverpod/serverpod/issues/5338)).
 
 Respecting these limitations, all other database invariants — including
 foreign-key actions — are preserved, with the exception of check constraints,

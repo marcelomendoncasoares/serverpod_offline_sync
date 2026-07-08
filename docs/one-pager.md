@@ -23,7 +23,7 @@ The four steps below contain all required changes on a project to use the packag
     table: person
     database: all
     fields:
-      id: UuidValue?, defaultPersist=random_v7,
+      id: UuidValue?, defaultPersist=random_v7
       ### Owner scope of this row. Maintained by the CRDT sync layer.
       ### The user never sets this field nor sees its value on reads.
       scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
@@ -196,7 +196,7 @@ Given that all these changes are on the `serverpod_cli`, it doesn't even require
 
 ### Review strategy
 
-Besides not being that big (~35k LOC for the packages, ~11k LOC for the tests), the codebase is dense on the logic. So the best way to review it is to read the performance reports first, then all tests, and finally the main files of the packages as needed.
+Besides not being that big (~35k LOC for the packages, ~14k LOC for the tests), the codebase is dense on the logic. So the best way to review it is to read the performance reports first, then all tests, and finally the main files of the packages as needed.
 
 The design docs can also be used as a reference to understand the architecture and the implementation, as they were kept in sync throughout the development process.
 
