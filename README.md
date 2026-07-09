@@ -97,24 +97,40 @@ develop the app with normal repository calls against the wrapped `session`.
 ### 1. Add the package to the project
 
 Since this package is still in development and not yet released to pub.dev,
-you need to add it as a git reference to the project. On the client, add the following to the `pubspec.yaml` file:
+you need to add it as a git reference to the project. First, add it normally
+on the server and client `pubspec.yaml` files.
 
 ```yaml
+# your_project_client/pubspec.yaml
 dependencies:
-  serverpod_offline_sync_client:
-    git: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
-    path: packages/serverpod_offline_sync_client
-    ref: main
+  serverpod_offline_sync_client: 4.0.0-beta.0
 ```
 
-And, on the server's `pubspec.yaml`, add the following:
+```yaml
+# your_project_server/pubspec.yaml
+dependencies:
+  serverpod_offline_sync_server: 4.0.0-beta.0
+```
+
+Then, on the workspace root `pubspec.yaml` file, add the following overrides:
 
 ```yaml
-dependencies:
+dependency_overrides:
+  serverpod_offline_sync_client:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
+      path: packages/serverpod_offline_sync_client
+      ref: main
   serverpod_offline_sync_server:
-    git: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
-    path: packages/serverpod_offline_sync_server
-    ref: main
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
+      path: packages/serverpod_offline_sync_server
+      ref: main
+  serverpod_offline_sync_shared:
+    git:
+      url: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
+      path: packages/serverpod_offline_sync_shared
+      ref: main
 ```
 
 Be mindful that installing the package as a git reference to `main` is subject
@@ -186,7 +202,7 @@ version that includes the sync engine.
 ```dart
 final session = CrdtDatabaseSession.wraps(
   await client.createSession(databasePath, isDebugMode: kDebugMode),
-  syncTables: [Person.t, Book.t, Author.t],
+  syncTables: [Person.t, Book.t, Author.t], // Must be the same as on the server.
   persistentUserId: persistentUserId,
 );
 
@@ -195,6 +211,10 @@ await session.db.initialize();
 ```
 
 Then, store the `session` instance in the service locator.
+
+> [!NOTE]
+> The list of synced tables must be the same on the server and the client.
+> Otherwise, all sync attempts will fail with a schema mismatch error.
 
 ### 5. Wire the sync call on the client
 
