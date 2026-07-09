@@ -17,6 +17,3 @@ doc/api/
 
 # Development database file
 **/development.db*
-
-# Migrations do not need to be committed, as they are only for testing
-migrations/

@@ -19,8 +19,3 @@ coverage-results.txt
 # Melos
 .idea/
 *melos_*.iml
-
-# TODO: Remove this once the generated code is stable.
-**/lib/src/generated/
-**/lib/src/protocol/
-**/test/integration/test_tools/serverpod_test_tools.dart
