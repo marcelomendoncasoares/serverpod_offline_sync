@@ -20,76 +20,53 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  generate:
+  verify_generated:
+    name: verify generated code
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
+      - name: Generate code
+        run: melos generate
 
-      - name: Install Melos
-        run: dart pub global activate melos
+      - name: Verify generated code is committed
+        run: git diff --exit-code
 
-      - name: Run pub get
-        run: dart pub get
+  verify_migrations:
+    name: verify migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - name: Generate code and migrations
-        run: melos generate && melos create-migration
+      - name: Create migrations
+        run: melos create-migration
 
-      - name: Upload generated code
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-code
-          path: |
-            **/lib/migrations/**
-            **/lib/src/generated/**
-            **/lib/src/protocol/**
-            **/*_server/migrations/**
-            **/test/**/serverpod_test_tools.dart
+      - name: Verify migrations are committed
+        run: git diff --exit-code
 
   dart_format:
     name: dart format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-
-      - name: Run pub get
-        run: dart pub get
-
-      # Skip code generation for formatting check
       - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
+        run: melos format
 
   dart_analyze:
-    needs: generate
     name: dart analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-
-      - name: Install Melos
-        run: dart pub global activate melos
-
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
-
-      - name: Run pub get
-        run: dart pub get
+      - uses: ./.github/actions/setup
 
       - name: Run lint
         run: melos lint
 
   tests:
-    needs: generate
     name: dart test
     runs-on: ubuntu-latest
     permissions:
@@ -97,20 +74,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-
-      - name: Install Melos
-        run: dart pub global activate melos
-
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
-
-      - name: Run pub get
-        run: dart pub get
+      - uses: ./.github/actions/setup
 
       - name: Run tests
         run: melos test
@@ -135,7 +99,6 @@ jobs:
       #     comment-tag: coverage-results
 
   benchmarks:
-    needs: generate
     name: run benchmarks
     runs-on: ubuntu-latest
     permissions:
@@ -143,17 +106,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
-
-      - name: Run pub get
-        run: dart pub get
+      - uses: ./.github/actions/setup
 
       - name: Configure Git
         run: |
@@ -192,25 +145,11 @@ jobs:
   # public version.
   #
   # publish_check:
-  #   needs: generate
   #   name: dart publish check
   #   runs-on: ubuntu-latest
   #   steps:
   #     - uses: actions/checkout@v4
-  #
-  #     - name: Set up Dart
-  #       uses: dart-lang/setup-dart@v1
-  #
-  #     - name: Install Melos
-  #       run: dart pub global activate melos
-  #
-  #     - name: Download generated code
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: generated-code
-  #
-  #     - name: Run pub get
-  #       run: dart pub get
+  #     - uses: ./.github/actions/setup
   #
   #     - name: Run publish dry run
   #       run: melos publish-check

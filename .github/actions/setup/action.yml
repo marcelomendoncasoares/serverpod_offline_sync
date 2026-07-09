@@ -1,0 +1,13 @@
+name: Set up workspace
+description: Set up Dart SDK, install Melos, and run pub get
+
+runs:
+  using: composite
+  steps:
+    - uses: dart-lang/setup-dart@v1
+
+    - shell: bash
+      run: dart pub global activate melos
+
+    - shell: bash
+      run: dart pub get

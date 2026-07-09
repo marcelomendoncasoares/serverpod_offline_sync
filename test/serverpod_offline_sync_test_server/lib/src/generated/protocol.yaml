@@ -1,0 +1,6 @@
+demoAuth:
+  - loginOrCreateUser:
+demoDebug:
+  - fetchScopeSnapshot:
+  - resetScope:
+  - seedScope:
