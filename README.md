@@ -231,8 +231,8 @@ final syncSession = client.crdt.syncContinuously(session);
 
 ## Usage
 
-Once wired up, use normal generated-model CRUD against the `session` instance —
-`Person.db.insertRow(session, person)`, `session.db.find<Person>()`, and so on.
+Once wired up, use normal generated-model CRUD against the `session` instance,
+like `Person.db.insertRow(session, person)`, `Person.db.find(session)`, etc.
 The sync layer tracks every operation atomically; you never touch conflict
 resolution.
 
