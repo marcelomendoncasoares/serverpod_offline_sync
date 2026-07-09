@@ -10,6 +10,7 @@ pubspec.lock
 .dart_skills/
 .cursor/skills/relic*
 .cursor/skills/serverpod*
+temp/
 
 # Coverage reports
 coverage/

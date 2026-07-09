@@ -15,10 +15,11 @@ out-of-the-box with Serverpod's existing APIs.
   - [Overview](#overview)
   - [Features](#features)
   - [Getting started](#getting-started)
-    - [1. Prepare the synced tables](#1-prepare-the-synced-tables)
-    - [2. Configure the sync engine on the server](#2-configure-the-sync-engine-on-the-server)
-    - [3. Configure the sync engine on the client](#3-configure-the-sync-engine-on-the-client)
-    - [4. Wire the sync call on the client](#4-wire-the-sync-call-on-the-client)
+    - [1. Add the package to the project](#1-add-the-package-to-the-project)
+    - [2. Prepare the synced tables](#2-prepare-the-synced-tables)
+    - [3. Configure the sync engine on the server](#3-configure-the-sync-engine-on-the-server)
+    - [4. Configure the sync engine on the client](#4-configure-the-sync-engine-on-the-client)
+    - [5. Wire the sync call on the client](#5-wire-the-sync-call-on-the-client)
   - [Usage](#usage)
     - [Scopes and sharing](#scopes-and-sharing)
     - [Data modeling limitations](#data-modeling-limitations)
@@ -84,15 +85,62 @@ never leave their tables — they are transparently hidden from the user.
 
 ## Getting started
 
-Using the package on a project takes just four steps. After this setup, you
+Using the package on a project takes just five steps. After this setup, you
 develop the app with normal repository calls against the wrapped `session`.
 
-### 1. Prepare the synced tables
+> [!NOTE]
+> This package is still in development and is not yet ready for production use.
+> Although the package is functional and feature-complete, it will still pass
+> through some refactors and breaking changes for a better integration on real
+> Serverpod projects.
 
-Each model you want to sync must be defined with `database: all` so it exists
-on both the client and the server, have a UUID primary key, and declare a
-`scopeId` field. You never set `scopeId` nor see its value on reads, it is
-maintained by the CRDT sync layer.
+### 1. Add the package to the project
+
+Since this package is still in development and not yet released to pub.dev,
+you need to add it as a git reference to the project. On the client, add the following to the `pubspec.yaml` file:
+
+```yaml
+dependencies:
+  serverpod_offline_sync_client:
+    git: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
+    path: packages/serverpod_offline_sync_client
+    ref: main
+```
+
+And, on the server's `pubspec.yaml`, add the following:
+
+```yaml
+dependencies:
+  serverpod_offline_sync_server:
+    git: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
+    path: packages/serverpod_offline_sync_server
+    ref: main
+```
+
+Be mindful that installing the package as a git reference to `main` is subject
+to sudden changes when resolving dependencies. If you want to use a specific
+version, pin the commit hash on the `ref` field instead.
+
+After adding the dependencies, list the `serverpod_offline_sync` module on the
+`generator.yaml` file:
+
+```yaml
+modules:
+  serverpod_offline_sync:
+    nickname: offline_sync
+```
+
+The next call to `serverpod generate` and `serverpod create-migration` will
+include the `offline_sync` module in the project. Note that the client tables
+will only be present on the client's migration if at least one model on the
+project is defined with `database: all` or `database: client`.
+
+### 2. Prepare the synced tables
+
+Each model you want to sync must be defined with `database: all` (so it exists
+on both the client and the server), have a UUID primary key, and declare a
+`scopeId` field. You mostly never set `scopeId` nor see its value on reads; it
+is maintained by the CRDT sync layer.
 
 ```yaml
 class: Person
@@ -106,7 +154,10 @@ fields:
   name: String
 ```
 
-### 2. Configure the sync engine on the server
+### 3. Configure the sync engine on the server
+
+On the server, the `databaseInterceptor` is what ensures that all `session.db`
+objects are database instances that tracks operations for sync.
 
 ```dart
 final pod = Serverpod(
@@ -123,7 +174,14 @@ pod.initializeCrdtSync(
 );
 ```
 
-### 3. Configure the sync engine on the client
+Don't forget to also configure the authentication following the regular
+Serverpod auth setup. Authentication is required because the sync needs a
+logged in user to synchronize data.
+
+### 4. Configure the sync engine on the client
+
+On the client, the regular `DatabaseSession` must be replaced by a wrapped
+version that includes the sync engine.
 
 ```dart
 final session = CrdtDatabaseSession.wraps(
@@ -133,11 +191,15 @@ final session = CrdtDatabaseSession.wraps(
 );
 
 // Initialize the sync engine.
-// Then store the `session` instance in the service locator.
 await session.db.initialize();
 ```
 
-### 4. Wire the sync call on the client
+Then, store the `session` instance in the service locator.
+
+### 5. Wire the sync call on the client
+
+Be sure to authenticate the client before calling the sync methods. Otherwise,
+the sync operation will fail with a `Unauthorized` error.
 
 ```dart
 // Push local changes and merge remote ones once (i.e. pull-to-refresh).
