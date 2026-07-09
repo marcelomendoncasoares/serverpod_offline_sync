@@ -1,6 +1,6 @@
 name: drift_offline_sync
 description: A Drift plugin to build offline-first applications with CRDT support.
-version: 0.0.1
+version: 4.0.0-beta.0
 repository: https://github.com/marcelomendoncasoares/drift_offline_sync
 
 environment:
