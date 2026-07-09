@@ -20,7 +20,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  generate:
+  verify_generated:
+    name: verify generated code
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,19 +35,32 @@ jobs:
       - name: Run pub get
         run: dart pub get
 
-      - name: Generate code and migrations
-        run: melos generate && melos create-migration
+      - name: Generate code
+        run: melos generate
 
-      - name: Upload generated code
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-code
-          path: |
-            **/lib/migrations/**
-            **/lib/src/generated/**
-            **/lib/src/protocol/**
-            **/*_server/migrations/**
-            **/test/**/serverpod_test_tools.dart
+      - name: Verify generated code is committed
+        run: git diff --exit-code
+
+  verify_migrations:
+    name: verify migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install Melos
+        run: dart pub global activate melos
+
+      - name: Run pub get
+        run: dart pub get
+
+      - name: Create migrations
+        run: melos create-migration
+
+      - name: Verify migrations are committed
+        run: git diff --exit-code
 
   dart_format:
     name: dart format
@@ -65,7 +79,6 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
   dart_analyze:
-    needs: generate
     name: dart analyze
     runs-on: ubuntu-latest
     steps:
@@ -77,11 +90,6 @@ jobs:
       - name: Install Melos
         run: dart pub global activate melos
 
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
-
       - name: Run pub get
         run: dart pub get
 
@@ -89,7 +97,6 @@ jobs:
         run: melos lint
 
   tests:
-    needs: generate
     name: dart test
     runs-on: ubuntu-latest
     permissions:
@@ -103,11 +110,6 @@ jobs:
 
       - name: Install Melos
         run: dart pub global activate melos
-
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
 
       - name: Run pub get
         run: dart pub get
@@ -135,7 +137,6 @@ jobs:
       #     comment-tag: coverage-results
 
   benchmarks:
-    needs: generate
     name: run benchmarks
     runs-on: ubuntu-latest
     permissions:
@@ -146,11 +147,6 @@ jobs:
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
-
-      - name: Download generated code
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-code
 
       - name: Run pub get
         run: dart pub get
@@ -192,7 +188,6 @@ jobs:
   # public version.
   #
   # publish_check:
-  #   needs: generate
   #   name: dart publish check
   #   runs-on: ubuntu-latest
   #   steps:
@@ -203,11 +198,6 @@ jobs:
   #
   #     - name: Install Melos
   #       run: dart pub global activate melos
-  #
-  #     - name: Download generated code
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: generated-code
   #
   #     - name: Run pub get
   #       run: dart pub get
