@@ -231,8 +231,8 @@ final syncSession = client.crdt.syncContinuously(session);
 
 ## Usage
 
-Once wired up, use normal generated-model CRUD against the `session` instance —
-`Person.db.insertRow(session, person)`, `session.db.find<Person>()`, and so on.
+Once wired up, use normal generated-model CRUD against the `session` instance,
+like `Person.db.insertRow(session, person)`, `Person.db.find(session)`, etc.
 The sync layer tracks every operation atomically; you never touch conflict
 resolution.
 
@@ -246,6 +246,43 @@ access.
   to target the correct scope.
 - **On the client**, set a `persistentUserId` to target the personal scope by
   default, or use `transactionForUser` to target a shared scope.
+
+Shared scopes are created and managed **on the server only** through the
+`session.crdt.scopes` API.
+
+```dart
+// Create a shared scope granting read-write access to a single user.
+final scopeId = await session.crdt.scopes.createFor(userUuid);
+
+// Create a shared scope with multiple members.
+final scopeId = await session.crdt.scopes.create(
+  grants: {
+    userUuid: CrdtScopeRole.readWrite,
+    anotherUserUuid: CrdtScopeRole.readOnly,
+  },
+  // It is also possible to pass a transaction object to all operations.
+  transaction: transaction,
+)
+
+// Add or update a member's role (readOnly or readWrite).
+await session.crdt.scopes.grant(
+  scope: scopeId,
+  user: bobUuid,
+  role: CrdtScopeRole.readWrite,
+);
+
+// Remove a member. No-op if they are not already a member.
+await session.crdt.scopes.revoke(scope: scopeId, user: bobUuid);
+```
+
+If a streaming sync is ongoing, clients learn of new scopes and role changes on
+the next sync cycle and apply them immediately. There is no need to restart the
+sync session for changes to take effect.
+
+> The package does not expose a management endpoint, since this is a domain
+> responsibility. If desired, create your own endpoints where you can enforce
+> an authorization policy (invitations, team ownership, etc.) and call the
+> `session.crdt.scopes` API accordingly.
 
 ### Data modeling limitations
 

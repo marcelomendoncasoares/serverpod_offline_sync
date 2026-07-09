@@ -172,7 +172,7 @@ The package is tested extensively following the Serverpod testing principles. Th
 
 ## Roadmap
 
-The package is in a production-ready state, but it must naturally pass through a review process to be merged into the Serverpod monorepo. Before the review, some minor technical debts must be solved.
+The package is functionally in a production-ready state, but some APIs need to improve the UX and it must naturally pass through a review process to be merged into the Serverpod monorepo. Before the review, some minor technical debts must be solved.
 
 ### Technical debts
 
