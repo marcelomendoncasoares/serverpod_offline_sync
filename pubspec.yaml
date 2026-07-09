@@ -92,6 +92,16 @@ melos:
       run: dart pub get && melos generate && melos create-migration
     lint:
       exec: dart analyze . --fatal-infos --fatal-warnings
+    format:
+      run: |
+        git ls-files '*.dart' \
+          | grep -v '/lib/src/generated/' \
+          | grep -v '/lib/src/protocol/' \
+          | grep -v '/lib/migrations/' \
+          | grep -v '/serverpod_test_tools\.dart$' \
+          | grep -v '\.g\.dart$' \
+          | grep -v '\.drift\.dart$' \
+          | xargs -r dart format --output=none --set-exit-if-changed
     generate:
       # Must run the module first, or the test project won't have the tables.
       run: |
