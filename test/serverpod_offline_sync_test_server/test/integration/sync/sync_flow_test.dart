@@ -86,6 +86,29 @@ void main() {
         );
 
         test(
+          'when an unauthenticated client calls syncOnce '
+          'then the unauthorized error is surfaced without waiting for stream teardown.',
+          () async {
+            final unauthenticatedClient = client.Client(
+              'http://localhost:${rawServerSession.server.port}',
+            );
+
+            await expectLater(
+              unauthenticatedClient.crdt
+                  .syncOnce(clientSession)
+                  .timeout(const Duration(seconds: 3)),
+              throwsA(
+                predicate<Object>(
+                  (error) =>
+                      error.toString() ==
+                      'ServerpodClientException: Unauthorized, statusCode = 401',
+                ),
+              ),
+            );
+          },
+        );
+
+        test(
           'when client syncOnce is called repeatedly on a reused client '
           'then the rounds complete promptly instead of stalling on teardown.',
           () async {
@@ -129,6 +152,27 @@ void main() {
             await Future<void>.delayed(const Duration(seconds: 2));
 
             expect(mergeSuccessCount, 0);
+          },
+        );
+
+        test(
+          'when a running syncContinuously session is cancelled '
+          'then method stream teardown does not close the shared websocket.',
+          () async {
+            final stderr = await captureStderr(() async {
+              final syncSession = testClient.crdt.syncContinuously(clientSession);
+
+              await Future<void>.delayed(const Duration(milliseconds: 300));
+              await syncSession.cancel();
+              await syncSession.done;
+              await Future<void>.delayed(const Duration(milliseconds: 100));
+            });
+
+            expect(stderr, isNot(contains('WebSocketConnectionClosed')));
+            expect(
+              stderr,
+              isNot(contains('Message posted when web socket connection is closed')),
+            );
           },
         );
 
@@ -845,6 +889,26 @@ void main() {
             await syncSession.cancel();
 
             await expectLater(syncSession.done, completes);
+          },
+        );
+
+        test(
+          'when a running syncContinuously session is cancelled '
+          'then method stream teardown does not close the shared websocket.',
+          () async {
+            final stderr = await captureStderr(() async {
+              final syncSession = testClient.crdt.syncContinuously(clientSession);
+
+              await syncSession.cancel();
+              await syncSession.done;
+              await Future<void>.delayed(const Duration(milliseconds: 100));
+            });
+
+            expect(stderr, isNot(contains('WebSocketConnectionClosed')));
+            expect(
+              stderr,
+              isNot(contains('Message posted when web socket connection is closed')),
+            );
           },
         );
       });

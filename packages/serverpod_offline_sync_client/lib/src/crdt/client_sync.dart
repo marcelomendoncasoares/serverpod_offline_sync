@@ -75,7 +75,12 @@ class CrdtSyncClient {
             mode: CrdtSyncPeerMode.follower,
           )
           .listen(
-            outboundChanges.addIfNotClosed,
+            (event) {
+              outboundChanges.addIfNotClosed(event);
+              if (once && event is CrdtSyncClose) {
+                unawaited(outboundChanges.closeOrSkip());
+              }
+            },
             onDone: doneCompleter.completeOrSkip,
             onError: doneCompleter.completeErrorOrSkip,
             cancelOnError: true,
@@ -117,8 +122,15 @@ extension on StreamController<CrdtSyncStreamEvent> {
   }
 
   Future<void> closeOrSkip() async {
-    if (isClosed) return;
-    await close();
+    if (!isClosed) {
+      unawaited(close());
+    }
+    // The done event is only delivered once the stream has a listener. If the
+    // method stream never listened (e.g. opening it failed), awaiting [done]
+    // would hang forever.
+    if (hasListener) {
+      await done;
+    }
   }
 }
 
