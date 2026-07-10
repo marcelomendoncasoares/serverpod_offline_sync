@@ -9,11 +9,9 @@
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
 
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i23;
-
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
 import 'data/deleted.dart' as _i3;
 import 'data/deleted_reason.dart' as _i4;
 import 'data/field.dart' as _i5;
@@ -29,13 +27,12 @@ import 'node/scope_node.dart' as _i14;
 import 'node/scope_role.dart' as _i15;
 import 'schema/column.dart' as _i16;
 import 'schema/table.dart' as _i17;
-import 'sync/scope_grant.dart' as _i19;
 import 'sync/stream_event.dart' as _i18;
+import 'sync/scope_grant.dart' as _i19;
 import 'sync/violation.dart' as _i20;
 import 'sync/violation_operation.dart' as _i21;
 import 'sync/violation_type.dart' as _i22;
-
-export 'client.dart';
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i23;
 export 'data/deleted.dart';
 export 'data/deleted_reason.dart';
 export 'data/field.dart';
@@ -56,6 +53,7 @@ export 'sync/stream_event.dart';
 export 'sync/violation.dart';
 export 'sync/violation_operation.dart';
 export 'sync/violation_type.dart';
+export 'client.dart';
 
 class Protocol extends _i1.DatabaseSerializationManager {
   Protocol._();
@@ -1396,7 +1394,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return deserialize<_i22.CrdtSyncViolationType>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_offline_sync.')) {
-      data['className'] = dataClassName.substring(30);
+      data['className'] = dataClassName.substring(23);
       return _i23.Protocol().deserializeByClassName(data);
     }
     return super.deserializeByClassName(data);

@@ -10,15 +10,14 @@
 // ignore_for_file: invalid_use_of_internal_member
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
-import 'package:serverpod_client/serverpod_client.dart' as _i6;
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
+import '../node/scope.dart' as _i2;
+import '../node/node.dart' as _i3;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i4;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
     as _i5;
-
-import '../node/node.dart' as _i3;
-import '../node/scope.dart' as _i2;
+import 'package:serverpod_client/serverpod_client.dart' as _i6;
 
 /// A CRDT node's participation and checkpoint state within one scope.
 abstract class CrdtScopeNode implements _i1.TableRow<int?> {

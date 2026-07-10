@@ -10,15 +10,14 @@
 // ignore_for_file: invalid_use_of_internal_member
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
-import 'package:serverpod/serverpod.dart' as _i2;
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
-import 'package:serverpod_offline_sync_server/src/generated/protocol.dart'
-    as _i6;
-
-import '../data/deleted_reason.dart' as _i5;
+import 'package:serverpod/serverpod.dart' as _i2;
 import '../data/row.dart' as _i3;
 import '../node/node.dart' as _i4;
+import '../data/deleted_reason.dart' as _i5;
+import 'package:serverpod_offline_sync_server/src/generated/protocol.dart'
+    as _i6;
 
 /// CRDT visibility generation table.
 ///

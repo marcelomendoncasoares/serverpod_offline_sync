@@ -10,17 +10,16 @@
 // ignore_for_file: invalid_use_of_internal_member
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
-import 'package:serverpod_client/serverpod_client.dart' as _i7;
-import 'package:serverpod_database/serverpod_database.dart' as _i2;
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
+import 'package:serverpod_database/serverpod_database.dart' as _i2;
+import '../data/row.dart' as _i3;
+import '../schema/column.dart' as _i4;
+import '../node/node.dart' as _i5;
+import '../data/foreign_key.dart' as _i6;
+import 'package:serverpod_client/serverpod_client.dart' as _i7;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
     as _i8;
-
-import '../data/foreign_key.dart' as _i6;
-import '../data/row.dart' as _i3;
-import '../node/node.dart' as _i5;
-import '../schema/column.dart' as _i4;
 
 /// CRDT data table.
 ///
