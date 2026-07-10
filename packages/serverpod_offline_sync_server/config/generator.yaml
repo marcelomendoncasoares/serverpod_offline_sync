@@ -7,7 +7,7 @@ client_package_path: ../serverpod_offline_sync_client
 server_test_tools_path: test/integration/test_tools
 
 shared_packages:
-  - ../serverpod_offline_sync_shared
+  - ../serverpod_offline_sync
 
 extraClasses:
-  - package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc
+  - package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc

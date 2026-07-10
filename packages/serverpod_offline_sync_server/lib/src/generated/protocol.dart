@@ -9,9 +9,11 @@
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
 
+import 'package:serverpod/protocol.dart' as _i2;
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _i1;
-import 'package:serverpod/protocol.dart' as _i2;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i23;
+
 import 'data/deleted.dart' as _i3;
 import 'data/deleted_reason.dart' as _i4;
 import 'data/field.dart' as _i5;
@@ -27,13 +29,12 @@ import 'node/scope_node.dart' as _i14;
 import 'node/scope_role.dart' as _i15;
 import 'schema/column.dart' as _i16;
 import 'schema/table.dart' as _i17;
-import 'sync/stream_event.dart' as _i18;
 import 'sync/scope_grant.dart' as _i19;
+import 'sync/stream_event.dart' as _i18;
 import 'sync/violation.dart' as _i20;
 import 'sync/violation_operation.dart' as _i21;
 import 'sync/violation_type.dart' as _i22;
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart'
-    as _i23;
+
 export 'data/deleted.dart';
 export 'data/deleted_reason.dart';
 export 'data/field.dart';
@@ -455,7 +456,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
           columnType: _i2.ColumnType.jsonb,
           isNullable: true,
           dartType:
-              'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc?',
+              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
       ],
       foreignKeys: [],
@@ -668,7 +669,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
           columnType: _i2.ColumnType.jsonb,
           isNullable: true,
           dartType:
-              'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc?',
+              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
       ],
       foreignKeys: [
@@ -1298,7 +1299,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
     if (className != null) {
       return className.contains('.')
           ? className
-          : 'serverpod_offline_sync_shared.$className';
+          : 'serverpod_offline_sync.$className';
     }
     className = _i2.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -1400,7 +1401,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
     if (dataClassName == 'CrdtSyncViolationType') {
       return deserialize<_i22.CrdtSyncViolationType>(data['data']);
     }
-    if (dataClassName.startsWith('serverpod_offline_sync_shared.')) {
+    if (dataClassName.startsWith('serverpod_offline_sync.')) {
       data['className'] = dataClassName.substring(30);
       return _i23.Protocol().deserializeByClassName(data);
     }

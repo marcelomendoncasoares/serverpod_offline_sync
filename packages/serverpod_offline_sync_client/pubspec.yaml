@@ -12,7 +12,7 @@ dependencies:
   meta: ^1.18.0
   serverpod_client: 4.0.0-beta.0
   serverpod_database: 4.0.0-beta.0
-  serverpod_offline_sync_shared: 0.0.1
+  serverpod_offline_sync: 0.0.1
   serverpod_serialization: 4.0.0-beta.0
   uuid: ^4.5.3
 

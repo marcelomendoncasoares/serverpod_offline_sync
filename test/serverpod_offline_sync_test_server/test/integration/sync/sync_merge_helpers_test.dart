@@ -1,7 +1,7 @@
 import 'dart:async';
 
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:test/test.dart';
 
 void main() {

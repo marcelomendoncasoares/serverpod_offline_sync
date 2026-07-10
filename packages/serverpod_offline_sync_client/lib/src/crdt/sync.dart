@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:serverpod_database/serverpod_database.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';

@@ -12,12 +12,12 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _i1;
-import '../node/scope.dart' as _i2;
-import '../node/node.dart' as _i3;
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart'
-    as _i4;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i4;
 import 'package:serverpod_offline_sync_server/src/generated/protocol.dart'
     as _i5;
+
+import '../node/node.dart' as _i3;
+import '../node/scope.dart' as _i2;
 
 /// A CRDT node's participation and checkpoint state within one scope.
 abstract class CrdtScopeNode

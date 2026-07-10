@@ -1,5 +1,5 @@
 import 'package:clock/clock.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 

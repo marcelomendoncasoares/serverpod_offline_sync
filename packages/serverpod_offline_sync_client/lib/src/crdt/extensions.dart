@@ -1,4 +1,4 @@
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 
 import '../protocol/protocol.dart';
 

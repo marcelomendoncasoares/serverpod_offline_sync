@@ -12,10 +12,10 @@ dependencies:
   intl: ^0.20.2
   path: ^1.9.1
   serverpod_database: 4.0.0-beta.0
+  serverpod_offline_sync:
+    path: ../packages/serverpod_offline_sync
   serverpod_offline_sync_server:
     path: ../packages/serverpod_offline_sync_server
-  serverpod_offline_sync_shared:
-    path: ../packages/serverpod_offline_sync_shared
   serverpod_offline_sync_test_client:
     path: ../test/serverpod_offline_sync_test_client
 

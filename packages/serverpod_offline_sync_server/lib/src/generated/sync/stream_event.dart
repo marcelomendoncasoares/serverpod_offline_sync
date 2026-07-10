@@ -9,15 +9,16 @@
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
 
-// ignore_for_file: no_leading_underscores_for_library_prefixes
-import '../protocol.dart' as _i1;
 import 'package:serverpod/serverpod.dart' as _i2;
-import '../merge/change.dart' as _i3;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i6;
 import 'package:serverpod_offline_sync_server/src/generated/protocol.dart'
     as _i4;
+
+import '../merge/change.dart' as _i3;
+// ignore_for_file: no_leading_underscores_for_library_prefixes
+import '../protocol.dart' as _i1;
 import 'scope_grant.dart' as _i5;
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart'
-    as _i6;
+
 part 'close.dart';
 part 'connect.dart';
 part 'end_of_batch.dart';
