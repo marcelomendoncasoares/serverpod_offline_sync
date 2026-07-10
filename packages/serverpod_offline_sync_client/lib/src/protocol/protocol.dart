@@ -32,8 +32,7 @@ import 'sync/scope_grant.dart' as _i19;
 import 'sync/violation.dart' as _i20;
 import 'sync/violation_operation.dart' as _i21;
 import 'sync/violation_type.dart' as _i22;
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart'
-    as _i23;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i23;
 export 'data/deleted.dart';
 export 'data/deleted_reason.dart';
 export 'data/field.dart';
@@ -456,7 +455,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
           columnType: _i1.ColumnType.jsonb,
           isNullable: true,
           dartType:
-              'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc?',
+              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
       ],
       foreignKeys: [],
@@ -669,7 +668,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
           columnType: _i1.ColumnType.jsonb,
           isNullable: true,
           dartType:
-              'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc?',
+              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
       ],
       foreignKeys: [
@@ -1296,7 +1295,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
     if (className != null) {
       return className.contains('.')
           ? className
-          : 'serverpod_offline_sync_shared.$className';
+          : 'serverpod_offline_sync.$className';
     }
     return null;
   }
@@ -1394,8 +1393,8 @@ class Protocol extends _i1.DatabaseSerializationManager {
     if (dataClassName == 'CrdtSyncViolationType') {
       return deserialize<_i22.CrdtSyncViolationType>(data['data']);
     }
-    if (dataClassName.startsWith('serverpod_offline_sync_shared.')) {
-      data['className'] = dataClassName.substring(30);
+    if (dataClassName.startsWith('serverpod_offline_sync.')) {
+      data['className'] = dataClassName.substring(23);
       return _i23.Protocol().deserializeByClassName(data);
     }
     return super.deserializeByClassName(data);

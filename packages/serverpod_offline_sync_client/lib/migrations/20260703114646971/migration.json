@@ -517,7 +517,7 @@
             "fieldName": "lastHlc",
             "columnType": 14,
             "isNullable": true,
-            "dartType": "package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc?"
+            "dartType": "package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?"
           }
         ],
         "foreignKeys": [],
@@ -789,7 +789,7 @@
             "fieldName": "lastReceivedHlc",
             "columnType": 14,
             "isNullable": true,
-            "dartType": "package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart:Hlc?"
+            "dartType": "package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?"
           }
         ],
         "foreignKeys": [

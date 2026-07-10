@@ -7,8 +7,8 @@ import 'dart:typed_data';
 import 'package:benchmark_harness/benchmark_harness.dart';
 import 'package:path/path.dart' as p;
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
 import 'benchmark.dart';

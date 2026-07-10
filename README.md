@@ -96,46 +96,22 @@ develop the app with normal repository calls against the wrapped `session`.
 
 ### 1. Add the package to the project
 
-Since this package is still in development and not yet released to pub.dev,
-you need to add it as a git reference to the project. First, add it normally
-on the server and client `pubspec.yaml` files.
+Add the packages to the server and client `pubspec.yaml` files.
 
 ```yaml
 # your_project_client/pubspec.yaml
 dependencies:
-  serverpod_offline_sync_client: 4.0.0-beta.0
+  serverpod_offline_sync_client: 0.0.1
 ```
 
 ```yaml
 # your_project_server/pubspec.yaml
 dependencies:
-  serverpod_offline_sync_server: 4.0.0-beta.0
+  serverpod_offline_sync_server: 0.0.1
 ```
 
-Then, on the workspace root `pubspec.yaml` file, add the following overrides:
-
-```yaml
-dependency_overrides:
-  serverpod_offline_sync_client:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
-      path: packages/serverpod_offline_sync_client
-      ref: main
-  serverpod_offline_sync_server:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
-      path: packages/serverpod_offline_sync_server
-      ref: main
-  serverpod_offline_sync_shared:
-    git:
-      url: https://github.com/marcelomendoncasoares/serverpod_offline_sync.git
-      path: packages/serverpod_offline_sync_shared
-      ref: main
-```
-
-Be mindful that installing the package as a git reference to `main` is subject
-to sudden changes when resolving dependencies. If you want to use a specific
-version, pin the commit hash on the `ref` field instead.
+> [!NOTE]
+> Version `0.0.1` requires Serverpod `4.0.0-beta.0`.
 
 After adding the dependencies, list the `serverpod_offline_sync` module on the
 `generator.yaml` file:

@@ -12,8 +12,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
 import 'package:serverpod_client/serverpod_client.dart' as _i2;
-import 'package:serverpod_offline_sync_shared/serverpod_offline_sync_shared.dart'
-    as _i3;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
 
 /// CRDT nodes table.
 ///

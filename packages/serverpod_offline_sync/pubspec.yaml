@@ -1,5 +1,5 @@
-name: serverpod_offline_sync_shared
-version: 4.0.0-beta.0
+name: serverpod_offline_sync
+version: 0.0.1
 description: Shared package for the Serverpod Offline Sync project.
 homepage: https://github.com/marcelomendoncasoares/serverpod_offline_sync
 

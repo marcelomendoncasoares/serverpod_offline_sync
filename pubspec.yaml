@@ -1,4 +1,4 @@
-name: serverpod_offline_sync
+name: serverpod_offline_sync_workspace
 publish_to: none
 
 environment:
@@ -6,9 +6,9 @@ environment:
 
 workspace:
   - benchmark
+  - packages/serverpod_offline_sync
   - packages/serverpod_offline_sync_client
   - packages/serverpod_offline_sync_server
-  - packages/serverpod_offline_sync_shared
   - test/serverpod_offline_sync_test_client
   - test/serverpod_offline_sync_test_server
 
@@ -92,6 +92,8 @@ melos:
       run: dart pub get && melos generate && melos create-migration
     lint:
       exec: dart analyze . --fatal-infos --fatal-warnings
+    fix:
+      exec: dart fix --apply
     format:
       run: |
         git ls-files '*.dart' \
@@ -118,7 +120,7 @@ melos:
       exec: dart pub downgrade
     test:
       run: >-
-        melos exec --scope="serverpod_offline_sync_shared" -- dart test test/ --reporter=failures-only &&
+        melos exec --scope="serverpod_offline_sync" -- dart test test/ --reporter=failures-only &&
         melos exec --scope="serverpod_offline_sync_server" -- dart test test/ --reporter=failures-only --concurrency=1 &&
         melos exec --scope="serverpod_offline_sync_test_server" -- dart test test/ --reporter=failures-only --concurrency=1
     reset:
