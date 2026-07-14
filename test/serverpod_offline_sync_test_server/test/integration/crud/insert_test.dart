@@ -359,6 +359,93 @@ void main() {
         expect(crdt!.hlc, greaterThan(firstInsertedCrdtRow.hlc));
       });
     });
+
+    group('when inserting the same id and a new row in a batch,', () {
+      late Person newPerson;
+      late List<Person> inserted;
+
+      setUp(() async {
+        newPerson = Person(id: const Uuid().v7obj(), name: 'batch new');
+        inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [person.copyWith(name: 'batch reinserted'), newPerson],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then both rows are returned.', () async {
+        expect(inserted.map((e) => e.name).toSet(), {
+          'batch reinserted',
+          'batch new',
+        });
+      });
+
+      test('then the deleted row is visible again with the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, 'batch reinserted');
+      });
+
+      test('then the new row exists in the person table.', () async {
+        final row = await Person.db.findById(session, newPerson.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, 'batch new');
+      });
+
+      test('then the CRDT metadata row of the reinserted row is updated.', () async {
+        final crdt = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
+        );
+
+        expect(crdt!.hlc, greaterThan(firstInsertedCrdtRow.hlc));
+      });
+
+      test('then the tombstone of the reinserted row is lifted.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, isFalse);
+        expect(tombstone.reason, CrdtDataDeletedReason.userReinsert);
+      });
+    });
+
+    group('when inserting the same id in a batch with ignoreConflicts,', () {
+      late List<Person> inserted;
+
+      setUp(() async {
+        inserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insert(
+            session,
+            [person.copyWith(name: 'batch reinserted')],
+            transaction: tx,
+            ignoreConflicts: true,
+          ),
+        );
+      });
+
+      test('then the reinserted row is returned.', () async {
+        expect(inserted, hasLength(1));
+        expect(inserted.single.name, 'batch reinserted');
+      });
+
+      test('then the deleted row is visible again with the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, 'batch reinserted');
+      });
+    });
   });
 
   group('Given a person table with a deleted row that is reinserted,', () {

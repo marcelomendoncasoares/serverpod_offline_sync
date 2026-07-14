@@ -140,6 +140,62 @@ void main() {
       });
     });
 
+    group('when updating the Person name column with updateById,', () {
+      late Person? updatedPerson;
+
+      setUp(() async {
+        updatedPerson = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateById(
+            session,
+            person.id!,
+            columnValues: (t) => [t.name('updated by id')],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then the updated row is returned with scopeId null.', () async {
+        expect(updatedPerson, isNotNull);
+        expect(updatedPerson!.name, 'updated by id');
+        expect(updatedPerson!.scopeId, isNull);
+      });
+
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated by id');
+      });
+
+      test('then a CRDT field is created for the name column.', () async {
+        final field = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
+        );
+
+        expect(field, isNotNull);
+        expect(field!.column!.name, 'name');
+      });
+    });
+
+    test(
+      'when updating a non-existing Person with updateById, '
+      'then null is returned.',
+      () async {
+        final updated = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateById(
+            session,
+            const Uuid().v7obj(),
+            columnValues: (t) => [t.name('missing')],
+            transaction: tx,
+          ),
+        );
+
+        expect(updated, isNull);
+      },
+    );
+
     test(
       'when updating a Person with another scopeId, then it throws.',
       () async {
@@ -287,6 +343,36 @@ void main() {
         throwsA(isA<Exception>()),
         reason: 'This should fail due to the person being tombstoned.',
       );
+    });
+
+    group('when updating the deleted person with updateById,', () {
+      late Person? updated;
+
+      setUp(() async {
+        updated = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateById(
+            session,
+            person.id!,
+            columnValues: (t) => [t.name('test2')],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then null is returned.', () async {
+        expect(updated, isNull);
+      });
+
+      test('then the deleted row keeps its original value.', () async {
+        final row = await Person.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+        );
+
+        expect(row, isNotNull);
+        expect(row!.name, person.name);
+      });
     });
 
     group('when updating the deleted person with updateWhere,', () {
