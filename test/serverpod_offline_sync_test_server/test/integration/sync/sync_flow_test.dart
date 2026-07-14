@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
@@ -1054,6 +1055,222 @@ void main() {
               'client-person',
               'server-person',
             });
+          },
+        );
+      });
+
+      group('and a person that was synced to both sides', () {
+        late UuidValue personId;
+
+        setUp(() async {
+          personId = const Uuid().v7obj();
+
+          await client.Person.db.insertRow(
+            clientSession,
+            client.Person(
+              id: personId,
+              name: 'synced-person',
+              surname: 'original-surname',
+            ),
+          );
+
+          await testClient.crdt.syncOnce(clientSession);
+        });
+
+        test(
+          'when the server deletes the person and the client syncs '
+          'then the person is hidden on the client.',
+          () async {
+            final serverPerson = await server.Person.db.findById(
+              serverSession,
+              personId,
+            );
+            await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.deleteRow(
+                serverSession,
+                serverPerson!,
+                transaction: tx,
+              ),
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            expect(
+              await client.Person.db.findById(clientSession, personId),
+              isNull,
+            );
+
+            final hiddenPerson = await client.Person.db.findFirstRow(
+              clientSession,
+              where: (t) => t.id.equals(personId) & t.includeHiddenRows,
+            );
+            expect(hiddenPerson, isNotNull);
+          },
+        );
+
+        test(
+          'when the client and server update different columns offline '
+          'then both edits converge on both sides after one sync.',
+          () async {
+            final clientPerson = await client.Person.db.findById(
+              clientSession,
+              personId,
+            );
+            await client.Person.db.updateRow(
+              clientSession,
+              clientPerson!.copyWith(name: 'client-edited-name'),
+              columns: (t) => [t.name],
+            );
+
+            final serverPerson = await server.Person.db.findById(
+              serverSession,
+              personId,
+            );
+            await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Person.db.updateRow(
+                serverSession,
+                serverPerson!.copyWith(surname: 'server-edited-surname'),
+                columns: (t) => [t.surname],
+                transaction: tx,
+              ),
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            final mergedClientPerson = await client.Person.db.findById(
+              clientSession,
+              personId,
+            );
+            expect(mergedClientPerson, isNotNull);
+            expect(mergedClientPerson!.name, 'client-edited-name');
+            expect(mergedClientPerson.surname, 'server-edited-surname');
+
+            final mergedServerPerson = await server.Person.db.findById(
+              serverSession,
+              personId,
+            );
+            expect(mergedServerPerson, isNotNull);
+            expect(mergedServerPerson!.name, 'client-edited-name');
+            expect(mergedServerPerson.surname, 'server-edited-surname');
+          },
+        );
+
+        test(
+          'when the client deletes and reinserts the person offline '
+          'then the reinserted row is visible on the server after sync.',
+          () async {
+            final clientPerson = await client.Person.db.findById(
+              clientSession,
+              personId,
+            );
+            await client.Person.db.deleteRow(clientSession, clientPerson!);
+            await client.Person.db.insertRow(
+              clientSession,
+              clientPerson.copyWith(name: 'reinserted-name'),
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            final serverPerson = await server.Person.db.findById(
+              serverSession,
+              personId,
+            );
+            expect(serverPerson, isNotNull);
+            expect(serverPerson!.name, 'reinserted-name');
+          },
+        );
+      });
+
+      group('and an inserted client Types row with every field set', () {
+        late client.Types clientTypes;
+
+        setUp(() async {
+          clientTypes = await client.Types.db.insertRow(
+            clientSession,
+            client.Types(
+              id: const Uuid().v7obj(),
+              aBool: true,
+              aDateTime: DateTime.utc(2026, 5, 8, 12, 34, 56),
+              aText: 'wire text',
+              anInt: 42,
+              anInt64: BigInt.parse('9007199254740993'),
+              aReal: 3.14,
+              aBlob: ByteData.sublistView(
+                Uint8List.fromList([1, 2, 3, 4]),
+              ),
+              anEnum: client.TypesEnum.gamma,
+              optionalText: 'optional',
+              optionalUuid: const Uuid().v7obj(),
+            ),
+          );
+        });
+
+        test(
+          'when client syncOnce is called '
+          'then every field value survives the wire roundtrip to the server.',
+          () async {
+            await testClient.crdt.syncOnce(clientSession);
+
+            final serverTypes = await server.Types.db.findById(
+              serverSession,
+              clientTypes.id!,
+            );
+
+            expect(serverTypes, isNotNull);
+            expect(serverTypes!.aBool, clientTypes.aBool);
+            expect(serverTypes.aDateTime, clientTypes.aDateTime);
+            expect(serverTypes.aText, clientTypes.aText);
+            expect(serverTypes.anInt, clientTypes.anInt);
+            expect(serverTypes.anInt64, clientTypes.anInt64);
+            expect(serverTypes.aReal, clientTypes.aReal);
+            expect(
+              serverTypes.aBlob.buffer.asUint8List(),
+              clientTypes.aBlob.buffer.asUint8List(),
+            );
+            expect(serverTypes.anEnum, server.TypesEnum.gamma);
+            expect(serverTypes.optionalText, clientTypes.optionalText);
+            expect(serverTypes.optionalUuid, clientTypes.optionalUuid);
+          },
+        );
+
+        test(
+          'when the server updates typed columns after a sync '
+          'then the client receives the typed values on the next sync.',
+          () async {
+            await testClient.crdt.syncOnce(clientSession);
+
+            final serverTypes = await server.Types.db.findById(
+              serverSession,
+              clientTypes.id!,
+            );
+            final updatedDateTime = DateTime.utc(2027, 1, 2, 3, 4, 5);
+            final updatedInt64 = BigInt.parse('12345678901234567890');
+            await serverSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => server.Types.db.updateRow(
+                serverSession,
+                serverTypes!.copyWith(
+                  aDateTime: updatedDateTime,
+                  anInt64: updatedInt64,
+                  anEnum: server.TypesEnum.beta,
+                ),
+                columns: (t) => [t.aDateTime, t.anInt64, t.anEnum],
+                transaction: tx,
+              ),
+            );
+
+            await testClient.crdt.syncOnce(clientSession);
+
+            final mergedTypes = await client.Types.db.findById(
+              clientSession,
+              clientTypes.id!,
+            );
+            expect(mergedTypes, isNotNull);
+            expect(mergedTypes!.aDateTime, updatedDateTime);
+            expect(mergedTypes.anInt64, updatedInt64);
+            expect(mergedTypes.anEnum, client.TypesEnum.beta);
           },
         );
       });
