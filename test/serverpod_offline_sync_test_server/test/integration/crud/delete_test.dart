@@ -680,4 +680,99 @@ void main() {
       });
     });
   });
+
+  // INTERIM: non-synced -> synced relations are "always forbidden" by
+  // docs/sync-non-sync-relations.md, but that proposal's initialize()
+  // validation is not implemented yet. Until it lands, deletes must not crash
+  // and must not mutate untracked rows behind the application's back — which
+  // is what this group pins. Once initialize() rejects this relation, replace
+  // this group with the "rejecting non-sync -> sync" initialization test from
+  // the proposal's test list (the scenario below becomes un-representable).
+  group(
+    'Given a CRDT session tracking only the person table and untracked town and address rows referencing a person,',
+    () {
+      late CrdtDatabaseSession subsetSession;
+      late Person person;
+      late Town town;
+      late Address address;
+
+      setUp(() async {
+        subsetSession = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: [Person.t],
+        );
+        await subsetSession.db.initialize();
+
+        person = await subsetSession.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            subsetSession,
+            Person(name: 'referenced by untracked children'),
+            transaction: tx,
+          ),
+        );
+
+        // Untracked tables bypass CRDT entirely, so these rows have no scope
+        // and no metadata; only their physical foreign keys point at the
+        // tracked person row.
+        town = await Town.db.insertRow(
+          subsetSession,
+          Town(name: 'untracked set-null child', mayorId: person.id),
+        );
+        address = await Address.db.insertRow(
+          subsetSession,
+          Address(street: 'untracked restrict child', inhabitantId: person.id),
+        );
+      });
+
+      group('when deleting the person,', () {
+        setUp(() async {
+          await subsetSession.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.deleteRow(subsetSession, person, transaction: tx),
+          );
+        });
+
+        test(
+          'then the untracked restrict child does not block the soft delete.',
+          () async {
+            expect(
+              await Person.db.findById(subsetSession, person.id!),
+              isNull,
+            );
+            expect(
+              await Person.db.findFirstRow(
+                subsetSession,
+                where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+              ),
+              isNotNull,
+            );
+          },
+        );
+
+        test(
+          'then no set-null action is applied to the untracked town row.',
+          () async {
+            final untouchedTown = await Town.db.findById(
+              subsetSession,
+              town.id!,
+            );
+
+            expect(untouchedTown, isNotNull);
+            expect(untouchedTown!.mayorId, person.id);
+          },
+        );
+
+        test('then the untracked address row is untouched.', () async {
+          final untouchedAddress = await Address.db.findById(
+            subsetSession,
+            address.id!,
+          );
+
+          expect(untouchedAddress, isNotNull);
+          expect(untouchedAddress!.inhabitantId, person.id);
+        });
+      });
+    },
+  );
 }
