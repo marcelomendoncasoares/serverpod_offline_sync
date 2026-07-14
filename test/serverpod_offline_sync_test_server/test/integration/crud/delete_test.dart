@@ -421,139 +421,148 @@ void main() {
     });
   });
 
-  group('Given an ON DELETE CASCADE city -> organization -> person relationship, '
-      'when deleting the city,', () {
-    late City city;
-    late Organization organization;
-    late Person person;
+  group(
+    'Given an ON DELETE CASCADE city -> organization -> person relationship, '
+    'when deleting the city,',
+    () {
+      late City city;
+      late Organization organization;
+      late Person person;
 
-    setUp(() async {
-      city = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => City.db.insertRow(
-          session,
-          City(name: 'parent'),
-          transaction: tx,
-        ),
-      );
-
-      organization = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Organization.db.insertRow(
-          session,
-          Organization(name: 'child', cityId: city.id),
-          transaction: tx,
-        ),
-      );
-
-      person = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(
-          session,
-          Person(name: 'grandchild', organizationId: organization.id),
-          transaction: tx,
-        ),
-      );
-
-      await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => City.db.deleteRow(session, city, transaction: tx),
-      );
-    });
-
-    test('then a CRDT tombstone is created for the organization row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
-        session,
-        where: (t) => t.row.uuidRowId.equals(organization.id),
-      );
-
-      expect(tombstone, isNotNull);
-      expect(tombstone!.isDeleted, true);
-      expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
-    });
-
-    test(
-      'then the organization CRDT row is hidden by the cascade-delete tombstone.',
-      () async {
-        final crdtRow = await CrdtDataRow.db.findFirstRow(
-          session,
-          where: (t) => t.uuidRowId.equals(organization.id),
+      setUp(() async {
+        city = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => City.db.insertRow(
+            session,
+            City(name: 'parent'),
+            transaction: tx,
+          ),
         );
 
-        expect(crdtRow, isNotNull);
-        expect(crdtRow!.isHidden, isTrue);
-        expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
-      },
-    );
-
-    test('then the organization row still exist on the organization table.', () async {
-      final row = await Organization.db.findFirstRow(
-        session,
-        where: (t) => t.id.equals(organization.id) & t.includeHiddenRows,
-      );
-      expect(row, isNotNull);
-      expect(row!.name, organization.name);
-    });
-
-    test('then a CRDT tombstone is also created for the person row.', () async {
-      final tombstone = await CrdtDataDeleted.db.findFirstRow(
-        session,
-        where: (t) => t.row.uuidRowId.equals(person.id),
-      );
-
-      expect(tombstone, isNotNull);
-      expect(tombstone!.isDeleted, true);
-      expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
-    });
-
-    test(
-      'then the person CRDT row is also hidden by the cascade-delete tombstone.',
-      () async {
-        final crdtRow = await CrdtDataRow.db.findFirstRow(
-          session,
-          where: (t) => t.uuidRowId.equals(person.id),
+        organization = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Organization.db.insertRow(
+            session,
+            Organization(name: 'child', cityId: city.id),
+            transaction: tx,
+          ),
         );
 
-        expect(crdtRow, isNotNull);
-        expect(crdtRow!.isHidden, isTrue);
-        expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
-      },
-    );
-  });
+        person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'grandchild', organizationId: organization.id),
+            transaction: tx,
+          ),
+        );
 
-  group('Given an address row with an ON DELETE RESTRICT related person, '
-      'when trying to delete the person,', () {
-    late Future<Person> personDelete;
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => City.db.deleteRow(session, city, transaction: tx),
+        );
+      });
 
-    setUp(() async {
-      final person = await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.insertRow(
+      test('then a CRDT tombstone is created for the organization row.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
           session,
-          Person(name: 'unique'),
-          transaction: tx,
-        ),
+          where: (t) => t.row.uuidRowId.equals(organization.id),
+        );
+
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, true);
+        expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
+      });
+
+      test(
+        'then the organization CRDT row is hidden by the cascade-delete tombstone.',
+        () async {
+          final crdtRow = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(organization.id),
+          );
+
+          expect(crdtRow, isNotNull);
+          expect(crdtRow!.isHidden, isTrue);
+          expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
+        },
       );
 
-      await session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Address.db.insertRow(
+      test(
+        'then the organization row still exist on the organization table.',
+        () async {
+          final row = await Organization.db.findFirstRow(
+            session,
+            where: (t) => t.id.equals(organization.id) & t.includeHiddenRows,
+          );
+          expect(row, isNotNull);
+          expect(row!.name, organization.name);
+        },
+      );
+
+      test('then a CRDT tombstone is also created for the person row.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
           session,
-          Address(street: 'Oak', inhabitantId: person.id),
-          transaction: tx,
-        ),
-      );
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
 
-      personDelete = session.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Person.db.deleteRow(session, person, transaction: tx),
-      );
-    });
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, true);
+        expect(tombstone.reason, CrdtDataDeletedReason.userCascadeDelete);
+      });
 
-    test('then the delete fails.', () async {
-      await expectLater(personDelete, throwsA(isA<Exception>()));
-    });
-  });
+      test(
+        'then the person CRDT row is also hidden by the cascade-delete tombstone.',
+        () async {
+          final crdtRow = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(person.id),
+          );
+
+          expect(crdtRow, isNotNull);
+          expect(crdtRow!.isHidden, isTrue);
+          expect(crdtRow.visibility, CrdtDataRowVisibility.userCascadeDelete);
+        },
+      );
+    },
+  );
+
+  group(
+    'Given an address row with an ON DELETE RESTRICT related person, '
+    'when trying to delete the person,',
+    () {
+      late Future<Person> personDelete;
+
+      setUp(() async {
+        final person = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'unique'),
+            transaction: tx,
+          ),
+        );
+
+        await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Address.db.insertRow(
+            session,
+            Address(street: 'Oak', inhabitantId: person.id),
+            transaction: tx,
+          ),
+        );
+
+        personDelete = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.deleteRow(session, person, transaction: tx),
+        );
+      });
+
+      test('then the delete fails.', () async {
+        await expectLater(personDelete, throwsA(isA<Exception>()));
+      });
+    },
+  );
 
   group('Given a town row with an ON DELETE SET NULL related person,', () {
     late Town town;

@@ -11,7 +11,7 @@ void main() {
   late CrdtMergeSet mergeSet;
 
   group(
-    'Given a table with an existing unchanged row and a remote update for one of its columns, ',
+    'Given a table with an existing unchanged row and a remote update for one of its columns,',
     () {
       late Person person;
       late Hlc localFieldHlc;
@@ -51,7 +51,7 @@ void main() {
         mergeSet = [remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -84,7 +84,7 @@ void main() {
   );
 
   group(
-    'Given a table with an existing row updated locally and an older remote update for the same column, ',
+    'Given a table with an existing row updated locally and an older remote update for the same column,',
     () {
       late Person person;
       late Hlc localFieldHlc;
@@ -135,7 +135,7 @@ void main() {
         mergeSet = [remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -168,7 +168,7 @@ void main() {
   );
 
   group(
-    'Given an empty table and a remote update for a non-existing row, ',
+    'Given an empty table and a remote update for a non-existing row,',
     () {
       late UuidValue remoteNodeId;
       late CrdtMergeUpdate remoteUpdate;
@@ -190,7 +190,7 @@ void main() {
         mergeSet = [remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -220,7 +220,7 @@ void main() {
   );
 
   group(
-    'Given a table with a row hidden by a remote delete and a newer remote update, ',
+    'Given a table with a row hidden by a remote delete and a newer remote update,',
     () {
       late Person person;
       late CrdtMergeDelete remoteDelete;
@@ -269,7 +269,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
@@ -301,7 +301,7 @@ void main() {
         });
       });
 
-      group('when merging together with a newer remote restore, ', () {
+      group('when merging together with a newer remote restore,', () {
         setUp(() async {
           final remoteRestore = CrdtMergeDelete(
             uuidScopeId: testCrdtUserId,
@@ -334,7 +334,7 @@ void main() {
   );
 
   group(
-    'Given a remote update that loses a composite unique conflict, ',
+    'Given a remote update that loses a composite unique conflict,',
     () {
       late UniqueComposite loser;
       late CrdtMergeUpdate remoteUpdate;
@@ -381,7 +381,7 @@ void main() {
         mergeSet = [remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -422,7 +422,7 @@ void main() {
   );
 
   group(
-    'Given a remote update that loses a composite unique conflict with a stable discriminator, ',
+    'Given a remote update that loses a composite unique conflict with a stable discriminator,',
     () {
       late UniqueDiscriminator loser;
       late CrdtMergeUpdate remoteUpdate;
@@ -469,7 +469,7 @@ void main() {
         mergeSet = [remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -510,7 +510,7 @@ void main() {
   );
 
   group(
-    'Given a remote update that loses a UUID unique conflict, ',
+    'Given a remote update that loses a UUID unique conflict,',
     () {
       final sharedValue = const Uuid().v7obj();
       final originalLoserValue = const Uuid().v7obj();
@@ -550,7 +550,7 @@ void main() {
         mergeSet = [remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,

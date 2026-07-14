@@ -10,7 +10,7 @@ void main() {
 
   late CrdtMergeSet mergeSet;
 
-  group('Given an empty table and a remote insert, ', () {
+  group('Given an empty table and a remote insert,', () {
     late UuidValue remoteNodeId;
     late Person remotePerson;
     late CrdtMergeInsert remoteInsert;
@@ -33,7 +33,7 @@ void main() {
       mergeSet = [remoteInsert];
     });
 
-    group('when merging, ', () {
+    group('when merging,', () {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
@@ -63,7 +63,7 @@ void main() {
   });
 
   group(
-    'Given an empty table, a remote insert and a newer remote update for the same row, ',
+    'Given an empty table, a remote insert and a newer remote update for the same row,',
     () {
       late UuidValue remoteNodeId;
       late Person remotePerson;
@@ -99,7 +99,7 @@ void main() {
         mergeSet = [remoteInsert, remoteUpdate];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -136,7 +136,7 @@ void main() {
 
   group(
     'Given a table with an existing row updated locally and a newer insert '
-    'with the same row ID but different data, ',
+    'with the same row ID but different data,',
     () {
       late Person person;
       late Hlc localRowHlc;
@@ -194,7 +194,7 @@ void main() {
         mergeSet = [remoteInsert];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -269,7 +269,7 @@ void main() {
   group(
     'Given a table with an existing row updated locally and a remote insert '
     'that is after the insert and before the update for the same row ID but '
-    'different data, ',
+    'different data,',
     () {
       late Person person;
       late Hlc localRowHlc;
@@ -330,7 +330,7 @@ void main() {
         mergeSet = [remoteInsert];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         late Person mergedPerson;
 
         setUp(() async {
@@ -374,7 +374,7 @@ void main() {
   );
 
   group(
-    'Given a table with an existing row and an older remote insert for the same row ID, ',
+    'Given a table with an existing row and an older remote insert for the same row ID,',
     () {
       late Person person;
       late Hlc localRowHlc;
@@ -409,7 +409,7 @@ void main() {
         mergeSet = [remoteInsert];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -452,7 +452,7 @@ void main() {
 
   group(
     'Given an empty table and a merge set that lists a newer remote update '
-    'before its remote insert, ',
+    'before its remote insert,',
     () {
       late Person remotePerson;
       late CrdtMergeInsert remoteInsert;
@@ -486,7 +486,7 @@ void main() {
         mergeSet = [remoteUpdate, remoteInsert];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -525,7 +525,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert and a newer remote update that were already merged, ',
+    'Given a remote insert and a newer remote update that were already merged,',
     () {
       late Person remotePerson;
       late CrdtMergeUpdate remoteUpdate;
@@ -579,7 +579,7 @@ void main() {
         fieldHlcsAfterFirstMerge = [for (final field in fields) field.hlc];
       });
 
-      group('when the same merge set is replayed, ', () {
+      group('when the same merge set is replayed,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -624,7 +624,7 @@ void main() {
   );
 
   group(
-    'Given a table with a row deleted in generation four and a newer remote insert payload, ',
+    'Given a table with a row deleted in generation four and a newer remote insert payload,',
     () {
       late Person person;
       late CrdtMergeInsert remoteInsert;
@@ -669,7 +669,7 @@ void main() {
         mergeSet = [remoteInsert];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,

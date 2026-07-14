@@ -46,7 +46,7 @@ void main() {
       otherScopeId = otherScope!.id!;
     });
 
-    group('when finding inside the first scope, ', () {
+    group('when finding inside the first scope,', () {
       late List<Person> rows;
 
       setUp(() async {

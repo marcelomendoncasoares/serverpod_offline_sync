@@ -10,7 +10,7 @@ void main() {
 
   group(
     'Given a visible row claiming a unique value and a newer remote insert '
-    'that claims the same value, ',
+    'that claims the same value,',
     () {
       late Unique winner;
       late Unique loser;
@@ -38,7 +38,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
@@ -65,7 +65,7 @@ void main() {
         );
       });
 
-      group('when the same losing insert was merged and is replayed, ', () {
+      group('when the same losing insert was merged and is replayed,', () {
         late Hlc loserRowHlcAfterFirstMerge;
 
         setUp(() async {
@@ -106,7 +106,7 @@ void main() {
 
   group(
     'Given a row owned by one scope and a remote insert for another scope '
-    'that claims the same unique value, ',
+    'that claims the same unique value,',
     () {
       late Unique owner;
       late Unique incoming;
@@ -155,7 +155,7 @@ void main() {
 
   group(
     'Given a visible row claiming a unique value and an older remote insert '
-    'that claims the same value, ',
+    'that claims the same value,',
     () {
       late Unique existingLoser;
       late Unique incomingWinner;
@@ -183,7 +183,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
@@ -226,7 +226,7 @@ void main() {
 
   group(
     'Given two visible rows and an older remote update that claims the unique '
-    'value of the row with the newer claim, ',
+    'value of the row with the newer claim,',
     () {
       late Unique updatedWinner;
       late Unique existingLoser;
@@ -265,7 +265,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
@@ -296,7 +296,7 @@ void main() {
 
   group(
     'Given a visible child claiming a nullable unique foreign key and a newer '
-    'remote insert that claims the same parent, ',
+    'remote insert that claims the same parent,',
     () {
       late Person parent;
       late UniqueSetNullChild winner;
@@ -341,7 +341,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
@@ -372,7 +372,7 @@ void main() {
 
   group(
     'Given two databases and two remote inserts that claim the same unique '
-    'value with identical HLCs from different nodes, ',
+    'value with identical HLCs from different nodes,',
     () {
       late CrdtDatabaseSession singleBatchSession;
       late CrdtDatabaseSession splitBatchSession;
@@ -418,7 +418,7 @@ void main() {
 
       group(
         'when one database merges one batch and the other merges split '
-        'batches in reverse arrival order, ',
+        'batches in reverse arrival order,',
         () {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
@@ -464,7 +464,7 @@ void main() {
 
   group(
     'Given a visible UniqueUuid row claiming a UUID unique value and a newer '
-    'remote insert that claims the same value, ',
+    'remote insert that claims the same value,',
     () {
       final sharedValue = const Uuid().v7obj();
       late UniqueUuid winner;
@@ -493,7 +493,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
@@ -529,7 +529,7 @@ void main() {
 
   group(
     'Given a unique value previously claimed by a locally deleted row and a '
-    'remote insert that claims it, ',
+    'remote insert that claims it,',
     () {
       late Unique deletedRow;
       late Unique incomingRow;
@@ -561,7 +561,7 @@ void main() {
         );
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],

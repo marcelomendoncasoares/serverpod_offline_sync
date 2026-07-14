@@ -10,7 +10,7 @@ void main() {
   initTestClientSession();
 
   group(
-    'Given a parent with a visible restrict child and a child update, ',
+    'Given a parent with a visible restrict child and a child update,',
     () {
       late Person parent;
       late Address child;
@@ -41,7 +41,7 @@ void main() {
         });
       });
 
-      group('when a concurrent remote parent delete is merged, ', () {
+      group('when a concurrent remote parent delete is merged,', () {
         setUp(() async {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
@@ -88,7 +88,7 @@ void main() {
   );
 
   group(
-    'Given a parent with a restrict child insert, ',
+    'Given a parent with a restrict child insert,',
     () {
       late Person parent;
       late RestrictChild child;
@@ -113,7 +113,7 @@ void main() {
         });
       });
 
-      group('when a concurrent remote parent delete is merged, ', () {
+      group('when a concurrent remote parent delete is merged,', () {
         setUp(() async {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
@@ -162,7 +162,7 @@ void main() {
   );
 
   group(
-    'Given a merged parent delete kept visible by a concurrent update to a restrict child, ',
+    'Given a merged parent delete kept visible by a concurrent update to a restrict child,',
     () {
       late Person parent;
       late Address child;
@@ -201,7 +201,7 @@ void main() {
         expect(visibleParent!.name, 'blocked parent');
       });
 
-      group('when the restrict child is detached, ', () {
+      group('when the restrict child is detached,', () {
         setUp(() async {
           final visibleChild = await Address.db.findById(session, child.id!);
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -230,7 +230,7 @@ void main() {
   );
 
   group(
-    'Given a parent with two visible restrict children and a merged parent delete, ',
+    'Given a parent with two visible restrict children and a merged parent delete,',
     () {
       late Person parent;
       late RestrictChild firstChild;
@@ -275,7 +275,7 @@ void main() {
         );
       });
 
-      group('when one restrict child is detached by a merged update, ', () {
+      group('when one restrict child is detached by a merged update,', () {
         setUp(() async {
           final firstChildDetach = _updateChange(
             tableName: RestrictChild.t.tableName,
@@ -315,7 +315,7 @@ void main() {
         );
       });
 
-      group('when both restrict children are detached by merged updates, ', () {
+      group('when both restrict children are detached by merged updates,', () {
         setUp(() async {
           final firstChildDetach = _updateChange(
             tableName: RestrictChild.t.tableName,
@@ -361,7 +361,7 @@ void main() {
   );
 
   group(
-    'Given a parent with a visible no-action child, ',
+    'Given a parent with a visible no-action child,',
     () {
       late Town town;
       late Company company;
@@ -402,7 +402,7 @@ void main() {
         });
       });
 
-      group('when a concurrent remote parent delete is merged, ', () {
+      group('when a concurrent remote parent delete is merged,', () {
         setUp(() async {
           remoteCompanyDelete = _deleteChange(
             tableName: Company.t.tableName,
@@ -436,7 +436,7 @@ void main() {
   );
 
   group(
-    'Given a parent with a required (non-nullable) set-null child insert, ',
+    'Given a parent with a required (non-nullable) set-null child insert,',
     () {
       late Person parent;
       late RequiredSetNullChild child;
@@ -461,7 +461,7 @@ void main() {
         });
       });
 
-      group('when a concurrent remote parent delete is merged, ', () {
+      group('when a concurrent remote parent delete is merged,', () {
         setUp(() async {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
@@ -494,7 +494,7 @@ void main() {
   );
 
   group(
-    'Given a parent with a nullable set-null foreign key whose attempted value was stored on update, ',
+    'Given a parent with a nullable set-null foreign key whose attempted value was stored on update,',
     () {
       late Person attemptedParent;
       late Town child;
@@ -542,7 +542,7 @@ void main() {
         );
       });
 
-      group('when the attempted parent delete is merged, ', () {
+      group('when the attempted parent delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteParentDelete],
@@ -596,7 +596,7 @@ void main() {
   );
 
   group(
-    'Given a unique nullable set-null foreign key, ',
+    'Given a unique nullable set-null foreign key,',
     () {
       late Person parent;
       late UniqueSetNullChild child;
@@ -628,7 +628,7 @@ void main() {
         );
       });
 
-      group('when the remote parent delete is merged, ', () {
+      group('when the remote parent delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteParentDelete],
@@ -668,7 +668,7 @@ void main() {
   );
 
   group(
-    'Given a child with a visible parent foreign key and no active projection override, ',
+    'Given a child with a visible parent foreign key and no active projection override,',
     () {
       late Person parent;
       late Town child;
@@ -709,7 +709,7 @@ void main() {
       });
 
       group(
-        'when the foreign key is cleared by an update without narrowing columns, ',
+        'when the foreign key is cleared by an update without narrowing columns,',
         () {
           setUp(() async {
             await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -756,7 +756,7 @@ void main() {
   );
 
   group(
-    'Given a set-null projection is active after a merged parent delete, ',
+    'Given a set-null projection is active after a merged parent delete,',
     () {
       late Person attemptedParent;
       late Person newParent;
@@ -808,7 +808,7 @@ void main() {
         expect(projectedChild.mayorId, isNull);
       });
 
-      group('when the user changes the foreign key to a visible parent, ', () {
+      group('when the user changes the foreign key to a visible parent,', () {
         late CrdtDataForeignKey projection;
 
         setUp(() async {
@@ -844,7 +844,7 @@ void main() {
         );
       });
 
-      group('when a later merge restores the attempted parent, ', () {
+      group('when a later merge restores the attempted parent,', () {
         setUp(() async {
           final remoteParentRestore = _restoreChange(
             tableName: Person.t.tableName,
@@ -882,7 +882,7 @@ void main() {
         );
       });
 
-      group('when the row is updated without narrowing columns, ', () {
+      group('when the row is updated without narrowing columns,', () {
         late Hlc mayorFieldHlcBeforeUpdate;
 
         setUp(() async {
@@ -934,7 +934,7 @@ void main() {
       });
 
       group(
-        'when the row is updated without narrowing columns and a changed foreign key, ',
+        'when the row is updated without narrowing columns and a changed foreign key,',
         () {
           late Hlc mayorFieldHlcBeforeUpdate;
 
@@ -990,7 +990,7 @@ void main() {
       );
 
       group(
-        'when the foreign key is explicitly updated to the projected value with narrowed columns, ',
+        'when the foreign key is explicitly updated to the projected value with narrowed columns,',
         () {
           late Hlc mayorFieldHlcBeforeUpdate;
 
@@ -1049,7 +1049,7 @@ void main() {
 
   group(
     'Given a set-null projection is active after a merged parent delete and a '
-    'remote update that touches only a non-foreign-key column, ',
+    'remote update that touches only a non-foreign-key column,',
     () {
       late Person attemptedParent;
       late Town child;
@@ -1094,7 +1094,7 @@ void main() {
         );
       });
 
-      group('when the remote update is merged, ', () {
+      group('when the remote update is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteNameUpdate],
@@ -1128,7 +1128,7 @@ void main() {
   );
 
   group(
-    'Given a nullable foreign key with set-null whose attempted value only exists on insert, ',
+    'Given a nullable foreign key with set-null whose attempted value only exists on insert,',
     () {
       late Person attemptedParent;
       late Town child;
@@ -1160,7 +1160,7 @@ void main() {
         );
       });
 
-      group('when the attempted parent delete is merged, ', () {
+      group('when the attempted parent delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteParentDelete],
@@ -1197,7 +1197,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert with a set-null foreign key that points to a missing parent, ',
+    'Given a remote insert with a set-null foreign key that points to a missing parent,',
     () {
       late UuidValue missingParentId;
       late Town child;
@@ -1211,7 +1211,7 @@ void main() {
         );
       });
 
-      group('when the remote insert is merged, ', () {
+      group('when the remote insert is merged,', () {
         setUp(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
@@ -1261,7 +1261,7 @@ void main() {
   );
 
   group(
-    'Given a visible child and a remote update with a set-null foreign key that points to a missing parent, ',
+    'Given a visible child and a remote update with a set-null foreign key that points to a missing parent,',
     () {
       late UuidValue missingParentId;
       late Town child;
@@ -1291,7 +1291,7 @@ void main() {
         );
       });
 
-      group('when the remote update is merged, ', () {
+      group('when the remote update is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteMissingParentUpdate],
@@ -1329,7 +1329,7 @@ void main() {
   );
 
   group(
-    'Given a set-default foreign key with a visible default target and a stored attempted parent value, ',
+    'Given a set-default foreign key with a visible default target and a stored attempted parent value,',
     () {
       late Town defaultTown;
       late Town attemptedTown;
@@ -1378,7 +1378,7 @@ void main() {
         );
       });
 
-      group('when the attempted parent delete is merged, ', () {
+      group('when the attempted parent delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteAttemptedTownDelete],
@@ -1414,7 +1414,7 @@ void main() {
       });
 
       group(
-        'when the attempted parent delete is merged and the row is updated without narrowing columns, ',
+        'when the attempted parent delete is merged and the row is updated without narrowing columns,',
         () {
           late Hlc townIdFieldHlcBeforeUpdate;
           late Company projectedChild;
@@ -1477,7 +1477,7 @@ void main() {
       );
 
       group(
-        'when the attempted parent delete is merged and the row is updated without narrowing columns with a changed foreign key, ',
+        'when the attempted parent delete is merged and the row is updated without narrowing columns with a changed foreign key,',
         () {
           late Town otherTown;
           late Hlc townIdFieldHlcBeforeUpdate;
@@ -1553,7 +1553,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert with a set-default foreign key that points to a missing parent and a visible default target, ',
+    'Given a remote insert with a set-default foreign key that points to a missing parent and a visible default target,',
     () {
       late Town defaultTown;
       late UuidValue missingTownId;
@@ -1574,7 +1574,7 @@ void main() {
         );
       });
 
-      group('when the remote insert is merged, ', () {
+      group('when the remote insert is merged,', () {
         setUp(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
@@ -1624,7 +1624,7 @@ void main() {
   );
 
   group(
-    'Given a set-default foreign key whose default target is missing, ',
+    'Given a set-default foreign key whose default target is missing,',
     () {
       late Town attemptedTown;
       late Company child;
@@ -1662,7 +1662,7 @@ void main() {
         );
       });
 
-      group('when the attempted parent delete is merged, ', () {
+      group('when the attempted parent delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteAttemptedTownDelete],
@@ -1705,7 +1705,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert with a restrict foreign key that points to a missing parent, ',
+    'Given a remote insert with a restrict foreign key that points to a missing parent,',
     () {
       late UuidValue missingParentId;
       late Address child;
@@ -1719,7 +1719,7 @@ void main() {
         );
       });
 
-      group('when the remote insert is merged, ', () {
+      group('when the remote insert is merged,', () {
         setUp(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
@@ -1783,7 +1783,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert with a cascade foreign key that points to a missing parent, ',
+    'Given a remote insert with a cascade foreign key that points to a missing parent,',
     () {
       late UuidValue missingParentId;
       late Organization child;
@@ -1797,7 +1797,7 @@ void main() {
         );
       });
 
-      group('when the remote insert is merged, ', () {
+      group('when the remote insert is merged,', () {
         setUp(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
@@ -1864,7 +1864,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert with a cascade foreign key that points to a hidden parent in scope, ',
+    'Given a remote insert with a cascade foreign key that points to a hidden parent in scope,',
     () {
       late Organization organization;
       late Person person;
@@ -1902,7 +1902,7 @@ void main() {
         );
       });
 
-      group('when the remote insert is merged, ', () {
+      group('when the remote insert is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remotePersonInsert],
@@ -1952,7 +1952,7 @@ void main() {
   // transaction atomically instead of applying partial state.
   group(
     'Given a causally incomplete remote insert with a set-default foreign key '
-    'whose attempted parent and default target are both missing, ',
+    'whose attempted parent and default target are both missing,',
     () {
       late UuidValue missingTownId;
       late Company child;
@@ -1979,7 +1979,7 @@ void main() {
         );
       });
 
-      group('when the remote insert is merged, ', () {
+      group('when the remote insert is merged,', () {
         late Object? mergeError;
 
         setUp(() async {
@@ -2018,7 +2018,7 @@ void main() {
   );
 
   group(
-    'Given a set-default foreign key whose default target is cascade-attached to another parent and a concurrent delete that hides the default target first, ',
+    'Given a set-default foreign key whose default target is cascade-attached to another parent and a concurrent delete that hides the default target first,',
     () {
       late City city;
       late Town defaultTown;
@@ -2080,7 +2080,7 @@ void main() {
         );
       });
 
-      group('when both root deletes are merged in the same batch, ', () {
+      group('when both root deletes are merged in the same batch,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteCityDelete, remoteAttemptedTownDelete],
@@ -2114,7 +2114,7 @@ void main() {
   );
 
   group(
-    'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts, ',
+    'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts,',
     () {
       // City
       //   │ CASCADE
@@ -2162,7 +2162,7 @@ void main() {
         );
       });
 
-      group('when the root delete is merged, ', () {
+      group('when the root delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteCityDelete],
@@ -2180,7 +2180,7 @@ void main() {
         );
       });
 
-      group('when the root delete replayed after merged, ', () {
+      group('when the root delete replayed after merged,', () {
         late List<String> visibilityAfterMerge;
         late List<String> visibilityAfterReplay;
         late List<String> foreignKeyProjectionAfterMerge;
@@ -2218,7 +2218,7 @@ void main() {
         );
       });
 
-      group('when a root restore is merged after the root delete, ', () {
+      group('when a root restore is merged after the root delete,', () {
         late CrdtMergeDelete remoteCityRestore;
 
         setUp(() async {
@@ -2259,7 +2259,7 @@ void main() {
 
       group(
         'when a newer remote update for a cascade-hidden descendant is merged '
-        'after the root delete, ',
+        'after the root delete,',
         () {
           late CrdtMergeUpdate remoteOrganizationUpdate;
 
@@ -2295,7 +2295,7 @@ void main() {
             },
           );
 
-          group('when the root restore is merged afterwards, ', () {
+          group('when the root restore is merged afterwards,', () {
             setUp(() async {
               final remoteCityRestore = _restoreChange(
                 tableName: City.t.tableName,
@@ -2328,7 +2328,7 @@ void main() {
   );
 
   group(
-    'Given a cascade to restrict chain whose restrict row has set-null and cascade grandchildren and a concurrent delete that hides the root before the children inserts, ',
+    'Given a cascade to restrict chain whose restrict row has set-null and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
     () {
       // Root
       //   │ CASCADE
@@ -2398,7 +2398,7 @@ void main() {
         );
       });
 
-      group('when the root delete is merged, ', () {
+      group('when the root delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteRootDelete],
@@ -2458,7 +2458,7 @@ void main() {
       });
 
       group(
-        'when a restrict blocker delete is merged after the root delete, ',
+        'when a restrict blocker delete is merged after the root delete,',
         () {
           late CrdtMergeDelete remoteRestrictBlockerDelete;
 
@@ -2525,7 +2525,7 @@ void main() {
 
       group(
         'when the root delete and the restrict blocker delete are merged in '
-        'the same batch, ',
+        'the same batch,',
         () {
           setUp(() async {
             final restrictBlockerHlc = await _rowHlc(restrictBlocker.id!);
@@ -2588,7 +2588,7 @@ void main() {
   );
 
   group(
-    'Given a cascade to set-null chain whose middle row has restrict, set-null, and cascade grandchildren and a concurrent delete that hides the root before the children inserts, ',
+    'Given a cascade to set-null chain whose middle row has restrict, set-null, and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
     () {
       // Root
       //   │ CASCADE
@@ -2669,7 +2669,7 @@ void main() {
         );
       });
 
-      group('when the root delete is merged, ', () {
+      group('when the root delete is merged,', () {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteRootDelete],
@@ -2746,7 +2746,7 @@ void main() {
       });
 
       group(
-        'when a restrict grandchild delete is merged after the root delete, ',
+        'when a restrict grandchild delete is merged after the root delete,',
         () {
           late CrdtMergeDelete remoteRestrictGrandchildDelete;
 
@@ -2885,7 +2885,7 @@ void main() {
       });
 
       group(
-        'when the person and company concurrent deletes are merged in the same batch, ',
+        'when the person and company concurrent deletes are merged in the same batch,',
         () {
           setUp(() async {
             await session.db.mergeChanges(
@@ -2922,7 +2922,7 @@ void main() {
   );
 
   group(
-    'Given two databases with the same set-null graph and the same remote operations, ',
+    'Given two databases with the same set-null graph and the same remote operations,',
     () {
       late CrdtDatabaseSession singleBatchSession;
       late CrdtDatabaseSession splitBatchSession;
@@ -3010,7 +3010,7 @@ void main() {
       });
 
       group(
-        'when one database merges one batch and the other merges split batches, ',
+        'when one database merges one batch and the other merges split batches,',
         () {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
@@ -3068,7 +3068,7 @@ void main() {
 
   group(
     'Given two databases with the same visible parent and a remote restrict '
-    'child insert concurrent with the parent delete, ',
+    'child insert concurrent with the parent delete,',
     () {
       late CrdtDatabaseSession singleBatchSession;
       late CrdtDatabaseSession splitBatchSession;
@@ -3132,7 +3132,7 @@ void main() {
 
       group(
         'when one database merges one batch and the other merges the delete '
-        'before the child insert, ',
+        'before the child insert,',
         () {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(

@@ -10,7 +10,7 @@ void main() {
 
   late CrdtMergeSet mergeSet;
 
-  group('Given a table with an existing row and a newer remote delete, ', () {
+  group('Given a table with an existing row and a newer remote delete,', () {
     late Person person;
     late Hlc rowHlc;
     late UuidValue remoteNodeId;
@@ -48,7 +48,7 @@ void main() {
       mergeSet = [remoteDelete];
     });
 
-    group('when merging, ', () {
+    group('when merging,', () {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
@@ -84,7 +84,7 @@ void main() {
   });
 
   group(
-    'Given a table with an implicitly visible row and an older remote delete, ',
+    'Given a table with an implicitly visible row and an older remote delete,',
     () {
       late Person person;
       late Hlc rowHlc;
@@ -122,7 +122,7 @@ void main() {
         mergeSet = [remoteDelete];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -151,7 +151,7 @@ void main() {
     },
   );
 
-  group('Given a table with a deleted row and a same-generation newer event, ', () {
+  group('Given a table with a deleted row and a same-generation newer event,', () {
     late Person person;
     late Hlc tombstoneHlc;
     late UuidValue remoteNodeId;
@@ -193,7 +193,7 @@ void main() {
       mergeSet = [remoteDelete];
     });
 
-    group('when merging, ', () {
+    group('when merging,', () {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
@@ -217,7 +217,7 @@ void main() {
     });
   });
 
-  group('Given a table with a deleted row and a newer remote restore, ', () {
+  group('Given a table with a deleted row and a newer remote restore,', () {
     late Person person;
     late Hlc tombstoneHlc;
     late UuidValue remoteNodeId;
@@ -260,7 +260,7 @@ void main() {
       mergeSet = [remoteRestore];
     });
 
-    group('when merging, ', () {
+    group('when merging,', () {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
@@ -289,7 +289,7 @@ void main() {
     });
   });
 
-  group('Given a table with a restored row and an older remote delete, ', () {
+  group('Given a table with a restored row and an older remote delete,', () {
     late Person person;
     late Hlc tombstoneHlc;
     late UuidValue remoteNodeId;
@@ -338,7 +338,7 @@ void main() {
       mergeSet = [remoteRestore];
     });
 
-    group('when merging, ', () {
+    group('when merging,', () {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
@@ -368,7 +368,7 @@ void main() {
   });
 
   group(
-    'Given a table with a restored row and an older remote delete from a later generation, ',
+    'Given a table with a restored row and an older remote delete from a later generation,',
     () {
       late Person person;
       late Hlc tombstoneHlc;
@@ -415,7 +415,7 @@ void main() {
         mergeSet = [remoteDelete];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -446,7 +446,7 @@ void main() {
 
   group(
     'Given a table with an existing row and a newer remote delete with a '
-    'non-synced projection reason, ',
+    'non-synced projection reason,',
     () {
       late Person person;
       late CrdtMergeDelete remoteDelete;
@@ -481,7 +481,7 @@ void main() {
         mergeSet = [remoteDelete];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
@@ -512,7 +512,7 @@ void main() {
   );
 
   group(
-    'Given an empty table and a remote delete for a non-existing row, ',
+    'Given an empty table and a remote delete for a non-existing row,',
     () {
       late UuidValue remoteNodeId;
       late CrdtMergeDelete remoteDelete;
@@ -534,7 +534,7 @@ void main() {
         mergeSet = [remoteDelete];
       });
 
-      group('when merging, ', () {
+      group('when merging,', () {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
