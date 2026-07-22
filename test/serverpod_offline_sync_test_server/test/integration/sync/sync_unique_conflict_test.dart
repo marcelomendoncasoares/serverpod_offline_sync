@@ -21,7 +21,7 @@ void main() {
   late CrdtDatabaseSession secondClientSession;
 
   withServerpod(
-    'Given a server and two client CRDT sessions for the same user that are initialized with the unique sync table',
+    '[CRDT Sync Unique Conflict]',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -66,7 +66,7 @@ void main() {
         await serverSession.clearUserTables();
       });
 
-      group('and an older server row conflicts with a newer incoming row,', () {
+      group('Given an older server row conflicting with a newer incoming row,', () {
         late client.Unique olderRow;
         late client.Unique newerRow;
 
@@ -106,7 +106,7 @@ void main() {
         });
       });
 
-      group('and a newer server row conflicts with an older incoming row,', () {
+      group('Given a newer server row conflicting with an older incoming row,', () {
         late client.Unique olderRow;
         late client.Unique newerRow;
 
@@ -146,7 +146,7 @@ void main() {
         });
       });
 
-      group('and a newer server update conflicts with an older incoming update,', () {
+      group('Given a newer server update conflicting with an older incoming update,', () {
         late client.Unique olderUpdatedRow;
         late client.Unique newerUpdatedRow;
 
@@ -204,7 +204,7 @@ void main() {
         });
       });
 
-      group('and an older incoming insert conflicts with a newer server update,', () {
+      group('Given an older incoming insert conflicting with a newer server update,', () {
         late client.Unique insertedRow;
         late client.Unique updatedRow;
 

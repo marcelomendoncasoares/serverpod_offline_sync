@@ -36,7 +36,7 @@ void main() {
   late CrdtDatabaseSession clientSession;
 
   withServerpod(
-    'Given a server and client CRDT session that are initialized with the same sync tables',
+    '[CRDT Sync]',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -72,45 +72,9 @@ void main() {
         await serverSession.clearUserTables();
       });
 
-      group('and no local or remote pending changes exist', () {
+      group('Given no local or remote pending changes,', () {
         test(
-          'when client syncOnce is called '
-          'then the sync completes.',
-          () async {
-            await expectLater(
-              testClient.crdt
-                  .syncOnce(clientSession)
-                  .timeout(const Duration(seconds: 3)),
-              completes,
-            );
-          },
-        );
-
-        test(
-          'when an unauthenticated client calls syncOnce '
-          'then the unauthorized error is surfaced without waiting for stream teardown.',
-          () async {
-            final unauthenticatedClient = client.Client(
-              'http://localhost:${rawServerSession.server.port}',
-            );
-
-            await expectLater(
-              unauthenticatedClient.crdt
-                  .syncOnce(clientSession)
-                  .timeout(const Duration(seconds: 3)),
-              throwsA(
-                predicate<Object>(
-                  (error) =>
-                      error.toString() ==
-                      'ServerpodClientException: Unauthorized, statusCode = 401',
-                ),
-              ),
-            );
-          },
-        );
-
-        test(
-          'when client syncOnce is called repeatedly on a reused client '
+          'when client syncOnce is called repeatedly on a reused client, '
           'then the rounds complete promptly instead of stalling on teardown.',
           () async {
             // The first round opens the shared websocket connection; later
@@ -140,7 +104,7 @@ void main() {
         );
 
         test(
-          'when client syncContinuously is called '
+          'when client syncContinuously is called, '
           'then neither side reports a successful merge.',
           () async {
             var mergeSuccessCount = 0;
@@ -157,7 +121,7 @@ void main() {
         );
 
         test(
-          'when a running syncContinuously session is cancelled '
+          'when a running syncContinuously session is cancelled, '
           'then method stream teardown does not close the shared websocket.',
           () async {
             final stderr = await captureStderr(() async {
@@ -178,7 +142,7 @@ void main() {
         );
 
         test(
-          'when client syncContinuously runs '
+          'when client syncContinuously runs, '
           'then neither side keeps sending frames while idle.',
           () async {
             final clientToServer = StreamController<CrdtSyncStreamEvent>();
@@ -254,14 +218,14 @@ void main() {
         );
       });
 
-      group('and the user is a member of a shared scope,', () {
+      group('Given a user with readWrite membership in a shared scope,', () {
         late UuidValue sharedScopeId;
 
         setUp(() async {
           sharedScopeId = await rawServerSession.crdt.scopes.createFor(testCrdtUserId);
         });
 
-        group('and personal and shared scope rows exist on the server,', () {
+        group('with personal and shared scope rows on the server,', () {
           late UuidValue personalPersonId;
           late UuidValue sharedPersonId;
 
@@ -289,7 +253,7 @@ void main() {
           });
 
           test(
-            'when client syncOnce is called '
+            'when client syncOnce is called, '
             'then personal and shared scope rows converge in the same call.',
             () async {
               await testClient.crdt.syncOnce(clientSession);
@@ -310,7 +274,7 @@ void main() {
             },
           );
 
-          group('and the rows were synced to the client,', () {
+          group('with those rows synchronized to the client,', () {
             setUp(() async {
               await testClient.crdt.syncOnce(clientSession);
             });
@@ -377,7 +341,7 @@ void main() {
         );
 
         test(
-          'when the membership is revoked during a running syncContinuously session '
+          'when the membership is revoked during a running syncContinuously session, '
           'then the scope stops syncing without dropping the session.',
           () async {
             final sharedPerson = await serverSession.db.transactionForUser(
@@ -456,7 +420,7 @@ void main() {
         });
 
         group(
-          'and the member wrote a person locally in the shared scope,',
+          'with a local person pending in the shared scope,',
           () {
             late UuidValue clientPersonId;
 
@@ -493,99 +457,10 @@ void main() {
           },
         );
 
-        // MAYBE: This does not need to be inside this group.
         group(
-          'and a readOnly membership in a second shared scope with a server row,',
-          () {
-            late UuidValue readOnlyScopeId;
-            late UuidValue serverPersonId;
-
-            setUp(() async {
-              readOnlyScopeId = await rawServerSession.crdt.scopes.create(
-                grants: {testCrdtUserId: CrdtScopeRole.readOnly},
-              );
-              final serverPerson = await serverSession.db.transactionForUser(
-                readOnlyScopeId,
-                (tx) => server.Person.db.insertRow(
-                  serverSession,
-                  server.Person(name: 'read-only-server-person'),
-                  transaction: tx,
-                ),
-              );
-              serverPersonId = serverPerson.id!;
-            });
-
-            test(
-              'when client syncOnce is called, '
-              'then the readOnly scope row is readable on the client.',
-              () async {
-                await testClient.crdt.syncOnce(clientSession);
-
-                final clientPerson = await client.Person.db.findById(
-                  clientSession,
-                  serverPersonId,
-                );
-
-                expect(clientPerson, isNotNull);
-                expect(clientPerson!.name, 'read-only-server-person');
-              },
-            );
-
-            group(
-              'and the readOnly membership was synced to the client,',
-              () {
-                setUp(() async {
-                  await testClient.crdt.syncOnce(clientSession);
-                });
-
-                test(
-                  'when writing a person locally in the readOnly scope, '
-                  'then the write is rejected before mutation.',
-                  () async {
-                    await expectLater(
-                      clientSession.db.transactionForUser(
-                        testCrdtUserId,
-                        (tx) => client.Person.db.insertRow(
-                          clientSession,
-                          client.Person(name: 'blocked-read-only-write'),
-                          transaction: tx,
-                        ),
-                        scopeId: readOnlyScopeId,
-                      ),
-                      throwsA(isA<CrdtScopeRoleException>()),
-                    );
-
-                    final blockedRows = await client.Person.db.find(
-                      clientSession,
-                      where: (t) => t.name.equals('blocked-read-only-write'),
-                    );
-                    expect(blockedRows, isEmpty);
-                  },
-                );
-              },
-            );
-
-            test(
-              'when client syncOnce is called, '
-              'then syncOnce closes without unexpected server protocol errors.',
-              () async {
-                final stderr = await captureStderr(
-                  () => testClient.crdt.syncOnce(clientSession),
-                );
-
-                expect(stderr, isNot(contains('CrdtSyncUnexpectedEventException')));
-              },
-            );
-          },
-        );
-
-        group(
-          'and the member wrote an unsynced person in the shared scope before '
-          'being demoted to readOnly with a new server row, '
-          'when client syncOnce is called,',
+          'with an unsynced local person in the shared scope,',
           () {
             late UuidValue pendingPersonId;
-            late UuidValue inboundPersonId;
 
             setUp(() async {
               await testClient.crdt.syncOnce(clientSession);
@@ -600,61 +475,73 @@ void main() {
                 scopeId: sharedScopeId,
               );
               pendingPersonId = pendingPerson.id!;
-
-              await rawServerSession.crdt.scopes.grant(
-                scope: sharedScopeId,
-                user: testCrdtUserId,
-                role: CrdtScopeRole.readOnly,
-              );
-              final inboundPerson = await serverSession.db.transactionForUser(
-                sharedScopeId,
-                (tx) => server.Person.db.insertRow(
-                  serverSession,
-                  server.Person(name: 'inbound-after-demotion'),
-                  transaction: tx,
-                ),
-              );
-              inboundPersonId = inboundPerson.id!;
-
-              await testClient.crdt.syncOnce(clientSession);
             });
 
-            test('then the projected role is updated to readOnly.', () async {
-              final grants = await CrdtScopeMembership.memberGrants(
-                clientSession,
-                testCrdtUserId,
-              );
+            group(
+              'when the member is demoted to readOnly with a new server row and client syncOnce is called,',
+              () {
+                late UuidValue inboundPersonId;
 
-              expect(
-                grants.singleWhere((g) => g.uuidScopeId == sharedScopeId).role,
-                CrdtScopeRole.readOnly,
-              );
-            });
+                setUp(() async {
+                  await rawServerSession.crdt.scopes.grant(
+                    scope: sharedScopeId,
+                    user: testCrdtUserId,
+                    role: CrdtScopeRole.readOnly,
+                  );
+                  final inboundPerson = await serverSession.db.transactionForUser(
+                    sharedScopeId,
+                    (tx) => server.Person.db.insertRow(
+                      serverSession,
+                      server.Person(name: 'inbound-after-demotion'),
+                      transaction: tx,
+                    ),
+                  );
+                  inboundPersonId = inboundPerson.id!;
 
-            test('then the inbound server row is received.', () async {
-              final inboundPerson = await client.Person.db.findById(
-                clientSession,
-                inboundPersonId,
-              );
+                  await testClient.crdt.syncOnce(clientSession);
+                });
 
-              expect(inboundPerson, isNotNull);
-              expect(inboundPerson!.name, 'inbound-after-demotion');
-            });
+                test('then the projected role is updated to readOnly.', () async {
+                  final grants = await CrdtScopeMembership.memberGrants(
+                    clientSession,
+                    testCrdtUserId,
+                  );
 
-            test(
-              'then the pending local change is not streamed and no violation is recorded.',
-              () async {
-                expect(
-                  await server.Person.db.findById(serverSession, pendingPersonId),
-                  isNull,
-                );
-                expect(
-                  await CrdtSyncIntegrityViolation.db.find(
-                    rawServerSession,
-                    where: (t) =>
-                        t.type.equals(CrdtSyncViolationType.unauthorizedWrite),
-                  ),
-                  isEmpty,
+                  expect(
+                    grants.singleWhere((g) => g.uuidScopeId == sharedScopeId).role,
+                    CrdtScopeRole.readOnly,
+                  );
+                });
+
+                test('then the inbound server row is received.', () async {
+                  final inboundPerson = await client.Person.db.findById(
+                    clientSession,
+                    inboundPersonId,
+                  );
+
+                  expect(inboundPerson, isNotNull);
+                  expect(inboundPerson!.name, 'inbound-after-demotion');
+                });
+
+                test(
+                  'then the pending local change is not streamed and no violation is recorded.',
+                  () async {
+                    expect(
+                      await server.Person.db.findById(
+                        serverSession,
+                        pendingPersonId,
+                      ),
+                      isNull,
+                    );
+                    expect(
+                      await CrdtSyncIntegrityViolation.db.find(
+                        rawServerSession,
+                        where: (t) =>
+                            t.type.equals(CrdtSyncViolationType.unauthorizedWrite),
+                      ),
+                      isEmpty,
+                    );
+                  },
                 );
               },
             );
@@ -662,7 +549,7 @@ void main() {
         );
 
         group(
-          'and the previously synced shared scope membership is revoked,',
+          'with a server person already synchronized to the client,',
           () {
             late UuidValue revokedPersonId;
 
@@ -678,38 +565,36 @@ void main() {
               );
               revokedPersonId = revokedPerson.id!;
               await testClient.crdt.syncOnce(clientSession);
-              await rawServerSession.crdt.scopes.revoke(
-                scope: sharedScopeId,
-                user: testCrdtUserId,
-              );
             });
 
-            test(
-              'when client syncOnce is called, '
-              'then the revoked membership is absent from the local cache.',
-              () async {
-                await testClient.crdt.syncOnce(clientSession);
-
-                final grants = await CrdtScopeMembership.memberGrants(
-                  clientSession,
-                  testCrdtUserId,
-                );
-
-                expect(
-                  grants.where((g) => g.uuidScopeId == sharedScopeId),
-                  isEmpty,
-                );
-              },
-            );
-
-            group('and the revocation was synced to the client,', () {
+            group('with the revoked membership synchronized to the client,', () {
               setUp(() async {
+                await rawServerSession.crdt.scopes.revoke(
+                  scope: sharedScopeId,
+                  user: testCrdtUserId,
+                );
                 await testClient.crdt.syncOnce(clientSession);
               });
 
               test(
-                'when finding a person by id in the revoked scope, '
-                'then the person is no longer returned by membership-wide reads.',
+                'when member grants are resolved, '
+                'then the revoked membership is absent from the local cache.',
+                () async {
+                  final grants = await CrdtScopeMembership.memberGrants(
+                    clientSession,
+                    testCrdtUserId,
+                  );
+
+                  expect(
+                    grants.where((g) => g.uuidScopeId == sharedScopeId),
+                    isEmpty,
+                  );
+                },
+              );
+
+              test(
+                'when finding the person by id, '
+                'then it is no longer returned by membership-wide reads.',
                 () async {
                   final revokedPerson = await client.Person.db.findById(
                     clientSession,
@@ -750,8 +635,89 @@ void main() {
       });
 
       group(
-        'and the user is not a member of a shared scope, '
-        'when a transaction is started for that scope,',
+        'Given a user with readOnly membership in a shared scope containing a server row,',
+        () {
+          late UuidValue readOnlyScopeId;
+          late UuidValue serverPersonId;
+
+          setUp(() async {
+            readOnlyScopeId = await rawServerSession.crdt.scopes.create(
+              grants: {testCrdtUserId: CrdtScopeRole.readOnly},
+            );
+            final serverPerson = await serverSession.db.transactionForUser(
+              readOnlyScopeId,
+              (tx) => server.Person.db.insertRow(
+                serverSession,
+                server.Person(name: 'read-only-server-person'),
+                transaction: tx,
+              ),
+            );
+            serverPersonId = serverPerson.id!;
+          });
+
+          test(
+            'when client syncOnce is called, '
+            'then the readOnly scope row is readable on the client.',
+            () async {
+              await testClient.crdt.syncOnce(clientSession);
+
+              final clientPerson = await client.Person.db.findById(
+                clientSession,
+                serverPersonId,
+              );
+
+              expect(clientPerson, isNotNull);
+              expect(clientPerson!.name, 'read-only-server-person');
+            },
+          );
+
+          group('with the membership synchronized to the client,', () {
+            setUp(() async {
+              await testClient.crdt.syncOnce(clientSession);
+            });
+
+            test(
+              'when writing a person locally in the readOnly scope, '
+              'then the write is rejected before mutation.',
+              () async {
+                await expectLater(
+                  clientSession.db.transactionForUser(
+                    testCrdtUserId,
+                    (tx) => client.Person.db.insertRow(
+                      clientSession,
+                      client.Person(name: 'blocked-read-only-write'),
+                      transaction: tx,
+                    ),
+                    scopeId: readOnlyScopeId,
+                  ),
+                  throwsA(isA<CrdtScopeRoleException>()),
+                );
+
+                final blockedRows = await client.Person.db.find(
+                  clientSession,
+                  where: (t) => t.name.equals('blocked-read-only-write'),
+                );
+                expect(blockedRows, isEmpty);
+              },
+            );
+          });
+
+          test(
+            'when client syncOnce is called, '
+            'then syncOnce closes without unexpected server protocol errors.',
+            () async {
+              final stderr = await captureStderr(
+                () => testClient.crdt.syncOnce(clientSession),
+              );
+
+              expect(stderr, isNot(contains('CrdtSyncUnexpectedEventException')));
+            },
+          );
+        },
+      );
+
+      group(
+        'Given a user without membership in a shared scope,',
         () {
           late UuidValue ungrantedScopeId;
 
@@ -759,26 +725,29 @@ void main() {
             ungrantedScopeId = await rawServerSession.crdt.scopes.create();
           });
 
-          test('then it is rejected before writing.', () async {
-            await expectLater(
-              serverSession.db.transactionForUser(
-                testCrdtUserId,
-                (tx) => server.Person.db.insertRow(
-                  serverSession,
-                  server.Person(name: 'ungranted-server-person'),
-                  transaction: tx,
+          test(
+            'when a transaction is started for that scope, '
+            'then it is rejected before writing.',
+            () async {
+              await expectLater(
+                serverSession.db.transactionForUser(
+                  testCrdtUserId,
+                  (tx) => server.Person.db.insertRow(
+                    serverSession,
+                    server.Person(name: 'ungranted-server-person'),
+                    transaction: tx,
+                  ),
+                  scopeId: ungrantedScopeId,
                 ),
-                scopeId: ungrantedScopeId,
-              ),
-              throwsA(isA<CrdtScopeMembershipException>()),
-            );
-          });
+                throwsA(isA<CrdtScopeMembershipException>()),
+              );
+            },
+          );
         },
       );
 
       group(
-        'and the client has a local scope that the server has not granted, '
-        'when client syncOnce is called,',
+        'Given a client with personal and local ungranted scope changes,',
         () {
           late UuidValue ungrantedScopeId;
           late UuidValue personalPersonId;
@@ -800,13 +769,14 @@ void main() {
             );
             personalPersonId = personalPerson.id!;
             ungrantedPersonId = ungrantedPerson.id!;
-
-            await testClient.crdt.syncOnce(clientSession);
           });
 
           test(
+            'when client syncOnce is called, '
             'then the ungranted scope is not streamed to the server.',
             () async {
+              await testClient.crdt.syncOnce(clientSession);
+
               final serverPersonalPerson = await server.Person.db.findById(
                 serverSession,
                 personalPersonId,
@@ -824,7 +794,7 @@ void main() {
         },
       );
 
-      group('and an inserted client person', () {
+      group('Given a pending client person,', () {
         late UuidValue personId;
 
         setUp(() async {
@@ -837,7 +807,7 @@ void main() {
         });
 
         test(
-          'when client syncOnce is called '
+          'when client syncOnce is called, '
           'then the server merges the client pending changes.',
           () async {
             await testClient.crdt.syncOnce(clientSession);
@@ -854,7 +824,7 @@ void main() {
         );
 
         test(
-          'when client syncContinuously is called '
+          'when client syncContinuously is called, '
           'then the server merges the client pending changes.',
           () async {
             final syncSession = testClient.crdt.syncContinuously(clientSession);
@@ -882,19 +852,7 @@ void main() {
         );
 
         test(
-          'when a running syncContinuously session is cancelled '
-          'then done completes without hanging.',
-          () async {
-            final syncSession = testClient.crdt.syncContinuously(clientSession);
-
-            await syncSession.cancel();
-
-            await expectLater(syncSession.done, completes);
-          },
-        );
-
-        test(
-          'when a running syncContinuously session is cancelled '
+          'when a running syncContinuously session is cancelled, '
           'then method stream teardown does not close the shared websocket.',
           () async {
             final stderr = await captureStderr(() async {
@@ -914,7 +872,7 @@ void main() {
         );
       });
 
-      group('and an inserted server person', () {
+      group('Given a pending server person,', () {
         late UuidValue personId;
 
         setUp(() async {
@@ -930,7 +888,7 @@ void main() {
         });
 
         test(
-          'when client syncContinuously is called '
+          'when client syncContinuously is called, '
           'then the client merges the server pending changes.',
           () async {
             final syncSession = testClient.crdt.syncContinuously(clientSession);
@@ -958,7 +916,7 @@ void main() {
         );
       });
 
-      group('and an inserted client and server person', () {
+      group('Given pending client and server persons,', () {
         late UuidValue clientPersonId;
         late UuidValue serverPersonId;
 
@@ -981,7 +939,7 @@ void main() {
         });
 
         test(
-          'when client syncOnce is called '
+          'when client syncOnce is called, '
           'then both the client and server have the two persons.',
           () async {
             await testClient.crdt.syncOnce(clientSession);
@@ -1013,7 +971,7 @@ void main() {
         );
 
         test(
-          'when client syncContinuously is called '
+          'when client syncContinuously is called, '
           'then the client merges the server pending changes.',
           () async {
             final syncSession = testClient.crdt.syncContinuously(clientSession);
@@ -1059,7 +1017,7 @@ void main() {
         );
       });
 
-      group('and a person that was synced to both sides', () {
+      group('Given a person synchronized to the client and server,', () {
         late UuidValue personId;
 
         setUp(() async {
@@ -1078,7 +1036,7 @@ void main() {
         });
 
         test(
-          'when the server deletes the person and the client syncs '
+          'when the server deletes the person and the client syncs, '
           'then the person is hidden on the client.',
           () async {
             final serverPerson = await server.Person.db.findById(
@@ -1110,7 +1068,7 @@ void main() {
         );
 
         test(
-          'when the client and server update different columns offline '
+          'when the client and server update different columns offline, '
           'then both edits converge on both sides after one sync.',
           () async {
             final clientPerson = await client.Person.db.findById(
@@ -1158,7 +1116,7 @@ void main() {
         );
 
         test(
-          'when the client deletes and reinserts the person offline '
+          'when the client deletes and reinserts the person offline, '
           'then the reinserted row is visible on the server after sync.',
           () async {
             final clientPerson = await client.Person.db.findById(
@@ -1183,7 +1141,7 @@ void main() {
         );
       });
 
-      group('and an inserted client Types row with every field set', () {
+      group('Given a pending client Types row with every field set,', () {
         late client.Types clientTypes;
 
         setUp(() async {
@@ -1208,7 +1166,7 @@ void main() {
         });
 
         test(
-          'when client syncOnce is called '
+          'when client syncOnce is called, '
           'then every field value survives the wire roundtrip to the server.',
           () async {
             await testClient.crdt.syncOnce(clientSession);
@@ -1235,47 +1193,51 @@ void main() {
           },
         );
 
-        test(
-          'when the server updates typed columns after a sync '
-          'then the client receives the typed values on the next sync.',
-          () async {
+        group('with the row synchronized to the server,', () {
+          setUp(() async {
             await testClient.crdt.syncOnce(clientSession);
+          });
 
-            final serverTypes = await server.Types.db.findById(
-              serverSession,
-              clientTypes.id!,
-            );
-            final updatedDateTime = DateTime.utc(2027, 1, 2, 3, 4, 5);
-            final updatedInt64 = BigInt.parse('12345678901234567890');
-            await serverSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => server.Types.db.updateRow(
+          test(
+            'when the server updates typed columns and the client syncs again, '
+            'then the client receives the typed values.',
+            () async {
+              final serverTypes = await server.Types.db.findById(
                 serverSession,
-                serverTypes!.copyWith(
-                  aDateTime: updatedDateTime,
-                  anInt64: updatedInt64,
-                  anEnum: server.TypesEnum.beta,
+                clientTypes.id!,
+              );
+              final updatedDateTime = DateTime.utc(2027, 1, 2, 3, 4, 5);
+              final updatedInt64 = BigInt.parse('12345678901234567890');
+              await serverSession.db.transactionForUser(
+                testCrdtUserId,
+                (tx) => server.Types.db.updateRow(
+                  serverSession,
+                  serverTypes!.copyWith(
+                    aDateTime: updatedDateTime,
+                    anInt64: updatedInt64,
+                    anEnum: server.TypesEnum.beta,
+                  ),
+                  columns: (t) => [t.aDateTime, t.anInt64, t.anEnum],
+                  transaction: tx,
                 ),
-                columns: (t) => [t.aDateTime, t.anInt64, t.anEnum],
-                transaction: tx,
-              ),
-            );
+              );
 
-            await testClient.crdt.syncOnce(clientSession);
+              await testClient.crdt.syncOnce(clientSession);
 
-            final mergedTypes = await client.Types.db.findById(
-              clientSession,
-              clientTypes.id!,
-            );
-            expect(mergedTypes, isNotNull);
-            expect(mergedTypes!.aDateTime, updatedDateTime);
-            expect(mergedTypes.anInt64, updatedInt64);
-            expect(mergedTypes.anEnum, client.TypesEnum.beta);
-          },
-        );
+              final mergedTypes = await client.Types.db.findById(
+                clientSession,
+                clientTypes.id!,
+              );
+              expect(mergedTypes, isNotNull);
+              expect(mergedTypes!.aDateTime, updatedDateTime);
+              expect(mergedTypes.anInt64, updatedInt64);
+              expect(mergedTypes.anEnum, client.TypesEnum.beta);
+            },
+          );
+        });
       });
 
-      group('and a running client syncContinuously session', () {
+      group('Given a running client syncContinuously session,', () {
         late CrdtSyncSession syncSession;
 
         setUp(() async {
@@ -1287,7 +1249,7 @@ void main() {
         });
 
         test(
-          'when the session is cancelled '
+          'when the session is cancelled, '
           'then done completes without hanging.',
           () async {
             await syncSession.cancel();
@@ -1296,7 +1258,7 @@ void main() {
         );
 
         test(
-          'when no local or remote changes exist '
+          'when the session remains idle before cancellation, '
           'then the idle session can still be cancelled cleanly.',
           () async {
             await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -1306,7 +1268,7 @@ void main() {
         );
 
         test(
-          'when a new person is inserted into the client '
+          'when a new person is inserted into the client, '
           'then the server merges the client pending changes.',
           () async {
             final clientPerson = await client.Person.db.insertRow(
@@ -1328,7 +1290,7 @@ void main() {
         );
 
         test(
-          'when a new person is inserted into the server for the same user '
+          'when a new person is inserted into the server for the same user, '
           'then the client merges the server pending changes.',
           () async {
             final serverPerson = await serverSession.db.transactionForUser(
@@ -1354,7 +1316,7 @@ void main() {
         );
 
         test(
-          'when a new person is inserted into the server for a different user '
+          'when a new person is inserted into the server for a different user, '
           'then the client does not merge the server pending changes.',
           () async {
             final serverPerson = await serverSession.db.transactionForUser(
@@ -1381,7 +1343,7 @@ void main() {
       });
 
       group(
-        'and a running client syncContinuously session with a merge success callback',
+        'Given a running client syncContinuously session with a merge success callback,',
         () {
           late CrdtSyncSession syncSession;
           late Completer<Hlc> mergeSuccessCompleter;
@@ -1400,7 +1362,7 @@ void main() {
           });
 
           test(
-            'when a new person is inserted into the client '
+            'when a new person is inserted into the client, '
             'then the merge success callback is called.',
             () async {
               await client.Person.db.insertRow(
@@ -1413,7 +1375,7 @@ void main() {
           );
 
           test(
-            'when a new person is inserted into the server for the same user '
+            'when a new person is inserted into the server for the same user, '
             'then the merge success callback is called.',
             () async {
               await serverSession.db.transactionForUser(
@@ -1430,11 +1392,35 @@ void main() {
           );
         },
       );
+
+      test(
+        'Given an unauthenticated client and an initialized client CRDT session, '
+        'when the client calls syncOnce, '
+        'then the unauthorized error is surfaced without waiting for stream teardown.',
+        () async {
+          final unauthenticatedClient = client.Client(
+            'http://localhost:${rawServerSession.server.port}',
+          );
+
+          await expectLater(
+            unauthenticatedClient.crdt
+                .syncOnce(clientSession)
+                .timeout(const Duration(seconds: 3)),
+            throwsA(
+              predicate<Object>(
+                (error) =>
+                    error.toString() ==
+                    'ServerpodClientException: Unauthorized, statusCode = 401',
+              ),
+            ),
+          );
+        },
+      );
     },
   );
 
   withServerpod(
-    'Given a server and two client CRDT sessions for the same user that are initialized with the same sync tables',
+    'Given two client CRDT sessions for the same user,',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -1479,7 +1465,7 @@ void main() {
       });
 
       test(
-        'when the first node uploads an offline deletion after the second node synchronized a newer change '
+        'when the first node uploads an offline deletion after the second node synchronized a newer change, '
         'then the second node receives the deletion on its next sync.',
         () async {
           final rowToDelete = await client.Unique.db.insertRow(
@@ -1516,7 +1502,7 @@ void main() {
   );
 
   withServerpod(
-    'Given a server and two client CRDT sessions for different users that share one readWrite scope',
+    'Given two client CRDT sessions for different users sharing one readWrite scope,',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -1568,6 +1554,9 @@ void main() {
             secondUserId: CrdtScopeRole.readWrite,
           },
         );
+
+        await firstClient.crdt.syncOnce(firstClientSession);
+        await secondClient.crdt.syncOnce(secondClientSession);
       });
 
       tearDown(() async {
@@ -1575,14 +1564,12 @@ void main() {
       });
 
       group(
-        'and the first user wrote a shared and a personal person and both clients synced,',
+        'when the first user writes shared and personal persons and both clients synchronize,',
         () {
           late UuidValue sharedPersonId;
           late UuidValue personalPersonId;
 
           setUp(() async {
-            await firstClient.crdt.syncOnce(firstClientSession);
-
             final sharedPerson = await firstClientSession.db.transactionForUser(
               testCrdtUserId,
               (tx) => client.Person.db.insertRow(
@@ -1625,39 +1612,40 @@ void main() {
               );
             },
           );
+        },
+      );
 
-          group(
-            'and the second user wrote a person in the shared scope and both clients synced,',
-            () {
-              late UuidValue replyPersonId;
+      group(
+        'when the second user writes a shared person and both clients synchronize,',
+        () {
+          late UuidValue replyPersonId;
 
-              setUp(() async {
-                final replyPerson = await secondClientSession.db.transactionForUser(
-                  secondUserId,
-                  (tx) => client.Person.db.insertRow(
-                    secondClientSession,
-                    client.Person(name: 'second-user-shared-person'),
-                    transaction: tx,
-                  ),
-                  scopeId: sharedScopeId,
-                );
-                replyPersonId = replyPerson.id!;
-                await secondClient.crdt.syncOnce(secondClientSession);
-                await firstClient.crdt.syncOnce(firstClientSession);
-              });
+          setUp(() async {
+            final replyPerson = await secondClientSession.db.transactionForUser(
+              secondUserId,
+              (tx) => client.Person.db.insertRow(
+                secondClientSession,
+                client.Person(name: 'second-user-shared-person'),
+                transaction: tx,
+              ),
+              scopeId: sharedScopeId,
+            );
+            replyPersonId = replyPerson.id!;
 
-              test(
-                "then the first user receives the second user's shared person.",
-                () async {
-                  final replyPerson = await client.Person.db.findById(
-                    firstClientSession,
-                    replyPersonId,
-                  );
+            await secondClient.crdt.syncOnce(secondClientSession);
+            await firstClient.crdt.syncOnce(firstClientSession);
+          });
 
-                  expect(replyPerson, isNotNull);
-                  expect(replyPerson!.name, 'second-user-shared-person');
-                },
+          test(
+            "then the first user receives the second user's shared person.",
+            () async {
+              final replyPerson = await client.Person.db.findById(
+                firstClientSession,
+                replyPersonId,
               );
+
+              expect(replyPerson, isNotNull);
+              expect(replyPerson!.name, 'second-user-shared-person');
             },
           );
         },
@@ -1666,7 +1654,7 @@ void main() {
   );
 
   withServerpod(
-    'Given a server and client CRDT session that are initialized with the same sync tables and a continuous sync interval',
+    'Given initialized client and server CRDT sessions with a continuous sync interval,',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -1698,7 +1686,7 @@ void main() {
       });
 
       test(
-        'when a client change is inserted after a sync round '
+        'when a client change is inserted after a sync round, '
         'then the next merge chunk waits for the configured interval.',
         () async {
           var mergeSuccessCount = 0;
@@ -1753,87 +1741,6 @@ void main() {
           );
 
           expect(stopwatch.elapsed, greaterThanOrEqualTo(syncInterval));
-        },
-      );
-    },
-  );
-
-  withServerpod(
-    'Given a server and client CRDT session that are initialized with different sync tables',
-    rollbackDatabase: RollbackDatabase.disabled,
-    // Silent mode is used to avoid the symmetric `SyncTablesHashMismatchException`
-    // to be printed to the console. The exception is already asserted on the client.
-    testServerOutputMode: TestServerOutputMode.silent,
-    (sessionBuilder, _) {
-      final rawServerSession = sessionBuilder.build();
-
-      rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
-        ..authenticationHandler = (session, token) async => AuthenticationInfo(
-          testCrdtUserId.toString(),
-          <Scope>{},
-          authId: const Uuid().v4(),
-        );
-
-      setUp(() async {
-        testClient = client.Client(
-          'http://localhost:${rawServerSession.server.port}',
-        )..authKeyProvider = TestClientAuthKeyProvider();
-
-        clientSession = CrdtDatabaseSession.wraps(
-          testSession,
-          syncTables: [client.Address.t, client.Person.t],
-          persistentUserId: testCrdtUserId,
-        );
-        await clientSession.db.initialize();
-
-        serverSession = CrdtDatabaseSession.wraps(
-          rawServerSession,
-          syncTables: serverSyncTables,
-        );
-        await serverSession.db.initialize();
-      });
-
-      tearDown(() async {
-        await serverSession.clearUserTables();
-      });
-
-      final expectedHashMismatch = isA<SyncTablesHashMismatchException>()
-          .having(
-            (e) => e.toString(),
-            'message',
-            contains('SyncTablesHashMismatchException: schema hash mismatch.'),
-          )
-          .having(
-            (e) => e.toString(),
-            'message',
-            contains(
-              'Ensure both sides are on the same schema version before syncing.',
-            ),
-          );
-
-      test(
-        'when client syncOnce is called '
-        'then SyncTablesHashMismatchException is thrown.',
-        () async {
-          await expectLater(
-            testClient.crdt.syncOnce(clientSession),
-            throwsA(expectedHashMismatch),
-          );
-        },
-      );
-
-      test(
-        'when client syncContinuously is called '
-        'then SyncTablesHashMismatchException is thrown.',
-        () async {
-          final syncSession = testClient.crdt.syncContinuously(clientSession);
-          addTearDown(syncSession.cancel);
-
-          await expectLater(
-            syncSession.done,
-            throwsA(expectedHashMismatch),
-          );
         },
       );
     },

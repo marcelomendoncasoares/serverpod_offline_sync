@@ -14,7 +14,7 @@ void main() {
   final uniqueDefinition = protocol.getTableDefinition(Unique.t);
   final typesDefinition = protocol.getTableDefinition(Types.t);
 
-  group('Given table definitions with different table and schema elements order', () {
+  group('Given table definitions with different table and schema elements order,', () {
     final baseDefinitions = [
       addressDefinition,
       personDefinition,
@@ -31,7 +31,7 @@ void main() {
     ];
 
     test(
-      'when comparing the definition hashes '
+      'when comparing the definition hashes, '
       'then their hash values are equal.',
       () {
         final baseHash = CrdtSync.computeSyncTablesHash(
@@ -49,7 +49,7 @@ void main() {
     );
   });
 
-  group('Given table definitions with different columns', () {
+  group('Given table definitions with different columns,', () {
     final baseDefinitions = [
       personDefinition,
     ];
@@ -64,7 +64,7 @@ void main() {
     ];
 
     test(
-      'when comparing the definition hashes '
+      'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
         final baseHash = CrdtSync.computeSyncTablesHash(
@@ -82,7 +82,7 @@ void main() {
     );
   });
 
-  group('Given table definitions with different foreign keys', () {
+  group('Given table definitions with different foreign keys,', () {
     final baseDefinitions = [
       addressDefinition,
     ];
@@ -101,7 +101,7 @@ void main() {
     ];
 
     test(
-      'when comparing the definition hashes '
+      'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
         final baseHash = CrdtSync.computeSyncTablesHash(
@@ -119,7 +119,7 @@ void main() {
     );
   });
 
-  group('Given table definitions with different unique indexes', () {
+  group('Given table definitions with different unique indexes,', () {
     final baseDefinitions = [
       addressDefinition,
     ];
@@ -142,7 +142,7 @@ void main() {
     ];
 
     test(
-      'when comparing the definition hashes '
+      'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
         final baseHash = CrdtSync.computeSyncTablesHash(
@@ -160,7 +160,7 @@ void main() {
     );
   });
 
-  group('Given table definitions with different non-unique indexes', () {
+  group('Given table definitions with different non-unique indexes,', () {
     final baseDefinitions = [
       typesDefinition,
     ];
@@ -179,7 +179,7 @@ void main() {
     ];
 
     test(
-      'when comparing the definition hashes '
+      'when comparing the definition hashes, '
       'then their hash values are equal.',
       () {
         final baseHash = CrdtSync.computeSyncTablesHash(

@@ -39,7 +39,7 @@ void main() {
   late CrdtSync clientSync;
 
   withServerpod(
-    'Given a server and client CRDT session that are initialized with the same sync tables',
+    '[CRDT Sync Inbound Authorization]',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -70,9 +70,8 @@ void main() {
       });
 
       group(
-        'and a stale client session holds a readWrite projection for a shared '
-        'scope the server grants as readOnly, with pending personal and shared '
-        'writes, when the combined batch is spliced into a real sync session,',
+        'Given a stale client session with a readWrite projection for a shared scope the server grants as readOnly, with pending personal and shared writes, '
+        'when the combined batch is spliced into a real sync session,',
         () {
           late UuidValue sharedScopeId;
           late UuidValue personalPersonId;
@@ -155,8 +154,7 @@ void main() {
           });
 
           test(
-            'then the unauthorized shared-scope write is not applied and '
-            'records an unauthorizedWrite violation.',
+            'then the unauthorized shared-scope write is not applied and records an unauthorizedWrite violation.',
             () async {
               expect(
                 await server.Person.db.findById(serverSession, sharedPersonId),
@@ -178,8 +176,7 @@ void main() {
       );
 
       group(
-        'and a stale client session holds a readWrite projection for a scope '
-        'the server never granted, with a pending write, '
+        'Given a stale client session with a readWrite projection for a scope the server never granted, with a pending write, '
         'when the crafted batch is spliced into a real sync session,',
         () {
           late UuidValue ungrantedScopeId;

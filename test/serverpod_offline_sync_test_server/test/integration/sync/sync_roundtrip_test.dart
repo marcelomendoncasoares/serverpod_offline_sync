@@ -31,7 +31,7 @@ void main() {
     );
   });
 
-  group('Given an inserted typed CRDT row', () {
+  group('Given an inserted typed CRDT row,', () {
     late Types insertedRow;
 
     setUp(() async {
@@ -60,7 +60,7 @@ void main() {
     });
 
     test(
-      'when pending changes are collected '
+      'when pending changes are collected, '
       'then the row payload roundtrips with its original Dart type.',
       () async {
         final mergeSet = await crdtSync
@@ -84,7 +84,7 @@ void main() {
     );
   });
 
-  group('Given multiple inserted CRDT rows', () {
+  group('Given multiple inserted CRDT rows,', () {
     setUp(() async {
       for (var i = 0; i < 3; i++) {
         await crdtSession.db.transactionForUser(
@@ -101,7 +101,7 @@ void main() {
     });
 
     test(
-      'when collected pending changes are chunked '
+      'when collected pending changes are chunked, '
       'then each chunk is no larger than the batch size.',
       () async {
         final chunks = await crdtSync
@@ -120,7 +120,7 @@ void main() {
     );
   });
 
-  group('Given personal and shared scope rows authored by the same local node', () {
+  group('Given personal and shared scope rows authored by the same local node,', () {
     late UuidValue sharedScopeId;
     late Person sharedPerson;
     late Person personalPerson;
@@ -161,7 +161,7 @@ void main() {
     });
 
     test(
-      'when only the personal scope checkpoint has advanced '
+      'when only the personal scope checkpoint has advanced, '
       'then only the shared scope row is collected.',
       () async {
         final personalScope = await CrdtScope.db.findFirstRow(
@@ -204,7 +204,7 @@ void main() {
     );
   });
 
-  group('Given existing scopes with different current CRDT nodes', () {
+  group('Given existing scopes with different current CRDT nodes,', () {
     late UuidValue firstScopeId;
     late UuidValue secondScopeId;
     late CrdtNode firstNode;
@@ -243,7 +243,7 @@ void main() {
     });
 
     test(
-      'when getOrCreate reopens the second scope '
+      'when getOrCreate reopens the second scope, '
       'then it reuses the first scope node with the second scope HLC instead of creating a new node.',
       () async {
         final adoptedScope = await CrdtScopeManager(
@@ -274,7 +274,7 @@ void main() {
     );
   });
 
-  group('Given an updated typed CRDT row', () {
+  group('Given an updated typed CRDT row,', () {
     late Types row;
     late Types updatedRow;
 
@@ -321,7 +321,7 @@ void main() {
     });
 
     test(
-      'when pending changes are collected '
+      'when pending changes are collected, '
       'then the field values roundtrip with their original Dart types.',
       () async {
         final mergeSet = await crdtSync
@@ -350,7 +350,7 @@ void main() {
     );
   });
 
-  group('Given an inserted row with an active set-null projection', () {
+  group('Given an inserted row with an active set-null projection,', () {
     late Person attemptedParent;
     late Town child;
 
@@ -394,7 +394,7 @@ void main() {
     });
 
     test(
-      'when pending changes are collected '
+      'when pending changes are collected, '
       'then the insert payload carries the attempted foreign key value.',
       () async {
         final mergeSet = await crdtSync
@@ -414,7 +414,7 @@ void main() {
     );
   });
 
-  group('Given an updated row with an active set-null projection', () {
+  group('Given an updated row with an active set-null projection,', () {
     late Town child;
     late UuidValue missingParentId;
 
@@ -451,7 +451,7 @@ void main() {
     });
 
     test(
-      'when pending changes are collected '
+      'when pending changes are collected, '
       'then the update payload carries the attempted foreign key value.',
       () async {
         final mergeSet = await crdtSync
@@ -476,8 +476,8 @@ void main() {
   });
 
   test(
-    'Given a CRDT node without local changes '
-    'when synchronization checkpoints are created '
+    'Given a CRDT node without local changes, '
+    'when synchronization checkpoints are created, '
     'then one fresh checkpoint for the local node is included.',
     () async {
       final scope = await CrdtScopeManager(testSession).getOrCreate(testCrdtUserId);
