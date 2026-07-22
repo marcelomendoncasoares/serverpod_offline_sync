@@ -140,60 +140,43 @@ void main() {
       });
     });
 
-    test(
-      'when updating a Person with another scopeId, then it throws.',
-      () async {
-        final updateFuture = session.db.transactionForUser(
+    group('when updating the Person name column with updateById,', () {
+      late Person? updatedPerson;
+
+      setUp(() async {
+        updatedPerson = await session.db.transactionForUser(
           testCrdtUserId,
-          (tx) => Person.db.updateRow(
+          (tx) => Person.db.updateById(
             session,
-            person.copyWith(name: 'wrong scope', scopeId: -1),
-            columns: (t) => [t.name],
+            person.id!,
+            columnValues: (t) => [t.name('updated by id')],
             transaction: tx,
           ),
         );
+      });
 
-        await expectLater(
-          updateFuture,
-          throwsA(
-            isA<StateError>().having(
-              (e) => e.message,
-              'message',
-              allOf([
-                contains('Cannot write person row'),
-                contains('with scopeId -1 while acting in scope 1'),
-              ]),
-            ),
-          ),
-        );
-      },
-    );
+      test('then the updated row is returned with scopeId null.', () async {
+        expect(updatedPerson, isNotNull);
+        expect(updatedPerson!.name, 'updated by id');
+        expect(updatedPerson!.scopeId, isNull);
+      });
 
-    test(
-      'when updateWhere sets scopeId, then it throws.',
-      () async {
-        final updateFuture = session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.updateWhere(
-            session,
-            columnValues: (t) => [t.scopeId(-1)],
-            where: (t) => t.id.equals(person.id),
-            transaction: tx,
-          ),
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated by id');
+      });
+
+      test('then a CRDT field is created for the name column.', () async {
+        final field = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
         );
 
-        await expectLater(
-          updateFuture,
-          throwsA(
-            isA<StateError>().having(
-              (e) => e.message,
-              'message',
-              contains('scopeId is immutable and owned by the CRDT sync layer'),
-            ),
-          ),
-        );
-      },
-    );
+        expect(field, isNotNull);
+        expect(field!.column!.name, 'name');
+      });
+    });
 
     group('when updating the Person with update and noReturn,', () {
       late List<Person> updated;
@@ -255,6 +238,79 @@ void main() {
         expect(row?.name, 'updated');
       });
     });
+
+    test(
+      'when updating a non-existing Person with updateById, '
+      'then null is returned.',
+      () async {
+        final updated = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateById(
+            session,
+            const Uuid().v7obj(),
+            columnValues: (t) => [t.name('missing')],
+            transaction: tx,
+          ),
+        );
+
+        expect(updated, isNull);
+      },
+    );
+
+    test(
+      'when updating a Person with another scopeId, then it throws.',
+      () async {
+        final updateFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateRow(
+            session,
+            person.copyWith(name: 'wrong scope', scopeId: -1),
+            columns: (t) => [t.name],
+            transaction: tx,
+          ),
+        );
+
+        await expectLater(
+          updateFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf([
+                contains('Cannot write person row'),
+                contains('with scopeId -1 while acting in scope 1'),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'when updateWhere sets scopeId, then it throws.',
+      () async {
+        final updateFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateWhere(
+            session,
+            columnValues: (t) => [t.scopeId(-1)],
+            where: (t) => t.id.equals(person.id),
+            transaction: tx,
+          ),
+        );
+
+        await expectLater(
+          updateFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('scopeId is immutable and owned by the CRDT sync layer'),
+            ),
+          ),
+        );
+      },
+    );
   });
 
   group('Given a person table with a deleted row,', () {
@@ -287,6 +343,36 @@ void main() {
         throwsA(isA<Exception>()),
         reason: 'This should fail due to the person being tombstoned.',
       );
+    });
+
+    group('when updating the deleted person with updateById,', () {
+      late Person? updated;
+
+      setUp(() async {
+        updated = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateById(
+            session,
+            person.id!,
+            columnValues: (t) => [t.name('test2')],
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then null is returned.', () async {
+        expect(updated, isNull);
+      });
+
+      test('then the deleted row keeps its original value.', () async {
+        final row = await Person.db.findFirstRow(
+          session,
+          where: (t) => t.id.equals(person.id) & t.includeHiddenRows,
+        );
+
+        expect(row, isNotNull);
+        expect(row!.name, person.name);
+      });
     });
 
     group('when updating the deleted person with updateWhere,', () {

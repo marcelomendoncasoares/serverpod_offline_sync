@@ -402,6 +402,83 @@ void main() {
         );
         expect(crdtRow!.hlc, greaterThan(insertedCrdtRow.hlc));
       });
+
+      test('then the tombstone of the reinserted row is lifted.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+        );
+
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, isFalse);
+        expect(tombstone.reason, CrdtDataDeletedReason.userReinsert);
+      });
+    });
+
+    group(
+      'when upserting the Person with a column outside updateColumns changed,',
+      () {
+        late Person? reinserted;
+
+        setUp(() async {
+          reinserted = await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.upsertRow(
+              session,
+              person.copyWith(
+                name: 'reinserted',
+                surname: 'reinserted surname',
+              ),
+              conflictColumns: (t) => [t.id],
+              updateColumns: (t) => [t.name],
+              transaction: tx,
+            ),
+          );
+        });
+
+        test(
+          'then the full incoming row is persisted, '
+          'including the column outside updateColumns.',
+          () async {
+            expect(reinserted, isNotNull);
+            expect(reinserted!.surname, 'reinserted surname');
+
+            final row = await Person.db.findById(session, person.id!);
+            expect(row, isNotNull);
+            expect(row!.name, 'reinserted');
+            expect(row.surname, 'reinserted surname');
+          },
+        );
+      },
+    );
+
+    group('when upserting the Person with noReturn,', () {
+      late List<Person> upserted;
+
+      setUp(() async {
+        upserted = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.upsert(
+            session,
+            [person.copyWith(name: 'reinserted')],
+            conflictColumns: (t) => [t.id],
+            updateColumns: (t) => [t.name],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(upserted, isEmpty);
+      });
+
+      test('then the row is visible again with the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+
+        expect(row, isNotNull);
+        expect(row!.name, 'reinserted');
+      });
     });
 
     group('when upserting the Person with a non-matching updateWhere,', () {

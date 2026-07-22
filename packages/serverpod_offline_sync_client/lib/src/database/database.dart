@@ -336,24 +336,45 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
+        final deletedRowIds = await _recorder.deletedRowIds(prepared.rows, tx);
+        final rowsToInsert = [
+          for (final row in prepared.rows)
+            if (!deletedRowIds.contains(row.id)) row,
+        ];
+
         // Tracked rows can only skip RETURNING when the prepared rows are
         // exactly what gets inserted: every id is caller-provided and a
         // conflict throws instead of silently dropping rows.
         final skipReturn =
             noReturn && !ignoreConflicts && !rows.any((row) => row.id == null);
 
-        final result = await _delegate.insert<T>(
-          prepared.rows,
-          transaction: tx,
-          ignoreConflicts: ignoreConflicts,
-          noReturn: skipReturn,
-        );
+        final result = rowsToInsert.isEmpty
+            ? <T>[]
+            : await _delegate.insert<T>(
+                rowsToInsert,
+                transaction: tx,
+                ignoreConflicts: ignoreConflicts,
+                noReturn: skipReturn,
+              );
 
-        final insertedRows = skipReturn ? prepared.rows : result;
+        final insertedRows = skipReturn ? rowsToInsert : result;
         await _recorder.afterInsert<T>(insertedRows, tx);
+
+        final reinsertedRows = await _reinsertTombstonedRows(
+          prepared.rows,
+          insertedRows,
+          tx,
+          deletedRowIds: deletedRowIds,
+        );
         if (noReturn) return <T>[];
-        _stripStampedRows(insertedRows, prepared);
-        return insertedRows;
+
+        final affectedRows = _orderAffectedRows(
+          prepared.rows,
+          insertedRows,
+          reinsertedRows,
+        );
+        _stripStampedRows(affectedRows, prepared);
+        return affectedRows;
       },
     );
   }
@@ -363,30 +384,7 @@ class CrdtDatabase implements Database {
     T row, {
     Transaction? transaction,
   }) async {
-    await _ensureInitialized();
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
-      transaction,
-      (tx) async {
-        final prepared = _prepareRowsForInsert([row], tx);
-        final databaseRow = prepared.rows.single;
-        late final T result;
-        try {
-          result = await _delegate.insertRow<T>(databaseRow, transaction: tx);
-        } on DatabaseQueryException {
-          if (!await _recorder.isDeleted(row, tx)) rethrow;
-
-          result = await _delegate.updateRow<T>(databaseRow, transaction: tx);
-          await _recorder.afterReinsert([result], tx);
-          _stripStampedRows([result], prepared);
-          return result;
-        }
-
-        await _recorder.afterInsert([result], tx);
-        _stripStampedRows([result], prepared);
-        return result;
-      },
-    );
+    return (await insert<T>([row], transaction: transaction)).single;
   }
 
   @override
@@ -473,19 +471,23 @@ class CrdtDatabase implements Database {
   Future<List<T>> _reinsertTombstonedRows<T extends TableRow>(
     List<T> preparedRows,
     List<T> result,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    Set<UuidValue>? deletedRowIds,
+  }) async {
     final returnedIds = <Object>{
       for (final row in result)
         if (row.id != null) row.id as Object,
     };
 
-    final rowsToReinsert = <T>[];
-    for (final row in preparedRows) {
-      final rowId = row.id;
-      if (rowId == null || returnedIds.contains(rowId)) continue;
-      if (await _recorder.isDeleted(row, transaction)) rowsToReinsert.add(row);
-    }
+    final missingRows = [
+      for (final row in preparedRows)
+        if (row.id case final rowId? when !returnedIds.contains(rowId)) row,
+    ];
+    deletedRowIds ??= await _recorder.deletedRowIds(missingRows, transaction);
+    final rowsToReinsert = [
+      for (final row in missingRows)
+        if (deletedRowIds.contains(row.id)) row,
+    ];
     if (rowsToReinsert.isEmpty) return [];
 
     final reinsertedRows = await _delegate.update<T>(
@@ -494,6 +496,26 @@ class CrdtDatabase implements Database {
     );
     await _recorder.afterReinsert(reinsertedRows, transaction);
     return reinsertedRows;
+  }
+
+  List<T> _orderAffectedRows<T extends TableRow>(
+    List<T> preparedRows,
+    List<T> insertedRows,
+    List<T> reinsertedRows,
+  ) {
+    if (insertedRows.length + reinsertedRows.length != preparedRows.length) {
+      return [...insertedRows, ...reinsertedRows];
+    }
+
+    final reinsertedIds = {for (final row in reinsertedRows) row.id};
+    final inserted = insertedRows.iterator;
+    final reinserted = reinsertedRows.iterator;
+    return [
+      for (final row in preparedRows)
+        reinsertedIds.contains(row.id)
+            ? (reinserted..moveNext()).current
+            : (inserted..moveNext()).current,
+    ];
   }
 
   Future<List<T>> _rowsWithoutCrdtMetadata<T extends TableRow>(

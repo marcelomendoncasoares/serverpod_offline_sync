@@ -39,7 +39,7 @@ void main() {
   late CrdtSync clientSync;
 
   withServerpod(
-    'Given a server and client CRDT session that are initialized with the same sync tables',
+    '[CRDT Sync Inbound Authorization]',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
@@ -70,9 +70,76 @@ void main() {
       });
 
       group(
-        'and a stale client session holds a readWrite projection for a shared '
-        'scope the server grants as readOnly, with pending personal and shared '
-        'writes, when the combined batch is spliced into a real sync session,',
+        'Given a stale client session with a readWrite projection for a scope the server never granted, with a pending write, '
+        'when the crafted batch is spliced into a real sync session,',
+        () {
+          late UuidValue ungrantedScopeId;
+          late UuidValue scopedPersonId;
+          late Object? sessionError;
+
+          setUp(() async {
+            ungrantedScopeId = const Uuid().v7obj();
+            await _upsertScopeMembership(
+              clientSession,
+              userUuid: testCrdtUserId,
+              scopeUuid: ungrantedScopeId,
+              role: CrdtScopeRole.readWrite,
+            );
+
+            final scopedPerson = await clientSession.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => client.Person.db.insertRow(
+                clientSession,
+                client.Person(name: 'never-granted-write'),
+                transaction: tx,
+              ),
+              scopeId: ungrantedScopeId,
+            );
+            scopedPersonId = scopedPerson.id!;
+
+            final changes = await clientSync
+                .collectPendingChanges(
+                  clientSession,
+                  checkpointsByScopeUuid: {ungrantedScopeId: const []},
+                )
+                .toList();
+            expect(changes, isNotEmpty);
+
+            sessionError = await _syncOnceWithSplicedMergeChunk(
+              serverSync: rawServerSession.crdt,
+              clientSync: clientSync,
+              clientSession: clientSession,
+              userUuid: testCrdtUserId,
+              splicedChanges: changes,
+            );
+          });
+
+          test('then the session completes without an error.', () {
+            expect(sessionError, isNull);
+          });
+
+          test(
+            'then the non-member write is skipped without recording a violation.',
+            () async {
+              expect(
+                await server.Person.db.findById(serverSession, scopedPersonId),
+                isNull,
+              );
+              expect(
+                await CrdtSyncIntegrityViolation.db.find(
+                  rawServerSession,
+                  where: (t) => t.uuidRowId.equals(scopedPersonId),
+                ),
+                isEmpty,
+              );
+            },
+          );
+        },
+      );
+
+      group(
+        'Given a stale client session with a readWrite projection for a shared scope the server grants as readOnly, with pending personal and shared writes, '
+        'when the combined batch is spliced into a real sync session,',
         () {
           late UuidValue sharedScopeId;
           late UuidValue personalPersonId;
@@ -155,8 +222,7 @@ void main() {
           });
 
           test(
-            'then the unauthorized shared-scope write is not applied and '
-            'records an unauthorizedWrite violation.',
+            'then the unauthorized shared-scope write is not applied and records an unauthorizedWrite violation.',
             () async {
               expect(
                 await server.Person.db.findById(serverSession, sharedPersonId),
@@ -172,75 +238,6 @@ void main() {
               expect(violation, isNotNull);
               expect(violation!.operation, CrdtSyncViolationOperation.mergeInsert);
               expect(violation.incomingScopeUuid, sharedScopeId);
-            },
-          );
-        },
-      );
-
-      group(
-        'and a stale client session holds a readWrite projection for a scope '
-        'the server never granted, with a pending write, '
-        'when the crafted batch is spliced into a real sync session,',
-        () {
-          late UuidValue ungrantedScopeId;
-          late UuidValue scopedPersonId;
-          late Object? sessionError;
-
-          setUp(() async {
-            ungrantedScopeId = const Uuid().v7obj();
-            await _upsertScopeMembership(
-              clientSession,
-              userUuid: testCrdtUserId,
-              scopeUuid: ungrantedScopeId,
-              role: CrdtScopeRole.readWrite,
-            );
-
-            final scopedPerson = await clientSession.db.transactionForUser(
-              testCrdtUserId,
-              (tx) => client.Person.db.insertRow(
-                clientSession,
-                client.Person(name: 'never-granted-write'),
-                transaction: tx,
-              ),
-              scopeId: ungrantedScopeId,
-            );
-            scopedPersonId = scopedPerson.id!;
-
-            final changes = await clientSync
-                .collectPendingChanges(
-                  clientSession,
-                  checkpointsByScopeUuid: {ungrantedScopeId: const []},
-                )
-                .toList();
-            expect(changes, isNotEmpty);
-
-            sessionError = await _syncOnceWithSplicedMergeChunk(
-              serverSync: rawServerSession.crdt,
-              clientSync: clientSync,
-              clientSession: clientSession,
-              userUuid: testCrdtUserId,
-              splicedChanges: changes,
-            );
-          });
-
-          test('then the session completes without an error.', () {
-            expect(sessionError, isNull);
-          });
-
-          test(
-            'then the non-member write is skipped without recording a violation.',
-            () async {
-              expect(
-                await server.Person.db.findById(serverSession, scopedPersonId),
-                isNull,
-              );
-              expect(
-                await CrdtSyncIntegrityViolation.db.find(
-                  rawServerSession,
-                  where: (t) => t.uuidRowId.equals(scopedPersonId),
-                ),
-                isEmpty,
-              );
             },
           );
         },

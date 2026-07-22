@@ -150,6 +150,13 @@ class CrdtDatabaseContext {
         final result = <String, List<_ReferencingForeignKey>>{};
         for (final table in _tableDefinitionsByName.values) {
           final childTableName = table.name;
+          // Untracked children have no CRDT schema rows and cannot be
+          // soft-deleted; their physical rows keep referencing the (physically
+          // preserved) soft-deleted parent, so no delete action applies.
+          // Interim behavior: docs/sync-non-sync-relations.md forbids
+          // non-synced -> synced relations outright, but its initialize()
+          // validation is not implemented yet.
+          if (!_isCrdtTrackedTableName(childTableName)) continue;
           for (final foreignKey in table.foreignKeys) {
             if (foreignKey.columns.length != 1 ||
                 foreignKey.referenceColumns.length != 1) {
@@ -973,22 +980,29 @@ WHERE c."id" IN ($whereRowIds)
     );
   }
 
-  /// Whether the given row is soft-deleted.
-  Future<bool> isDeleted<T extends TableRow>(
-    T row,
+  /// IDs of the given rows that are soft-deleted.
+  Future<Set<UuidValue>> deletedRowIds<T extends TableRow>(
+    List<T> rows,
     Transaction transaction,
   ) async {
-    if (!isCrdtTracked<T>(row.table)) return false;
-    if (row.id is! UuidValue) return false;
+    final rowIds = {
+      for (final row in rows)
+        if (row.id is UuidValue) row.id as UuidValue,
+    };
+    if (rowIds.isEmpty) return {};
+
+    final table = rows.first.table;
+    if (!isCrdtTracked<T>(table)) return {};
 
     final crdtRows = await _findCrdtRows(
-      row.table.tableName,
-      {row.id as UuidValue},
+      table.tableName,
+      rowIds,
       transaction,
     );
-    if (crdtRows.isEmpty) return false;
-
-    return crdtRows.single.isHidden;
+    return {
+      for (final row in crdtRows)
+        if (row.isHidden) row.uuidRowId,
+    };
   }
 
   Future<List<CrdtDataRow>> _findCrdtRows(

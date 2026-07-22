@@ -46,7 +46,7 @@ void main() {
       otherScopeId = otherScope!.id!;
     });
 
-    group('when finding inside the first scope, ', () {
+    group('when finding inside the first scope,', () {
       late List<Person> rows;
 
       setUp(() async {
@@ -75,6 +75,19 @@ void main() {
         );
 
         expect(row, isNull);
+      },
+    );
+
+    test(
+      'when counting inside the first scope, '
+      'then only the first scope row is counted.',
+      () async {
+        final count = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.count(session, transaction: tx),
+        );
+
+        expect(count, 1);
       },
     );
 
@@ -207,6 +220,18 @@ void main() {
         isEmpty,
       );
     });
+
+    test('when calling count, then the deleted row is not counted.', () async {
+      expect(await Person.db.count(session), 0);
+    });
+
+    test(
+      'when calling count with includeHiddenRows, '
+      'then the deleted row is counted.',
+      () async {
+        expect(await Person.db.count(session, where: (t) => t.includeHiddenRows), 1);
+      },
+    );
   });
 
   // This test is not expected to happen in production since the tombstone

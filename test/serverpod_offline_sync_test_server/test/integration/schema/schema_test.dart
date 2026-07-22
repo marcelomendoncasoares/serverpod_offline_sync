@@ -66,6 +66,36 @@ void main() {
     },
   );
 
+  test(
+    'Given a CRDT schema registry with several tables with UuidValue primary key in the sync list, '
+    'when syncAndGetSchema is called, '
+    'then the tables are registered with the correct names and IDs.',
+    () async {
+      final tables = [
+        _UuidPkTable(name: 'table1'),
+        _UuidPkTable(name: 'table2'),
+        _UuidPkTable(name: 'table3'),
+      ];
+
+      final (tableRows, columnRows) = await CrdtSchemaRegistry(
+        session,
+        syncTables: tables,
+      ).syncAndGetSchema();
+
+      expect(tableRows, hasLength(tables.length));
+      expect(
+        tableRows.map((t) => t.name).toSet(),
+        tables.map((t) => t.tableName).toSet(),
+      );
+      expect(
+        columnRows,
+        hasLength(
+          tables.fold<int>(0, (sum, t) => sum + t.columns.syncColumnNames.length),
+        ),
+      );
+    },
+  );
+
   group(
     'Given a CRDT schema registry with tables already registered,',
     () {
@@ -104,32 +134,89 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with several tables with UuidValue primary key in the sync list, '
+    'Given a CRDT schema registry with a synced nullable foreign-key-only unique index, '
     'when syncAndGetSchema is called, '
-    'then the tables are registered with the correct names and IDs.',
+    'then the index is accepted.',
     () async {
-      final tables = [
-        _UuidPkTable(name: 'table1'),
-        _UuidPkTable(name: 'table2'),
-        _UuidPkTable(name: 'table3'),
-      ];
-
-      final (tableRows, columnRows) = await CrdtSchemaRegistry(
+      final (tableRows, _) = await CrdtSchemaRegistry(
         session,
-        syncTables: tables,
+        syncTables: [Address.t, Person.t],
       ).syncAndGetSchema();
 
-      expect(tableRows, hasLength(tables.length));
-      expect(
-        tableRows.map((t) => t.name).toSet(),
-        tables.map((t) => t.tableName).toSet(),
+      expect(tableRows.map((table) => table.name).toSet(), {
+        Address.t.tableName,
+        Person.t.tableName,
+      });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a global unique index containing only foreign keys to synced tables, '
+    'when syncAndGetSchema is called, '
+    'then the index is accepted.',
+    () async {
+      final tableDefinitions = testSession.db.serializationManager
+          .getTargetTableDefinitions();
+      final townDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Town.t.tableName,
       );
-      expect(
-        columnRows,
-        hasLength(
-          tables.fold<int>(0, (sum, t) => sum + t.columns.syncColumnNames.length),
-        ),
+      final addressDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Address.t.tableName,
       );
+      final indexTemplate = addressDefinition.indexes.singleWhere(
+        (index) => index.indexName == 'address__inhabitantId__unique_idx',
+      );
+      final fkOnlyDefinition = townDefinition.copyWith(
+        indexes: [
+          indexTemplate.copyWith(
+            indexName: 'town_global_city_mayor_unique_idx',
+            elements: [
+              indexTemplate.elements.single.copyWith(definition: 'cityId'),
+              indexTemplate.elements.single.copyWith(definition: 'mayorId'),
+            ],
+          ),
+        ],
+      );
+
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Town.t, City.t, Person.t],
+        tableDefinitions: [fkOnlyDefinition],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((table) => table.name).toSet(), {
+        Town.t.tableName,
+        City.t.tableName,
+        Person.t.tableName,
+      });
+    },
+  );
+
+  test(
+    'Given a CRDT database with a scoped composite unique index that has a stable discriminator and a releasable column, '
+    'when the database is initialized, '
+    'then the unique index metadata is accepted.',
+    () async {
+      final crdtSession = CrdtDatabaseSession.wraps(
+        testSession,
+        syncTables: [UniqueDiscriminator.t],
+      );
+
+      await expectLater(crdtSession.db.initialize(), completes);
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
+    'when the registry is created, '
+    'then no error is thrown.',
+    () async {
+      final (tableRows, _) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Person.t],
+      ).syncAndGetSchema();
+
+      expect(tableRows.map((t) => t.name).toSet(), {Person.t.tableName});
     },
   );
 
@@ -198,23 +285,6 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced nullable foreign-key-only unique index, '
-    'when syncAndGetSchema is called, '
-    'then the index is accepted.',
-    () async {
-      final (tableRows, _) = await CrdtSchemaRegistry(
-        session,
-        syncTables: [Address.t, Person.t],
-      ).syncAndGetSchema();
-
-      expect(tableRows.map((table) => table.name).toSet(), {
-        Address.t.tableName,
-        Person.t.tableName,
-      });
-    },
-  );
-
-  test(
     'Given a CRDT schema registry with a synced required foreign-key-only unique index, '
     'when the registry is created, '
     'then an error is thrown.',
@@ -247,48 +317,6 @@ void main() {
           ),
         ),
       );
-    },
-  );
-
-  test(
-    'Given a CRDT schema registry with a global unique index containing only foreign keys to synced tables, '
-    'when syncAndGetSchema is called, '
-    'then the index is accepted.',
-    () async {
-      final tableDefinitions = testSession.db.serializationManager
-          .getTargetTableDefinitions();
-      final townDefinition = tableDefinitions.firstWhere(
-        (definition) => definition.name == Town.t.tableName,
-      );
-      final addressDefinition = tableDefinitions.firstWhere(
-        (definition) => definition.name == Address.t.tableName,
-      );
-      final indexTemplate = addressDefinition.indexes.singleWhere(
-        (index) => index.indexName == 'address__inhabitantId__unique_idx',
-      );
-      final fkOnlyDefinition = townDefinition.copyWith(
-        indexes: [
-          indexTemplate.copyWith(
-            indexName: 'town_global_city_mayor_unique_idx',
-            elements: [
-              indexTemplate.elements.single.copyWith(definition: 'cityId'),
-              indexTemplate.elements.single.copyWith(definition: 'mayorId'),
-            ],
-          ),
-        ],
-      );
-
-      final (tableRows, _) = await CrdtSchemaRegistry(
-        session,
-        syncTables: [Town.t, City.t, Person.t],
-        tableDefinitions: [fkOnlyDefinition],
-      ).syncAndGetSchema();
-
-      expect(tableRows.map((table) => table.name).toSet(), {
-        Town.t.tableName,
-        City.t.tableName,
-        Person.t.tableName,
-      });
     },
   );
 
@@ -387,20 +415,6 @@ void main() {
   );
 
   test(
-    'Given a CRDT database with a scoped composite unique index that has a stable discriminator and a releasable column, '
-    'when the database is initialized, '
-    'then the unique index metadata is accepted.',
-    () async {
-      final crdtSession = CrdtDatabaseSession.wraps(
-        testSession,
-        syncTables: [UniqueDiscriminator.t],
-      );
-
-      await expectLater(crdtSession.db.initialize(), completes);
-    },
-  );
-
-  test(
     'Given a CRDT schema registry with a scoped unique index that has no releasable non-scope column, '
     'when the registry is created, '
     'then an error is thrown.',
@@ -447,20 +461,6 @@ void main() {
           ),
         ),
       );
-    },
-  );
-
-  test(
-    'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
-    'when the registry is created, '
-    'then no error is thrown.',
-    () async {
-      final (tableRows, _) = await CrdtSchemaRegistry(
-        session,
-        syncTables: [Person.t],
-      ).syncAndGetSchema();
-
-      expect(tableRows.map((t) => t.name).toSet(), {Person.t.tableName});
     },
   );
 

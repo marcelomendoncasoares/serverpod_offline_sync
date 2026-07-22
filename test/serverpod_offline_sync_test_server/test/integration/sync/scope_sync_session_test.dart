@@ -223,6 +223,48 @@ void main() {
       );
 
       test(
+        'when a sent change advances a completed handshake, '
+        'then the tracked checkpoint moves to the change HLC.',
+        () async {
+          final userUuid = _uuid(37);
+          final localNodeUuid = _uuid(47);
+          final remoteNodeUuid = _uuid(107);
+
+          final authoritative = CrdtScopeSyncSession(
+            session,
+            userId: userUuid,
+            mode: CrdtSyncPeerMode.authoritative,
+            peerNodeId: _uuid(98),
+          );
+
+          final scopeUuid = await session.crdt.scopes.createFor(userUuid);
+
+          await authoritative.reconcile();
+          authoritative.recordPeerHandshake(
+            scopeUuid,
+            _since(scopeUuid, _hlc(remoteNodeUuid, minute: 6)),
+          );
+
+          final change = CrdtMergeInsert(
+            uuidScopeId: scopeUuid,
+            hlcDatetime: DateTime.utc(2026, 7, 2, 12, 7),
+            hlcCounter: 1,
+            tableName: 'person',
+            uuidRowId: _uuid(57),
+            uuidNodeId: localNodeUuid,
+            data: CrdtNode(uuidNodeId: _uuid(67)),
+          );
+
+          authoritative.advanceCheckpoint(scopeUuid, change);
+
+          expect(
+            authoritative.checkpointMaxOf(scopeUuid),
+            Hlc(DateTime.utc(2026, 7, 2, 12, 7), 1, localNodeUuid),
+          );
+        },
+      );
+
+      test(
         'when an active scope is revoked and later re-announced, '
         'then its checkpoint and sent-handshake state are pruned.',
         () async {
@@ -300,48 +342,6 @@ void main() {
           expect(
             follower.activeScopeIds,
             [alphaScopeUuid, betaScopeUuid, gammaScopeUuid],
-          );
-        },
-      );
-
-      test(
-        'when a sent change advances a completed handshake, '
-        'then the tracked checkpoint moves to the change HLC.',
-        () async {
-          final userUuid = _uuid(37);
-          final localNodeUuid = _uuid(47);
-          final remoteNodeUuid = _uuid(107);
-
-          final authoritative = CrdtScopeSyncSession(
-            session,
-            userId: userUuid,
-            mode: CrdtSyncPeerMode.authoritative,
-            peerNodeId: _uuid(98),
-          );
-
-          final scopeUuid = await session.crdt.scopes.createFor(userUuid);
-
-          await authoritative.reconcile();
-          authoritative.recordPeerHandshake(
-            scopeUuid,
-            _since(scopeUuid, _hlc(remoteNodeUuid, minute: 6)),
-          );
-
-          final change = CrdtMergeInsert(
-            uuidScopeId: scopeUuid,
-            hlcDatetime: DateTime.utc(2026, 7, 2, 12, 7),
-            hlcCounter: 1,
-            tableName: 'person',
-            uuidRowId: _uuid(57),
-            uuidNodeId: localNodeUuid,
-            data: CrdtNode(uuidNodeId: _uuid(67)),
-          );
-
-          authoritative.advanceCheckpoint(scopeUuid, change);
-
-          expect(
-            authoritative.checkpointMaxOf(scopeUuid),
-            Hlc(DateTime.utc(2026, 7, 2, 12, 7), 1, localNodeUuid),
           );
         },
       );

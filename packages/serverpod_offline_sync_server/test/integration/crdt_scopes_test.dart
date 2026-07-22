@@ -107,6 +107,25 @@ void main() {
       );
 
       test(
+        'when createFor is called inside a transaction that rolls back, '
+        'then no scope or membership rows leak.',
+        () async {
+          final user = const Uuid().v7obj();
+          final countsBefore = await _membershipRowCounts(session);
+
+          await expectLater(
+            session.db.transaction((tx) async {
+              await session.crdt.scopes.createFor(user, transaction: tx);
+              throw StateError('rollback');
+            }),
+            throwsStateError,
+          );
+
+          expect(await _membershipRowCounts(session), countsBefore);
+        },
+      );
+
+      test(
         'when grant is called for an unknown shared scope, '
         'then CrdtScopeNotFoundException is thrown.',
         () async {
@@ -126,25 +145,6 @@ void main() {
               ),
             ),
           );
-        },
-      );
-
-      test(
-        'when createFor is called inside a transaction that rolls back, '
-        'then no scope or membership rows leak.',
-        () async {
-          final user = const Uuid().v7obj();
-          final countsBefore = await _membershipRowCounts(session);
-
-          await expectLater(
-            session.db.transaction((tx) async {
-              await session.crdt.scopes.createFor(user, transaction: tx);
-              throw StateError('rollback');
-            }),
-            throwsStateError,
-          );
-
-          expect(await _membershipRowCounts(session), countsBefore);
         },
       );
     });
