@@ -84,6 +84,82 @@ void main() {
     );
   });
 
+  group('Given an updated typed CRDT row,', () {
+    late Types row;
+    late Types updatedRow;
+
+    setUp(() async {
+      row = await crdtSession.db.transactionForUser(testCrdtUserId, (
+        tx,
+      ) async {
+        return Types.db.insertRow(
+          crdtSession,
+          Types(
+            id: const Uuid().v7obj(),
+            aBool: true,
+            aDateTime: DateTime.utc(2026, 1, 1),
+            aText: 'text',
+            anInt: 42,
+            anInt64: BigInt.from(99),
+            aReal: 3.14,
+            aBlob: [0, 1, 2].toBlob(),
+            anEnum: TypesEnum.alpha,
+            optionalText: 'optional',
+          ),
+          transaction: tx,
+        );
+      });
+
+      updatedRow = row.copyWith(
+        aDateTime: DateTime.utc(2027, 1, 2, 3, 4, 5),
+        optionalUuid: const Uuid().v7obj(),
+        anInt64: BigInt.parse('12345678901234567890'),
+        aBlob: [7, 8, 9].toBlob(),
+        anEnum: TypesEnum.beta,
+      );
+
+      await crdtSession.db.transactionForUser(
+        testCrdtUserId,
+        (tx) async {
+          await Types.db.updateRow(
+            crdtSession,
+            updatedRow,
+            transaction: tx,
+          );
+        },
+      );
+    });
+
+    test(
+      'when pending changes are collected, '
+      'then the field values roundtrip with their original Dart types.',
+      () async {
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
+            )
+            .toList();
+
+        final updates = {
+          for (final update in mergeSet.updates) update.columnName: update,
+        };
+
+        final aDateTime = updates[Types.t.aDateTime.columnName]!;
+        final optionalUuid = updates[Types.t.optionalUuid.columnName]!;
+        final anInt64 = updates[Types.t.anInt64.columnName]!;
+        final anEnum = updates[Types.t.anEnum.columnName]!;
+        final aBlob = updates[Types.t.aBlob.columnName]!;
+
+        expect(aDateTime.value, updatedRow.aDateTime);
+        expect(optionalUuid.value, updatedRow.optionalUuid);
+        expect(anInt64.value, updatedRow.anInt64);
+        expect(anEnum.value, TypesEnum.beta);
+        expect((aBlob.value as ByteData).toBytes(), updatedRow.aBlob.toBytes());
+      },
+    );
+  });
+
   group('Given multiple inserted CRDT rows,', () {
     setUp(() async {
       for (var i = 0; i < 3; i++) {
@@ -116,6 +192,131 @@ void main() {
         expect(chunks.map((chunk) => chunk.length), [2, 1]);
         final changes = chunks.expand((chunk) => chunk).toList();
         expect(changes.whereType<CrdtMergeInsert>(), hasLength(3));
+      },
+    );
+  });
+
+  group('Given an inserted row with an active set-null projection,', () {
+    late Person attemptedParent;
+    late Town child;
+
+    setUp(() async {
+      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+        attemptedParent = await Person.db.insertRow(
+          crdtSession,
+          Person(id: const Uuid().v7obj(), name: 'sync attempted mayor'),
+          transaction: tx,
+        );
+        child = await Town.db.insertRow(
+          crdtSession,
+          Town(
+            id: const Uuid().v7obj(),
+            name: 'sync projected town',
+            mayorId: attemptedParent.id,
+          ),
+          transaction: tx,
+        );
+      });
+
+      await crdtSession.db.mergeChanges(
+        [
+          CrdtMergeDelete(
+            uuidScopeId: testCrdtUserId,
+            tableName: Person.t.tableName,
+            uuidRowId: attemptedParent.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: DateTime.now().toUtc(),
+            hlcCounter: 100, // Advanced to avoid tie-break with the insert.
+            clFlag: 2,
+            reason: CrdtDataDeletedReason.userDelete,
+          ),
+        ],
+        scopeId: testCrdtUserId,
+      );
+
+      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      expect(visibleChild, isNotNull);
+      expect(visibleChild!.mayorId, isNull);
+    });
+
+    test(
+      'when pending changes are collected, '
+      'then the insert payload carries the attempted foreign key value.',
+      () async {
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
+            )
+            .toList();
+
+        final childInsert = mergeSet.inserts
+            .where((i) => i.tableName == Town.t.tableName && i.uuidRowId == child.id)
+            .single;
+        final childPayload = childInsert.data as Town;
+
+        expect(childPayload.mayorId, attemptedParent.id);
+      },
+    );
+  });
+
+  group('Given an updated row with an active set-null projection,', () {
+    late Town child;
+    late UuidValue missingParentId;
+
+    setUp(() async {
+      missingParentId = const Uuid().v7obj();
+      child = await crdtSession.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Town.db.insertRow(
+          crdtSession,
+          Town(id: const Uuid().v7obj(), name: 'sync projected update town'),
+          transaction: tx,
+        ),
+      );
+
+      await crdtSession.db.mergeChanges(
+        [
+          CrdtMergeUpdate(
+            uuidScopeId: testCrdtUserId,
+            tableName: Town.t.tableName,
+            uuidRowId: child.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: DateTime.now().toUtc(),
+            hlcCounter: 100, // Advanced to avoid tie-break with the update.
+            columnName: Town.t.mayorId.columnName,
+            value: missingParentId,
+          ),
+        ],
+        scopeId: testCrdtUserId,
+      );
+
+      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      expect(visibleChild, isNotNull);
+      expect(visibleChild!.mayorId, isNull);
+    });
+
+    test(
+      'when pending changes are collected, '
+      'then the update payload carries the attempted foreign key value.',
+      () async {
+        final mergeSet = await crdtSync
+            .collectPendingChanges(
+              testSession,
+              checkpointsByScopeUuid: {testCrdtUserId: const []},
+            )
+            .toList();
+
+        final mayorUpdate = mergeSet.updates
+            .where(
+              (u) =>
+                  u.tableName == Town.t.tableName &&
+                  u.uuidRowId == child.id &&
+                  u.columnName == Town.t.mayorId.columnName,
+            )
+            .single;
+
+        expect(mayorUpdate.value, missingParentId);
       },
     );
   });
@@ -270,207 +471,6 @@ void main() {
         expect(persistedSecondScope!.currentNodeId, firstNode.id);
         expect(persistedSecondScope.currentNode!.lastHlc, expectedHlc);
         expect(scopeNode, isNotNull);
-      },
-    );
-  });
-
-  group('Given an updated typed CRDT row,', () {
-    late Types row;
-    late Types updatedRow;
-
-    setUp(() async {
-      row = await crdtSession.db.transactionForUser(testCrdtUserId, (
-        tx,
-      ) async {
-        return Types.db.insertRow(
-          crdtSession,
-          Types(
-            id: const Uuid().v7obj(),
-            aBool: true,
-            aDateTime: DateTime.utc(2026, 1, 1),
-            aText: 'text',
-            anInt: 42,
-            anInt64: BigInt.from(99),
-            aReal: 3.14,
-            aBlob: [0, 1, 2].toBlob(),
-            anEnum: TypesEnum.alpha,
-            optionalText: 'optional',
-          ),
-          transaction: tx,
-        );
-      });
-
-      updatedRow = row.copyWith(
-        aDateTime: DateTime.utc(2027, 1, 2, 3, 4, 5),
-        optionalUuid: const Uuid().v7obj(),
-        anInt64: BigInt.parse('12345678901234567890'),
-        aBlob: [7, 8, 9].toBlob(),
-        anEnum: TypesEnum.beta,
-      );
-
-      await crdtSession.db.transactionForUser(
-        testCrdtUserId,
-        (tx) async {
-          await Types.db.updateRow(
-            crdtSession,
-            updatedRow,
-            transaction: tx,
-          );
-        },
-      );
-    });
-
-    test(
-      'when pending changes are collected, '
-      'then the field values roundtrip with their original Dart types.',
-      () async {
-        final mergeSet = await crdtSync
-            .collectPendingChanges(
-              testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
-            )
-            .toList();
-
-        final updates = {
-          for (final update in mergeSet.updates) update.columnName: update,
-        };
-
-        final aDateTime = updates[Types.t.aDateTime.columnName]!;
-        final optionalUuid = updates[Types.t.optionalUuid.columnName]!;
-        final anInt64 = updates[Types.t.anInt64.columnName]!;
-        final anEnum = updates[Types.t.anEnum.columnName]!;
-        final aBlob = updates[Types.t.aBlob.columnName]!;
-
-        expect(aDateTime.value, updatedRow.aDateTime);
-        expect(optionalUuid.value, updatedRow.optionalUuid);
-        expect(anInt64.value, updatedRow.anInt64);
-        expect(anEnum.value, TypesEnum.beta);
-        expect((aBlob.value as ByteData).toBytes(), updatedRow.aBlob.toBytes());
-      },
-    );
-  });
-
-  group('Given an inserted row with an active set-null projection,', () {
-    late Person attemptedParent;
-    late Town child;
-
-    setUp(() async {
-      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
-        attemptedParent = await Person.db.insertRow(
-          crdtSession,
-          Person(id: const Uuid().v7obj(), name: 'sync attempted mayor'),
-          transaction: tx,
-        );
-        child = await Town.db.insertRow(
-          crdtSession,
-          Town(
-            id: const Uuid().v7obj(),
-            name: 'sync projected town',
-            mayorId: attemptedParent.id,
-          ),
-          transaction: tx,
-        );
-      });
-
-      await crdtSession.db.mergeChanges(
-        [
-          CrdtMergeDelete(
-            uuidScopeId: testCrdtUserId,
-            tableName: Person.t.tableName,
-            uuidRowId: attemptedParent.id!,
-            uuidNodeId: const Uuid().v7obj(),
-            hlcDatetime: DateTime.now().toUtc(),
-            hlcCounter: 100, // Advanced to avoid tie-break with the insert.
-            clFlag: 2,
-            reason: CrdtDataDeletedReason.userDelete,
-          ),
-        ],
-        scopeId: testCrdtUserId,
-      );
-
-      final visibleChild = await Town.db.findById(crdtSession, child.id!);
-      expect(visibleChild, isNotNull);
-      expect(visibleChild!.mayorId, isNull);
-    });
-
-    test(
-      'when pending changes are collected, '
-      'then the insert payload carries the attempted foreign key value.',
-      () async {
-        final mergeSet = await crdtSync
-            .collectPendingChanges(
-              testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
-            )
-            .toList();
-
-        final childInsert = mergeSet.inserts
-            .where((i) => i.tableName == Town.t.tableName && i.uuidRowId == child.id)
-            .single;
-        final childPayload = childInsert.data as Town;
-
-        expect(childPayload.mayorId, attemptedParent.id);
-      },
-    );
-  });
-
-  group('Given an updated row with an active set-null projection,', () {
-    late Town child;
-    late UuidValue missingParentId;
-
-    setUp(() async {
-      missingParentId = const Uuid().v7obj();
-      child = await crdtSession.db.transactionForUser(
-        testCrdtUserId,
-        (tx) => Town.db.insertRow(
-          crdtSession,
-          Town(id: const Uuid().v7obj(), name: 'sync projected update town'),
-          transaction: tx,
-        ),
-      );
-
-      await crdtSession.db.mergeChanges(
-        [
-          CrdtMergeUpdate(
-            uuidScopeId: testCrdtUserId,
-            tableName: Town.t.tableName,
-            uuidRowId: child.id!,
-            uuidNodeId: const Uuid().v7obj(),
-            hlcDatetime: DateTime.now().toUtc(),
-            hlcCounter: 100, // Advanced to avoid tie-break with the update.
-            columnName: Town.t.mayorId.columnName,
-            value: missingParentId,
-          ),
-        ],
-        scopeId: testCrdtUserId,
-      );
-
-      final visibleChild = await Town.db.findById(crdtSession, child.id!);
-      expect(visibleChild, isNotNull);
-      expect(visibleChild!.mayorId, isNull);
-    });
-
-    test(
-      'when pending changes are collected, '
-      'then the update payload carries the attempted foreign key value.',
-      () async {
-        final mergeSet = await crdtSync
-            .collectPendingChanges(
-              testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
-            )
-            .toList();
-
-        final mayorUpdate = mergeSet.updates
-            .where(
-              (u) =>
-                  u.tableName == Town.t.tableName &&
-                  u.uuidRowId == child.id &&
-                  u.columnName == Town.t.mayorId.columnName,
-            )
-            .single;
-
-        expect(mayorUpdate.value, missingParentId);
       },
     );
   });

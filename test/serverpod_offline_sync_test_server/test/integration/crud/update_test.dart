@@ -178,6 +178,67 @@ void main() {
       });
     });
 
+    group('when updating the Person with update and noReturn,', () {
+      late List<Person> updated;
+
+      setUp(() async {
+        updated = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.update(
+            session,
+            [person.copyWith(name: 'updated')],
+            columns: (t) => [t.name],
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(updated, isEmpty);
+      });
+
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated');
+      });
+
+      test('then a CRDT field is created for the name column.', () async {
+        final field = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(person.id),
+          include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
+        );
+        expect(field?.column?.name, 'name');
+      });
+    });
+
+    group('when updating the Person with updateWhere and noReturn,', () {
+      late List<Person> updated;
+
+      setUp(() async {
+        updated = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.updateWhere(
+            session,
+            columnValues: (t) => [t.name('updated')],
+            where: (t) => t.id.equals(person.id),
+            transaction: tx,
+            noReturn: true,
+          ),
+        );
+      });
+
+      test('then an empty list is returned.', () async {
+        expect(updated, isEmpty);
+      });
+
+      test('then the person row reflects the new values.', () async {
+        final row = await Person.db.findById(session, person.id!);
+        expect(row?.name, 'updated');
+      });
+    });
+
     test(
       'when updating a non-existing Person with updateById, '
       'then null is returned.',
@@ -250,67 +311,6 @@ void main() {
         );
       },
     );
-
-    group('when updating the Person with update and noReturn,', () {
-      late List<Person> updated;
-
-      setUp(() async {
-        updated = await session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.update(
-            session,
-            [person.copyWith(name: 'updated')],
-            columns: (t) => [t.name],
-            transaction: tx,
-            noReturn: true,
-          ),
-        );
-      });
-
-      test('then an empty list is returned.', () async {
-        expect(updated, isEmpty);
-      });
-
-      test('then the person row reflects the new values.', () async {
-        final row = await Person.db.findById(session, person.id!);
-        expect(row?.name, 'updated');
-      });
-
-      test('then a CRDT field is created for the name column.', () async {
-        final field = await CrdtDataField.db.findFirstRow(
-          session,
-          where: (t) => t.row.uuidRowId.equals(person.id),
-          include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
-        );
-        expect(field?.column?.name, 'name');
-      });
-    });
-
-    group('when updating the Person with updateWhere and noReturn,', () {
-      late List<Person> updated;
-
-      setUp(() async {
-        updated = await session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.updateWhere(
-            session,
-            columnValues: (t) => [t.name('updated')],
-            where: (t) => t.id.equals(person.id),
-            transaction: tx,
-            noReturn: true,
-          ),
-        );
-      });
-
-      test('then an empty list is returned.', () async {
-        expect(updated, isEmpty);
-      });
-
-      test('then the person row reflects the new values.', () async {
-        final row = await Person.db.findById(session, person.id!);
-        expect(row?.name, 'updated');
-      });
-    });
   });
 
   group('Given a person table with a deleted row,', () {

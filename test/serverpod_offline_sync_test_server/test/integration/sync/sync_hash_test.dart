@@ -49,6 +49,43 @@ void main() {
     );
   });
 
+  group('Given table definitions with different non-unique indexes,', () {
+    final baseDefinitions = [
+      typesDefinition,
+    ];
+    final changedDefinitions = [
+      typesDefinition.copyWith(
+        indexes: [
+          typesDefinition.indexes.single.copyWith(
+            elements: [
+              typesDefinition.indexes.single.elements.single.copyWith(
+                definition: 'aText',
+              ),
+            ],
+          ),
+        ],
+      ),
+    ];
+
+    test(
+      'when comparing the definition hashes, '
+      'then their hash values are equal.',
+      () {
+        final baseHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: baseDefinitions,
+        );
+
+        final changedHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: changedDefinitions,
+        );
+
+        expect(changedHash, baseHash);
+      },
+    );
+  });
+
   group('Given table definitions with different columns,', () {
     final baseDefinitions = [
       personDefinition,
@@ -156,43 +193,6 @@ void main() {
         );
 
         expect(changedHash, isNot(baseHash));
-      },
-    );
-  });
-
-  group('Given table definitions with different non-unique indexes,', () {
-    final baseDefinitions = [
-      typesDefinition,
-    ];
-    final changedDefinitions = [
-      typesDefinition.copyWith(
-        indexes: [
-          typesDefinition.indexes.single.copyWith(
-            elements: [
-              typesDefinition.indexes.single.elements.single.copyWith(
-                definition: 'aText',
-              ),
-            ],
-          ),
-        ],
-      ),
-    ];
-
-    test(
-      'when comparing the definition hashes, '
-      'then their hash values are equal.',
-      () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
-          syncTables,
-          tableDefinitions: baseDefinitions,
-        );
-
-        final changedHash = CrdtSync.computeSyncTablesHash(
-          syncTables,
-          tableDefinitions: changedDefinitions,
-        );
-
-        expect(changedHash, baseHash);
       },
     );
   });

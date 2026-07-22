@@ -115,35 +115,6 @@ void main() {
       });
     });
 
-    test(
-      'when inserting a Person with another scopeId, '
-      'then the insert throws.',
-      () async {
-        final insertFuture = session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.insertRow(
-            session,
-            Person(name: 'wrong scope', scopeId: -1),
-            transaction: tx,
-          ),
-        );
-
-        await expectLater(
-          insertFuture,
-          throwsA(
-            isA<StateError>().having(
-              (e) => e.message,
-              'message',
-              allOf([
-                contains('Cannot write person row'),
-                contains('with scopeId -1 while acting in scope 1'),
-              ]),
-            ),
-          ),
-        );
-      },
-    );
-
     group('when inserting two Person rows with insert,', () {
       late List<Person> inserted;
 
@@ -245,6 +216,35 @@ void main() {
         expect(crdtRow, isNotNull);
       });
     });
+
+    test(
+      'when inserting a Person with another scopeId, '
+      'then the insert throws.',
+      () async {
+        final insertFuture = session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Person.db.insertRow(
+            session,
+            Person(name: 'wrong scope', scopeId: -1),
+            transaction: tx,
+          ),
+        );
+
+        await expectLater(
+          insertFuture,
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf([
+                contains('Cannot write person row'),
+                contains('with scopeId -1 while acting in scope 1'),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
   });
 
   group('Given a person row with a fixed id,', () {

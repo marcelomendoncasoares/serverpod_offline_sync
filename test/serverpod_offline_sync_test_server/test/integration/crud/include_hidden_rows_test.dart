@@ -29,6 +29,16 @@ void main() {
     });
 
     test(
+      'when using find without includeHiddenRows, '
+      'then only the live row is returned.',
+      () async {
+        final result = await Person.db.find(session);
+
+        expect(result.map((r) => r.id).toSet(), {liveRow.id});
+      },
+    );
+
+    test(
       'when using find with includeHiddenRows, '
       'then both the live and tombstoned rows are returned.',
       () async {
@@ -69,16 +79,6 @@ void main() {
 
         expect(result, hasLength(1));
         expect(result.single.id, deletedRow.id);
-      },
-    );
-
-    test(
-      'when using find without includeHiddenRows, '
-      'then only the live row is returned.',
-      () async {
-        final result = await Person.db.find(session);
-
-        expect(result.map((r) => r.id).toSet(), {liveRow.id});
       },
     );
   });

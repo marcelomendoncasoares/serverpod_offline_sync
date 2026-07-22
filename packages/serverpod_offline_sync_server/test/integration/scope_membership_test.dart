@@ -66,32 +66,6 @@ void main() {
         );
 
         test(
-          'when a stray membership row grants readOnly access to the personal scope, '
-          'then the personal grant remains readWrite.',
-          () async {
-            final personalScope = await server.CrdtScope.db.insertRow(
-              session,
-              server.CrdtScope(uuidScopeId: userUuid),
-            );
-            await server.CrdtScopeMember.db.insertRow(
-              session,
-              server.CrdtScopeMember(
-                scopeId: personalScope.id!,
-                userUuid: userUuid,
-                role: server.CrdtScopeRole.readOnly,
-              ),
-            );
-
-            final grants = await CrdtScopeMembership.memberGrants(session, userUuid);
-
-            expect(
-              grants.singleWhere((grant) => grant.uuidScopeId == userUuid).role,
-              CrdtScopeRole.readWrite,
-            );
-          },
-        );
-
-        test(
           'when membership is checked for the personal scope, '
           'then the user is a member.',
           () async {
@@ -169,6 +143,32 @@ void main() {
         );
 
         test(
+          'when a stray membership row grants readOnly access to the personal scope, '
+          'then the personal grant remains readWrite.',
+          () async {
+            final personalScope = await server.CrdtScope.db.insertRow(
+              session,
+              server.CrdtScope(uuidScopeId: userUuid),
+            );
+            await server.CrdtScopeMember.db.insertRow(
+              session,
+              server.CrdtScopeMember(
+                scopeId: personalScope.id!,
+                userUuid: userUuid,
+                role: server.CrdtScopeRole.readOnly,
+              ),
+            );
+
+            final grants = await CrdtScopeMembership.memberGrants(session, userUuid);
+
+            expect(
+              grants.singleWhere((grant) => grant.uuidScopeId == userUuid).role,
+              CrdtScopeRole.readWrite,
+            );
+          },
+        );
+
+        test(
           'when a stored membership row has no role, '
           'then resolving grants fails instead of treating it as a grant.',
           () async {
@@ -202,35 +202,6 @@ void main() {
       },
     );
 
-    group('Given a shared CRDT scope without membership for a user,', () {
-      late UuidValue userUuid;
-      late UuidValue sharedScopeUuid;
-
-      setUp(() async {
-        userUuid = const Uuid().v7obj();
-        sharedScopeUuid = const Uuid().v7obj();
-        await server.CrdtScope.db.insertRow(
-          session,
-          server.CrdtScope(uuidScopeId: sharedScopeUuid),
-        );
-      });
-
-      test(
-        'when membership is checked for that scope, '
-        'then the user is not a member.',
-        () async {
-          expect(
-            await CrdtScopeMembership.isMember(
-              session,
-              userUuid: userUuid,
-              scopeUuid: sharedScopeUuid,
-            ),
-            isFalse,
-          );
-        },
-      );
-    });
-
     group('Given a user with readOnly membership in a shared CRDT scope,', () {
       late UuidValue userUuid;
       late UuidValue sharedScopeUuid;
@@ -263,6 +234,35 @@ void main() {
               scopeUuid: sharedScopeUuid,
             ),
             CrdtScopeRole.readOnly,
+          );
+        },
+      );
+    });
+
+    group('Given a shared CRDT scope without membership for a user,', () {
+      late UuidValue userUuid;
+      late UuidValue sharedScopeUuid;
+
+      setUp(() async {
+        userUuid = const Uuid().v7obj();
+        sharedScopeUuid = const Uuid().v7obj();
+        await server.CrdtScope.db.insertRow(
+          session,
+          server.CrdtScope(uuidScopeId: sharedScopeUuid),
+        );
+      });
+
+      test(
+        'when membership is checked for that scope, '
+        'then the user is not a member.',
+        () async {
+          expect(
+            await CrdtScopeMembership.isMember(
+              session,
+              userUuid: userUuid,
+              scopeUuid: sharedScopeUuid,
+            ),
+            isFalse,
           );
         },
       );
