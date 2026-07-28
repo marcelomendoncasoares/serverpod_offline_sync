@@ -96,8 +96,6 @@ abstract class UniqueDiscriminator
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
     UniqueDiscriminatorInclude? include,
   }) {
@@ -106,8 +104,6 @@ abstract class UniqueDiscriminator
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(UniqueDiscriminator.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(UniqueDiscriminator.t),
       include: include,
     );
@@ -225,8 +221,6 @@ class UniqueDiscriminatorIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -271,8 +265,6 @@ class UniqueDiscriminatorRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -282,8 +274,6 @@ class UniqueDiscriminatorRepository {
       where: where?.call(UniqueDiscriminator.t),
       orderBy: orderBy?.call(UniqueDiscriminator.t),
       orderByList: orderByList?.call(UniqueDiscriminator.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -314,8 +304,6 @@ class UniqueDiscriminatorRepository {
     _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
     int? offset,
     _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -325,8 +313,6 @@ class UniqueDiscriminatorRepository {
       where: where?.call(UniqueDiscriminator.t),
       orderBy: orderBy?.call(UniqueDiscriminator.t),
       orderByList: orderByList?.call(UniqueDiscriminator.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -533,8 +519,6 @@ class UniqueDiscriminatorRepository {
     int? offset,
     _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
     _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -545,8 +529,6 @@ class UniqueDiscriminatorRepository {
       offset: offset,
       orderBy: orderBy?.call(UniqueDiscriminator.t),
       orderByList: orderByList?.call(UniqueDiscriminator.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -567,8 +549,6 @@ class UniqueDiscriminatorRepository {
     _i1.DatabaseSession session,
     List<UniqueDiscriminator> rows, {
     _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -577,8 +557,6 @@ class UniqueDiscriminatorRepository {
       rows,
       orderBy: orderBy?.call(UniqueDiscriminator.t),
       orderByList: orderByList?.call(UniqueDiscriminator.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -608,8 +586,6 @@ class UniqueDiscriminatorRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
     _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -618,8 +594,6 @@ class UniqueDiscriminatorRepository {
       where: where(UniqueDiscriminator.t),
       orderBy: orderBy?.call(UniqueDiscriminator.t),
       orderByList: orderByList?.call(UniqueDiscriminator.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

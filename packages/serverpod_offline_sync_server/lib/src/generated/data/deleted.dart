@@ -161,8 +161,6 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     CrdtDataDeletedInclude? include,
   }) {
@@ -171,8 +169,6 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataDeleted.t),
       include: include,
     );
@@ -408,8 +404,6 @@ class CrdtDataDeletedIncludeList extends _i2.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -456,8 +450,6 @@ class CrdtDataDeletedRepository {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataDeletedInclude? include,
@@ -468,8 +460,6 @@ class CrdtDataDeletedRepository {
       where: where?.call(CrdtDataDeleted.t),
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -501,8 +491,6 @@ class CrdtDataDeletedRepository {
     _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataDeletedInclude? include,
@@ -513,8 +501,6 @@ class CrdtDataDeletedRepository {
       where: where?.call(CrdtDataDeleted.t),
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -724,8 +710,6 @@ class CrdtDataDeletedRepository {
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -736,8 +720,6 @@ class CrdtDataDeletedRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -758,8 +740,6 @@ class CrdtDataDeletedRepository {
     _i2.DatabaseSession session,
     List<CrdtDataDeleted> rows, {
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -768,8 +748,6 @@ class CrdtDataDeletedRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -799,8 +777,6 @@ class CrdtDataDeletedRepository {
     _i2.DatabaseSession session, {
     required _i2.WhereExpressionBuilder<CrdtDataDeletedTable> where,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -809,8 +785,6 @@ class CrdtDataDeletedRepository {
       where: where(CrdtDataDeleted.t),
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

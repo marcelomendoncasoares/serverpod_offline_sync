@@ -88,8 +88,6 @@ abstract class FkChainRoot
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
     FkChainRootInclude? include,
   }) {
@@ -98,8 +96,6 @@ abstract class FkChainRoot
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(FkChainRoot.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(FkChainRoot.t),
       include: include,
     );
@@ -199,8 +195,6 @@ class FkChainRootIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -245,8 +239,6 @@ class FkChainRootRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -256,8 +248,6 @@ class FkChainRootRepository {
       where: where?.call(FkChainRoot.t),
       orderBy: orderBy?.call(FkChainRoot.t),
       orderByList: orderByList?.call(FkChainRoot.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -288,8 +278,6 @@ class FkChainRootRepository {
     _i1.WhereExpressionBuilder<FkChainRootTable>? where,
     int? offset,
     _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -299,8 +287,6 @@ class FkChainRootRepository {
       where: where?.call(FkChainRoot.t),
       orderBy: orderBy?.call(FkChainRoot.t),
       orderByList: orderByList?.call(FkChainRoot.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -505,8 +491,6 @@ class FkChainRootRepository {
     int? offset,
     _i1.OrderByBuilder<FkChainRootTable>? orderBy,
     _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -517,8 +501,6 @@ class FkChainRootRepository {
       offset: offset,
       orderBy: orderBy?.call(FkChainRoot.t),
       orderByList: orderByList?.call(FkChainRoot.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -539,8 +521,6 @@ class FkChainRootRepository {
     _i1.DatabaseSession session,
     List<FkChainRoot> rows, {
     _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -549,8 +529,6 @@ class FkChainRootRepository {
       rows,
       orderBy: orderBy?.call(FkChainRoot.t),
       orderByList: orderByList?.call(FkChainRoot.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -580,8 +558,6 @@ class FkChainRootRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<FkChainRootTable> where,
     _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -590,8 +566,6 @@ class FkChainRootRepository {
       where: where(FkChainRoot.t),
       orderBy: orderBy?.call(FkChainRoot.t),
       orderByList: orderByList?.call(FkChainRoot.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

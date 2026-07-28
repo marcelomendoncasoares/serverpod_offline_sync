@@ -16,7 +16,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
 ///
 /// This class is used to represent the base HLC timestamp, which will be
 /// extended with the node ID (in its canonical or normalized form).
-class BaseHlc implements _i1.SerializableModel {
+class BaseHlc implements _i1.SerializableModel, _i1.ProtocolSerialization {
   BaseHlc({
     required this.hlcDatetime,
     required this.hlcCounter,
@@ -52,6 +52,15 @@ class BaseHlc implements _i1.SerializableModel {
 
   @override
   Map<String, dynamic> toJson() {
+    return {
+      '__className__': 'serverpod_offline_sync.BaseHlc',
+      'hlcDatetime': hlcDatetime.toJson(),
+      'hlcCounter': hlcCounter,
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
     return {
       '__className__': 'serverpod_offline_sync.BaseHlc',
       'hlcDatetime': hlcDatetime.toJson(),

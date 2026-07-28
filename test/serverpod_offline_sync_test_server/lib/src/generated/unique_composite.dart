@@ -97,8 +97,6 @@ abstract class UniqueComposite
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
     UniqueCompositeInclude? include,
   }) {
@@ -107,8 +105,6 @@ abstract class UniqueComposite
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(UniqueComposite.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(UniqueComposite.t),
       include: include,
     );
@@ -226,8 +222,6 @@ class UniqueCompositeIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -272,8 +266,6 @@ class UniqueCompositeRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -283,8 +275,6 @@ class UniqueCompositeRepository {
       where: where?.call(UniqueComposite.t),
       orderBy: orderBy?.call(UniqueComposite.t),
       orderByList: orderByList?.call(UniqueComposite.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -315,8 +305,6 @@ class UniqueCompositeRepository {
     _i1.WhereExpressionBuilder<UniqueCompositeTable>? where,
     int? offset,
     _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -326,8 +314,6 @@ class UniqueCompositeRepository {
       where: where?.call(UniqueComposite.t),
       orderBy: orderBy?.call(UniqueComposite.t),
       orderByList: orderByList?.call(UniqueComposite.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -534,8 +520,6 @@ class UniqueCompositeRepository {
     int? offset,
     _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
     _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -546,8 +530,6 @@ class UniqueCompositeRepository {
       offset: offset,
       orderBy: orderBy?.call(UniqueComposite.t),
       orderByList: orderByList?.call(UniqueComposite.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -568,8 +550,6 @@ class UniqueCompositeRepository {
     _i1.DatabaseSession session,
     List<UniqueComposite> rows, {
     _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -578,8 +558,6 @@ class UniqueCompositeRepository {
       rows,
       orderBy: orderBy?.call(UniqueComposite.t),
       orderByList: orderByList?.call(UniqueComposite.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -609,8 +587,6 @@ class UniqueCompositeRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<UniqueCompositeTable> where,
     _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -619,8 +595,6 @@ class UniqueCompositeRepository {
       where: where(UniqueComposite.t),
       orderBy: orderBy?.call(UniqueComposite.t),
       orderByList: orderByList?.call(UniqueComposite.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

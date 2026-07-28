@@ -153,8 +153,6 @@ abstract class CrdtDataForeignKey
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     CrdtDataForeignKeyInclude? include,
   }) {
@@ -163,8 +161,6 @@ abstract class CrdtDataForeignKey
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
       include: include,
     );
@@ -356,8 +352,6 @@ class CrdtDataForeignKeyIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -404,8 +398,6 @@ class CrdtDataForeignKeyRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
@@ -416,8 +408,6 @@ class CrdtDataForeignKeyRepository {
       where: where?.call(CrdtDataForeignKey.t),
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -449,8 +439,6 @@ class CrdtDataForeignKeyRepository {
     _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
@@ -461,8 +449,6 @@ class CrdtDataForeignKeyRepository {
       where: where?.call(CrdtDataForeignKey.t),
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -672,8 +658,6 @@ class CrdtDataForeignKeyRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -684,8 +668,6 @@ class CrdtDataForeignKeyRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -706,8 +688,6 @@ class CrdtDataForeignKeyRepository {
     _i1.DatabaseSession session,
     List<CrdtDataForeignKey> rows, {
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -716,8 +696,6 @@ class CrdtDataForeignKeyRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -747,8 +725,6 @@ class CrdtDataForeignKeyRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -757,8 +733,6 @@ class CrdtDataForeignKeyRepository {
       where: where(CrdtDataForeignKey.t),
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

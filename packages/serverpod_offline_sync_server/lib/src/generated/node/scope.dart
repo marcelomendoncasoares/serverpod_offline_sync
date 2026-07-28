@@ -132,8 +132,6 @@ abstract class CrdtScope
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
     CrdtScopeInclude? include,
   }) {
@@ -142,8 +140,6 @@ abstract class CrdtScope
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtScope.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtScope.t),
       include: include,
     );
@@ -336,8 +332,6 @@ class CrdtScopeIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -390,8 +384,6 @@ class CrdtScopeRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtScopeInclude? include,
@@ -402,8 +394,6 @@ class CrdtScopeRepository {
       where: where?.call(CrdtScope.t),
       orderBy: orderBy?.call(CrdtScope.t),
       orderByList: orderByList?.call(CrdtScope.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -435,8 +425,6 @@ class CrdtScopeRepository {
     _i1.WhereExpressionBuilder<CrdtScopeTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtScopeInclude? include,
@@ -447,8 +435,6 @@ class CrdtScopeRepository {
       where: where?.call(CrdtScope.t),
       orderBy: orderBy?.call(CrdtScope.t),
       orderByList: orderByList?.call(CrdtScope.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -656,8 +642,6 @@ class CrdtScopeRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
     _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -668,8 +652,6 @@ class CrdtScopeRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtScope.t),
       orderByList: orderByList?.call(CrdtScope.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -690,8 +672,6 @@ class CrdtScopeRepository {
     _i1.DatabaseSession session,
     List<CrdtScope> rows, {
     _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -700,8 +680,6 @@ class CrdtScopeRepository {
       rows,
       orderBy: orderBy?.call(CrdtScope.t),
       orderByList: orderByList?.call(CrdtScope.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -731,8 +709,6 @@ class CrdtScopeRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtScopeTable> where,
     _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -741,8 +717,6 @@ class CrdtScopeRepository {
       where: where(CrdtScope.t),
       orderBy: orderBy?.call(CrdtScope.t),
       orderByList: orderByList?.call(CrdtScope.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

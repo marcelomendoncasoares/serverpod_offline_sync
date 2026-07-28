@@ -104,8 +104,6 @@ abstract class CrdtNode
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtNodeTable>? orderByList,
     CrdtNodeInclude? include,
   }) {
@@ -114,8 +112,6 @@ abstract class CrdtNode
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtNode.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtNode.t),
       include: include,
     );
@@ -219,8 +215,6 @@ class CrdtNodeIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -265,8 +259,6 @@ class CrdtNodeRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtNodeTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -276,8 +268,6 @@ class CrdtNodeRepository {
       where: where?.call(CrdtNode.t),
       orderBy: orderBy?.call(CrdtNode.t),
       orderByList: orderByList?.call(CrdtNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -308,8 +298,6 @@ class CrdtNodeRepository {
     _i1.WhereExpressionBuilder<CrdtNodeTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtNodeTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -319,8 +307,6 @@ class CrdtNodeRepository {
       where: where?.call(CrdtNode.t),
       orderBy: orderBy?.call(CrdtNode.t),
       orderByList: orderByList?.call(CrdtNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -525,8 +511,6 @@ class CrdtNodeRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtNodeTable>? orderBy,
     _i1.OrderByListBuilder<CrdtNodeTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -537,8 +521,6 @@ class CrdtNodeRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtNode.t),
       orderByList: orderByList?.call(CrdtNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -559,8 +541,6 @@ class CrdtNodeRepository {
     _i1.DatabaseSession session,
     List<CrdtNode> rows, {
     _i1.OrderByBuilder<CrdtNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtNodeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -569,8 +549,6 @@ class CrdtNodeRepository {
       rows,
       orderBy: orderBy?.call(CrdtNode.t),
       orderByList: orderByList?.call(CrdtNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -600,8 +578,6 @@ class CrdtNodeRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtNodeTable> where,
     _i1.OrderByBuilder<CrdtNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtNodeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -610,8 +586,6 @@ class CrdtNodeRepository {
       where: where(CrdtNode.t),
       orderBy: orderBy?.call(CrdtNode.t),
       orderByList: orderByList?.call(CrdtNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

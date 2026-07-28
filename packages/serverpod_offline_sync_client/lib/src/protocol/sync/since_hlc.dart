@@ -13,7 +13,7 @@ part of 'stream_event.dart';
 
 /// Per-scope checkpoint sent by each peer before the first visit to a scope.
 abstract class CrdtSyncSinceHlc extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncSinceHlc._({
     required this.uuidScopeId,
     required this.nodeCheckpoints,
@@ -60,6 +60,23 @@ abstract class CrdtSyncSinceHlc extends _i1.CrdtSyncStreamEvent
       '__className__': 'serverpod_offline_sync.CrdtSyncSinceHlc',
       'uuidScopeId': uuidScopeId.toJson(),
       'nodeCheckpoints': nodeCheckpoints.toJson(valueToJson: (v) => v.toJson()),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtSyncSinceHlc',
+      'uuidScopeId': uuidScopeId.toJson(),
+      'nodeCheckpoints': nodeCheckpoints.toJson(
+        valueToJson: (v) =>
+            // ignore: unnecessary_type_check
+            v is _i2.ProtocolSerialization
+            ? (v as _i2.ProtocolSerialization).toJsonForProtocol()
+            :
+              // ignore: dead_code
+              v.toJson(),
+      ),
     };
   }
 

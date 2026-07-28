@@ -17,7 +17,7 @@ part of 'stream_event.dart';
 /// being awaited if it does not emit any events for a given timeout. It is
 /// what allows both sides to stay silent if they have nothing to send.
 abstract class CrdtSyncIdleTimeout extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncIdleTimeout._();
 
   factory CrdtSyncIdleTimeout() = _CrdtSyncIdleTimeoutImpl;
@@ -33,6 +33,11 @@ abstract class CrdtSyncIdleTimeout extends _i1.CrdtSyncStreamEvent
   CrdtSyncIdleTimeout copyWith();
   @override
   Map<String, dynamic> toJson() {
+    return {'__className__': 'serverpod_offline_sync.CrdtSyncIdleTimeout'};
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
     return {'__className__': 'serverpod_offline_sync.CrdtSyncIdleTimeout'};
   }
 

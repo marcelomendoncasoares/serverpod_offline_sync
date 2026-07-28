@@ -13,7 +13,8 @@
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
 import 'package:serverpod_client/serverpod_client.dart' as _i2;
 
-abstract class UniqueNoRelease implements _i1.TableRow<_i2.UuidValue?> {
+abstract class UniqueNoRelease
+    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
   UniqueNoRelease._({
     this.id,
     this.scopeId,
@@ -69,6 +70,16 @@ abstract class UniqueNoRelease implements _i1.TableRow<_i2.UuidValue?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'UniqueNoRelease',
+      if (id != null) 'id': id?.toJson(),
+      if (scopeId != null) 'scopeId': scopeId,
+      'categoryId': categoryId,
+    };
+  }
+
   static UniqueNoReleaseInclude include() {
     return UniqueNoReleaseInclude._();
   }
@@ -78,8 +89,6 @@ abstract class UniqueNoRelease implements _i1.TableRow<_i2.UuidValue?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
     UniqueNoReleaseInclude? include,
   }) {
@@ -88,8 +97,6 @@ abstract class UniqueNoRelease implements _i1.TableRow<_i2.UuidValue?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(UniqueNoRelease.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(UniqueNoRelease.t),
       include: include,
     );
@@ -190,8 +197,6 @@ class UniqueNoReleaseIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -236,8 +241,6 @@ class UniqueNoReleaseRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -247,8 +250,6 @@ class UniqueNoReleaseRepository {
       where: where?.call(UniqueNoRelease.t),
       orderBy: orderBy?.call(UniqueNoRelease.t),
       orderByList: orderByList?.call(UniqueNoRelease.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -279,8 +280,6 @@ class UniqueNoReleaseRepository {
     _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
     int? offset,
     _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -290,8 +289,6 @@ class UniqueNoReleaseRepository {
       where: where?.call(UniqueNoRelease.t),
       orderBy: orderBy?.call(UniqueNoRelease.t),
       orderByList: orderByList?.call(UniqueNoRelease.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -498,8 +495,6 @@ class UniqueNoReleaseRepository {
     int? offset,
     _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
     _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -510,8 +505,6 @@ class UniqueNoReleaseRepository {
       offset: offset,
       orderBy: orderBy?.call(UniqueNoRelease.t),
       orderByList: orderByList?.call(UniqueNoRelease.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -532,8 +525,6 @@ class UniqueNoReleaseRepository {
     _i1.DatabaseSession session,
     List<UniqueNoRelease> rows, {
     _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -542,8 +533,6 @@ class UniqueNoReleaseRepository {
       rows,
       orderBy: orderBy?.call(UniqueNoRelease.t),
       orderByList: orderByList?.call(UniqueNoRelease.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -573,8 +562,6 @@ class UniqueNoReleaseRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<UniqueNoReleaseTable> where,
     _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -583,8 +570,6 @@ class UniqueNoReleaseRepository {
       where: where(UniqueNoRelease.t),
       orderBy: orderBy?.call(UniqueNoRelease.t),
       orderByList: orderByList?.call(UniqueNoRelease.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

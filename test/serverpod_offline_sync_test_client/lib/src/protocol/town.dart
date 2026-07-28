@@ -18,7 +18,8 @@ import 'person.dart' as _i4;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
     as _i5;
 
-abstract class Town implements _i1.TableRow<_i2.UuidValue?> {
+abstract class Town
+    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
   Town._({
     this.id,
     this.scopeId,
@@ -110,6 +111,20 @@ abstract class Town implements _i1.TableRow<_i2.UuidValue?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'Town',
+      if (id != null) 'id': id?.toJson(),
+      if (scopeId != null) 'scopeId': scopeId,
+      'name': name,
+      if (cityId != null) 'cityId': cityId?.toJson(),
+      if (city != null) 'city': city?.toJsonForProtocol(),
+      if (mayorId != null) 'mayorId': mayorId?.toJson(),
+      if (mayor != null) 'mayor': mayor?.toJsonForProtocol(),
+    };
+  }
+
   static TownInclude include({
     _i3.CityInclude? city,
     _i4.PersonInclude? mayor,
@@ -125,8 +140,6 @@ abstract class Town implements _i1.TableRow<_i2.UuidValue?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<TownTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<TownTable>? orderByList,
     TownInclude? include,
   }) {
@@ -135,8 +148,6 @@ abstract class Town implements _i1.TableRow<_i2.UuidValue?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(Town.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(Town.t),
       include: include,
     );
@@ -332,8 +343,6 @@ class TownIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -382,8 +391,6 @@ class TownRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<TownTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<TownTable>? orderByList,
     _i1.Transaction? transaction,
     TownInclude? include,
@@ -394,8 +401,6 @@ class TownRepository {
       where: where?.call(Town.t),
       orderBy: orderBy?.call(Town.t),
       orderByList: orderByList?.call(Town.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -427,8 +432,6 @@ class TownRepository {
     _i1.WhereExpressionBuilder<TownTable>? where,
     int? offset,
     _i1.OrderByBuilder<TownTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<TownTable>? orderByList,
     _i1.Transaction? transaction,
     TownInclude? include,
@@ -439,8 +442,6 @@ class TownRepository {
       where: where?.call(Town.t),
       orderBy: orderBy?.call(Town.t),
       orderByList: orderByList?.call(Town.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -648,8 +649,6 @@ class TownRepository {
     int? offset,
     _i1.OrderByBuilder<TownTable>? orderBy,
     _i1.OrderByListBuilder<TownTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -660,8 +659,6 @@ class TownRepository {
       offset: offset,
       orderBy: orderBy?.call(Town.t),
       orderByList: orderByList?.call(Town.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -682,8 +679,6 @@ class TownRepository {
     _i1.DatabaseSession session,
     List<Town> rows, {
     _i1.OrderByBuilder<TownTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<TownTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -692,8 +687,6 @@ class TownRepository {
       rows,
       orderBy: orderBy?.call(Town.t),
       orderByList: orderByList?.call(Town.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -723,8 +716,6 @@ class TownRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<TownTable> where,
     _i1.OrderByBuilder<TownTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<TownTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -733,8 +724,6 @@ class TownRepository {
       where: where(Town.t),
       orderBy: orderBy?.call(Town.t),
       orderByList: orderByList?.call(Town.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

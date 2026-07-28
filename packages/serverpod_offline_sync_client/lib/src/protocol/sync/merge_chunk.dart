@@ -13,7 +13,7 @@ part of 'stream_event.dart';
 
 /// A chunk of merge changes carried inside a framed sync batch.
 abstract class CrdtSyncMergeChunk extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncMergeChunk._({required this.changes});
 
   factory CrdtSyncMergeChunk({required List<_i3.CrdtMergeChange> changes}) =
@@ -40,6 +40,14 @@ abstract class CrdtSyncMergeChunk extends _i1.CrdtSyncStreamEvent
     return {
       '__className__': 'serverpod_offline_sync.CrdtSyncMergeChunk',
       'changes': changes.toJson(valueToJson: (v) => v.toJson()),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtSyncMergeChunk',
+      'changes': changes.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
   }
 

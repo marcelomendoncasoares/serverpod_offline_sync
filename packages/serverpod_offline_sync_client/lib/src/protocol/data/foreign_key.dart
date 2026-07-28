@@ -12,8 +12,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import '../data/field.dart' as _i2;
-import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import '../data/field.dart' as _i3;
 import '../data/foreign_key_override_reason.dart' as _i4;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
     as _i5;
@@ -28,7 +28,8 @@ import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
 /// facts plus this attempted FK value. The projection columns record what was
 /// materialized into the domain row; they do not decide business semantics or
 /// create user field updates during merge.
-abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
+abstract class CrdtDataForeignKey
+    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
   CrdtDataForeignKey._({
     this.id,
     this.field,
@@ -40,10 +41,10 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
 
   factory CrdtDataForeignKey({
     int? id,
-    _i2.CrdtDataField? field,
+    _i3.CrdtDataField? field,
     required int fieldId,
-    required _i3.UuidValue? attemptedValue,
-    _i3.UuidValue? visibleValue,
+    required _i2.UuidValue? attemptedValue,
+    _i2.UuidValue? visibleValue,
     _i4.CrdtForeignKeyOverrideReason? overrideReason,
   }) = _CrdtDataForeignKeyImpl;
 
@@ -52,18 +53,18 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
       id: jsonSerialization['id'] as int?,
       field: jsonSerialization['field'] == null
           ? null
-          : _i5.Protocol().deserialize<_i2.CrdtDataField>(
+          : _i5.Protocol().deserialize<_i3.CrdtDataField>(
               jsonSerialization['field'],
             ),
       fieldId: jsonSerialization['fieldId'] as int,
       attemptedValue: jsonSerialization['attemptedValue'] == null
           ? null
-          : _i3.UuidValueJsonExtension.fromJson(
+          : _i2.UuidValueJsonExtension.fromJson(
               jsonSerialization['attemptedValue'],
             ),
       visibleValue: jsonSerialization['visibleValue'] == null
           ? null
-          : _i3.UuidValueJsonExtension.fromJson(
+          : _i2.UuidValueJsonExtension.fromJson(
               jsonSerialization['visibleValue'],
             ),
       overrideReason: jsonSerialization['overrideReason'] == null
@@ -82,7 +83,7 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
   int? id;
 
   /// The field that the foreign key belongs to.
-  _i2.CrdtDataField? field;
+  _i3.CrdtDataField? field;
 
   int fieldId;
 
@@ -90,11 +91,11 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
   ///
   /// This may be null for nullable foreign keys. This is durable FK field-value
   /// storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
-  _i3.UuidValue? attemptedValue;
+  _i2.UuidValue? attemptedValue;
 
   /// The foreign key value that is currently visible in the actual data row
   /// when an override is active (overrideReason is non-null).
-  _i3.UuidValue? visibleValue;
+  _i2.UuidValue? visibleValue;
 
   /// The authoritative indicator and reason for an active projection override.
   ///
@@ -109,13 +110,13 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
 
   /// Returns a shallow copy of this [CrdtDataForeignKey]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_i2.useResult
   CrdtDataForeignKey copyWith({
     int? id,
-    _i2.CrdtDataField? field,
+    _i3.CrdtDataField? field,
     int? fieldId,
-    _i3.UuidValue? attemptedValue,
-    _i3.UuidValue? visibleValue,
+    _i2.UuidValue? attemptedValue,
+    _i2.UuidValue? visibleValue,
     _i4.CrdtForeignKeyOverrideReason? overrideReason,
   });
   @override
@@ -131,7 +132,20 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
     };
   }
 
-  static CrdtDataForeignKeyInclude include({_i2.CrdtDataFieldInclude? field}) {
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtDataForeignKey',
+      if (id != null) 'id': id,
+      if (field != null) 'field': field?.toJsonForProtocol(),
+      'fieldId': fieldId,
+      if (attemptedValue != null) 'attemptedValue': attemptedValue?.toJson(),
+      if (visibleValue != null) 'visibleValue': visibleValue?.toJson(),
+      if (overrideReason != null) 'overrideReason': overrideReason?.toJson(),
+    };
+  }
+
+  static CrdtDataForeignKeyInclude include({_i3.CrdtDataFieldInclude? field}) {
     return CrdtDataForeignKeyInclude._(field: field);
   }
 
@@ -140,8 +154,6 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     CrdtDataForeignKeyInclude? include,
   }) {
@@ -150,8 +162,6 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
       include: include,
     );
@@ -159,7 +169,7 @@ abstract class CrdtDataForeignKey implements _i1.TableRow<int?> {
 
   @override
   String toString() {
-    return _i3.SerializationManager.encode(this);
+    return _i2.SerializationManager.encode(this);
   }
 }
 
@@ -168,10 +178,10 @@ class _Undefined {}
 class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
   _CrdtDataForeignKeyImpl({
     int? id,
-    _i2.CrdtDataField? field,
+    _i3.CrdtDataField? field,
     required int fieldId,
-    required _i3.UuidValue? attemptedValue,
-    _i3.UuidValue? visibleValue,
+    required _i2.UuidValue? attemptedValue,
+    _i2.UuidValue? visibleValue,
     _i4.CrdtForeignKeyOverrideReason? overrideReason,
   }) : super._(
          id: id,
@@ -184,7 +194,7 @@ class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
 
   /// Returns a shallow copy of this [CrdtDataForeignKey]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_i2.useResult
   @override
   CrdtDataForeignKey copyWith({
     Object? id = _Undefined,
@@ -196,12 +206,12 @@ class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
   }) {
     return CrdtDataForeignKey(
       id: id is int? ? id : this.id,
-      field: field is _i2.CrdtDataField? ? field : this.field?.copyWith(),
+      field: field is _i3.CrdtDataField? ? field : this.field?.copyWith(),
       fieldId: fieldId ?? this.fieldId,
-      attemptedValue: attemptedValue is _i3.UuidValue?
+      attemptedValue: attemptedValue is _i2.UuidValue?
           ? attemptedValue
           : this.attemptedValue,
-      visibleValue: visibleValue is _i3.UuidValue?
+      visibleValue: visibleValue is _i2.UuidValue?
           ? visibleValue
           : this.visibleValue,
       overrideReason: overrideReason is _i4.CrdtForeignKeyOverrideReason?
@@ -220,15 +230,15 @@ class CrdtDataForeignKeyUpdateTable
     value,
   );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> attemptedValue(
-    _i3.UuidValue? value,
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> attemptedValue(
+    _i2.UuidValue? value,
   ) => _i1.ColumnValue(
     table.attemptedValue,
     value,
   );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> visibleValue(
-    _i3.UuidValue? value,
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> visibleValue(
+    _i2.UuidValue? value,
   ) => _i1.ColumnValue(
     table.visibleValue,
     value,
@@ -270,7 +280,7 @@ class CrdtDataForeignKeyTable extends _i1.Table<int?> {
   late final CrdtDataForeignKeyUpdateTable updateTable;
 
   /// The field that the foreign key belongs to.
-  _i2.CrdtDataFieldTable? _field;
+  _i3.CrdtDataFieldTable? _field;
 
   late final _i1.ColumnInt fieldId;
 
@@ -292,15 +302,15 @@ class CrdtDataForeignKeyTable extends _i1.Table<int?> {
   /// row, field, and tombstone facts.
   late final _i1.ColumnEnum<_i4.CrdtForeignKeyOverrideReason> overrideReason;
 
-  _i2.CrdtDataFieldTable get field {
+  _i3.CrdtDataFieldTable get field {
     if (_field != null) return _field!;
     _field = _i1.createRelationTable(
       relationFieldName: 'field',
       field: CrdtDataForeignKey.t.fieldId,
-      foreignField: _i2.CrdtDataField.t.id,
+      foreignField: _i3.CrdtDataField.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.CrdtDataFieldTable(tableRelation: foreignTableRelation),
+          _i3.CrdtDataFieldTable(tableRelation: foreignTableRelation),
     );
     return _field!;
   }
@@ -324,11 +334,11 @@ class CrdtDataForeignKeyTable extends _i1.Table<int?> {
 }
 
 class CrdtDataForeignKeyInclude extends _i1.IncludeObject {
-  CrdtDataForeignKeyInclude._({_i2.CrdtDataFieldInclude? field}) {
+  CrdtDataForeignKeyInclude._({_i3.CrdtDataFieldInclude? field}) {
     _field = field;
   }
 
-  _i2.CrdtDataFieldInclude? _field;
+  _i3.CrdtDataFieldInclude? _field;
 
   @override
   Map<String, _i1.Include?> get includes => {'field': _field};
@@ -343,8 +353,6 @@ class CrdtDataForeignKeyIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -391,8 +399,6 @@ class CrdtDataForeignKeyRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
@@ -403,8 +409,6 @@ class CrdtDataForeignKeyRepository {
       where: where?.call(CrdtDataForeignKey.t),
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -436,8 +440,6 @@ class CrdtDataForeignKeyRepository {
     _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
@@ -448,8 +450,6 @@ class CrdtDataForeignKeyRepository {
       where: where?.call(CrdtDataForeignKey.t),
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -659,8 +659,6 @@ class CrdtDataForeignKeyRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -671,8 +669,6 @@ class CrdtDataForeignKeyRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -693,8 +689,6 @@ class CrdtDataForeignKeyRepository {
     _i1.DatabaseSession session,
     List<CrdtDataForeignKey> rows, {
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -703,8 +697,6 @@ class CrdtDataForeignKeyRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -734,8 +726,6 @@ class CrdtDataForeignKeyRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
     _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -744,8 +734,6 @@ class CrdtDataForeignKeyRepository {
       where: where(CrdtDataForeignKey.t),
       orderBy: orderBy?.call(CrdtDataForeignKey.t),
       orderByList: orderByList?.call(CrdtDataForeignKey.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -791,7 +779,7 @@ class CrdtDataForeignKeyAttachRowRepository {
   Future<void> field(
     _i1.DatabaseSession session,
     CrdtDataForeignKey crdtDataForeignKey,
-    _i2.CrdtDataField field, {
+    _i3.CrdtDataField field, {
     _i1.Transaction? transaction,
   }) async {
     if (crdtDataForeignKey.id == null) {

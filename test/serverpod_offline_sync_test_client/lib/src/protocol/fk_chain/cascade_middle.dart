@@ -17,7 +17,8 @@ import '../fk_chain/root.dart' as _i3;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
     as _i4;
 
-abstract class FkChainCascadeMiddle implements _i1.TableRow<_i2.UuidValue?> {
+abstract class FkChainCascadeMiddle
+    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
   FkChainCascadeMiddle._({
     this.id,
     this.scopeId,
@@ -95,6 +96,18 @@ abstract class FkChainCascadeMiddle implements _i1.TableRow<_i2.UuidValue?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'FkChainCascadeMiddle',
+      if (id != null) 'id': id?.toJson(),
+      if (scopeId != null) 'scopeId': scopeId,
+      'name': name,
+      if (root != null) 'root': root?.toJsonForProtocol(),
+      if (rootId != null) 'rootId': rootId?.toJson(),
+    };
+  }
+
   static FkChainCascadeMiddleInclude include({_i3.FkChainRootInclude? root}) {
     return FkChainCascadeMiddleInclude._(root: root);
   }
@@ -104,8 +117,6 @@ abstract class FkChainCascadeMiddle implements _i1.TableRow<_i2.UuidValue?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
     FkChainCascadeMiddleInclude? include,
   }) {
@@ -114,8 +125,6 @@ abstract class FkChainCascadeMiddle implements _i1.TableRow<_i2.UuidValue?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(FkChainCascadeMiddle.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(FkChainCascadeMiddle.t),
       include: include,
     );
@@ -265,8 +274,6 @@ class FkChainCascadeMiddleIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -315,8 +322,6 @@ class FkChainCascadeMiddleRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainCascadeMiddleInclude? include,
@@ -327,8 +332,6 @@ class FkChainCascadeMiddleRepository {
       where: where?.call(FkChainCascadeMiddle.t),
       orderBy: orderBy?.call(FkChainCascadeMiddle.t),
       orderByList: orderByList?.call(FkChainCascadeMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -360,8 +363,6 @@ class FkChainCascadeMiddleRepository {
     _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
     int? offset,
     _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainCascadeMiddleInclude? include,
@@ -372,8 +373,6 @@ class FkChainCascadeMiddleRepository {
       where: where?.call(FkChainCascadeMiddle.t),
       orderBy: orderBy?.call(FkChainCascadeMiddle.t),
       orderByList: orderByList?.call(FkChainCascadeMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -583,8 +582,6 @@ class FkChainCascadeMiddleRepository {
     int? offset,
     _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
     _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -595,8 +592,6 @@ class FkChainCascadeMiddleRepository {
       offset: offset,
       orderBy: orderBy?.call(FkChainCascadeMiddle.t),
       orderByList: orderByList?.call(FkChainCascadeMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -617,8 +612,6 @@ class FkChainCascadeMiddleRepository {
     _i1.DatabaseSession session,
     List<FkChainCascadeMiddle> rows, {
     _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -627,8 +620,6 @@ class FkChainCascadeMiddleRepository {
       rows,
       orderBy: orderBy?.call(FkChainCascadeMiddle.t),
       orderByList: orderByList?.call(FkChainCascadeMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -658,8 +649,6 @@ class FkChainCascadeMiddleRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
     _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -668,8 +657,6 @@ class FkChainCascadeMiddleRepository {
       where: where(FkChainCascadeMiddle.t),
       orderBy: orderBy?.call(FkChainCascadeMiddle.t),
       orderByList: orderByList?.call(FkChainCascadeMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

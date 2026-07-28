@@ -18,7 +18,7 @@ part of 'stream_event.dart';
 /// [syncTablesHash] is the deterministic schema hash both sides must agree on
 /// before merging data.
 abstract class CrdtSyncConnect extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncConnect._({
     required this.localNodeId,
     required this.syncTablesHash,
@@ -54,6 +54,15 @@ abstract class CrdtSyncConnect extends _i1.CrdtSyncStreamEvent
   });
   @override
   Map<String, dynamic> toJson() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtSyncConnect',
+      'localNodeId': localNodeId.toJson(),
+      'syncTablesHash': syncTablesHash,
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
     return {
       '__className__': 'serverpod_offline_sync.CrdtSyncConnect',
       'localNodeId': localNodeId.toJson(),

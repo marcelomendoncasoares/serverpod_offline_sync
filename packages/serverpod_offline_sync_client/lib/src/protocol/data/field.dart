@@ -13,11 +13,11 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
 import 'package:serverpod_database/serverpod_database.dart' as _i2;
-import '../data/row.dart' as _i3;
-import '../schema/column.dart' as _i4;
-import '../node/node.dart' as _i5;
-import '../data/foreign_key.dart' as _i6;
-import 'package:serverpod_client/serverpod_client.dart' as _i7;
+import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import '../data/row.dart' as _i4;
+import '../schema/column.dart' as _i5;
+import '../node/node.dart' as _i6;
+import '../data/foreign_key.dart' as _i7;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
     as _i8;
 
@@ -25,7 +25,8 @@ import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
 ///
 /// This table stores only the HLC timestamp for a field. During merge, if the
 /// other HLC is greater, the actual data must be fetched from the table itself.
-abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
+abstract class CrdtDataField extends _i1.BaseHlc
+    implements _i2.TableRow<int?>, _i3.ProtocolSerialization {
   CrdtDataField._({
     this.id,
     required super.hlcDatetime,
@@ -44,40 +45,40 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
     required DateTime hlcDatetime,
     required int hlcCounter,
     required int rowId,
-    _i3.CrdtDataRow? row,
+    _i4.CrdtDataRow? row,
     required int columnId,
-    _i4.CrdtSchemaColumn? column,
+    _i5.CrdtSchemaColumn? column,
     required int nodeId,
-    _i5.CrdtNode? node,
-    _i6.CrdtDataForeignKey? foreignKey,
+    _i6.CrdtNode? node,
+    _i7.CrdtDataForeignKey? foreignKey,
   }) = _CrdtDataFieldImpl;
 
   factory CrdtDataField.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtDataField(
       id: jsonSerialization['id'] as int?,
-      hlcDatetime: _i7.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _i3.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
       rowId: jsonSerialization['rowId'] as int,
       row: jsonSerialization['row'] == null
           ? null
-          : _i8.Protocol().deserialize<_i3.CrdtDataRow>(
+          : _i8.Protocol().deserialize<_i4.CrdtDataRow>(
               jsonSerialization['row'],
             ),
       columnId: jsonSerialization['columnId'] as int,
       column: jsonSerialization['column'] == null
           ? null
-          : _i8.Protocol().deserialize<_i4.CrdtSchemaColumn>(
+          : _i8.Protocol().deserialize<_i5.CrdtSchemaColumn>(
               jsonSerialization['column'],
             ),
       nodeId: jsonSerialization['nodeId'] as int,
       node: jsonSerialization['node'] == null
           ? null
-          : _i8.Protocol().deserialize<_i5.CrdtNode>(jsonSerialization['node']),
+          : _i8.Protocol().deserialize<_i6.CrdtNode>(jsonSerialization['node']),
       foreignKey: jsonSerialization['foreignKey'] == null
           ? null
-          : _i8.Protocol().deserialize<_i6.CrdtDataForeignKey>(
+          : _i8.Protocol().deserialize<_i7.CrdtDataForeignKey>(
               jsonSerialization['foreignKey'],
             ),
     );
@@ -93,21 +94,21 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
   int rowId;
 
   /// Row that the field belongs to.
-  _i3.CrdtDataRow? row;
+  _i4.CrdtDataRow? row;
 
   int columnId;
 
   /// Column that the field belongs to.
-  _i4.CrdtSchemaColumn? column;
+  _i5.CrdtSchemaColumn? column;
 
   int nodeId;
 
   /// The node that updated the field.
-  _i5.CrdtNode? node;
+  _i6.CrdtNode? node;
 
   /// The foreign key information for the field, if this field holds a
   /// reference to another row.
-  _i6.CrdtDataForeignKey? foreignKey;
+  _i7.CrdtDataForeignKey? foreignKey;
 
   @override
   _i2.Table<int?> get table => t;
@@ -115,18 +116,18 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
   /// Returns a shallow copy of this [CrdtDataField]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i7.useResult
+  @_i3.useResult
   CrdtDataField copyWith({
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? rowId,
-    _i3.CrdtDataRow? row,
+    _i4.CrdtDataRow? row,
     int? columnId,
-    _i4.CrdtSchemaColumn? column,
+    _i5.CrdtSchemaColumn? column,
     int? nodeId,
-    _i5.CrdtNode? node,
-    _i6.CrdtDataForeignKey? foreignKey,
+    _i6.CrdtNode? node,
+    _i7.CrdtDataForeignKey? foreignKey,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -145,11 +146,28 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtDataField',
+      if (id != null) 'id': id,
+      'hlcDatetime': hlcDatetime.toJson(),
+      'hlcCounter': hlcCounter,
+      'rowId': rowId,
+      if (row != null) 'row': row?.toJsonForProtocol(),
+      'columnId': columnId,
+      if (column != null) 'column': column?.toJsonForProtocol(),
+      'nodeId': nodeId,
+      if (node != null) 'node': node?.toJsonForProtocol(),
+      if (foreignKey != null) 'foreignKey': foreignKey?.toJsonForProtocol(),
+    };
+  }
+
   static CrdtDataFieldInclude include({
-    _i3.CrdtDataRowInclude? row,
-    _i4.CrdtSchemaColumnInclude? column,
-    _i5.CrdtNodeInclude? node,
-    _i6.CrdtDataForeignKeyInclude? foreignKey,
+    _i4.CrdtDataRowInclude? row,
+    _i5.CrdtSchemaColumnInclude? column,
+    _i6.CrdtNodeInclude? node,
+    _i7.CrdtDataForeignKeyInclude? foreignKey,
   }) {
     return CrdtDataFieldInclude._(
       row: row,
@@ -164,8 +182,6 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     CrdtDataFieldInclude? include,
   }) {
@@ -174,8 +190,6 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataField.t),
       include: include,
     );
@@ -183,7 +197,7 @@ abstract class CrdtDataField extends _i1.BaseHlc implements _i2.TableRow<int?> {
 
   @override
   String toString() {
-    return _i7.SerializationManager.encode(this);
+    return _i3.SerializationManager.encode(this);
   }
 }
 
@@ -195,12 +209,12 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     required DateTime hlcDatetime,
     required int hlcCounter,
     required int rowId,
-    _i3.CrdtDataRow? row,
+    _i4.CrdtDataRow? row,
     required int columnId,
-    _i4.CrdtSchemaColumn? column,
+    _i5.CrdtSchemaColumn? column,
     required int nodeId,
-    _i5.CrdtNode? node,
-    _i6.CrdtDataForeignKey? foreignKey,
+    _i6.CrdtNode? node,
+    _i7.CrdtDataForeignKey? foreignKey,
   }) : super._(
          id: id,
          hlcDatetime: hlcDatetime,
@@ -216,7 +230,7 @@ class _CrdtDataFieldImpl extends CrdtDataField {
 
   /// Returns a shallow copy of this [CrdtDataField]
   /// with some or all fields replaced by the given arguments.
-  @_i7.useResult
+  @_i3.useResult
   @override
   CrdtDataField copyWith({
     Object? id = _Undefined,
@@ -235,14 +249,14 @@ class _CrdtDataFieldImpl extends CrdtDataField {
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
       rowId: rowId ?? this.rowId,
-      row: row is _i3.CrdtDataRow? ? row : this.row?.copyWith(),
+      row: row is _i4.CrdtDataRow? ? row : this.row?.copyWith(),
       columnId: columnId ?? this.columnId,
-      column: column is _i4.CrdtSchemaColumn?
+      column: column is _i5.CrdtSchemaColumn?
           ? column
           : this.column?.copyWith(),
       nodeId: nodeId ?? this.nodeId,
-      node: node is _i5.CrdtNode? ? node : this.node?.copyWith(),
-      foreignKey: foreignKey is _i6.CrdtDataForeignKey?
+      node: node is _i6.CrdtNode? ? node : this.node?.copyWith(),
+      foreignKey: foreignKey is _i7.CrdtDataForeignKey?
           ? foreignKey
           : this.foreignKey?.copyWith(),
     );
@@ -316,70 +330,70 @@ class CrdtDataFieldTable extends _i2.Table<int?> {
   late final _i2.ColumnInt rowId;
 
   /// Row that the field belongs to.
-  _i3.CrdtDataRowTable? _row;
+  _i4.CrdtDataRowTable? _row;
 
   late final _i2.ColumnInt columnId;
 
   /// Column that the field belongs to.
-  _i4.CrdtSchemaColumnTable? _column;
+  _i5.CrdtSchemaColumnTable? _column;
 
   late final _i2.ColumnInt nodeId;
 
   /// The node that updated the field.
-  _i5.CrdtNodeTable? _node;
+  _i6.CrdtNodeTable? _node;
 
   /// The foreign key information for the field, if this field holds a
   /// reference to another row.
-  _i6.CrdtDataForeignKeyTable? _foreignKey;
+  _i7.CrdtDataForeignKeyTable? _foreignKey;
 
-  _i3.CrdtDataRowTable get row {
+  _i4.CrdtDataRowTable get row {
     if (_row != null) return _row!;
     _row = _i2.createRelationTable(
       relationFieldName: 'row',
       field: CrdtDataField.t.rowId,
-      foreignField: _i3.CrdtDataRow.t.id,
+      foreignField: _i4.CrdtDataRow.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtDataRowTable(tableRelation: foreignTableRelation),
+          _i4.CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
     return _row!;
   }
 
-  _i4.CrdtSchemaColumnTable get column {
+  _i5.CrdtSchemaColumnTable get column {
     if (_column != null) return _column!;
     _column = _i2.createRelationTable(
       relationFieldName: 'column',
       field: CrdtDataField.t.columnId,
-      foreignField: _i4.CrdtSchemaColumn.t.id,
+      foreignField: _i5.CrdtSchemaColumn.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i4.CrdtSchemaColumnTable(tableRelation: foreignTableRelation),
+          _i5.CrdtSchemaColumnTable(tableRelation: foreignTableRelation),
     );
     return _column!;
   }
 
-  _i5.CrdtNodeTable get node {
+  _i6.CrdtNodeTable get node {
     if (_node != null) return _node!;
     _node = _i2.createRelationTable(
       relationFieldName: 'node',
       field: CrdtDataField.t.nodeId,
-      foreignField: _i5.CrdtNode.t.id,
+      foreignField: _i6.CrdtNode.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i5.CrdtNodeTable(tableRelation: foreignTableRelation),
+          _i6.CrdtNodeTable(tableRelation: foreignTableRelation),
     );
     return _node!;
   }
 
-  _i6.CrdtDataForeignKeyTable get foreignKey {
+  _i7.CrdtDataForeignKeyTable get foreignKey {
     if (_foreignKey != null) return _foreignKey!;
     _foreignKey = _i2.createRelationTable(
       relationFieldName: 'foreignKey',
       field: CrdtDataField.t.id,
-      foreignField: _i6.CrdtDataForeignKey.t.fieldId,
+      foreignField: _i7.CrdtDataForeignKey.t.fieldId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i6.CrdtDataForeignKeyTable(tableRelation: foreignTableRelation),
+          _i7.CrdtDataForeignKeyTable(tableRelation: foreignTableRelation),
     );
     return _foreignKey!;
   }
@@ -414,10 +428,10 @@ class CrdtDataFieldTable extends _i2.Table<int?> {
 
 class CrdtDataFieldInclude extends _i2.IncludeObject {
   CrdtDataFieldInclude._({
-    _i3.CrdtDataRowInclude? row,
-    _i4.CrdtSchemaColumnInclude? column,
-    _i5.CrdtNodeInclude? node,
-    _i6.CrdtDataForeignKeyInclude? foreignKey,
+    _i4.CrdtDataRowInclude? row,
+    _i5.CrdtSchemaColumnInclude? column,
+    _i6.CrdtNodeInclude? node,
+    _i7.CrdtDataForeignKeyInclude? foreignKey,
   }) {
     _row = row;
     _column = column;
@@ -425,13 +439,13 @@ class CrdtDataFieldInclude extends _i2.IncludeObject {
     _foreignKey = foreignKey;
   }
 
-  _i3.CrdtDataRowInclude? _row;
+  _i4.CrdtDataRowInclude? _row;
 
-  _i4.CrdtSchemaColumnInclude? _column;
+  _i5.CrdtSchemaColumnInclude? _column;
 
-  _i5.CrdtNodeInclude? _node;
+  _i6.CrdtNodeInclude? _node;
 
-  _i6.CrdtDataForeignKeyInclude? _foreignKey;
+  _i7.CrdtDataForeignKeyInclude? _foreignKey;
 
   @override
   Map<String, _i2.Include?> get includes => {
@@ -451,8 +465,6 @@ class CrdtDataFieldIncludeList extends _i2.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -501,8 +513,6 @@ class CrdtDataFieldRepository {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataFieldInclude? include,
@@ -513,8 +523,6 @@ class CrdtDataFieldRepository {
       where: where?.call(CrdtDataField.t),
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -546,8 +554,6 @@ class CrdtDataFieldRepository {
     _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataFieldInclude? include,
@@ -558,8 +564,6 @@ class CrdtDataFieldRepository {
       where: where?.call(CrdtDataField.t),
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -767,8 +771,6 @@ class CrdtDataFieldRepository {
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -779,8 +781,6 @@ class CrdtDataFieldRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -801,8 +801,6 @@ class CrdtDataFieldRepository {
     _i2.DatabaseSession session,
     List<CrdtDataField> rows, {
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -811,8 +809,6 @@ class CrdtDataFieldRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -842,8 +838,6 @@ class CrdtDataFieldRepository {
     _i2.DatabaseSession session, {
     required _i2.WhereExpressionBuilder<CrdtDataFieldTable> where,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -852,8 +846,6 @@ class CrdtDataFieldRepository {
       where: where(CrdtDataField.t),
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -899,7 +891,7 @@ class CrdtDataFieldAttachRowRepository {
   Future<void> row(
     _i2.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i3.CrdtDataRow row, {
+    _i4.CrdtDataRow row, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataField.id == null) {
@@ -922,7 +914,7 @@ class CrdtDataFieldAttachRowRepository {
   Future<void> column(
     _i2.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i4.CrdtSchemaColumn column, {
+    _i5.CrdtSchemaColumn column, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataField.id == null) {
@@ -945,7 +937,7 @@ class CrdtDataFieldAttachRowRepository {
   Future<void> node(
     _i2.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i5.CrdtNode node, {
+    _i6.CrdtNode node, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataField.id == null) {
@@ -968,7 +960,7 @@ class CrdtDataFieldAttachRowRepository {
   Future<void> foreignKey(
     _i2.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i6.CrdtDataForeignKey foreignKey, {
+    _i7.CrdtDataForeignKey foreignKey, {
     _i2.Transaction? transaction,
   }) async {
     if (foreignKey.id == null) {
@@ -979,9 +971,9 @@ class CrdtDataFieldAttachRowRepository {
     }
 
     var $foreignKey = foreignKey.copyWith(fieldId: crdtDataField.id);
-    await session.db.updateRow<_i6.CrdtDataForeignKey>(
+    await session.db.updateRow<_i7.CrdtDataForeignKey>(
       $foreignKey,
-      columns: [_i6.CrdtDataForeignKey.t.fieldId],
+      columns: [_i7.CrdtDataForeignKey.t.fieldId],
       transaction: transaction,
     );
   }
@@ -1013,9 +1005,9 @@ class CrdtDataFieldDetachRowRepository {
     }
 
     var $$foreignKey = $foreignKey.copyWith(fieldId: null);
-    await session.db.updateRow<_i6.CrdtDataForeignKey>(
+    await session.db.updateRow<_i7.CrdtDataForeignKey>(
       $$foreignKey,
-      columns: [_i6.CrdtDataForeignKey.t.fieldId],
+      columns: [_i7.CrdtDataForeignKey.t.fieldId],
       transaction: transaction,
     );
   }

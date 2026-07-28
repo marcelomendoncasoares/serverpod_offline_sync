@@ -181,8 +181,6 @@ abstract class CrdtDataField extends _i1.BaseHlc
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     CrdtDataFieldInclude? include,
   }) {
@@ -191,8 +189,6 @@ abstract class CrdtDataField extends _i1.BaseHlc
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataField.t),
       include: include,
     );
@@ -468,8 +464,6 @@ class CrdtDataFieldIncludeList extends _i2.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -518,8 +512,6 @@ class CrdtDataFieldRepository {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataFieldInclude? include,
@@ -530,8 +522,6 @@ class CrdtDataFieldRepository {
       where: where?.call(CrdtDataField.t),
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -563,8 +553,6 @@ class CrdtDataFieldRepository {
     _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataFieldInclude? include,
@@ -575,8 +563,6 @@ class CrdtDataFieldRepository {
       where: where?.call(CrdtDataField.t),
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -784,8 +770,6 @@ class CrdtDataFieldRepository {
     int? offset,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -796,8 +780,6 @@ class CrdtDataFieldRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -818,8 +800,6 @@ class CrdtDataFieldRepository {
     _i2.DatabaseSession session,
     List<CrdtDataField> rows, {
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -828,8 +808,6 @@ class CrdtDataFieldRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -859,8 +837,6 @@ class CrdtDataFieldRepository {
     _i2.DatabaseSession session, {
     required _i2.WhereExpressionBuilder<CrdtDataFieldTable> where,
     _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -869,8 +845,6 @@ class CrdtDataFieldRepository {
       where: where(CrdtDataField.t),
       orderBy: orderBy?.call(CrdtDataField.t),
       orderByList: orderByList?.call(CrdtDataField.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

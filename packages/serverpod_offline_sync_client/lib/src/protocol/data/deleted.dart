@@ -13,10 +13,10 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
 import 'package:serverpod_database/serverpod_database.dart' as _i2;
-import '../data/row.dart' as _i3;
-import '../node/node.dart' as _i4;
-import '../data/deleted_reason.dart' as _i5;
-import 'package:serverpod_client/serverpod_client.dart' as _i6;
+import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import '../data/row.dart' as _i4;
+import '../node/node.dart' as _i5;
+import '../data/deleted_reason.dart' as _i6;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
     as _i7;
 
@@ -25,7 +25,7 @@ import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
 /// This table stores materialized monotone CLFlag metadata after a visibility
 /// change event has been recorded.
 abstract class CrdtDataDeleted extends _i1.BaseHlc
-    implements _i2.TableRow<int?> {
+    implements _i2.TableRow<int?>, _i3.ProtocolSerialization {
   CrdtDataDeleted._({
     this.id,
     required super.hlcDatetime,
@@ -42,33 +42,33 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
-    _i3.CrdtDataRow? row,
+    _i4.CrdtDataRow? row,
     required int rowId,
     required int nodeId,
-    _i4.CrdtNode? node,
+    _i5.CrdtNode? node,
     required int clFlag,
-    required _i5.CrdtDataDeletedReason reason,
+    required _i6.CrdtDataDeletedReason reason,
   }) = _CrdtDataDeletedImpl;
 
   factory CrdtDataDeleted.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtDataDeleted(
       id: jsonSerialization['id'] as int?,
-      hlcDatetime: _i6.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _i3.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
       row: jsonSerialization['row'] == null
           ? null
-          : _i7.Protocol().deserialize<_i3.CrdtDataRow>(
+          : _i7.Protocol().deserialize<_i4.CrdtDataRow>(
               jsonSerialization['row'],
             ),
       rowId: jsonSerialization['rowId'] as int,
       nodeId: jsonSerialization['nodeId'] as int,
       node: jsonSerialization['node'] == null
           ? null
-          : _i7.Protocol().deserialize<_i4.CrdtNode>(jsonSerialization['node']),
+          : _i7.Protocol().deserialize<_i5.CrdtNode>(jsonSerialization['node']),
       clFlag: jsonSerialization['clFlag'] as int,
-      reason: _i5.CrdtDataDeletedReason.fromJson(
+      reason: _i6.CrdtDataDeletedReason.fromJson(
         (jsonSerialization['reason'] as int),
       ),
     );
@@ -82,20 +82,20 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
   int? id;
 
   /// Row whose visibility is tracked.
-  _i3.CrdtDataRow? row;
+  _i4.CrdtDataRow? row;
 
   int rowId;
 
   int nodeId;
 
   /// The node that updated the field.
-  _i4.CrdtNode? node;
+  _i5.CrdtNode? node;
 
   /// Monotone causal-length flag. Odd values are visible and even values are deleted.
   int clFlag;
 
   /// Why the row entered its current visibility generation.
-  _i5.CrdtDataDeletedReason reason;
+  _i6.CrdtDataDeletedReason reason;
 
   @override
   _i2.Table<int?> get table => t;
@@ -103,17 +103,17 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
   /// Returns a shallow copy of this [CrdtDataDeleted]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i6.useResult
+  @_i3.useResult
   CrdtDataDeleted copyWith({
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i3.CrdtDataRow? row,
+    _i4.CrdtDataRow? row,
     int? rowId,
     int? nodeId,
-    _i4.CrdtNode? node,
+    _i5.CrdtNode? node,
     int? clFlag,
-    _i5.CrdtDataDeletedReason? reason,
+    _i6.CrdtDataDeletedReason? reason,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -131,9 +131,25 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtDataDeleted',
+      if (id != null) 'id': id,
+      'hlcDatetime': hlcDatetime.toJson(),
+      'hlcCounter': hlcCounter,
+      if (row != null) 'row': row?.toJsonForProtocol(),
+      'rowId': rowId,
+      'nodeId': nodeId,
+      if (node != null) 'node': node?.toJsonForProtocol(),
+      'clFlag': clFlag,
+      'reason': reason.toJson(),
+    };
+  }
+
   static CrdtDataDeletedInclude include({
-    _i3.CrdtDataRowInclude? row,
-    _i4.CrdtNodeInclude? node,
+    _i4.CrdtDataRowInclude? row,
+    _i5.CrdtNodeInclude? node,
   }) {
     return CrdtDataDeletedInclude._(
       row: row,
@@ -146,8 +162,6 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     CrdtDataDeletedInclude? include,
   }) {
@@ -156,8 +170,6 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataDeleted.t),
       include: include,
     );
@@ -165,7 +177,7 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
 
   @override
   String toString() {
-    return _i6.SerializationManager.encode(this);
+    return _i3.SerializationManager.encode(this);
   }
 }
 
@@ -176,12 +188,12 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
-    _i3.CrdtDataRow? row,
+    _i4.CrdtDataRow? row,
     required int rowId,
     required int nodeId,
-    _i4.CrdtNode? node,
+    _i5.CrdtNode? node,
     required int clFlag,
-    required _i5.CrdtDataDeletedReason reason,
+    required _i6.CrdtDataDeletedReason reason,
   }) : super._(
          id: id,
          hlcDatetime: hlcDatetime,
@@ -196,7 +208,7 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
 
   /// Returns a shallow copy of this [CrdtDataDeleted]
   /// with some or all fields replaced by the given arguments.
-  @_i6.useResult
+  @_i3.useResult
   @override
   CrdtDataDeleted copyWith({
     Object? id = _Undefined,
@@ -207,16 +219,16 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     int? nodeId,
     Object? node = _Undefined,
     int? clFlag,
-    _i5.CrdtDataDeletedReason? reason,
+    _i6.CrdtDataDeletedReason? reason,
   }) {
     return CrdtDataDeleted(
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
-      row: row is _i3.CrdtDataRow? ? row : this.row?.copyWith(),
+      row: row is _i4.CrdtDataRow? ? row : this.row?.copyWith(),
       rowId: rowId ?? this.rowId,
       nodeId: nodeId ?? this.nodeId,
-      node: node is _i4.CrdtNode? ? node : this.node?.copyWith(),
+      node: node is _i5.CrdtNode? ? node : this.node?.copyWith(),
       clFlag: clFlag ?? this.clFlag,
       reason: reason ?? this.reason,
     );
@@ -252,8 +264,8 @@ class CrdtDataDeletedUpdateTable extends _i2.UpdateTable<CrdtDataDeletedTable> {
     value,
   );
 
-  _i2.ColumnValue<_i5.CrdtDataDeletedReason, _i5.CrdtDataDeletedReason> reason(
-    _i5.CrdtDataDeletedReason value,
+  _i2.ColumnValue<_i6.CrdtDataDeletedReason, _i6.CrdtDataDeletedReason> reason(
+    _i6.CrdtDataDeletedReason value,
   ) => _i2.ColumnValue(
     table.reason,
     value,
@@ -300,43 +312,43 @@ class CrdtDataDeletedTable extends _i2.Table<int?> {
   late final _i2.ColumnInt hlcCounter;
 
   /// Row whose visibility is tracked.
-  _i3.CrdtDataRowTable? _row;
+  _i4.CrdtDataRowTable? _row;
 
   late final _i2.ColumnInt rowId;
 
   late final _i2.ColumnInt nodeId;
 
   /// The node that updated the field.
-  _i4.CrdtNodeTable? _node;
+  _i5.CrdtNodeTable? _node;
 
   /// Monotone causal-length flag. Odd values are visible and even values are deleted.
   late final _i2.ColumnInt clFlag;
 
   /// Why the row entered its current visibility generation.
-  late final _i2.ColumnEnum<_i5.CrdtDataDeletedReason> reason;
+  late final _i2.ColumnEnum<_i6.CrdtDataDeletedReason> reason;
 
-  _i3.CrdtDataRowTable get row {
+  _i4.CrdtDataRowTable get row {
     if (_row != null) return _row!;
     _row = _i2.createRelationTable(
       relationFieldName: 'row',
       field: CrdtDataDeleted.t.rowId,
-      foreignField: _i3.CrdtDataRow.t.id,
+      foreignField: _i4.CrdtDataRow.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtDataRowTable(tableRelation: foreignTableRelation),
+          _i4.CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
     return _row!;
   }
 
-  _i4.CrdtNodeTable get node {
+  _i5.CrdtNodeTable get node {
     if (_node != null) return _node!;
     _node = _i2.createRelationTable(
       relationFieldName: 'node',
       field: CrdtDataDeleted.t.nodeId,
-      foreignField: _i4.CrdtNode.t.id,
+      foreignField: _i5.CrdtNode.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i4.CrdtNodeTable(tableRelation: foreignTableRelation),
+          _i5.CrdtNodeTable(tableRelation: foreignTableRelation),
     );
     return _node!;
   }
@@ -366,16 +378,16 @@ class CrdtDataDeletedTable extends _i2.Table<int?> {
 
 class CrdtDataDeletedInclude extends _i2.IncludeObject {
   CrdtDataDeletedInclude._({
-    _i3.CrdtDataRowInclude? row,
-    _i4.CrdtNodeInclude? node,
+    _i4.CrdtDataRowInclude? row,
+    _i5.CrdtNodeInclude? node,
   }) {
     _row = row;
     _node = node;
   }
 
-  _i3.CrdtDataRowInclude? _row;
+  _i4.CrdtDataRowInclude? _row;
 
-  _i4.CrdtNodeInclude? _node;
+  _i5.CrdtNodeInclude? _node;
 
   @override
   Map<String, _i2.Include?> get includes => {
@@ -393,8 +405,6 @@ class CrdtDataDeletedIncludeList extends _i2.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -441,8 +451,6 @@ class CrdtDataDeletedRepository {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataDeletedInclude? include,
@@ -453,8 +461,6 @@ class CrdtDataDeletedRepository {
       where: where?.call(CrdtDataDeleted.t),
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -486,8 +492,6 @@ class CrdtDataDeletedRepository {
     _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataDeletedInclude? include,
@@ -498,8 +502,6 @@ class CrdtDataDeletedRepository {
       where: where?.call(CrdtDataDeleted.t),
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -709,8 +711,6 @@ class CrdtDataDeletedRepository {
     int? offset,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -721,8 +721,6 @@ class CrdtDataDeletedRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -743,8 +741,6 @@ class CrdtDataDeletedRepository {
     _i2.DatabaseSession session,
     List<CrdtDataDeleted> rows, {
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -753,8 +749,6 @@ class CrdtDataDeletedRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -784,8 +778,6 @@ class CrdtDataDeletedRepository {
     _i2.DatabaseSession session, {
     required _i2.WhereExpressionBuilder<CrdtDataDeletedTable> where,
     _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -794,8 +786,6 @@ class CrdtDataDeletedRepository {
       where: where(CrdtDataDeleted.t),
       orderBy: orderBy?.call(CrdtDataDeleted.t),
       orderByList: orderByList?.call(CrdtDataDeleted.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -841,7 +831,7 @@ class CrdtDataDeletedAttachRowRepository {
   Future<void> row(
     _i2.DatabaseSession session,
     CrdtDataDeleted crdtDataDeleted,
-    _i3.CrdtDataRow row, {
+    _i4.CrdtDataRow row, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataDeleted.id == null) {
@@ -864,7 +854,7 @@ class CrdtDataDeletedAttachRowRepository {
   Future<void> node(
     _i2.DatabaseSession session,
     CrdtDataDeleted crdtDataDeleted,
-    _i4.CrdtNode node, {
+    _i5.CrdtNode node, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataDeleted.id == null) {

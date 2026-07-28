@@ -8,31 +8,32 @@
 // ignore_for_file: type_literal_in_constant_pattern
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
+// ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
-import 'data/deleted.dart' as _i3;
-import 'data/deleted_reason.dart' as _i4;
-import 'data/field.dart' as _i5;
-import 'data/foreign_key.dart' as _i6;
-import 'data/foreign_key_override_reason.dart' as _i7;
-import 'data/row.dart' as _i8;
-import 'data/row_visibility.dart' as _i9;
-import 'merge/change.dart' as _i10;
-import 'node/node.dart' as _i11;
-import 'node/scope.dart' as _i12;
-import 'node/scope_member.dart' as _i13;
-import 'node/scope_node.dart' as _i14;
-import 'node/scope_role.dart' as _i15;
-import 'schema/column.dart' as _i16;
-import 'schema/table.dart' as _i17;
-import 'sync/stream_event.dart' as _i18;
-import 'sync/scope_grant.dart' as _i19;
-import 'sync/violation.dart' as _i20;
-import 'sync/violation_operation.dart' as _i21;
-import 'sync/violation_type.dart' as _i22;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i23;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i2;
+import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import 'data/deleted.dart' as _i4;
+import 'data/deleted_reason.dart' as _i5;
+import 'data/field.dart' as _i6;
+import 'data/foreign_key.dart' as _i7;
+import 'data/foreign_key_override_reason.dart' as _i8;
+import 'data/row.dart' as _i9;
+import 'data/row_visibility.dart' as _i10;
+import 'merge/change.dart' as _i11;
+import 'node/node.dart' as _i12;
+import 'node/scope.dart' as _i13;
+import 'node/scope_member.dart' as _i14;
+import 'node/scope_node.dart' as _i15;
+import 'node/scope_role.dart' as _i16;
+import 'schema/column.dart' as _i17;
+import 'schema/table.dart' as _i18;
+import 'sync/stream_event.dart' as _i19;
+import 'sync/scope_grant.dart' as _i20;
+import 'sync/violation.dart' as _i21;
+import 'sync/violation_operation.dart' as _i22;
+import 'sync/violation_type.dart' as _i23;
 export 'data/deleted.dart';
 export 'data/deleted_reason.dart';
 export 'data/field.dart';
@@ -53,6 +54,8 @@ export 'sync/stream_event.dart';
 export 'sync/violation.dart';
 export 'sync/violation_operation.dart';
 export 'sync/violation_type.dart';
+export 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    hide Protocol;
 export 'client.dart';
 
 class Protocol extends _i1.DatabaseSerializationManager {
@@ -900,15 +903,20 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
+    ..._i2.Protocol() is _i1.DatabaseSerializationManager
+        ? (_i2.Protocol() as _i1.DatabaseSerializationManager)
+              .getTargetTableDefinitions()
+        : [],
   ];
 
-  final Set<_i2.SerializationManager> _hostProtocols = {};
+  final Set<_i3.SerializationManager> _hostProtocols = {};
 
   void registerHostProtocol(
     String projectName,
-    _i2.SerializationManager protocol,
+    _i3.SerializationManager protocol,
   ) {
     _hostProtocols.add(protocol);
+    _i2.Protocol().registerHostProtocol(projectName, protocol);
   }
 
   static String? getClassNameFromObjectJson(dynamic data) {
@@ -940,199 +948,199 @@ class Protocol extends _i1.DatabaseSerializationManager {
       }
     }
 
-    if (t == _i3.CrdtDataDeleted) {
-      return _i3.CrdtDataDeleted.fromJson(data) as T;
+    if (t == _i4.CrdtDataDeleted) {
+      return _i4.CrdtDataDeleted.fromJson(data) as T;
     }
-    if (t == _i4.CrdtDataDeletedReason) {
-      return _i4.CrdtDataDeletedReason.fromJson(data) as T;
+    if (t == _i5.CrdtDataDeletedReason) {
+      return _i5.CrdtDataDeletedReason.fromJson(data) as T;
     }
-    if (t == _i5.CrdtDataField) {
-      return _i5.CrdtDataField.fromJson(data) as T;
+    if (t == _i6.CrdtDataField) {
+      return _i6.CrdtDataField.fromJson(data) as T;
     }
-    if (t == _i6.CrdtDataForeignKey) {
-      return _i6.CrdtDataForeignKey.fromJson(data) as T;
+    if (t == _i7.CrdtDataForeignKey) {
+      return _i7.CrdtDataForeignKey.fromJson(data) as T;
     }
-    if (t == _i7.CrdtForeignKeyOverrideReason) {
-      return _i7.CrdtForeignKeyOverrideReason.fromJson(data) as T;
+    if (t == _i8.CrdtForeignKeyOverrideReason) {
+      return _i8.CrdtForeignKeyOverrideReason.fromJson(data) as T;
     }
-    if (t == _i8.CrdtDataRow) {
-      return _i8.CrdtDataRow.fromJson(data) as T;
+    if (t == _i9.CrdtDataRow) {
+      return _i9.CrdtDataRow.fromJson(data) as T;
     }
-    if (t == _i9.CrdtDataRowVisibility) {
-      return _i9.CrdtDataRowVisibility.fromJson(data) as T;
+    if (t == _i10.CrdtDataRowVisibility) {
+      return _i10.CrdtDataRowVisibility.fromJson(data) as T;
     }
-    if (t == _i10.CrdtMergeDelete) {
-      return _i10.CrdtMergeDelete.fromJson(data) as T;
+    if (t == _i11.CrdtMergeDelete) {
+      return _i11.CrdtMergeDelete.fromJson(data) as T;
     }
-    if (t == _i10.CrdtMergeInsert) {
-      return _i10.CrdtMergeInsert.fromJson(data) as T;
+    if (t == _i11.CrdtMergeInsert) {
+      return _i11.CrdtMergeInsert.fromJson(data) as T;
     }
-    if (t == _i10.CrdtMergeUpdate) {
-      return _i10.CrdtMergeUpdate.fromJson(data) as T;
+    if (t == _i11.CrdtMergeUpdate) {
+      return _i11.CrdtMergeUpdate.fromJson(data) as T;
     }
-    if (t == _i11.CrdtNode) {
-      return _i11.CrdtNode.fromJson(data) as T;
+    if (t == _i12.CrdtNode) {
+      return _i12.CrdtNode.fromJson(data) as T;
     }
-    if (t == _i12.CrdtScope) {
-      return _i12.CrdtScope.fromJson(data) as T;
+    if (t == _i13.CrdtScope) {
+      return _i13.CrdtScope.fromJson(data) as T;
     }
-    if (t == _i13.CrdtScopeMember) {
-      return _i13.CrdtScopeMember.fromJson(data) as T;
+    if (t == _i14.CrdtScopeMember) {
+      return _i14.CrdtScopeMember.fromJson(data) as T;
     }
-    if (t == _i14.CrdtScopeNode) {
-      return _i14.CrdtScopeNode.fromJson(data) as T;
+    if (t == _i15.CrdtScopeNode) {
+      return _i15.CrdtScopeNode.fromJson(data) as T;
     }
-    if (t == _i15.CrdtScopeRole) {
-      return _i15.CrdtScopeRole.fromJson(data) as T;
+    if (t == _i16.CrdtScopeRole) {
+      return _i16.CrdtScopeRole.fromJson(data) as T;
     }
-    if (t == _i16.CrdtSchemaColumn) {
-      return _i16.CrdtSchemaColumn.fromJson(data) as T;
+    if (t == _i17.CrdtSchemaColumn) {
+      return _i17.CrdtSchemaColumn.fromJson(data) as T;
     }
-    if (t == _i17.CrdtSchemaTable) {
-      return _i17.CrdtSchemaTable.fromJson(data) as T;
+    if (t == _i18.CrdtSchemaTable) {
+      return _i18.CrdtSchemaTable.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncClose) {
-      return _i18.CrdtSyncClose.fromJson(data) as T;
+    if (t == _i19.CrdtSyncClose) {
+      return _i19.CrdtSyncClose.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncConnect) {
-      return _i18.CrdtSyncConnect.fromJson(data) as T;
+    if (t == _i19.CrdtSyncConnect) {
+      return _i19.CrdtSyncConnect.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncEndOfBatch) {
-      return _i18.CrdtSyncEndOfBatch.fromJson(data) as T;
+    if (t == _i19.CrdtSyncEndOfBatch) {
+      return _i19.CrdtSyncEndOfBatch.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncMergeChunk) {
-      return _i18.CrdtSyncMergeChunk.fromJson(data) as T;
+    if (t == _i19.CrdtSyncMergeChunk) {
+      return _i19.CrdtSyncMergeChunk.fromJson(data) as T;
     }
-    if (t == _i19.CrdtScopeGrant) {
-      return _i19.CrdtScopeGrant.fromJson(data) as T;
+    if (t == _i20.CrdtScopeGrant) {
+      return _i20.CrdtScopeGrant.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncScopeSet) {
-      return _i18.CrdtSyncScopeSet.fromJson(data) as T;
+    if (t == _i19.CrdtSyncScopeSet) {
+      return _i19.CrdtSyncScopeSet.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncSinceHlc) {
-      return _i18.CrdtSyncSinceHlc.fromJson(data) as T;
+    if (t == _i19.CrdtSyncSinceHlc) {
+      return _i19.CrdtSyncSinceHlc.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSyncIdleTimeout) {
-      return _i18.CrdtSyncIdleTimeout.fromJson(data) as T;
+    if (t == _i19.CrdtSyncIdleTimeout) {
+      return _i19.CrdtSyncIdleTimeout.fromJson(data) as T;
     }
-    if (t == _i20.CrdtSyncIntegrityViolation) {
-      return _i20.CrdtSyncIntegrityViolation.fromJson(data) as T;
+    if (t == _i21.CrdtSyncIntegrityViolation) {
+      return _i21.CrdtSyncIntegrityViolation.fromJson(data) as T;
     }
-    if (t == _i21.CrdtSyncViolationOperation) {
-      return _i21.CrdtSyncViolationOperation.fromJson(data) as T;
+    if (t == _i22.CrdtSyncViolationOperation) {
+      return _i22.CrdtSyncViolationOperation.fromJson(data) as T;
     }
-    if (t == _i22.CrdtSyncViolationType) {
-      return _i22.CrdtSyncViolationType.fromJson(data) as T;
+    if (t == _i23.CrdtSyncViolationType) {
+      return _i23.CrdtSyncViolationType.fromJson(data) as T;
     }
-    if (t == _i2.getType<_i3.CrdtDataDeleted?>()) {
-      return (data != null ? _i3.CrdtDataDeleted.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i4.CrdtDataDeleted?>()) {
+      return (data != null ? _i4.CrdtDataDeleted.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i4.CrdtDataDeletedReason?>()) {
-      return (data != null ? _i4.CrdtDataDeletedReason.fromJson(data) : null)
+    if (t == _i3.getType<_i5.CrdtDataDeletedReason?>()) {
+      return (data != null ? _i5.CrdtDataDeletedReason.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i5.CrdtDataField?>()) {
-      return (data != null ? _i5.CrdtDataField.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i6.CrdtDataField?>()) {
+      return (data != null ? _i6.CrdtDataField.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i6.CrdtDataForeignKey?>()) {
-      return (data != null ? _i6.CrdtDataForeignKey.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i7.CrdtDataForeignKey?>()) {
+      return (data != null ? _i7.CrdtDataForeignKey.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i7.CrdtForeignKeyOverrideReason?>()) {
+    if (t == _i3.getType<_i8.CrdtForeignKeyOverrideReason?>()) {
       return (data != null
-              ? _i7.CrdtForeignKeyOverrideReason.fromJson(data)
+              ? _i8.CrdtForeignKeyOverrideReason.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i2.getType<_i8.CrdtDataRow?>()) {
-      return (data != null ? _i8.CrdtDataRow.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i9.CrdtDataRow?>()) {
+      return (data != null ? _i9.CrdtDataRow.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i9.CrdtDataRowVisibility?>()) {
-      return (data != null ? _i9.CrdtDataRowVisibility.fromJson(data) : null)
+    if (t == _i3.getType<_i10.CrdtDataRowVisibility?>()) {
+      return (data != null ? _i10.CrdtDataRowVisibility.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i10.CrdtMergeDelete?>()) {
-      return (data != null ? _i10.CrdtMergeDelete.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i11.CrdtMergeDelete?>()) {
+      return (data != null ? _i11.CrdtMergeDelete.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i10.CrdtMergeInsert?>()) {
-      return (data != null ? _i10.CrdtMergeInsert.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i11.CrdtMergeInsert?>()) {
+      return (data != null ? _i11.CrdtMergeInsert.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i10.CrdtMergeUpdate?>()) {
-      return (data != null ? _i10.CrdtMergeUpdate.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i11.CrdtMergeUpdate?>()) {
+      return (data != null ? _i11.CrdtMergeUpdate.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i11.CrdtNode?>()) {
-      return (data != null ? _i11.CrdtNode.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i12.CrdtNode?>()) {
+      return (data != null ? _i12.CrdtNode.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i12.CrdtScope?>()) {
-      return (data != null ? _i12.CrdtScope.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i13.CrdtScope?>()) {
+      return (data != null ? _i13.CrdtScope.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i13.CrdtScopeMember?>()) {
-      return (data != null ? _i13.CrdtScopeMember.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i14.CrdtScopeMember?>()) {
+      return (data != null ? _i14.CrdtScopeMember.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i14.CrdtScopeNode?>()) {
-      return (data != null ? _i14.CrdtScopeNode.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i15.CrdtScopeNode?>()) {
+      return (data != null ? _i15.CrdtScopeNode.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i15.CrdtScopeRole?>()) {
-      return (data != null ? _i15.CrdtScopeRole.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i16.CrdtScopeRole?>()) {
+      return (data != null ? _i16.CrdtScopeRole.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i16.CrdtSchemaColumn?>()) {
-      return (data != null ? _i16.CrdtSchemaColumn.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i17.CrdtSchemaColumn?>()) {
+      return (data != null ? _i17.CrdtSchemaColumn.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i17.CrdtSchemaTable?>()) {
-      return (data != null ? _i17.CrdtSchemaTable.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i18.CrdtSchemaTable?>()) {
+      return (data != null ? _i18.CrdtSchemaTable.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncClose?>()) {
-      return (data != null ? _i18.CrdtSyncClose.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i19.CrdtSyncClose?>()) {
+      return (data != null ? _i19.CrdtSyncClose.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncConnect?>()) {
-      return (data != null ? _i18.CrdtSyncConnect.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i19.CrdtSyncConnect?>()) {
+      return (data != null ? _i19.CrdtSyncConnect.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncEndOfBatch?>()) {
-      return (data != null ? _i18.CrdtSyncEndOfBatch.fromJson(data) : null)
+    if (t == _i3.getType<_i19.CrdtSyncEndOfBatch?>()) {
+      return (data != null ? _i19.CrdtSyncEndOfBatch.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncMergeChunk?>()) {
-      return (data != null ? _i18.CrdtSyncMergeChunk.fromJson(data) : null)
+    if (t == _i3.getType<_i19.CrdtSyncMergeChunk?>()) {
+      return (data != null ? _i19.CrdtSyncMergeChunk.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i19.CrdtScopeGrant?>()) {
-      return (data != null ? _i19.CrdtScopeGrant.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i20.CrdtScopeGrant?>()) {
+      return (data != null ? _i20.CrdtScopeGrant.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncScopeSet?>()) {
-      return (data != null ? _i18.CrdtSyncScopeSet.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i19.CrdtSyncScopeSet?>()) {
+      return (data != null ? _i19.CrdtSyncScopeSet.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncSinceHlc?>()) {
-      return (data != null ? _i18.CrdtSyncSinceHlc.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i19.CrdtSyncSinceHlc?>()) {
+      return (data != null ? _i19.CrdtSyncSinceHlc.fromJson(data) : null) as T;
     }
-    if (t == _i2.getType<_i18.CrdtSyncIdleTimeout?>()) {
-      return (data != null ? _i18.CrdtSyncIdleTimeout.fromJson(data) : null)
+    if (t == _i3.getType<_i19.CrdtSyncIdleTimeout?>()) {
+      return (data != null ? _i19.CrdtSyncIdleTimeout.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i20.CrdtSyncIntegrityViolation?>()) {
+    if (t == _i3.getType<_i21.CrdtSyncIntegrityViolation?>()) {
       return (data != null
-              ? _i20.CrdtSyncIntegrityViolation.fromJson(data)
+              ? _i21.CrdtSyncIntegrityViolation.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i2.getType<_i21.CrdtSyncViolationOperation?>()) {
+    if (t == _i3.getType<_i22.CrdtSyncViolationOperation?>()) {
       return (data != null
-              ? _i21.CrdtSyncViolationOperation.fromJson(data)
+              ? _i22.CrdtSyncViolationOperation.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i2.getType<_i22.CrdtSyncViolationType?>()) {
-      return (data != null ? _i22.CrdtSyncViolationType.fromJson(data) : null)
+    if (t == _i3.getType<_i23.CrdtSyncViolationType?>()) {
+      return (data != null ? _i23.CrdtSyncViolationType.fromJson(data) : null)
           as T;
     }
-    if (t == List<_i5.CrdtDataField>) {
+    if (t == List<_i6.CrdtDataField>) {
       return (data as List)
-              .map((e) => deserialize<_i5.CrdtDataField>(e))
+              .map((e) => deserialize<_i6.CrdtDataField>(e))
               .toList()
           as T;
     }
-    if (t == _i2.getType<List<_i5.CrdtDataField>?>()) {
+    if (t == _i3.getType<List<_i6.CrdtDataField>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i5.CrdtDataField>(e))
+                    .map((e) => deserialize<_i6.CrdtDataField>(e))
                     .toList()
               : null)
           as T;
@@ -1140,81 +1148,81 @@ class Protocol extends _i1.DatabaseSerializationManager {
     if (t == dynamic) {
       return deserializeDynamicFieldValue(data) as T;
     }
-    if (t == _i2.getType<_i23.Hlc?>()) {
-      return (data != null ? _i23.Hlc.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i2.Hlc?>()) {
+      return (data != null ? _i2.Hlc.fromJson(data) : null) as T;
     }
-    if (t == List<_i14.CrdtScopeNode>) {
+    if (t == List<_i15.CrdtScopeNode>) {
       return (data as List)
-              .map((e) => deserialize<_i14.CrdtScopeNode>(e))
+              .map((e) => deserialize<_i15.CrdtScopeNode>(e))
               .toList()
           as T;
     }
-    if (t == _i2.getType<List<_i14.CrdtScopeNode>?>()) {
+    if (t == _i3.getType<List<_i15.CrdtScopeNode>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i14.CrdtScopeNode>(e))
+                    .map((e) => deserialize<_i15.CrdtScopeNode>(e))
                     .toList()
               : null)
           as T;
     }
-    if (t == List<_i10.CrdtMergeChange>) {
+    if (t == List<_i11.CrdtMergeChange>) {
       return (data as List)
-              .map((e) => deserialize<_i10.CrdtMergeChange>(e))
+              .map((e) => deserialize<_i11.CrdtMergeChange>(e))
               .toList()
           as T;
     }
-    if (t == List<_i19.CrdtScopeGrant>) {
+    if (t == List<_i20.CrdtScopeGrant>) {
       return (data as List)
-              .map((e) => deserialize<_i19.CrdtScopeGrant>(e))
+              .map((e) => deserialize<_i20.CrdtScopeGrant>(e))
               .toList()
           as T;
     }
-    if (t == List<_i23.Hlc>) {
-      return (data as List).map((e) => deserialize<_i23.Hlc>(e)).toList() as T;
+    if (t == List<_i2.Hlc>) {
+      return (data as List).map((e) => deserialize<_i2.Hlc>(e)).toList() as T;
     }
-    if (t == _i23.Hlc) {
-      return _i23.Hlc.fromJson(data) as T;
+    if (t == _i2.Hlc) {
+      return _i2.Hlc.fromJson(data) as T;
     }
-    if (t == _i2.getType<_i23.Hlc?>()) {
-      return (data != null ? _i23.Hlc.fromJson(data) : null) as T;
+    if (t == _i3.getType<_i2.Hlc?>()) {
+      return (data != null ? _i2.Hlc.fromJson(data) : null) as T;
     }
     try {
-      return _i23.Protocol().deserialize<T>(data, t);
-    } on _i2.DeserializationTypeNotFoundException catch (_) {}
+      return _i2.Protocol().deserialize<T>(data, t);
+    } on _i3.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _i23.Hlc => 'Hlc',
-      _i3.CrdtDataDeleted => 'CrdtDataDeleted',
-      _i4.CrdtDataDeletedReason => 'CrdtDataDeletedReason',
-      _i5.CrdtDataField => 'CrdtDataField',
-      _i6.CrdtDataForeignKey => 'CrdtDataForeignKey',
-      _i7.CrdtForeignKeyOverrideReason => 'CrdtForeignKeyOverrideReason',
-      _i8.CrdtDataRow => 'CrdtDataRow',
-      _i9.CrdtDataRowVisibility => 'CrdtDataRowVisibility',
-      _i10.CrdtMergeDelete => 'CrdtMergeDelete',
-      _i10.CrdtMergeInsert => 'CrdtMergeInsert',
-      _i10.CrdtMergeUpdate => 'CrdtMergeUpdate',
-      _i11.CrdtNode => 'CrdtNode',
-      _i12.CrdtScope => 'CrdtScope',
-      _i13.CrdtScopeMember => 'CrdtScopeMember',
-      _i14.CrdtScopeNode => 'CrdtScopeNode',
-      _i15.CrdtScopeRole => 'CrdtScopeRole',
-      _i16.CrdtSchemaColumn => 'CrdtSchemaColumn',
-      _i17.CrdtSchemaTable => 'CrdtSchemaTable',
-      _i18.CrdtSyncClose => 'CrdtSyncClose',
-      _i18.CrdtSyncConnect => 'CrdtSyncConnect',
-      _i18.CrdtSyncEndOfBatch => 'CrdtSyncEndOfBatch',
-      _i18.CrdtSyncMergeChunk => 'CrdtSyncMergeChunk',
-      _i19.CrdtScopeGrant => 'CrdtScopeGrant',
-      _i18.CrdtSyncScopeSet => 'CrdtSyncScopeSet',
-      _i18.CrdtSyncSinceHlc => 'CrdtSyncSinceHlc',
-      _i18.CrdtSyncIdleTimeout => 'CrdtSyncIdleTimeout',
-      _i20.CrdtSyncIntegrityViolation => 'CrdtSyncIntegrityViolation',
-      _i21.CrdtSyncViolationOperation => 'CrdtSyncViolationOperation',
-      _i22.CrdtSyncViolationType => 'CrdtSyncViolationType',
+      _i2.Hlc => 'Hlc',
+      _i4.CrdtDataDeleted => 'CrdtDataDeleted',
+      _i5.CrdtDataDeletedReason => 'CrdtDataDeletedReason',
+      _i6.CrdtDataField => 'CrdtDataField',
+      _i7.CrdtDataForeignKey => 'CrdtDataForeignKey',
+      _i8.CrdtForeignKeyOverrideReason => 'CrdtForeignKeyOverrideReason',
+      _i9.CrdtDataRow => 'CrdtDataRow',
+      _i10.CrdtDataRowVisibility => 'CrdtDataRowVisibility',
+      _i11.CrdtMergeDelete => 'CrdtMergeDelete',
+      _i11.CrdtMergeInsert => 'CrdtMergeInsert',
+      _i11.CrdtMergeUpdate => 'CrdtMergeUpdate',
+      _i12.CrdtNode => 'CrdtNode',
+      _i13.CrdtScope => 'CrdtScope',
+      _i14.CrdtScopeMember => 'CrdtScopeMember',
+      _i15.CrdtScopeNode => 'CrdtScopeNode',
+      _i16.CrdtScopeRole => 'CrdtScopeRole',
+      _i17.CrdtSchemaColumn => 'CrdtSchemaColumn',
+      _i18.CrdtSchemaTable => 'CrdtSchemaTable',
+      _i19.CrdtSyncClose => 'CrdtSyncClose',
+      _i19.CrdtSyncConnect => 'CrdtSyncConnect',
+      _i19.CrdtSyncEndOfBatch => 'CrdtSyncEndOfBatch',
+      _i19.CrdtSyncMergeChunk => 'CrdtSyncMergeChunk',
+      _i20.CrdtScopeGrant => 'CrdtScopeGrant',
+      _i19.CrdtSyncScopeSet => 'CrdtSyncScopeSet',
+      _i19.CrdtSyncSinceHlc => 'CrdtSyncSinceHlc',
+      _i19.CrdtSyncIdleTimeout => 'CrdtSyncIdleTimeout',
+      _i21.CrdtSyncIntegrityViolation => 'CrdtSyncIntegrityViolation',
+      _i22.CrdtSyncViolationOperation => 'CrdtSyncViolationOperation',
+      _i23.CrdtSyncViolationType => 'CrdtSyncViolationType',
       _ => null,
     };
   }
@@ -1232,71 +1240,67 @@ class Protocol extends _i1.DatabaseSerializationManager {
     }
 
     switch (data) {
-      case _i23.Hlc():
+      case _i2.Hlc():
         return 'Hlc';
-      case _i3.CrdtDataDeleted():
+      case _i4.CrdtDataDeleted():
         return 'CrdtDataDeleted';
-      case _i4.CrdtDataDeletedReason():
+      case _i5.CrdtDataDeletedReason():
         return 'CrdtDataDeletedReason';
-      case _i5.CrdtDataField():
+      case _i6.CrdtDataField():
         return 'CrdtDataField';
-      case _i6.CrdtDataForeignKey():
+      case _i7.CrdtDataForeignKey():
         return 'CrdtDataForeignKey';
-      case _i7.CrdtForeignKeyOverrideReason():
+      case _i8.CrdtForeignKeyOverrideReason():
         return 'CrdtForeignKeyOverrideReason';
-      case _i8.CrdtDataRow():
+      case _i9.CrdtDataRow():
         return 'CrdtDataRow';
-      case _i9.CrdtDataRowVisibility():
+      case _i10.CrdtDataRowVisibility():
         return 'CrdtDataRowVisibility';
-      case _i10.CrdtMergeDelete():
+      case _i11.CrdtMergeDelete():
         return 'CrdtMergeDelete';
-      case _i10.CrdtMergeInsert():
+      case _i11.CrdtMergeInsert():
         return 'CrdtMergeInsert';
-      case _i10.CrdtMergeUpdate():
+      case _i11.CrdtMergeUpdate():
         return 'CrdtMergeUpdate';
-      case _i11.CrdtNode():
+      case _i12.CrdtNode():
         return 'CrdtNode';
-      case _i12.CrdtScope():
+      case _i13.CrdtScope():
         return 'CrdtScope';
-      case _i13.CrdtScopeMember():
+      case _i14.CrdtScopeMember():
         return 'CrdtScopeMember';
-      case _i14.CrdtScopeNode():
+      case _i15.CrdtScopeNode():
         return 'CrdtScopeNode';
-      case _i15.CrdtScopeRole():
+      case _i16.CrdtScopeRole():
         return 'CrdtScopeRole';
-      case _i16.CrdtSchemaColumn():
+      case _i17.CrdtSchemaColumn():
         return 'CrdtSchemaColumn';
-      case _i17.CrdtSchemaTable():
+      case _i18.CrdtSchemaTable():
         return 'CrdtSchemaTable';
-      case _i18.CrdtSyncClose():
+      case _i19.CrdtSyncClose():
         return 'CrdtSyncClose';
-      case _i18.CrdtSyncConnect():
+      case _i19.CrdtSyncConnect():
         return 'CrdtSyncConnect';
-      case _i18.CrdtSyncEndOfBatch():
+      case _i19.CrdtSyncEndOfBatch():
         return 'CrdtSyncEndOfBatch';
-      case _i18.CrdtSyncMergeChunk():
+      case _i19.CrdtSyncMergeChunk():
         return 'CrdtSyncMergeChunk';
-      case _i19.CrdtScopeGrant():
+      case _i20.CrdtScopeGrant():
         return 'CrdtScopeGrant';
-      case _i18.CrdtSyncScopeSet():
+      case _i19.CrdtSyncScopeSet():
         return 'CrdtSyncScopeSet';
-      case _i18.CrdtSyncSinceHlc():
+      case _i19.CrdtSyncSinceHlc():
         return 'CrdtSyncSinceHlc';
-      case _i18.CrdtSyncIdleTimeout():
+      case _i19.CrdtSyncIdleTimeout():
         return 'CrdtSyncIdleTimeout';
-      case _i20.CrdtSyncIntegrityViolation():
+      case _i21.CrdtSyncIntegrityViolation():
         return 'CrdtSyncIntegrityViolation';
-      case _i21.CrdtSyncViolationOperation():
+      case _i22.CrdtSyncViolationOperation():
         return 'CrdtSyncViolationOperation';
-      case _i22.CrdtSyncViolationType():
+      case _i23.CrdtSyncViolationType():
         return 'CrdtSyncViolationType';
     }
-    className = _i23.Protocol().getClassNameForObject(data);
-    if (className != null) {
-      return className.contains('.')
-          ? className
-          : 'serverpod_offline_sync.$className';
-    }
+    className = _i2.Protocol().getClassNameForObject(data);
+    if (className != null) return className;
     return null;
   }
 
@@ -1307,96 +1311,95 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return super.deserializeByClassName(data);
     }
     if (dataClassName == 'Hlc') {
-      return deserialize<_i23.Hlc>(data['data']);
+      return deserialize<_i2.Hlc>(data['data']);
     }
     if (dataClassName == 'CrdtDataDeleted') {
-      return deserialize<_i3.CrdtDataDeleted>(data['data']);
+      return deserialize<_i4.CrdtDataDeleted>(data['data']);
     }
     if (dataClassName == 'CrdtDataDeletedReason') {
-      return deserialize<_i4.CrdtDataDeletedReason>(data['data']);
+      return deserialize<_i5.CrdtDataDeletedReason>(data['data']);
     }
     if (dataClassName == 'CrdtDataField') {
-      return deserialize<_i5.CrdtDataField>(data['data']);
+      return deserialize<_i6.CrdtDataField>(data['data']);
     }
     if (dataClassName == 'CrdtDataForeignKey') {
-      return deserialize<_i6.CrdtDataForeignKey>(data['data']);
+      return deserialize<_i7.CrdtDataForeignKey>(data['data']);
     }
     if (dataClassName == 'CrdtForeignKeyOverrideReason') {
-      return deserialize<_i7.CrdtForeignKeyOverrideReason>(data['data']);
+      return deserialize<_i8.CrdtForeignKeyOverrideReason>(data['data']);
     }
     if (dataClassName == 'CrdtDataRow') {
-      return deserialize<_i8.CrdtDataRow>(data['data']);
+      return deserialize<_i9.CrdtDataRow>(data['data']);
     }
     if (dataClassName == 'CrdtDataRowVisibility') {
-      return deserialize<_i9.CrdtDataRowVisibility>(data['data']);
+      return deserialize<_i10.CrdtDataRowVisibility>(data['data']);
     }
     if (dataClassName == 'CrdtMergeDelete') {
-      return deserialize<_i10.CrdtMergeDelete>(data['data']);
+      return deserialize<_i11.CrdtMergeDelete>(data['data']);
     }
     if (dataClassName == 'CrdtMergeInsert') {
-      return deserialize<_i10.CrdtMergeInsert>(data['data']);
+      return deserialize<_i11.CrdtMergeInsert>(data['data']);
     }
     if (dataClassName == 'CrdtMergeUpdate') {
-      return deserialize<_i10.CrdtMergeUpdate>(data['data']);
+      return deserialize<_i11.CrdtMergeUpdate>(data['data']);
     }
     if (dataClassName == 'CrdtNode') {
-      return deserialize<_i11.CrdtNode>(data['data']);
+      return deserialize<_i12.CrdtNode>(data['data']);
     }
     if (dataClassName == 'CrdtScope') {
-      return deserialize<_i12.CrdtScope>(data['data']);
+      return deserialize<_i13.CrdtScope>(data['data']);
     }
     if (dataClassName == 'CrdtScopeMember') {
-      return deserialize<_i13.CrdtScopeMember>(data['data']);
+      return deserialize<_i14.CrdtScopeMember>(data['data']);
     }
     if (dataClassName == 'CrdtScopeNode') {
-      return deserialize<_i14.CrdtScopeNode>(data['data']);
+      return deserialize<_i15.CrdtScopeNode>(data['data']);
     }
     if (dataClassName == 'CrdtScopeRole') {
-      return deserialize<_i15.CrdtScopeRole>(data['data']);
+      return deserialize<_i16.CrdtScopeRole>(data['data']);
     }
     if (dataClassName == 'CrdtSchemaColumn') {
-      return deserialize<_i16.CrdtSchemaColumn>(data['data']);
+      return deserialize<_i17.CrdtSchemaColumn>(data['data']);
     }
     if (dataClassName == 'CrdtSchemaTable') {
-      return deserialize<_i17.CrdtSchemaTable>(data['data']);
+      return deserialize<_i18.CrdtSchemaTable>(data['data']);
     }
     if (dataClassName == 'CrdtSyncClose') {
-      return deserialize<_i18.CrdtSyncClose>(data['data']);
+      return deserialize<_i19.CrdtSyncClose>(data['data']);
     }
     if (dataClassName == 'CrdtSyncConnect') {
-      return deserialize<_i18.CrdtSyncConnect>(data['data']);
+      return deserialize<_i19.CrdtSyncConnect>(data['data']);
     }
     if (dataClassName == 'CrdtSyncEndOfBatch') {
-      return deserialize<_i18.CrdtSyncEndOfBatch>(data['data']);
+      return deserialize<_i19.CrdtSyncEndOfBatch>(data['data']);
     }
     if (dataClassName == 'CrdtSyncMergeChunk') {
-      return deserialize<_i18.CrdtSyncMergeChunk>(data['data']);
+      return deserialize<_i19.CrdtSyncMergeChunk>(data['data']);
     }
     if (dataClassName == 'CrdtScopeGrant') {
-      return deserialize<_i19.CrdtScopeGrant>(data['data']);
+      return deserialize<_i20.CrdtScopeGrant>(data['data']);
     }
     if (dataClassName == 'CrdtSyncScopeSet') {
-      return deserialize<_i18.CrdtSyncScopeSet>(data['data']);
+      return deserialize<_i19.CrdtSyncScopeSet>(data['data']);
     }
     if (dataClassName == 'CrdtSyncSinceHlc') {
-      return deserialize<_i18.CrdtSyncSinceHlc>(data['data']);
+      return deserialize<_i19.CrdtSyncSinceHlc>(data['data']);
     }
     if (dataClassName == 'CrdtSyncIdleTimeout') {
-      return deserialize<_i18.CrdtSyncIdleTimeout>(data['data']);
+      return deserialize<_i19.CrdtSyncIdleTimeout>(data['data']);
     }
     if (dataClassName == 'CrdtSyncIntegrityViolation') {
-      return deserialize<_i20.CrdtSyncIntegrityViolation>(data['data']);
+      return deserialize<_i21.CrdtSyncIntegrityViolation>(data['data']);
     }
     if (dataClassName == 'CrdtSyncViolationOperation') {
-      return deserialize<_i21.CrdtSyncViolationOperation>(data['data']);
+      return deserialize<_i22.CrdtSyncViolationOperation>(data['data']);
     }
     if (dataClassName == 'CrdtSyncViolationType') {
-      return deserialize<_i22.CrdtSyncViolationType>(data['data']);
+      return deserialize<_i23.CrdtSyncViolationType>(data['data']);
     }
-    if (dataClassName.startsWith('serverpod_offline_sync.')) {
-      data['className'] = dataClassName.substring(23);
-      return _i23.Protocol().deserializeByClassName(data);
-    }
+    try {
+      return _i2.Protocol().deserializeByClassName(data);
+    } on FormatException catch (_) {}
     return super.deserializeByClassName(data);
   }
 
@@ -1418,8 +1421,8 @@ class Protocol extends _i1.DatabaseSerializationManager {
         'data': object,
       };
       return forProtocol
-          ? _i2.SerializationManager.toEncodableForProtocol(wrapped)
-          : _i2.SerializationManager.toEncodable(wrapped);
+          ? _i3.SerializationManager.toEncodableForProtocol(wrapped)
+          : _i3.SerializationManager.toEncodable(wrapped);
     }
     return super.dynamicFieldToJson(object, forProtocol: forProtocol);
   }
@@ -1461,29 +1464,38 @@ class Protocol extends _i1.DatabaseSerializationManager {
 
   @override
   _i1.Table? getTableForType(Type t) {
+    {
+      var protocol = _i2.Protocol();
+      var table = protocol is _i1.DatabaseSerializationManager
+          ? (protocol as _i1.DatabaseSerializationManager).getTableForType(t)
+          : null;
+      if (table != null) {
+        return table;
+      }
+    }
     switch (t) {
-      case _i3.CrdtDataDeleted:
-        return _i3.CrdtDataDeleted.t;
-      case _i5.CrdtDataField:
-        return _i5.CrdtDataField.t;
-      case _i6.CrdtDataForeignKey:
-        return _i6.CrdtDataForeignKey.t;
-      case _i8.CrdtDataRow:
-        return _i8.CrdtDataRow.t;
-      case _i11.CrdtNode:
-        return _i11.CrdtNode.t;
-      case _i12.CrdtScope:
-        return _i12.CrdtScope.t;
-      case _i13.CrdtScopeMember:
-        return _i13.CrdtScopeMember.t;
-      case _i14.CrdtScopeNode:
-        return _i14.CrdtScopeNode.t;
-      case _i16.CrdtSchemaColumn:
-        return _i16.CrdtSchemaColumn.t;
-      case _i17.CrdtSchemaTable:
-        return _i17.CrdtSchemaTable.t;
-      case _i20.CrdtSyncIntegrityViolation:
-        return _i20.CrdtSyncIntegrityViolation.t;
+      case _i4.CrdtDataDeleted:
+        return _i4.CrdtDataDeleted.t;
+      case _i6.CrdtDataField:
+        return _i6.CrdtDataField.t;
+      case _i7.CrdtDataForeignKey:
+        return _i7.CrdtDataForeignKey.t;
+      case _i9.CrdtDataRow:
+        return _i9.CrdtDataRow.t;
+      case _i12.CrdtNode:
+        return _i12.CrdtNode.t;
+      case _i13.CrdtScope:
+        return _i13.CrdtScope.t;
+      case _i14.CrdtScopeMember:
+        return _i14.CrdtScopeMember.t;
+      case _i15.CrdtScopeNode:
+        return _i15.CrdtScopeNode.t;
+      case _i17.CrdtSchemaColumn:
+        return _i17.CrdtSchemaColumn.t;
+      case _i18.CrdtSchemaTable:
+        return _i18.CrdtSchemaTable.t;
+      case _i21.CrdtSyncIntegrityViolation:
+        return _i21.CrdtSyncIntegrityViolation.t;
     }
     return null;
   }

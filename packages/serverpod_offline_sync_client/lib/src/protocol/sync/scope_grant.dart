@@ -17,7 +17,8 @@ import '../node/scope_role.dart' as _i2;
 ///
 /// Carries the scope UUID and the authoritative [role] the receiving user
 /// holds in it. The personal scope is announced with [CrdtScopeRole.readWrite].
-abstract class CrdtScopeGrant implements _i1.SerializableModel {
+abstract class CrdtScopeGrant
+    implements _i1.SerializableModel, _i1.ProtocolSerialization {
   CrdtScopeGrant._({
     required this.uuidScopeId,
     required this.role,
@@ -52,6 +53,15 @@ abstract class CrdtScopeGrant implements _i1.SerializableModel {
   });
   @override
   Map<String, dynamic> toJson() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtScopeGrant',
+      'uuidScopeId': uuidScopeId.toJson(),
+      'role': role.toJson(),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
     return {
       '__className__': 'serverpod_offline_sync.CrdtScopeGrant',
       'uuidScopeId': uuidScopeId.toJson(),

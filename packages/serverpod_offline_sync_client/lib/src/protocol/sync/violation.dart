@@ -11,8 +11,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import '../sync/violation_type.dart' as _i2;
-import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import '../sync/violation_type.dart' as _i3;
 import '../sync/violation_operation.dart' as _i4;
 
 /// Durable record of a terminal CRDT sync integrity violation.
@@ -23,7 +23,8 @@ import '../sync/violation_operation.dart' as _i4;
 /// All identifiers are denormalized UUIDs and names so the record remains
 /// useful after merge rollbacks and across databases that do not share the
 /// same local CRDT metadata rows.
-abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
+abstract class CrdtSyncIntegrityViolation
+    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
   CrdtSyncIntegrityViolation._({
     this.id,
     required this.type,
@@ -43,13 +44,13 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
 
   factory CrdtSyncIntegrityViolation({
     int? id,
-    required _i2.CrdtSyncViolationType type,
+    required _i3.CrdtSyncViolationType type,
     required String domainTableName,
-    required _i3.UuidValue uuidRowId,
-    _i3.UuidValue? ownerScopeUuid,
-    required _i3.UuidValue incomingScopeUuid,
+    required _i2.UuidValue uuidRowId,
+    _i2.UuidValue? ownerScopeUuid,
+    required _i2.UuidValue incomingScopeUuid,
     required _i4.CrdtSyncViolationOperation operation,
-    _i3.UuidValue? uuidNodeId,
+    _i2.UuidValue? uuidNodeId,
     int? crdtDataRowId,
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -63,19 +64,19 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
   ) {
     return CrdtSyncIntegrityViolation(
       id: jsonSerialization['id'] as int?,
-      type: _i2.CrdtSyncViolationType.fromJson(
+      type: _i3.CrdtSyncViolationType.fromJson(
         (jsonSerialization['type'] as String),
       ),
       domainTableName: jsonSerialization['domainTableName'] as String,
-      uuidRowId: _i3.UuidValueJsonExtension.fromJson(
+      uuidRowId: _i2.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidRowId'],
       ),
       ownerScopeUuid: jsonSerialization['ownerScopeUuid'] == null
           ? null
-          : _i3.UuidValueJsonExtension.fromJson(
+          : _i2.UuidValueJsonExtension.fromJson(
               jsonSerialization['ownerScopeUuid'],
             ),
-      incomingScopeUuid: _i3.UuidValueJsonExtension.fromJson(
+      incomingScopeUuid: _i2.UuidValueJsonExtension.fromJson(
         jsonSerialization['incomingScopeUuid'],
       ),
       operation: _i4.CrdtSyncViolationOperation.fromJson(
@@ -83,20 +84,20 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
       ),
       uuidNodeId: jsonSerialization['uuidNodeId'] == null
           ? null
-          : _i3.UuidValueJsonExtension.fromJson(
+          : _i2.UuidValueJsonExtension.fromJson(
               jsonSerialization['uuidNodeId'],
             ),
       crdtDataRowId: jsonSerialization['crdtDataRowId'] as int?,
       hlcDatetime: jsonSerialization['hlcDatetime'] == null
           ? null
-          : _i3.DateTimeJsonExtension.fromJson(
+          : _i2.DateTimeJsonExtension.fromJson(
               jsonSerialization['hlcDatetime'],
             ),
       hlcCounter: jsonSerialization['hlcCounter'] as int?,
-      firstSeenAt: _i3.DateTimeJsonExtension.fromJson(
+      firstSeenAt: _i2.DateTimeJsonExtension.fromJson(
         jsonSerialization['firstSeenAt'],
       ),
-      lastSeenAt: _i3.DateTimeJsonExtension.fromJson(
+      lastSeenAt: _i2.DateTimeJsonExtension.fromJson(
         jsonSerialization['lastSeenAt'],
       ),
       occurrences: jsonSerialization['occurrences'] as int,
@@ -111,25 +112,25 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
   int? id;
 
   /// High-level integrity violation category.
-  _i2.CrdtSyncViolationType type;
+  _i3.CrdtSyncViolationType type;
 
   /// Durable table name for the violated domain row.
   String domainTableName;
 
   /// Domain row UUID involved in the violation.
-  _i3.UuidValue uuidRowId;
+  _i2.UuidValue uuidRowId;
 
   /// Global scope UUID that owns the physical domain row, when known.
-  _i3.UuidValue? ownerScopeUuid;
+  _i2.UuidValue? ownerScopeUuid;
 
   /// Global scope UUID that attempted to operate on the row.
-  _i3.UuidValue incomingScopeUuid;
+  _i2.UuidValue incomingScopeUuid;
 
   /// Merge or sync operation that observed the violation.
   _i4.CrdtSyncViolationOperation operation;
 
   /// UUID of the node that authored the rejected change, when known.
-  _i3.UuidValue? uuidNodeId;
+  _i2.UuidValue? uuidNodeId;
 
   /// Local CRDT metadata row id observed for the rejected operation, when known.
   int? crdtDataRowId;
@@ -154,16 +155,16 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
 
   /// Returns a shallow copy of this [CrdtSyncIntegrityViolation]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_i2.useResult
   CrdtSyncIntegrityViolation copyWith({
     int? id,
-    _i2.CrdtSyncViolationType? type,
+    _i3.CrdtSyncViolationType? type,
     String? domainTableName,
-    _i3.UuidValue? uuidRowId,
-    _i3.UuidValue? ownerScopeUuid,
-    _i3.UuidValue? incomingScopeUuid,
+    _i2.UuidValue? uuidRowId,
+    _i2.UuidValue? ownerScopeUuid,
+    _i2.UuidValue? incomingScopeUuid,
     _i4.CrdtSyncViolationOperation? operation,
-    _i3.UuidValue? uuidNodeId,
+    _i2.UuidValue? uuidNodeId,
     int? crdtDataRowId,
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -192,6 +193,27 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtSyncIntegrityViolation',
+      if (id != null) 'id': id,
+      'type': type.toJson(),
+      'domainTableName': domainTableName,
+      'uuidRowId': uuidRowId.toJson(),
+      if (ownerScopeUuid != null) 'ownerScopeUuid': ownerScopeUuid?.toJson(),
+      'incomingScopeUuid': incomingScopeUuid.toJson(),
+      'operation': operation.toJson(),
+      if (uuidNodeId != null) 'uuidNodeId': uuidNodeId?.toJson(),
+      if (crdtDataRowId != null) 'crdtDataRowId': crdtDataRowId,
+      if (hlcDatetime != null) 'hlcDatetime': hlcDatetime?.toJson(),
+      if (hlcCounter != null) 'hlcCounter': hlcCounter,
+      'firstSeenAt': firstSeenAt.toJson(),
+      'lastSeenAt': lastSeenAt.toJson(),
+      'occurrences': occurrences,
+    };
+  }
+
   static CrdtSyncIntegrityViolationInclude include() {
     return CrdtSyncIntegrityViolationInclude._();
   }
@@ -201,8 +223,6 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     CrdtSyncIntegrityViolationInclude? include,
   }) {
@@ -211,8 +231,6 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
       include: include,
     );
@@ -220,7 +238,7 @@ abstract class CrdtSyncIntegrityViolation implements _i1.TableRow<int?> {
 
   @override
   String toString() {
-    return _i3.SerializationManager.encode(this);
+    return _i2.SerializationManager.encode(this);
   }
 }
 
@@ -229,13 +247,13 @@ class _Undefined {}
 class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
   _CrdtSyncIntegrityViolationImpl({
     int? id,
-    required _i2.CrdtSyncViolationType type,
+    required _i3.CrdtSyncViolationType type,
     required String domainTableName,
-    required _i3.UuidValue uuidRowId,
-    _i3.UuidValue? ownerScopeUuid,
-    required _i3.UuidValue incomingScopeUuid,
+    required _i2.UuidValue uuidRowId,
+    _i2.UuidValue? ownerScopeUuid,
+    required _i2.UuidValue incomingScopeUuid,
     required _i4.CrdtSyncViolationOperation operation,
-    _i3.UuidValue? uuidNodeId,
+    _i2.UuidValue? uuidNodeId,
     int? crdtDataRowId,
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -261,15 +279,15 @@ class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
 
   /// Returns a shallow copy of this [CrdtSyncIntegrityViolation]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_i2.useResult
   @override
   CrdtSyncIntegrityViolation copyWith({
     Object? id = _Undefined,
-    _i2.CrdtSyncViolationType? type,
+    _i3.CrdtSyncViolationType? type,
     String? domainTableName,
-    _i3.UuidValue? uuidRowId,
+    _i2.UuidValue? uuidRowId,
     Object? ownerScopeUuid = _Undefined,
-    _i3.UuidValue? incomingScopeUuid,
+    _i2.UuidValue? incomingScopeUuid,
     _i4.CrdtSyncViolationOperation? operation,
     Object? uuidNodeId = _Undefined,
     Object? crdtDataRowId = _Undefined,
@@ -284,12 +302,12 @@ class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
       type: type ?? this.type,
       domainTableName: domainTableName ?? this.domainTableName,
       uuidRowId: uuidRowId ?? this.uuidRowId,
-      ownerScopeUuid: ownerScopeUuid is _i3.UuidValue?
+      ownerScopeUuid: ownerScopeUuid is _i2.UuidValue?
           ? ownerScopeUuid
           : this.ownerScopeUuid,
       incomingScopeUuid: incomingScopeUuid ?? this.incomingScopeUuid,
       operation: operation ?? this.operation,
-      uuidNodeId: uuidNodeId is _i3.UuidValue? ? uuidNodeId : this.uuidNodeId,
+      uuidNodeId: uuidNodeId is _i2.UuidValue? ? uuidNodeId : this.uuidNodeId,
       crdtDataRowId: crdtDataRowId is int? ? crdtDataRowId : this.crdtDataRowId,
       hlcDatetime: hlcDatetime is DateTime? ? hlcDatetime : this.hlcDatetime,
       hlcCounter: hlcCounter is int? ? hlcCounter : this.hlcCounter,
@@ -304,8 +322,8 @@ class CrdtSyncIntegrityViolationUpdateTable
     extends _i1.UpdateTable<CrdtSyncIntegrityViolationTable> {
   CrdtSyncIntegrityViolationUpdateTable(super.table);
 
-  _i1.ColumnValue<_i2.CrdtSyncViolationType, _i2.CrdtSyncViolationType> type(
-    _i2.CrdtSyncViolationType value,
+  _i1.ColumnValue<_i3.CrdtSyncViolationType, _i3.CrdtSyncViolationType> type(
+    _i3.CrdtSyncViolationType value,
   ) => _i1.ColumnValue(
     table.type,
     value,
@@ -317,22 +335,22 @@ class CrdtSyncIntegrityViolationUpdateTable
         value,
       );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> uuidRowId(
-    _i3.UuidValue value,
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> uuidRowId(
+    _i2.UuidValue value,
   ) => _i1.ColumnValue(
     table.uuidRowId,
     value,
   );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> ownerScopeUuid(
-    _i3.UuidValue? value,
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> ownerScopeUuid(
+    _i2.UuidValue? value,
   ) => _i1.ColumnValue(
     table.ownerScopeUuid,
     value,
   );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> incomingScopeUuid(
-    _i3.UuidValue value,
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> incomingScopeUuid(
+    _i2.UuidValue value,
   ) => _i1.ColumnValue(
     table.incomingScopeUuid,
     value,
@@ -347,8 +365,8 @@ class CrdtSyncIntegrityViolationUpdateTable
     value,
   );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> uuidNodeId(
-    _i3.UuidValue? value,
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> uuidNodeId(
+    _i2.UuidValue? value,
   ) => _i1.ColumnValue(
     table.uuidNodeId,
     value,
@@ -451,7 +469,7 @@ class CrdtSyncIntegrityViolationTable extends _i1.Table<int?> {
   late final CrdtSyncIntegrityViolationUpdateTable updateTable;
 
   /// High-level integrity violation category.
-  late final _i1.ColumnEnum<_i2.CrdtSyncViolationType> type;
+  late final _i1.ColumnEnum<_i3.CrdtSyncViolationType> type;
 
   /// Durable table name for the violated domain row.
   late final _i1.ColumnString domainTableName;
@@ -524,8 +542,6 @@ class CrdtSyncIntegrityViolationIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -570,8 +586,6 @@ class CrdtSyncIntegrityViolationRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -581,8 +595,6 @@ class CrdtSyncIntegrityViolationRepository {
       where: where?.call(CrdtSyncIntegrityViolation.t),
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -613,8 +625,6 @@ class CrdtSyncIntegrityViolationRepository {
     _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -624,8 +634,6 @@ class CrdtSyncIntegrityViolationRepository {
       where: where?.call(CrdtSyncIntegrityViolation.t),
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -834,8 +842,6 @@ class CrdtSyncIntegrityViolationRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -846,8 +852,6 @@ class CrdtSyncIntegrityViolationRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -868,8 +872,6 @@ class CrdtSyncIntegrityViolationRepository {
     _i1.DatabaseSession session,
     List<CrdtSyncIntegrityViolation> rows, {
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -878,8 +880,6 @@ class CrdtSyncIntegrityViolationRepository {
       rows,
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -909,8 +909,6 @@ class CrdtSyncIntegrityViolationRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -919,8 +917,6 @@ class CrdtSyncIntegrityViolationRepository {
       where: where(CrdtSyncIntegrityViolation.t),
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

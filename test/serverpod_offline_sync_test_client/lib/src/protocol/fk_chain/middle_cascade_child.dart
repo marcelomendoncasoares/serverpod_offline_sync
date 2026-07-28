@@ -18,7 +18,7 @@ import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
     as _i4;
 
 abstract class FkChainMiddleCascadeChild
-    implements _i1.TableRow<_i2.UuidValue?> {
+    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
   FkChainMiddleCascadeChild._({
     this.id,
     this.scopeId,
@@ -99,6 +99,20 @@ abstract class FkChainMiddleCascadeChild
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'FkChainMiddleCascadeChild',
+      if (id != null) 'id': id?.toJson(),
+      if (scopeId != null) 'scopeId': scopeId,
+      'name': name,
+      if (restrictBlocker != null)
+        'restrictBlocker': restrictBlocker?.toJsonForProtocol(),
+      if (restrictBlockerId != null)
+        'restrictBlockerId': restrictBlockerId?.toJson(),
+    };
+  }
+
   static FkChainMiddleCascadeChildInclude include({
     _i3.FkChainRestrictBlockerInclude? restrictBlocker,
   }) {
@@ -110,8 +124,6 @@ abstract class FkChainMiddleCascadeChild
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainMiddleCascadeChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainMiddleCascadeChildTable>? orderByList,
     FkChainMiddleCascadeChildInclude? include,
   }) {
@@ -120,8 +132,6 @@ abstract class FkChainMiddleCascadeChild
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(FkChainMiddleCascadeChild.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(FkChainMiddleCascadeChild.t),
       include: include,
     );
@@ -280,8 +290,6 @@ class FkChainMiddleCascadeChildIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -330,8 +338,6 @@ class FkChainMiddleCascadeChildRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainMiddleCascadeChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainMiddleCascadeChildTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainMiddleCascadeChildInclude? include,
@@ -342,8 +348,6 @@ class FkChainMiddleCascadeChildRepository {
       where: where?.call(FkChainMiddleCascadeChild.t),
       orderBy: orderBy?.call(FkChainMiddleCascadeChild.t),
       orderByList: orderByList?.call(FkChainMiddleCascadeChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -375,8 +379,6 @@ class FkChainMiddleCascadeChildRepository {
     _i1.WhereExpressionBuilder<FkChainMiddleCascadeChildTable>? where,
     int? offset,
     _i1.OrderByBuilder<FkChainMiddleCascadeChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainMiddleCascadeChildTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainMiddleCascadeChildInclude? include,
@@ -387,8 +389,6 @@ class FkChainMiddleCascadeChildRepository {
       where: where?.call(FkChainMiddleCascadeChild.t),
       orderBy: orderBy?.call(FkChainMiddleCascadeChild.t),
       orderByList: orderByList?.call(FkChainMiddleCascadeChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -600,8 +600,6 @@ class FkChainMiddleCascadeChildRepository {
     int? offset,
     _i1.OrderByBuilder<FkChainMiddleCascadeChildTable>? orderBy,
     _i1.OrderByListBuilder<FkChainMiddleCascadeChildTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -612,8 +610,6 @@ class FkChainMiddleCascadeChildRepository {
       offset: offset,
       orderBy: orderBy?.call(FkChainMiddleCascadeChild.t),
       orderByList: orderByList?.call(FkChainMiddleCascadeChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -634,8 +630,6 @@ class FkChainMiddleCascadeChildRepository {
     _i1.DatabaseSession session,
     List<FkChainMiddleCascadeChild> rows, {
     _i1.OrderByBuilder<FkChainMiddleCascadeChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainMiddleCascadeChildTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -644,8 +638,6 @@ class FkChainMiddleCascadeChildRepository {
       rows,
       orderBy: orderBy?.call(FkChainMiddleCascadeChild.t),
       orderByList: orderByList?.call(FkChainMiddleCascadeChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -675,8 +667,6 @@ class FkChainMiddleCascadeChildRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<FkChainMiddleCascadeChildTable> where,
     _i1.OrderByBuilder<FkChainMiddleCascadeChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainMiddleCascadeChildTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -685,8 +675,6 @@ class FkChainMiddleCascadeChildRepository {
       where: where(FkChainMiddleCascadeChild.t),
       orderBy: orderBy?.call(FkChainMiddleCascadeChild.t),
       orderByList: orderByList?.call(FkChainMiddleCascadeChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

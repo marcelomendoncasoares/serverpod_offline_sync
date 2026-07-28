@@ -121,8 +121,6 @@ abstract class FkChainSetNullMiddle
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainSetNullMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainSetNullMiddleTable>? orderByList,
     FkChainSetNullMiddleInclude? include,
   }) {
@@ -131,8 +129,6 @@ abstract class FkChainSetNullMiddle
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(FkChainSetNullMiddle.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(FkChainSetNullMiddle.t),
       include: include,
     );
@@ -289,8 +285,6 @@ class FkChainSetNullMiddleIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -339,8 +333,6 @@ class FkChainSetNullMiddleRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainSetNullMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainSetNullMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainSetNullMiddleInclude? include,
@@ -351,8 +343,6 @@ class FkChainSetNullMiddleRepository {
       where: where?.call(FkChainSetNullMiddle.t),
       orderBy: orderBy?.call(FkChainSetNullMiddle.t),
       orderByList: orderByList?.call(FkChainSetNullMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -384,8 +374,6 @@ class FkChainSetNullMiddleRepository {
     _i1.WhereExpressionBuilder<FkChainSetNullMiddleTable>? where,
     int? offset,
     _i1.OrderByBuilder<FkChainSetNullMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainSetNullMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainSetNullMiddleInclude? include,
@@ -396,8 +384,6 @@ class FkChainSetNullMiddleRepository {
       where: where?.call(FkChainSetNullMiddle.t),
       orderBy: orderBy?.call(FkChainSetNullMiddle.t),
       orderByList: orderByList?.call(FkChainSetNullMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -607,8 +593,6 @@ class FkChainSetNullMiddleRepository {
     int? offset,
     _i1.OrderByBuilder<FkChainSetNullMiddleTable>? orderBy,
     _i1.OrderByListBuilder<FkChainSetNullMiddleTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -619,8 +603,6 @@ class FkChainSetNullMiddleRepository {
       offset: offset,
       orderBy: orderBy?.call(FkChainSetNullMiddle.t),
       orderByList: orderByList?.call(FkChainSetNullMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -641,8 +623,6 @@ class FkChainSetNullMiddleRepository {
     _i1.DatabaseSession session,
     List<FkChainSetNullMiddle> rows, {
     _i1.OrderByBuilder<FkChainSetNullMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainSetNullMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -651,8 +631,6 @@ class FkChainSetNullMiddleRepository {
       rows,
       orderBy: orderBy?.call(FkChainSetNullMiddle.t),
       orderByList: orderByList?.call(FkChainSetNullMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -682,8 +660,6 @@ class FkChainSetNullMiddleRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<FkChainSetNullMiddleTable> where,
     _i1.OrderByBuilder<FkChainSetNullMiddleTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainSetNullMiddleTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -692,8 +668,6 @@ class FkChainSetNullMiddleRepository {
       where: where(FkChainSetNullMiddle.t),
       orderBy: orderBy?.call(FkChainSetNullMiddle.t),
       orderByList: orderByList?.call(FkChainSetNullMiddle.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
