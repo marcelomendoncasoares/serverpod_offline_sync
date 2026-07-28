@@ -17,7 +17,8 @@ import 'person.dart' as _i3;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
     as _i4;
 
-abstract class RequiredSetNullChild implements _i1.TableRow<_i2.UuidValue?> {
+abstract class RequiredSetNullChild
+    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
   RequiredSetNullChild._({
     this.id,
     this.scopeId,
@@ -93,6 +94,18 @@ abstract class RequiredSetNullChild implements _i1.TableRow<_i2.UuidValue?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'RequiredSetNullChild',
+      if (id != null) 'id': id?.toJson(),
+      if (scopeId != null) 'scopeId': scopeId,
+      'name': name,
+      if (parent != null) 'parent': parent?.toJsonForProtocol(),
+      'parentId': parentId.toJson(),
+    };
+  }
+
   static RequiredSetNullChildInclude include({_i3.PersonInclude? parent}) {
     return RequiredSetNullChildInclude._(parent: parent);
   }
@@ -102,8 +115,6 @@ abstract class RequiredSetNullChild implements _i1.TableRow<_i2.UuidValue?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
     RequiredSetNullChildInclude? include,
   }) {
@@ -112,8 +123,6 @@ abstract class RequiredSetNullChild implements _i1.TableRow<_i2.UuidValue?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(RequiredSetNullChild.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(RequiredSetNullChild.t),
       include: include,
     );
@@ -263,8 +272,6 @@ class RequiredSetNullChildIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -311,8 +318,6 @@ class RequiredSetNullChildRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
     _i1.Transaction? transaction,
     RequiredSetNullChildInclude? include,
@@ -323,8 +328,6 @@ class RequiredSetNullChildRepository {
       where: where?.call(RequiredSetNullChild.t),
       orderBy: orderBy?.call(RequiredSetNullChild.t),
       orderByList: orderByList?.call(RequiredSetNullChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -356,8 +359,6 @@ class RequiredSetNullChildRepository {
     _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
     int? offset,
     _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
     _i1.Transaction? transaction,
     RequiredSetNullChildInclude? include,
@@ -368,8 +369,6 @@ class RequiredSetNullChildRepository {
       where: where?.call(RequiredSetNullChild.t),
       orderBy: orderBy?.call(RequiredSetNullChild.t),
       orderByList: orderByList?.call(RequiredSetNullChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -579,8 +578,6 @@ class RequiredSetNullChildRepository {
     int? offset,
     _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
     _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -591,8 +588,6 @@ class RequiredSetNullChildRepository {
       offset: offset,
       orderBy: orderBy?.call(RequiredSetNullChild.t),
       orderByList: orderByList?.call(RequiredSetNullChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -613,8 +608,6 @@ class RequiredSetNullChildRepository {
     _i1.DatabaseSession session,
     List<RequiredSetNullChild> rows, {
     _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -623,8 +616,6 @@ class RequiredSetNullChildRepository {
       rows,
       orderBy: orderBy?.call(RequiredSetNullChild.t),
       orderByList: orderByList?.call(RequiredSetNullChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -654,8 +645,6 @@ class RequiredSetNullChildRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<RequiredSetNullChildTable> where,
     _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -664,8 +653,6 @@ class RequiredSetNullChildRepository {
       where: where(RequiredSetNullChild.t),
       orderBy: orderBy?.call(RequiredSetNullChild.t),
       orderByList: orderByList?.call(RequiredSetNullChild.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

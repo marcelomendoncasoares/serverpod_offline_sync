@@ -12,15 +12,16 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import '../node/scope.dart' as _i2;
-import '../node/node.dart' as _i3;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i4;
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import '../node/scope.dart' as _i3;
+import '../node/node.dart' as _i4;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i5;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
-    as _i5;
-import 'package:serverpod_client/serverpod_client.dart' as _i6;
+    as _i6;
 
 /// A CRDT node's participation and checkpoint state within one scope.
-abstract class CrdtScopeNode implements _i1.TableRow<int?> {
+abstract class CrdtScopeNode
+    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
   CrdtScopeNode._({
     this.id,
     required this.scopeId,
@@ -33,10 +34,10 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
   factory CrdtScopeNode({
     int? id,
     required int scopeId,
-    _i2.CrdtScope? scope,
+    _i3.CrdtScope? scope,
     required int nodeId,
-    _i3.CrdtNode? node,
-    _i4.Hlc? lastReceivedHlc,
+    _i4.CrdtNode? node,
+    _i5.Hlc? lastReceivedHlc,
   }) = _CrdtScopeNodeImpl;
 
   factory CrdtScopeNode.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -45,16 +46,16 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
       scopeId: jsonSerialization['scopeId'] as int,
       scope: jsonSerialization['scope'] == null
           ? null
-          : _i5.Protocol().deserialize<_i2.CrdtScope>(
+          : _i6.Protocol().deserialize<_i3.CrdtScope>(
               jsonSerialization['scope'],
             ),
       nodeId: jsonSerialization['nodeId'] as int,
       node: jsonSerialization['node'] == null
           ? null
-          : _i5.Protocol().deserialize<_i3.CrdtNode>(jsonSerialization['node']),
+          : _i6.Protocol().deserialize<_i4.CrdtNode>(jsonSerialization['node']),
       lastReceivedHlc: jsonSerialization['lastReceivedHlc'] == null
           ? null
-          : _i4.Hlc.fromJson(jsonSerialization['lastReceivedHlc']),
+          : _i5.Hlc.fromJson(jsonSerialization['lastReceivedHlc']),
     );
   }
 
@@ -68,29 +69,29 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
   int scopeId;
 
   /// Scope this participation row belongs to.
-  _i2.CrdtScope? scope;
+  _i3.CrdtScope? scope;
 
   int nodeId;
 
   /// Stable replica identity participating in the scope.
-  _i3.CrdtNode? node;
+  _i4.CrdtNode? node;
 
   /// Latest HLC from this node acknowledged for this scope.
-  _i4.Hlc? lastReceivedHlc;
+  _i5.Hlc? lastReceivedHlc;
 
   @override
   _i1.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtScopeNode]
   /// with some or all fields replaced by the given arguments.
-  @_i6.useResult
+  @_i2.useResult
   CrdtScopeNode copyWith({
     int? id,
     int? scopeId,
-    _i2.CrdtScope? scope,
+    _i3.CrdtScope? scope,
     int? nodeId,
-    _i3.CrdtNode? node,
-    _i4.Hlc? lastReceivedHlc,
+    _i4.CrdtNode? node,
+    _i5.Hlc? lastReceivedHlc,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -105,9 +106,29 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtScopeNode',
+      if (id != null) 'id': id,
+      'scopeId': scopeId,
+      if (scope != null) 'scope': scope?.toJsonForProtocol(),
+      'nodeId': nodeId,
+      if (node != null) 'node': node?.toJsonForProtocol(),
+      if (lastReceivedHlc != null)
+        'lastReceivedHlc':
+            // ignore: unnecessary_type_check
+            lastReceivedHlc is _i2.ProtocolSerialization
+            ? (lastReceivedHlc as _i2.ProtocolSerialization).toJsonForProtocol()
+            :
+              // ignore: dead_code
+              lastReceivedHlc?.toJson(),
+    };
+  }
+
   static CrdtScopeNodeInclude include({
-    _i2.CrdtScopeInclude? scope,
-    _i3.CrdtNodeInclude? node,
+    _i3.CrdtScopeInclude? scope,
+    _i4.CrdtNodeInclude? node,
   }) {
     return CrdtScopeNodeInclude._(
       scope: scope,
@@ -120,8 +141,6 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeNodeTable>? orderByList,
     CrdtScopeNodeInclude? include,
   }) {
@@ -130,8 +149,6 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtScopeNode.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtScopeNode.t),
       include: include,
     );
@@ -139,7 +156,7 @@ abstract class CrdtScopeNode implements _i1.TableRow<int?> {
 
   @override
   String toString() {
-    return _i6.SerializationManager.encode(this);
+    return _i2.SerializationManager.encode(this);
   }
 }
 
@@ -149,10 +166,10 @@ class _CrdtScopeNodeImpl extends CrdtScopeNode {
   _CrdtScopeNodeImpl({
     int? id,
     required int scopeId,
-    _i2.CrdtScope? scope,
+    _i3.CrdtScope? scope,
     required int nodeId,
-    _i3.CrdtNode? node,
-    _i4.Hlc? lastReceivedHlc,
+    _i4.CrdtNode? node,
+    _i5.Hlc? lastReceivedHlc,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -164,7 +181,7 @@ class _CrdtScopeNodeImpl extends CrdtScopeNode {
 
   /// Returns a shallow copy of this [CrdtScopeNode]
   /// with some or all fields replaced by the given arguments.
-  @_i6.useResult
+  @_i2.useResult
   @override
   CrdtScopeNode copyWith({
     Object? id = _Undefined,
@@ -177,10 +194,10 @@ class _CrdtScopeNodeImpl extends CrdtScopeNode {
     return CrdtScopeNode(
       id: id is int? ? id : this.id,
       scopeId: scopeId ?? this.scopeId,
-      scope: scope is _i2.CrdtScope? ? scope : this.scope?.copyWith(),
+      scope: scope is _i3.CrdtScope? ? scope : this.scope?.copyWith(),
       nodeId: nodeId ?? this.nodeId,
-      node: node is _i3.CrdtNode? ? node : this.node?.copyWith(),
-      lastReceivedHlc: lastReceivedHlc is _i4.Hlc?
+      node: node is _i4.CrdtNode? ? node : this.node?.copyWith(),
+      lastReceivedHlc: lastReceivedHlc is _i5.Hlc?
           ? lastReceivedHlc
           : this.lastReceivedHlc?.copyWith(),
     );
@@ -200,7 +217,7 @@ class CrdtScopeNodeUpdateTable extends _i1.UpdateTable<CrdtScopeNodeTable> {
     value,
   );
 
-  _i1.ColumnValue<_i4.Hlc, _i4.Hlc> lastReceivedHlc(_i4.Hlc? value) =>
+  _i1.ColumnValue<_i5.Hlc, _i5.Hlc> lastReceivedHlc(_i5.Hlc? value) =>
       _i1.ColumnValue(
         table.lastReceivedHlc,
         value,
@@ -219,7 +236,7 @@ class CrdtScopeNodeTable extends _i1.Table<int?> {
       'nodeId',
       this,
     );
-    lastReceivedHlc = _i1.ColumnStructured<_i4.Hlc>(
+    lastReceivedHlc = _i1.ColumnStructured<_i5.Hlc>(
       'lastReceivedHlc',
       this,
     );
@@ -230,38 +247,38 @@ class CrdtScopeNodeTable extends _i1.Table<int?> {
   late final _i1.ColumnInt scopeId;
 
   /// Scope this participation row belongs to.
-  _i2.CrdtScopeTable? _scope;
+  _i3.CrdtScopeTable? _scope;
 
   late final _i1.ColumnInt nodeId;
 
   /// Stable replica identity participating in the scope.
-  _i3.CrdtNodeTable? _node;
+  _i4.CrdtNodeTable? _node;
 
   /// Latest HLC from this node acknowledged for this scope.
-  late final _i1.ColumnStructured<_i4.Hlc> lastReceivedHlc;
+  late final _i1.ColumnStructured<_i5.Hlc> lastReceivedHlc;
 
-  _i2.CrdtScopeTable get scope {
+  _i3.CrdtScopeTable get scope {
     if (_scope != null) return _scope!;
     _scope = _i1.createRelationTable(
       relationFieldName: 'scope',
       field: CrdtScopeNode.t.scopeId,
-      foreignField: _i2.CrdtScope.t.id,
+      foreignField: _i3.CrdtScope.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.CrdtScopeTable(tableRelation: foreignTableRelation),
+          _i3.CrdtScopeTable(tableRelation: foreignTableRelation),
     );
     return _scope!;
   }
 
-  _i3.CrdtNodeTable get node {
+  _i4.CrdtNodeTable get node {
     if (_node != null) return _node!;
     _node = _i1.createRelationTable(
       relationFieldName: 'node',
       field: CrdtScopeNode.t.nodeId,
-      foreignField: _i3.CrdtNode.t.id,
+      foreignField: _i4.CrdtNode.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtNodeTable(tableRelation: foreignTableRelation),
+          _i4.CrdtNodeTable(tableRelation: foreignTableRelation),
     );
     return _node!;
   }
@@ -288,16 +305,16 @@ class CrdtScopeNodeTable extends _i1.Table<int?> {
 
 class CrdtScopeNodeInclude extends _i1.IncludeObject {
   CrdtScopeNodeInclude._({
-    _i2.CrdtScopeInclude? scope,
-    _i3.CrdtNodeInclude? node,
+    _i3.CrdtScopeInclude? scope,
+    _i4.CrdtNodeInclude? node,
   }) {
     _scope = scope;
     _node = node;
   }
 
-  _i2.CrdtScopeInclude? _scope;
+  _i3.CrdtScopeInclude? _scope;
 
-  _i3.CrdtNodeInclude? _node;
+  _i4.CrdtNodeInclude? _node;
 
   @override
   Map<String, _i1.Include?> get includes => {
@@ -315,8 +332,6 @@ class CrdtScopeNodeIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -363,8 +378,6 @@ class CrdtScopeNodeRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeNodeTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtScopeNodeInclude? include,
@@ -375,8 +388,6 @@ class CrdtScopeNodeRepository {
       where: where?.call(CrdtScopeNode.t),
       orderBy: orderBy?.call(CrdtScopeNode.t),
       orderByList: orderByList?.call(CrdtScopeNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -408,8 +419,6 @@ class CrdtScopeNodeRepository {
     _i1.WhereExpressionBuilder<CrdtScopeNodeTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeNodeTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtScopeNodeInclude? include,
@@ -420,8 +429,6 @@ class CrdtScopeNodeRepository {
       where: where?.call(CrdtScopeNode.t),
       orderBy: orderBy?.call(CrdtScopeNode.t),
       orderByList: orderByList?.call(CrdtScopeNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -629,8 +636,6 @@ class CrdtScopeNodeRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtScopeNodeTable>? orderBy,
     _i1.OrderByListBuilder<CrdtScopeNodeTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -641,8 +646,6 @@ class CrdtScopeNodeRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtScopeNode.t),
       orderByList: orderByList?.call(CrdtScopeNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -663,8 +666,6 @@ class CrdtScopeNodeRepository {
     _i1.DatabaseSession session,
     List<CrdtScopeNode> rows, {
     _i1.OrderByBuilder<CrdtScopeNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeNodeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -673,8 +674,6 @@ class CrdtScopeNodeRepository {
       rows,
       orderBy: orderBy?.call(CrdtScopeNode.t),
       orderByList: orderByList?.call(CrdtScopeNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -704,8 +703,6 @@ class CrdtScopeNodeRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtScopeNodeTable> where,
     _i1.OrderByBuilder<CrdtScopeNodeTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeNodeTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -714,8 +711,6 @@ class CrdtScopeNodeRepository {
       where: where(CrdtScopeNode.t),
       orderBy: orderBy?.call(CrdtScopeNode.t),
       orderByList: orderByList?.call(CrdtScopeNode.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -761,7 +756,7 @@ class CrdtScopeNodeAttachRowRepository {
   Future<void> scope(
     _i1.DatabaseSession session,
     CrdtScopeNode crdtScopeNode,
-    _i2.CrdtScope scope, {
+    _i3.CrdtScope scope, {
     _i1.Transaction? transaction,
   }) async {
     if (crdtScopeNode.id == null) {
@@ -784,7 +779,7 @@ class CrdtScopeNodeAttachRowRepository {
   Future<void> node(
     _i1.DatabaseSession session,
     CrdtScopeNode crdtScopeNode,
-    _i3.CrdtNode node, {
+    _i4.CrdtNode node, {
     _i1.Transaction? transaction,
   }) async {
     if (crdtScopeNode.id == null) {

@@ -13,7 +13,7 @@ part of 'change.dart';
 
 /// A remote row insertion to merge.
 abstract class CrdtMergeInsert extends _i1.CrdtMergeChange
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtMergeInsert._({
     required super.hlcDatetime,
     required super.hlcCounter,
@@ -83,6 +83,23 @@ abstract class CrdtMergeInsert extends _i1.CrdtMergeChange
       'uuidRowId': uuidRowId.toJson(),
       'uuidNodeId': uuidNodeId.toJson(),
       'data': _i4.Protocol().dynamicFieldToJson(data),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtMergeInsert',
+      'hlcDatetime': hlcDatetime.toJson(),
+      'hlcCounter': hlcCounter,
+      'uuidScopeId': uuidScopeId.toJson(),
+      'tableName': tableName,
+      'uuidRowId': uuidRowId.toJson(),
+      'uuidNodeId': uuidNodeId.toJson(),
+      'data': _i4.Protocol().dynamicFieldToJson(
+        data,
+        forProtocol: true,
+      ),
     };
   }
 

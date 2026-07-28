@@ -13,10 +13,10 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
 import 'package:serverpod_database/serverpod_database.dart' as _i2;
-import '../data/row_visibility.dart' as _i3;
-import '../node/scope.dart' as _i4;
-import '../schema/table.dart' as _i5;
-import 'package:serverpod_client/serverpod_client.dart' as _i6;
+import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import '../data/row_visibility.dart' as _i4;
+import '../node/scope.dart' as _i5;
+import '../schema/table.dart' as _i6;
 import '../node/node.dart' as _i7;
 import '../data/deleted.dart' as _i8;
 import '../data/field.dart' as _i9;
@@ -30,7 +30,8 @@ import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
 ///
 /// The row is also the HLC timestamp for when it was inserted. This is used to
 /// avoid creating one entry per field until a field is updated.
-abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
+abstract class CrdtDataRow extends _i1.BaseHlc
+    implements _i2.TableRow<int?>, _i3.ProtocolSerialization {
   CrdtDataRow._({
     this.id,
     required super.hlcDatetime,
@@ -42,23 +43,23 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
     required this.uuidRowId,
     required this.nodeId,
     this.node,
-    _i3.CrdtDataRowVisibility? visibility,
+    _i4.CrdtDataRowVisibility? visibility,
     this.deleted,
     this.fields,
-  }) : visibility = visibility ?? _i3.CrdtDataRowVisibility.userInsert;
+  }) : visibility = visibility ?? _i4.CrdtDataRowVisibility.userInsert;
 
   factory CrdtDataRow({
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
     required int scopeId,
-    _i4.CrdtScope? scope,
+    _i5.CrdtScope? scope,
     required int tblId,
-    _i5.CrdtSchemaTable? tbl,
-    required _i6.UuidValue uuidRowId,
+    _i6.CrdtSchemaTable? tbl,
+    required _i3.UuidValue uuidRowId,
     required int nodeId,
     _i7.CrdtNode? node,
-    _i3.CrdtDataRowVisibility? visibility,
+    _i4.CrdtDataRowVisibility? visibility,
     _i8.CrdtDataDeleted? deleted,
     List<_i9.CrdtDataField>? fields,
   }) = _CrdtDataRowImpl;
@@ -66,23 +67,23 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
   factory CrdtDataRow.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtDataRow(
       id: jsonSerialization['id'] as int?,
-      hlcDatetime: _i6.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _i3.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
       scopeId: jsonSerialization['scopeId'] as int,
       scope: jsonSerialization['scope'] == null
           ? null
-          : _i10.Protocol().deserialize<_i4.CrdtScope>(
+          : _i10.Protocol().deserialize<_i5.CrdtScope>(
               jsonSerialization['scope'],
             ),
       tblId: jsonSerialization['tblId'] as int,
       tbl: jsonSerialization['tbl'] == null
           ? null
-          : _i10.Protocol().deserialize<_i5.CrdtSchemaTable>(
+          : _i10.Protocol().deserialize<_i6.CrdtSchemaTable>(
               jsonSerialization['tbl'],
             ),
-      uuidRowId: _i6.UuidValueJsonExtension.fromJson(
+      uuidRowId: _i3.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidRowId'],
       ),
       nodeId: jsonSerialization['nodeId'] as int,
@@ -93,7 +94,7 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
             ),
       visibility: jsonSerialization['visibility'] == null
           ? null
-          : _i3.CrdtDataRowVisibility.fromJson(
+          : _i4.CrdtDataRowVisibility.fromJson(
               (jsonSerialization['visibility'] as int),
             ),
       deleted: jsonSerialization['deleted'] == null
@@ -119,15 +120,15 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
   int scopeId;
 
   /// Identifier for the scope that owns the data.
-  _i4.CrdtScope? scope;
+  _i5.CrdtScope? scope;
 
   int tblId;
 
   /// Reference to the table this row belongs to.
-  _i5.CrdtSchemaTable? tbl;
+  _i6.CrdtSchemaTable? tbl;
 
   /// Row identifier.
-  _i6.UuidValue uuidRowId;
+  _i3.UuidValue uuidRowId;
 
   int nodeId;
 
@@ -138,7 +139,7 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
   ///
   /// Updated by user tombstone writes and foreign key projection. Visible
   /// states are listed before hidden states in CrdtDataRowVisibility.
-  _i3.CrdtDataRowVisibility visibility;
+  _i4.CrdtDataRowVisibility visibility;
 
   /// The synced user tombstone for this row.
   ///
@@ -155,19 +156,19 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
   /// Returns a shallow copy of this [CrdtDataRow]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i6.useResult
+  @_i3.useResult
   CrdtDataRow copyWith({
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? scopeId,
-    _i4.CrdtScope? scope,
+    _i5.CrdtScope? scope,
     int? tblId,
-    _i5.CrdtSchemaTable? tbl,
-    _i6.UuidValue? uuidRowId,
+    _i6.CrdtSchemaTable? tbl,
+    _i3.UuidValue? uuidRowId,
     int? nodeId,
     _i7.CrdtNode? node,
-    _i3.CrdtDataRowVisibility? visibility,
+    _i4.CrdtDataRowVisibility? visibility,
     _i8.CrdtDataDeleted? deleted,
     List<_i9.CrdtDataField>? fields,
   });
@@ -192,9 +193,30 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtDataRow',
+      if (id != null) 'id': id,
+      'hlcDatetime': hlcDatetime.toJson(),
+      'hlcCounter': hlcCounter,
+      'scopeId': scopeId,
+      if (scope != null) 'scope': scope?.toJsonForProtocol(),
+      'tblId': tblId,
+      if (tbl != null) 'tbl': tbl?.toJsonForProtocol(),
+      'uuidRowId': uuidRowId.toJson(),
+      'nodeId': nodeId,
+      if (node != null) 'node': node?.toJsonForProtocol(),
+      'visibility': visibility.toJson(),
+      if (deleted != null) 'deleted': deleted?.toJsonForProtocol(),
+      if (fields != null)
+        'fields': fields?.toJson(valueToJson: (v) => v.toJsonForProtocol()),
+    };
+  }
+
   static CrdtDataRowInclude include({
-    _i4.CrdtScopeInclude? scope,
-    _i5.CrdtSchemaTableInclude? tbl,
+    _i5.CrdtScopeInclude? scope,
+    _i6.CrdtSchemaTableInclude? tbl,
     _i7.CrdtNodeInclude? node,
     _i8.CrdtDataDeletedInclude? deleted,
     _i9.CrdtDataFieldIncludeList? fields,
@@ -213,8 +235,6 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataRowTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataRowTable>? orderByList,
     CrdtDataRowInclude? include,
   }) {
@@ -223,8 +243,6 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtDataRow.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtDataRow.t),
       include: include,
     );
@@ -232,7 +250,7 @@ abstract class CrdtDataRow extends _i1.BaseHlc implements _i2.TableRow<int?> {
 
   @override
   String toString() {
-    return _i6.SerializationManager.encode(this);
+    return _i3.SerializationManager.encode(this);
   }
 }
 
@@ -244,13 +262,13 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     required DateTime hlcDatetime,
     required int hlcCounter,
     required int scopeId,
-    _i4.CrdtScope? scope,
+    _i5.CrdtScope? scope,
     required int tblId,
-    _i5.CrdtSchemaTable? tbl,
-    required _i6.UuidValue uuidRowId,
+    _i6.CrdtSchemaTable? tbl,
+    required _i3.UuidValue uuidRowId,
     required int nodeId,
     _i7.CrdtNode? node,
-    _i3.CrdtDataRowVisibility? visibility,
+    _i4.CrdtDataRowVisibility? visibility,
     _i8.CrdtDataDeleted? deleted,
     List<_i9.CrdtDataField>? fields,
   }) : super._(
@@ -271,7 +289,7 @@ class _CrdtDataRowImpl extends CrdtDataRow {
 
   /// Returns a shallow copy of this [CrdtDataRow]
   /// with some or all fields replaced by the given arguments.
-  @_i6.useResult
+  @_i3.useResult
   @override
   CrdtDataRow copyWith({
     Object? id = _Undefined,
@@ -281,10 +299,10 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     Object? scope = _Undefined,
     int? tblId,
     Object? tbl = _Undefined,
-    _i6.UuidValue? uuidRowId,
+    _i3.UuidValue? uuidRowId,
     int? nodeId,
     Object? node = _Undefined,
-    _i3.CrdtDataRowVisibility? visibility,
+    _i4.CrdtDataRowVisibility? visibility,
     Object? deleted = _Undefined,
     Object? fields = _Undefined,
   }) {
@@ -293,9 +311,9 @@ class _CrdtDataRowImpl extends CrdtDataRow {
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
       scopeId: scopeId ?? this.scopeId,
-      scope: scope is _i4.CrdtScope? ? scope : this.scope?.copyWith(),
+      scope: scope is _i5.CrdtScope? ? scope : this.scope?.copyWith(),
       tblId: tblId ?? this.tblId,
-      tbl: tbl is _i5.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
+      tbl: tbl is _i6.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
       uuidRowId: uuidRowId ?? this.uuidRowId,
       nodeId: nodeId ?? this.nodeId,
       node: node is _i7.CrdtNode? ? node : this.node?.copyWith(),
@@ -334,8 +352,8 @@ class CrdtDataRowUpdateTable extends _i2.UpdateTable<CrdtDataRowTable> {
     value,
   );
 
-  _i2.ColumnValue<_i6.UuidValue, _i6.UuidValue> uuidRowId(
-    _i6.UuidValue value,
+  _i2.ColumnValue<_i3.UuidValue, _i3.UuidValue> uuidRowId(
+    _i3.UuidValue value,
   ) => _i2.ColumnValue(
     table.uuidRowId,
     value,
@@ -346,8 +364,8 @@ class CrdtDataRowUpdateTable extends _i2.UpdateTable<CrdtDataRowTable> {
     value,
   );
 
-  _i2.ColumnValue<_i3.CrdtDataRowVisibility, _i3.CrdtDataRowVisibility>
-  visibility(_i3.CrdtDataRowVisibility value) => _i2.ColumnValue(
+  _i2.ColumnValue<_i4.CrdtDataRowVisibility, _i4.CrdtDataRowVisibility>
+  visibility(_i4.CrdtDataRowVisibility value) => _i2.ColumnValue(
     table.visibility,
     value,
   );
@@ -399,12 +417,12 @@ class CrdtDataRowTable extends _i2.Table<int?> {
   late final _i2.ColumnInt scopeId;
 
   /// Identifier for the scope that owns the data.
-  _i4.CrdtScopeTable? _scope;
+  _i5.CrdtScopeTable? _scope;
 
   late final _i2.ColumnInt tblId;
 
   /// Reference to the table this row belongs to.
-  _i5.CrdtSchemaTableTable? _tbl;
+  _i6.CrdtSchemaTableTable? _tbl;
 
   /// Row identifier.
   late final _i2.ColumnUuid uuidRowId;
@@ -418,7 +436,7 @@ class CrdtDataRowTable extends _i2.Table<int?> {
   ///
   /// Updated by user tombstone writes and foreign key projection. Visible
   /// states are listed before hidden states in CrdtDataRowVisibility.
-  late final _i2.ColumnEnum<_i3.CrdtDataRowVisibility> visibility;
+  late final _i2.ColumnEnum<_i4.CrdtDataRowVisibility> visibility;
 
   /// The synced user tombstone for this row.
   ///
@@ -432,28 +450,28 @@ class CrdtDataRowTable extends _i2.Table<int?> {
   /// The fields for this row.
   _i2.ManyRelation<_i9.CrdtDataFieldTable>? _fields;
 
-  _i4.CrdtScopeTable get scope {
+  _i5.CrdtScopeTable get scope {
     if (_scope != null) return _scope!;
     _scope = _i2.createRelationTable(
       relationFieldName: 'scope',
       field: CrdtDataRow.t.scopeId,
-      foreignField: _i4.CrdtScope.t.id,
+      foreignField: _i5.CrdtScope.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i4.CrdtScopeTable(tableRelation: foreignTableRelation),
+          _i5.CrdtScopeTable(tableRelation: foreignTableRelation),
     );
     return _scope!;
   }
 
-  _i5.CrdtSchemaTableTable get tbl {
+  _i6.CrdtSchemaTableTable get tbl {
     if (_tbl != null) return _tbl!;
     _tbl = _i2.createRelationTable(
       relationFieldName: 'tbl',
       field: CrdtDataRow.t.tblId,
-      foreignField: _i5.CrdtSchemaTable.t.id,
+      foreignField: _i6.CrdtSchemaTable.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i5.CrdtSchemaTableTable(tableRelation: foreignTableRelation),
+          _i6.CrdtSchemaTableTable(tableRelation: foreignTableRelation),
     );
     return _tbl!;
   }
@@ -551,8 +569,8 @@ class CrdtDataRowTable extends _i2.Table<int?> {
 
 class CrdtDataRowInclude extends _i2.IncludeObject {
   CrdtDataRowInclude._({
-    _i4.CrdtScopeInclude? scope,
-    _i5.CrdtSchemaTableInclude? tbl,
+    _i5.CrdtScopeInclude? scope,
+    _i6.CrdtSchemaTableInclude? tbl,
     _i7.CrdtNodeInclude? node,
     _i8.CrdtDataDeletedInclude? deleted,
     _i9.CrdtDataFieldIncludeList? fields,
@@ -564,9 +582,9 @@ class CrdtDataRowInclude extends _i2.IncludeObject {
     _fields = fields;
   }
 
-  _i4.CrdtScopeInclude? _scope;
+  _i5.CrdtScopeInclude? _scope;
 
-  _i5.CrdtSchemaTableInclude? _tbl;
+  _i6.CrdtSchemaTableInclude? _tbl;
 
   _i7.CrdtNodeInclude? _node;
 
@@ -593,8 +611,6 @@ class CrdtDataRowIncludeList extends _i2.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -643,8 +659,6 @@ class CrdtDataRowRepository {
     int? limit,
     int? offset,
     _i2.OrderByBuilder<CrdtDataRowTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataRowTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataRowInclude? include,
@@ -655,8 +669,6 @@ class CrdtDataRowRepository {
       where: where?.call(CrdtDataRow.t),
       orderBy: orderBy?.call(CrdtDataRow.t),
       orderByList: orderByList?.call(CrdtDataRow.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -688,8 +700,6 @@ class CrdtDataRowRepository {
     _i2.WhereExpressionBuilder<CrdtDataRowTable>? where,
     int? offset,
     _i2.OrderByBuilder<CrdtDataRowTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataRowTable>? orderByList,
     _i2.Transaction? transaction,
     CrdtDataRowInclude? include,
@@ -700,8 +710,6 @@ class CrdtDataRowRepository {
       where: where?.call(CrdtDataRow.t),
       orderBy: orderBy?.call(CrdtDataRow.t),
       orderByList: orderByList?.call(CrdtDataRow.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -909,8 +917,6 @@ class CrdtDataRowRepository {
     int? offset,
     _i2.OrderByBuilder<CrdtDataRowTable>? orderBy,
     _i2.OrderByListBuilder<CrdtDataRowTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -921,8 +927,6 @@ class CrdtDataRowRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtDataRow.t),
       orderByList: orderByList?.call(CrdtDataRow.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -943,8 +947,6 @@ class CrdtDataRowRepository {
     _i2.DatabaseSession session,
     List<CrdtDataRow> rows, {
     _i2.OrderByBuilder<CrdtDataRowTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataRowTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -953,8 +955,6 @@ class CrdtDataRowRepository {
       rows,
       orderBy: orderBy?.call(CrdtDataRow.t),
       orderByList: orderByList?.call(CrdtDataRow.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -984,8 +984,6 @@ class CrdtDataRowRepository {
     _i2.DatabaseSession session, {
     required _i2.WhereExpressionBuilder<CrdtDataRowTable> where,
     _i2.OrderByBuilder<CrdtDataRowTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i2.OrderByListBuilder<CrdtDataRowTable>? orderByList,
     _i2.Transaction? transaction,
     bool noReturn = false,
@@ -994,8 +992,6 @@ class CrdtDataRowRepository {
       where: where(CrdtDataRow.t),
       orderBy: orderBy?.call(CrdtDataRow.t),
       orderByList: orderByList?.call(CrdtDataRow.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -1070,7 +1066,7 @@ class CrdtDataRowAttachRowRepository {
   Future<void> scope(
     _i2.DatabaseSession session,
     CrdtDataRow crdtDataRow,
-    _i4.CrdtScope scope, {
+    _i5.CrdtScope scope, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataRow.id == null) {
@@ -1093,7 +1089,7 @@ class CrdtDataRowAttachRowRepository {
   Future<void> tbl(
     _i2.DatabaseSession session,
     CrdtDataRow crdtDataRow,
-    _i5.CrdtSchemaTable tbl, {
+    _i6.CrdtSchemaTable tbl, {
     _i2.Transaction? transaction,
   }) async {
     if (crdtDataRow.id == null) {

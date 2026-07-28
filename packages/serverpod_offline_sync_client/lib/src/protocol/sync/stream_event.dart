@@ -28,7 +28,8 @@ part 'timeout.dart';
 /// A CRDT sync event sent over a bidirectional stream.
 ///
 /// This is the base class of the CRDT sync protocol.
-sealed class CrdtSyncStreamEvent implements _i2.SerializableModel {
+sealed class CrdtSyncStreamEvent
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncStreamEvent();
 
   /// Returns a shallow copy of this [CrdtSyncStreamEvent]

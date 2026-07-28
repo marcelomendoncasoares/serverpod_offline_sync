@@ -13,7 +13,8 @@
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
 import 'package:serverpod_client/serverpod_client.dart' as _i2;
 
-abstract class UniqueUuid implements _i1.TableRow<_i2.UuidValue?> {
+abstract class UniqueUuid
+    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
   UniqueUuid._({
     this.id,
     this.scopeId,
@@ -69,6 +70,16 @@ abstract class UniqueUuid implements _i1.TableRow<_i2.UuidValue?> {
     };
   }
 
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'UniqueUuid',
+      if (id != null) 'id': id?.toJson(),
+      if (scopeId != null) 'scopeId': scopeId,
+      'value': value.toJson(),
+    };
+  }
+
   static UniqueUuidInclude include() {
     return UniqueUuidInclude._();
   }
@@ -78,8 +89,6 @@ abstract class UniqueUuid implements _i1.TableRow<_i2.UuidValue?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueUuidTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueUuidTable>? orderByList,
     UniqueUuidInclude? include,
   }) {
@@ -88,8 +97,6 @@ abstract class UniqueUuid implements _i1.TableRow<_i2.UuidValue?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(UniqueUuid.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(UniqueUuid.t),
       include: include,
     );
@@ -190,8 +197,6 @@ class UniqueUuidIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -236,8 +241,6 @@ class UniqueUuidRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<UniqueUuidTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueUuidTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -247,8 +250,6 @@ class UniqueUuidRepository {
       where: where?.call(UniqueUuid.t),
       orderBy: orderBy?.call(UniqueUuid.t),
       orderByList: orderByList?.call(UniqueUuid.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -279,8 +280,6 @@ class UniqueUuidRepository {
     _i1.WhereExpressionBuilder<UniqueUuidTable>? where,
     int? offset,
     _i1.OrderByBuilder<UniqueUuidTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueUuidTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -290,8 +289,6 @@ class UniqueUuidRepository {
       where: where?.call(UniqueUuid.t),
       orderBy: orderBy?.call(UniqueUuid.t),
       orderByList: orderByList?.call(UniqueUuid.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -496,8 +493,6 @@ class UniqueUuidRepository {
     int? offset,
     _i1.OrderByBuilder<UniqueUuidTable>? orderBy,
     _i1.OrderByListBuilder<UniqueUuidTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -508,8 +503,6 @@ class UniqueUuidRepository {
       offset: offset,
       orderBy: orderBy?.call(UniqueUuid.t),
       orderByList: orderByList?.call(UniqueUuid.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -530,8 +523,6 @@ class UniqueUuidRepository {
     _i1.DatabaseSession session,
     List<UniqueUuid> rows, {
     _i1.OrderByBuilder<UniqueUuidTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueUuidTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -540,8 +531,6 @@ class UniqueUuidRepository {
       rows,
       orderBy: orderBy?.call(UniqueUuid.t),
       orderByList: orderByList?.call(UniqueUuid.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -571,8 +560,6 @@ class UniqueUuidRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<UniqueUuidTable> where,
     _i1.OrderByBuilder<UniqueUuidTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<UniqueUuidTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -581,8 +568,6 @@ class UniqueUuidRepository {
       where: where(UniqueUuid.t),
       orderBy: orderBy?.call(UniqueUuid.t),
       orderByList: orderByList?.call(UniqueUuid.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

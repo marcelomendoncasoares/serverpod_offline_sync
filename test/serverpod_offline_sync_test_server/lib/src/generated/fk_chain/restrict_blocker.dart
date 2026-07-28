@@ -121,8 +121,6 @@ abstract class FkChainRestrictBlocker
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
     FkChainRestrictBlockerInclude? include,
   }) {
@@ -131,8 +129,6 @@ abstract class FkChainRestrictBlocker
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(FkChainRestrictBlocker.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(FkChainRestrictBlocker.t),
       include: include,
     );
@@ -289,8 +285,6 @@ class FkChainRestrictBlockerIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -339,8 +333,6 @@ class FkChainRestrictBlockerRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainRestrictBlockerInclude? include,
@@ -351,8 +343,6 @@ class FkChainRestrictBlockerRepository {
       where: where?.call(FkChainRestrictBlocker.t),
       orderBy: orderBy?.call(FkChainRestrictBlocker.t),
       orderByList: orderByList?.call(FkChainRestrictBlocker.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -384,8 +374,6 @@ class FkChainRestrictBlockerRepository {
     _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
     int? offset,
     _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
     _i1.Transaction? transaction,
     FkChainRestrictBlockerInclude? include,
@@ -396,8 +384,6 @@ class FkChainRestrictBlockerRepository {
       where: where?.call(FkChainRestrictBlocker.t),
       orderBy: orderBy?.call(FkChainRestrictBlocker.t),
       orderByList: orderByList?.call(FkChainRestrictBlocker.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -607,8 +593,6 @@ class FkChainRestrictBlockerRepository {
     int? offset,
     _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
     _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -619,8 +603,6 @@ class FkChainRestrictBlockerRepository {
       offset: offset,
       orderBy: orderBy?.call(FkChainRestrictBlocker.t),
       orderByList: orderByList?.call(FkChainRestrictBlocker.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -641,8 +623,6 @@ class FkChainRestrictBlockerRepository {
     _i1.DatabaseSession session,
     List<FkChainRestrictBlocker> rows, {
     _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -651,8 +631,6 @@ class FkChainRestrictBlockerRepository {
       rows,
       orderBy: orderBy?.call(FkChainRestrictBlocker.t),
       orderByList: orderByList?.call(FkChainRestrictBlocker.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -682,8 +660,6 @@ class FkChainRestrictBlockerRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
     _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -692,8 +668,6 @@ class FkChainRestrictBlockerRepository {
       where: where(FkChainRestrictBlocker.t),
       orderBy: orderBy?.call(FkChainRestrictBlocker.t),
       orderByList: orderByList?.call(FkChainRestrictBlocker.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

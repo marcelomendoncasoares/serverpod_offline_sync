@@ -222,8 +222,6 @@ abstract class CrdtSyncIntegrityViolation
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     CrdtSyncIntegrityViolationInclude? include,
   }) {
@@ -232,8 +230,6 @@ abstract class CrdtSyncIntegrityViolation
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
       include: include,
     );
@@ -545,8 +541,6 @@ class CrdtSyncIntegrityViolationIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -591,8 +585,6 @@ class CrdtSyncIntegrityViolationRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -602,8 +594,6 @@ class CrdtSyncIntegrityViolationRepository {
       where: where?.call(CrdtSyncIntegrityViolation.t),
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -634,8 +624,6 @@ class CrdtSyncIntegrityViolationRepository {
     _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     _i1.LockMode? lockMode,
@@ -645,8 +633,6 @@ class CrdtSyncIntegrityViolationRepository {
       where: where?.call(CrdtSyncIntegrityViolation.t),
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       lockMode: lockMode,
@@ -855,8 +841,6 @@ class CrdtSyncIntegrityViolationRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -867,8 +851,6 @@ class CrdtSyncIntegrityViolationRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -889,8 +871,6 @@ class CrdtSyncIntegrityViolationRepository {
     _i1.DatabaseSession session,
     List<CrdtSyncIntegrityViolation> rows, {
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -899,8 +879,6 @@ class CrdtSyncIntegrityViolationRepository {
       rows,
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -930,8 +908,6 @@ class CrdtSyncIntegrityViolationRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
     _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -940,8 +916,6 @@ class CrdtSyncIntegrityViolationRepository {
       where: where(CrdtSyncIntegrityViolation.t),
       orderBy: orderBy?.call(CrdtSyncIntegrityViolation.t),
       orderByList: orderByList?.call(CrdtSyncIntegrityViolation.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

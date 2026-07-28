@@ -22,7 +22,7 @@ part 'update.dart';
 
 /// A remote CRDT change to merge.
 sealed class CrdtMergeChange extends _i5.BaseHlc
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtMergeChange({
     required super.hlcDatetime,
     required super.hlcCounter,

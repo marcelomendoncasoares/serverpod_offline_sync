@@ -12,8 +12,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import '../node/scope.dart' as _i2;
-import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import '../node/scope.dart' as _i3;
 import '../node/scope_role.dart' as _i4;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
     as _i5;
@@ -28,7 +28,8 @@ import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
 /// Personal-scope membership is implicit: a user always belongs to the scope
 /// whose UUID equals their auth user UUID. Rows in this table represent shared
 /// scopes only.
-abstract class CrdtScopeMember implements _i1.TableRow<int?> {
+abstract class CrdtScopeMember
+    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
   CrdtScopeMember._({
     this.id,
     required this.scopeId,
@@ -40,8 +41,8 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
   factory CrdtScopeMember({
     int? id,
     required int scopeId,
-    _i2.CrdtScope? scope,
-    required _i3.UuidValue userUuid,
+    _i3.CrdtScope? scope,
+    required _i2.UuidValue userUuid,
     required _i4.CrdtScopeRole role,
   }) = _CrdtScopeMemberImpl;
 
@@ -51,10 +52,10 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
       scopeId: jsonSerialization['scopeId'] as int,
       scope: jsonSerialization['scope'] == null
           ? null
-          : _i5.Protocol().deserialize<_i2.CrdtScope>(
+          : _i5.Protocol().deserialize<_i3.CrdtScope>(
               jsonSerialization['scope'],
             ),
-      userUuid: _i3.UuidValueJsonExtension.fromJson(
+      userUuid: _i2.UuidValueJsonExtension.fromJson(
         jsonSerialization['userUuid'],
       ),
       role: _i4.CrdtScopeRole.fromJson((jsonSerialization['role'] as String)),
@@ -71,10 +72,10 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
   int scopeId;
 
   /// Shared scope this membership grants access to.
-  _i2.CrdtScope? scope;
+  _i3.CrdtScope? scope;
 
   /// Auth user UUID that may access the scope.
-  _i3.UuidValue userUuid;
+  _i2.UuidValue userUuid;
 
   /// CRDT access role for this shared-scope membership.
   _i4.CrdtScopeRole role;
@@ -84,12 +85,12 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
 
   /// Returns a shallow copy of this [CrdtScopeMember]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_i2.useResult
   CrdtScopeMember copyWith({
     int? id,
     int? scopeId,
-    _i2.CrdtScope? scope,
-    _i3.UuidValue? userUuid,
+    _i3.CrdtScope? scope,
+    _i2.UuidValue? userUuid,
     _i4.CrdtScopeRole? role,
   });
   @override
@@ -104,7 +105,19 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
     };
   }
 
-  static CrdtScopeMemberInclude include({_i2.CrdtScopeInclude? scope}) {
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtScopeMember',
+      if (id != null) 'id': id,
+      'scopeId': scopeId,
+      if (scope != null) 'scope': scope?.toJsonForProtocol(),
+      'userUuid': userUuid.toJson(),
+      'role': role.toJson(),
+    };
+  }
+
+  static CrdtScopeMemberInclude include({_i3.CrdtScopeInclude? scope}) {
     return CrdtScopeMemberInclude._(scope: scope);
   }
 
@@ -113,8 +126,6 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeMemberTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeMemberTable>? orderByList,
     CrdtScopeMemberInclude? include,
   }) {
@@ -123,8 +134,6 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtScopeMember.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtScopeMember.t),
       include: include,
     );
@@ -132,7 +141,7 @@ abstract class CrdtScopeMember implements _i1.TableRow<int?> {
 
   @override
   String toString() {
-    return _i3.SerializationManager.encode(this);
+    return _i2.SerializationManager.encode(this);
   }
 }
 
@@ -142,8 +151,8 @@ class _CrdtScopeMemberImpl extends CrdtScopeMember {
   _CrdtScopeMemberImpl({
     int? id,
     required int scopeId,
-    _i2.CrdtScope? scope,
-    required _i3.UuidValue userUuid,
+    _i3.CrdtScope? scope,
+    required _i2.UuidValue userUuid,
     required _i4.CrdtScopeRole role,
   }) : super._(
          id: id,
@@ -155,19 +164,19 @@ class _CrdtScopeMemberImpl extends CrdtScopeMember {
 
   /// Returns a shallow copy of this [CrdtScopeMember]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_i2.useResult
   @override
   CrdtScopeMember copyWith({
     Object? id = _Undefined,
     int? scopeId,
     Object? scope = _Undefined,
-    _i3.UuidValue? userUuid,
+    _i2.UuidValue? userUuid,
     _i4.CrdtScopeRole? role,
   }) {
     return CrdtScopeMember(
       id: id is int? ? id : this.id,
       scopeId: scopeId ?? this.scopeId,
-      scope: scope is _i2.CrdtScope? ? scope : this.scope?.copyWith(),
+      scope: scope is _i3.CrdtScope? ? scope : this.scope?.copyWith(),
       userUuid: userUuid ?? this.userUuid,
       role: role ?? this.role,
     );
@@ -182,7 +191,7 @@ class CrdtScopeMemberUpdateTable extends _i1.UpdateTable<CrdtScopeMemberTable> {
     value,
   );
 
-  _i1.ColumnValue<_i3.UuidValue, _i3.UuidValue> userUuid(_i3.UuidValue value) =>
+  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> userUuid(_i2.UuidValue value) =>
       _i1.ColumnValue(
         table.userUuid,
         value,
@@ -220,7 +229,7 @@ class CrdtScopeMemberTable extends _i1.Table<int?> {
   late final _i1.ColumnInt scopeId;
 
   /// Shared scope this membership grants access to.
-  _i2.CrdtScopeTable? _scope;
+  _i3.CrdtScopeTable? _scope;
 
   /// Auth user UUID that may access the scope.
   late final _i1.ColumnUuid userUuid;
@@ -228,15 +237,15 @@ class CrdtScopeMemberTable extends _i1.Table<int?> {
   /// CRDT access role for this shared-scope membership.
   late final _i1.ColumnEnum<_i4.CrdtScopeRole> role;
 
-  _i2.CrdtScopeTable get scope {
+  _i3.CrdtScopeTable get scope {
     if (_scope != null) return _scope!;
     _scope = _i1.createRelationTable(
       relationFieldName: 'scope',
       field: CrdtScopeMember.t.scopeId,
-      foreignField: _i2.CrdtScope.t.id,
+      foreignField: _i3.CrdtScope.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.CrdtScopeTable(tableRelation: foreignTableRelation),
+          _i3.CrdtScopeTable(tableRelation: foreignTableRelation),
     );
     return _scope!;
   }
@@ -259,11 +268,11 @@ class CrdtScopeMemberTable extends _i1.Table<int?> {
 }
 
 class CrdtScopeMemberInclude extends _i1.IncludeObject {
-  CrdtScopeMemberInclude._({_i2.CrdtScopeInclude? scope}) {
+  CrdtScopeMemberInclude._({_i3.CrdtScopeInclude? scope}) {
     _scope = scope;
   }
 
-  _i2.CrdtScopeInclude? _scope;
+  _i3.CrdtScopeInclude? _scope;
 
   @override
   Map<String, _i1.Include?> get includes => {'scope': _scope};
@@ -278,8 +287,6 @@ class CrdtScopeMemberIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -326,8 +333,6 @@ class CrdtScopeMemberRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeMemberTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeMemberTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtScopeMemberInclude? include,
@@ -338,8 +343,6 @@ class CrdtScopeMemberRepository {
       where: where?.call(CrdtScopeMember.t),
       orderBy: orderBy?.call(CrdtScopeMember.t),
       orderByList: orderByList?.call(CrdtScopeMember.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -371,8 +374,6 @@ class CrdtScopeMemberRepository {
     _i1.WhereExpressionBuilder<CrdtScopeMemberTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtScopeMemberTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeMemberTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtScopeMemberInclude? include,
@@ -383,8 +384,6 @@ class CrdtScopeMemberRepository {
       where: where?.call(CrdtScopeMember.t),
       orderBy: orderBy?.call(CrdtScopeMember.t),
       orderByList: orderByList?.call(CrdtScopeMember.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -594,8 +593,6 @@ class CrdtScopeMemberRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtScopeMemberTable>? orderBy,
     _i1.OrderByListBuilder<CrdtScopeMemberTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -606,8 +603,6 @@ class CrdtScopeMemberRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtScopeMember.t),
       orderByList: orderByList?.call(CrdtScopeMember.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -628,8 +623,6 @@ class CrdtScopeMemberRepository {
     _i1.DatabaseSession session,
     List<CrdtScopeMember> rows, {
     _i1.OrderByBuilder<CrdtScopeMemberTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeMemberTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -638,8 +631,6 @@ class CrdtScopeMemberRepository {
       rows,
       orderBy: orderBy?.call(CrdtScopeMember.t),
       orderByList: orderByList?.call(CrdtScopeMember.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -669,8 +660,6 @@ class CrdtScopeMemberRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtScopeMemberTable> where,
     _i1.OrderByBuilder<CrdtScopeMemberTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtScopeMemberTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -679,8 +668,6 @@ class CrdtScopeMemberRepository {
       where: where(CrdtScopeMember.t),
       orderBy: orderBy?.call(CrdtScopeMember.t),
       orderByList: orderByList?.call(CrdtScopeMember.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -726,7 +713,7 @@ class CrdtScopeMemberAttachRowRepository {
   Future<void> scope(
     _i1.DatabaseSession session,
     CrdtScopeMember crdtScopeMember,
-    _i2.CrdtScope scope, {
+    _i3.CrdtScope scope, {
     _i1.Transaction? transaction,
   }) async {
     if (crdtScopeMember.id == null) {

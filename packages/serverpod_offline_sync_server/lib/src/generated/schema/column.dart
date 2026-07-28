@@ -104,8 +104,6 @@ abstract class CrdtSchemaColumn
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     CrdtSchemaColumnInclude? include,
   }) {
@@ -114,8 +112,6 @@ abstract class CrdtSchemaColumn
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
       include: include,
     );
@@ -249,8 +245,6 @@ class CrdtSchemaColumnIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -297,8 +291,6 @@ class CrdtSchemaColumnRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
@@ -309,8 +301,6 @@ class CrdtSchemaColumnRepository {
       where: where?.call(CrdtSchemaColumn.t),
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -342,8 +332,6 @@ class CrdtSchemaColumnRepository {
     _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
@@ -354,8 +342,6 @@ class CrdtSchemaColumnRepository {
       where: where?.call(CrdtSchemaColumn.t),
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -565,8 +551,6 @@ class CrdtSchemaColumnRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -577,8 +561,6 @@ class CrdtSchemaColumnRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -599,8 +581,6 @@ class CrdtSchemaColumnRepository {
     _i1.DatabaseSession session,
     List<CrdtSchemaColumn> rows, {
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -609,8 +589,6 @@ class CrdtSchemaColumnRepository {
       rows,
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -640,8 +618,6 @@ class CrdtSchemaColumnRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -650,8 +626,6 @@ class CrdtSchemaColumnRepository {
       where: where(CrdtSchemaColumn.t),
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

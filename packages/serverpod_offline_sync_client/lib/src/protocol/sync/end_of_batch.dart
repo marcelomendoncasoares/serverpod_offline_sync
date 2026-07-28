@@ -13,7 +13,7 @@ part of 'stream_event.dart';
 
 /// Marks the end of a framed sync batch.
 abstract class CrdtSyncEndOfBatch extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncEndOfBatch._();
 
   factory CrdtSyncEndOfBatch() = _CrdtSyncEndOfBatchImpl;
@@ -29,6 +29,11 @@ abstract class CrdtSyncEndOfBatch extends _i1.CrdtSyncStreamEvent
   CrdtSyncEndOfBatch copyWith();
   @override
   Map<String, dynamic> toJson() {
+    return {'__className__': 'serverpod_offline_sync.CrdtSyncEndOfBatch'};
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
     return {'__className__': 'serverpod_offline_sync.CrdtSyncEndOfBatch'};
   }
 

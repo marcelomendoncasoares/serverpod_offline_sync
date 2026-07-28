@@ -13,7 +13,7 @@ part of 'change.dart';
 
 /// A remote visibility CLFlag update to merge.
 abstract class CrdtMergeDelete extends _i1.CrdtMergeChange
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtMergeDelete._({
     required super.hlcDatetime,
     required super.hlcCounter,
@@ -81,6 +81,21 @@ abstract class CrdtMergeDelete extends _i1.CrdtMergeChange
   });
   @override
   Map<String, dynamic> toJson() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtMergeDelete',
+      'hlcDatetime': hlcDatetime.toJson(),
+      'hlcCounter': hlcCounter,
+      'uuidScopeId': uuidScopeId.toJson(),
+      'tableName': tableName,
+      'uuidRowId': uuidRowId.toJson(),
+      'uuidNodeId': uuidNodeId.toJson(),
+      'clFlag': clFlag,
+      'reason': reason.toJson(),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
     return {
       '__className__': 'serverpod_offline_sync.CrdtMergeDelete',
       'hlcDatetime': hlcDatetime.toJson(),

@@ -17,7 +17,7 @@ part of 'stream_event.dart';
 /// sends an empty set; the server never widens access from follower-reported
 /// state.
 abstract class CrdtSyncScopeSet extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel {
+    implements _i2.SerializableModel, _i2.ProtocolSerialization {
   CrdtSyncScopeSet._({required this.scopes});
 
   factory CrdtSyncScopeSet({required List<_i5.CrdtScopeGrant> scopes}) =
@@ -45,6 +45,14 @@ abstract class CrdtSyncScopeSet extends _i1.CrdtSyncStreamEvent
     return {
       '__className__': 'serverpod_offline_sync.CrdtSyncScopeSet',
       'scopes': scopes.toJson(valueToJson: (v) => v.toJson()),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtSyncScopeSet',
+      'scopes': scopes.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
   }
 

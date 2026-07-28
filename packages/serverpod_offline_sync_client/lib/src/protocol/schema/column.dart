@@ -12,13 +12,14 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import '../schema/table.dart' as _i2;
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import '../schema/table.dart' as _i3;
 import 'package:serverpod_offline_sync_client/src/protocol/protocol.dart'
-    as _i3;
-import 'package:serverpod_client/serverpod_client.dart' as _i4;
+    as _i4;
 
 /// CRDT schema columns table.
-abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
+abstract class CrdtSchemaColumn
+    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
   CrdtSchemaColumn._({
     this.id,
     required this.tblId,
@@ -29,7 +30,7 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
   factory CrdtSchemaColumn({
     int? id,
     required int tblId,
-    _i2.CrdtSchemaTable? tbl,
+    _i3.CrdtSchemaTable? tbl,
     required String name,
   }) = _CrdtSchemaColumnImpl;
 
@@ -39,7 +40,7 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
       tblId: jsonSerialization['tblId'] as int,
       tbl: jsonSerialization['tbl'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.CrdtSchemaTable>(
+          : _i4.Protocol().deserialize<_i3.CrdtSchemaTable>(
               jsonSerialization['tbl'],
             ),
       name: jsonSerialization['name'] as String,
@@ -56,7 +57,7 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
   int tblId;
 
   /// Reference to the table this column belongs to.
-  _i2.CrdtSchemaTable? tbl;
+  _i3.CrdtSchemaTable? tbl;
 
   /// Name of the column.
   String name;
@@ -66,11 +67,11 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
 
   /// Returns a shallow copy of this [CrdtSchemaColumn]
   /// with some or all fields replaced by the given arguments.
-  @_i4.useResult
+  @_i2.useResult
   CrdtSchemaColumn copyWith({
     int? id,
     int? tblId,
-    _i2.CrdtSchemaTable? tbl,
+    _i3.CrdtSchemaTable? tbl,
     String? name,
   });
   @override
@@ -84,7 +85,18 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
     };
   }
 
-  static CrdtSchemaColumnInclude include({_i2.CrdtSchemaTableInclude? tbl}) {
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'serverpod_offline_sync.CrdtSchemaColumn',
+      if (id != null) 'id': id,
+      'tblId': tblId,
+      if (tbl != null) 'tbl': tbl?.toJsonForProtocol(),
+      'name': name,
+    };
+  }
+
+  static CrdtSchemaColumnInclude include({_i3.CrdtSchemaTableInclude? tbl}) {
     return CrdtSchemaColumnInclude._(tbl: tbl);
   }
 
@@ -93,8 +105,6 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     CrdtSchemaColumnInclude? include,
   }) {
@@ -103,8 +113,6 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
       limit: limit,
       offset: offset,
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use_from_same_package
-          orderDescending,
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
       include: include,
     );
@@ -112,7 +120,7 @@ abstract class CrdtSchemaColumn implements _i1.TableRow<int?> {
 
   @override
   String toString() {
-    return _i4.SerializationManager.encode(this);
+    return _i2.SerializationManager.encode(this);
   }
 }
 
@@ -122,7 +130,7 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
   _CrdtSchemaColumnImpl({
     int? id,
     required int tblId,
-    _i2.CrdtSchemaTable? tbl,
+    _i3.CrdtSchemaTable? tbl,
     required String name,
   }) : super._(
          id: id,
@@ -133,7 +141,7 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
 
   /// Returns a shallow copy of this [CrdtSchemaColumn]
   /// with some or all fields replaced by the given arguments.
-  @_i4.useResult
+  @_i2.useResult
   @override
   CrdtSchemaColumn copyWith({
     Object? id = _Undefined,
@@ -144,7 +152,7 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
     return CrdtSchemaColumn(
       id: id is int? ? id : this.id,
       tblId: tblId ?? this.tblId,
-      tbl: tbl is _i2.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
+      tbl: tbl is _i3.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
       name: name ?? this.name,
     );
   }
@@ -184,20 +192,20 @@ class CrdtSchemaColumnTable extends _i1.Table<int?> {
   late final _i1.ColumnInt tblId;
 
   /// Reference to the table this column belongs to.
-  _i2.CrdtSchemaTableTable? _tbl;
+  _i3.CrdtSchemaTableTable? _tbl;
 
   /// Name of the column.
   late final _i1.ColumnString name;
 
-  _i2.CrdtSchemaTableTable get tbl {
+  _i3.CrdtSchemaTableTable get tbl {
     if (_tbl != null) return _tbl!;
     _tbl = _i1.createRelationTable(
       relationFieldName: 'tbl',
       field: CrdtSchemaColumn.t.tblId,
-      foreignField: _i2.CrdtSchemaTable.t.id,
+      foreignField: _i3.CrdtSchemaTable.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.CrdtSchemaTableTable(tableRelation: foreignTableRelation),
+          _i3.CrdtSchemaTableTable(tableRelation: foreignTableRelation),
     );
     return _tbl!;
   }
@@ -219,11 +227,11 @@ class CrdtSchemaColumnTable extends _i1.Table<int?> {
 }
 
 class CrdtSchemaColumnInclude extends _i1.IncludeObject {
-  CrdtSchemaColumnInclude._({_i2.CrdtSchemaTableInclude? tbl}) {
+  CrdtSchemaColumnInclude._({_i3.CrdtSchemaTableInclude? tbl}) {
     _tbl = tbl;
   }
 
-  _i2.CrdtSchemaTableInclude? _tbl;
+  _i3.CrdtSchemaTableInclude? _tbl;
 
   @override
   Map<String, _i1.Include?> get includes => {'tbl': _tbl};
@@ -238,8 +246,6 @@ class CrdtSchemaColumnIncludeList extends _i1.IncludeList {
     super.limit,
     super.offset,
     super.orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    super.orderDescending,
     super.orderByList,
     super.include,
   }) {
@@ -286,8 +292,6 @@ class CrdtSchemaColumnRepository {
     int? limit,
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
@@ -298,8 +302,6 @@ class CrdtSchemaColumnRepository {
       where: where?.call(CrdtSchemaColumn.t),
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       limit: limit,
       offset: offset,
       transaction: transaction,
@@ -331,8 +333,6 @@ class CrdtSchemaColumnRepository {
     _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
@@ -343,8 +343,6 @@ class CrdtSchemaColumnRepository {
       where: where?.call(CrdtSchemaColumn.t),
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       offset: offset,
       transaction: transaction,
       include: include,
@@ -554,8 +552,6 @@ class CrdtSchemaColumnRepository {
     int? offset,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.Transaction? transaction,
     bool noReturn = false,
   }) async {
@@ -566,8 +562,6 @@ class CrdtSchemaColumnRepository {
       offset: offset,
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -588,8 +582,6 @@ class CrdtSchemaColumnRepository {
     _i1.DatabaseSession session,
     List<CrdtSchemaColumn> rows, {
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -598,8 +590,6 @@ class CrdtSchemaColumnRepository {
       rows,
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -629,8 +619,6 @@ class CrdtSchemaColumnRepository {
     _i1.DatabaseSession session, {
     required _i1.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
     _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    @Deprecated('Use desc() on the orderBy column instead.')
-    bool orderDescending = false,
     _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     _i1.Transaction? transaction,
     bool noReturn = false,
@@ -639,8 +627,6 @@ class CrdtSchemaColumnRepository {
       where: where(CrdtSchemaColumn.t),
       orderBy: orderBy?.call(CrdtSchemaColumn.t),
       orderByList: orderByList?.call(CrdtSchemaColumn.t),
-      orderDescending: // ignore: deprecated_member_use
-          orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -686,7 +672,7 @@ class CrdtSchemaColumnAttachRowRepository {
   Future<void> tbl(
     _i1.DatabaseSession session,
     CrdtSchemaColumn crdtSchemaColumn,
-    _i2.CrdtSchemaTable tbl, {
+    _i3.CrdtSchemaTable tbl, {
     _i1.Transaction? transaction,
   }) async {
     if (crdtSchemaColumn.id == null) {

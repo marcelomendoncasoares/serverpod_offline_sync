@@ -1,5 +1,4 @@
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:serverpod_offline_sync_client/src/crdt/scope_sync.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:test/test.dart';
