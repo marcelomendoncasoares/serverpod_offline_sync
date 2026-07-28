@@ -46,9 +46,6 @@ class QueryCountingDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -92,9 +89,6 @@ class QueryCountingDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -225,9 +219,6 @@ class QueryCountingDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -247,9 +238,6 @@ class QueryCountingDatabase implements Database {
       rows,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -278,9 +266,6 @@ class QueryCountingDatabase implements Database {
       where: where,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );

@@ -241,9 +241,6 @@ class CrdtDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -302,9 +299,6 @@ class CrdtDatabase implements Database {
       offset: offset,
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       include: include,
       lockMode: lockMode,
@@ -712,9 +706,6 @@ class CrdtDatabase implements Database {
         offset: offset,
         orderBy: orderBy,
         orderByList: orderByList,
-        // Remove this once the deprecated member is removed.
-        // ignore: deprecated_member_use
-        orderDescending: orderDescending,
         transaction: transaction,
         noReturn: noReturn,
       );
@@ -737,9 +728,6 @@ class CrdtDatabase implements Database {
           offset: offset,
           orderBy: orderBy,
           orderByList: orderByList,
-          // Remove this once the deprecated member is removed.
-          // ignore: deprecated_member_use
-          orderDescending: orderDescending,
           transaction: tx,
         );
 
@@ -769,9 +757,6 @@ class CrdtDatabase implements Database {
       ),
       orderBy: orderBy,
       orderByList: orderByList,
-      // Remove this once the deprecated member is removed.
-      // ignore: deprecated_member_use
-      orderDescending: orderDescending,
       transaction: transaction,
       noReturn: noReturn,
     );
@@ -812,9 +797,6 @@ class CrdtDatabase implements Database {
         where: where,
         orderBy: orderBy,
         orderByList: orderByList,
-        // Remove this once the deprecated member is removed.
-        // ignore: deprecated_member_use
-        orderDescending: orderDescending,
         transaction: transaction,
         noReturn: noReturn,
       );
@@ -833,9 +815,6 @@ class CrdtDatabase implements Database {
           ),
           orderBy: orderBy,
           orderByList: orderByList,
-          // Remove this once the deprecated member is removed.
-          // ignore: deprecated_member_use
-          orderDescending: orderDescending,
           transaction: tx,
         );
 
