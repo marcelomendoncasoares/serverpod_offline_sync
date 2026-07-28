@@ -33,29 +33,29 @@ dependency_overrides:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_client
-      ref: fix-double-generator-bug
+      ref: forward-shared-tables-on-modules
   serverpod_client:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_client
-      ref: fix-double-generator-bug
+      ref: forward-shared-tables-on-modules
   serverpod_database:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_database
-      ref: fix-double-generator-bug
+      ref: forward-shared-tables-on-modules
   serverpod_offline_sync:
     path: ../../packages/serverpod_offline_sync
   serverpod_serialization:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_serialization
-      ref: fix-double-generator-bug
+      ref: forward-shared-tables-on-modules
   serverpod_shared:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
       path: packages/serverpod_shared
-      ref: fix-double-generator-bug
+      ref: forward-shared-tables-on-modules
 
 flutter:
   uses-material-design: true
