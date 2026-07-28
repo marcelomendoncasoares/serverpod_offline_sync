@@ -1,4 +1,3 @@
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:uuid/uuid.dart';
 
 import '../protocol/protocol.dart';
