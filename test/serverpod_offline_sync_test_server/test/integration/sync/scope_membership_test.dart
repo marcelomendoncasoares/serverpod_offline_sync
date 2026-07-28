@@ -1,5 +1,6 @@
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:test/test.dart';
+import 'package:uuid/uuid.dart';
 
 import '../test_tools/client_session.dart';
 

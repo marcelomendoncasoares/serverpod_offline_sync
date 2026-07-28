@@ -347,12 +347,14 @@ Future<void> _upsertScopeMembership(
   CrdtScopeRole role = CrdtScopeRole.readWrite,
 }) async {
   final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
-  final encodedScopeId = ValueEncoder.instance.convert(scope.id);
-  final encodedUserUuid = ValueEncoder.instance.convert(userUuid);
-  final encodedRole = ValueEncoder.instance.convert(role.toJson());
-  await session.db.unsafeExecute(
-    'INSERT INTO "crdt_scope_members" ("scopeId", "userUuid", "role") '
-    'VALUES ($encodedScopeId, $encodedUserUuid, $encodedRole) '
-    'ON CONFLICT ("scopeId", "userUuid") DO UPDATE SET "role" = $encodedRole',
+  await CrdtScopeMember.db.upsertRow(
+    session,
+    CrdtScopeMember(
+      scopeId: scope.id!,
+      userUuid: userUuid,
+      role: role,
+    ),
+    conflictColumns: (t) => [t.scopeId, t.userUuid],
+    updateColumns: (t) => [t.role],
   );
 }

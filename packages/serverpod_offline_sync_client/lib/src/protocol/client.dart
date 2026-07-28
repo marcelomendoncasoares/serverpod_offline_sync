@@ -12,7 +12,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _i1;
 import 'dart:async' as _i2;
-import 'package:serverpod_offline_sync_client/src/protocol/sync/stream_event.dart'
+import 'package:serverpod_offline_sync/src/generated/sync/stream_event.dart'
     as _i3;
 
 /// Endpoint for CRDT-based offline-first synchronization.

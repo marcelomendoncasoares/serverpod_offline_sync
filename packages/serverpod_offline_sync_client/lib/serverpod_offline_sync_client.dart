@@ -1,5 +1,5 @@
 export 'package:serverpod_client/serverpod_client.dart';
+export 'package:serverpod_offline_sync/serverpod_offline_sync.dart' hide Protocol;
 
-export 'crdt.dart';
-export 'src/crdt/extensions.dart';
+export 'src/crdt/client_sync.dart';
 export 'src/protocol/protocol.dart';
