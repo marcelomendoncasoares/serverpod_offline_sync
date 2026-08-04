@@ -1,5 +1,6 @@
 import 'dst_adversary.dart';
 import 'dst_random.dart';
+import 'dst_roundtrip.dart';
 import 'dst_snapshot.dart';
 import 'dst_world.dart';
 
@@ -158,6 +159,19 @@ Future<DstRunReport> runDstSimulation({
   }
   for (final entry in snapshots.entries) {
     violations.addAll(DstOracle.invariants(entry.value));
+  }
+
+  // Round trips run once the network is quiet, because each one builds a
+  // replica and replays a whole scope into it.
+  for (final entry in snapshots.entries) {
+    violations.addAll(
+      await exportRoundTrip(
+        source: entry.key,
+        expected: entry.value,
+        ids: ids,
+        clock: simulationClock.clock,
+      ),
+    );
   }
   if (violations.isNotEmpty) {
     throw DstPropertyFailure(seed: seed, violations: violations);
