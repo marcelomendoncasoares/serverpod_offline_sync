@@ -1,0 +1,120 @@
+## Performance Benchmark (1,000 rows)
+
+This benchmark measures the performance impact of using CRDT metadata synchronization on database operations.
+```
+📊 SELECT performance impact:
+  Time: 11.07 ms --> 12.19 ms (1.12 ms)
+  CRDT overhead: 10.13% slower
+```
+```
+📊 INSERT performance impact:
+  Time: 235.63 ms --> 452.43 ms (216.80 ms)
+  CRDT overhead: 92.01% slower
+  Delay per insert: 216.80 μs
+```
+```
+📊 UPDATE performance impact:
+  Time: 215.46 ms --> 1.90 s (1.69 s)
+  CRDT overhead: 782.43% slower
+  Delay per update: 1.69 ms
+```
+```
+📊 UPSERT (INSERT) performance impact:
+  Time: 323.67 ms --> 646.13 ms (322.47 ms)
+  CRDT overhead: 99.63% slower
+  Delay per upsert (insert): 322.47 μs
+```
+```
+📊 UPSERT (UPDATE) performance impact:
+  Time: 315.15 ms --> 1.82 s (1.50 s)
+  CRDT overhead: 477.05% slower
+  Delay per upsert (update): 1.50 ms
+```
+```
+📊 DELETE performance impact:
+  Time: 11.74 ms --> 368.24 ms (356.50 ms)
+  CRDT overhead: 3,036.64% slower
+  Delay per delete: 356.50 μs
+```
+```
+🔭 SELECT scope impact (100 extra users, 100,000 CRDT noise rows):
+  find all (1,000 rows): 9.76 ms --> 11.38 ms scoped (+16.66%) / 10.64 ms unscoped (+9.01%)
+  findById (per lookup): 273.14 μs --> 895.65 μs scoped (+227.91%) / 321.68 μs unscoped (+17.77%)
+```
+```
+💽 Storage impact (base footprint removed):
+  Base database size: 584.00 KB --> 584.00 KB
+  INSERT only:
+    Net storage: 116.00 KB --> 188.00 KB (+72.00 KB)
+    CRDT overhead: 62.07% increase
+    Extra storage per inserted row: +73.73 B
+  INSERT + UPDATE:
+    Net storage: 128.00 KB --> 472.00 KB (+344.00 KB)
+    CRDT overhead: 268.75% increase
+    Extra storage per updated column: +34.82 B
+  INSERT + UPDATE + DELETE:
+    Net storage: 128.00 KB --> 512.00 KB (+384.00 KB)
+    CRDT overhead: 300.00% increase
+    Extra storage per deleted row: +40.96 B
+  Storage overhead range: 62.07% --> 300.00%
+```
+
+## Merge Benchmark (1,000 changes)
+
+This benchmark measures the time to apply remote CRDT changes to the local database through the sync merge path.
+```
+🔀 MERGE INSERT performance:
+  Merge time: 688.41 ms
+  Time per change: 688.41 μs
+  Throughput: 1,453 changes/s
+  Queries: 2,006 per batch (2.01 per change)
+```
+```
+🔀 MERGE UPDATE performance:
+  Merge time: 534.86 ms
+  Time per change: 534.86 μs
+  Throughput: 1,870 changes/s
+  Queries: 2,008 per batch (2.01 per change)
+```
+```
+🔀 MERGE DELETE performance:
+  Merge time: 410.54 ms
+  Time per change: 410.54 μs
+  Throughput: 2,436 changes/s
+  Queries: 2,007 per batch (2.01 per change)
+```
+```
+🔀 MERGE MIXED performance:
+  Batch: 334 inserts + 333 updates + 333 deletes
+  Merge time: 492.33 ms
+  Time per change: 492.33 μs
+  Throughput: 2,031 changes/s
+  Queries: 2,008 per batch (2.01 per change)
+```
+```
+🔀 MERGE UNIQUE CONFLICT performance:
+  Batch: 500 text + 500 uuid conflicting inserts
+  Merge time: 1.73 s
+  Time per change: 1.73 ms
+  Throughput: 578 changes/s
+  Queries: 5,007 per batch (5.01 per change)
+```
+```
+🔀 MERGE FK CHAIN INSERT performance:
+  Batch: 111 families × 9 related rows
+  Merge time: 2.83 s
+  Time per change: 2.83 ms
+  Throughput: 353 changes/s
+  Queries: 10,048 per batch (10.06 per change)
+```
+```
+🔀 MERGE FK CHAIN DELETE performance:
+  Batch: root + restrict blocker deletes across 111 families of 9 rows
+  Merge time: 364.13 ms
+  Time per change: 1.64 ms
+  Throughput: 610 changes/s
+  Queries: 498 per batch (2.24 per change)
+```
+
+------------------------------------------------------------
+✅ Benchmark complete!
