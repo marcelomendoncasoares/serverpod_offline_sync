@@ -13,7 +13,6 @@ late ClientDatabaseSession _testSession;
 late CrdtDatabaseSession _crdtSession;
 late Directory _tempDir;
 late UuidValue _testCrdtUserId;
-late bool _withPersistentUser;
 var _additionalTestSessionCount = 0;
 
 /// A fresh [ClientDatabaseSession] for each test that is automatically closed
@@ -36,9 +35,11 @@ UuidValue get testCrdtUserId => _testCrdtUserId;
 /// [CrdtDatabaseSession]'s `persistentUserId` so mutations can use plain
 /// [Database.transaction] instead of [CrdtDatabase.transactionForUser] (client
 /// mode).
+/// Nothing is assigned while this function runs: it only registers callbacks.
+/// [withPersistentUser] is captured by them rather than stored in a top-level
+/// field, because a runner that separates test registration from test execution
+/// does not carry state written during registration into the run.
 void initTestClientSession({bool withPersistentUser = false}) {
-  _withPersistentUser = withPersistentUser;
-
   setUpAll(() async {
     _tempDir = await Directory.systemTemp.createTemp('offline_first_');
     _testClient = Client(_clientUrl);
@@ -48,12 +49,12 @@ void initTestClientSession({bool withPersistentUser = false}) {
     );
 
     _testCrdtUserId = const Uuid().v7obj();
-    await _initialize();
+    await _initialize(withPersistentUser: withPersistentUser);
   });
 
   tearDown(() async {
     await _testSession.clearUserTables();
-    await _initialize();
+    await _initialize(withPersistentUser: withPersistentUser);
   });
 
   tearDownAll(() async {
@@ -75,7 +76,7 @@ Future<ClientDatabaseSession> createAdditionalTestSession() async {
   return additionalSession;
 }
 
-Future<void> _initialize() async {
+Future<void> _initialize({required bool withPersistentUser}) async {
   _crdtSession = CrdtDatabaseSession.wraps(
     testSession,
     syncTables: [
@@ -102,7 +103,7 @@ Future<void> _initialize() async {
       UniqueSetNullChild.t,
       UniqueUuid.t,
     ],
-    persistentUserId: _withPersistentUser ? _testCrdtUserId : null,
+    persistentUserId: withPersistentUser ? _testCrdtUserId : null,
   );
 
   await _crdtSession.db.initialize();
