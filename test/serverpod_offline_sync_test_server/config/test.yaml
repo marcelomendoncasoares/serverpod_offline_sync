@@ -20,8 +20,14 @@ webServer:
   publicScheme: http
 
 # This is the database setup for your test server.
+#
+# The path stays inside `.test_databases/` because `serverpod_test` derives
+# each ephemeral per-group database from it, keeping the directory:
+# `.test_databases/test.db` -> `.test_databases/sp_test_<pid>_<token>.db`.
+# With a bare filename those files land in the package root, where they are
+# not covered by any ignore rule and litter the working copy.
 database:
-  filePath: test.db
+  filePath: .test_databases/test.db
 
 sessionLogs:
   persistentEnabled: false

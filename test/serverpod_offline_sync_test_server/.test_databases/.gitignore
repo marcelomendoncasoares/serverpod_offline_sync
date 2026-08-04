@@ -1,0 +1,8 @@
+# Ephemeral SQLite databases created by `serverpod_test`.
+#
+# `serverpod_test` derives one database file per test group from the configured
+# `database.filePath` (see config/test.yaml), and the SQLite adapter does not
+# create missing parent directories. So this directory has to exist in a fresh
+# checkout, which is why it is committed while its contents are ignored.
+*
+!.gitignore
