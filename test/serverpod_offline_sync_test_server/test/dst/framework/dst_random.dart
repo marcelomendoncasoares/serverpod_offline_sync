@@ -124,8 +124,8 @@ class DstClock {
 /// widens it:
 ///
 /// ```sh
-/// DST_SEEDS=200 DST_ROUNDS=40 dart test test/dst
-/// DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test test/dst   # replay a failure
+/// DST_SEEDS=200 DST_ROUNDS=40 dart test -P dst
+/// DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test -P dst   # replay a failure
 /// ```
 class DstConfig {
   /// Creates an explicit configuration, mostly for focused tests.

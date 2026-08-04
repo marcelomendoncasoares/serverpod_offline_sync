@@ -1,2 +1,22 @@
 tags:
   integration: {}
+  dst:
+    # A simulation drives many real SQLite transactions across replicas.
+    timeout: 5x
+    skip: 'Simulation suite: run with `dart test -P dst`'
+
+# The simulation suite is excluded from an ordinary run. It is slow, and its
+# seed base defaults to the current time, so it searches fresh schedules on
+# every run and can fail for a defect unrelated to the change that triggered
+# it. That is what makes it worth having, and what makes it a poor edit-loop
+# signal.
+#
+#   dart test -P dst                                     the simulation suite
+#   DST_SEEDS=200 dart test -P dst                        a soak
+#   DST_SEED_BASE=<seed> DST_SEEDS=1 dart test -P dst     replay one failure
+presets:
+  dst:
+    include_tags: dst
+    tags:
+      dst:
+        skip: false

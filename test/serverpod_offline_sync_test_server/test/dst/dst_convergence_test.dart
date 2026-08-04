@@ -1,3 +1,6 @@
+@Tags(['dst'])
+library;
+
 import 'package:test/test.dart';
 
 import '../integration/test_tools/client_session.dart';

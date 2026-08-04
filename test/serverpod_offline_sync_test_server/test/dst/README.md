@@ -10,10 +10,15 @@ generate scenarios nobody wrote down and assert invariants.
 
 ## Running
 
+These suites carry the `dst` tag and are skipped by an ordinary `dart test`,
+because they are slow and because a randomly seeded search makes a poor
+edit-loop signal — a run can fail for a defect unrelated to the change that
+triggered it. The `dst` preset opts back in:
+
 ```sh
-dart test test/dst                                  # default smoke sweep
-DST_SEEDS=200 DST_ROUNDS=40 dart test test/dst      # soak
-DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test/dst  # replay one seed
+dart test -P dst                                     # the simulation suite
+DST_SEEDS=200 DST_ROUNDS=40 dart test -P dst         # soak
+DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test -P dst  # replay one seed
 ```
 
 | Variable | Default | Meaning |
@@ -34,8 +39,9 @@ search — the same simulations forever, either always catching a defect or neve
 which defects those fixed seeds reach.
 
 Nothing is lost to reproducibility: a seed determines its simulation entirely
-and a failure prints its replay command. Pin `DST_SEED_BASE` to re-run an exact
-sweep.
+and a failure prints its replay command. Tests are named by position rather
+than by seed, so the suite stays stable while the schedules underneath it vary.
+Pin `DST_SEED_BASE` to re-run an exact sweep.
 
 The consequence to expect is that a run can fail for a defect unrelated to the
 change that triggered it. That is the suite doing its job; take the seed from
