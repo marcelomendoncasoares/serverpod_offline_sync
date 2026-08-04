@@ -8,6 +8,37 @@ import 'package:test/test.dart';
 
 const _clientUrl = 'http://localhost:8081/';
 
+/// The tables every test registers for synchronization.
+///
+/// The registry validates the whole set at `initialize()`, and a synced table
+/// may not reference a table outside the set, so this is kept complete rather
+/// than trimmed to the tables any one suite writes to. A second copy would have
+/// to be edited in lockstep or the whole suite fails at setup.
+final testSyncTables = [
+  Address.t,
+  City.t,
+  Company.t,
+  FkChainCascadeMiddle.t,
+  FkChainMiddleCascadeChild.t,
+  FkChainMiddleSetNullChild.t,
+  FkChainRestrictBlocker.t,
+  FkChainRoot.t,
+  FkChainSetNullCascadeChild.t,
+  FkChainSetNullMiddle.t,
+  FkChainSetNullRestrictChild.t,
+  FkChainSetNullSetNullChild.t,
+  Organization.t,
+  Person.t,
+  RequiredSetNullChild.t,
+  RestrictChild.t,
+  Town.t,
+  Unique.t,
+  UniqueComposite.t,
+  UniqueDiscriminator.t,
+  UniqueSetNullChild.t,
+  UniqueUuid.t,
+];
+
 late Client _testClient;
 late ClientDatabaseSession _testSession;
 late CrdtDatabaseSession _crdtSession;
@@ -59,43 +90,32 @@ void initTestClientSession({bool withPersistentUser = false}) {
 }
 
 /// Creates an additional client database session in the shared test temporary
-/// directory and closes it when the current test completes.
+/// directory, closing it and removing its files when the current test
+/// completes.
+///
+/// The files are deleted rather than left for the directory-wide teardown
+/// because a simulation sweep creates several databases per seed, and they
+/// would otherwise all stay resident for the whole suite.
 Future<ClientDatabaseSession> createAdditionalTestSession() async {
+  final path = p.join(_tempDir.path, 'test-${++_additionalTestSessionCount}.db');
   final additionalSession = await _testClient.createSession(
-    p.join(_tempDir.path, 'test-${++_additionalTestSessionCount}.db'),
+    path,
     isDebugMode: true,
   );
-  addTearDown(additionalSession.close);
+  addTearDown(() async {
+    await additionalSession.close();
+    for (final suffix in const ['', '-wal', '-shm']) {
+      final file = File('$path$suffix');
+      if (file.existsSync()) await file.delete();
+    }
+  });
   return additionalSession;
 }
 
 Future<void> _initialize({required bool withPersistentUser}) async {
   _crdtSession = CrdtDatabaseSession.wraps(
     testSession,
-    syncTables: [
-      Address.t,
-      City.t,
-      Company.t,
-      FkChainCascadeMiddle.t,
-      FkChainMiddleCascadeChild.t,
-      FkChainMiddleSetNullChild.t,
-      FkChainRestrictBlocker.t,
-      FkChainRoot.t,
-      FkChainSetNullCascadeChild.t,
-      FkChainSetNullMiddle.t,
-      FkChainSetNullRestrictChild.t,
-      FkChainSetNullSetNullChild.t,
-      Organization.t,
-      Person.t,
-      RequiredSetNullChild.t,
-      RestrictChild.t,
-      Town.t,
-      Unique.t,
-      UniqueComposite.t,
-      UniqueDiscriminator.t,
-      UniqueSetNullChild.t,
-      UniqueUuid.t,
-    ],
+    syncTables: testSyncTables,
     persistentUserId: withPersistentUser ? _testCrdtUserId : null,
   );
 
