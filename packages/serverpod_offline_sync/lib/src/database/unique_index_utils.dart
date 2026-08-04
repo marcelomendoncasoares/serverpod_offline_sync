@@ -2,6 +2,69 @@ import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 
 @internal
+typedef UniqueIndexConflictRelease = ({
+  List<String> indexedColumns,
+  List<UniqueColumnConflictRelease> releaseColumns,
+  bool scoped,
+});
+
+@internal
+typedef UniqueColumnConflictRelease = ({
+  String columnName,
+  CrdtUniqueConflictReleaseKind kind,
+});
+
+@internal
+List<UniqueIndexConflictRelease> syncableUniqueIndexesForTable(
+  TableDefinition table,
+  Set<String> syncTableNames,
+) {
+  final columnsByName = {for (final column in table.columns) column.name: column};
+  return [
+    for (final index in crdtSyncableUniqueIndexesForTable(table, syncTableNames))
+      uniqueIndexConflictReleaseForIndex(table, columnsByName, index),
+  ];
+}
+
+@internal
+UniqueIndexConflictRelease uniqueIndexConflictReleaseForIndex(
+  TableDefinition table,
+  Map<String, ColumnDefinition> columnsByName,
+  IndexDefinition index,
+) {
+  final columnNames = index.elements.map((element) => element.definition).toList();
+  final indexedColumns = [
+    for (final columnName in columnNames)
+      if (columnName != 'scopeId') columnName,
+  ];
+  final releaseColumns = <UniqueColumnConflictRelease>[];
+  for (final columnName in indexedColumns) {
+    final column = columnsByName[columnName];
+    if (column == null) {
+      throw StateError('No column definition found for ${table.name}.$columnName.');
+    }
+    final kind = crdtUniqueConflictReleaseKindForColumn(table, column);
+    if (kind != null) {
+      releaseColumns.add((columnName: columnName, kind: kind));
+    }
+  }
+
+  return (
+    scoped: columnNames.contains('scopeId'),
+    indexedColumns: indexedColumns,
+    releaseColumns: releaseColumns,
+  );
+}
+
+@internal
+extension UniqueIndexConflictReleaseExtension on UniqueIndexConflictRelease {
+  /// Column names released when tombstoning rows covered by this index.
+  Set<String> get releaseColumnNames => {
+    for (final column in releaseColumns) column.columnName,
+  };
+}
+
+@internal
 bool isCrdtAllowedForeignKeyOnlyUniqueIndex(
   TableDefinition tableDefinition,
   IndexDefinition index,

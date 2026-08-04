@@ -1,22 +1,35 @@
-part of '../recorder.dart';
+import 'package:meta/meta.dart';
+import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_serialization/serverpod_serialization.dart';
+
+import '../../crdt/extensions.dart';
+import '../../crdt/merge.dart';
+import '../../generated/protocol.dart';
+import '../../hlc/hlc.dart';
+import '../unique_index_utils.dart';
+import 'database_helpers.dart';
+import 'recorder_context.dart';
+import 'types.dart';
 
 typedef _UniqueConflict = ({
   CrdtDataRow row,
-  _UniqueIndexConflictRelease uniqueIndex,
+  UniqueIndexConflictRelease uniqueIndex,
 });
 
-/// Resolves unique constraint conflicts that appear while merging CRDT changes.
+@internal
+/// Resolves unique constraint conflicts that appear while merging CRDT
+/// changes or soft-deleting rows.
 class CrdtUniqueConflictResolver {
-  /// Creates a resolver for the merge recorder.
-  CrdtUniqueConflictResolver(this._recorder);
+  /// Creates a resolver over the given recorder context.
+  CrdtUniqueConflictResolver(this._context);
 
-  final CrdtMutationRecorder _recorder;
+  final CrdtRecorderContext _context;
 
   /// Resolves unique conflicts for an incoming insert.
-  Future<({Map<String, Object?> data, bool changed})> _resolveForIncomingInsert(
+  Future<({Map<String, Object?> data, bool changed})> resolveForIncomingInsert(
     CrdtMergeInsert insert,
     Map<String, Object?> data,
-    _MergeContext context,
+    MergeContext context,
     Transaction transaction,
   ) async {
     final resolvedData = Map<String, Object?>.from(data);
@@ -67,8 +80,8 @@ class CrdtUniqueConflictResolver {
 
   Hlc _incomingInsertUniqueClaim({
     required CrdtMergeInsert insert,
-    required _UniqueIndexConflictRelease uniqueIndex,
-    required _MergeContext context,
+    required UniqueIndexConflictRelease uniqueIndex,
+    required MergeContext context,
   }) {
     var uniqueHlc = insert.hlc;
     for (final columnName in uniqueIndex.indexedColumns) {
@@ -84,13 +97,13 @@ class CrdtUniqueConflictResolver {
   }
 
   /// Resolves unique conflicts for a single incoming field update.
-  Future<Map<String, Object?>> _resolveForIncomingUpdate(
+  Future<Map<String, Object?>> resolveForIncomingUpdate(
     CrdtMergeUpdate update,
     CrdtDataRow row,
-    _MergeContext context,
+    MergeContext context,
     Transaction transaction,
   ) {
-    return _resolveForIncomingUpdates(
+    return resolveForIncomingUpdates(
       tableName: update.tableName,
       row: row,
       updates: {update.columnName: update.value},
@@ -100,11 +113,11 @@ class CrdtUniqueConflictResolver {
   }
 
   /// Resolves unique conflicts for one or more incoming field updates.
-  Future<Map<String, Object?>> _resolveForIncomingUpdates({
+  Future<Map<String, Object?>> resolveForIncomingUpdates({
     required String tableName,
     required CrdtDataRow row,
     required Map<String, Object?> updates,
-    required _MergeContext context,
+    required MergeContext context,
     required Transaction transaction,
   }) async {
     if (updates.keys.every(
@@ -113,20 +126,20 @@ class CrdtUniqueConflictResolver {
       return updates;
     }
 
-    final tableDefinition = _recorder._tableDefinitionsByName[tableName];
+    final tableDefinition = _context.tableDefinitionsByName[tableName];
     if (tableDefinition == null) {
       return updates;
     }
 
     final uniqueColumnNamesToRead = {
-      for (final uniqueIndex in _recorder._uniqueIndexesForTable(tableDefinition))
+      for (final uniqueIndex in _context.uniqueIndexesForTable(tableDefinition))
         ...uniqueIndex.indexedColumns,
     };
     if (uniqueColumnNamesToRead.isEmpty) {
       return updates;
     }
 
-    final currentValues = await _recorder._readDomainColumnValues(
+    final currentValues = await _context.readDomainColumnValues(
       tableName,
       {row.uuidRowId},
       uniqueColumnNamesToRead.toList(),
@@ -191,9 +204,9 @@ class CrdtUniqueConflictResolver {
     String tableName,
     UuidValue rowId,
     Map<String, Object?> data,
-    _UniqueIndexConflictRelease uniqueIndex,
+    UniqueIndexConflictRelease uniqueIndex,
   ) {
-    final tableDefinition = _recorder._tableDefinitionsByName[tableName];
+    final tableDefinition = _context.tableDefinitionsByName[tableName];
     if (tableDefinition == null) return data;
 
     final released = Map<String, Object?>.from(data);
@@ -204,7 +217,7 @@ class CrdtUniqueConflictResolver {
     if (values.values.any((value) => value == null)) return released;
 
     for (final column in uniqueIndex.releaseColumns) {
-      released[column.columnName] = _recorder._conflictFreeValue(
+      released[column.columnName] = _context.conflictFreeValue(
         column,
         values[column.columnName],
         tableName,
@@ -218,10 +231,10 @@ class CrdtUniqueConflictResolver {
   Future<void> _releaseUniqueConflictForRow({
     required String tableName,
     required UuidValue rowId,
-    required _UniqueIndexConflictRelease uniqueIndex,
+    required UniqueIndexConflictRelease uniqueIndex,
     required Transaction transaction,
   }) async {
-    final valuesByRowId = await _recorder._readDomainColumnValues(
+    final valuesByRowId = await _context.readDomainColumnValues(
       tableName,
       {rowId},
       uniqueIndex.indexedColumns,
@@ -236,7 +249,7 @@ class CrdtUniqueConflictResolver {
       values,
       uniqueIndex,
     );
-    await _recorder._updateDomainRows(tableName, {rowId}, releasedValues, transaction);
+    await _context.updateDomainRows(tableName, {rowId}, releasedValues, transaction);
   }
 
   Future<List<_UniqueConflict>> _findVisibleUniqueConflicts({
@@ -245,22 +258,20 @@ class CrdtUniqueConflictResolver {
     required Map<String, Object?> values,
     required Transaction transaction,
   }) async {
-    final tableDefinition = _recorder._tableDefinitionsByName[tableName];
+    final tableDefinition = _context.tableDefinitionsByName[tableName];
     if (tableDefinition == null) return const [];
 
-    final uniqueIndexes = _recorder._uniqueIndexesForTable(tableDefinition);
+    final uniqueIndexes = _context.uniqueIndexesForTable(tableDefinition);
     if (uniqueIndexes.isEmpty) return const [];
 
-    final uniqueIndexesByConflictId = <UuidValue, Set<_UniqueIndexConflictRelease>>{};
+    final uniqueIndexesByConflictId = <UuidValue, Set<UniqueIndexConflictRelease>>{};
     for (final uniqueIndex in uniqueIndexes) {
       final columnValues = {
         for (final columnName in uniqueIndex.indexedColumns)
           if (values.containsKey(columnName)) columnName: values[columnName],
       };
       if (uniqueIndex.scoped) {
-        columnValues['scopeId'] = _recorder
-            ._getHlcManager(transaction)
-            .normalizedScopeId;
+        columnValues['scopeId'] = _context.hlcManagerFor(transaction).normalizedScopeId;
       }
       final expectedValueCount =
           uniqueIndex.indexedColumns.length + (uniqueIndex.scoped ? 1 : 0);
@@ -279,7 +290,7 @@ class CrdtUniqueConflictResolver {
     }
 
     if (uniqueIndexesByConflictId.isEmpty) return const [];
-    final conflictRows = await _recorder._findCrdtRows(
+    final conflictRows = await _context.findCrdtRows(
       tableName,
       uniqueIndexesByConflictId.keys.toSet(),
       transaction,
@@ -307,8 +318,8 @@ class CrdtUniqueConflictResolver {
   Future<Hlc> _uniqueIndexHlc({
     required String tableName,
     required CrdtDataRow row,
-    required _UniqueIndexConflictRelease uniqueIndex,
-    required Map<_MergeFieldKey, CrdtDataField> fields,
+    required UniqueIndexConflictRelease uniqueIndex,
+    required Map<MergeFieldKey, CrdtDataField> fields,
     required Transaction transaction,
   }) async {
     final uniqueColumnNames = {
@@ -319,7 +330,7 @@ class CrdtUniqueConflictResolver {
     for (final columnName in uniqueColumnNames) {
       final field = fields[(tableName, row.uuidRowId, columnName)];
       if (field == null) {
-        final columnId = _schemaColumn(_recorder._schema, tableName, columnName)?.id;
+        final columnId = _context.schemaColumn(tableName, columnName)?.id;
         if (columnId != null) missingColumnIds.add(columnId);
         continue;
       }
@@ -329,7 +340,7 @@ class CrdtUniqueConflictResolver {
 
     if (missingColumnIds.isNotEmpty && row.id != null) {
       final loadedFields = await CrdtDataField.db.find(
-        _recorder._session,
+        _context.databaseSession,
         where: (t) => t.rowId.equals(row.id) & t.columnId.inSet(missingColumnIds),
         include: CrdtDataField.include(
           column: CrdtSchemaColumn.include(),
@@ -356,28 +367,71 @@ class CrdtUniqueConflictResolver {
     required Map<String, Object?> values,
     required Transaction transaction,
   }) async {
-    return _recorder._findVisibleDomainRowIdsWhere(
+    return _context.findVisibleDomainRowIdsWhere(
       tableName: tableName,
       predicates: [
         for (final MapEntry(key: columnName, value: value) in values.entries)
-          _domainColumnPredicate(columnName, value),
-        _domainColumnNotPredicate('id', rowId),
+          domainColumnPredicate(columnName, value),
+        domainColumnNotPredicate('id', rowId),
       ],
       transaction: transaction,
     );
   }
 
   bool _isUniqueIndexedColumn(String tableName, String columnName) {
-    final tableDefinition = _recorder._tableDefinitionsByName[tableName];
+    final tableDefinition = _context.tableDefinitionsByName[tableName];
     if (tableDefinition == null) return false;
-    return _recorder
-        ._uniqueIndexesForTable(tableDefinition)
+    return _context
+        .uniqueIndexesForTable(tableDefinition)
         .any((i) => i.indexedColumns.contains(columnName));
   }
-}
 
-extension on _UniqueIndexConflictRelease {
-  Set<String> get releaseColumnNames => {
-    for (final column in releaseColumns) column.columnName,
-  };
+  Future<void> releaseOnDelete(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Transaction transaction,
+  ) async {
+    final tableDefinition = _context.tableDefinitionsByName[tableName];
+    if (tableDefinition == null) return;
+
+    final uniqueIndexes = _context.uniqueIndexesForTable(tableDefinition);
+    for (final uniqueIndex in uniqueIndexes) {
+      final releaseColumnNames = uniqueIndex.releaseColumnNames.toList();
+
+      final valuesByRowId = await _context.readDomainColumnValues(
+        tableName,
+        rowIds,
+        uniqueIndex.indexedColumns,
+        transaction,
+      );
+      final updatedRowIds = <UuidValue>{};
+
+      for (final MapEntry(key: rowId, value: values) in valuesByRowId.entries) {
+        if (values.values.any((value) => value == null)) continue;
+
+        final updates = <String, Object?>{};
+        for (final column in uniqueIndex.releaseColumns) {
+          updates[column.columnName] = _context.conflictFreeValue(
+            column,
+            values[column.columnName],
+            tableDefinition.name,
+            rowId,
+            'deleted',
+          );
+        }
+
+        await _context.updateDomainRows(tableName, {rowId}, updates, transaction);
+        updatedRowIds.add(rowId);
+      }
+
+      if (updatedRowIds.isNotEmpty) {
+        await _context.recordFieldsUpdatedByTable(
+          tableName,
+          updatedRowIds,
+          releaseColumnNames,
+          transaction,
+        );
+      }
+    }
+  }
 }
