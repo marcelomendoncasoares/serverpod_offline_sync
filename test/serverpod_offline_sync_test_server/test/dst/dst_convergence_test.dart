@@ -17,16 +17,21 @@ void main() {
   final config = DstConfig.fromEnvironment();
 
   group('Given replicas sharing a single scope,', () {
-    for (final seed in config.seeds) {
+    // Named by position rather than by seed; see dst_cross_scope_test.dart.
+    for (final (index, seed) in config.seeds.indexed) {
       test(
-        'when seed $seed reorders, delays, and repeats delivery, '
+        'when simulation $index reorders, delays, and repeats delivery, '
         'then the replicas converge with foreign key and unique invariants '
         'intact.',
         () async {
-          final report = await runDstSimulation(
+          final report = await runWithSeedReported(
+            index: index,
             seed: seed,
-            rounds: config.rounds,
-            topology: DstTopology.singleScope,
+            run: () => runDstSimulation(
+              seed: seed,
+              rounds: config.rounds,
+              topology: DstTopology.singleScope,
+            ),
           );
 
           expect(

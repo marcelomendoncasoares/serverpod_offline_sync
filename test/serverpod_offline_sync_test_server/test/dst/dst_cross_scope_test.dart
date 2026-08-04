@@ -19,16 +19,25 @@ void main() {
   final config = DstConfig.fromEnvironment();
 
   group('Given replicas with overlapping but unequal scope subscriptions,', () {
-    for (final seed in config.seeds) {
+    // Named by position rather than by seed. The seed changes every run, so
+    // naming tests after it would rewrite the whole suite each time: a runner
+    // that tracks tests by name would see a fresh set on every pass and could
+    // never say a given simulation started or stopped failing. The seed is
+    // reported on failure instead, where it is needed.
+    for (final (index, seed) in config.seeds.indexed) {
       test(
-        'when seed $seed drives random operations and adversarial delivery, '
-        'then every scope looks identical to all replicas holding it and no '
-        'foreign key links across scopes.',
+        'when simulation $index drives random operations and adversarial '
+        'delivery, then every scope looks identical to all replicas holding it '
+        'and no foreign key links across scopes.',
         () async {
-          final report = await runDstSimulation(
+          final report = await runWithSeedReported(
+            index: index,
             seed: seed,
-            rounds: config.rounds,
-            topology: DstTopology.overlappingScopes,
+            run: () => runDstSimulation(
+              seed: seed,
+              rounds: config.rounds,
+              topology: DstTopology.overlappingScopes,
+            ),
           );
 
           // A run that merged nothing would pass every property vacuously.

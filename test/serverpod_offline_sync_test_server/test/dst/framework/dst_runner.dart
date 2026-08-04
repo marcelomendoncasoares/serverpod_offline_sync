@@ -193,6 +193,34 @@ Future<DstRunReport> runDstSimulation({
   );
 }
 
+/// Runs [run], making sure any failure names the seed behind it.
+///
+/// Tests are named by position rather than by seed, because the seed changes
+/// on every run. That keeps the suite stable but takes the seed out of the
+/// failure header, so it is put back here: a [DstPropertyFailure] already
+/// carries it, and anything else is wrapped so it does too. Without this an
+/// unexpected exception would be unreplayable.
+Future<T> runWithSeedReported<T>({
+  required int index,
+  required int seed,
+  required Future<T> Function() run,
+}) async {
+  try {
+    return await run();
+  } on DstPropertyFailure {
+    rethrow;
+  } on Object catch (error, stackTrace) {
+    Error.throwWithStackTrace(
+      StateError(
+        'Simulation $index (seed $seed) failed\n'
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 dart test -P dst\n'
+        '$error',
+      ),
+      stackTrace,
+    );
+  }
+}
+
 /// Raised when a simulation falsifies a property.
 ///
 /// The message leads with the replay command, because the first thing anyone
