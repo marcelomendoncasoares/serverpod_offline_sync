@@ -6,11 +6,16 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'dst_world.dart';
 
 /// A foreign-key edge in the simulated world.
+///
+/// `uniqueIndexed` marks a column that also carries a unique index, which
+/// matters because unique-conflict resolution releases such a column by
+/// writing straight to the domain row. See [DstOracle.projectionPurity].
 typedef DstForeignKey = ({
   DstTable child,
   String column,
   DstTable parent,
   String action,
+  bool uniqueIndexed,
 });
 
 /// The foreign-key edges the simulation exercises, one per `onDelete` action.
@@ -20,18 +25,21 @@ const dstForeignKeys = <DstForeignKey>[
     column: 'cityId',
     parent: DstTable.city,
     action: 'cascade',
+    uniqueIndexed: false,
   ),
   (
     child: DstTable.town,
     column: 'mayorId',
     parent: DstTable.person,
     action: 'setNull',
+    uniqueIndexed: false,
   ),
   (
     child: DstTable.address,
     column: 'inhabitantId',
     parent: DstTable.person,
     action: 'restrict',
+    uniqueIndexed: true,
   ),
 ];
 
@@ -46,6 +54,20 @@ typedef DstRow = ({
   bool visible,
 });
 
+/// One foreign-key projection record, resolved to the names it describes.
+///
+/// `attemptedValue` is the authored fact; `visibleValue` and `overrideReason`
+/// are derived from it plus the parent's visibility. Keeping all three lets a
+/// single replica be checked against itself.
+typedef DstProjection = ({
+  String tableName,
+  UuidValue rowId,
+  String columnName,
+  UuidValue? attemptedValue,
+  UuidValue? visibleValue,
+  CrdtForeignKeyOverrideReason? overrideReason,
+});
+
 /// One replica's whole visible database, plus what it is hiding.
 ///
 /// Rows are keyed by `(table, rowId)` - the global identity the engine
@@ -53,7 +75,7 @@ typedef DstRow = ({
 /// normalized integer, which differs between replicas for the same scope.
 class DstSnapshot {
   /// Creates a snapshot. Prefer [capture].
-  DstSnapshot({required this.rows});
+  DstSnapshot({required this.rows, required this.projections});
 
   /// Captures [replica]'s current state through the ordinary read path.
   ///
@@ -85,11 +107,45 @@ class DstSnapshot {
       };
     }
 
-    return DstSnapshot(rows: rows);
+    return DstSnapshot(
+      rows: rows,
+      projections: await _captureProjections(session),
+    );
   }
 
   /// Every row by table name and row id, visible or not.
   final Map<String, Map<UuidValue, DstRow>> rows;
+
+  /// Every foreign-key projection record held by this replica.
+  final List<DstProjection> projections;
+
+  static Future<List<DstProjection>> _captureProjections(
+    CrdtDatabaseSession session,
+  ) async {
+    final records = await CrdtDataForeignKey.db.find(
+      session,
+      include: CrdtDataForeignKey.include(
+        field: CrdtDataField.include(
+          row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
+          column: CrdtSchemaColumn.include(),
+        ),
+      ),
+    );
+
+    return [
+      for (final record in records)
+        if (record.field?.row?.tbl?.name case final tableName?)
+          if (record.field?.column?.name case final columnName?)
+            (
+              tableName: tableName,
+              rowId: record.field!.row!.uuidRowId,
+              columnName: columnName,
+              attemptedValue: record.attemptedValue,
+              visibleValue: record.visibleValue,
+              overrideReason: record.overrideReason,
+            ),
+    ];
+  }
 
   /// Visible rows only, by table name and row id.
   ///
@@ -366,10 +422,145 @@ class DstOracle {
     return violations;
   }
 
+  /// Every foreign-key projection agrees with the facts it is derived from.
+  ///
+  /// The other properties compare replicas against each other, so they only
+  /// fail once two replicas have diverged. This one checks a single replica
+  /// against itself: the projection is a deterministic function of the merged
+  /// facts, so a record that disagrees with those facts is already wrong,
+  /// whatever the peers hold. That makes a stale or missing repair fail at the
+  /// merge that caused it rather than at some later comparison.
+  ///
+  /// The rules are the ones stated in `docs/foreign-key-invariants.md`
+  /// ("Projection Metadata" and "Merge-Time Action Semantics"). Note they are
+  /// not conditioned on the child being visible: the fixed point covers the
+  /// affected closure, and a hidden row's reference still has to be repaired,
+  /// or replicas that hid it by different routes disagree about its columns.
+  ///
+  /// On a column that also carries a unique index, one state is unreadable and
+  /// only that state is skipped. Unique-conflict resolution releases such a
+  /// column by writing null straight into the domain row without recording an
+  /// override, so `domain null / attempted X / no override` is byte-identical
+  /// to a foreign-key repair that never ran. Every other state of that column
+  /// is still checked, so the column does not fall out of coverage wholesale.
+  ///
+  /// That ambiguity is the same gap behind the unique-release defects: the
+  /// resolver overwrites the authored value instead of shadowing it, so nothing
+  /// is left to derive from. Giving unique columns the attempted/visible split
+  /// that foreign keys already have would make even that state checkable.
+  static List<DstViolation> projectionPurity(DstSnapshot snapshot) {
+    final violations = <DstViolation>[];
+    final edgesByColumn = {
+      for (final edge in dstForeignKeys)
+        '${edge.child.tableName}.${edge.column}': edge,
+    };
+
+    for (final projection in snapshot.projections) {
+      final edge = edgesByColumn['${projection.tableName}.${projection.columnName}'];
+      if (edge == null) continue;
+
+      final child = snapshot.rows[projection.tableName]?[projection.rowId];
+      if (child == null) continue;
+
+      // The one unreadable state; see the class docs.
+      if (edge.uniqueIndexed &&
+          projection.overrideReason == null &&
+          _foreignKeyValue(child.columns, projection.columnName) == null) {
+        continue;
+      }
+
+      final where =
+          '${projection.tableName}/${projection.rowId}.${projection.columnName}';
+      final reason = projection.overrideReason;
+      final domainValue = _foreignKeyValue(child.columns, projection.columnName);
+      final attempted = projection.attemptedValue;
+      final parent = attempted == null
+          ? null
+          : snapshot.rows[edge.parent.tableName]?[attempted];
+      final parentAvailable =
+          parent != null && parent.visible && parent.scopeUuid == child.scopeUuid;
+
+      // The domain row carries attemptedValue when no override is active, and
+      // visibleValue when one is.
+      final expected = reason == null ? attempted : projection.visibleValue;
+      if (domainValue != expected) {
+        violations.add((
+          property: 'projectionPurity',
+          detail:
+              '$where holds $domainValue but its projection says $expected '
+              '(reason: ${reason?.name ?? 'none'})',
+        ));
+      }
+
+      if (reason == CrdtForeignKeyOverrideReason.setNull &&
+          projection.visibleValue != null) {
+        violations.add((
+          property: 'projectionPurity',
+          detail:
+              '$where is set-null but its visible value is '
+              '${projection.visibleValue}',
+        ));
+      }
+
+      // An override exists only because the target is hidden or missing, so a
+      // live target means the override should have been recomputed away.
+      if (reason != null && parentAvailable) {
+        violations.add((
+          property: 'projectionPurity',
+          detail:
+              '$where keeps a ${reason.name} override while its target '
+              '$attempted is visible in the same scope',
+        ));
+      }
+
+      // The mirror image: with no override the target must be available, or
+      // the edge must have repaired the row some other way. Which of those
+      // applies depends on the action, because only the value-rewriting
+      // actions record an override at all:
+      //
+      // - set null / set default rewrite the column, so a dead target without
+      //   an override means the repair never ran;
+      // - cascade hides the child instead of touching the column, so no
+      //   override is expected - but the child must actually be hidden;
+      // - restrict makes the parent delete lose, so the target should still
+      //   be visible.
+      if (reason == null && attempted != null && !parentAvailable) {
+        final state = parent == null
+            ? 'missing'
+            : parent.visible
+            ? 'owned by another scope'
+            : 'hidden';
+        final unrepaired = switch (edge.action) {
+          'cascade' => child.visible,
+          _ => true,
+        };
+        if (unrepaired) {
+          violations.add((
+            property: 'projectionPurity',
+            detail:
+                '$where has no override on a ${edge.action} edge but its '
+                'target $attempted is $state'
+                '${edge.action == 'cascade' ? ' and the row is still visible' : ''}',
+          ));
+        }
+      }
+
+      if (reason == CrdtForeignKeyOverrideReason.missingParent && child.visible) {
+        violations.add((
+          property: 'projectionPurity',
+          detail: '$where is unrepairable but the row is still visible',
+        ));
+      }
+    }
+
+    return violations;
+  }
+
   /// The structural invariants that must hold after every merge.
   static List<DstViolation> invariants(DstSnapshot snapshot) => [
     ...noCrossScopeLink(snapshot),
     ...foreignKeyClosure(snapshot),
     ...uniqueClosure(snapshot),
+    ...projectionPurity(snapshot),
   ];
 }
