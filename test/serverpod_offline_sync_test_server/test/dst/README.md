@@ -20,15 +20,26 @@ DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test/dst  # replay one seed
 | --- | --- | --- |
 | `DST_SEEDS` | 8 | How many seeds the sweep runs |
 | `DST_ROUNDS` | 12 | Operation rounds per simulation |
-| `DST_SEED_BASE` | `0x5EED` | First seed; successive seeds increment |
+| `DST_SEED_BASE` | unix seconds | First seed; successive seeds increment |
 | `DST_DEBUG_TABLE` | unset | Print every merge touching this table, in delivery order |
 
 A divergence is usually explained by which facts a replica had merged when it
 derived its state, and in what order — which the end-of-run snapshot cannot
 show. `DST_DEBUG_TABLE=unique` prints that delivery order.
 
-The default base is fixed so an ordinary `dart test` run is reproducible. A
-soak should set `DST_SEED_BASE` to explore fresh schedules.
+The base defaults to the current time, so every run searches schedules no
+previous run tried. A fixed default would make this a smoke test rather than a
+search — the same simulations forever, either always catching a defect or never
+— and it degrades invisibly, since any change that shifts merge scheduling moves
+which defects those fixed seeds reach.
+
+Nothing is lost to reproducibility: a seed determines its simulation entirely
+and a failure prints its replay command. Pin `DST_SEED_BASE` to re-run an exact
+sweep.
+
+The consequence to expect is that a run can fail for a defect unrelated to the
+change that triggered it. That is the suite doing its job; take the seed from
+the failure and replay it.
 
 ## The properties
 

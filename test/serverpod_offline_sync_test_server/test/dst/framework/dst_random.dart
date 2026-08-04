@@ -119,12 +119,13 @@ class DstClock {
 
 /// How many seeds to run and how long each simulation is.
 ///
-/// Defaults are a short smoke sweep so `dart test` stays fast. A soak overrides
-/// them from the environment:
+/// Each run explores fresh schedules, because the seed base defaults to the
+/// current time. The size stays small so `dart test` remains quick; a soak
+/// widens it:
 ///
 /// ```sh
 /// DST_SEEDS=200 DST_ROUNDS=40 dart test test/dst
-/// DST_SEED_BASE=1781161784 dart test test/dst   # replay a reported failure
+/// DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test test/dst   # replay a failure
 /// ```
 class DstConfig {
   /// Creates an explicit configuration, mostly for focused tests.
@@ -155,9 +156,18 @@ class DstConfig {
   /// The seeds this sweep covers.
   Iterable<int> get seeds => Iterable.generate(seedCount, (index) => seedBase + index);
 
-  /// A fixed base keeps the default `dart test` run reproducible; a soak sets
-  /// `DST_SEED_BASE` to explore fresh schedules.
-  static const _defaultSeedBase = 0x5EED;
+  /// Unix seconds, so an unset `DST_SEED_BASE` explores fresh schedules.
+  ///
+  /// A fixed default would be a smoke test rather than a search: the same
+  /// simulations would run forever, and the suite would either catch a defect
+  /// on every run or never. It fails silently, too - a change that shifts merge
+  /// scheduling moves which defects those fixed seeds happen to reach, so
+  /// coverage can disappear with nothing to show for it.
+  ///
+  /// Reproducibility is not lost, only deferred: a seed still determines its
+  /// simulation entirely, every test names the seed it ran, and a failure
+  /// prints the command that replays it.
+  static int get _defaultSeedBase => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
   static int _readInt(String name, int fallback) {
     final raw = Platform.environment[name];
