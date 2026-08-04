@@ -119,9 +119,14 @@ Future<DstRunReport> runDstSimulation({
   final adversary = DstAdversary(random, replicas);
   var applied = 0;
 
+  final causalLength = DstCausalLength();
+
   Future<void> checkInvariants(DstReplica replica) async {
     final snapshot = await DstSnapshot.capture(replica);
-    final violations = DstOracle.invariants(snapshot);
+    final violations = [
+      ...DstOracle.invariants(snapshot),
+      ...causalLength.observe(replica.name, snapshot),
+    ];
     if (violations.isEmpty) return;
     throw DstPropertyFailure(
       seed: seed,

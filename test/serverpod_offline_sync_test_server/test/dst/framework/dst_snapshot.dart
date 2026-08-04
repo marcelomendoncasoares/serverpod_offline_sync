@@ -75,7 +75,11 @@ typedef DstProjection = ({
 /// normalized integer, which differs between replicas for the same scope.
 class DstSnapshot {
   /// Creates a snapshot. Prefer [capture].
-  DstSnapshot({required this.rows, required this.projections});
+  DstSnapshot({
+    required this.rows,
+    required this.projections,
+    required this.causalLengths,
+  });
 
   /// Captures [replica]'s current state through the ordinary read path.
   ///
@@ -110,6 +114,7 @@ class DstSnapshot {
     return DstSnapshot(
       rows: rows,
       projections: await _captureProjections(session),
+      causalLengths: await _captureCausalLengths(session),
     );
   }
 
@@ -118,6 +123,30 @@ class DstSnapshot {
 
   /// Every foreign-key projection record held by this replica.
   final List<DstProjection> projections;
+
+  /// Causal-length flag per row, keyed `table/rowId`.
+  ///
+  /// The flag counts visibility generations: odd is visible, even is deleted.
+  /// It is the mechanism behind the claim that add, delete and restore can
+  /// only advance and never oscillate.
+  final Map<String, int> causalLengths;
+
+  static Future<Map<String, int>> _captureCausalLengths(
+    CrdtDatabaseSession session,
+  ) async {
+    final tombstones = await CrdtDataDeleted.db.find(
+      session,
+      include: CrdtDataDeleted.include(
+        row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
+      ),
+    );
+
+    return {
+      for (final tombstone in tombstones)
+        if (tombstone.row?.tbl?.name case final tableName?)
+          '$tableName/${tombstone.row!.uuidRowId}': tombstone.clFlag,
+    };
+  }
 
   static Future<List<DstProjection>> _captureProjections(
     CrdtDatabaseSession session,
@@ -270,6 +299,55 @@ class DstSnapshot {
 
 /// A property violation found by the oracle.
 typedef DstViolation = ({String property, String detail});
+
+/// A row's visibility generation only ever advances.
+///
+/// The causal-length flag is what makes add / delete / restore
+/// order-insensitive: each is a step forward, so replicas that see the same
+/// events in different orders land on the same generation. A flag that goes
+/// backwards means something recomputed it rather than advancing it, and the
+/// row can then oscillate. A flag that disappears is the same defect from the
+/// other side, since deleted rows are meant to stay in their table.
+///
+/// Unlike the properties on [DstOracle] this cannot be a function of a single
+/// snapshot: "never went backwards" needs two observations, and one snapshot
+/// showing generation 3 is indistinguishable from one that regressed to 3 from
+/// 5. So the history lives here rather than in the runner, and [observe]
+/// reports against the merge that caused a regression.
+class DstCausalLength {
+  final Map<String, Map<String, int>> _seen = {};
+
+  /// Records [snapshot] for [replicaName] and reports any generation that did
+  /// not advance since the previous call for that replica.
+  List<DstViolation> observe(String replicaName, DstSnapshot snapshot) {
+    final previous = _seen[replicaName] ?? const <String, int>{};
+    final violations = <DstViolation>[];
+
+    for (final entry in previous.entries) {
+      final current = snapshot.causalLengths[entry.key];
+      if (current == null) {
+        violations.add((
+          property: 'causalLength',
+          detail:
+              '$replicaName lost the visibility generation of ${entry.key}, '
+              'which was ${entry.value}',
+        ));
+        continue;
+      }
+      if (current < entry.value) {
+        violations.add((
+          property: 'causalLength',
+          detail:
+              '$replicaName moved ${entry.key} backwards from ${entry.value} '
+              'to $current',
+        ));
+      }
+    }
+
+    _seen[replicaName] = snapshot.causalLengths;
+    return violations;
+  }
+}
 
 /// Reads a foreign-key column out of a snapshot row.
 ///
