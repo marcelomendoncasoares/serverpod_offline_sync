@@ -135,8 +135,11 @@ class TombstoneScopeBenchmark {
     final db = _plainSession.db;
     final hiddenVisibility = CrdtDataRowVisibility.userDelete.index;
 
-    final benchUserId =
-        (await db.unsafeQuery('SELECT MIN("id") FROM "crdt_scopes"')).first[0] as int;
+    final benchScope = await CrdtScope.db.findFirstRow(
+      _plainSession,
+      orderBy: (t) => t.id,
+    );
+    final benchUserId = benchScope!.id!;
     await db.unsafeExecute('''
 WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < $noiseUsers - 1)
 INSERT INTO "crdt_scopes" ("currentNodeId") SELECT NULL FROM n

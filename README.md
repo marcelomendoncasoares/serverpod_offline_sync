@@ -286,8 +286,10 @@ which Serverpod does not support either.
 ## How it works
 
 - **Architecture.** The engine is a transparent layer between the application
-  and its database. Because identical code runs on the client's SQLite and the
-  server's Postgres, there are no asymmetric merge results to reconcile.
+  and its database. Its models and database implementation live in the shared
+  package; the client package only binds the generated module caller to the
+  shared sync transport. Because identical code runs on the client's SQLite and
+  the server's Postgres, there are no asymmetric merge results to reconcile.
   Migrations are generated symmetrically for both ends. The engine respects the
   three mathematical properties a CRDT must hold to be consistent: idempotence,
   associativity, and commutativity.

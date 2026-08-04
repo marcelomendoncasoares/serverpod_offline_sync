@@ -1,5 +1,5 @@
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 
 /// Server-side service for managing CRDT shared-scope membership.
 ///
@@ -25,8 +25,12 @@ class CrdtScopes {
       _session.db,
       transaction,
       (tx) async {
-        final scopeId = await _insertScope(scope, tx);
-        await _applyGrants(scopeId, grants ?? const {}, tx);
+        final insertedScope = await CrdtScope.db.insertRow(
+          _session,
+          CrdtScope(uuidScopeId: scope),
+          transaction: tx,
+        );
+        await _applyGrants(insertedScope.id!, grants ?? const {}, tx);
       },
     );
     return scope;
@@ -57,7 +61,12 @@ class CrdtScopes {
       _session.db,
       transaction,
       (tx) async {
-        final scopeId = await _scopeIdForUuid(scope, transaction: tx);
+        final scopeRow = await CrdtScope.db.findFirstRow(
+          _session,
+          where: (t) => t.uuidScopeId.equals(scope),
+          transaction: tx,
+        );
+        final scopeId = scopeRow?.id;
         if (scopeId == null) {
           throw CrdtScopeNotFoundException(scope);
         }
@@ -72,17 +81,11 @@ class CrdtScopes {
     required UuidValue user,
     Transaction? transaction,
   }) async {
-    final encodedUser = ValueEncoder.instance.convert(user);
-    final encodedScope = ValueEncoder.instance.convert(scope);
-    await _session.db.unsafeExecute(
-      'DELETE FROM "${CrdtScopeMember.t.tableName}" '
-      'WHERE "${CrdtScopeMember.t.userUuid.columnName}" = $encodedUser '
-      'AND "${CrdtScopeMember.t.scopeId.columnName}" IN ( '
-      'SELECT "${CrdtScope.t.id.columnName}" '
-      'FROM "${CrdtScope.t.tableName}" '
-      'WHERE "${CrdtScope.t.uuidScopeId.columnName}" = $encodedScope '
-      ')',
+    await CrdtScopeMember.db.deleteWhere(
+      _session,
+      where: (t) => t.userUuid.equals(user) & t.scope.uuidScopeId.equals(scope),
       transaction: transaction,
+      noReturn: true,
     );
   }
 
@@ -105,34 +108,15 @@ class CrdtScopes {
     UuidValue scope, {
     Transaction? transaction,
   }) async {
-    final encodedScope = ValueEncoder.instance.convert(scope);
-    final result = await _session.db.unsafeQuery(
-      'SELECT m."${CrdtScopeMember.t.userUuid.columnName}", '
-      'm."${CrdtScopeMember.t.role.columnName}" '
-      'FROM "${CrdtScopeMember.t.tableName}" m '
-      'JOIN "${CrdtScope.t.tableName}" s '
-      'ON s."${CrdtScope.t.id.columnName}" = '
-      'm."${CrdtScopeMember.t.scopeId.columnName}" '
-      'WHERE s."${CrdtScope.t.uuidScopeId.columnName}" = $encodedScope',
+    final memberships = await CrdtScopeMember.db.find(
+      _session,
+      where: (t) => t.scope.uuidScopeId.equals(scope),
       transaction: transaction,
     );
 
     return {
-      for (final row in result)
-        Protocol().deserialize<UuidValue>(row[0]): _roleFromDatabase(row[1]),
+      for (final membership in memberships) membership.userUuid: membership.role,
     };
-  }
-
-  Future<int> _insertScope(UuidValue scope, Transaction transaction) async {
-    final encodedScope = ValueEncoder.instance.convert(scope);
-    final result = await _session.db.unsafeQuery(
-      'INSERT INTO "${CrdtScope.t.tableName}" '
-      '("${CrdtScope.t.uuidScopeId.columnName}") '
-      'VALUES ($encodedScope) '
-      'RETURNING "${CrdtScope.t.id.columnName}"',
-      transaction: transaction,
-    );
-    return result.single[0] as int;
   }
 
   Future<void> _applyGrants(
@@ -142,45 +126,22 @@ class CrdtScopes {
   ) async {
     if (grants.isEmpty) return;
 
-    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
-    for (final grant in grants.entries) {
-      final encodedUser = ValueEncoder.instance.convert(grant.key);
-      final encodedRole = ValueEncoder.instance.convert(grant.value.toJson());
-      await _session.db.unsafeExecute(
-        'INSERT INTO "${CrdtScopeMember.t.tableName}" '
-        '("${CrdtScopeMember.t.scopeId.columnName}", '
-        '"${CrdtScopeMember.t.userUuid.columnName}", '
-        '"${CrdtScopeMember.t.role.columnName}") '
-        'VALUES ($encodedScopeId, $encodedUser, $encodedRole) '
-        'ON CONFLICT ("${CrdtScopeMember.t.userUuid.columnName}", '
-        '"${CrdtScopeMember.t.scopeId.columnName}") '
-        'DO UPDATE SET "${CrdtScopeMember.t.role.columnName}" = $encodedRole',
-        transaction: transaction,
-      );
-    }
-  }
-
-  Future<int?> _scopeIdForUuid(
-    UuidValue scope, {
-    required Transaction transaction,
-  }) async {
-    final encodedScope = ValueEncoder.instance.convert(scope);
-    final result = await _session.db.unsafeQuery(
-      'SELECT "${CrdtScope.t.id.columnName}" '
-      'FROM "${CrdtScope.t.tableName}" '
-      'WHERE "${CrdtScope.t.uuidScopeId.columnName}" = $encodedScope '
-      'LIMIT 1',
+    await CrdtScopeMember.db.upsert(
+      _session,
+      [
+        for (final grant in grants.entries)
+          CrdtScopeMember(
+            scopeId: scopeId,
+            userUuid: grant.key,
+            role: grant.value,
+          ),
+      ],
+      conflictColumns: (t) => [t.userUuid, t.scopeId],
+      updateColumns: (t) => [t.role],
       transaction: transaction,
+      noReturn: true,
     );
-    return result.isEmpty ? null : result.single[0] as int;
   }
-}
-
-CrdtScopeRole _roleFromDatabase(Object? value) {
-  if (value == null) {
-    throw StateError('crdt_scope_members.role must not be null.');
-  }
-  return CrdtScopeRole.fromJson(value as String);
 }
 
 /// Thrown when a scope-management operation targets a missing CRDT scope row.

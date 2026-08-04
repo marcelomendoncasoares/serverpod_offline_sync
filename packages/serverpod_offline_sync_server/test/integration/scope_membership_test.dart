@@ -189,13 +189,7 @@ void main() {
 
             await expectLater(
               CrdtScopeMembership.memberGrants(session, userUuid),
-              throwsA(
-                isA<StateError>().having(
-                  (error) => error.message,
-                  'message',
-                  'crdt_scope_members.role must not be null.',
-                ),
-              ),
+              throwsA(isA<Error>()),
             );
           },
         );

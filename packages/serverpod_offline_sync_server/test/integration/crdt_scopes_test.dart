@@ -352,17 +352,7 @@ void main() {
 
 Future<Map<String, int>> _membershipRowCounts(Session session) async {
   return {
-    CrdtScope.t.tableName: await _countRows(
-      session,
-      CrdtScope.t.tableName,
-    ),
-    CrdtScopeMember.t.tableName: await _countRows(
-      session,
-      CrdtScopeMember.t.tableName,
-    ),
+    CrdtScope.t.tableName: await CrdtScope.db.count(session),
+    CrdtScopeMember.t.tableName: await CrdtScopeMember.db.count(session),
   };
 }
-
-Future<int> _countRows(Session session, String tableName) => session.db
-    .unsafeQuery('SELECT COUNT(*) FROM "$tableName"')
-    .then((result) => (result.single[0] as num).toInt());
