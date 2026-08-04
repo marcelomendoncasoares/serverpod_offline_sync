@@ -15,8 +15,7 @@ import 'package:serverpod_test/serverpod_test.dart' as _i1;
 import 'package:serverpod/serverpod.dart' as _i2;
 import 'dart:io' as _i3;
 import 'dart:async' as _i4;
-import 'package:serverpod_offline_sync/src/generated/sync/stream_event.dart'
-    as _i5;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i5;
 import 'package:serverpod_offline_sync_server/src/generated/protocol.dart';
 import 'package:serverpod_offline_sync_server/src/generated/endpoints.dart';
 export 'package:serverpod_test/serverpod_test_public_exports.dart';
