@@ -316,6 +316,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
               {insert.uuidRowId},
               savepoint,
               safeInsert.attempts,
+              mergeCache: (fields: context.fields, node: remoteNode),
             );
             return insertedRow;
           },

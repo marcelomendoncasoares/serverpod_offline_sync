@@ -277,12 +277,26 @@ class CrdtForeignKeyProjector {
     await _upsertProjections(projectionWrites, transaction);
   }
 
+  /// Records the foreign key attempts carried by an incoming insert.
+  ///
+  /// Foreign key columns keep their attempted value in [CrdtDataForeignKey],
+  /// which hangs off a [CrdtDataField], so an insert has to materialize field
+  /// metadata for them even though no update has happened yet.
+  ///
+  /// [mergeCache] is the merge context's field cache and the node authoring the
+  /// batch. The cache is loaded once before a batch is applied, so without this
+  /// it would not know about the fields created here, and a later change to the
+  /// same column in the same batch would take the "no field yet" path and
+  /// insert a second row for the same `(rowId, columnId)`.
+  ///
+  /// The local write path passes nothing: it has no batch to cache for.
   Future<void> recordInsertAttempts(
     String tableName,
     Set<UuidValue> rowIds,
     Transaction transaction,
-    ForeignKeyAttemptsByField attemptedValues,
-  ) async {
+    ForeignKeyAttemptsByField attemptedValues, {
+    MergeFieldCache? mergeCache,
+  }) async {
     if (rowIds.isEmpty) return;
 
     final foreignKeyColumns = _foreignKeys.foreignKeyColumnsFor(tableName);
@@ -325,7 +339,10 @@ class CrdtForeignKeyProjector {
       columnNames: columnIds.keys.toSet(),
       transaction: transaction,
     );
-    final fieldsToInsert = <CrdtDataField>[];
+    // Field and key travel together so the write-back cannot pair them up
+    // wrongly; zipping two lists by index would quietly depend on `insert`
+    // returning rows in the order it was given them.
+    final pending = <({CrdtDataField field, MergeFieldKey key})>[];
     for (final crdtRow in crdtRows) {
       final values = valuesByRowId[crdtRow.uuidRowId];
       if (values == null) continue;
@@ -336,24 +353,35 @@ class CrdtForeignKeyProjector {
           continue;
         }
 
-        fieldsToInsert.add(
-          CrdtDataField(
+        pending.add((
+          field: CrdtDataField(
             rowId: crdtRow.id!,
             columnId: columnId,
             nodeId: crdtRow.nodeId,
             hlcDatetime: crdtRow.hlcDatetime,
             hlcCounter: crdtRow.hlcCounter,
           ),
-        );
+          key: (tableName, crdtRow.uuidRowId, columnName),
+        ));
       }
     }
 
-    if (fieldsToInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(
+    if (pending.isNotEmpty) {
+      final insertedFields = await CrdtDataField.db.insert(
         _context.databaseSession,
-        fieldsToInsert,
+        [for (final entry in pending) entry.field],
         transaction: transaction,
       );
+      if (mergeCache != null) {
+        for (final (index, field) in insertedFields.indexed) {
+          // The node is attached because a cached field is read back through
+          // `CrdtDataField.hlc`, which resolves the node's uuid and throws
+          // without it.
+          mergeCache.fields[pending[index].key] = field.copyWith(
+            node: mergeCache.node,
+          );
+        }
+      }
     }
 
     await recordAttemptsForRows(
