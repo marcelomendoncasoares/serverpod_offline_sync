@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
@@ -464,7 +465,7 @@ class CrdtSync {
     if (role.canWrite) return;
 
     final firstChange = changes.first;
-    final now = DateTime.now().toUtc();
+    final now = clock.now().toUtc();
     final violation = CrdtSyncIntegrityViolation(
       type: CrdtSyncViolationType.unauthorizedWrite,
       domainTableName: firstChange.tableName,
@@ -964,7 +965,7 @@ class CrdtSync {
       session,
       pending.ownerScopeId,
     );
-    final now = DateTime.now().toUtc();
+    final now = clock.now().toUtc();
     final violation = CrdtSyncIntegrityViolation(
       type: pending.type,
       domainTableName: pending.tableName,

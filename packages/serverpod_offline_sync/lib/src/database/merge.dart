@@ -897,7 +897,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     CrdtNode? node,
     Hlc? hlc,
   }) async {
-    final now = DateTime.now().toUtc();
+    final now = clock.now().toUtc();
     throw CrdtSyncIntegrityViolationException(
       CrdtSyncIntegrityViolation(
         type: CrdtSyncViolationType.ownershipCollision,
