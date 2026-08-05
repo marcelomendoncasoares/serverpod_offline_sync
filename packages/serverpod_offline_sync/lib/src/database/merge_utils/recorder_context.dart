@@ -371,7 +371,7 @@ class CrdtRecorderContext {
     final result = await database.unsafeQuery(
       '''
 SELECT d."id"
-FROM "${escapeIdentifier(tableName)}" d
+FROM "${tableName.escapeIdentifier()}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 WHERE (${predicates.join(') AND (')})
@@ -398,7 +398,7 @@ SELECT CASE
   WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
   ELSE 0
 END AS visible
-FROM "${escapeIdentifier(parentTableName)}" d
+FROM "${parentTableName.escapeIdentifier()}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
 WHERE (${domainColumnPredicate('scopeId', scopeId)})
@@ -422,14 +422,14 @@ LIMIT 1
     if (rowIds.isEmpty || updates.isEmpty) return;
 
     final assignments = updates.entries
-        .map((e) => '"${escapeIdentifier(e.key)}" = ${sqlLiteral(e.value)}')
+        .map((e) => '"${e.key.escapeIdentifier()}" = ${e.value.sqlLiteral()}')
         .join(', ');
 
     await database.unsafeExecute(
       '''
-UPDATE "${escapeIdentifier(tableName)}"
+UPDATE "${tableName.escapeIdentifier()}"
 SET $assignments
-WHERE "id" IN (${sqlLiteralList(rowIds)})
+WHERE "id" IN (${rowIds.sqlLiteralList()})
 ''',
       transaction: transaction,
     );
@@ -445,14 +445,14 @@ WHERE "id" IN (${sqlLiteralList(rowIds)})
 
     final columns = [
       '"id"',
-      for (final columnName in columnNames) '"${escapeIdentifier(columnName)}"',
+      for (final columnName in columnNames) '"${columnName.escapeIdentifier()}"',
     ].join(', ');
 
     final result = await database.unsafeQuery(
       '''
 SELECT $columns
-FROM "${escapeIdentifier(tableName)}"
-WHERE "id" IN (${sqlLiteralList(rowIds)})
+FROM "${tableName.escapeIdentifier()}"
+WHERE "id" IN (${rowIds.sqlLiteralList()})
 ''',
       transaction: transaction,
     );
@@ -524,59 +524,55 @@ WHERE "id" IN (${sqlLiteralList(rowIds)})
     );
   }
 
+  Future<T> _findOrCreate<T>({
+    required Future<T?> Function() find,
+    required Future<void> Function() insert,
+    required String label,
+  }) async {
+    final existing = await find();
+    if (existing != null) return existing;
+
+    await insert();
+    final created = await find();
+    return created ?? (throw StateError('Could not create $label.'));
+  }
+
   Future<CrdtNode> findOrCreateNode(
     UuidValue uuidNodeId,
     Transaction transaction,
-  ) async {
-    var node = await CrdtNode.db.findFirstRow(
+  ) => _findOrCreate(
+    find: () => CrdtNode.db.findFirstRow(
       databaseSession,
       where: (t) => t.uuidNodeId.equals(uuidNodeId),
       transaction: transaction,
-    );
-    if (node != null) return node;
-
-    await CrdtNode.db.insert(
+    ),
+    insert: () => CrdtNode.db.insert(
       databaseSession,
       [CrdtNode(uuidNodeId: uuidNodeId)],
       transaction: transaction,
       ignoreConflicts: true,
-    );
-    node = await CrdtNode.db.findFirstRow(
-      databaseSession,
-      where: (t) => t.uuidNodeId.equals(uuidNodeId),
-      transaction: transaction,
-    );
-    return node ?? (throw StateError('Could not create CRDT node "$uuidNodeId".'));
-  }
+    ),
+    label: 'CRDT node "$uuidNodeId"',
+  );
 
   Future<CrdtScopeNode> findOrCreateScopeNode(
     int scopeId,
     int nodeId,
     Transaction transaction,
-  ) async {
-    var scopeNode = await CrdtScopeNode.db.findFirstRow(
+  ) => _findOrCreate(
+    find: () => CrdtScopeNode.db.findFirstRow(
       databaseSession,
       where: (t) => t.scopeId.equals(scopeId) & t.nodeId.equals(nodeId),
       transaction: transaction,
-    );
-    if (scopeNode != null) return scopeNode;
-
-    await CrdtScopeNode.db.insert(
+    ),
+    insert: () => CrdtScopeNode.db.insert(
       databaseSession,
       [CrdtScopeNode(scopeId: scopeId, nodeId: nodeId)],
       transaction: transaction,
       ignoreConflicts: true,
-    );
-    scopeNode = await CrdtScopeNode.db.findFirstRow(
-      databaseSession,
-      where: (t) => t.scopeId.equals(scopeId) & t.nodeId.equals(nodeId),
-      transaction: transaction,
-    );
-    return scopeNode ??
-        (throw StateError(
-          'Could not create CRDT scope-node row for scope $scopeId and node $nodeId.',
-        ));
-  }
+    ),
+    label: 'CRDT scope-node row for scope $scopeId and node $nodeId',
+  );
 
   CrdtScope effectiveScopeFor(Transaction transaction) {
     final scope = scopeForTransaction[transaction];
@@ -597,16 +593,14 @@ WHERE "id" IN (${sqlLiteralList(rowIds)})
     if (foreignKeys.isEmpty) return null;
 
     final scopeId = hlcManagerFor(transaction).normalizedScopeId;
-    final escapedChildTable = escapeIdentifier(childTableName);
-    final whereRowIds = sqlLiteralList(childRowIds);
+    final escapedChildTable = childTableName.escapeIdentifier();
+    final whereRowIds = childRowIds.sqlLiteralList();
 
     final foreignKeyBranches = foreignKeys.indexed.map((e) {
       final (index, foreignKey) = e;
-      final childColumn = escapeIdentifier(foreignKey.columns.single);
-      final parentTable = escapeIdentifier(foreignKey.referenceTable);
-      final parentColumn = escapeIdentifier(
-        foreignKey.referenceColumns.single,
-      );
+      final childColumn = foreignKey.columns.single.escapeIdentifier();
+      final parentTable = foreignKey.referenceTable.escapeIdentifier();
+      final parentColumn = foreignKey.referenceColumns.single.escapeIdentifier();
       final (parentTableId, _) = schema[foreignKey.referenceTable]!;
 
       return '''
@@ -648,22 +642,4 @@ int _nextClFlag(CrdtDataDeleted? current, bool isDeleted) {
   var next = (current?.clFlag ?? 1) + 1;
   if (next.isEven != isDeleted) next++;
   return next;
-}
-
-extension on CrdtDataDeletedReason {
-  CrdtDataRowVisibility toVisibility({required bool isDeleted}) {
-    if (!isDeleted) {
-      return switch (this) {
-        CrdtDataDeletedReason.userReinsert => CrdtDataRowVisibility.userReinsert,
-        _ => CrdtDataRowVisibility.userInsert,
-      };
-    }
-
-    return switch (this) {
-      CrdtDataDeletedReason.userDelete => CrdtDataRowVisibility.userDelete,
-      CrdtDataDeletedReason.userCascadeDelete =>
-        CrdtDataRowVisibility.userCascadeDelete,
-      _ => CrdtDataRowVisibility.userDelete,
-    };
-  }
 }

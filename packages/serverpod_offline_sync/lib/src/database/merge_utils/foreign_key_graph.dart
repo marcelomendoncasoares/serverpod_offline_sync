@@ -131,4 +131,17 @@ class CrdtForeignKeyGraph {
               edge.parentColumn != 'id' && columnNames.contains(edge.parentColumn),
         );
   }
+
+  /// The child column names of foreign keys outgoing from [tableName].
+  ///
+  /// When [columnNames] is provided, only edges whose child column is in the set
+  /// are included; otherwise all outgoing FK columns are returned.
+  Set<String> foreignKeyColumnsFor(
+    String tableName, {
+    Set<String>? columnNames,
+  }) => {
+    for (final edge in edgesByChildTable[tableName] ?? const <ForeignKeyEdge>[])
+      if (columnNames == null || columnNames.contains(edge.childColumn))
+        edge.childColumn,
+  };
 }

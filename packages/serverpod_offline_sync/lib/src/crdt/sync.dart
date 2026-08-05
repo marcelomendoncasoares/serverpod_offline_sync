@@ -4,6 +4,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../database/merge_utils/database_helpers.dart';
 import '../database/recorder.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
@@ -828,11 +829,11 @@ class CrdtSync {
     DomainRowOwnerCache ownerCache,
   ) async {
     final cols = table.columns
-        .map((column) => '"${_escapeIdentifier(column.columnName)}"')
+        .map((column) => '"${column.columnName.escapeIdentifier()}"')
         .join(', ');
-    final encodedRowId = ValueEncoder.instance.convert(rowId);
-    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
-    final escapedTableName = _escapeIdentifier(tableName);
+    final encodedRowId = rowId.sqlLiteral();
+    final encodedScopeId = scopeId.sqlLiteral();
+    final escapedTableName = tableName.escapeIdentifier();
     final result = await session.db.unsafeQuery(
       'SELECT $cols FROM "$escapedTableName" '
       'WHERE "id" = $encodedRowId AND "scopeId" = $encodedScopeId '
@@ -886,13 +887,13 @@ class CrdtSync {
       );
     }
 
-    final encodedValue = ValueEncoder.instance.convert(rowId);
-    final encodedScopeId = ValueEncoder.instance.convert(scopeId);
-    final escapedTableName = _escapeIdentifier(tableName);
+    final encodedRowId = rowId.sqlLiteral();
+    final encodedScopeId = scopeId.sqlLiteral();
+    final escapedTableName = tableName.escapeIdentifier();
     final result = await session.db.unsafeQuery(
-      'SELECT "${_escapeIdentifier(columnName)}" '
+      'SELECT "${columnName.escapeIdentifier()}" '
       'FROM "$escapedTableName" '
-      'WHERE "id" = $encodedValue AND "scopeId" = $encodedScopeId '
+      'WHERE "id" = $encodedRowId AND "scopeId" = $encodedScopeId '
       'LIMIT 1',
     );
     if (result.isNotEmpty) {
@@ -917,11 +918,11 @@ class CrdtSync {
     final cached = ownerCache[(tableName, rowId)];
     if (cached != null) return cached;
 
-    final encodedValue = ValueEncoder.instance.convert(rowId);
-    final escapedTableName = _escapeIdentifier(tableName);
+    final encodedRowId = rowId.sqlLiteral();
+    final escapedTableName = tableName.escapeIdentifier();
     final result = await session.db.unsafeQuery(
       'SELECT "scopeId" FROM "$escapedTableName" '
-      'WHERE "id" = $encodedValue '
+      'WHERE "id" = $encodedRowId '
       'LIMIT 1',
     );
     final owner = result.isEmpty
@@ -1048,8 +1049,6 @@ class CrdtSync {
         : dartType;
     return withoutNullable.split(':').last;
   }
-
-  String _escapeIdentifier(String identifier) => identifier.replaceAll('"', '""');
 
   static String _computeCanonicalSyncTablesSignature(
     List<Table> syncTables, {

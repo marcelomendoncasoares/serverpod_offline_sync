@@ -2,6 +2,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../generated/protocol.dart';
+import 'merge_utils/database_helpers.dart';
 import 'unique_index_utils.dart';
 
 /// Manages the CRDT schema for a database.
@@ -23,10 +24,9 @@ class CrdtSchemaRegistry {
       );
     }
 
-    final tablesWithoutScopeId = syncTables.where((table) {
-      final scopeColumn = _scopeIdColumn(table);
-      return scopeColumn == null || scopeColumn is! Column<int>;
-    }).toList();
+    final tablesWithoutScopeId = syncTables
+        .where((table) => table.crdtScopeIdColumn == null)
+        .toList();
     if (tablesWithoutScopeId.isNotEmpty) {
       throw StateError(
         'CRDT can only synchronize tables with a nullable int scopeId column, '
@@ -210,13 +210,6 @@ class CrdtSchemaRegistry {
 
     return foundColumnRows;
   }
-}
-
-Column? _scopeIdColumn(Table table) {
-  for (final column in table.columns) {
-    if (column.columnName == 'scopeId') return column;
-  }
-  return null;
 }
 
 List<String> _globalUniqueIndexViolations(

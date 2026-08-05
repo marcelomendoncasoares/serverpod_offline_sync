@@ -211,14 +211,9 @@ class CrdtMutationRecorder {
   final Database _db;
   final CrdtDatabaseContext _databaseContext;
   final CrdtRecorderContext _context;
-
-  late final CrdtForeignKeyGraph _foreignKeys = _databaseContext.foreignKeys;
-
-  late final CrdtUniqueConflictResolver _uniqueResolver = CrdtUniqueConflictResolver(
-    _context,
-  );
-
-  late final CrdtForeignKeyProjector _foreignKeyProjector = CrdtForeignKeyProjector(
+  late final _foreignKeys = _databaseContext.foreignKeys;
+  late final _uniqueResolver = CrdtUniqueConflictResolver(_context);
+  late final _foreignKeyProjector = CrdtForeignKeyProjector(
     _context,
     foreignKeys: _foreignKeys,
     uniqueResolver: _uniqueResolver,
@@ -357,9 +352,7 @@ class CrdtMutationRecorder {
         transaction,
         {},
       );
-      if (_foreignKeys.columnsMayAffectForeignKeys(tableName, null)) {
-        await _foreignKeyProjector.project(transaction);
-      }
+      await _maybeProjectForeignKeys(tableName, null, transaction);
     });
   }
 
@@ -394,9 +387,7 @@ class CrdtMutationRecorder {
         null,
         transaction,
       );
-      if (_foreignKeys.columnsMayAffectForeignKeys(tableName, null)) {
-        await _foreignKeyProjector.project(transaction);
-      }
+      await _maybeProjectForeignKeys(tableName, null, transaction);
     });
   }
 
@@ -433,20 +424,30 @@ class CrdtMutationRecorder {
         transaction,
         skippedFields: implicitForeignKeyRepairFields,
       );
+      final updatedColumnNames = columns?.map((column) => column.columnName).toSet();
       await _foreignKeyProjector.recordAttemptsForRows(
         tableName,
         rowIds,
-        columns?.map((column) => column.columnName).toSet(),
+        updatedColumnNames,
         transaction,
         skippedFields: implicitForeignKeyRepairFields,
       );
-      if (_foreignKeys.columnsMayAffectForeignKeys(
+      await _maybeProjectForeignKeys(
         tableName,
-        columns?.map((column) => column.columnName).toSet(),
-      )) {
-        await _foreignKeyProjector.project(transaction);
-      }
+        updatedColumnNames,
+        transaction,
+      );
     });
+  }
+
+  Future<void> _maybeProjectForeignKeys(
+    String tableName,
+    Set<String>? columnNames,
+    Transaction transaction,
+  ) async {
+    if (_foreignKeys.columnsMayAffectForeignKeys(tableName, columnNames)) {
+      await _foreignKeyProjector.project(transaction);
+    }
   }
 
   Future<void> _forTrackedRows<T extends TableRow>(
@@ -517,8 +518,7 @@ class CrdtMutationRecorder {
     };
 
     final table = updatedRows.first.table;
-    final updatedColumnList = (columns ?? table.managedColumns)
-        .where((c) => c.columnName != 'id' && c.columnName != 'scopeId')
+    final updatedColumnList = (columns ?? table.managedColumns).crdtSyncableColumns
         .toList();
     if (updatedColumnList.isEmpty) return;
 
@@ -550,19 +550,15 @@ class CrdtMutationRecorder {
   ) async {
     if (deletedRows.isEmpty) return;
     if (!isCrdtTracked<T>(deletedRows.first.table)) return;
+    final tableName = deletedRows.first.table.tableName;
     await _softDeleteRowsByTable(
-      deletedRows.first.table.tableName,
+      tableName,
       deletedRows.uuidRowIds,
       transaction,
       null,
       CrdtDataDeletedReason.userDelete,
     );
-    if (_foreignKeys.columnsMayAffectForeignKeys(
-      deletedRows.first.table.tableName,
-      null,
-    )) {
-      await _foreignKeyProjector.project(transaction);
-    }
+    await _maybeProjectForeignKeys(tableName, null, transaction);
   }
 
   Future<void> _softDeleteRowsByTable(

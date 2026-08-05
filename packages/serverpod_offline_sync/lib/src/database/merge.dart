@@ -619,7 +619,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final tableRow = _requireMergeInsertTableRow(insert);
     final patchedRow = _db.serializationManager.patchTableRow(tableRow, data);
     final mergingScopeId = _context.hlcManagerFor(transaction).normalizedScopeId;
-    final scopedRow = _withScopeId(patchedRow, mergingScopeId);
+    final scopedRow = patchedRow.copyWithScopeId(mergingScopeId);
     try {
       // Insert first: the domain primary key resolves creation races
       // atomically. The inner savepoint keeps a violation from poisoning the
@@ -820,7 +820,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             columnName != 'scopeId' &&
             columns.containsKey(columnName))
           columnName: columns[columnName]!.columnType == ColumnType.uuid
-              ? uuidValueFromDatabase(value)
+              ? value.toUuidValue()
               : value,
     };
   }
@@ -930,10 +930,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     return scope?.uuidScopeId;
   }
-
-  T _withScopeId<T extends TableRow>(T row, int scopeId) {
-    return (row as dynamic).copyWith(scopeId: scopeId) as T;
-  }
 }
 
 /// Signals that a merge insert lost a primary-key race to a row owned by
@@ -949,10 +945,8 @@ extension on DatabaseSerializationManager {
   /// Patches a [TableRow] with the given data.
   T patchTableRow<T extends TableRow>(T row, Map<String, Object?> data) {
     final rowJson = Map<String, dynamic>.from(row.toJson() as Map);
-    for (final column in row.table.managedColumns) {
-      if (column.columnName != 'id' &&
-          column.columnName != 'scopeId' &&
-          data.containsKey(column.columnName)) {
+    for (final column in row.table.crdtSyncableColumns) {
+      if (data.containsKey(column.columnName)) {
         rowJson[column.fieldName] = data[column.columnName];
       }
     }

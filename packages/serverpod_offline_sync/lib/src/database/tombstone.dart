@@ -3,6 +3,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 
 import '../crdt/extensions.dart';
 import '../generated/protocol.dart';
+import 'merge_utils/database_helpers.dart';
 
 /// Resolves the local [CrdtSchemaTable] id for a domain table name. Returns
 /// null when the table is not registered for CRDT synchronization.
@@ -204,7 +205,7 @@ extension on Table {
     // Synced tables are validated to carry the column at initialize(); a
     // missing column here must fail closed, never skip the predicate.
     final scopeColumn =
-        scopeIdColumn ??
+        crdtScopeIdColumn ??
         (throw StateError(
           'Synced table "$tableName" has no int scopeId column; '
           'CrdtSchemaRegistry validation should have rejected it.',
@@ -218,7 +219,7 @@ extension on Table {
 
     final scopeFilter = effectiveScopeIds == null
         ? '${crdtRow.scopeId} = $scopeColumn'
-        : '${crdtRow.scopeId} IN (${_sqlIntList(effectiveScopeIds)})';
+        : '${crdtRow.scopeId} IN (${effectiveScopeIds.sqlLiteralList()})';
     final notExistsExpr = Expression(
       'NOT EXISTS '
       '(SELECT 1 FROM "${crdtRow.tableName}" '
@@ -233,17 +234,4 @@ extension on Table {
             ? (scopeColumn.inSet(effectiveScopeIds.toSet()) & notExistsExpr)
             : notExistsExpr);
   }
-
-  ColumnInt? get scopeIdColumn {
-    for (final column in columns) {
-      if (column.columnName == 'scopeId' && column is ColumnInt) {
-        return column;
-      }
-    }
-    return null;
-  }
-}
-
-String _sqlIntList(Iterable<int> values) {
-  return values.map(ValueEncoder.instance.convert).join(', ');
 }

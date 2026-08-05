@@ -146,16 +146,11 @@ class CrdtForeignKeyProjector {
               '${reference.childTableName}.${reference.childColumn} references it.',
             );
           case ForeignKeyAction.setNull:
-            await _context.updateDomainRows(
+            await _updateChildColumnTo(
               reference.childTableName,
               childIds,
-              {reference.childColumn: null},
-              transaction,
-            );
-            await _context.recordFieldsUpdatedByTable(
-              reference.childTableName,
-              childIds,
-              [reference.childColumn],
+              reference.childColumn,
+              null,
               transaction,
             );
           case ForeignKeyAction.setDefault:
@@ -169,16 +164,11 @@ class CrdtForeignKeyProjector {
                 '${reference.childTableName}.${reference.childColumn}.',
               );
             }
-            await _context.updateDomainRows(
+            await _updateChildColumnTo(
               reference.childTableName,
               childIds,
-              {reference.childColumn: defaultValue},
-              transaction,
-            );
-            await _context.recordFieldsUpdatedByTable(
-              reference.childTableName,
-              childIds,
-              [reference.childColumn],
+              reference.childColumn,
+              defaultValue,
               transaction,
             );
           case ForeignKeyAction.cascade:
@@ -226,12 +216,10 @@ class CrdtForeignKeyProjector {
   }) async {
     if (rowIds.isEmpty) return;
 
-    final foreignKeyColumns = {
-      for (final edge
-          in _foreignKeys.edgesByChildTable[tableName] ?? const <ForeignKeyEdge>[])
-        if (columnNames == null || columnNames.contains(edge.childColumn))
-          edge.childColumn,
-    };
+    final foreignKeyColumns = _foreignKeys.foreignKeyColumnsFor(
+      tableName,
+      columnNames: columnNames,
+    );
     if (foreignKeyColumns.isEmpty) return;
 
     final valuesByRowId = await _context.readDomainColumnValues(
@@ -258,10 +246,10 @@ class CrdtForeignKeyProjector {
         if (skippedFields.contains((tableName, rowId, columnName))) continue;
 
         final fieldKey = (tableName, rowId, columnName);
-        final visibleValue = uuidValueFromDatabase(values[columnName]);
+        final visibleValue = values[columnName].toUuidValue();
         final attempt = attemptedValues[fieldKey];
         final attemptedValue = attempt != null ? attempt.value : visibleValue;
-        final overrideActive = !sameUuidValue(attemptedValue, visibleValue);
+        final overrideActive = !attemptedValue.sameUuidValue(visibleValue);
 
         CrdtForeignKeyOverrideReason? overrideReason;
         if (overrideActive) {
@@ -297,11 +285,7 @@ class CrdtForeignKeyProjector {
   ) async {
     if (rowIds.isEmpty) return;
 
-    final foreignKeyColumns = {
-      for (final edge
-          in _foreignKeys.edgesByChildTable[tableName] ?? const <ForeignKeyEdge>[])
-        edge.childColumn,
-    };
+    final foreignKeyColumns = _foreignKeys.foreignKeyColumnsFor(tableName);
     if (foreignKeyColumns.isEmpty) return;
 
     final visibleValuesByRowId = await _context.readDomainColumnValues(
@@ -395,7 +379,7 @@ class CrdtForeignKeyProjector {
       if (!data.containsKey(edge.childColumn)) continue;
 
       final fieldKey = (tableName, rowId, edge.childColumn);
-      final attemptedValue = uuidValueFromDatabase(data[edge.childColumn]);
+      final attemptedValue = data[edge.childColumn].toUuidValue();
       attempts[fieldKey] = (value: attemptedValue, reason: null);
       if (attemptedValue == null) continue;
 
@@ -455,11 +439,7 @@ class CrdtForeignKeyProjector {
   }) async {
     if (rowIds.isEmpty) return const {};
 
-    final foreignKeyColumns = {
-      for (final edge
-          in _foreignKeys.edgesByChildTable[tableName] ?? const <ForeignKeyEdge>[])
-        edge.childColumn,
-    };
+    final foreignKeyColumns = _foreignKeys.foreignKeyColumnsFor(tableName);
     if (foreignKeyColumns.isEmpty) return const {};
 
     final fieldIds = await _findFieldIds(
@@ -491,8 +471,7 @@ class CrdtForeignKeyProjector {
     return {
       for (final MapEntry(key: fieldKey, value: projection)
           in activeOverrideFields.entries)
-        if (sameUuidValue(
-          uuidValueFromDatabase(valuesByRowId[fieldKey.$2]?[fieldKey.$3]),
+        if ((valuesByRowId[fieldKey.$2]?[fieldKey.$3].toUuidValue()).sameUuidValue(
           projection.visibleValue,
         ))
           fieldKey,
@@ -531,6 +510,27 @@ class CrdtForeignKeyProjector {
       state: state,
       finalHidden: finalHidden,
       transaction: transaction,
+    );
+  }
+
+  Future<void> _updateChildColumnTo(
+    String childTableName,
+    Set<UuidValue> childIds,
+    String childColumn,
+    Object? value,
+    Transaction transaction,
+  ) async {
+    await _context.updateDomainRows(
+      childTableName,
+      childIds,
+      {childColumn: value},
+      transaction,
+    );
+    await _context.recordFieldsUpdatedByTable(
+      childTableName,
+      childIds,
+      [childColumn],
+      transaction,
     );
   }
 
@@ -808,7 +808,7 @@ class CrdtForeignKeyProjector {
       case ForeignKeyAction.setNull:
         return edge.childNullable;
       case ForeignKeyAction.setDefault:
-        final defaultValue = uuidValueFromDatabase(edge.defaultValue);
+        final defaultValue = edge.defaultValue.toUuidValue();
         if (defaultValue == null) return edge.childNullable;
 
         final target = _parentRowForValue(edge, defaultValue, state);
@@ -917,9 +917,7 @@ class CrdtForeignKeyProjector {
       rowsToHide,
       state: state,
       visibilityFor: (row) => (row.crdtRow.deleted?.isDeleted ?? false)
-          ? (row.crdtRow.deleted?.reason == CrdtDataDeletedReason.userCascadeDelete)
-                ? CrdtDataRowVisibility.userCascadeDelete
-                : CrdtDataRowVisibility.userDelete
+          ? row.crdtRow.deleted!.reason.toVisibility(isDeleted: true)
           : CrdtDataRowVisibility.foreignKeyCascade,
       transaction: transaction,
     );
@@ -977,9 +975,7 @@ class CrdtForeignKeyProjector {
         if (finalHidden.contains(child.key)) continue;
 
         final attemptedValue = _attemptedValue(child, edge, state);
-        final currentVisibleValue = uuidValueFromDatabase(
-          child.values[edge.childColumn],
-        );
+        final currentVisibleValue = child.values[edge.childColumn].toUuidValue();
         final projectionKey = (
           edge.childTableName,
           child.key.$2,
@@ -1020,7 +1016,7 @@ class CrdtForeignKeyProjector {
           }
         }
 
-        if (!sameUuidValue(currentVisibleValue, desiredVisibleValue)) {
+        if (!currentVisibleValue.sameUuidValue(desiredVisibleValue)) {
           child.values[edge.childColumn] = desiredVisibleValue;
           changedUpdatesByRow.putIfAbsent(child.key, () => {})[edge.childColumn] =
               desiredVisibleValue;
@@ -1074,7 +1070,7 @@ class CrdtForeignKeyProjector {
         updates.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
       );
       final signature = sortedUpdates.entries
-          .map((entry) => '${entry.key}:${sqlLiteral(entry.value)}')
+          .map((entry) => '${entry.key}:${entry.value.sqlLiteral()}')
           .join('\x1f');
       final groupKey = (rowKey.$1, signature);
 
@@ -1115,7 +1111,7 @@ class CrdtForeignKeyProjector {
       }
     }
 
-    final context = (
+    const context = (
       rows: <MergeRowKey, CrdtDataRow>{},
       fields: <MergeFieldKey, CrdtDataField>{},
       incomingFieldHlcs: <MergeFieldKey, Hlc>{},
@@ -1172,7 +1168,7 @@ class CrdtForeignKeyProjector {
       return projection.attemptedValue;
     }
 
-    return uuidValueFromDatabase(child.values[edge.childColumn]);
+    return child.values[edge.childColumn].toUuidValue();
   }
 
   bool _targetHiddenOrMissing(
@@ -1190,7 +1186,7 @@ class CrdtForeignKeyProjector {
     _ForeignKeyProjectionState state,
     Set<MergeRowKey> hidden,
   ) {
-    final defaultValue = uuidValueFromDatabase(edge.defaultValue);
+    final defaultValue = edge.defaultValue.toUuidValue();
     if (defaultValue == null) {
       return (valid: edge.childNullable, value: null);
     }
@@ -1207,7 +1203,7 @@ class CrdtForeignKeyProjector {
     ForeignKeyEdge edge,
     Transaction transaction,
   ) async {
-    final defaultValue = uuidValueFromDatabase(edge.defaultValue);
+    final defaultValue = edge.defaultValue.toUuidValue();
     if (defaultValue == null) {
       return (valid: edge.childNullable, value: null);
     }
@@ -1229,7 +1225,7 @@ class CrdtForeignKeyProjector {
     ForeignKeyEdge edge,
   ) {
     if (edge.parentColumn == 'id') return parent.key.$2;
-    return uuidValueFromDatabase(parent.values[edge.parentColumn]);
+    return parent.values[edge.parentColumn].toUuidValue();
   }
 
   _ProjectedForeignKeyRow? _parentRowForValue(
@@ -1322,13 +1318,9 @@ class CrdtForeignKeyProjector {
     CrdtDataForeignKey existing,
     CrdtDataForeignKey write,
   ) {
-    return sameUuidValue(existing.attemptedValue, write.attemptedValue) &&
-        sameUuidValue(existing.visibleValue, write.visibleValue) &&
+    return existing.attemptedValue.sameUuidValue(write.attemptedValue) &&
+        existing.visibleValue.sameUuidValue(write.visibleValue) &&
         existing.overrideReason == write.overrideReason;
-  }
-
-  bool sameUuidValue(UuidValue? left, UuidValue? right) {
-    return left?.uuid == right?.uuid;
   }
 
   int _compareRowKeys(MergeRowKey left, MergeRowKey right) {
