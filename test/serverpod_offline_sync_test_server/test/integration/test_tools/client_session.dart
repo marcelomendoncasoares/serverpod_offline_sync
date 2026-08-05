@@ -26,10 +26,8 @@ CrdtDatabaseSession get session => _crdtSession;
 /// The test CRDT user ID.
 UuidValue get testCrdtUserId => _testCrdtUserId;
 
-/// Initialize one [ClientDatabaseSession] for each test whole file to avoid a
-/// slower operation of creating one file per test. The isolation is ensured by
-/// a cleanup of all tables after each test. This means that tests do not need
-/// a [tearDown].
+/// Initialize one [ClientDatabaseSession] for each test. This means that tests
+/// do not need a [tearDown].
 ///
 /// When [withPersistentUser] is true, [testCrdtUserId] is passed as
 /// [CrdtDatabaseSession]'s `persistentUserId` so mutations can use plain
@@ -40,7 +38,7 @@ UuidValue get testCrdtUserId => _testCrdtUserId;
 /// field, because a runner that separates test registration from test execution
 /// does not carry state written during registration into the run.
 void initTestClientSession({bool withPersistentUser = false}) {
-  setUpAll(() async {
+  setUp(() async {
     _tempDir = await Directory.systemTemp.createTemp('offline_first_');
     _testClient = Client(_clientUrl);
     _testSession = await _testClient.createSession(
@@ -53,11 +51,6 @@ void initTestClientSession({bool withPersistentUser = false}) {
   });
 
   tearDown(() async {
-    await _testSession.clearUserTables();
-    await _initialize(withPersistentUser: withPersistentUser);
-  });
-
-  tearDownAll(() async {
     await _testSession.close();
     if (_tempDir.existsSync()) {
       await _tempDir.delete(recursive: true);
