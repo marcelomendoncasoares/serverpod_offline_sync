@@ -178,7 +178,6 @@ The package is functionally in a production-ready state, but some APIs need to i
 
 - **Require that all foreign-key relations are declared deferrable**. Because the package does not store a copy of the data with the metadata, there are some scenarios in which the stored data might violate the causal order of the foreign-key constraints and a merge can fail irreversibly. To prevent this, all foreign-key constraints must be deferrable, which will be enabled by Serverpod's issue #5338.
 - **Rename the `scope` name for data isolation to `space`**. This is a small refactor to avoid confusion with the `scope` keyword used in the Serverpod Auth modules. Using `space` is also clearer for usage on an application level.
-- **Reorganize the package structure to facilitate the review**. The package is currently organized in a way that does not facilitate the review process. The `recorder.dart` file is extended through part files, sharing a too many private properties and methods. The resolver must be split into smaller, scoped files, as well as its unique and foreign-key resolver utils.
 
 ### Post-integration UX improvements
 

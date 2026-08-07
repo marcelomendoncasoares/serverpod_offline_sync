@@ -19,16 +19,21 @@ enum CrdtSyncPeerMode {
 
 /// De-duplicates [scopeIds] and sorts them by UUID string so both peers iterate
 /// scopes in the same deterministic order.
-List<UuidValue> _sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) {
-  final byUuid = {for (final scopeId in scopeIds) scopeId.uuid: scopeId};
-  return byUuid.values.toList()..sort((a, b) => a.uuid.compareTo(b.uuid));
-}
+List<UuidValue> _sortedUniqueScopeIds(Iterable<UuidValue> scopeIds) =>
+    _sortedUniqueByUuid(scopeIds, (scopeId) => scopeId);
 
 /// De-duplicates [grants] by scope and sorts them by scope UUID string.
-List<CrdtScopeGrant> _sortedUniqueGrants(Iterable<CrdtScopeGrant> grants) {
-  final byUuid = {for (final grant in grants) grant.uuidScopeId.uuid: grant};
+List<CrdtScopeGrant> _sortedUniqueGrants(Iterable<CrdtScopeGrant> grants) =>
+    _sortedUniqueByUuid(grants, (grant) => grant.uuidScopeId);
+
+/// De-duplicates [items] and sorts them by the UUID returned by [uuidOf].
+List<T> _sortedUniqueByUuid<T>(
+  Iterable<T> items,
+  UuidValue Function(T) uuidOf,
+) {
+  final byUuid = {for (final item in items) uuidOf(item).uuid: item};
   return byUuid.values.toList()
-    ..sort((a, b) => a.uuidScopeId.uuid.compareTo(b.uuidScopeId.uuid));
+    ..sort((a, b) => uuidOf(a).uuid.compareTo(uuidOf(b).uuid));
 }
 
 /// Whether the grant list [a] last announced equals the current list [b].

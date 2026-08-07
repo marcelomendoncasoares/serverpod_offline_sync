@@ -67,6 +67,23 @@ extension CrdtDataDeletedReasonExtension on CrdtDataDeletedReason {
   /// Whether this tombstone reason is synced across replicas. All reasons that
   /// start with 'user' are synced.
   bool get isSynced => name.startsWith('user');
+
+  /// The row visibility that corresponds to this tombstone reason.
+  CrdtDataRowVisibility toVisibility({required bool isDeleted}) {
+    if (!isDeleted) {
+      return switch (this) {
+        CrdtDataDeletedReason.userReinsert => CrdtDataRowVisibility.userReinsert,
+        _ => CrdtDataRowVisibility.userInsert,
+      };
+    }
+
+    return switch (this) {
+      CrdtDataDeletedReason.userDelete => CrdtDataRowVisibility.userDelete,
+      CrdtDataDeletedReason.userCascadeDelete =>
+        CrdtDataRowVisibility.userCascadeDelete,
+      _ => CrdtDataRowVisibility.userDelete,
+    };
+  }
 }
 
 /// CRDT write capability for a scope role.

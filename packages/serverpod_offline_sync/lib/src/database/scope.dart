@@ -23,7 +23,7 @@ extension _CrdtDatabaseScope on CrdtDatabase {
     for (final (index, row) in rows.indexed) {
       final rowScopeId = _readScopeId(row);
       if (rowScopeId == null) {
-        databaseRows.add(_copyWithScopeId(row, effectiveScopeId));
+        databaseRows.add(row.copyWithScopeId(effectiveScopeId));
         stampedIndexes.add(index);
         continue;
       }
@@ -88,10 +88,6 @@ extension _CrdtDatabaseScope on CrdtDatabase {
   }
 
   int? _readScopeId(TableRow row) => (row as dynamic).scopeId as int?;
-
-  T _copyWithScopeId<T extends TableRow>(T row, int scopeId) {
-    return (row as dynamic).copyWith(scopeId: scopeId) as T;
-  }
 
   void _stripStampedRows<T extends TableRow>(
     List<T> rows,
@@ -210,8 +206,7 @@ extension ScopeUuidFilter on Table {
     );
   }
 
-  Column get _scopeIdColumn => columns.singleWhere(
-    (column) => column.columnName == 'scopeId' && column is ColumnInt,
-    orElse: () => throw StateError('Table "$tableName" has no scopeId column.'),
-  );
+  Column get _scopeIdColumn =>
+      crdtScopeIdColumn ??
+      (throw StateError('Table "$tableName" has no scopeId column.'));
 }

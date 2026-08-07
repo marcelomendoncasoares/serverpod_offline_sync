@@ -15,6 +15,7 @@ import '../crdt/scope_membership.dart';
 import '../crdt/sync.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
+import 'merge_utils/database_helpers.dart';
 import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
@@ -637,8 +638,7 @@ class CrdtDatabase implements Database {
     List<Column>? columns,
   }) async {
     final values = row.toJsonForDatabase() as Map<String, dynamic>;
-    final columnValues = (columns ?? row.table.managedColumns)
-        .where((c) => c.columnName != 'id' && c.columnName != 'scopeId')
+    final columnValues = (columns ?? row.table.managedColumns).crdtSyncableColumns
         .map((c) => ColumnValue(c, values[c.columnName]))
         .toList();
 
