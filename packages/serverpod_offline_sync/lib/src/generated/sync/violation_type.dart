@@ -16,7 +16,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
 enum CrdtSyncViolationType implements _i1.SerializableModel {
   ownershipCollision,
   missingDomainRow,
-  unauthorizedWrite
+  unauthorizedWrite,
   ;
 
   static CrdtSyncViolationType fromJson(String name) {

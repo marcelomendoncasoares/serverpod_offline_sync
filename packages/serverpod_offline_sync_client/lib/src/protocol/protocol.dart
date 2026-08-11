@@ -12,8 +12,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i2;
-import 'package:serverpod_client/serverpod_client.dart' as _i3;
+import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
 export 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     hide Protocol;
 export 'client.dart';
@@ -25,21 +25,21 @@ class Protocol extends _i1.DatabaseSerializationManager {
 
   static final Protocol _instance = Protocol._();
 
-  static final List<_i1.TableDefinition> targetTableDefinitions = [
-    ..._i2.Protocol() is _i1.DatabaseSerializationManager
-        ? (_i2.Protocol() as _i1.DatabaseSerializationManager)
+  final Set<_i2.SerializationManager> _hostProtocols = {};
+
+  static List<_i1.TableDefinition> get targetTableDefinitions => [
+    ..._i3.Protocol() is _i1.DatabaseSerializationManager
+        ? (_i3.Protocol() as _i1.DatabaseSerializationManager)
               .getTargetTableDefinitions()
         : [],
   ];
 
-  final Set<_i3.SerializationManager> _hostProtocols = {};
-
   void registerHostProtocol(
     String projectName,
-    _i3.SerializationManager protocol,
+    _i2.SerializationManager protocol,
   ) {
     _hostProtocols.add(protocol);
-    _i2.Protocol().registerHostProtocol(projectName, protocol);
+    _i3.Protocol().registerHostProtocol(projectName, protocol);
   }
 
   static String? getClassNameFromObjectJson(dynamic data) {
@@ -71,21 +71,21 @@ class Protocol extends _i1.DatabaseSerializationManager {
       }
     }
 
-    if (t == _i2.Hlc) {
-      return _i2.Hlc.fromJson(data) as T;
+    if (t == _i3.Hlc) {
+      return _i3.Hlc.fromJson(data) as T;
     }
-    if (t == _i3.getType<_i2.Hlc?>()) {
-      return (data != null ? _i2.Hlc.fromJson(data) : null) as T;
+    if (t == _i2.getType<_i3.Hlc?>()) {
+      return (data != null ? _i3.Hlc.fromJson(data) : null) as T;
     }
     try {
-      return _i2.Protocol().deserialize<T>(data, t);
-    } on _i3.DeserializationTypeNotFoundException catch (_) {}
+      return _i3.Protocol().deserialize<T>(data, t);
+    } on _i2.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _i2.Hlc => 'Hlc',
+      _i3.Hlc => 'Hlc',
       _ => null,
     };
   }
@@ -103,10 +103,10 @@ class Protocol extends _i1.DatabaseSerializationManager {
     }
 
     switch (data) {
-      case _i2.Hlc():
+      case _i3.Hlc():
         return 'Hlc';
     }
-    className = _i2.Protocol().getClassNameForObject(data);
+    className = _i3.Protocol().getClassNameForObject(data);
     if (className != null) return className;
     return null;
   }
@@ -118,10 +118,10 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return super.deserializeByClassName(data);
     }
     if (dataClassName == 'Hlc') {
-      return deserialize<_i2.Hlc>(data['data']);
+      return deserialize<_i3.Hlc>(data['data']);
     }
     try {
-      return _i2.Protocol().deserializeByClassName(data);
+      return _i3.Protocol().deserializeByClassName(data);
     } on FormatException catch (_) {}
     return super.deserializeByClassName(data);
   }
@@ -144,8 +144,8 @@ class Protocol extends _i1.DatabaseSerializationManager {
         'data': object,
       };
       return forProtocol
-          ? _i3.SerializationManager.toEncodableForProtocol(wrapped)
-          : _i3.SerializationManager.toEncodable(wrapped);
+          ? _i2.SerializationManager.toEncodableForProtocol(wrapped)
+          : _i2.SerializationManager.toEncodable(wrapped);
     }
     return super.dynamicFieldToJson(object, forProtocol: forProtocol);
   }
@@ -188,7 +188,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
   @override
   _i1.Table? getTableForType(Type t) {
     {
-      var protocol = _i2.Protocol();
+      var protocol = _i3.Protocol();
       var table = protocol is _i1.DatabaseSerializationManager
           ? (protocol as _i1.DatabaseSerializationManager).getTableForType(t)
           : null;

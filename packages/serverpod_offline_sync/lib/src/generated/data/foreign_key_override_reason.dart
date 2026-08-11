@@ -26,7 +26,7 @@ enum CrdtForeignKeyOverrideReason implements _i1.SerializableModel {
   /// cannot repair the value (restrict, no action, cascade, or the column is
   /// non-nullable), so the row is hidden by projection while the attempt is
   /// preserved.
-  missingParent
+  missingParent,
   ;
 
   static CrdtForeignKeyOverrideReason fromJson(int index) {

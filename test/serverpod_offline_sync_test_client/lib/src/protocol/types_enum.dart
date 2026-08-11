@@ -15,7 +15,7 @@ import 'package:serverpod_client/serverpod_client.dart' as _i1;
 enum TypesEnum implements _i1.SerializableModel {
   alpha,
   beta,
-  gamma
+  gamma,
   ;
 
   static TypesEnum fromJson(int index) {

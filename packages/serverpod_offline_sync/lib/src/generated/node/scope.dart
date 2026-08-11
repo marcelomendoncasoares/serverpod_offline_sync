@@ -350,8 +350,6 @@ class CrdtScopeRepository {
 
   final attachRow = const CrdtScopeAttachRowRepository._();
 
-  final detach = const CrdtScopeDetachRepository._();
-
   final detachRow = const CrdtScopeDetachRowRepository._();
 
   /// Returns a list of [CrdtScope]s matching the given query parameters.
@@ -831,34 +829,6 @@ class CrdtScopeAttachRowRepository {
   }
 }
 
-class CrdtScopeDetachRepository {
-  const CrdtScopeDetachRepository._();
-
-  /// Detaches the relation between this [CrdtScope] and the given [CrdtScopeNode]
-  /// by setting the [CrdtScopeNode]'s foreign key `scopeId` to `null`.
-  ///
-  /// This removes the association between the two models without deleting
-  /// the related record.
-  Future<void> nodes(
-    _i1.DatabaseSession session,
-    List<_i3.CrdtScopeNode> crdtScopeNode, {
-    _i1.Transaction? transaction,
-  }) async {
-    if (crdtScopeNode.any((e) => e.id == null)) {
-      throw ArgumentError.notNull('crdtScopeNode.id');
-    }
-
-    var $crdtScopeNode = crdtScopeNode
-        .map((e) => e.copyWith(scopeId: null))
-        .toList();
-    await session.db.update<_i3.CrdtScopeNode>(
-      $crdtScopeNode,
-      columns: [_i3.CrdtScopeNode.t.scopeId],
-      transaction: transaction,
-    );
-  }
-}
-
 class CrdtScopeDetachRowRepository {
   const CrdtScopeDetachRowRepository._();
 
@@ -880,28 +850,6 @@ class CrdtScopeDetachRowRepository {
     await session.db.updateRow<CrdtScope>(
       $crdtScope,
       columns: [CrdtScope.t.currentNodeId],
-      transaction: transaction,
-    );
-  }
-
-  /// Detaches the relation between this [CrdtScope] and the given [CrdtScopeNode]
-  /// by setting the [CrdtScopeNode]'s foreign key `scopeId` to `null`.
-  ///
-  /// This removes the association between the two models without deleting
-  /// the related record.
-  Future<void> nodes(
-    _i1.DatabaseSession session,
-    _i3.CrdtScopeNode crdtScopeNode, {
-    _i1.Transaction? transaction,
-  }) async {
-    if (crdtScopeNode.id == null) {
-      throw ArgumentError.notNull('crdtScopeNode.id');
-    }
-
-    var $crdtScopeNode = crdtScopeNode.copyWith(scopeId: null);
-    await session.db.updateRow<_i3.CrdtScopeNode>(
-      $crdtScopeNode,
-      columns: [_i3.CrdtScopeNode.t.scopeId],
       transaction: transaction,
     );
   }

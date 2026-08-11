@@ -181,8 +181,8 @@ class _DemoAuthEndpoint {
     String username,
   ) async {
     return _i1.callAwaitableFunctionAndHandleExceptions(() async {
-      var _localUniqueSession =
-          (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+      var _localUniqueSession = (sessionBuilder as _i1.InternalTestSessionBuilder)
+          .internalBuild(
             endpoint: 'demoAuth',
             method: 'loginOrCreateUser',
           );
@@ -223,8 +223,8 @@ class _DemoDebugEndpoint {
     required bool includeHidden,
   }) async {
     return _i1.callAwaitableFunctionAndHandleExceptions(() async {
-      var _localUniqueSession =
-          (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+      var _localUniqueSession = (sessionBuilder as _i1.InternalTestSessionBuilder)
+          .internalBuild(
             endpoint: 'demoDebug',
             method: 'fetchScopeSnapshot',
           );
@@ -251,8 +251,8 @@ class _DemoDebugEndpoint {
 
   _i4.Future<void> resetScope(_i1.TestSessionBuilder sessionBuilder) async {
     return _i1.callAwaitableFunctionAndHandleExceptions(() async {
-      var _localUniqueSession =
-          (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+      var _localUniqueSession = (sessionBuilder as _i1.InternalTestSessionBuilder)
+          .internalBuild(
             endpoint: 'demoDebug',
             method: 'resetScope',
           );
@@ -283,8 +283,8 @@ class _DemoDebugEndpoint {
     String? text,
   ) async {
     return _i1.callAwaitableFunctionAndHandleExceptions(() async {
-      var _localUniqueSession =
-          (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+      var _localUniqueSession = (sessionBuilder as _i1.InternalTestSessionBuilder)
+          .internalBuild(
             endpoint: 'demoDebug',
             method: 'seedScope',
           );
