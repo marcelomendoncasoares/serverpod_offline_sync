@@ -54,7 +54,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Verify formatting
-        run: melos format
+        run: dart format . --output=none --set-exit-if-changed
 
   dart_analyze:
     name: dart analyze
