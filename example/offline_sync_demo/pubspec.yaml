@@ -16,7 +16,7 @@ dependencies:
   http: ^1.5.0
   path: ^1.9.1
   path_provider: ^2.1.5
-  serverpod_database: 4.0.0-beta.1
+  serverpod_database: 4.0.0-beta.2
   serverpod_offline_sync_client:
     path: ../../packages/serverpod_offline_sync_client
   serverpod_offline_sync_test_client:
@@ -27,35 +27,35 @@ dependencies:
 dev_dependencies:
   flutter_lints: ^6.0.0
 
-dependency_overrides:
-  meta: 1.18.2
-  serverpod_auth_core_client:
-    git:
-      url: https://github.com/serverpod/serverpod.git
-      path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_client
-      ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
-  serverpod_client:
-    git:
-      url: https://github.com/serverpod/serverpod.git
-      path: packages/serverpod_client
-      ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
-  serverpod_database:
-    git:
-      url: https://github.com/serverpod/serverpod.git
-      path: packages/serverpod_database
-      ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
-  serverpod_offline_sync:
-    path: ../../packages/serverpod_offline_sync
-  serverpod_serialization:
-    git:
-      url: https://github.com/serverpod/serverpod.git
-      path: packages/serverpod_serialization
-      ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
-  serverpod_shared:
-    git:
-      url: https://github.com/serverpod/serverpod.git
-      path: packages/serverpod_shared
-      ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
+# dependency_overrides:
+#   meta: 1.18.2
+#   serverpod_auth_core_client:
+#     git:
+#       url: https://github.com/serverpod/serverpod.git
+#       path: modules/serverpod_auth/serverpod_auth_core/serverpod_auth_core_client
+#       ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
+#   serverpod_client:
+#     git:
+#       url: https://github.com/serverpod/serverpod.git
+#       path: packages/serverpod_client
+#       ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
+#   serverpod_database:
+#     git:
+#       url: https://github.com/serverpod/serverpod.git
+#       path: packages/serverpod_database
+#       ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
+#   serverpod_offline_sync:
+#     path: ../../packages/serverpod_offline_sync
+#   serverpod_serialization:
+#     git:
+#       url: https://github.com/serverpod/serverpod.git
+#       path: packages/serverpod_serialization
+#       ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
+#   serverpod_shared:
+#     git:
+#       url: https://github.com/serverpod/serverpod.git
+#       path: packages/serverpod_shared
+#       ref: 062691764e38c53b0db05f24a4d07780c11bf0ba
 
 flutter:
   uses-material-design: true

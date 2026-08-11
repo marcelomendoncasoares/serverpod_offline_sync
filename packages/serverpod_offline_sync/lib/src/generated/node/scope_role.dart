@@ -17,7 +17,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
 /// The role gates CRDT writes only. Reads remain membership-wide.
 enum CrdtScopeRole implements _i1.SerializableModel {
   readOnly,
-  readWrite
+  readWrite,
   ;
 
   static CrdtScopeRole fromJson(String name) {

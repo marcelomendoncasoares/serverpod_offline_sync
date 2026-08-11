@@ -176,24 +176,22 @@ class _CrdtSyncEndpoint {
     required _i4.Stream<_i5.CrdtSyncStreamEvent> changes,
     required bool once,
   }) {
-    var _localTestStreamManager =
-        _i1.TestStreamManager<_i5.CrdtSyncStreamEvent>();
+    var _localTestStreamManager = _i1.TestStreamManager<_i5.CrdtSyncStreamEvent>();
     _i1.callStreamFunctionAndHandleExceptions(
       () async {
-        var _localUniqueSession =
-            (sessionBuilder as _i1.InternalTestSessionBuilder).internalBuild(
+        var _localUniqueSession = (sessionBuilder as _i1.InternalTestSessionBuilder)
+            .internalBuild(
               endpoint: 'crdtSync',
               method: 'sync',
             );
-        var _localCallContext = await _endpointDispatch
-            .getMethodStreamCallContext(
-              createSessionCallback: (_) => _localUniqueSession,
-              endpointPath: 'crdtSync',
-              methodName: 'sync',
-              arguments: {'once': once},
-              requestedInputStreams: ['changes'],
-              serializationManager: _serializationManager,
-            );
+        var _localCallContext = await _endpointDispatch.getMethodStreamCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'crdtSync',
+          methodName: 'sync',
+          arguments: {'once': once},
+          requestedInputStreams: ['changes'],
+          serializationManager: _serializationManager,
+        );
         await _localTestStreamManager.callStreamMethod(
           _localCallContext,
           _localUniqueSession,

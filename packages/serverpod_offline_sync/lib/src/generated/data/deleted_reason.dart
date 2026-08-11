@@ -18,7 +18,7 @@ enum CrdtDataDeletedReason implements _i1.SerializableModel {
   userReinsert,
   userDelete,
   userCascadeDelete,
-  uniqueLoser
+  uniqueLoser,
   ;
 
   static CrdtDataDeletedReason fromJson(int index) {

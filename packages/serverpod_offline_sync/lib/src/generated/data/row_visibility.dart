@@ -22,7 +22,7 @@ enum CrdtDataRowVisibility implements _i1.SerializableModel {
   foreignKeyRestrictRestore,
   userDelete,
   userCascadeDelete,
-  foreignKeyCascade
+  foreignKeyCascade,
   ;
 
   static CrdtDataRowVisibility fromJson(int index) {

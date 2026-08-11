@@ -19,7 +19,7 @@ enum CrdtSyncViolationOperation implements _i1.SerializableModel {
   mergeDelete,
   outboundInsert,
   outboundUpdate,
-  outboundDelete
+  outboundDelete,
   ;
 
   static CrdtSyncViolationOperation fromJson(String name) {
