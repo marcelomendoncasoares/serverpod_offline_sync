@@ -238,7 +238,7 @@ class CityTable extends _isd.Table<_isc.UuidValue?> {
     ___citizens = _isd.createRelationTable(
       relationFieldName: '__citizens',
       field: City.t.id,
-      foreignField: _iensfz4m.Person.t.$_cityCitizensCityId,
+      foreignField: _iensfz4m.Person.t.cityId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
           _iensfz4m.PersonTable(tableRelation: foreignTableRelation),
@@ -264,7 +264,7 @@ class CityTable extends _isd.Table<_isc.UuidValue?> {
     var relationTable = _isd.createRelationTable(
       relationFieldName: 'citizens',
       field: City.t.id,
-      foreignField: _iensfz4m.Person.t.$_cityCitizensCityId,
+      foreignField: _iensfz4m.Person.t.cityId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
           _iensfz4m.PersonTable(tableRelation: foreignTableRelation),
@@ -771,7 +771,7 @@ class CityAttachRepository {
   const CityAttachRepository._();
 
   /// Creates a relation between this [City] and the given [Person]s
-  /// by setting each [Person]'s foreign key `_cityCitizensCityId` to refer to this [City].
+  /// by setting each [Person]'s foreign key `cityId` to refer to this [City].
   Future<void> citizens(
     _isd.DatabaseSession session,
     City city,
@@ -785,17 +785,10 @@ class CityAttachRepository {
       throw ArgumentError.notNull('city.id');
     }
 
-    var $person = person
-        .map(
-          (e) => _iensfz4m.PersonImplicit(
-            e,
-            $_cityCitizensCityId: city.id,
-          ),
-        )
-        .toList();
+    var $person = person.map((e) => e.copyWith(cityId: city.id)).toList();
     await session.db.update<_iensfz4m.Person>(
       $person,
-      columns: [_iensfz4m.Person.t.$_cityCitizensCityId],
+      columns: [_iensfz4m.Person.t.cityId],
       transaction: transaction,
     );
   }
@@ -830,7 +823,7 @@ class CityAttachRowRepository {
   const CityAttachRowRepository._();
 
   /// Creates a relation between this [City] and the given [Person]
-  /// by setting the [Person]'s foreign key `_cityCitizensCityId` to refer to this [City].
+  /// by setting the [Person]'s foreign key `cityId` to refer to this [City].
   Future<void> citizens(
     _isd.DatabaseSession session,
     City city,
@@ -844,13 +837,10 @@ class CityAttachRowRepository {
       throw ArgumentError.notNull('city.id');
     }
 
-    var $person = _iensfz4m.PersonImplicit(
-      person,
-      $_cityCitizensCityId: city.id,
-    );
+    var $person = person.copyWith(cityId: city.id);
     await session.db.updateRow<_iensfz4m.Person>(
       $person,
-      columns: [_iensfz4m.Person.t.$_cityCitizensCityId],
+      columns: [_iensfz4m.Person.t.cityId],
       transaction: transaction,
     );
   }
@@ -883,7 +873,7 @@ class CityDetachRepository {
   const CityDetachRepository._();
 
   /// Detaches the relation between this [City] and the given [Person]
-  /// by setting the [Person]'s foreign key `_cityCitizensCityId` to `null`.
+  /// by setting the [Person]'s foreign key `cityId` to `null`.
   ///
   /// This removes the association between the two models without deleting
   /// the related record.
@@ -896,17 +886,10 @@ class CityDetachRepository {
       throw ArgumentError.notNull('person.id');
     }
 
-    var $person = person
-        .map(
-          (e) => _iensfz4m.PersonImplicit(
-            e,
-            $_cityCitizensCityId: null,
-          ),
-        )
-        .toList();
+    var $person = person.map((e) => e.copyWith(cityId: null)).toList();
     await session.db.update<_iensfz4m.Person>(
       $person,
-      columns: [_iensfz4m.Person.t.$_cityCitizensCityId],
+      columns: [_iensfz4m.Person.t.cityId],
       transaction: transaction,
     );
   }
@@ -940,7 +923,7 @@ class CityDetachRowRepository {
   const CityDetachRowRepository._();
 
   /// Detaches the relation between this [City] and the given [Person]
-  /// by setting the [Person]'s foreign key `_cityCitizensCityId` to `null`.
+  /// by setting the [Person]'s foreign key `cityId` to `null`.
   ///
   /// This removes the association between the two models without deleting
   /// the related record.
@@ -953,13 +936,10 @@ class CityDetachRowRepository {
       throw ArgumentError.notNull('person.id');
     }
 
-    var $person = _iensfz4m.PersonImplicit(
-      person,
-      $_cityCitizensCityId: null,
-    );
+    var $person = person.copyWith(cityId: null);
     await session.db.updateRow<_iensfz4m.Person>(
       $person,
-      columns: [_iensfz4m.Person.t.$_cityCitizensCityId],
+      columns: [_iensfz4m.Person.t.cityId],
       transaction: transaction,
     );
   }

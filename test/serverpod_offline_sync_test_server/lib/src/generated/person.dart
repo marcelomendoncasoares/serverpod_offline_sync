@@ -15,6 +15,7 @@ import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as _ixxccm81;
 import 'address.dart' as _ilb4pipw;
+import 'city.dart' as _ior3absd;
 import 'company.dart' as _i6pnc270;
 import 'organization.dart' as _irjtvpke;
 
@@ -30,7 +31,9 @@ abstract class Person
     this.organization,
     this.oldCompanyId,
     this.oldCompany,
-  }) : _cityCitizensCityId = null;
+    this.cityId,
+    this.city,
+  });
 
   factory Person({
     _is.UuidValue? id,
@@ -42,10 +45,12 @@ abstract class Person
     _irjtvpke.Organization? organization,
     _is.UuidValue? oldCompanyId,
     _i6pnc270.Company? oldCompany,
+    _is.UuidValue? cityId,
+    _ior3absd.City? city,
   }) = _PersonImpl;
 
   factory Person.fromJson(Map<String, dynamic> jsonSerialization) {
-    return PersonImplicit._(
+    return Person(
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
@@ -77,10 +82,13 @@ abstract class Person
           : _ixxccm81.Protocol().deserialize<_i6pnc270.Company>(
               jsonSerialization['oldCompany'],
             ),
-      $_cityCitizensCityId: jsonSerialization['_cityCitizensCityId'] == null
+      cityId: jsonSerialization['cityId'] == null
           ? null
-          : _is.UuidValueJsonExtension.fromJson(
-              jsonSerialization['_cityCitizensCityId'],
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['cityId']),
+      city: jsonSerialization['city'] == null
+          ? null
+          : _ixxccm81.Protocol().deserialize<_ior3absd.City>(
+              jsonSerialization['city'],
             ),
     );
   }
@@ -109,7 +117,9 @@ abstract class Person
 
   _i6pnc270.Company? oldCompany;
 
-  final _is.UuidValue? _cityCitizensCityId;
+  _is.UuidValue? cityId;
+
+  _ior3absd.City? city;
 
   @override
   _is.Table<_is.UuidValue?> get table => t;
@@ -127,6 +137,8 @@ abstract class Person
     _irjtvpke.Organization? organization,
     _is.UuidValue? oldCompanyId,
     _i6pnc270.Company? oldCompany,
+    _is.UuidValue? cityId,
+    _ior3absd.City? city,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -141,8 +153,8 @@ abstract class Person
       if (organization != null) 'organization': organization?.toJson(),
       if (oldCompanyId != null) 'oldCompanyId': oldCompanyId?.toJson(),
       if (oldCompany != null) 'oldCompany': oldCompany?.toJson(),
-      if (_cityCitizensCityId != null)
-        '_cityCitizensCityId': _cityCitizensCityId.toJson(),
+      if (cityId != null) 'cityId': cityId?.toJson(),
+      if (city != null) 'city': city?.toJson(),
     };
   }
 
@@ -160,6 +172,8 @@ abstract class Person
         'organization': organization?.toJsonForProtocol(),
       if (oldCompanyId != null) 'oldCompanyId': oldCompanyId?.toJson(),
       if (oldCompany != null) 'oldCompany': oldCompany?.toJsonForProtocol(),
+      if (cityId != null) 'cityId': cityId?.toJson(),
+      if (city != null) 'city': city?.toJsonForProtocol(),
     };
   }
 
@@ -167,11 +181,13 @@ abstract class Person
     _ilb4pipw.AddressInclude? address,
     _irjtvpke.OrganizationInclude? organization,
     _i6pnc270.CompanyInclude? oldCompany,
+    _ior3absd.CityInclude? city,
   }) {
     return PersonInclude._(
       address: address,
       organization: organization,
       oldCompany: oldCompany,
+      city: city,
     );
   }
 
@@ -212,6 +228,8 @@ class _PersonImpl extends Person {
     _irjtvpke.Organization? organization,
     _is.UuidValue? oldCompanyId,
     _i6pnc270.Company? oldCompany,
+    _is.UuidValue? cityId,
+    _ior3absd.City? city,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -222,6 +240,8 @@ class _PersonImpl extends Person {
          organization: organization,
          oldCompanyId: oldCompanyId,
          oldCompany: oldCompany,
+         cityId: cityId,
+         city: city,
        );
 
   /// Returns a shallow copy of this [Person]
@@ -238,8 +258,10 @@ class _PersonImpl extends Person {
     Object? organization = _Undefined,
     Object? oldCompanyId = _Undefined,
     Object? oldCompany = _Undefined,
+    Object? cityId = _Undefined,
+    Object? city = _Undefined,
   }) {
-    return PersonImplicit._(
+    return Person(
       id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
@@ -259,56 +281,10 @@ class _PersonImpl extends Person {
       oldCompany: oldCompany is _i6pnc270.Company?
           ? oldCompany
           : this.oldCompany?.copyWith(),
-      $_cityCitizensCityId: this._cityCitizensCityId,
+      cityId: cityId is _is.UuidValue? ? cityId : this.cityId,
+      city: city is _ior3absd.City? ? city : this.city?.copyWith(),
     );
   }
-}
-
-class PersonImplicit extends _PersonImpl {
-  PersonImplicit._({
-    _is.UuidValue? id,
-    int? scopeId,
-    required String name,
-    String? surname,
-    _ilb4pipw.Address? address,
-    _is.UuidValue? organizationId,
-    _irjtvpke.Organization? organization,
-    _is.UuidValue? oldCompanyId,
-    _i6pnc270.Company? oldCompany,
-    _is.UuidValue? $_cityCitizensCityId,
-  }) : _cityCitizensCityId = $_cityCitizensCityId,
-       super(
-         id: id,
-         scopeId: scopeId,
-         name: name,
-         surname: surname,
-         address: address,
-         organizationId: organizationId,
-         organization: organization,
-         oldCompanyId: oldCompanyId,
-         oldCompany: oldCompany,
-       );
-
-  factory PersonImplicit(
-    Person person, {
-    _is.UuidValue? $_cityCitizensCityId,
-  }) {
-    return PersonImplicit._(
-      id: person.id,
-      scopeId: person.scopeId,
-      name: person.name,
-      surname: person.surname,
-      address: person.address,
-      organizationId: person.organizationId,
-      organization: person.organization,
-      oldCompanyId: person.oldCompanyId,
-      oldCompany: person.oldCompany,
-      $_cityCitizensCityId: $_cityCitizensCityId,
-    );
-  }
-
-  @override
-  final _is.UuidValue? _cityCitizensCityId;
 }
 
 class PersonUpdateTable extends _is.UpdateTable<PersonTable> {
@@ -343,12 +319,11 @@ class PersonUpdateTable extends _is.UpdateTable<PersonTable> {
     value,
   );
 
-  _is.ColumnValue<_is.UuidValue, _is.UuidValue> $_cityCitizensCityId(
-    _is.UuidValue? value,
-  ) => _is.ColumnValue(
-    table.$_cityCitizensCityId,
-    value,
-  );
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> cityId(_is.UuidValue? value) =>
+      _is.ColumnValue(
+        table.cityId,
+        value,
+      );
 }
 
 class PersonTable extends _is.Table<_is.UuidValue?> {
@@ -374,8 +349,8 @@ class PersonTable extends _is.Table<_is.UuidValue?> {
       'oldCompanyId',
       this,
     );
-    $_cityCitizensCityId = _is.ColumnUuid(
-      '_cityCitizensCityId',
+    cityId = _is.ColumnUuid(
+      'cityId',
       this,
     );
   }
@@ -399,7 +374,9 @@ class PersonTable extends _is.Table<_is.UuidValue?> {
 
   _i6pnc270.CompanyTable? _oldCompany;
 
-  late final _is.ColumnUuid $_cityCitizensCityId;
+  late final _is.ColumnUuid cityId;
+
+  _ior3absd.CityTable? _city;
 
   _ilb4pipw.AddressTable get address {
     if (_address != null) return _address!;
@@ -440,6 +417,19 @@ class PersonTable extends _is.Table<_is.UuidValue?> {
     return _oldCompany!;
   }
 
+  _ior3absd.CityTable get city {
+    if (_city != null) return _city!;
+    _city = _is.createRelationTable(
+      relationFieldName: 'city',
+      field: Person.t.cityId,
+      foreignField: _ior3absd.City.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          _ior3absd.CityTable(tableRelation: foreignTableRelation),
+    );
+    return _city!;
+  }
+
   @override
   List<_is.Column> get columns => [
     id,
@@ -448,17 +438,7 @@ class PersonTable extends _is.Table<_is.UuidValue?> {
     surname,
     organizationId,
     oldCompanyId,
-    $_cityCitizensCityId,
-  ];
-
-  @override
-  List<_is.Column> get managedColumns => [
-    id,
-    scopeId,
-    name,
-    surname,
-    organizationId,
-    oldCompanyId,
+    cityId,
   ];
 
   @override
@@ -472,6 +452,9 @@ class PersonTable extends _is.Table<_is.UuidValue?> {
     if (relationField == 'oldCompany') {
       return oldCompany;
     }
+    if (relationField == 'city') {
+      return city;
+    }
     return null;
   }
 }
@@ -481,10 +464,12 @@ class PersonInclude extends _is.IncludeObject {
     _ilb4pipw.AddressInclude? address,
     _irjtvpke.OrganizationInclude? organization,
     _i6pnc270.CompanyInclude? oldCompany,
+    _ior3absd.CityInclude? city,
   }) {
     _address = address;
     _organization = organization;
     _oldCompany = oldCompany;
+    _city = city;
   }
 
   _ilb4pipw.AddressInclude? _address;
@@ -493,11 +478,14 @@ class PersonInclude extends _is.IncludeObject {
 
   _i6pnc270.CompanyInclude? _oldCompany;
 
+  _ior3absd.CityInclude? _city;
+
   @override
   Map<String, _is.Include?> get includes => {
     'address': _address,
     'organization': _organization,
     'oldCompany': _oldCompany,
+    'city': _city,
   };
 
   @override
@@ -999,6 +987,29 @@ class PersonAttachRowRepository {
       transaction: transaction,
     );
   }
+
+  /// Creates a relation between the given [Person] and [City]
+  /// by setting the [Person]'s foreign key `cityId` to refer to the [City].
+  Future<void> city(
+    _is.DatabaseSession session,
+    Person person,
+    _ior3absd.City city, {
+    _is.Transaction? transaction,
+  }) async {
+    if (person.id == null) {
+      throw ArgumentError.notNull('person.id');
+    }
+    if (city.id == null) {
+      throw ArgumentError.notNull('city.id');
+    }
+
+    var $person = person.copyWith(cityId: city.id);
+    await session.db.updateRow<Person>(
+      $person,
+      columns: [Person.t.cityId],
+      transaction: transaction,
+    );
+  }
 }
 
 class PersonDetachRowRepository {
@@ -1074,6 +1085,28 @@ class PersonDetachRowRepository {
     await session.db.updateRow<Person>(
       $person,
       columns: [Person.t.oldCompanyId],
+      transaction: transaction,
+    );
+  }
+
+  /// Detaches the relation between this [Person] and the [City] set in `city`
+  /// by setting the [Person]'s foreign key `cityId` to `null`.
+  ///
+  /// This removes the association between the two models without deleting
+  /// the related record.
+  Future<void> city(
+    _is.DatabaseSession session,
+    Person person, {
+    _is.Transaction? transaction,
+  }) async {
+    if (person.id == null) {
+      throw ArgumentError.notNull('person.id');
+    }
+
+    var $person = person.copyWith(cityId: null);
+    await session.db.updateRow<Person>(
+      $person,
+      columns: [Person.t.cityId],
       transaction: transaction,
     );
   }
