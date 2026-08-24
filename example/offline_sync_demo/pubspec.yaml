@@ -16,7 +16,7 @@ dependencies:
   http: ^1.5.0
   path: ^1.9.1
   path_provider: ^2.1.5
-  serverpod_database: 4.0.0-beta.2
+  serverpod_database: 4.0.0-beta.4
   serverpod_offline_sync_client:
     path: ../../packages/serverpod_offline_sync_client
   serverpod_offline_sync_test_client:

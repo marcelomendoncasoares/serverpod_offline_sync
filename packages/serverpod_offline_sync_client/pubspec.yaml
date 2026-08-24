@@ -9,8 +9,8 @@ environment:
 resolution: workspace
 
 dependencies:
-  serverpod_client: 4.0.0-beta.2
-  serverpod_database: 4.0.0-beta.2
+  serverpod_client: 4.0.0-beta.4
+  serverpod_database: 4.0.0-beta.4
   serverpod_offline_sync: 0.0.2
 
 dev_dependencies:
