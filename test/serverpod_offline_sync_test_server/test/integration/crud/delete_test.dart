@@ -1,3 +1,4 @@
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -156,10 +157,10 @@ void main() {
       test('then it throws.', () async {
         expect(
           exception,
-          isA<Exception>().having(
-            (e) => e.toString(),
+          isA<DatabaseUnexpectedResultException>().having(
+            (e) => e.message,
             'message',
-            contains('Failed to delete row, no rows deleted.'),
+            'Failed to delete row, no rows deleted.',
           ),
         );
       });
