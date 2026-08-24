@@ -11,13 +11,13 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import '../fk_chain/cascade_middle.dart' as _i2;
+import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
-    as _i3;
+    as _ixxccm81;
+import '../fk_chain/cascade_middle.dart' as _i2nw0ajk;
 
 abstract class FkChainRestrictBlocker
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   FkChainRestrictBlocker._({
     this.id,
     this.scopeId,
@@ -27,11 +27,11 @@ abstract class FkChainRestrictBlocker
   });
 
   factory FkChainRestrictBlocker({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.FkChainCascadeMiddle? cascadeMiddle,
-    _i1.UuidValue? cascadeMiddleId,
+    _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
+    _is.UuidValue? cascadeMiddleId,
   }) = _FkChainRestrictBlockerImpl;
 
   factory FkChainRestrictBlocker.fromJson(
@@ -40,17 +40,17 @@ abstract class FkChainRestrictBlocker
     return FkChainRestrictBlocker(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       cascadeMiddle: jsonSerialization['cascadeMiddle'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.FkChainCascadeMiddle>(
+          : _ixxccm81.Protocol().deserialize<_i2nw0ajk.FkChainCascadeMiddle>(
               jsonSerialization['cascadeMiddle'],
             ),
       cascadeMiddleId: jsonSerialization['cascadeMiddleId'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(
+          : _is.UuidValueJsonExtension.fromJson(
               jsonSerialization['cascadeMiddleId'],
             ),
     );
@@ -61,29 +61,29 @@ abstract class FkChainRestrictBlocker
   static const db = FkChainRestrictBlockerRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
 
   String name;
 
-  _i2.FkChainCascadeMiddle? cascadeMiddle;
+  _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle;
 
-  _i1.UuidValue? cascadeMiddleId;
+  _is.UuidValue? cascadeMiddleId;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [FkChainRestrictBlocker]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   FkChainRestrictBlocker copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _i2.FkChainCascadeMiddle? cascadeMiddle,
-    _i1.UuidValue? cascadeMiddleId,
+    _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
+    _is.UuidValue? cascadeMiddleId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -111,17 +111,17 @@ abstract class FkChainRestrictBlocker
   }
 
   static FkChainRestrictBlockerInclude include({
-    _i2.FkChainCascadeMiddleInclude? cascadeMiddle,
+    _i2nw0ajk.FkChainCascadeMiddleInclude? cascadeMiddle,
   }) {
     return FkChainRestrictBlockerInclude._(cascadeMiddle: cascadeMiddle);
   }
 
   static FkChainRestrictBlockerIncludeList includeList({
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
+    _is.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
+    _is.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
     FkChainRestrictBlockerInclude? include,
   }) {
     return FkChainRestrictBlockerIncludeList._(
@@ -136,7 +136,7 @@ abstract class FkChainRestrictBlocker
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -144,11 +144,11 @@ class _Undefined {}
 
 class _FkChainRestrictBlockerImpl extends FkChainRestrictBlocker {
   _FkChainRestrictBlockerImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.FkChainCascadeMiddle? cascadeMiddle,
-    _i1.UuidValue? cascadeMiddleId,
+    _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
+    _is.UuidValue? cascadeMiddleId,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -159,7 +159,7 @@ class _FkChainRestrictBlockerImpl extends FkChainRestrictBlocker {
 
   /// Returns a shallow copy of this [FkChainRestrictBlocker]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   FkChainRestrictBlocker copyWith({
     Object? id = _Undefined,
@@ -169,13 +169,13 @@ class _FkChainRestrictBlockerImpl extends FkChainRestrictBlocker {
     Object? cascadeMiddleId = _Undefined,
   }) {
     return FkChainRestrictBlocker(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      cascadeMiddle: cascadeMiddle is _i2.FkChainCascadeMiddle?
+      cascadeMiddle: cascadeMiddle is _i2nw0ajk.FkChainCascadeMiddle?
           ? cascadeMiddle
           : this.cascadeMiddle?.copyWith(),
-      cascadeMiddleId: cascadeMiddleId is _i1.UuidValue?
+      cascadeMiddleId: cascadeMiddleId is _is.UuidValue?
           ? cascadeMiddleId
           : this.cascadeMiddleId,
     );
@@ -183,40 +183,40 @@ class _FkChainRestrictBlockerImpl extends FkChainRestrictBlocker {
 }
 
 class FkChainRestrictBlockerUpdateTable
-    extends _i1.UpdateTable<FkChainRestrictBlockerTable> {
+    extends _is.UpdateTable<FkChainRestrictBlockerTable> {
   FkChainRestrictBlockerUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> cascadeMiddleId(
-    _i1.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> cascadeMiddleId(
+    _is.UuidValue? value,
+  ) => _is.ColumnValue(
     table.cascadeMiddleId,
     value,
   );
 }
 
-class FkChainRestrictBlockerTable extends _i1.Table<_i1.UuidValue?> {
+class FkChainRestrictBlockerTable extends _is.Table<_is.UuidValue?> {
   FkChainRestrictBlockerTable({super.tableRelation})
     : super(tableName: 'fk_chain_restrict_blocker') {
     updateTable = FkChainRestrictBlockerUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
-    cascadeMiddleId = _i1.ColumnUuid(
+    cascadeMiddleId = _is.ColumnUuid(
       'cascadeMiddleId',
       this,
     );
@@ -225,29 +225,31 @@ class FkChainRestrictBlockerTable extends _i1.Table<_i1.UuidValue?> {
   late final FkChainRestrictBlockerUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
-  _i2.FkChainCascadeMiddleTable? _cascadeMiddle;
+  _i2nw0ajk.FkChainCascadeMiddleTable? _cascadeMiddle;
 
-  late final _i1.ColumnUuid cascadeMiddleId;
+  late final _is.ColumnUuid cascadeMiddleId;
 
-  _i2.FkChainCascadeMiddleTable get cascadeMiddle {
+  _i2nw0ajk.FkChainCascadeMiddleTable get cascadeMiddle {
     if (_cascadeMiddle != null) return _cascadeMiddle!;
-    _cascadeMiddle = _i1.createRelationTable(
+    _cascadeMiddle = _is.createRelationTable(
       relationFieldName: 'cascadeMiddle',
       field: FkChainRestrictBlocker.t.cascadeMiddleId,
-      foreignField: _i2.FkChainCascadeMiddle.t.id,
+      foreignField: _i2nw0ajk.FkChainCascadeMiddle.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.FkChainCascadeMiddleTable(tableRelation: foreignTableRelation),
+          _i2nw0ajk.FkChainCascadeMiddleTable(
+            tableRelation: foreignTableRelation,
+          ),
     );
     return _cascadeMiddle!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     name,
@@ -255,7 +257,7 @@ class FkChainRestrictBlockerTable extends _i1.Table<_i1.UuidValue?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _is.Table? getRelationTable(String relationField) {
     if (relationField == 'cascadeMiddle') {
       return cascadeMiddle;
     }
@@ -263,25 +265,25 @@ class FkChainRestrictBlockerTable extends _i1.Table<_i1.UuidValue?> {
   }
 }
 
-class FkChainRestrictBlockerInclude extends _i1.IncludeObject {
+class FkChainRestrictBlockerInclude extends _is.IncludeObject {
   FkChainRestrictBlockerInclude._({
-    _i2.FkChainCascadeMiddleInclude? cascadeMiddle,
+    _i2nw0ajk.FkChainCascadeMiddleInclude? cascadeMiddle,
   }) {
     _cascadeMiddle = cascadeMiddle;
   }
 
-  _i2.FkChainCascadeMiddleInclude? _cascadeMiddle;
+  _i2nw0ajk.FkChainCascadeMiddleInclude? _cascadeMiddle;
 
   @override
-  Map<String, _i1.Include?> get includes => {'cascadeMiddle': _cascadeMiddle};
+  Map<String, _is.Include?> get includes => {'cascadeMiddle': _cascadeMiddle};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => FkChainRestrictBlocker.t;
+  _is.Table<_is.UuidValue?> get table => FkChainRestrictBlocker.t;
 }
 
-class FkChainRestrictBlockerIncludeList extends _i1.IncludeList {
+class FkChainRestrictBlockerIncludeList extends _is.IncludeList {
   FkChainRestrictBlockerIncludeList._({
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -292,10 +294,10 @@ class FkChainRestrictBlockerIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => FkChainRestrictBlocker.t;
+  _is.Table<_is.UuidValue?> get table => FkChainRestrictBlocker.t;
 }
 
 class FkChainRestrictBlockerRepository {
@@ -328,16 +330,16 @@ class FkChainRestrictBlockerRepository {
   /// );
   /// ```
   Future<List<FkChainRestrictBlocker>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
+    _is.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
+    _is.Transaction? transaction,
     FkChainRestrictBlockerInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<FkChainRestrictBlocker>(
       where: where?.call(FkChainRestrictBlocker.t),
@@ -370,15 +372,15 @@ class FkChainRestrictBlockerRepository {
   /// );
   /// ```
   Future<FkChainRestrictBlocker?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
     int? offset,
-    _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
+    _is.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
+    _is.Transaction? transaction,
     FkChainRestrictBlockerInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<FkChainRestrictBlocker>(
       where: where?.call(FkChainRestrictBlocker.t),
@@ -394,12 +396,12 @@ class FkChainRestrictBlockerRepository {
 
   /// Finds a single [FkChainRestrictBlocker] by its [id] or null if no such row exists.
   Future<FkChainRestrictBlocker?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
     FkChainRestrictBlockerInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<FkChainRestrictBlocker>(
       id,
@@ -425,9 +427,9 @@ class FkChainRestrictBlockerRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRestrictBlocker>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainRestrictBlocker> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -443,9 +445,9 @@ class FkChainRestrictBlockerRepository {
   ///
   /// The returned [FkChainRestrictBlocker] will have its `id` field set.
   Future<FkChainRestrictBlocker> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainRestrictBlocker row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<FkChainRestrictBlocker>(
       row,
@@ -474,12 +476,12 @@ class FkChainRestrictBlockerRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRestrictBlocker>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainRestrictBlocker> rows, {
-    required _i1.ColumnSelections<FkChainRestrictBlockerTable> conflictColumns,
-    _i1.ColumnSelections<FkChainRestrictBlockerTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<FkChainRestrictBlockerTable> conflictColumns,
+    _is.ColumnSelections<FkChainRestrictBlockerTable>? updateColumns,
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<FkChainRestrictBlocker>(
@@ -506,12 +508,12 @@ class FkChainRestrictBlockerRepository {
   ///
   /// The returned [FkChainRestrictBlocker] will have its `id` field set.
   Future<FkChainRestrictBlocker?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainRestrictBlocker row, {
-    required _i1.ColumnSelections<FkChainRestrictBlockerTable> conflictColumns,
-    _i1.ColumnSelections<FkChainRestrictBlockerTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<FkChainRestrictBlockerTable> conflictColumns,
+    _is.ColumnSelections<FkChainRestrictBlockerTable>? updateColumns,
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<FkChainRestrictBlocker>(
       row,
@@ -532,10 +534,10 @@ class FkChainRestrictBlockerRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRestrictBlocker>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainRestrictBlocker> rows, {
-    _i1.ColumnSelections<FkChainRestrictBlockerTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainRestrictBlockerTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<FkChainRestrictBlocker>(
@@ -550,10 +552,10 @@ class FkChainRestrictBlockerRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<FkChainRestrictBlocker> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainRestrictBlocker row, {
-    _i1.ColumnSelections<FkChainRestrictBlockerTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainRestrictBlockerTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<FkChainRestrictBlocker>(
       row,
@@ -565,11 +567,11 @@ class FkChainRestrictBlockerRepository {
   /// Updates a single [FkChainRestrictBlocker] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<FkChainRestrictBlocker?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<FkChainRestrictBlockerUpdateTable>
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<FkChainRestrictBlockerUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<FkChainRestrictBlocker>(
       id,
@@ -585,15 +587,15 @@ class FkChainRestrictBlockerRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRestrictBlocker>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<FkChainRestrictBlockerUpdateTable>
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<FkChainRestrictBlockerUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
+    required _is.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
+    _is.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<FkChainRestrictBlocker>(
@@ -620,11 +622,11 @@ class FkChainRestrictBlockerRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRestrictBlocker>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainRestrictBlocker> rows, {
-    _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
+    _is.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<FkChainRestrictBlocker>(
@@ -638,9 +640,9 @@ class FkChainRestrictBlockerRepository {
 
   /// Deletes a single [FkChainRestrictBlocker].
   Future<FkChainRestrictBlocker> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainRestrictBlocker row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<FkChainRestrictBlocker>(
       row,
@@ -657,11 +659,11 @@ class FkChainRestrictBlockerRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRestrictBlocker>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
-    _i1.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
+    _is.OrderByBuilder<FkChainRestrictBlockerTable>? orderBy,
+    _is.OrderByListBuilder<FkChainRestrictBlockerTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<FkChainRestrictBlocker>(
@@ -676,10 +678,10 @@ class FkChainRestrictBlockerRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainRestrictBlockerTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<FkChainRestrictBlocker>(
       where: where?.call(FkChainRestrictBlocker.t),
@@ -690,11 +692,11 @@ class FkChainRestrictBlockerRepository {
 
   /// Acquires row-level locks on [FkChainRestrictBlocker] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<FkChainRestrictBlockerTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<FkChainRestrictBlocker>(
       where: where(FkChainRestrictBlocker.t),
@@ -711,10 +713,10 @@ class FkChainRestrictBlockerAttachRowRepository {
   /// Creates a relation between the given [FkChainRestrictBlocker] and [FkChainCascadeMiddle]
   /// by setting the [FkChainRestrictBlocker]'s foreign key `cascadeMiddleId` to refer to the [FkChainCascadeMiddle].
   Future<void> cascadeMiddle(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainRestrictBlocker fkChainRestrictBlocker,
-    _i2.FkChainCascadeMiddle cascadeMiddle, {
-    _i1.Transaction? transaction,
+    _i2nw0ajk.FkChainCascadeMiddle cascadeMiddle, {
+    _is.Transaction? transaction,
   }) async {
     if (fkChainRestrictBlocker.id == null) {
       throw ArgumentError.notNull('fkChainRestrictBlocker.id');
@@ -743,9 +745,9 @@ class FkChainRestrictBlockerDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> cascadeMiddle(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainRestrictBlocker fkChainRestrictBlocker, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     if (fkChainRestrictBlocker.id == null) {
       throw ArgumentError.notNull('fkChainRestrictBlocker.id');

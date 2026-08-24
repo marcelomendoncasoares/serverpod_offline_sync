@@ -10,50 +10,52 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import '../endpoints/crdt_sync_endpoint.dart' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'package:serverpod/serverpod.dart' as _is;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import '../endpoints/crdt_sync_endpoint.dart' as _i87mlr2k;
 
-class Endpoints extends _i1.EndpointDispatch {
+class Endpoints extends _is.EndpointDispatch {
   @override
-  void initializeEndpoints(_i1.Server server) {
-    var endpoints = <String, _i1.Endpoint>{
-      'crdtSync': _i2.CrdtSyncEndpoint()
+  void initializeEndpoints(_is.Server server) {
+    var endpoints = <String, _is.Endpoint>{
+      'crdtSync': _i87mlr2k.CrdtSyncEndpoint()
         ..initialize(
           server,
           'crdtSync',
           'serverpod_offline_sync',
         ),
     };
-    connectors['crdtSync'] = _i1.EndpointConnector(
+    connectors['crdtSync'] = _is.EndpointConnector(
       name: 'crdtSync',
       endpoint: endpoints['crdtSync']!,
       methodConnectors: {
-        'sync': _i1.MethodStreamConnector(
+        'sync': _is.MethodStreamConnector(
           name: 'sync',
           params: {
-            'once': _i1.ParameterDescription(
+            'once': _is.ParameterDescription(
               name: 'once',
-              type: _i1.getType<bool>(),
+              type: _is.getType<bool>(),
               nullable: false,
             ),
           },
           streamParams: {
-            'changes': _i1.StreamParameterDescription<_i3.CrdtSyncStreamEvent>(
-              name: 'changes',
-              nullable: false,
-            ),
+            'changes':
+                _is.StreamParameterDescription<_icw2tu00.CrdtSyncStreamEvent>(
+                  name: 'changes',
+                  nullable: false,
+                ),
           },
-          returnType: _i1.MethodStreamReturnType.streamType,
+          returnType: _is.MethodStreamReturnType.streamType,
           call:
               (
-                _i1.Session session,
+                _is.Session session,
                 Map<String, dynamic> params,
                 Map<String, Stream> streamParams,
-              ) => (endpoints['crdtSync'] as _i2.CrdtSyncEndpoint).sync(
+              ) => (endpoints['crdtSync'] as _i87mlr2k.CrdtSyncEndpoint).sync(
                 session,
                 changes: streamParams['changes']!
-                    .cast<_i3.CrdtSyncStreamEvent>(),
+                    .cast<_icw2tu00.CrdtSyncStreamEvent>(),
                 once: params['once'],
               ),
         ),

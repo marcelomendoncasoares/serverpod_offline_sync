@@ -11,30 +11,31 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
-import 'data/deleted.dart' as _i3;
-import 'data/deleted_reason.dart' as _i4;
-import 'data/field.dart' as _i5;
-import 'data/foreign_key.dart' as _i6;
-import 'data/foreign_key_override_reason.dart' as _i7;
-import 'data/row.dart' as _i8;
-import 'data/row_visibility.dart' as _i9;
-import 'merge/change.dart' as _i10;
-import 'hlc/base.dart' as _i11;
-import 'node/node.dart' as _i12;
-import 'node/scope.dart' as _i13;
-import 'node/scope_member.dart' as _i14;
-import 'node/scope_node.dart' as _i15;
-import 'node/scope_role.dart' as _i16;
-import 'schema/column.dart' as _i17;
-import 'schema/table.dart' as _i18;
-import 'sync/stream_event.dart' as _i19;
-import 'sync/scope_grant.dart' as _i20;
-import 'sync/violation.dart' as _i21;
-import 'sync/violation_operation.dart' as _i22;
-import 'sync/violation_type.dart' as _i23;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i24;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
+import 'data/deleted.dart' as _ixchaeer;
+import 'data/deleted_reason.dart' as _i9ghhf3z;
+import 'data/field.dart' as _iwcj1b8j;
+import 'data/foreign_key.dart' as _isq49ibf;
+import 'data/foreign_key_override_reason.dart' as _iettvg4j;
+import 'data/row.dart' as _iokmrb1h;
+import 'data/row_visibility.dart' as _ibzh2k8m;
+import 'hlc/base.dart' as _ipogc60q;
+import 'merge/change.dart' as _i0vvt7eq;
+import 'node/node.dart' as _iyfv8jet;
+import 'node/scope.dart' as _irlcm4ej;
+import 'node/scope_member.dart' as _iqsssh9c;
+import 'node/scope_node.dart' as _ig47m65z;
+import 'node/scope_role.dart' as _ib0fag6l;
+import 'schema/column.dart' as _iy534gq7;
+import 'schema/table.dart' as _ik8xyqdv;
+import 'sync/scope_grant.dart' as _io782kbc;
+import 'sync/stream_event.dart' as _iimdylh8;
+import 'sync/violation.dart' as _iucor0s6;
+import 'sync/violation_operation.dart' as _ijw2vw1z;
+import 'sync/violation_type.dart' as _itf31ci3;
 export 'data/deleted.dart';
 export 'data/deleted_reason.dart';
 export 'data/field.dart';
@@ -57,103 +58,103 @@ export 'sync/violation.dart';
 export 'sync/violation_operation.dart';
 export 'sync/violation_type.dart';
 
-class Protocol extends _i1.DatabaseSerializationManager {
+class Protocol extends _isd.DatabaseSerializationManager {
   Protocol._();
 
   factory Protocol() => _instance;
 
   static final Protocol _instance = Protocol._();
 
-  final Set<_i2.SerializationManager> _hostProtocols = {};
+  final Set<_iss.SerializationManager> _hostProtocols = {};
 
-  static List<_i1.TableDefinition> get targetTableDefinitions => [
-    _i1.TableDefinition(
+  static List<_isd.TableDefinition> get targetTableDefinitions => [
+    _isd.TableDefinition(
       name: 'crdt_data_fields',
       dartName: 'CrdtDataField',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcDatetime',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: false,
           dartType: 'DateTime',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcCounter',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'rowId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'columnId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'nodeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_fields_fk_0',
           columns: ['rowId'],
           referenceTable: 'crdt_data_rows',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_fields_fk_1',
           columns: ['columnId'],
           referenceTable: 'crdt_schema_columns',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_fields_fk_2',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.noAction,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_data_fields_row_column_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'rowId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'columnId',
             ),
           ],
@@ -164,63 +165,63 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_data_foreign_key',
       dartName: 'CrdtDataForeignKey',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'fieldId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'attemptedValue',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'visibleValue',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'overrideReason',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'serverpod_offline_sync:CrdtForeignKeyOverrideReason?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_foreign_key_fk_0',
           columns: ['fieldId'],
           referenceTable: 'crdt_data_fields',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_data_foreign_key_field_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'fieldId',
             ),
           ],
@@ -231,110 +232,110 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_data_rows',
       dartName: 'CrdtDataRow',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcDatetime',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: false,
           dartType: 'DateTime',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcCounter',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'tblId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'uuidRowId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'nodeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'visibility',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'serverpod_offline_sync:CrdtDataRowVisibility',
           columnDefault: '0',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_rows_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_rows_fk_1',
           columns: ['tblId'],
           referenceTable: 'crdt_schema_tables',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_rows_fk_2',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.noAction,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_data_rows_scope_tbl_row_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'tblId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'uuidRowId',
             ),
           ],
@@ -345,85 +346,85 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_data_tombstone',
       dartName: 'CrdtDataDeleted',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcDatetime',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: false,
           dartType: 'DateTime',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcCounter',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'rowId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'nodeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'clFlag',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'reason',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'serverpod_offline_sync:CrdtDataDeletedReason',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_tombstone_fk_0',
           columns: ['rowId'],
           referenceTable: 'crdt_data_rows',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_tombstone_fk_1',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.noAction,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_data_tombstone_row_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'rowId',
             ),
           ],
@@ -434,29 +435,29 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_nodes',
       dartName: 'CrdtNode',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'uuidNodeId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'lastHlc',
-          columnType: _i1.ColumnType.jsonb,
+          columnType: _isd.ColumnType.jsonb,
           isNullable: true,
           dartType:
               'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
@@ -464,12 +465,12 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       foreignKeys: [],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_nodes__uuidNodeId__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'uuidNodeId',
             ),
           ],
@@ -480,55 +481,55 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_schema_columns',
       dartName: 'CrdtSchemaColumn',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'tblId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_schema_columns_fk_0',
           columns: ['tblId'],
           referenceTable: 'crdt_schema_tables',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_schema_columns_table_column_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'tblId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'name',
             ),
           ],
@@ -539,34 +540,34 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_schema_tables',
       dartName: 'CrdtSchemaTable',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_schema_tables__name__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'name',
             ),
           ],
@@ -577,61 +578,61 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_scope_members',
       dartName: 'CrdtScopeMember',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'userUuid',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'role',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'serverpod_offline_sync:CrdtScopeRole',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_scope_members_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_scope_member_unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'userUuid',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
           ],
@@ -642,72 +643,72 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_scope_nodes',
       dartName: 'CrdtScopeNode',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'nodeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'lastReceivedHlc',
-          columnType: _i1.ColumnType.jsonb,
+          columnType: _isd.ColumnType.jsonb,
           isNullable: true,
           dartType:
               'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_scope_nodes_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_scope_nodes_fk_1',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_scope_node_unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'nodeId',
             ),
           ],
@@ -718,52 +719,52 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_scopes',
       dartName: 'CrdtScope',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'uuidScopeId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'currentNodeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'crdt_scopes_fk_0',
           columns: ['currentNodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.noAction,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_scopes__uuidScopeId__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'uuidScopeId',
             ),
           ],
@@ -774,126 +775,126 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'crdt_sync_integrity_violations',
       dartName: 'CrdtSyncIntegrityViolation',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int?',
           columnDefault: 'serial',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'type',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'serverpod_offline_sync:CrdtSyncViolationType',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'domainTableName',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'uuidRowId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'ownerScopeUuid',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'incomingScopeUuid',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'operation',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'serverpod_offline_sync:CrdtSyncViolationOperation',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'uuidNodeId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'crdtDataRowId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcDatetime',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: true,
           dartType: 'DateTime?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'hlcCounter',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'firstSeenAt',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: false,
           dartType: 'DateTime',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'lastSeenAt',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: false,
           dartType: 'DateTime',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'occurrences',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
       ],
       foreignKeys: [],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'crdt_sync_integrity_violations_key_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'type',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'operation',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'domainTableName',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'uuidRowId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'ownerScopeUuid',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'incomingScopeUuid',
             ),
           ],
@@ -908,7 +909,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
 
   void registerHostProtocol(
     String projectName,
-    _i2.SerializationManager protocol,
+    _iss.SerializationManager protocol,
   ) {
     _hostProtocols.add(protocol);
   }
@@ -942,205 +943,229 @@ class Protocol extends _i1.DatabaseSerializationManager {
       }
     }
 
-    if (t == _i3.CrdtDataDeleted) {
-      return _i3.CrdtDataDeleted.fromJson(data) as T;
+    if (t == _ixchaeer.CrdtDataDeleted) {
+      return _ixchaeer.CrdtDataDeleted.fromJson(data) as T;
     }
-    if (t == _i4.CrdtDataDeletedReason) {
-      return _i4.CrdtDataDeletedReason.fromJson(data) as T;
+    if (t == _i9ghhf3z.CrdtDataDeletedReason) {
+      return _i9ghhf3z.CrdtDataDeletedReason.fromJson(data) as T;
     }
-    if (t == _i5.CrdtDataField) {
-      return _i5.CrdtDataField.fromJson(data) as T;
+    if (t == _iwcj1b8j.CrdtDataField) {
+      return _iwcj1b8j.CrdtDataField.fromJson(data) as T;
     }
-    if (t == _i6.CrdtDataForeignKey) {
-      return _i6.CrdtDataForeignKey.fromJson(data) as T;
+    if (t == _isq49ibf.CrdtDataForeignKey) {
+      return _isq49ibf.CrdtDataForeignKey.fromJson(data) as T;
     }
-    if (t == _i7.CrdtForeignKeyOverrideReason) {
-      return _i7.CrdtForeignKeyOverrideReason.fromJson(data) as T;
+    if (t == _iettvg4j.CrdtForeignKeyOverrideReason) {
+      return _iettvg4j.CrdtForeignKeyOverrideReason.fromJson(data) as T;
     }
-    if (t == _i8.CrdtDataRow) {
-      return _i8.CrdtDataRow.fromJson(data) as T;
+    if (t == _iokmrb1h.CrdtDataRow) {
+      return _iokmrb1h.CrdtDataRow.fromJson(data) as T;
     }
-    if (t == _i9.CrdtDataRowVisibility) {
-      return _i9.CrdtDataRowVisibility.fromJson(data) as T;
+    if (t == _ibzh2k8m.CrdtDataRowVisibility) {
+      return _ibzh2k8m.CrdtDataRowVisibility.fromJson(data) as T;
     }
-    if (t == _i10.CrdtMergeDelete) {
-      return _i10.CrdtMergeDelete.fromJson(data) as T;
+    if (t == _i0vvt7eq.CrdtMergeDelete) {
+      return _i0vvt7eq.CrdtMergeDelete.fromJson(data) as T;
     }
-    if (t == _i10.CrdtMergeInsert) {
-      return _i10.CrdtMergeInsert.fromJson(data) as T;
+    if (t == _i0vvt7eq.CrdtMergeInsert) {
+      return _i0vvt7eq.CrdtMergeInsert.fromJson(data) as T;
     }
-    if (t == _i10.CrdtMergeUpdate) {
-      return _i10.CrdtMergeUpdate.fromJson(data) as T;
+    if (t == _i0vvt7eq.CrdtMergeUpdate) {
+      return _i0vvt7eq.CrdtMergeUpdate.fromJson(data) as T;
     }
-    if (t == _i11.BaseHlc) {
-      return _i11.BaseHlc.fromJson(data) as T;
+    if (t == _ipogc60q.BaseHlc) {
+      return _ipogc60q.BaseHlc.fromJson(data) as T;
     }
-    if (t == _i12.CrdtNode) {
-      return _i12.CrdtNode.fromJson(data) as T;
+    if (t == _iyfv8jet.CrdtNode) {
+      return _iyfv8jet.CrdtNode.fromJson(data) as T;
     }
-    if (t == _i13.CrdtScope) {
-      return _i13.CrdtScope.fromJson(data) as T;
+    if (t == _irlcm4ej.CrdtScope) {
+      return _irlcm4ej.CrdtScope.fromJson(data) as T;
     }
-    if (t == _i14.CrdtScopeMember) {
-      return _i14.CrdtScopeMember.fromJson(data) as T;
+    if (t == _iqsssh9c.CrdtScopeMember) {
+      return _iqsssh9c.CrdtScopeMember.fromJson(data) as T;
     }
-    if (t == _i15.CrdtScopeNode) {
-      return _i15.CrdtScopeNode.fromJson(data) as T;
+    if (t == _ig47m65z.CrdtScopeNode) {
+      return _ig47m65z.CrdtScopeNode.fromJson(data) as T;
     }
-    if (t == _i16.CrdtScopeRole) {
-      return _i16.CrdtScopeRole.fromJson(data) as T;
+    if (t == _ib0fag6l.CrdtScopeRole) {
+      return _ib0fag6l.CrdtScopeRole.fromJson(data) as T;
     }
-    if (t == _i17.CrdtSchemaColumn) {
-      return _i17.CrdtSchemaColumn.fromJson(data) as T;
+    if (t == _iy534gq7.CrdtSchemaColumn) {
+      return _iy534gq7.CrdtSchemaColumn.fromJson(data) as T;
     }
-    if (t == _i18.CrdtSchemaTable) {
-      return _i18.CrdtSchemaTable.fromJson(data) as T;
+    if (t == _ik8xyqdv.CrdtSchemaTable) {
+      return _ik8xyqdv.CrdtSchemaTable.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncClose) {
-      return _i19.CrdtSyncClose.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncClose) {
+      return _iimdylh8.CrdtSyncClose.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncConnect) {
-      return _i19.CrdtSyncConnect.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncConnect) {
+      return _iimdylh8.CrdtSyncConnect.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncEndOfBatch) {
-      return _i19.CrdtSyncEndOfBatch.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncEndOfBatch) {
+      return _iimdylh8.CrdtSyncEndOfBatch.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncMergeChunk) {
-      return _i19.CrdtSyncMergeChunk.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncMergeChunk) {
+      return _iimdylh8.CrdtSyncMergeChunk.fromJson(data) as T;
     }
-    if (t == _i20.CrdtScopeGrant) {
-      return _i20.CrdtScopeGrant.fromJson(data) as T;
+    if (t == _io782kbc.CrdtScopeGrant) {
+      return _io782kbc.CrdtScopeGrant.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncScopeSet) {
-      return _i19.CrdtSyncScopeSet.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncScopeSet) {
+      return _iimdylh8.CrdtSyncScopeSet.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncSinceHlc) {
-      return _i19.CrdtSyncSinceHlc.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncSinceHlc) {
+      return _iimdylh8.CrdtSyncSinceHlc.fromJson(data) as T;
     }
-    if (t == _i19.CrdtSyncIdleTimeout) {
-      return _i19.CrdtSyncIdleTimeout.fromJson(data) as T;
+    if (t == _iimdylh8.CrdtSyncIdleTimeout) {
+      return _iimdylh8.CrdtSyncIdleTimeout.fromJson(data) as T;
     }
-    if (t == _i21.CrdtSyncIntegrityViolation) {
-      return _i21.CrdtSyncIntegrityViolation.fromJson(data) as T;
+    if (t == _iucor0s6.CrdtSyncIntegrityViolation) {
+      return _iucor0s6.CrdtSyncIntegrityViolation.fromJson(data) as T;
     }
-    if (t == _i22.CrdtSyncViolationOperation) {
-      return _i22.CrdtSyncViolationOperation.fromJson(data) as T;
+    if (t == _ijw2vw1z.CrdtSyncViolationOperation) {
+      return _ijw2vw1z.CrdtSyncViolationOperation.fromJson(data) as T;
     }
-    if (t == _i23.CrdtSyncViolationType) {
-      return _i23.CrdtSyncViolationType.fromJson(data) as T;
+    if (t == _itf31ci3.CrdtSyncViolationType) {
+      return _itf31ci3.CrdtSyncViolationType.fromJson(data) as T;
     }
-    if (t == _i2.getType<_i3.CrdtDataDeleted?>()) {
-      return (data != null ? _i3.CrdtDataDeleted.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i4.CrdtDataDeletedReason?>()) {
-      return (data != null ? _i4.CrdtDataDeletedReason.fromJson(data) : null)
+    if (t == _iss.getType<_ixchaeer.CrdtDataDeleted?>()) {
+      return (data != null ? _ixchaeer.CrdtDataDeleted.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i5.CrdtDataField?>()) {
-      return (data != null ? _i5.CrdtDataField.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i6.CrdtDataForeignKey?>()) {
-      return (data != null ? _i6.CrdtDataForeignKey.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i7.CrdtForeignKeyOverrideReason?>()) {
+    if (t == _iss.getType<_i9ghhf3z.CrdtDataDeletedReason?>()) {
       return (data != null
-              ? _i7.CrdtForeignKeyOverrideReason.fromJson(data)
+              ? _i9ghhf3z.CrdtDataDeletedReason.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i2.getType<_i8.CrdtDataRow?>()) {
-      return (data != null ? _i8.CrdtDataRow.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i9.CrdtDataRowVisibility?>()) {
-      return (data != null ? _i9.CrdtDataRowVisibility.fromJson(data) : null)
+    if (t == _iss.getType<_iwcj1b8j.CrdtDataField?>()) {
+      return (data != null ? _iwcj1b8j.CrdtDataField.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i10.CrdtMergeDelete?>()) {
-      return (data != null ? _i10.CrdtMergeDelete.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i10.CrdtMergeInsert?>()) {
-      return (data != null ? _i10.CrdtMergeInsert.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i10.CrdtMergeUpdate?>()) {
-      return (data != null ? _i10.CrdtMergeUpdate.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i11.BaseHlc?>()) {
-      return (data != null ? _i11.BaseHlc.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i12.CrdtNode?>()) {
-      return (data != null ? _i12.CrdtNode.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i13.CrdtScope?>()) {
-      return (data != null ? _i13.CrdtScope.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i14.CrdtScopeMember?>()) {
-      return (data != null ? _i14.CrdtScopeMember.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i15.CrdtScopeNode?>()) {
-      return (data != null ? _i15.CrdtScopeNode.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i16.CrdtScopeRole?>()) {
-      return (data != null ? _i16.CrdtScopeRole.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i17.CrdtSchemaColumn?>()) {
-      return (data != null ? _i17.CrdtSchemaColumn.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i18.CrdtSchemaTable?>()) {
-      return (data != null ? _i18.CrdtSchemaTable.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i19.CrdtSyncClose?>()) {
-      return (data != null ? _i19.CrdtSyncClose.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i19.CrdtSyncConnect?>()) {
-      return (data != null ? _i19.CrdtSyncConnect.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i19.CrdtSyncEndOfBatch?>()) {
-      return (data != null ? _i19.CrdtSyncEndOfBatch.fromJson(data) : null)
+    if (t == _iss.getType<_isq49ibf.CrdtDataForeignKey?>()) {
+      return (data != null ? _isq49ibf.CrdtDataForeignKey.fromJson(data) : null)
           as T;
     }
-    if (t == _i2.getType<_i19.CrdtSyncMergeChunk?>()) {
-      return (data != null ? _i19.CrdtSyncMergeChunk.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i2.getType<_i20.CrdtScopeGrant?>()) {
-      return (data != null ? _i20.CrdtScopeGrant.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i19.CrdtSyncScopeSet?>()) {
-      return (data != null ? _i19.CrdtSyncScopeSet.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i19.CrdtSyncSinceHlc?>()) {
-      return (data != null ? _i19.CrdtSyncSinceHlc.fromJson(data) : null) as T;
-    }
-    if (t == _i2.getType<_i19.CrdtSyncIdleTimeout?>()) {
-      return (data != null ? _i19.CrdtSyncIdleTimeout.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i2.getType<_i21.CrdtSyncIntegrityViolation?>()) {
+    if (t == _iss.getType<_iettvg4j.CrdtForeignKeyOverrideReason?>()) {
       return (data != null
-              ? _i21.CrdtSyncIntegrityViolation.fromJson(data)
+              ? _iettvg4j.CrdtForeignKeyOverrideReason.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i2.getType<_i22.CrdtSyncViolationOperation?>()) {
+    if (t == _iss.getType<_iokmrb1h.CrdtDataRow?>()) {
+      return (data != null ? _iokmrb1h.CrdtDataRow.fromJson(data) : null) as T;
+    }
+    if (t == _iss.getType<_ibzh2k8m.CrdtDataRowVisibility?>()) {
       return (data != null
-              ? _i22.CrdtSyncViolationOperation.fromJson(data)
+              ? _ibzh2k8m.CrdtDataRowVisibility.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i2.getType<_i23.CrdtSyncViolationType?>()) {
-      return (data != null ? _i23.CrdtSyncViolationType.fromJson(data) : null)
+    if (t == _iss.getType<_i0vvt7eq.CrdtMergeDelete?>()) {
+      return (data != null ? _i0vvt7eq.CrdtMergeDelete.fromJson(data) : null)
           as T;
     }
-    if (t == List<_i24.CrdtDataField>) {
+    if (t == _iss.getType<_i0vvt7eq.CrdtMergeInsert?>()) {
+      return (data != null ? _i0vvt7eq.CrdtMergeInsert.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_i0vvt7eq.CrdtMergeUpdate?>()) {
+      return (data != null ? _i0vvt7eq.CrdtMergeUpdate.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_ipogc60q.BaseHlc?>()) {
+      return (data != null ? _ipogc60q.BaseHlc.fromJson(data) : null) as T;
+    }
+    if (t == _iss.getType<_iyfv8jet.CrdtNode?>()) {
+      return (data != null ? _iyfv8jet.CrdtNode.fromJson(data) : null) as T;
+    }
+    if (t == _iss.getType<_irlcm4ej.CrdtScope?>()) {
+      return (data != null ? _irlcm4ej.CrdtScope.fromJson(data) : null) as T;
+    }
+    if (t == _iss.getType<_iqsssh9c.CrdtScopeMember?>()) {
+      return (data != null ? _iqsssh9c.CrdtScopeMember.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_ig47m65z.CrdtScopeNode?>()) {
+      return (data != null ? _ig47m65z.CrdtScopeNode.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_ib0fag6l.CrdtScopeRole?>()) {
+      return (data != null ? _ib0fag6l.CrdtScopeRole.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iy534gq7.CrdtSchemaColumn?>()) {
+      return (data != null ? _iy534gq7.CrdtSchemaColumn.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_ik8xyqdv.CrdtSchemaTable?>()) {
+      return (data != null ? _ik8xyqdv.CrdtSchemaTable.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncClose?>()) {
+      return (data != null ? _iimdylh8.CrdtSyncClose.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncConnect?>()) {
+      return (data != null ? _iimdylh8.CrdtSyncConnect.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncEndOfBatch?>()) {
+      return (data != null ? _iimdylh8.CrdtSyncEndOfBatch.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncMergeChunk?>()) {
+      return (data != null ? _iimdylh8.CrdtSyncMergeChunk.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_io782kbc.CrdtScopeGrant?>()) {
+      return (data != null ? _io782kbc.CrdtScopeGrant.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncScopeSet?>()) {
+      return (data != null ? _iimdylh8.CrdtSyncScopeSet.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncSinceHlc?>()) {
+      return (data != null ? _iimdylh8.CrdtSyncSinceHlc.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.CrdtSyncIdleTimeout?>()) {
+      return (data != null
+              ? _iimdylh8.CrdtSyncIdleTimeout.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_iucor0s6.CrdtSyncIntegrityViolation?>()) {
+      return (data != null
+              ? _iucor0s6.CrdtSyncIntegrityViolation.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_ijw2vw1z.CrdtSyncViolationOperation?>()) {
+      return (data != null
+              ? _ijw2vw1z.CrdtSyncViolationOperation.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_itf31ci3.CrdtSyncViolationType?>()) {
+      return (data != null
+              ? _itf31ci3.CrdtSyncViolationType.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == List<_icw2tu00.CrdtDataField>) {
       return (data as List)
-              .map((e) => deserialize<_i24.CrdtDataField>(e))
+              .map((e) => deserialize<_icw2tu00.CrdtDataField>(e))
               .toList()
           as T;
     }
-    if (t == _i2.getType<List<_i24.CrdtDataField>?>()) {
+    if (t == _iss.getType<List<_icw2tu00.CrdtDataField>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i24.CrdtDataField>(e))
+                    .map((e) => deserialize<_icw2tu00.CrdtDataField>(e))
                     .toList()
               : null)
           as T;
@@ -1148,75 +1173,76 @@ class Protocol extends _i1.DatabaseSerializationManager {
     if (t == dynamic) {
       return deserializeDynamicFieldValue(data) as T;
     }
-    if (t == _i2.getType<_i24.Hlc?>()) {
-      return (data != null ? _i24.Hlc.fromJson(data) : null) as T;
+    if (t == _iss.getType<_icw2tu00.Hlc?>()) {
+      return (data != null ? _icw2tu00.Hlc.fromJson(data) : null) as T;
     }
-    if (t == List<_i24.CrdtScopeNode>) {
+    if (t == List<_icw2tu00.CrdtScopeNode>) {
       return (data as List)
-              .map((e) => deserialize<_i24.CrdtScopeNode>(e))
+              .map((e) => deserialize<_icw2tu00.CrdtScopeNode>(e))
               .toList()
           as T;
     }
-    if (t == _i2.getType<List<_i24.CrdtScopeNode>?>()) {
+    if (t == _iss.getType<List<_icw2tu00.CrdtScopeNode>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i24.CrdtScopeNode>(e))
+                    .map((e) => deserialize<_icw2tu00.CrdtScopeNode>(e))
                     .toList()
               : null)
           as T;
     }
-    if (t == List<_i24.CrdtMergeChange>) {
+    if (t == List<_icw2tu00.CrdtMergeChange>) {
       return (data as List)
-              .map((e) => deserialize<_i24.CrdtMergeChange>(e))
+              .map((e) => deserialize<_icw2tu00.CrdtMergeChange>(e))
               .toList()
           as T;
     }
-    if (t == List<_i24.CrdtScopeGrant>) {
+    if (t == List<_icw2tu00.CrdtScopeGrant>) {
       return (data as List)
-              .map((e) => deserialize<_i24.CrdtScopeGrant>(e))
+              .map((e) => deserialize<_icw2tu00.CrdtScopeGrant>(e))
               .toList()
           as T;
     }
-    if (t == List<_i24.Hlc>) {
-      return (data as List).map((e) => deserialize<_i24.Hlc>(e)).toList() as T;
+    if (t == List<_icw2tu00.Hlc>) {
+      return (data as List).map((e) => deserialize<_icw2tu00.Hlc>(e)).toList()
+          as T;
     }
-    if (t == _i24.Hlc) {
-      return _i24.Hlc.fromJson(data) as T;
+    if (t == _icw2tu00.Hlc) {
+      return _icw2tu00.Hlc.fromJson(data) as T;
     }
     return super.deserialize<T>(data, t);
   }
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _i3.CrdtDataDeleted => 'CrdtDataDeleted',
-      _i4.CrdtDataDeletedReason => 'CrdtDataDeletedReason',
-      _i5.CrdtDataField => 'CrdtDataField',
-      _i6.CrdtDataForeignKey => 'CrdtDataForeignKey',
-      _i7.CrdtForeignKeyOverrideReason => 'CrdtForeignKeyOverrideReason',
-      _i8.CrdtDataRow => 'CrdtDataRow',
-      _i9.CrdtDataRowVisibility => 'CrdtDataRowVisibility',
-      _i10.CrdtMergeDelete => 'CrdtMergeDelete',
-      _i10.CrdtMergeInsert => 'CrdtMergeInsert',
-      _i10.CrdtMergeUpdate => 'CrdtMergeUpdate',
-      _i11.BaseHlc => 'BaseHlc',
-      _i12.CrdtNode => 'CrdtNode',
-      _i13.CrdtScope => 'CrdtScope',
-      _i14.CrdtScopeMember => 'CrdtScopeMember',
-      _i15.CrdtScopeNode => 'CrdtScopeNode',
-      _i16.CrdtScopeRole => 'CrdtScopeRole',
-      _i17.CrdtSchemaColumn => 'CrdtSchemaColumn',
-      _i18.CrdtSchemaTable => 'CrdtSchemaTable',
-      _i19.CrdtSyncClose => 'CrdtSyncClose',
-      _i19.CrdtSyncConnect => 'CrdtSyncConnect',
-      _i19.CrdtSyncEndOfBatch => 'CrdtSyncEndOfBatch',
-      _i19.CrdtSyncMergeChunk => 'CrdtSyncMergeChunk',
-      _i20.CrdtScopeGrant => 'CrdtScopeGrant',
-      _i19.CrdtSyncScopeSet => 'CrdtSyncScopeSet',
-      _i19.CrdtSyncSinceHlc => 'CrdtSyncSinceHlc',
-      _i19.CrdtSyncIdleTimeout => 'CrdtSyncIdleTimeout',
-      _i21.CrdtSyncIntegrityViolation => 'CrdtSyncIntegrityViolation',
-      _i22.CrdtSyncViolationOperation => 'CrdtSyncViolationOperation',
-      _i23.CrdtSyncViolationType => 'CrdtSyncViolationType',
+      _ixchaeer.CrdtDataDeleted => 'CrdtDataDeleted',
+      _i9ghhf3z.CrdtDataDeletedReason => 'CrdtDataDeletedReason',
+      _iwcj1b8j.CrdtDataField => 'CrdtDataField',
+      _isq49ibf.CrdtDataForeignKey => 'CrdtDataForeignKey',
+      _iettvg4j.CrdtForeignKeyOverrideReason => 'CrdtForeignKeyOverrideReason',
+      _iokmrb1h.CrdtDataRow => 'CrdtDataRow',
+      _ibzh2k8m.CrdtDataRowVisibility => 'CrdtDataRowVisibility',
+      _i0vvt7eq.CrdtMergeDelete => 'CrdtMergeDelete',
+      _i0vvt7eq.CrdtMergeInsert => 'CrdtMergeInsert',
+      _i0vvt7eq.CrdtMergeUpdate => 'CrdtMergeUpdate',
+      _ipogc60q.BaseHlc => 'BaseHlc',
+      _iyfv8jet.CrdtNode => 'CrdtNode',
+      _irlcm4ej.CrdtScope => 'CrdtScope',
+      _iqsssh9c.CrdtScopeMember => 'CrdtScopeMember',
+      _ig47m65z.CrdtScopeNode => 'CrdtScopeNode',
+      _ib0fag6l.CrdtScopeRole => 'CrdtScopeRole',
+      _iy534gq7.CrdtSchemaColumn => 'CrdtSchemaColumn',
+      _ik8xyqdv.CrdtSchemaTable => 'CrdtSchemaTable',
+      _iimdylh8.CrdtSyncClose => 'CrdtSyncClose',
+      _iimdylh8.CrdtSyncConnect => 'CrdtSyncConnect',
+      _iimdylh8.CrdtSyncEndOfBatch => 'CrdtSyncEndOfBatch',
+      _iimdylh8.CrdtSyncMergeChunk => 'CrdtSyncMergeChunk',
+      _io782kbc.CrdtScopeGrant => 'CrdtScopeGrant',
+      _iimdylh8.CrdtSyncScopeSet => 'CrdtSyncScopeSet',
+      _iimdylh8.CrdtSyncSinceHlc => 'CrdtSyncSinceHlc',
+      _iimdylh8.CrdtSyncIdleTimeout => 'CrdtSyncIdleTimeout',
+      _iucor0s6.CrdtSyncIntegrityViolation => 'CrdtSyncIntegrityViolation',
+      _ijw2vw1z.CrdtSyncViolationOperation => 'CrdtSyncViolationOperation',
+      _itf31ci3.CrdtSyncViolationType => 'CrdtSyncViolationType',
       _ => null,
     };
   }
@@ -1234,63 +1260,63 @@ class Protocol extends _i1.DatabaseSerializationManager {
     }
 
     switch (data) {
-      case _i3.CrdtDataDeleted():
+      case _ixchaeer.CrdtDataDeleted():
         return 'CrdtDataDeleted';
-      case _i4.CrdtDataDeletedReason():
+      case _i9ghhf3z.CrdtDataDeletedReason():
         return 'CrdtDataDeletedReason';
-      case _i5.CrdtDataField():
+      case _iwcj1b8j.CrdtDataField():
         return 'CrdtDataField';
-      case _i6.CrdtDataForeignKey():
+      case _isq49ibf.CrdtDataForeignKey():
         return 'CrdtDataForeignKey';
-      case _i7.CrdtForeignKeyOverrideReason():
+      case _iettvg4j.CrdtForeignKeyOverrideReason():
         return 'CrdtForeignKeyOverrideReason';
-      case _i8.CrdtDataRow():
+      case _iokmrb1h.CrdtDataRow():
         return 'CrdtDataRow';
-      case _i9.CrdtDataRowVisibility():
+      case _ibzh2k8m.CrdtDataRowVisibility():
         return 'CrdtDataRowVisibility';
-      case _i10.CrdtMergeDelete():
+      case _i0vvt7eq.CrdtMergeDelete():
         return 'CrdtMergeDelete';
-      case _i10.CrdtMergeInsert():
+      case _i0vvt7eq.CrdtMergeInsert():
         return 'CrdtMergeInsert';
-      case _i10.CrdtMergeUpdate():
+      case _i0vvt7eq.CrdtMergeUpdate():
         return 'CrdtMergeUpdate';
-      case _i11.BaseHlc():
+      case _ipogc60q.BaseHlc():
         return 'BaseHlc';
-      case _i12.CrdtNode():
+      case _iyfv8jet.CrdtNode():
         return 'CrdtNode';
-      case _i13.CrdtScope():
+      case _irlcm4ej.CrdtScope():
         return 'CrdtScope';
-      case _i14.CrdtScopeMember():
+      case _iqsssh9c.CrdtScopeMember():
         return 'CrdtScopeMember';
-      case _i15.CrdtScopeNode():
+      case _ig47m65z.CrdtScopeNode():
         return 'CrdtScopeNode';
-      case _i16.CrdtScopeRole():
+      case _ib0fag6l.CrdtScopeRole():
         return 'CrdtScopeRole';
-      case _i17.CrdtSchemaColumn():
+      case _iy534gq7.CrdtSchemaColumn():
         return 'CrdtSchemaColumn';
-      case _i18.CrdtSchemaTable():
+      case _ik8xyqdv.CrdtSchemaTable():
         return 'CrdtSchemaTable';
-      case _i19.CrdtSyncClose():
+      case _iimdylh8.CrdtSyncClose():
         return 'CrdtSyncClose';
-      case _i19.CrdtSyncConnect():
+      case _iimdylh8.CrdtSyncConnect():
         return 'CrdtSyncConnect';
-      case _i19.CrdtSyncEndOfBatch():
+      case _iimdylh8.CrdtSyncEndOfBatch():
         return 'CrdtSyncEndOfBatch';
-      case _i19.CrdtSyncMergeChunk():
+      case _iimdylh8.CrdtSyncMergeChunk():
         return 'CrdtSyncMergeChunk';
-      case _i20.CrdtScopeGrant():
+      case _io782kbc.CrdtScopeGrant():
         return 'CrdtScopeGrant';
-      case _i19.CrdtSyncScopeSet():
+      case _iimdylh8.CrdtSyncScopeSet():
         return 'CrdtSyncScopeSet';
-      case _i19.CrdtSyncSinceHlc():
+      case _iimdylh8.CrdtSyncSinceHlc():
         return 'CrdtSyncSinceHlc';
-      case _i19.CrdtSyncIdleTimeout():
+      case _iimdylh8.CrdtSyncIdleTimeout():
         return 'CrdtSyncIdleTimeout';
-      case _i21.CrdtSyncIntegrityViolation():
+      case _iucor0s6.CrdtSyncIntegrityViolation():
         return 'CrdtSyncIntegrityViolation';
-      case _i22.CrdtSyncViolationOperation():
+      case _ijw2vw1z.CrdtSyncViolationOperation():
         return 'CrdtSyncViolationOperation';
-      case _i23.CrdtSyncViolationType():
+      case _itf31ci3.CrdtSyncViolationType():
         return 'CrdtSyncViolationType';
     }
     return null;
@@ -1303,91 +1329,91 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return super.deserializeByClassName(data);
     }
     if (dataClassName == 'CrdtDataDeleted') {
-      return deserialize<_i3.CrdtDataDeleted>(data['data']);
+      return deserialize<_ixchaeer.CrdtDataDeleted>(data['data']);
     }
     if (dataClassName == 'CrdtDataDeletedReason') {
-      return deserialize<_i4.CrdtDataDeletedReason>(data['data']);
+      return deserialize<_i9ghhf3z.CrdtDataDeletedReason>(data['data']);
     }
     if (dataClassName == 'CrdtDataField') {
-      return deserialize<_i5.CrdtDataField>(data['data']);
+      return deserialize<_iwcj1b8j.CrdtDataField>(data['data']);
     }
     if (dataClassName == 'CrdtDataForeignKey') {
-      return deserialize<_i6.CrdtDataForeignKey>(data['data']);
+      return deserialize<_isq49ibf.CrdtDataForeignKey>(data['data']);
     }
     if (dataClassName == 'CrdtForeignKeyOverrideReason') {
-      return deserialize<_i7.CrdtForeignKeyOverrideReason>(data['data']);
+      return deserialize<_iettvg4j.CrdtForeignKeyOverrideReason>(data['data']);
     }
     if (dataClassName == 'CrdtDataRow') {
-      return deserialize<_i8.CrdtDataRow>(data['data']);
+      return deserialize<_iokmrb1h.CrdtDataRow>(data['data']);
     }
     if (dataClassName == 'CrdtDataRowVisibility') {
-      return deserialize<_i9.CrdtDataRowVisibility>(data['data']);
+      return deserialize<_ibzh2k8m.CrdtDataRowVisibility>(data['data']);
     }
     if (dataClassName == 'CrdtMergeDelete') {
-      return deserialize<_i10.CrdtMergeDelete>(data['data']);
+      return deserialize<_i0vvt7eq.CrdtMergeDelete>(data['data']);
     }
     if (dataClassName == 'CrdtMergeInsert') {
-      return deserialize<_i10.CrdtMergeInsert>(data['data']);
+      return deserialize<_i0vvt7eq.CrdtMergeInsert>(data['data']);
     }
     if (dataClassName == 'CrdtMergeUpdate') {
-      return deserialize<_i10.CrdtMergeUpdate>(data['data']);
+      return deserialize<_i0vvt7eq.CrdtMergeUpdate>(data['data']);
     }
     if (dataClassName == 'BaseHlc') {
-      return deserialize<_i11.BaseHlc>(data['data']);
+      return deserialize<_ipogc60q.BaseHlc>(data['data']);
     }
     if (dataClassName == 'CrdtNode') {
-      return deserialize<_i12.CrdtNode>(data['data']);
+      return deserialize<_iyfv8jet.CrdtNode>(data['data']);
     }
     if (dataClassName == 'CrdtScope') {
-      return deserialize<_i13.CrdtScope>(data['data']);
+      return deserialize<_irlcm4ej.CrdtScope>(data['data']);
     }
     if (dataClassName == 'CrdtScopeMember') {
-      return deserialize<_i14.CrdtScopeMember>(data['data']);
+      return deserialize<_iqsssh9c.CrdtScopeMember>(data['data']);
     }
     if (dataClassName == 'CrdtScopeNode') {
-      return deserialize<_i15.CrdtScopeNode>(data['data']);
+      return deserialize<_ig47m65z.CrdtScopeNode>(data['data']);
     }
     if (dataClassName == 'CrdtScopeRole') {
-      return deserialize<_i16.CrdtScopeRole>(data['data']);
+      return deserialize<_ib0fag6l.CrdtScopeRole>(data['data']);
     }
     if (dataClassName == 'CrdtSchemaColumn') {
-      return deserialize<_i17.CrdtSchemaColumn>(data['data']);
+      return deserialize<_iy534gq7.CrdtSchemaColumn>(data['data']);
     }
     if (dataClassName == 'CrdtSchemaTable') {
-      return deserialize<_i18.CrdtSchemaTable>(data['data']);
+      return deserialize<_ik8xyqdv.CrdtSchemaTable>(data['data']);
     }
     if (dataClassName == 'CrdtSyncClose') {
-      return deserialize<_i19.CrdtSyncClose>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncClose>(data['data']);
     }
     if (dataClassName == 'CrdtSyncConnect') {
-      return deserialize<_i19.CrdtSyncConnect>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncConnect>(data['data']);
     }
     if (dataClassName == 'CrdtSyncEndOfBatch') {
-      return deserialize<_i19.CrdtSyncEndOfBatch>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncEndOfBatch>(data['data']);
     }
     if (dataClassName == 'CrdtSyncMergeChunk') {
-      return deserialize<_i19.CrdtSyncMergeChunk>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncMergeChunk>(data['data']);
     }
     if (dataClassName == 'CrdtScopeGrant') {
-      return deserialize<_i20.CrdtScopeGrant>(data['data']);
+      return deserialize<_io782kbc.CrdtScopeGrant>(data['data']);
     }
     if (dataClassName == 'CrdtSyncScopeSet') {
-      return deserialize<_i19.CrdtSyncScopeSet>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncScopeSet>(data['data']);
     }
     if (dataClassName == 'CrdtSyncSinceHlc') {
-      return deserialize<_i19.CrdtSyncSinceHlc>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncSinceHlc>(data['data']);
     }
     if (dataClassName == 'CrdtSyncIdleTimeout') {
-      return deserialize<_i19.CrdtSyncIdleTimeout>(data['data']);
+      return deserialize<_iimdylh8.CrdtSyncIdleTimeout>(data['data']);
     }
     if (dataClassName == 'CrdtSyncIntegrityViolation') {
-      return deserialize<_i21.CrdtSyncIntegrityViolation>(data['data']);
+      return deserialize<_iucor0s6.CrdtSyncIntegrityViolation>(data['data']);
     }
     if (dataClassName == 'CrdtSyncViolationOperation') {
-      return deserialize<_i22.CrdtSyncViolationOperation>(data['data']);
+      return deserialize<_ijw2vw1z.CrdtSyncViolationOperation>(data['data']);
     }
     if (dataClassName == 'CrdtSyncViolationType') {
-      return deserialize<_i23.CrdtSyncViolationType>(data['data']);
+      return deserialize<_itf31ci3.CrdtSyncViolationType>(data['data']);
     }
     return super.deserializeByClassName(data);
   }
@@ -1410,8 +1436,8 @@ class Protocol extends _i1.DatabaseSerializationManager {
         'data': object,
       };
       return forProtocol
-          ? _i2.SerializationManager.toEncodableForProtocol(wrapped)
-          : _i2.SerializationManager.toEncodable(wrapped);
+          ? _iss.SerializationManager.toEncodableForProtocol(wrapped)
+          : _iss.SerializationManager.toEncodable(wrapped);
     }
     return super.dynamicFieldToJson(object, forProtocol: forProtocol);
   }
@@ -1452,36 +1478,36 @@ class Protocol extends _i1.DatabaseSerializationManager {
   }
 
   @override
-  _i1.Table? getTableForType(Type t) {
+  _isd.Table? getTableForType(Type t) {
     switch (t) {
-      case _i3.CrdtDataDeleted:
-        return _i3.CrdtDataDeleted.t;
-      case _i5.CrdtDataField:
-        return _i5.CrdtDataField.t;
-      case _i6.CrdtDataForeignKey:
-        return _i6.CrdtDataForeignKey.t;
-      case _i8.CrdtDataRow:
-        return _i8.CrdtDataRow.t;
-      case _i12.CrdtNode:
-        return _i12.CrdtNode.t;
-      case _i13.CrdtScope:
-        return _i13.CrdtScope.t;
-      case _i14.CrdtScopeMember:
-        return _i14.CrdtScopeMember.t;
-      case _i15.CrdtScopeNode:
-        return _i15.CrdtScopeNode.t;
-      case _i17.CrdtSchemaColumn:
-        return _i17.CrdtSchemaColumn.t;
-      case _i18.CrdtSchemaTable:
-        return _i18.CrdtSchemaTable.t;
-      case _i21.CrdtSyncIntegrityViolation:
-        return _i21.CrdtSyncIntegrityViolation.t;
+      case _ixchaeer.CrdtDataDeleted:
+        return _ixchaeer.CrdtDataDeleted.t;
+      case _iwcj1b8j.CrdtDataField:
+        return _iwcj1b8j.CrdtDataField.t;
+      case _isq49ibf.CrdtDataForeignKey:
+        return _isq49ibf.CrdtDataForeignKey.t;
+      case _iokmrb1h.CrdtDataRow:
+        return _iokmrb1h.CrdtDataRow.t;
+      case _iyfv8jet.CrdtNode:
+        return _iyfv8jet.CrdtNode.t;
+      case _irlcm4ej.CrdtScope:
+        return _irlcm4ej.CrdtScope.t;
+      case _iqsssh9c.CrdtScopeMember:
+        return _iqsssh9c.CrdtScopeMember.t;
+      case _ig47m65z.CrdtScopeNode:
+        return _ig47m65z.CrdtScopeNode.t;
+      case _iy534gq7.CrdtSchemaColumn:
+        return _iy534gq7.CrdtSchemaColumn.t;
+      case _ik8xyqdv.CrdtSchemaTable:
+        return _ik8xyqdv.CrdtSchemaTable.t;
+      case _iucor0s6.CrdtSyncIntegrityViolation:
+        return _iucor0s6.CrdtSyncIntegrityViolation.t;
     }
     return null;
   }
 
   @override
-  List<_i1.TableDefinition> getTargetTableDefinitions() =>
+  List<_isd.TableDefinition> getTargetTableDefinitions() =>
       targetTableDefinitions;
 
   @override

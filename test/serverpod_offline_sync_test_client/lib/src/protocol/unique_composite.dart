@@ -10,11 +10,11 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 
 abstract class UniqueComposite
-    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   UniqueComposite._({
     this.id,
     this.scopeId,
@@ -23,7 +23,7 @@ abstract class UniqueComposite
   });
 
   factory UniqueComposite({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String scope,
     required String value,
@@ -33,7 +33,7 @@ abstract class UniqueComposite
     return UniqueComposite(
       id: jsonSerialization['id'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       scope: jsonSerialization['scope'] as String,
       value: jsonSerialization['value'] as String,
@@ -45,7 +45,7 @@ abstract class UniqueComposite
   static const db = UniqueCompositeRepository._();
 
   @override
-  _i2.UuidValue? id;
+  _isc.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -56,13 +56,13 @@ abstract class UniqueComposite
   String value;
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => t;
+  _isd.Table<_isc.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [UniqueComposite]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   UniqueComposite copyWith({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     String? scope,
     String? value,
@@ -94,11 +94,11 @@ abstract class UniqueComposite
   }
 
   static UniqueCompositeIncludeList includeList({
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? where,
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
+    _isd.OrderByBuilder<UniqueCompositeTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueCompositeTable>? orderByList,
     UniqueCompositeInclude? include,
   }) {
     return UniqueCompositeIncludeList._(
@@ -113,7 +113,7 @@ abstract class UniqueComposite
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _isc.SerializationManager.encode(this);
   }
 }
 
@@ -121,7 +121,7 @@ class _Undefined {}
 
 class _UniqueCompositeImpl extends UniqueComposite {
   _UniqueCompositeImpl({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String scope,
     required String value,
@@ -134,7 +134,7 @@ class _UniqueCompositeImpl extends UniqueComposite {
 
   /// Returns a shallow copy of this [UniqueComposite]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   @override
   UniqueComposite copyWith({
     Object? id = _Undefined,
@@ -143,7 +143,7 @@ class _UniqueCompositeImpl extends UniqueComposite {
     String? value,
   }) {
     return UniqueComposite(
-      id: id is _i2.UuidValue? ? id : this.id,
+      id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       scope: scope ?? this.scope,
       value: value ?? this.value,
@@ -151,38 +151,39 @@ class _UniqueCompositeImpl extends UniqueComposite {
   }
 }
 
-class UniqueCompositeUpdateTable extends _i1.UpdateTable<UniqueCompositeTable> {
+class UniqueCompositeUpdateTable
+    extends _isd.UpdateTable<UniqueCompositeTable> {
   UniqueCompositeUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> scope(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> scope(String value) => _isd.ColumnValue(
     table.scope,
     value,
   );
 
-  _i1.ColumnValue<String, String> value(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> value(String value) => _isd.ColumnValue(
     table.value,
     value,
   );
 }
 
-class UniqueCompositeTable extends _i1.Table<_i2.UuidValue?> {
+class UniqueCompositeTable extends _isd.Table<_isc.UuidValue?> {
   UniqueCompositeTable({super.tableRelation})
     : super(tableName: 'unique_composite') {
     updateTable = UniqueCompositeUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _isd.ColumnInt(
       'scopeId',
       this,
     );
-    scope = _i1.ColumnString(
+    scope = _isd.ColumnString(
       'scope',
       this,
     );
-    value = _i1.ColumnString(
+    value = _isd.ColumnString(
       'value',
       this,
     );
@@ -191,15 +192,15 @@ class UniqueCompositeTable extends _i1.Table<_i2.UuidValue?> {
   late final UniqueCompositeUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _isd.ColumnInt scopeId;
 
   /// This scope field has no relation with the CRDT sync layer.
-  late final _i1.ColumnString scope;
+  late final _isd.ColumnString scope;
 
-  late final _i1.ColumnString value;
+  late final _isd.ColumnString value;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     scopeId,
     scope,
@@ -207,19 +208,19 @@ class UniqueCompositeTable extends _i1.Table<_i2.UuidValue?> {
   ];
 }
 
-class UniqueCompositeInclude extends _i1.IncludeObject {
+class UniqueCompositeInclude extends _isd.IncludeObject {
   UniqueCompositeInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _isd.Include?> get includes => {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => UniqueComposite.t;
+  _isd.Table<_isc.UuidValue?> get table => UniqueComposite.t;
 }
 
-class UniqueCompositeIncludeList extends _i1.IncludeList {
+class UniqueCompositeIncludeList extends _isd.IncludeList {
   UniqueCompositeIncludeList._({
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? where,
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -230,10 +231,10 @@ class UniqueCompositeIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => UniqueComposite.t;
+  _isd.Table<_isc.UuidValue?> get table => UniqueComposite.t;
 }
 
 class UniqueCompositeRepository {
@@ -262,15 +263,15 @@ class UniqueCompositeRepository {
   /// );
   /// ```
   Future<List<UniqueComposite>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<UniqueCompositeTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueCompositeTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<UniqueComposite>(
       where: where?.call(UniqueComposite.t),
@@ -302,14 +303,14 @@ class UniqueCompositeRepository {
   /// );
   /// ```
   Future<UniqueComposite?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? where,
     int? offset,
-    _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<UniqueCompositeTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueCompositeTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<UniqueComposite>(
       where: where?.call(UniqueComposite.t),
@@ -324,11 +325,11 @@ class UniqueCompositeRepository {
 
   /// Finds a single [UniqueComposite] by its [id] or null if no such row exists.
   Future<UniqueComposite?> findById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<UniqueComposite>(
       id,
@@ -353,9 +354,9 @@ class UniqueCompositeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueComposite>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueComposite> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -371,9 +372,9 @@ class UniqueCompositeRepository {
   ///
   /// The returned [UniqueComposite] will have its `id` field set.
   Future<UniqueComposite> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueComposite row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<UniqueComposite>(
       row,
@@ -402,12 +403,12 @@ class UniqueCompositeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueComposite>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueComposite> rows, {
-    required _i1.ColumnSelections<UniqueCompositeTable> conflictColumns,
-    _i1.ColumnSelections<UniqueCompositeTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<UniqueCompositeTable> conflictColumns,
+    _isd.ColumnSelections<UniqueCompositeTable>? updateColumns,
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<UniqueComposite>(
@@ -434,12 +435,12 @@ class UniqueCompositeRepository {
   ///
   /// The returned [UniqueComposite] will have its `id` field set.
   Future<UniqueComposite?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueComposite row, {
-    required _i1.ColumnSelections<UniqueCompositeTable> conflictColumns,
-    _i1.ColumnSelections<UniqueCompositeTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<UniqueCompositeTable> conflictColumns,
+    _isd.ColumnSelections<UniqueCompositeTable>? updateColumns,
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<UniqueComposite>(
       row,
@@ -460,10 +461,10 @@ class UniqueCompositeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueComposite>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueComposite> rows, {
-    _i1.ColumnSelections<UniqueCompositeTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<UniqueCompositeTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<UniqueComposite>(
@@ -478,10 +479,10 @@ class UniqueCompositeRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<UniqueComposite> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueComposite row, {
-    _i1.ColumnSelections<UniqueCompositeTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<UniqueCompositeTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<UniqueComposite>(
       row,
@@ -493,11 +494,11 @@ class UniqueCompositeRepository {
   /// Updates a single [UniqueComposite] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<UniqueComposite?> updateById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    required _i1.ColumnValueListBuilder<UniqueCompositeUpdateTable>
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    required _isd.ColumnValueListBuilder<UniqueCompositeUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<UniqueComposite>(
       id,
@@ -513,15 +514,15 @@ class UniqueCompositeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueComposite>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<UniqueCompositeUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<UniqueCompositeUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<UniqueCompositeTable> where,
+    required _isd.WhereExpressionBuilder<UniqueCompositeTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<UniqueCompositeTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueCompositeTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<UniqueComposite>(
@@ -548,11 +549,11 @@ class UniqueCompositeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueComposite>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueComposite> rows, {
-    _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<UniqueCompositeTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueCompositeTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<UniqueComposite>(
@@ -566,9 +567,9 @@ class UniqueCompositeRepository {
 
   /// Deletes a single [UniqueComposite].
   Future<UniqueComposite> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueComposite row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<UniqueComposite>(
       row,
@@ -585,11 +586,11 @@ class UniqueCompositeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueComposite>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueCompositeTable> where,
-    _i1.OrderByBuilder<UniqueCompositeTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueCompositeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<UniqueCompositeTable> where,
+    _isd.OrderByBuilder<UniqueCompositeTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueCompositeTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<UniqueComposite>(
@@ -604,10 +605,10 @@ class UniqueCompositeRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueCompositeTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueCompositeTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<UniqueComposite>(
       where: where?.call(UniqueComposite.t),
@@ -618,11 +619,11 @@ class UniqueCompositeRepository {
 
   /// Acquires row-level locks on [UniqueComposite] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueCompositeTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<UniqueCompositeTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<UniqueComposite>(
       where: where(UniqueComposite.t),

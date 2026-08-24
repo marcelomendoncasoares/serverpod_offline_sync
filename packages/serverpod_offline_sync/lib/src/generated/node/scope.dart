@@ -11,30 +11,31 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT scopes table.
 ///
 /// Normalized storage for scope IDs. The normalized data table references this
 /// by integer id instead of storing the scope id string.
 abstract class CrdtScope
-    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtScope._({
     this.id,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     this.currentNodeId,
     this.currentNode,
     this.nodes,
-  }) : uuidScopeId = uuidScopeId ?? const _i2.Uuid().v7obj();
+  }) : uuidScopeId = uuidScopeId ?? const _iss.Uuid().v7obj();
 
   factory CrdtScope({
     int? id,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     int? currentNodeId,
-    _i3.CrdtNode? currentNode,
-    List<_i3.CrdtScopeNode>? nodes,
+    _icw2tu00.CrdtNode? currentNode,
+    List<_icw2tu00.CrdtScopeNode>? nodes,
   }) = _CrdtScopeImpl;
 
   factory CrdtScope.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -42,18 +43,18 @@ abstract class CrdtScope
       id: jsonSerialization['id'] as int?,
       uuidScopeId: jsonSerialization['uuidScopeId'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _iss.UuidValueJsonExtension.fromJson(
               jsonSerialization['uuidScopeId'],
             ),
       currentNodeId: jsonSerialization['currentNodeId'] as int?,
       currentNode: jsonSerialization['currentNode'] == null
           ? null
-          : _i3.Protocol().deserialize<_i3.CrdtNode>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtNode>(
               jsonSerialization['currentNode'],
             ),
       nodes: jsonSerialization['nodes'] == null
           ? null
-          : _i3.Protocol().deserialize<List<_i3.CrdtScopeNode>>(
+          : _icw2tu00.Protocol().deserialize<List<_icw2tu00.CrdtScopeNode>>(
               jsonSerialization['nodes'],
             ),
     );
@@ -67,28 +68,28 @@ abstract class CrdtScope
   int? id;
 
   /// Scope identifier string.
-  _i2.UuidValue uuidScopeId;
+  _iss.UuidValue uuidScopeId;
 
   int? currentNodeId;
 
   /// The current node id of the scope.
-  _i3.CrdtNode? currentNode;
+  _icw2tu00.CrdtNode? currentNode;
 
   /// The nodes associated with the scope and their per-scope checkpoints.
-  List<_i3.CrdtScopeNode>? nodes;
+  List<_icw2tu00.CrdtScopeNode>? nodes;
 
   @override
-  _i1.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtScope]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtScope copyWith({
     int? id,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     int? currentNodeId,
-    _i3.CrdtNode? currentNode,
-    List<_i3.CrdtScopeNode>? nodes,
+    _icw2tu00.CrdtNode? currentNode,
+    List<_icw2tu00.CrdtScopeNode>? nodes,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -116,8 +117,8 @@ abstract class CrdtScope
   }
 
   static CrdtScopeInclude include({
-    _i3.CrdtNodeInclude? currentNode,
-    _i3.CrdtScopeNodeIncludeList? nodes,
+    _icw2tu00.CrdtNodeInclude? currentNode,
+    _icw2tu00.CrdtScopeNodeIncludeList? nodes,
   }) {
     return CrdtScopeInclude._(
       currentNode: currentNode,
@@ -126,11 +127,11 @@ abstract class CrdtScope
   }
 
   static CrdtScopeIncludeList includeList({
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? where,
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
+    _isd.OrderByBuilder<CrdtScopeTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtScopeTable>? orderByList,
     CrdtScopeInclude? include,
   }) {
     return CrdtScopeIncludeList._(
@@ -145,7 +146,7 @@ abstract class CrdtScope
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -154,10 +155,10 @@ class _Undefined {}
 class _CrdtScopeImpl extends CrdtScope {
   _CrdtScopeImpl({
     int? id,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     int? currentNodeId,
-    _i3.CrdtNode? currentNode,
-    List<_i3.CrdtScopeNode>? nodes,
+    _icw2tu00.CrdtNode? currentNode,
+    List<_icw2tu00.CrdtScopeNode>? nodes,
   }) : super._(
          id: id,
          uuidScopeId: uuidScopeId,
@@ -168,11 +169,11 @@ class _CrdtScopeImpl extends CrdtScope {
 
   /// Returns a shallow copy of this [CrdtScope]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtScope copyWith({
     Object? id = _Undefined,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     Object? currentNodeId = _Undefined,
     Object? currentNode = _Undefined,
     Object? nodes = _Undefined,
@@ -181,41 +182,41 @@ class _CrdtScopeImpl extends CrdtScope {
       id: id is int? ? id : this.id,
       uuidScopeId: uuidScopeId ?? this.uuidScopeId,
       currentNodeId: currentNodeId is int? ? currentNodeId : this.currentNodeId,
-      currentNode: currentNode is _i3.CrdtNode?
+      currentNode: currentNode is _icw2tu00.CrdtNode?
           ? currentNode
           : this.currentNode?.copyWith(),
-      nodes: nodes is List<_i3.CrdtScopeNode>?
+      nodes: nodes is List<_icw2tu00.CrdtScopeNode>?
           ? nodes
           : this.nodes?.map((e0) => e0.copyWith()).toList(),
     );
   }
 }
 
-class CrdtScopeUpdateTable extends _i1.UpdateTable<CrdtScopeTable> {
+class CrdtScopeUpdateTable extends _isd.UpdateTable<CrdtScopeTable> {
   CrdtScopeUpdateTable(super.table);
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> uuidScopeId(
-    _i2.UuidValue value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> uuidScopeId(
+    _iss.UuidValue value,
+  ) => _isd.ColumnValue(
     table.uuidScopeId,
     value,
   );
 
-  _i1.ColumnValue<int, int> currentNodeId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> currentNodeId(int? value) => _isd.ColumnValue(
     table.currentNodeId,
     value,
   );
 }
 
-class CrdtScopeTable extends _i1.Table<int?> {
+class CrdtScopeTable extends _isd.Table<int?> {
   CrdtScopeTable({super.tableRelation}) : super(tableName: 'crdt_scopes') {
     updateTable = CrdtScopeUpdateTable(this);
-    uuidScopeId = _i1.ColumnUuid(
+    uuidScopeId = _isd.ColumnUuid(
       'uuidScopeId',
       this,
       hasDefault: true,
     );
-    currentNodeId = _i1.ColumnInt(
+    currentNodeId = _isd.ColumnInt(
       'currentNodeId',
       this,
     );
@@ -224,58 +225,58 @@ class CrdtScopeTable extends _i1.Table<int?> {
   late final CrdtScopeUpdateTable updateTable;
 
   /// Scope identifier string.
-  late final _i1.ColumnUuid uuidScopeId;
+  late final _isd.ColumnUuid uuidScopeId;
 
-  late final _i1.ColumnInt currentNodeId;
+  late final _isd.ColumnInt currentNodeId;
 
   /// The current node id of the scope.
-  _i3.CrdtNodeTable? _currentNode;
+  _icw2tu00.CrdtNodeTable? _currentNode;
 
   /// The nodes associated with the scope and their per-scope checkpoints.
-  _i3.CrdtScopeNodeTable? ___nodes;
+  _icw2tu00.CrdtScopeNodeTable? ___nodes;
 
   /// The nodes associated with the scope and their per-scope checkpoints.
-  _i1.ManyRelation<_i3.CrdtScopeNodeTable>? _nodes;
+  _isd.ManyRelation<_icw2tu00.CrdtScopeNodeTable>? _nodes;
 
-  _i3.CrdtNodeTable get currentNode {
+  _icw2tu00.CrdtNodeTable get currentNode {
     if (_currentNode != null) return _currentNode!;
-    _currentNode = _i1.createRelationTable(
+    _currentNode = _isd.createRelationTable(
       relationFieldName: 'currentNode',
       field: CrdtScope.t.currentNodeId,
-      foreignField: _i3.CrdtNode.t.id,
+      foreignField: _icw2tu00.CrdtNode.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtNodeTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtNodeTable(tableRelation: foreignTableRelation),
     );
     return _currentNode!;
   }
 
-  _i3.CrdtScopeNodeTable get __nodes {
+  _icw2tu00.CrdtScopeNodeTable get __nodes {
     if (___nodes != null) return ___nodes!;
-    ___nodes = _i1.createRelationTable(
+    ___nodes = _isd.createRelationTable(
       relationFieldName: '__nodes',
       field: CrdtScope.t.id,
-      foreignField: _i3.CrdtScopeNode.t.scopeId,
+      foreignField: _icw2tu00.CrdtScopeNode.t.scopeId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtScopeNodeTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtScopeNodeTable(tableRelation: foreignTableRelation),
     );
     return ___nodes!;
   }
 
-  _i1.ManyRelation<_i3.CrdtScopeNodeTable> get nodes {
+  _isd.ManyRelation<_icw2tu00.CrdtScopeNodeTable> get nodes {
     if (_nodes != null) return _nodes!;
-    var relationTable = _i1.createRelationTable(
+    var relationTable = _isd.createRelationTable(
       relationFieldName: 'nodes',
       field: CrdtScope.t.id,
-      foreignField: _i3.CrdtScopeNode.t.scopeId,
+      foreignField: _icw2tu00.CrdtScopeNode.t.scopeId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtScopeNodeTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtScopeNodeTable(tableRelation: foreignTableRelation),
     );
-    _nodes = _i1.ManyRelation<_i3.CrdtScopeNodeTable>(
+    _nodes = _isd.ManyRelation<_icw2tu00.CrdtScopeNodeTable>(
       tableWithRelations: relationTable,
-      table: _i3.CrdtScopeNodeTable(
+      table: _icw2tu00.CrdtScopeNodeTable(
         tableRelation: relationTable.tableRelation!.lastRelation,
       ),
     );
@@ -283,14 +284,14 @@ class CrdtScopeTable extends _i1.Table<int?> {
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     uuidScopeId,
     currentNodeId,
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'currentNode') {
       return currentNode;
     }
@@ -301,32 +302,32 @@ class CrdtScopeTable extends _i1.Table<int?> {
   }
 }
 
-class CrdtScopeInclude extends _i1.IncludeObject {
+class CrdtScopeInclude extends _isd.IncludeObject {
   CrdtScopeInclude._({
-    _i3.CrdtNodeInclude? currentNode,
-    _i3.CrdtScopeNodeIncludeList? nodes,
+    _icw2tu00.CrdtNodeInclude? currentNode,
+    _icw2tu00.CrdtScopeNodeIncludeList? nodes,
   }) {
     _currentNode = currentNode;
     _nodes = nodes;
   }
 
-  _i3.CrdtNodeInclude? _currentNode;
+  _icw2tu00.CrdtNodeInclude? _currentNode;
 
-  _i3.CrdtScopeNodeIncludeList? _nodes;
+  _icw2tu00.CrdtScopeNodeIncludeList? _nodes;
 
   @override
-  Map<String, _i1.Include?> get includes => {
+  Map<String, _isd.Include?> get includes => {
     'currentNode': _currentNode,
     'nodes': _nodes,
   };
 
   @override
-  _i1.Table<int?> get table => CrdtScope.t;
+  _isd.Table<int?> get table => CrdtScope.t;
 }
 
-class CrdtScopeIncludeList extends _i1.IncludeList {
+class CrdtScopeIncludeList extends _isd.IncludeList {
   CrdtScopeIncludeList._({
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? where,
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -337,10 +338,10 @@ class CrdtScopeIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<int?> get table => CrdtScope.t;
+  _isd.Table<int?> get table => CrdtScope.t;
 }
 
 class CrdtScopeRepository {
@@ -375,16 +376,16 @@ class CrdtScopeRepository {
   /// );
   /// ```
   Future<List<CrdtScope>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtScopeTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtScopeTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtScopeInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtScope>(
       where: where?.call(CrdtScope.t),
@@ -417,15 +418,15 @@ class CrdtScopeRepository {
   /// );
   /// ```
   Future<CrdtScope?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? where,
     int? offset,
-    _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtScopeTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtScopeTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtScopeInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtScope>(
       where: where?.call(CrdtScope.t),
@@ -441,12 +442,12 @@ class CrdtScopeRepository {
 
   /// Finds a single [CrdtScope] by its [id] or null if no such row exists.
   Future<CrdtScope?> findById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     CrdtScopeInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtScope>(
       id,
@@ -472,9 +473,9 @@ class CrdtScopeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtScope>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtScope> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -490,9 +491,9 @@ class CrdtScopeRepository {
   ///
   /// The returned [CrdtScope] will have its `id` field set.
   Future<CrdtScope> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtScope>(
       row,
@@ -521,12 +522,12 @@ class CrdtScopeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtScope>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtScope> rows, {
-    required _i1.ColumnSelections<CrdtScopeTable> conflictColumns,
-    _i1.ColumnSelections<CrdtScopeTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtScopeTable> conflictColumns,
+    _isd.ColumnSelections<CrdtScopeTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtScope>(
@@ -553,12 +554,12 @@ class CrdtScopeRepository {
   ///
   /// The returned [CrdtScope] will have its `id` field set.
   Future<CrdtScope?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope row, {
-    required _i1.ColumnSelections<CrdtScopeTable> conflictColumns,
-    _i1.ColumnSelections<CrdtScopeTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtScopeTable> conflictColumns,
+    _isd.ColumnSelections<CrdtScopeTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtScope>(
       row,
@@ -579,10 +580,10 @@ class CrdtScopeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtScope>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtScope> rows, {
-    _i1.ColumnSelections<CrdtScopeTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtScopeTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtScope>(
@@ -597,10 +598,10 @@ class CrdtScopeRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtScope> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope row, {
-    _i1.ColumnSelections<CrdtScopeTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtScopeTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtScope>(
       row,
@@ -612,10 +613,10 @@ class CrdtScopeRepository {
   /// Updates a single [CrdtScope] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtScope?> updateById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i1.ColumnValueListBuilder<CrdtScopeUpdateTable> columnValues,
-    _i1.Transaction? transaction,
+    required _isd.ColumnValueListBuilder<CrdtScopeUpdateTable> columnValues,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtScope>(
       id,
@@ -631,14 +632,14 @@ class CrdtScopeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtScope>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<CrdtScopeUpdateTable> columnValues,
-    required _i1.WhereExpressionBuilder<CrdtScopeTable> where,
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtScopeUpdateTable> columnValues,
+    required _isd.WhereExpressionBuilder<CrdtScopeTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtScopeTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtScopeTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtScope>(
@@ -665,11 +666,11 @@ class CrdtScopeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtScope>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtScope> rows, {
-    _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtScopeTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtScopeTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtScope>(
@@ -683,9 +684,9 @@ class CrdtScopeRepository {
 
   /// Deletes a single [CrdtScope].
   Future<CrdtScope> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtScope>(
       row,
@@ -702,11 +703,11 @@ class CrdtScopeRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtScope>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtScopeTable> where,
-    _i1.OrderByBuilder<CrdtScopeTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtScopeTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtScopeTable> where,
+    _isd.OrderByBuilder<CrdtScopeTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtScopeTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtScope>(
@@ -721,10 +722,10 @@ class CrdtScopeRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtScopeTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtScopeTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtScope>(
       where: where?.call(CrdtScope.t),
@@ -735,11 +736,11 @@ class CrdtScopeRepository {
 
   /// Acquires row-level locks on [CrdtScope] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtScopeTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtScopeTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtScope>(
       where: where(CrdtScope.t),
@@ -756,10 +757,10 @@ class CrdtScopeAttachRepository {
   /// Creates a relation between this [CrdtScope] and the given [CrdtScopeNode]s
   /// by setting each [CrdtScopeNode]'s foreign key `scopeId` to refer to this [CrdtScope].
   Future<void> nodes(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope crdtScope,
-    List<_i3.CrdtScopeNode> crdtScopeNode, {
-    _i1.Transaction? transaction,
+    List<_icw2tu00.CrdtScopeNode> crdtScopeNode, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtScopeNode.any((e) => e.id == null)) {
       throw ArgumentError.notNull('crdtScopeNode.id');
@@ -771,9 +772,9 @@ class CrdtScopeAttachRepository {
     var $crdtScopeNode = crdtScopeNode
         .map((e) => e.copyWith(scopeId: crdtScope.id))
         .toList();
-    await session.db.update<_i3.CrdtScopeNode>(
+    await session.db.update<_icw2tu00.CrdtScopeNode>(
       $crdtScopeNode,
-      columns: [_i3.CrdtScopeNode.t.scopeId],
+      columns: [_icw2tu00.CrdtScopeNode.t.scopeId],
       transaction: transaction,
     );
   }
@@ -785,10 +786,10 @@ class CrdtScopeAttachRowRepository {
   /// Creates a relation between the given [CrdtScope] and [CrdtNode]
   /// by setting the [CrdtScope]'s foreign key `currentNodeId` to refer to the [CrdtNode].
   Future<void> currentNode(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope crdtScope,
-    _i3.CrdtNode currentNode, {
-    _i1.Transaction? transaction,
+    _icw2tu00.CrdtNode currentNode, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtScope.id == null) {
       throw ArgumentError.notNull('crdtScope.id');
@@ -808,10 +809,10 @@ class CrdtScopeAttachRowRepository {
   /// Creates a relation between this [CrdtScope] and the given [CrdtScopeNode]
   /// by setting the [CrdtScopeNode]'s foreign key `scopeId` to refer to this [CrdtScope].
   Future<void> nodes(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope crdtScope,
-    _i3.CrdtScopeNode crdtScopeNode, {
-    _i1.Transaction? transaction,
+    _icw2tu00.CrdtScopeNode crdtScopeNode, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtScopeNode.id == null) {
       throw ArgumentError.notNull('crdtScopeNode.id');
@@ -821,9 +822,9 @@ class CrdtScopeAttachRowRepository {
     }
 
     var $crdtScopeNode = crdtScopeNode.copyWith(scopeId: crdtScope.id);
-    await session.db.updateRow<_i3.CrdtScopeNode>(
+    await session.db.updateRow<_icw2tu00.CrdtScopeNode>(
       $crdtScopeNode,
-      columns: [_i3.CrdtScopeNode.t.scopeId],
+      columns: [_icw2tu00.CrdtScopeNode.t.scopeId],
       transaction: transaction,
     );
   }
@@ -838,9 +839,9 @@ class CrdtScopeDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> currentNode(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtScope crdtScope, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     if (crdtScope.id == null) {
       throw ArgumentError.notNull('crdtScope.id');

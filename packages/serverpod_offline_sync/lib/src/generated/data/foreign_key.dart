@@ -11,9 +11,10 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT field foreign key value and projection table.
 ///
@@ -26,7 +27,7 @@ import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
 /// materialized into the domain row; they do not decide business semantics or
 /// create user field updates during merge.
 abstract class CrdtDataForeignKey
-    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtDataForeignKey._({
     this.id,
     this.field,
@@ -38,11 +39,11 @@ abstract class CrdtDataForeignKey
 
   factory CrdtDataForeignKey({
     int? id,
-    _i3.CrdtDataField? field,
+    _icw2tu00.CrdtDataField? field,
     required int fieldId,
-    required _i2.UuidValue? attemptedValue,
-    _i2.UuidValue? visibleValue,
-    _i3.CrdtForeignKeyOverrideReason? overrideReason,
+    required _iss.UuidValue? attemptedValue,
+    _iss.UuidValue? visibleValue,
+    _icw2tu00.CrdtForeignKeyOverrideReason? overrideReason,
   }) = _CrdtDataForeignKeyImpl;
 
   factory CrdtDataForeignKey.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -50,23 +51,23 @@ abstract class CrdtDataForeignKey
       id: jsonSerialization['id'] as int?,
       field: jsonSerialization['field'] == null
           ? null
-          : _i3.Protocol().deserialize<_i3.CrdtDataField>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataField>(
               jsonSerialization['field'],
             ),
       fieldId: jsonSerialization['fieldId'] as int,
       attemptedValue: jsonSerialization['attemptedValue'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _iss.UuidValueJsonExtension.fromJson(
               jsonSerialization['attemptedValue'],
             ),
       visibleValue: jsonSerialization['visibleValue'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _iss.UuidValueJsonExtension.fromJson(
               jsonSerialization['visibleValue'],
             ),
       overrideReason: jsonSerialization['overrideReason'] == null
           ? null
-          : _i3.CrdtForeignKeyOverrideReason.fromJson(
+          : _icw2tu00.CrdtForeignKeyOverrideReason.fromJson(
               (jsonSerialization['overrideReason'] as int),
             ),
     );
@@ -80,7 +81,7 @@ abstract class CrdtDataForeignKey
   int? id;
 
   /// The field that the foreign key belongs to.
-  _i3.CrdtDataField? field;
+  _icw2tu00.CrdtDataField? field;
 
   int fieldId;
 
@@ -88,11 +89,11 @@ abstract class CrdtDataForeignKey
   ///
   /// This may be null for nullable foreign keys. This is durable FK field-value
   /// storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
-  _i2.UuidValue? attemptedValue;
+  _iss.UuidValue? attemptedValue;
 
   /// The foreign key value that is currently visible in the actual data row
   /// when an override is active (overrideReason is non-null).
-  _i2.UuidValue? visibleValue;
+  _iss.UuidValue? visibleValue;
 
   /// The authoritative indicator and reason for an active projection override.
   ///
@@ -100,21 +101,21 @@ abstract class CrdtDataForeignKey
   /// non-null means an override is active; null means no override. It also
   /// names the cause of the override. The FK resolver recomputes it from merged
   /// row, field, and tombstone facts.
-  _i3.CrdtForeignKeyOverrideReason? overrideReason;
+  _icw2tu00.CrdtForeignKeyOverrideReason? overrideReason;
 
   @override
-  _i1.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtDataForeignKey]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtDataForeignKey copyWith({
     int? id,
-    _i3.CrdtDataField? field,
+    _icw2tu00.CrdtDataField? field,
     int? fieldId,
-    _i2.UuidValue? attemptedValue,
-    _i2.UuidValue? visibleValue,
-    _i3.CrdtForeignKeyOverrideReason? overrideReason,
+    _iss.UuidValue? attemptedValue,
+    _iss.UuidValue? visibleValue,
+    _icw2tu00.CrdtForeignKeyOverrideReason? overrideReason,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -142,16 +143,18 @@ abstract class CrdtDataForeignKey
     };
   }
 
-  static CrdtDataForeignKeyInclude include({_i3.CrdtDataFieldInclude? field}) {
+  static CrdtDataForeignKeyInclude include({
+    _icw2tu00.CrdtDataFieldInclude? field,
+  }) {
     return CrdtDataForeignKeyInclude._(field: field);
   }
 
   static CrdtDataForeignKeyIncludeList includeList({
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
+    _isd.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
     CrdtDataForeignKeyInclude? include,
   }) {
     return CrdtDataForeignKeyIncludeList._(
@@ -166,7 +169,7 @@ abstract class CrdtDataForeignKey
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -175,11 +178,11 @@ class _Undefined {}
 class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
   _CrdtDataForeignKeyImpl({
     int? id,
-    _i3.CrdtDataField? field,
+    _icw2tu00.CrdtDataField? field,
     required int fieldId,
-    required _i2.UuidValue? attemptedValue,
-    _i2.UuidValue? visibleValue,
-    _i3.CrdtForeignKeyOverrideReason? overrideReason,
+    required _iss.UuidValue? attemptedValue,
+    _iss.UuidValue? visibleValue,
+    _icw2tu00.CrdtForeignKeyOverrideReason? overrideReason,
   }) : super._(
          id: id,
          field: field,
@@ -191,7 +194,7 @@ class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
 
   /// Returns a shallow copy of this [CrdtDataForeignKey]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtDataForeignKey copyWith({
     Object? id = _Undefined,
@@ -203,15 +206,15 @@ class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
   }) {
     return CrdtDataForeignKey(
       id: id is int? ? id : this.id,
-      field: field is _i3.CrdtDataField? ? field : this.field?.copyWith(),
+      field: field is _icw2tu00.CrdtDataField? ? field : this.field?.copyWith(),
       fieldId: fieldId ?? this.fieldId,
-      attemptedValue: attemptedValue is _i2.UuidValue?
+      attemptedValue: attemptedValue is _iss.UuidValue?
           ? attemptedValue
           : this.attemptedValue,
-      visibleValue: visibleValue is _i2.UuidValue?
+      visibleValue: visibleValue is _iss.UuidValue?
           ? visibleValue
           : this.visibleValue,
-      overrideReason: overrideReason is _i3.CrdtForeignKeyOverrideReason?
+      overrideReason: overrideReason is _icw2tu00.CrdtForeignKeyOverrideReason?
           ? overrideReason
           : this.overrideReason,
     );
@@ -219,77 +222,78 @@ class _CrdtDataForeignKeyImpl extends CrdtDataForeignKey {
 }
 
 class CrdtDataForeignKeyUpdateTable
-    extends _i1.UpdateTable<CrdtDataForeignKeyTable> {
+    extends _isd.UpdateTable<CrdtDataForeignKeyTable> {
   CrdtDataForeignKeyUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> fieldId(int value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> fieldId(int value) => _isd.ColumnValue(
     table.fieldId,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> attemptedValue(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> attemptedValue(
+    _iss.UuidValue? value,
+  ) => _isd.ColumnValue(
     table.attemptedValue,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> visibleValue(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> visibleValue(
+    _iss.UuidValue? value,
+  ) => _isd.ColumnValue(
     table.visibleValue,
     value,
   );
 
-  _i1.ColumnValue<
-    _i3.CrdtForeignKeyOverrideReason,
-    _i3.CrdtForeignKeyOverrideReason
+  _isd.ColumnValue<
+    _icw2tu00.CrdtForeignKeyOverrideReason,
+    _icw2tu00.CrdtForeignKeyOverrideReason
   >
-  overrideReason(_i3.CrdtForeignKeyOverrideReason? value) => _i1.ColumnValue(
-    table.overrideReason,
-    value,
-  );
+  overrideReason(_icw2tu00.CrdtForeignKeyOverrideReason? value) =>
+      _isd.ColumnValue(
+        table.overrideReason,
+        value,
+      );
 }
 
-class CrdtDataForeignKeyTable extends _i1.Table<int?> {
+class CrdtDataForeignKeyTable extends _isd.Table<int?> {
   CrdtDataForeignKeyTable({super.tableRelation})
     : super(tableName: 'crdt_data_foreign_key') {
     updateTable = CrdtDataForeignKeyUpdateTable(this);
-    fieldId = _i1.ColumnInt(
+    fieldId = _isd.ColumnInt(
       'fieldId',
       this,
     );
-    attemptedValue = _i1.ColumnUuid(
+    attemptedValue = _isd.ColumnUuid(
       'attemptedValue',
       this,
     );
-    visibleValue = _i1.ColumnUuid(
+    visibleValue = _isd.ColumnUuid(
       'visibleValue',
       this,
     );
-    overrideReason = _i1.ColumnEnum(
+    overrideReason = _isd.ColumnEnum(
       'overrideReason',
       this,
-      _i1.EnumSerialization.byIndex,
+      _isd.EnumSerialization.byIndex,
     );
   }
 
   late final CrdtDataForeignKeyUpdateTable updateTable;
 
   /// The field that the foreign key belongs to.
-  _i3.CrdtDataFieldTable? _field;
+  _icw2tu00.CrdtDataFieldTable? _field;
 
-  late final _i1.ColumnInt fieldId;
+  late final _isd.ColumnInt fieldId;
 
   /// The user-attempted foreign key value that the CRDT field currently carries.
   ///
   /// This may be null for nullable foreign keys. This is durable FK field-value
   /// storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
-  late final _i1.ColumnUuid attemptedValue;
+  late final _isd.ColumnUuid attemptedValue;
 
   /// The foreign key value that is currently visible in the actual data row
   /// when an override is active (overrideReason is non-null).
-  late final _i1.ColumnUuid visibleValue;
+  late final _isd.ColumnUuid visibleValue;
 
   /// The authoritative indicator and reason for an active projection override.
   ///
@@ -297,23 +301,24 @@ class CrdtDataForeignKeyTable extends _i1.Table<int?> {
   /// non-null means an override is active; null means no override. It also
   /// names the cause of the override. The FK resolver recomputes it from merged
   /// row, field, and tombstone facts.
-  late final _i1.ColumnEnum<_i3.CrdtForeignKeyOverrideReason> overrideReason;
+  late final _isd.ColumnEnum<_icw2tu00.CrdtForeignKeyOverrideReason>
+  overrideReason;
 
-  _i3.CrdtDataFieldTable get field {
+  _icw2tu00.CrdtDataFieldTable get field {
     if (_field != null) return _field!;
-    _field = _i1.createRelationTable(
+    _field = _isd.createRelationTable(
       relationFieldName: 'field',
       field: CrdtDataForeignKey.t.fieldId,
-      foreignField: _i3.CrdtDataField.t.id,
+      foreignField: _icw2tu00.CrdtDataField.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtDataFieldTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtDataFieldTable(tableRelation: foreignTableRelation),
     );
     return _field!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     fieldId,
     attemptedValue,
@@ -322,7 +327,7 @@ class CrdtDataForeignKeyTable extends _i1.Table<int?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'field') {
       return field;
     }
@@ -330,23 +335,23 @@ class CrdtDataForeignKeyTable extends _i1.Table<int?> {
   }
 }
 
-class CrdtDataForeignKeyInclude extends _i1.IncludeObject {
-  CrdtDataForeignKeyInclude._({_i3.CrdtDataFieldInclude? field}) {
+class CrdtDataForeignKeyInclude extends _isd.IncludeObject {
+  CrdtDataForeignKeyInclude._({_icw2tu00.CrdtDataFieldInclude? field}) {
     _field = field;
   }
 
-  _i3.CrdtDataFieldInclude? _field;
+  _icw2tu00.CrdtDataFieldInclude? _field;
 
   @override
-  Map<String, _i1.Include?> get includes => {'field': _field};
+  Map<String, _isd.Include?> get includes => {'field': _field};
 
   @override
-  _i1.Table<int?> get table => CrdtDataForeignKey.t;
+  _isd.Table<int?> get table => CrdtDataForeignKey.t;
 }
 
-class CrdtDataForeignKeyIncludeList extends _i1.IncludeList {
+class CrdtDataForeignKeyIncludeList extends _isd.IncludeList {
   CrdtDataForeignKeyIncludeList._({
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -357,10 +362,10 @@ class CrdtDataForeignKeyIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<int?> get table => CrdtDataForeignKey.t;
+  _isd.Table<int?> get table => CrdtDataForeignKey.t;
 }
 
 class CrdtDataForeignKeyRepository {
@@ -391,16 +396,16 @@ class CrdtDataForeignKeyRepository {
   /// );
   /// ```
   Future<List<CrdtDataForeignKey>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtDataForeignKey>(
       where: where?.call(CrdtDataForeignKey.t),
@@ -433,15 +438,15 @@ class CrdtDataForeignKeyRepository {
   /// );
   /// ```
   Future<CrdtDataForeignKey?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     int? offset,
-    _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtDataForeignKey>(
       where: where?.call(CrdtDataForeignKey.t),
@@ -457,12 +462,12 @@ class CrdtDataForeignKeyRepository {
 
   /// Finds a single [CrdtDataForeignKey] by its [id] or null if no such row exists.
   Future<CrdtDataForeignKey?> findById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     CrdtDataForeignKeyInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtDataForeignKey>(
       id,
@@ -488,9 +493,9 @@ class CrdtDataForeignKeyRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataForeignKey>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataForeignKey> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -506,9 +511,9 @@ class CrdtDataForeignKeyRepository {
   ///
   /// The returned [CrdtDataForeignKey] will have its `id` field set.
   Future<CrdtDataForeignKey> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataForeignKey row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtDataForeignKey>(
       row,
@@ -537,12 +542,12 @@ class CrdtDataForeignKeyRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataForeignKey>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataForeignKey> rows, {
-    required _i1.ColumnSelections<CrdtDataForeignKeyTable> conflictColumns,
-    _i1.ColumnSelections<CrdtDataForeignKeyTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtDataForeignKeyTable> conflictColumns,
+    _isd.ColumnSelections<CrdtDataForeignKeyTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtDataForeignKey>(
@@ -569,12 +574,12 @@ class CrdtDataForeignKeyRepository {
   ///
   /// The returned [CrdtDataForeignKey] will have its `id` field set.
   Future<CrdtDataForeignKey?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataForeignKey row, {
-    required _i1.ColumnSelections<CrdtDataForeignKeyTable> conflictColumns,
-    _i1.ColumnSelections<CrdtDataForeignKeyTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtDataForeignKeyTable> conflictColumns,
+    _isd.ColumnSelections<CrdtDataForeignKeyTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtDataForeignKey>(
       row,
@@ -595,10 +600,10 @@ class CrdtDataForeignKeyRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataForeignKey>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataForeignKey> rows, {
-    _i1.ColumnSelections<CrdtDataForeignKeyTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtDataForeignKeyTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtDataForeignKey>(
@@ -613,10 +618,10 @@ class CrdtDataForeignKeyRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtDataForeignKey> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataForeignKey row, {
-    _i1.ColumnSelections<CrdtDataForeignKeyTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtDataForeignKeyTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtDataForeignKey>(
       row,
@@ -628,11 +633,11 @@ class CrdtDataForeignKeyRepository {
   /// Updates a single [CrdtDataForeignKey] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtDataForeignKey?> updateById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i1.ColumnValueListBuilder<CrdtDataForeignKeyUpdateTable>
+    required _isd.ColumnValueListBuilder<CrdtDataForeignKeyUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtDataForeignKey>(
       id,
@@ -648,15 +653,15 @@ class CrdtDataForeignKeyRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataForeignKey>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<CrdtDataForeignKeyUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtDataForeignKeyUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
+    required _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtDataForeignKey>(
@@ -683,11 +688,11 @@ class CrdtDataForeignKeyRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataForeignKey>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataForeignKey> rows, {
-    _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtDataForeignKey>(
@@ -701,9 +706,9 @@ class CrdtDataForeignKeyRepository {
 
   /// Deletes a single [CrdtDataForeignKey].
   Future<CrdtDataForeignKey> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataForeignKey row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtDataForeignKey>(
       row,
@@ -720,11 +725,11 @@ class CrdtDataForeignKeyRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataForeignKey>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
-    _i1.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
+    _isd.OrderByBuilder<CrdtDataForeignKeyTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataForeignKeyTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtDataForeignKey>(
@@ -739,10 +744,10 @@ class CrdtDataForeignKeyRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtDataForeignKey>(
       where: where?.call(CrdtDataForeignKey.t),
@@ -753,11 +758,11 @@ class CrdtDataForeignKeyRepository {
 
   /// Acquires row-level locks on [CrdtDataForeignKey] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtDataForeignKeyTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtDataForeignKey>(
       where: where(CrdtDataForeignKey.t),
@@ -774,10 +779,10 @@ class CrdtDataForeignKeyAttachRowRepository {
   /// Creates a relation between the given [CrdtDataForeignKey] and [CrdtDataField]
   /// by setting the [CrdtDataForeignKey]'s foreign key `fieldId` to refer to the [CrdtDataField].
   Future<void> field(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataForeignKey crdtDataForeignKey,
-    _i3.CrdtDataField field, {
-    _i1.Transaction? transaction,
+    _icw2tu00.CrdtDataField field, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtDataForeignKey.id == null) {
       throw ArgumentError.notNull('crdtDataForeignKey.id');

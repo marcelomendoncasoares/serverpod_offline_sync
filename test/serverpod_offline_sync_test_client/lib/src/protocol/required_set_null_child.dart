@@ -11,14 +11,14 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
-import 'person.dart' as _i3;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
-    as _i4;
+    as _imkb9kra;
+import 'person.dart' as _iensfz4m;
 
 abstract class RequiredSetNullChild
-    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   RequiredSetNullChild._({
     this.id,
     this.scopeId,
@@ -28,11 +28,11 @@ abstract class RequiredSetNullChild
   });
 
   factory RequiredSetNullChild({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _i3.Person? parent,
-    required _i2.UuidValue parentId,
+    _iensfz4m.Person? parent,
+    required _isc.UuidValue parentId,
   }) = _RequiredSetNullChildImpl;
 
   factory RequiredSetNullChild.fromJson(
@@ -41,13 +41,15 @@ abstract class RequiredSetNullChild
     return RequiredSetNullChild(
       id: jsonSerialization['id'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       parent: jsonSerialization['parent'] == null
           ? null
-          : _i4.Protocol().deserialize<_i3.Person>(jsonSerialization['parent']),
-      parentId: _i2.UuidValueJsonExtension.fromJson(
+          : _imkb9kra.Protocol().deserialize<_iensfz4m.Person>(
+              jsonSerialization['parent'],
+            ),
+      parentId: _isc.UuidValueJsonExtension.fromJson(
         jsonSerialization['parentId'],
       ),
     );
@@ -58,29 +60,29 @@ abstract class RequiredSetNullChild
   static const db = RequiredSetNullChildRepository._();
 
   @override
-  _i2.UuidValue? id;
+  _isc.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
 
   String name;
 
-  _i3.Person? parent;
+  _iensfz4m.Person? parent;
 
-  _i2.UuidValue parentId;
+  _isc.UuidValue parentId;
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => t;
+  _isd.Table<_isc.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [RequiredSetNullChild]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   RequiredSetNullChild copyWith({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     String? name,
-    _i3.Person? parent,
-    _i2.UuidValue? parentId,
+    _iensfz4m.Person? parent,
+    _isc.UuidValue? parentId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -106,16 +108,18 @@ abstract class RequiredSetNullChild
     };
   }
 
-  static RequiredSetNullChildInclude include({_i3.PersonInclude? parent}) {
+  static RequiredSetNullChildInclude include({
+    _iensfz4m.PersonInclude? parent,
+  }) {
     return RequiredSetNullChildInclude._(parent: parent);
   }
 
   static RequiredSetNullChildIncludeList includeList({
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
+    _isd.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
     RequiredSetNullChildInclude? include,
   }) {
     return RequiredSetNullChildIncludeList._(
@@ -130,7 +134,7 @@ abstract class RequiredSetNullChild
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _isc.SerializationManager.encode(this);
   }
 }
 
@@ -138,11 +142,11 @@ class _Undefined {}
 
 class _RequiredSetNullChildImpl extends RequiredSetNullChild {
   _RequiredSetNullChildImpl({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _i3.Person? parent,
-    required _i2.UuidValue parentId,
+    _iensfz4m.Person? parent,
+    required _isc.UuidValue parentId,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -153,59 +157,60 @@ class _RequiredSetNullChildImpl extends RequiredSetNullChild {
 
   /// Returns a shallow copy of this [RequiredSetNullChild]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   @override
   RequiredSetNullChild copyWith({
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
     Object? parent = _Undefined,
-    _i2.UuidValue? parentId,
+    _isc.UuidValue? parentId,
   }) {
     return RequiredSetNullChild(
-      id: id is _i2.UuidValue? ? id : this.id,
+      id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      parent: parent is _i3.Person? ? parent : this.parent?.copyWith(),
+      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
       parentId: parentId ?? this.parentId,
     );
   }
 }
 
 class RequiredSetNullChildUpdateTable
-    extends _i1.UpdateTable<RequiredSetNullChildTable> {
+    extends _isd.UpdateTable<RequiredSetNullChildTable> {
   RequiredSetNullChildUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> name(String value) => _isd.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> parentId(_i2.UuidValue value) =>
-      _i1.ColumnValue(
-        table.parentId,
-        value,
-      );
+  _isd.ColumnValue<_isc.UuidValue, _isc.UuidValue> parentId(
+    _isc.UuidValue value,
+  ) => _isd.ColumnValue(
+    table.parentId,
+    value,
+  );
 }
 
-class RequiredSetNullChildTable extends _i1.Table<_i2.UuidValue?> {
+class RequiredSetNullChildTable extends _isd.Table<_isc.UuidValue?> {
   RequiredSetNullChildTable({super.tableRelation})
     : super(tableName: 'required_set_null_child') {
     updateTable = RequiredSetNullChildUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _isd.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _isd.ColumnString(
       'name',
       this,
     );
-    parentId = _i1.ColumnUuid(
+    parentId = _isd.ColumnUuid(
       'parentId',
       this,
     );
@@ -214,29 +219,29 @@ class RequiredSetNullChildTable extends _i1.Table<_i2.UuidValue?> {
   late final RequiredSetNullChildUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _isd.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _isd.ColumnString name;
 
-  _i3.PersonTable? _parent;
+  _iensfz4m.PersonTable? _parent;
 
-  late final _i1.ColumnUuid parentId;
+  late final _isd.ColumnUuid parentId;
 
-  _i3.PersonTable get parent {
+  _iensfz4m.PersonTable get parent {
     if (_parent != null) return _parent!;
-    _parent = _i1.createRelationTable(
+    _parent = _isd.createRelationTable(
       relationFieldName: 'parent',
       field: RequiredSetNullChild.t.parentId,
-      foreignField: _i3.Person.t.id,
+      foreignField: _iensfz4m.Person.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.PersonTable(tableRelation: foreignTableRelation),
+          _iensfz4m.PersonTable(tableRelation: foreignTableRelation),
     );
     return _parent!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     scopeId,
     name,
@@ -244,7 +249,7 @@ class RequiredSetNullChildTable extends _i1.Table<_i2.UuidValue?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'parent') {
       return parent;
     }
@@ -252,23 +257,23 @@ class RequiredSetNullChildTable extends _i1.Table<_i2.UuidValue?> {
   }
 }
 
-class RequiredSetNullChildInclude extends _i1.IncludeObject {
-  RequiredSetNullChildInclude._({_i3.PersonInclude? parent}) {
+class RequiredSetNullChildInclude extends _isd.IncludeObject {
+  RequiredSetNullChildInclude._({_iensfz4m.PersonInclude? parent}) {
     _parent = parent;
   }
 
-  _i3.PersonInclude? _parent;
+  _iensfz4m.PersonInclude? _parent;
 
   @override
-  Map<String, _i1.Include?> get includes => {'parent': _parent};
+  Map<String, _isd.Include?> get includes => {'parent': _parent};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => RequiredSetNullChild.t;
+  _isd.Table<_isc.UuidValue?> get table => RequiredSetNullChild.t;
 }
 
-class RequiredSetNullChildIncludeList extends _i1.IncludeList {
+class RequiredSetNullChildIncludeList extends _isd.IncludeList {
   RequiredSetNullChildIncludeList._({
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -279,10 +284,10 @@ class RequiredSetNullChildIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => RequiredSetNullChild.t;
+  _isd.Table<_isc.UuidValue?> get table => RequiredSetNullChild.t;
 }
 
 class RequiredSetNullChildRepository {
@@ -313,16 +318,16 @@ class RequiredSetNullChildRepository {
   /// );
   /// ```
   Future<List<RequiredSetNullChild>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
+    _isd.Transaction? transaction,
     RequiredSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<RequiredSetNullChild>(
       where: where?.call(RequiredSetNullChild.t),
@@ -355,15 +360,15 @@ class RequiredSetNullChildRepository {
   /// );
   /// ```
   Future<RequiredSetNullChild?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
     int? offset,
-    _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
+    _isd.Transaction? transaction,
     RequiredSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<RequiredSetNullChild>(
       where: where?.call(RequiredSetNullChild.t),
@@ -379,12 +384,12 @@ class RequiredSetNullChildRepository {
 
   /// Finds a single [RequiredSetNullChild] by its [id] or null if no such row exists.
   Future<RequiredSetNullChild?> findById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    _isd.Transaction? transaction,
     RequiredSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<RequiredSetNullChild>(
       id,
@@ -410,9 +415,9 @@ class RequiredSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<RequiredSetNullChild>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<RequiredSetNullChild> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -428,9 +433,9 @@ class RequiredSetNullChildRepository {
   ///
   /// The returned [RequiredSetNullChild] will have its `id` field set.
   Future<RequiredSetNullChild> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     RequiredSetNullChild row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<RequiredSetNullChild>(
       row,
@@ -459,12 +464,12 @@ class RequiredSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<RequiredSetNullChild>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<RequiredSetNullChild> rows, {
-    required _i1.ColumnSelections<RequiredSetNullChildTable> conflictColumns,
-    _i1.ColumnSelections<RequiredSetNullChildTable>? updateColumns,
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<RequiredSetNullChildTable> conflictColumns,
+    _isd.ColumnSelections<RequiredSetNullChildTable>? updateColumns,
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<RequiredSetNullChild>(
@@ -491,12 +496,12 @@ class RequiredSetNullChildRepository {
   ///
   /// The returned [RequiredSetNullChild] will have its `id` field set.
   Future<RequiredSetNullChild?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     RequiredSetNullChild row, {
-    required _i1.ColumnSelections<RequiredSetNullChildTable> conflictColumns,
-    _i1.ColumnSelections<RequiredSetNullChildTable>? updateColumns,
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<RequiredSetNullChildTable> conflictColumns,
+    _isd.ColumnSelections<RequiredSetNullChildTable>? updateColumns,
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<RequiredSetNullChild>(
       row,
@@ -517,10 +522,10 @@ class RequiredSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<RequiredSetNullChild>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<RequiredSetNullChild> rows, {
-    _i1.ColumnSelections<RequiredSetNullChildTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<RequiredSetNullChildTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<RequiredSetNullChild>(
@@ -535,10 +540,10 @@ class RequiredSetNullChildRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<RequiredSetNullChild> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     RequiredSetNullChild row, {
-    _i1.ColumnSelections<RequiredSetNullChildTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<RequiredSetNullChildTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<RequiredSetNullChild>(
       row,
@@ -550,11 +555,11 @@ class RequiredSetNullChildRepository {
   /// Updates a single [RequiredSetNullChild] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<RequiredSetNullChild?> updateById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    required _i1.ColumnValueListBuilder<RequiredSetNullChildUpdateTable>
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    required _isd.ColumnValueListBuilder<RequiredSetNullChildUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<RequiredSetNullChild>(
       id,
@@ -570,15 +575,15 @@ class RequiredSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<RequiredSetNullChild>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<RequiredSetNullChildUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<RequiredSetNullChildUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<RequiredSetNullChildTable> where,
+    required _isd.WhereExpressionBuilder<RequiredSetNullChildTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<RequiredSetNullChild>(
@@ -605,11 +610,11 @@ class RequiredSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<RequiredSetNullChild>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<RequiredSetNullChild> rows, {
-    _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<RequiredSetNullChild>(
@@ -623,9 +628,9 @@ class RequiredSetNullChildRepository {
 
   /// Deletes a single [RequiredSetNullChild].
   Future<RequiredSetNullChild> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     RequiredSetNullChild row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<RequiredSetNullChild>(
       row,
@@ -642,11 +647,11 @@ class RequiredSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<RequiredSetNullChild>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<RequiredSetNullChildTable> where,
-    _i1.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<RequiredSetNullChildTable> where,
+    _isd.OrderByBuilder<RequiredSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<RequiredSetNullChildTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<RequiredSetNullChild>(
@@ -661,10 +666,10 @@ class RequiredSetNullChildRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<RequiredSetNullChildTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<RequiredSetNullChild>(
       where: where?.call(RequiredSetNullChild.t),
@@ -675,11 +680,11 @@ class RequiredSetNullChildRepository {
 
   /// Acquires row-level locks on [RequiredSetNullChild] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<RequiredSetNullChildTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<RequiredSetNullChildTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<RequiredSetNullChild>(
       where: where(RequiredSetNullChild.t),
@@ -696,10 +701,10 @@ class RequiredSetNullChildAttachRowRepository {
   /// Creates a relation between the given [RequiredSetNullChild] and [Person]
   /// by setting the [RequiredSetNullChild]'s foreign key `parentId` to refer to the [Person].
   Future<void> parent(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     RequiredSetNullChild requiredSetNullChild,
-    _i3.Person parent, {
-    _i1.Transaction? transaction,
+    _iensfz4m.Person parent, {
+    _isd.Transaction? transaction,
   }) async {
     if (requiredSetNullChild.id == null) {
       throw ArgumentError.notNull('requiredSetNullChild.id');

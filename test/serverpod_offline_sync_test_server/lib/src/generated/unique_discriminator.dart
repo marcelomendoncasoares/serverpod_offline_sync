@@ -10,10 +10,10 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
+import 'package:serverpod/serverpod.dart' as _is;
 
 abstract class UniqueDiscriminator
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueDiscriminator._({
     this.id,
     this.scopeId,
@@ -22,7 +22,7 @@ abstract class UniqueDiscriminator
   });
 
   factory UniqueDiscriminator({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required int categoryId,
     required String name,
@@ -32,7 +32,7 @@ abstract class UniqueDiscriminator
     return UniqueDiscriminator(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       categoryId: jsonSerialization['categoryId'] as int,
       name: jsonSerialization['name'] as String,
@@ -44,7 +44,7 @@ abstract class UniqueDiscriminator
   static const db = UniqueDiscriminatorRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -54,13 +54,13 @@ abstract class UniqueDiscriminator
   String name;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [UniqueDiscriminator]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   UniqueDiscriminator copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     int? categoryId,
     String? name,
@@ -92,11 +92,11 @@ abstract class UniqueDiscriminator
   }
 
   static UniqueDiscriminatorIncludeList includeList({
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
+    _is.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
+    _is.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
     UniqueDiscriminatorInclude? include,
   }) {
     return UniqueDiscriminatorIncludeList._(
@@ -111,7 +111,7 @@ abstract class UniqueDiscriminator
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -119,7 +119,7 @@ class _Undefined {}
 
 class _UniqueDiscriminatorImpl extends UniqueDiscriminator {
   _UniqueDiscriminatorImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required int categoryId,
     required String name,
@@ -132,7 +132,7 @@ class _UniqueDiscriminatorImpl extends UniqueDiscriminator {
 
   /// Returns a shallow copy of this [UniqueDiscriminator]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   UniqueDiscriminator copyWith({
     Object? id = _Undefined,
@@ -141,7 +141,7 @@ class _UniqueDiscriminatorImpl extends UniqueDiscriminator {
     String? name,
   }) {
     return UniqueDiscriminator(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       categoryId: categoryId ?? this.categoryId,
       name: name ?? this.name,
@@ -150,38 +150,38 @@ class _UniqueDiscriminatorImpl extends UniqueDiscriminator {
 }
 
 class UniqueDiscriminatorUpdateTable
-    extends _i1.UpdateTable<UniqueDiscriminatorTable> {
+    extends _is.UpdateTable<UniqueDiscriminatorTable> {
   UniqueDiscriminatorUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<int, int> categoryId(int value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> categoryId(int value) => _is.ColumnValue(
     table.categoryId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 }
 
-class UniqueDiscriminatorTable extends _i1.Table<_i1.UuidValue?> {
+class UniqueDiscriminatorTable extends _is.Table<_is.UuidValue?> {
   UniqueDiscriminatorTable({super.tableRelation})
     : super(tableName: 'unique_discriminator') {
     updateTable = UniqueDiscriminatorUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    categoryId = _i1.ColumnInt(
+    categoryId = _is.ColumnInt(
       'categoryId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
@@ -190,14 +190,14 @@ class UniqueDiscriminatorTable extends _i1.Table<_i1.UuidValue?> {
   late final UniqueDiscriminatorUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnInt categoryId;
+  late final _is.ColumnInt categoryId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     categoryId,
@@ -205,19 +205,19 @@ class UniqueDiscriminatorTable extends _i1.Table<_i1.UuidValue?> {
   ];
 }
 
-class UniqueDiscriminatorInclude extends _i1.IncludeObject {
+class UniqueDiscriminatorInclude extends _is.IncludeObject {
   UniqueDiscriminatorInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _is.Include?> get includes => {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => UniqueDiscriminator.t;
+  _is.Table<_is.UuidValue?> get table => UniqueDiscriminator.t;
 }
 
-class UniqueDiscriminatorIncludeList extends _i1.IncludeList {
+class UniqueDiscriminatorIncludeList extends _is.IncludeList {
   UniqueDiscriminatorIncludeList._({
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -228,10 +228,10 @@ class UniqueDiscriminatorIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => UniqueDiscriminator.t;
+  _is.Table<_is.UuidValue?> get table => UniqueDiscriminator.t;
 }
 
 class UniqueDiscriminatorRepository {
@@ -260,15 +260,15 @@ class UniqueDiscriminatorRepository {
   /// );
   /// ```
   Future<List<UniqueDiscriminator>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
+    _is.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<UniqueDiscriminator>(
       where: where?.call(UniqueDiscriminator.t),
@@ -300,14 +300,14 @@ class UniqueDiscriminatorRepository {
   /// );
   /// ```
   Future<UniqueDiscriminator?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
     int? offset,
-    _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
+    _is.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<UniqueDiscriminator>(
       where: where?.call(UniqueDiscriminator.t),
@@ -322,11 +322,11 @@ class UniqueDiscriminatorRepository {
 
   /// Finds a single [UniqueDiscriminator] by its [id] or null if no such row exists.
   Future<UniqueDiscriminator?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<UniqueDiscriminator>(
       id,
@@ -351,9 +351,9 @@ class UniqueDiscriminatorRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueDiscriminator>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueDiscriminator> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -369,9 +369,9 @@ class UniqueDiscriminatorRepository {
   ///
   /// The returned [UniqueDiscriminator] will have its `id` field set.
   Future<UniqueDiscriminator> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueDiscriminator row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<UniqueDiscriminator>(
       row,
@@ -400,12 +400,12 @@ class UniqueDiscriminatorRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueDiscriminator>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueDiscriminator> rows, {
-    required _i1.ColumnSelections<UniqueDiscriminatorTable> conflictColumns,
-    _i1.ColumnSelections<UniqueDiscriminatorTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<UniqueDiscriminatorTable> conflictColumns,
+    _is.ColumnSelections<UniqueDiscriminatorTable>? updateColumns,
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<UniqueDiscriminator>(
@@ -432,12 +432,12 @@ class UniqueDiscriminatorRepository {
   ///
   /// The returned [UniqueDiscriminator] will have its `id` field set.
   Future<UniqueDiscriminator?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueDiscriminator row, {
-    required _i1.ColumnSelections<UniqueDiscriminatorTable> conflictColumns,
-    _i1.ColumnSelections<UniqueDiscriminatorTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<UniqueDiscriminatorTable> conflictColumns,
+    _is.ColumnSelections<UniqueDiscriminatorTable>? updateColumns,
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<UniqueDiscriminator>(
       row,
@@ -458,10 +458,10 @@ class UniqueDiscriminatorRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueDiscriminator>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueDiscriminator> rows, {
-    _i1.ColumnSelections<UniqueDiscriminatorTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<UniqueDiscriminatorTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<UniqueDiscriminator>(
@@ -476,10 +476,10 @@ class UniqueDiscriminatorRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<UniqueDiscriminator> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueDiscriminator row, {
-    _i1.ColumnSelections<UniqueDiscriminatorTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<UniqueDiscriminatorTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<UniqueDiscriminator>(
       row,
@@ -491,11 +491,11 @@ class UniqueDiscriminatorRepository {
   /// Updates a single [UniqueDiscriminator] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<UniqueDiscriminator?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<UniqueDiscriminatorUpdateTable>
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<UniqueDiscriminatorUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<UniqueDiscriminator>(
       id,
@@ -511,15 +511,15 @@ class UniqueDiscriminatorRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueDiscriminator>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<UniqueDiscriminatorUpdateTable>
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<UniqueDiscriminatorUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
+    required _is.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
+    _is.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<UniqueDiscriminator>(
@@ -546,11 +546,11 @@ class UniqueDiscriminatorRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueDiscriminator>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueDiscriminator> rows, {
-    _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
+    _is.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<UniqueDiscriminator>(
@@ -564,9 +564,9 @@ class UniqueDiscriminatorRepository {
 
   /// Deletes a single [UniqueDiscriminator].
   Future<UniqueDiscriminator> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueDiscriminator row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<UniqueDiscriminator>(
       row,
@@ -583,11 +583,11 @@ class UniqueDiscriminatorRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueDiscriminator>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
-    _i1.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
+    _is.OrderByBuilder<UniqueDiscriminatorTable>? orderBy,
+    _is.OrderByListBuilder<UniqueDiscriminatorTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<UniqueDiscriminator>(
@@ -602,10 +602,10 @@ class UniqueDiscriminatorRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueDiscriminatorTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<UniqueDiscriminator>(
       where: where?.call(UniqueDiscriminator.t),
@@ -616,11 +616,11 @@ class UniqueDiscriminatorRepository {
 
   /// Acquires row-level locks on [UniqueDiscriminator] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<UniqueDiscriminatorTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<UniqueDiscriminator>(
       where: where(UniqueDiscriminator.t),

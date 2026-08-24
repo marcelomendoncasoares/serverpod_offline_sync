@@ -10,26 +10,27 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_client/serverpod_client.dart' as _i1;
-import 'dart:async' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'dart:async' as _ida;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
 
 /// Endpoint for CRDT-based offline-first synchronization.
 /// {@category Endpoint}
-class EndpointCrdtSync extends _i1.EndpointRef {
-  EndpointCrdtSync(_i1.EndpointCaller caller) : super(caller);
+class EndpointCrdtSync extends _isc.EndpointRef {
+  EndpointCrdtSync(_isc.EndpointCaller caller) : super(caller);
 
   @override
   String get name => 'serverpod_offline_sync.crdtSync';
 
   /// Opens a bidirectional CRDT sync session with the authenticated client.
-  _i2.Stream<_i3.CrdtSyncStreamEvent> sync({
-    required _i2.Stream<_i3.CrdtSyncStreamEvent> changes,
+  _ida.Stream<_icw2tu00.CrdtSyncStreamEvent> sync({
+    required _ida.Stream<_icw2tu00.CrdtSyncStreamEvent> changes,
     required bool once,
   }) =>
       caller.callStreamingServerEndpoint<
-        _i2.Stream<_i3.CrdtSyncStreamEvent>,
-        _i3.CrdtSyncStreamEvent
+        _ida.Stream<_icw2tu00.CrdtSyncStreamEvent>,
+        _icw2tu00.CrdtSyncStreamEvent
       >(
         'serverpod_offline_sync.crdtSync',
         'sync',
@@ -38,15 +39,15 @@ class EndpointCrdtSync extends _i1.EndpointRef {
       );
 }
 
-class Caller extends _i1.ModuleEndpointCaller {
-  Caller(_i1.ServerpodClientShared client) : super(client) {
+class Caller extends _isc.ModuleEndpointCaller {
+  Caller(_isc.ServerpodClientShared client) : super(client) {
     crdtSync = EndpointCrdtSync(this);
   }
 
   late final EndpointCrdtSync crdtSync;
 
   @override
-  Map<String, _i1.EndpointRef> get endpointRefLookup => {
+  Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'serverpod_offline_sync.crdtSync': crdtSync,
   };
 }

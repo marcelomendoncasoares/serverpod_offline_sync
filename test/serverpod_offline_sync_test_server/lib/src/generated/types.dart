@@ -10,12 +10,12 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import 'dart:typed_data' as _i2;
-import 'types_enum.dart' as _i3;
+import 'dart:typed_data' as _idt;
+import 'package:serverpod/serverpod.dart' as _is;
+import 'types_enum.dart' as _ire5m5mj;
 
 abstract class Types
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Types._({
     this.id,
     this.scopeId,
@@ -32,7 +32,7 @@ abstract class Types
   });
 
   factory Types({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required bool aBool,
     required DateTime aDateTime,
@@ -40,34 +40,34 @@ abstract class Types
     required int anInt,
     required BigInt anInt64,
     required double aReal,
-    required _i2.ByteData aBlob,
-    _i3.TypesEnum? anEnum,
+    required _idt.ByteData aBlob,
+    _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
-    _i1.UuidValue? optionalUuid,
+    _is.UuidValue? optionalUuid,
   }) = _TypesImpl;
 
   factory Types.fromJson(Map<String, dynamic> jsonSerialization) {
     return Types(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
-      aBool: _i1.BoolJsonExtension.fromJson(jsonSerialization['aBool']),
-      aDateTime: _i1.DateTimeJsonExtension.fromJson(
+      aBool: _is.BoolJsonExtension.fromJson(jsonSerialization['aBool']),
+      aDateTime: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['aDateTime'],
       ),
       aText: jsonSerialization['aText'] as String,
       anInt: jsonSerialization['anInt'] as int,
-      anInt64: _i1.BigIntJsonExtension.fromJson(jsonSerialization['anInt64']),
+      anInt64: _is.BigIntJsonExtension.fromJson(jsonSerialization['anInt64']),
       aReal: (jsonSerialization['aReal'] as num).toDouble(),
-      aBlob: _i1.ByteDataJsonExtension.fromJson(jsonSerialization['aBlob']),
+      aBlob: _is.ByteDataJsonExtension.fromJson(jsonSerialization['aBlob']),
       anEnum: jsonSerialization['anEnum'] == null
           ? null
-          : _i3.TypesEnum.fromJson((jsonSerialization['anEnum'] as int)),
+          : _ire5m5mj.TypesEnum.fromJson((jsonSerialization['anEnum'] as int)),
       optionalText: jsonSerialization['optionalText'] as String?,
       optionalUuid: jsonSerialization['optionalUuid'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(
+          : _is.UuidValueJsonExtension.fromJson(
               jsonSerialization['optionalUuid'],
             ),
     );
@@ -78,7 +78,7 @@ abstract class Types
   static const db = TypesRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -95,22 +95,22 @@ abstract class Types
 
   double aReal;
 
-  _i2.ByteData aBlob;
+  _idt.ByteData aBlob;
 
-  _i3.TypesEnum? anEnum;
+  _ire5m5mj.TypesEnum? anEnum;
 
   String? optionalText;
 
-  _i1.UuidValue? optionalUuid;
+  _is.UuidValue? optionalUuid;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [Types]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   Types copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     bool? aBool,
     DateTime? aDateTime,
@@ -118,10 +118,10 @@ abstract class Types
     int? anInt,
     BigInt? anInt64,
     double? aReal,
-    _i2.ByteData? aBlob,
-    _i3.TypesEnum? anEnum,
+    _idt.ByteData? aBlob,
+    _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
-    _i1.UuidValue? optionalUuid,
+    _is.UuidValue? optionalUuid,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -166,11 +166,11 @@ abstract class Types
   }
 
   static TypesIncludeList includeList({
-    _i1.WhereExpressionBuilder<TypesTable>? where,
+    _is.WhereExpressionBuilder<TypesTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<TypesTable>? orderBy,
-    _i1.OrderByListBuilder<TypesTable>? orderByList,
+    _is.OrderByBuilder<TypesTable>? orderBy,
+    _is.OrderByListBuilder<TypesTable>? orderByList,
     TypesInclude? include,
   }) {
     return TypesIncludeList._(
@@ -185,7 +185,7 @@ abstract class Types
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -193,7 +193,7 @@ class _Undefined {}
 
 class _TypesImpl extends Types {
   _TypesImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required bool aBool,
     required DateTime aDateTime,
@@ -201,10 +201,10 @@ class _TypesImpl extends Types {
     required int anInt,
     required BigInt anInt64,
     required double aReal,
-    required _i2.ByteData aBlob,
-    _i3.TypesEnum? anEnum,
+    required _idt.ByteData aBlob,
+    _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
-    _i1.UuidValue? optionalUuid,
+    _is.UuidValue? optionalUuid,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -222,7 +222,7 @@ class _TypesImpl extends Types {
 
   /// Returns a shallow copy of this [Types]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   Types copyWith({
     Object? id = _Undefined,
@@ -233,13 +233,13 @@ class _TypesImpl extends Types {
     int? anInt,
     BigInt? anInt64,
     double? aReal,
-    _i2.ByteData? aBlob,
+    _idt.ByteData? aBlob,
     Object? anEnum = _Undefined,
     Object? optionalText = _Undefined,
     Object? optionalUuid = _Undefined,
   }) {
     return Types(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       aBool: aBool ?? this.aBool,
       aDateTime: aDateTime ?? this.aDateTime,
@@ -248,125 +248,126 @@ class _TypesImpl extends Types {
       anInt64: anInt64 ?? this.anInt64,
       aReal: aReal ?? this.aReal,
       aBlob: aBlob ?? this.aBlob.clone(),
-      anEnum: anEnum is _i3.TypesEnum? ? anEnum : this.anEnum,
+      anEnum: anEnum is _ire5m5mj.TypesEnum? ? anEnum : this.anEnum,
       optionalText: optionalText is String? ? optionalText : this.optionalText,
-      optionalUuid: optionalUuid is _i1.UuidValue?
+      optionalUuid: optionalUuid is _is.UuidValue?
           ? optionalUuid
           : this.optionalUuid,
     );
   }
 }
 
-class TypesUpdateTable extends _i1.UpdateTable<TypesTable> {
+class TypesUpdateTable extends _is.UpdateTable<TypesTable> {
   TypesUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<bool, bool> aBool(bool value) => _i1.ColumnValue(
+  _is.ColumnValue<bool, bool> aBool(bool value) => _is.ColumnValue(
     table.aBool,
     value,
   );
 
-  _i1.ColumnValue<DateTime, DateTime> aDateTime(DateTime value) =>
-      _i1.ColumnValue(
+  _is.ColumnValue<DateTime, DateTime> aDateTime(DateTime value) =>
+      _is.ColumnValue(
         table.aDateTime,
         value,
       );
 
-  _i1.ColumnValue<String, String> aText(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> aText(String value) => _is.ColumnValue(
     table.aText,
     value,
   );
 
-  _i1.ColumnValue<int, int> anInt(int value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> anInt(int value) => _is.ColumnValue(
     table.anInt,
     value,
   );
 
-  _i1.ColumnValue<BigInt, BigInt> anInt64(BigInt value) => _i1.ColumnValue(
+  _is.ColumnValue<BigInt, BigInt> anInt64(BigInt value) => _is.ColumnValue(
     table.anInt64,
     value,
   );
 
-  _i1.ColumnValue<double, double> aReal(double value) => _i1.ColumnValue(
+  _is.ColumnValue<double, double> aReal(double value) => _is.ColumnValue(
     table.aReal,
     value,
   );
 
-  _i1.ColumnValue<_i2.ByteData, _i2.ByteData> aBlob(_i2.ByteData value) =>
-      _i1.ColumnValue(
+  _is.ColumnValue<_idt.ByteData, _idt.ByteData> aBlob(_idt.ByteData value) =>
+      _is.ColumnValue(
         table.aBlob,
         value,
       );
 
-  _i1.ColumnValue<_i3.TypesEnum, _i3.TypesEnum> anEnum(_i3.TypesEnum? value) =>
-      _i1.ColumnValue(
-        table.anEnum,
-        value,
-      );
+  _is.ColumnValue<_ire5m5mj.TypesEnum, _ire5m5mj.TypesEnum> anEnum(
+    _ire5m5mj.TypesEnum? value,
+  ) => _is.ColumnValue(
+    table.anEnum,
+    value,
+  );
 
-  _i1.ColumnValue<String, String> optionalText(String? value) =>
-      _i1.ColumnValue(
+  _is.ColumnValue<String, String> optionalText(String? value) =>
+      _is.ColumnValue(
         table.optionalText,
         value,
       );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> optionalUuid(
-    _i1.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> optionalUuid(
+    _is.UuidValue? value,
+  ) => _is.ColumnValue(
     table.optionalUuid,
     value,
   );
 }
 
-class TypesTable extends _i1.Table<_i1.UuidValue?> {
+class TypesTable extends _is.Table<_is.UuidValue?> {
   TypesTable({super.tableRelation}) : super(tableName: 'types') {
     updateTable = TypesUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    aBool = _i1.ColumnBool(
+    aBool = _is.ColumnBool(
       'aBool',
       this,
     );
-    aDateTime = _i1.ColumnDateTime(
+    aDateTime = _is.ColumnDateTime(
       'aDateTime',
       this,
     );
-    aText = _i1.ColumnString(
+    aText = _is.ColumnString(
       'aText',
       this,
     );
-    anInt = _i1.ColumnInt(
+    anInt = _is.ColumnInt(
       'anInt',
       this,
     );
-    anInt64 = _i1.ColumnBigInt(
+    anInt64 = _is.ColumnBigInt(
       'anInt64',
       this,
     );
-    aReal = _i1.ColumnDouble(
+    aReal = _is.ColumnDouble(
       'aReal',
       this,
     );
-    aBlob = _i1.ColumnByteData(
+    aBlob = _is.ColumnByteData(
       'aBlob',
       this,
     );
-    anEnum = _i1.ColumnEnum(
+    anEnum = _is.ColumnEnum(
       'anEnum',
       this,
-      _i1.EnumSerialization.byIndex,
+      _is.EnumSerialization.byIndex,
     );
-    optionalText = _i1.ColumnString(
+    optionalText = _is.ColumnString(
       'optionalText',
       this,
     );
-    optionalUuid = _i1.ColumnUuid(
+    optionalUuid = _is.ColumnUuid(
       'optionalUuid',
       this,
     );
@@ -375,30 +376,30 @@ class TypesTable extends _i1.Table<_i1.UuidValue?> {
   late final TypesUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnBool aBool;
+  late final _is.ColumnBool aBool;
 
-  late final _i1.ColumnDateTime aDateTime;
+  late final _is.ColumnDateTime aDateTime;
 
-  late final _i1.ColumnString aText;
+  late final _is.ColumnString aText;
 
-  late final _i1.ColumnInt anInt;
+  late final _is.ColumnInt anInt;
 
-  late final _i1.ColumnBigInt anInt64;
+  late final _is.ColumnBigInt anInt64;
 
-  late final _i1.ColumnDouble aReal;
+  late final _is.ColumnDouble aReal;
 
-  late final _i1.ColumnByteData aBlob;
+  late final _is.ColumnByteData aBlob;
 
-  late final _i1.ColumnEnum<_i3.TypesEnum> anEnum;
+  late final _is.ColumnEnum<_ire5m5mj.TypesEnum> anEnum;
 
-  late final _i1.ColumnString optionalText;
+  late final _is.ColumnString optionalText;
 
-  late final _i1.ColumnUuid optionalUuid;
+  late final _is.ColumnUuid optionalUuid;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     aBool,
@@ -414,19 +415,19 @@ class TypesTable extends _i1.Table<_i1.UuidValue?> {
   ];
 }
 
-class TypesInclude extends _i1.IncludeObject {
+class TypesInclude extends _is.IncludeObject {
   TypesInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _is.Include?> get includes => {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => Types.t;
+  _is.Table<_is.UuidValue?> get table => Types.t;
 }
 
-class TypesIncludeList extends _i1.IncludeList {
+class TypesIncludeList extends _is.IncludeList {
   TypesIncludeList._({
-    _i1.WhereExpressionBuilder<TypesTable>? where,
+    _is.WhereExpressionBuilder<TypesTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -437,10 +438,10 @@ class TypesIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => Types.t;
+  _is.Table<_is.UuidValue?> get table => Types.t;
 }
 
 class TypesRepository {
@@ -469,15 +470,15 @@ class TypesRepository {
   /// );
   /// ```
   Future<List<Types>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<TypesTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<TypesTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<TypesTable>? orderBy,
-    _i1.OrderByListBuilder<TypesTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.OrderByBuilder<TypesTable>? orderBy,
+    _is.OrderByListBuilder<TypesTable>? orderByList,
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<Types>(
       where: where?.call(Types.t),
@@ -509,14 +510,14 @@ class TypesRepository {
   /// );
   /// ```
   Future<Types?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<TypesTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<TypesTable>? where,
     int? offset,
-    _i1.OrderByBuilder<TypesTable>? orderBy,
-    _i1.OrderByListBuilder<TypesTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.OrderByBuilder<TypesTable>? orderBy,
+    _is.OrderByListBuilder<TypesTable>? orderByList,
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<Types>(
       where: where?.call(Types.t),
@@ -531,11 +532,11 @@ class TypesRepository {
 
   /// Finds a single [Types] by its [id] or null if no such row exists.
   Future<Types?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<Types>(
       id,
@@ -560,9 +561,9 @@ class TypesRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Types>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Types> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -578,9 +579,9 @@ class TypesRepository {
   ///
   /// The returned [Types] will have its `id` field set.
   Future<Types> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Types row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<Types>(
       row,
@@ -609,12 +610,12 @@ class TypesRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Types>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Types> rows, {
-    required _i1.ColumnSelections<TypesTable> conflictColumns,
-    _i1.ColumnSelections<TypesTable>? updateColumns,
-    _i1.WhereExpressionBuilder<TypesTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<TypesTable> conflictColumns,
+    _is.ColumnSelections<TypesTable>? updateColumns,
+    _is.WhereExpressionBuilder<TypesTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<Types>(
@@ -641,12 +642,12 @@ class TypesRepository {
   ///
   /// The returned [Types] will have its `id` field set.
   Future<Types?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Types row, {
-    required _i1.ColumnSelections<TypesTable> conflictColumns,
-    _i1.ColumnSelections<TypesTable>? updateColumns,
-    _i1.WhereExpressionBuilder<TypesTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<TypesTable> conflictColumns,
+    _is.ColumnSelections<TypesTable>? updateColumns,
+    _is.WhereExpressionBuilder<TypesTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<Types>(
       row,
@@ -667,10 +668,10 @@ class TypesRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Types>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Types> rows, {
-    _i1.ColumnSelections<TypesTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<TypesTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<Types>(
@@ -685,10 +686,10 @@ class TypesRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<Types> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Types row, {
-    _i1.ColumnSelections<TypesTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<TypesTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<Types>(
       row,
@@ -700,10 +701,10 @@ class TypesRepository {
   /// Updates a single [Types] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<Types?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<TypesUpdateTable> columnValues,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<TypesUpdateTable> columnValues,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<Types>(
       id,
@@ -719,14 +720,14 @@ class TypesRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Types>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<TypesUpdateTable> columnValues,
-    required _i1.WhereExpressionBuilder<TypesTable> where,
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<TypesUpdateTable> columnValues,
+    required _is.WhereExpressionBuilder<TypesTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<TypesTable>? orderBy,
-    _i1.OrderByListBuilder<TypesTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<TypesTable>? orderBy,
+    _is.OrderByListBuilder<TypesTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<Types>(
@@ -753,11 +754,11 @@ class TypesRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Types>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Types> rows, {
-    _i1.OrderByBuilder<TypesTable>? orderBy,
-    _i1.OrderByListBuilder<TypesTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<TypesTable>? orderBy,
+    _is.OrderByListBuilder<TypesTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<Types>(
@@ -771,9 +772,9 @@ class TypesRepository {
 
   /// Deletes a single [Types].
   Future<Types> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Types row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<Types>(
       row,
@@ -790,11 +791,11 @@ class TypesRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Types>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<TypesTable> where,
-    _i1.OrderByBuilder<TypesTable>? orderBy,
-    _i1.OrderByListBuilder<TypesTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<TypesTable> where,
+    _is.OrderByBuilder<TypesTable>? orderBy,
+    _is.OrderByListBuilder<TypesTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<Types>(
@@ -809,10 +810,10 @@ class TypesRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<TypesTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<TypesTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<Types>(
       where: where?.call(Types.t),
@@ -823,11 +824,11 @@ class TypesRepository {
 
   /// Acquires row-level locks on [Types] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<TypesTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<TypesTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<Types>(
       where: where(Types.t),

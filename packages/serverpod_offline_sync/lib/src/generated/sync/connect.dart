@@ -17,21 +17,21 @@ part of 'stream_event.dart';
 /// across all scopes. It is announced once on connect rather than per scope.
 /// [syncTablesHash] is the deterministic schema hash both sides must agree on
 /// before merging data.
-abstract class CrdtSyncConnect extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtSyncConnect extends _icw2tu00.CrdtSyncStreamEvent
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncConnect._({
     required this.localNodeId,
     required this.syncTablesHash,
   });
 
   factory CrdtSyncConnect({
-    required _i2.UuidValue localNodeId,
+    required _iss.UuidValue localNodeId,
     required String syncTablesHash,
   }) = _CrdtSyncConnectImpl;
 
   factory CrdtSyncConnect.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtSyncConnect(
-      localNodeId: _i2.UuidValueJsonExtension.fromJson(
+      localNodeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['localNodeId'],
       ),
       syncTablesHash: jsonSerialization['syncTablesHash'] as String,
@@ -39,7 +39,7 @@ abstract class CrdtSyncConnect extends _i1.CrdtSyncStreamEvent
   }
 
   /// This peer's node identifier.
-  _i2.UuidValue localNodeId;
+  _iss.UuidValue localNodeId;
 
   /// The hash of the synchronized schema configured on this peer.
   String syncTablesHash;
@@ -47,9 +47,9 @@ abstract class CrdtSyncConnect extends _i1.CrdtSyncStreamEvent
   /// Returns a shallow copy of this [CrdtSyncConnect]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncConnect copyWith({
-    _i2.UuidValue? localNodeId,
+    _iss.UuidValue? localNodeId,
     String? syncTablesHash,
   });
   @override
@@ -72,13 +72,13 @@ abstract class CrdtSyncConnect extends _i1.CrdtSyncStreamEvent
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
 class _CrdtSyncConnectImpl extends CrdtSyncConnect {
   _CrdtSyncConnectImpl({
-    required _i2.UuidValue localNodeId,
+    required _iss.UuidValue localNodeId,
     required String syncTablesHash,
   }) : super._(
          localNodeId: localNodeId,
@@ -87,10 +87,10 @@ class _CrdtSyncConnectImpl extends CrdtSyncConnect {
 
   /// Returns a shallow copy of this [CrdtSyncConnect]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSyncConnect copyWith({
-    _i2.UuidValue? localNodeId,
+    _iss.UuidValue? localNodeId,
     String? syncTablesHash,
   }) {
     return CrdtSyncConnect(

@@ -11,13 +11,13 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import '../fk_chain/restrict_blocker.dart' as _i2;
+import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
-    as _i3;
+    as _ixxccm81;
+import '../fk_chain/restrict_blocker.dart' as _iavpmkia;
 
 abstract class FkChainMiddleSetNullChild
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   FkChainMiddleSetNullChild._({
     this.id,
     this.scopeId,
@@ -27,11 +27,11 @@ abstract class FkChainMiddleSetNullChild
   });
 
   factory FkChainMiddleSetNullChild({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.FkChainRestrictBlocker? restrictBlocker,
-    _i1.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
+    _is.UuidValue? restrictBlockerId,
   }) = _FkChainMiddleSetNullChildImpl;
 
   factory FkChainMiddleSetNullChild.fromJson(
@@ -40,17 +40,17 @@ abstract class FkChainMiddleSetNullChild
     return FkChainMiddleSetNullChild(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       restrictBlocker: jsonSerialization['restrictBlocker'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.FkChainRestrictBlocker>(
+          : _ixxccm81.Protocol().deserialize<_iavpmkia.FkChainRestrictBlocker>(
               jsonSerialization['restrictBlocker'],
             ),
       restrictBlockerId: jsonSerialization['restrictBlockerId'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(
+          : _is.UuidValueJsonExtension.fromJson(
               jsonSerialization['restrictBlockerId'],
             ),
     );
@@ -61,29 +61,29 @@ abstract class FkChainMiddleSetNullChild
   static const db = FkChainMiddleSetNullChildRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
 
   String name;
 
-  _i2.FkChainRestrictBlocker? restrictBlocker;
+  _iavpmkia.FkChainRestrictBlocker? restrictBlocker;
 
-  _i1.UuidValue? restrictBlockerId;
+  _is.UuidValue? restrictBlockerId;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [FkChainMiddleSetNullChild]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   FkChainMiddleSetNullChild copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _i2.FkChainRestrictBlocker? restrictBlocker,
-    _i1.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
+    _is.UuidValue? restrictBlockerId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -113,17 +113,17 @@ abstract class FkChainMiddleSetNullChild
   }
 
   static FkChainMiddleSetNullChildInclude include({
-    _i2.FkChainRestrictBlockerInclude? restrictBlocker,
+    _iavpmkia.FkChainRestrictBlockerInclude? restrictBlocker,
   }) {
     return FkChainMiddleSetNullChildInclude._(restrictBlocker: restrictBlocker);
   }
 
   static FkChainMiddleSetNullChildIncludeList includeList({
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
+    _is.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
     FkChainMiddleSetNullChildInclude? include,
   }) {
     return FkChainMiddleSetNullChildIncludeList._(
@@ -138,7 +138,7 @@ abstract class FkChainMiddleSetNullChild
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -146,11 +146,11 @@ class _Undefined {}
 
 class _FkChainMiddleSetNullChildImpl extends FkChainMiddleSetNullChild {
   _FkChainMiddleSetNullChildImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.FkChainRestrictBlocker? restrictBlocker,
-    _i1.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
+    _is.UuidValue? restrictBlockerId,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -161,7 +161,7 @@ class _FkChainMiddleSetNullChildImpl extends FkChainMiddleSetNullChild {
 
   /// Returns a shallow copy of this [FkChainMiddleSetNullChild]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   FkChainMiddleSetNullChild copyWith({
     Object? id = _Undefined,
@@ -171,13 +171,13 @@ class _FkChainMiddleSetNullChildImpl extends FkChainMiddleSetNullChild {
     Object? restrictBlockerId = _Undefined,
   }) {
     return FkChainMiddleSetNullChild(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      restrictBlocker: restrictBlocker is _i2.FkChainRestrictBlocker?
+      restrictBlocker: restrictBlocker is _iavpmkia.FkChainRestrictBlocker?
           ? restrictBlocker
           : this.restrictBlocker?.copyWith(),
-      restrictBlockerId: restrictBlockerId is _i1.UuidValue?
+      restrictBlockerId: restrictBlockerId is _is.UuidValue?
           ? restrictBlockerId
           : this.restrictBlockerId,
     );
@@ -185,40 +185,40 @@ class _FkChainMiddleSetNullChildImpl extends FkChainMiddleSetNullChild {
 }
 
 class FkChainMiddleSetNullChildUpdateTable
-    extends _i1.UpdateTable<FkChainMiddleSetNullChildTable> {
+    extends _is.UpdateTable<FkChainMiddleSetNullChildTable> {
   FkChainMiddleSetNullChildUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> restrictBlockerId(
-    _i1.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> restrictBlockerId(
+    _is.UuidValue? value,
+  ) => _is.ColumnValue(
     table.restrictBlockerId,
     value,
   );
 }
 
-class FkChainMiddleSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
+class FkChainMiddleSetNullChildTable extends _is.Table<_is.UuidValue?> {
   FkChainMiddleSetNullChildTable({super.tableRelation})
     : super(tableName: 'fk_chain_middle_set_null_child') {
     updateTable = FkChainMiddleSetNullChildUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
-    restrictBlockerId = _i1.ColumnUuid(
+    restrictBlockerId = _is.ColumnUuid(
       'restrictBlockerId',
       this,
     );
@@ -227,29 +227,31 @@ class FkChainMiddleSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
   late final FkChainMiddleSetNullChildUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
-  _i2.FkChainRestrictBlockerTable? _restrictBlocker;
+  _iavpmkia.FkChainRestrictBlockerTable? _restrictBlocker;
 
-  late final _i1.ColumnUuid restrictBlockerId;
+  late final _is.ColumnUuid restrictBlockerId;
 
-  _i2.FkChainRestrictBlockerTable get restrictBlocker {
+  _iavpmkia.FkChainRestrictBlockerTable get restrictBlocker {
     if (_restrictBlocker != null) return _restrictBlocker!;
-    _restrictBlocker = _i1.createRelationTable(
+    _restrictBlocker = _is.createRelationTable(
       relationFieldName: 'restrictBlocker',
       field: FkChainMiddleSetNullChild.t.restrictBlockerId,
-      foreignField: _i2.FkChainRestrictBlocker.t.id,
+      foreignField: _iavpmkia.FkChainRestrictBlocker.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.FkChainRestrictBlockerTable(tableRelation: foreignTableRelation),
+          _iavpmkia.FkChainRestrictBlockerTable(
+            tableRelation: foreignTableRelation,
+          ),
     );
     return _restrictBlocker!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     name,
@@ -257,7 +259,7 @@ class FkChainMiddleSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _is.Table? getRelationTable(String relationField) {
     if (relationField == 'restrictBlocker') {
       return restrictBlocker;
     }
@@ -265,27 +267,27 @@ class FkChainMiddleSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
   }
 }
 
-class FkChainMiddleSetNullChildInclude extends _i1.IncludeObject {
+class FkChainMiddleSetNullChildInclude extends _is.IncludeObject {
   FkChainMiddleSetNullChildInclude._({
-    _i2.FkChainRestrictBlockerInclude? restrictBlocker,
+    _iavpmkia.FkChainRestrictBlockerInclude? restrictBlocker,
   }) {
     _restrictBlocker = restrictBlocker;
   }
 
-  _i2.FkChainRestrictBlockerInclude? _restrictBlocker;
+  _iavpmkia.FkChainRestrictBlockerInclude? _restrictBlocker;
 
   @override
-  Map<String, _i1.Include?> get includes => {
+  Map<String, _is.Include?> get includes => {
     'restrictBlocker': _restrictBlocker,
   };
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => FkChainMiddleSetNullChild.t;
+  _is.Table<_is.UuidValue?> get table => FkChainMiddleSetNullChild.t;
 }
 
-class FkChainMiddleSetNullChildIncludeList extends _i1.IncludeList {
+class FkChainMiddleSetNullChildIncludeList extends _is.IncludeList {
   FkChainMiddleSetNullChildIncludeList._({
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -296,10 +298,10 @@ class FkChainMiddleSetNullChildIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => FkChainMiddleSetNullChild.t;
+  _is.Table<_is.UuidValue?> get table => FkChainMiddleSetNullChild.t;
 }
 
 class FkChainMiddleSetNullChildRepository {
@@ -332,16 +334,16 @@ class FkChainMiddleSetNullChildRepository {
   /// );
   /// ```
   Future<List<FkChainMiddleSetNullChild>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     FkChainMiddleSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<FkChainMiddleSetNullChild>(
       where: where?.call(FkChainMiddleSetNullChild.t),
@@ -374,15 +376,15 @@ class FkChainMiddleSetNullChildRepository {
   /// );
   /// ```
   Future<FkChainMiddleSetNullChild?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
     int? offset,
-    _i1.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     FkChainMiddleSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<FkChainMiddleSetNullChild>(
       where: where?.call(FkChainMiddleSetNullChild.t),
@@ -398,12 +400,12 @@ class FkChainMiddleSetNullChildRepository {
 
   /// Finds a single [FkChainMiddleSetNullChild] by its [id] or null if no such row exists.
   Future<FkChainMiddleSetNullChild?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
     FkChainMiddleSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<FkChainMiddleSetNullChild>(
       id,
@@ -429,9 +431,9 @@ class FkChainMiddleSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainMiddleSetNullChild>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainMiddleSetNullChild> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -447,9 +449,9 @@ class FkChainMiddleSetNullChildRepository {
   ///
   /// The returned [FkChainMiddleSetNullChild] will have its `id` field set.
   Future<FkChainMiddleSetNullChild> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainMiddleSetNullChild row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<FkChainMiddleSetNullChild>(
       row,
@@ -478,13 +480,13 @@ class FkChainMiddleSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainMiddleSetNullChild>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainMiddleSetNullChild> rows, {
-    required _i1.ColumnSelections<FkChainMiddleSetNullChildTable>
+    required _is.ColumnSelections<FkChainMiddleSetNullChildTable>
     conflictColumns,
-    _i1.ColumnSelections<FkChainMiddleSetNullChildTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? updateWhere,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainMiddleSetNullChildTable>? updateColumns,
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<FkChainMiddleSetNullChild>(
@@ -511,13 +513,13 @@ class FkChainMiddleSetNullChildRepository {
   ///
   /// The returned [FkChainMiddleSetNullChild] will have its `id` field set.
   Future<FkChainMiddleSetNullChild?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainMiddleSetNullChild row, {
-    required _i1.ColumnSelections<FkChainMiddleSetNullChildTable>
+    required _is.ColumnSelections<FkChainMiddleSetNullChildTable>
     conflictColumns,
-    _i1.ColumnSelections<FkChainMiddleSetNullChildTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? updateWhere,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainMiddleSetNullChildTable>? updateColumns,
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<FkChainMiddleSetNullChild>(
       row,
@@ -538,10 +540,10 @@ class FkChainMiddleSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainMiddleSetNullChild>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainMiddleSetNullChild> rows, {
-    _i1.ColumnSelections<FkChainMiddleSetNullChildTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainMiddleSetNullChildTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<FkChainMiddleSetNullChild>(
@@ -556,10 +558,10 @@ class FkChainMiddleSetNullChildRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<FkChainMiddleSetNullChild> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainMiddleSetNullChild row, {
-    _i1.ColumnSelections<FkChainMiddleSetNullChildTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainMiddleSetNullChildTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<FkChainMiddleSetNullChild>(
       row,
@@ -571,11 +573,11 @@ class FkChainMiddleSetNullChildRepository {
   /// Updates a single [FkChainMiddleSetNullChild] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<FkChainMiddleSetNullChild?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<FkChainMiddleSetNullChildUpdateTable>
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<FkChainMiddleSetNullChildUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<FkChainMiddleSetNullChild>(
       id,
@@ -591,15 +593,15 @@ class FkChainMiddleSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainMiddleSetNullChild>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<FkChainMiddleSetNullChildUpdateTable>
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<FkChainMiddleSetNullChildUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable> where,
+    required _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<FkChainMiddleSetNullChild>(
@@ -626,11 +628,11 @@ class FkChainMiddleSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainMiddleSetNullChild>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainMiddleSetNullChild> rows, {
-    _i1.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<FkChainMiddleSetNullChild>(
@@ -644,9 +646,9 @@ class FkChainMiddleSetNullChildRepository {
 
   /// Deletes a single [FkChainMiddleSetNullChild].
   Future<FkChainMiddleSetNullChild> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainMiddleSetNullChild row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<FkChainMiddleSetNullChild>(
       row,
@@ -663,11 +665,11 @@ class FkChainMiddleSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainMiddleSetNullChild>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable> where,
-    _i1.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable> where,
+    _is.OrderByBuilder<FkChainMiddleSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<FkChainMiddleSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<FkChainMiddleSetNullChild>(
@@ -682,10 +684,10 @@ class FkChainMiddleSetNullChildRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<FkChainMiddleSetNullChild>(
       where: where?.call(FkChainMiddleSetNullChild.t),
@@ -696,11 +698,11 @@ class FkChainMiddleSetNullChildRepository {
 
   /// Acquires row-level locks on [FkChainMiddleSetNullChild] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainMiddleSetNullChildTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<FkChainMiddleSetNullChildTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<FkChainMiddleSetNullChild>(
       where: where(FkChainMiddleSetNullChild.t),
@@ -717,10 +719,10 @@ class FkChainMiddleSetNullChildAttachRowRepository {
   /// Creates a relation between the given [FkChainMiddleSetNullChild] and [FkChainRestrictBlocker]
   /// by setting the [FkChainMiddleSetNullChild]'s foreign key `restrictBlockerId` to refer to the [FkChainRestrictBlocker].
   Future<void> restrictBlocker(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainMiddleSetNullChild fkChainMiddleSetNullChild,
-    _i2.FkChainRestrictBlocker restrictBlocker, {
-    _i1.Transaction? transaction,
+    _iavpmkia.FkChainRestrictBlocker restrictBlocker, {
+    _is.Transaction? transaction,
   }) async {
     if (fkChainMiddleSetNullChild.id == null) {
       throw ArgumentError.notNull('fkChainMiddleSetNullChild.id');
@@ -749,9 +751,9 @@ class FkChainMiddleSetNullChildDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> restrictBlocker(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainMiddleSetNullChild fkChainMiddleSetNullChild, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     if (fkChainMiddleSetNullChild.id == null) {
       throw ArgumentError.notNull('fkChainMiddleSetNullChild.id');

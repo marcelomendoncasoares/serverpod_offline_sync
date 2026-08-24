@@ -12,8 +12,8 @@
 part of 'change.dart';
 
 /// A remote visibility CLFlag update to merge.
-abstract class CrdtMergeDelete extends _i1.CrdtMergeChange
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtMergeDelete extends _icw2tu00.CrdtMergeChange
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtMergeDelete._({
     required super.hlcDatetime,
     required super.hlcCounter,
@@ -28,32 +28,32 @@ abstract class CrdtMergeDelete extends _i1.CrdtMergeChange
   factory CrdtMergeDelete({
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required _i2.UuidValue uuidScopeId,
+    required _iss.UuidValue uuidScopeId,
     required String tableName,
-    required _i2.UuidValue uuidRowId,
-    required _i2.UuidValue uuidNodeId,
+    required _iss.UuidValue uuidRowId,
+    required _iss.UuidValue uuidNodeId,
     required int clFlag,
-    required _i1.CrdtDataDeletedReason reason,
+    required _icw2tu00.CrdtDataDeletedReason reason,
   }) = _CrdtMergeDeleteImpl;
 
   factory CrdtMergeDelete.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtMergeDelete(
-      hlcDatetime: _i2.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
-      uuidScopeId: _i2.UuidValueJsonExtension.fromJson(
+      uuidScopeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidScopeId'],
       ),
       tableName: jsonSerialization['tableName'] as String,
-      uuidRowId: _i2.UuidValueJsonExtension.fromJson(
+      uuidRowId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidRowId'],
       ),
-      uuidNodeId: _i2.UuidValueJsonExtension.fromJson(
+      uuidNodeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidNodeId'],
       ),
       clFlag: jsonSerialization['clFlag'] as int,
-      reason: _i1.CrdtDataDeletedReason.fromJson(
+      reason: _icw2tu00.CrdtDataDeletedReason.fromJson(
         (jsonSerialization['reason'] as int),
       ),
     );
@@ -63,21 +63,21 @@ abstract class CrdtMergeDelete extends _i1.CrdtMergeChange
   int clFlag;
 
   /// Why the row entered its current visibility generation.
-  _i1.CrdtDataDeletedReason reason;
+  _icw2tu00.CrdtDataDeletedReason reason;
 
   /// Returns a shallow copy of this [CrdtMergeDelete]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtMergeDelete copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     String? tableName,
-    _i2.UuidValue? uuidRowId,
-    _i2.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidRowId,
+    _iss.UuidValue? uuidNodeId,
     int? clFlag,
-    _i1.CrdtDataDeletedReason? reason,
+    _icw2tu00.CrdtDataDeletedReason? reason,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -111,7 +111,7 @@ abstract class CrdtMergeDelete extends _i1.CrdtMergeChange
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -119,12 +119,12 @@ class _CrdtMergeDeleteImpl extends CrdtMergeDelete {
   _CrdtMergeDeleteImpl({
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required _i2.UuidValue uuidScopeId,
+    required _iss.UuidValue uuidScopeId,
     required String tableName,
-    required _i2.UuidValue uuidRowId,
-    required _i2.UuidValue uuidNodeId,
+    required _iss.UuidValue uuidRowId,
+    required _iss.UuidValue uuidNodeId,
     required int clFlag,
-    required _i1.CrdtDataDeletedReason reason,
+    required _icw2tu00.CrdtDataDeletedReason reason,
   }) : super._(
          hlcDatetime: hlcDatetime,
          hlcCounter: hlcCounter,
@@ -138,17 +138,17 @@ class _CrdtMergeDeleteImpl extends CrdtMergeDelete {
 
   /// Returns a shallow copy of this [CrdtMergeDelete]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtMergeDelete copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     String? tableName,
-    _i2.UuidValue? uuidRowId,
-    _i2.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidRowId,
+    _iss.UuidValue? uuidNodeId,
     int? clFlag,
-    _i1.CrdtDataDeletedReason? reason,
+    _icw2tu00.CrdtDataDeletedReason? reason,
   }) {
     return CrdtMergeDelete(
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,

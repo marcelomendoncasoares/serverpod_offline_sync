@@ -10,13 +10,13 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Materialized visibility state for a CRDT row.
 ///
 /// Visible states are listed first, hidden states last. A row is visible when
 /// its serialized index is less than or equal to [foreignKeyRestrictRestore].
-enum CrdtDataRowVisibility implements _i1.SerializableModel {
+enum CrdtDataRowVisibility implements _iss.SerializableModel {
   userInsert,
   userReinsert,
   foreignKeyRestrictRestore,

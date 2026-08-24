@@ -11,37 +11,37 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
-    as _i2;
+    as _iacc;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
-    as _i3;
-import 'address.dart' as _i4;
-import 'city.dart' as _i5;
-import 'company.dart' as _i6;
-import 'fk_chain/cascade_middle.dart' as _i7;
-import 'fk_chain/middle_cascade_child.dart' as _i8;
-import 'fk_chain/middle_set_null_child.dart' as _i9;
-import 'fk_chain/restrict_blocker.dart' as _i10;
-import 'fk_chain/root.dart' as _i11;
-import 'fk_chain/set_null_cascade_child.dart' as _i12;
-import 'fk_chain/set_null_middle.dart' as _i13;
-import 'fk_chain/set_null_restrict_child.dart' as _i14;
-import 'fk_chain/set_null_set_null_child.dart' as _i15;
-import 'organization.dart' as _i16;
-import 'person.dart' as _i17;
-import 'required_set_null_child.dart' as _i18;
-import 'restrict_child.dart' as _i19;
-import 'town.dart' as _i20;
-import 'types.dart' as _i21;
-import 'types_enum.dart' as _i22;
-import 'unique.dart' as _i23;
-import 'unique_composite.dart' as _i24;
-import 'unique_discriminator.dart' as _i25;
-import 'unique_no_release.dart' as _i26;
-import 'unique_set_null_child.dart' as _i27;
-import 'unique_uuid.dart' as _i28;
-import 'package:serverpod_client/serverpod_client.dart' as _i29;
+    as _ipulbpi2;
+import 'address.dart' as _ilb4pipw;
+import 'city.dart' as _ior3absd;
+import 'company.dart' as _i6pnc270;
+import 'fk_chain/cascade_middle.dart' as _ivwxm81w;
+import 'fk_chain/middle_cascade_child.dart' as _ih0wcufc;
+import 'fk_chain/middle_set_null_child.dart' as _ifjezkfx;
+import 'fk_chain/restrict_blocker.dart' as _i4k28i3g;
+import 'fk_chain/root.dart' as _ifk56fcw;
+import 'fk_chain/set_null_cascade_child.dart' as _ideurard;
+import 'fk_chain/set_null_middle.dart' as _icv70ksq;
+import 'fk_chain/set_null_restrict_child.dart' as _ix62gjf0;
+import 'fk_chain/set_null_set_null_child.dart' as _ihkyqxiw;
+import 'organization.dart' as _irjtvpke;
+import 'person.dart' as _iensfz4m;
+import 'required_set_null_child.dart' as _i1huw131;
+import 'restrict_child.dart' as _isrf0aof;
+import 'town.dart' as _iytblq2r;
+import 'types.dart' as _iwxwszsz;
+import 'types_enum.dart' as _ire5m5mj;
+import 'unique.dart' as _ivpwn84u;
+import 'unique_composite.dart' as _iv4klbbv;
+import 'unique_discriminator.dart' as _ixfoa5hm;
+import 'unique_no_release.dart' as _i91ey4jd;
+import 'unique_set_null_child.dart' as _iy3qfphx;
+import 'unique_uuid.dart' as _i5jtfsbn;
 export 'address.dart';
 export 'city.dart';
 export 'company.dart';
@@ -69,75 +69,75 @@ export 'unique_set_null_child.dart';
 export 'unique_uuid.dart';
 export 'client.dart';
 
-class Protocol extends _i1.DatabaseSerializationManager {
+class Protocol extends _isd.DatabaseSerializationManager {
   Protocol._();
 
   factory Protocol() => _instance;
 
   static final Protocol _instance = Protocol._().._registerHostProtocols();
 
-  static List<_i1.TableDefinition> get targetTableDefinitions => [
-    _i1.TableDefinition(
+  static List<_isd.TableDefinition> get targetTableDefinitions => [
+    _isd.TableDefinition(
       name: 'address',
       dartName: 'Address',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'street',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'inhabitantId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'address_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'address_fk_1',
           columns: ['inhabitantId'],
           referenceTable: 'person',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.restrict,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.restrict,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'address__inhabitantId__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'inhabitantId',
             ),
           ],
@@ -148,1040 +148,1040 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'city',
       dartName: 'City',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'city_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'company',
       dartName: 'Company',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'townId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
           columnDefault: '\'550e8400-e29b-41d4-a716-446655440000\'',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'company_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'company_fk_1',
           columns: ['townId'],
           referenceTable: 'town',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setDefault,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setDefault,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_cascade_middle',
       dartName: 'FkChainCascadeMiddle',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'rootId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_cascade_middle_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_cascade_middle_fk_1',
           columns: ['rootId'],
           referenceTable: 'fk_chain_root',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_middle_cascade_child',
       dartName: 'FkChainMiddleCascadeChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'restrictBlockerId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_middle_cascade_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_middle_cascade_child_fk_1',
           columns: ['restrictBlockerId'],
           referenceTable: 'fk_chain_restrict_blocker',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_middle_set_null_child',
       dartName: 'FkChainMiddleSetNullChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'restrictBlockerId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_middle_set_null_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_middle_set_null_child_fk_1',
           columns: ['restrictBlockerId'],
           referenceTable: 'fk_chain_restrict_blocker',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setNull,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_restrict_blocker',
       dartName: 'FkChainRestrictBlocker',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'cascadeMiddleId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_restrict_blocker_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_restrict_blocker_fk_1',
           columns: ['cascadeMiddleId'],
           referenceTable: 'fk_chain_cascade_middle',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.restrict,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.restrict,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_root',
       dartName: 'FkChainRoot',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_root_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_set_null_cascade_child',
       dartName: 'FkChainSetNullCascadeChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'setNullMiddleId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_cascade_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_cascade_child_fk_1',
           columns: ['setNullMiddleId'],
           referenceTable: 'fk_chain_set_null_middle',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_set_null_middle',
       dartName: 'FkChainSetNullMiddle',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'cascadeMiddleId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_middle_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_middle_fk_1',
           columns: ['cascadeMiddleId'],
           referenceTable: 'fk_chain_cascade_middle',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setNull,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_set_null_restrict_child',
       dartName: 'FkChainSetNullRestrictChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'setNullMiddleId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_restrict_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_restrict_child_fk_1',
           columns: ['setNullMiddleId'],
           referenceTable: 'fk_chain_set_null_middle',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.restrict,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.restrict,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'fk_chain_set_null_set_null_child',
       dartName: 'FkChainSetNullSetNullChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'setNullMiddleId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_set_null_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_set_null_child_fk_1',
           columns: ['setNullMiddleId'],
           referenceTable: 'fk_chain_set_null_middle',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setNull,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'organization',
       dartName: 'Organization',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'cityId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'organization_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'organization_fk_1',
           columns: ['cityId'],
           referenceTable: 'city',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'person',
       dartName: 'Person',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'surname',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: true,
           dartType: 'String?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'organizationId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'oldCompanyId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: '_cityCitizensCityId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'person_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'person_fk_1',
           columns: ['organizationId'],
           referenceTable: 'organization',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'person_fk_2',
           columns: ['oldCompanyId'],
           referenceTable: 'company',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.noAction,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'person_fk_3',
           columns: ['_cityCitizensCityId'],
           referenceTable: 'city',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.noAction,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'required_set_null_child',
       dartName: 'RequiredSetNullChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'parentId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'required_set_null_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'required_set_null_child_fk_1',
           columns: ['parentId'],
           referenceTable: 'person',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setNull,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'restrict_child',
       dartName: 'RestrictChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'parentId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'restrict_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'restrict_child_fk_1',
           columns: ['parentId'],
           referenceTable: 'person',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.restrict,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.restrict,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'town',
       dartName: 'Town',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'cityId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'mayorId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'town_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'town_fk_1',
           columns: ['cityId'],
           referenceTable: 'city',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'town_fk_2',
           columns: ['mayorId'],
           referenceTable: 'person',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setNull,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
         ),
       ],
       indexes: [],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'types',
       dartName: 'Types',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'aBool',
-          columnType: _i1.ColumnType.boolean,
+          columnType: _isd.ColumnType.boolean,
           isNullable: false,
           dartType: 'bool',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'aDateTime',
-          columnType: _i1.ColumnType.timestampWithoutTimeZone,
+          columnType: _isd.ColumnType.timestampWithoutTimeZone,
           isNullable: false,
           dartType: 'DateTime',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'aText',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'anInt',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'anInt64',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'BigInt',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'aReal',
-          columnType: _i1.ColumnType.doublePrecision,
+          columnType: _isd.ColumnType.doublePrecision,
           isNullable: false,
           dartType: 'double',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'aBlob',
-          columnType: _i1.ColumnType.bytea,
+          columnType: _isd.ColumnType.bytea,
           isNullable: false,
           dartType: 'dart:typed_data:ByteData',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'anEnum',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'protocol:TypesEnum?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'optionalText',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: true,
           dartType: 'String?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'optionalUuid',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'types_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'types_a_text_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'aText',
             ),
           ],
@@ -1192,55 +1192,55 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'unique',
       dartName: 'Unique',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'unique__scopeId__name__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'name',
             ),
           ],
@@ -1251,65 +1251,65 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'unique_composite',
       dartName: 'UniqueComposite',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scope',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'value',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_composite_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'unique_composite__scopeId__scope__value__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scope',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'value',
             ),
           ],
@@ -1320,66 +1320,66 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'unique_discriminator',
       dartName: 'UniqueDiscriminator',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'categoryId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_discriminator_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName:
               'unique_discriminator__scopeId__categoryId__name__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'categoryId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'name',
             ),
           ],
@@ -1390,55 +1390,55 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'unique_no_release',
       dartName: 'UniqueNoRelease',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'categoryId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_no_release_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'unique_no_release__scopeId__categoryId__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'categoryId',
             ),
           ],
@@ -1449,67 +1449,67 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'unique_set_null_child',
       dartName: 'UniqueSetNullChild',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'name',
-          columnType: _i1.ColumnType.text,
+          columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'parentId',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_set_null_child_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_set_null_child_fk_1',
           columns: ['parentId'],
           referenceTable: 'person',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.setNull,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'unique_set_null_child__parentId__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'parentId',
             ),
           ],
@@ -1520,55 +1520,55 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    _i1.TableDefinition(
+    _isd.TableDefinition(
       name: 'unique_uuid',
       dartName: 'UniqueUuid',
       schema: 'public',
       module: 'serverpod_offline_sync_test',
       columns: [
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'id',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue?',
           columnDefault: 'random_v7',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'scopeId',
-          columnType: _i1.ColumnType.bigint,
+          columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
         ),
-        _i1.ColumnDefinition(
+        _isd.ColumnDefinition(
           name: 'value',
-          columnType: _i1.ColumnType.uuid,
+          columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
         ),
       ],
       foreignKeys: [
-        _i1.ForeignKeyDefinition(
+        _isd.ForeignKeyDefinition(
           constraintName: 'unique_uuid_fk_0',
           columns: ['scopeId'],
           referenceTable: 'crdt_scopes',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
-          onUpdate: _i1.ForeignKeyAction.noAction,
-          onDelete: _i1.ForeignKeyAction.cascade,
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
           matchType: null,
         ),
       ],
       indexes: [
-        _i1.IndexDefinition(
+        _isd.IndexDefinition(
           indexName: 'unique_uuid__scopeId__value__unique_idx',
           tableSpace: null,
           elements: [
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'scopeId',
             ),
-            _i1.IndexElementDefinition(
-              type: _i1.IndexElementDefinitionType.column,
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
               definition: 'value',
             ),
           ],
@@ -1579,12 +1579,12 @@ class Protocol extends _i1.DatabaseSerializationManager {
       ],
       managed: true,
     ),
-    ..._i2.Protocol() is _i1.DatabaseSerializationManager
-        ? (_i2.Protocol() as _i1.DatabaseSerializationManager)
+    ..._iacc.Protocol() is _isd.DatabaseSerializationManager
+        ? (_iacc.Protocol() as _isd.DatabaseSerializationManager)
               .getTargetTableDefinitions()
         : [],
-    ..._i3.Protocol() is _i1.DatabaseSerializationManager
-        ? (_i3.Protocol() as _i1.DatabaseSerializationManager)
+    ..._ipulbpi2.Protocol() is _isd.DatabaseSerializationManager
+        ? (_ipulbpi2.Protocol() as _isd.DatabaseSerializationManager)
               .getTargetTableDefinitions()
         : [],
   ];
@@ -1616,197 +1616,214 @@ class Protocol extends _i1.DatabaseSerializationManager {
       }
     }
 
-    if (t == _i4.Address) {
-      return _i4.Address.fromJson(data) as T;
+    if (t == _ilb4pipw.Address) {
+      return _ilb4pipw.Address.fromJson(data) as T;
     }
-    if (t == _i5.City) {
-      return _i5.City.fromJson(data) as T;
+    if (t == _ior3absd.City) {
+      return _ior3absd.City.fromJson(data) as T;
     }
-    if (t == _i6.Company) {
-      return _i6.Company.fromJson(data) as T;
+    if (t == _i6pnc270.Company) {
+      return _i6pnc270.Company.fromJson(data) as T;
     }
-    if (t == _i7.FkChainCascadeMiddle) {
-      return _i7.FkChainCascadeMiddle.fromJson(data) as T;
+    if (t == _ivwxm81w.FkChainCascadeMiddle) {
+      return _ivwxm81w.FkChainCascadeMiddle.fromJson(data) as T;
     }
-    if (t == _i8.FkChainMiddleCascadeChild) {
-      return _i8.FkChainMiddleCascadeChild.fromJson(data) as T;
+    if (t == _ih0wcufc.FkChainMiddleCascadeChild) {
+      return _ih0wcufc.FkChainMiddleCascadeChild.fromJson(data) as T;
     }
-    if (t == _i9.FkChainMiddleSetNullChild) {
-      return _i9.FkChainMiddleSetNullChild.fromJson(data) as T;
+    if (t == _ifjezkfx.FkChainMiddleSetNullChild) {
+      return _ifjezkfx.FkChainMiddleSetNullChild.fromJson(data) as T;
     }
-    if (t == _i10.FkChainRestrictBlocker) {
-      return _i10.FkChainRestrictBlocker.fromJson(data) as T;
+    if (t == _i4k28i3g.FkChainRestrictBlocker) {
+      return _i4k28i3g.FkChainRestrictBlocker.fromJson(data) as T;
     }
-    if (t == _i11.FkChainRoot) {
-      return _i11.FkChainRoot.fromJson(data) as T;
+    if (t == _ifk56fcw.FkChainRoot) {
+      return _ifk56fcw.FkChainRoot.fromJson(data) as T;
     }
-    if (t == _i12.FkChainSetNullCascadeChild) {
-      return _i12.FkChainSetNullCascadeChild.fromJson(data) as T;
+    if (t == _ideurard.FkChainSetNullCascadeChild) {
+      return _ideurard.FkChainSetNullCascadeChild.fromJson(data) as T;
     }
-    if (t == _i13.FkChainSetNullMiddle) {
-      return _i13.FkChainSetNullMiddle.fromJson(data) as T;
+    if (t == _icv70ksq.FkChainSetNullMiddle) {
+      return _icv70ksq.FkChainSetNullMiddle.fromJson(data) as T;
     }
-    if (t == _i14.FkChainSetNullRestrictChild) {
-      return _i14.FkChainSetNullRestrictChild.fromJson(data) as T;
+    if (t == _ix62gjf0.FkChainSetNullRestrictChild) {
+      return _ix62gjf0.FkChainSetNullRestrictChild.fromJson(data) as T;
     }
-    if (t == _i15.FkChainSetNullSetNullChild) {
-      return _i15.FkChainSetNullSetNullChild.fromJson(data) as T;
+    if (t == _ihkyqxiw.FkChainSetNullSetNullChild) {
+      return _ihkyqxiw.FkChainSetNullSetNullChild.fromJson(data) as T;
     }
-    if (t == _i16.Organization) {
-      return _i16.Organization.fromJson(data) as T;
+    if (t == _irjtvpke.Organization) {
+      return _irjtvpke.Organization.fromJson(data) as T;
     }
-    if (t == _i17.Person) {
-      return _i17.Person.fromJson(data) as T;
+    if (t == _iensfz4m.Person) {
+      return _iensfz4m.Person.fromJson(data) as T;
     }
-    if (t == _i18.RequiredSetNullChild) {
-      return _i18.RequiredSetNullChild.fromJson(data) as T;
+    if (t == _i1huw131.RequiredSetNullChild) {
+      return _i1huw131.RequiredSetNullChild.fromJson(data) as T;
     }
-    if (t == _i19.RestrictChild) {
-      return _i19.RestrictChild.fromJson(data) as T;
+    if (t == _isrf0aof.RestrictChild) {
+      return _isrf0aof.RestrictChild.fromJson(data) as T;
     }
-    if (t == _i20.Town) {
-      return _i20.Town.fromJson(data) as T;
+    if (t == _iytblq2r.Town) {
+      return _iytblq2r.Town.fromJson(data) as T;
     }
-    if (t == _i21.Types) {
-      return _i21.Types.fromJson(data) as T;
+    if (t == _iwxwszsz.Types) {
+      return _iwxwszsz.Types.fromJson(data) as T;
     }
-    if (t == _i22.TypesEnum) {
-      return _i22.TypesEnum.fromJson(data) as T;
+    if (t == _ire5m5mj.TypesEnum) {
+      return _ire5m5mj.TypesEnum.fromJson(data) as T;
     }
-    if (t == _i23.Unique) {
-      return _i23.Unique.fromJson(data) as T;
+    if (t == _ivpwn84u.Unique) {
+      return _ivpwn84u.Unique.fromJson(data) as T;
     }
-    if (t == _i24.UniqueComposite) {
-      return _i24.UniqueComposite.fromJson(data) as T;
+    if (t == _iv4klbbv.UniqueComposite) {
+      return _iv4klbbv.UniqueComposite.fromJson(data) as T;
     }
-    if (t == _i25.UniqueDiscriminator) {
-      return _i25.UniqueDiscriminator.fromJson(data) as T;
+    if (t == _ixfoa5hm.UniqueDiscriminator) {
+      return _ixfoa5hm.UniqueDiscriminator.fromJson(data) as T;
     }
-    if (t == _i26.UniqueNoRelease) {
-      return _i26.UniqueNoRelease.fromJson(data) as T;
+    if (t == _i91ey4jd.UniqueNoRelease) {
+      return _i91ey4jd.UniqueNoRelease.fromJson(data) as T;
     }
-    if (t == _i27.UniqueSetNullChild) {
-      return _i27.UniqueSetNullChild.fromJson(data) as T;
+    if (t == _iy3qfphx.UniqueSetNullChild) {
+      return _iy3qfphx.UniqueSetNullChild.fromJson(data) as T;
     }
-    if (t == _i28.UniqueUuid) {
-      return _i28.UniqueUuid.fromJson(data) as T;
+    if (t == _i5jtfsbn.UniqueUuid) {
+      return _i5jtfsbn.UniqueUuid.fromJson(data) as T;
     }
-    if (t == _i29.getType<_i4.Address?>()) {
-      return (data != null ? _i4.Address.fromJson(data) : null) as T;
+    if (t == _isc.getType<_ilb4pipw.Address?>()) {
+      return (data != null ? _ilb4pipw.Address.fromJson(data) : null) as T;
     }
-    if (t == _i29.getType<_i5.City?>()) {
-      return (data != null ? _i5.City.fromJson(data) : null) as T;
+    if (t == _isc.getType<_ior3absd.City?>()) {
+      return (data != null ? _ior3absd.City.fromJson(data) : null) as T;
     }
-    if (t == _i29.getType<_i6.Company?>()) {
-      return (data != null ? _i6.Company.fromJson(data) : null) as T;
+    if (t == _isc.getType<_i6pnc270.Company?>()) {
+      return (data != null ? _i6pnc270.Company.fromJson(data) : null) as T;
     }
-    if (t == _i29.getType<_i7.FkChainCascadeMiddle?>()) {
-      return (data != null ? _i7.FkChainCascadeMiddle.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i29.getType<_i8.FkChainMiddleCascadeChild?>()) {
+    if (t == _isc.getType<_ivwxm81w.FkChainCascadeMiddle?>()) {
       return (data != null
-              ? _i8.FkChainMiddleCascadeChild.fromJson(data)
+              ? _ivwxm81w.FkChainCascadeMiddle.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i29.getType<_i9.FkChainMiddleSetNullChild?>()) {
+    if (t == _isc.getType<_ih0wcufc.FkChainMiddleCascadeChild?>()) {
       return (data != null
-              ? _i9.FkChainMiddleSetNullChild.fromJson(data)
+              ? _ih0wcufc.FkChainMiddleCascadeChild.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i29.getType<_i10.FkChainRestrictBlocker?>()) {
-      return (data != null ? _i10.FkChainRestrictBlocker.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i29.getType<_i11.FkChainRoot?>()) {
-      return (data != null ? _i11.FkChainRoot.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i12.FkChainSetNullCascadeChild?>()) {
+    if (t == _isc.getType<_ifjezkfx.FkChainMiddleSetNullChild?>()) {
       return (data != null
-              ? _i12.FkChainSetNullCascadeChild.fromJson(data)
+              ? _ifjezkfx.FkChainMiddleSetNullChild.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i29.getType<_i13.FkChainSetNullMiddle?>()) {
-      return (data != null ? _i13.FkChainSetNullMiddle.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i29.getType<_i14.FkChainSetNullRestrictChild?>()) {
+    if (t == _isc.getType<_i4k28i3g.FkChainRestrictBlocker?>()) {
       return (data != null
-              ? _i14.FkChainSetNullRestrictChild.fromJson(data)
+              ? _i4k28i3g.FkChainRestrictBlocker.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i29.getType<_i15.FkChainSetNullSetNullChild?>()) {
+    if (t == _isc.getType<_ifk56fcw.FkChainRoot?>()) {
+      return (data != null ? _ifk56fcw.FkChainRoot.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_ideurard.FkChainSetNullCascadeChild?>()) {
       return (data != null
-              ? _i15.FkChainSetNullSetNullChild.fromJson(data)
+              ? _ideurard.FkChainSetNullCascadeChild.fromJson(data)
               : null)
           as T;
     }
-    if (t == _i29.getType<_i16.Organization?>()) {
-      return (data != null ? _i16.Organization.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i17.Person?>()) {
-      return (data != null ? _i17.Person.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i18.RequiredSetNullChild?>()) {
-      return (data != null ? _i18.RequiredSetNullChild.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i29.getType<_i19.RestrictChild?>()) {
-      return (data != null ? _i19.RestrictChild.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i20.Town?>()) {
-      return (data != null ? _i20.Town.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i21.Types?>()) {
-      return (data != null ? _i21.Types.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i22.TypesEnum?>()) {
-      return (data != null ? _i22.TypesEnum.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i23.Unique?>()) {
-      return (data != null ? _i23.Unique.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i24.UniqueComposite?>()) {
-      return (data != null ? _i24.UniqueComposite.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i25.UniqueDiscriminator?>()) {
-      return (data != null ? _i25.UniqueDiscriminator.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i29.getType<_i26.UniqueNoRelease?>()) {
-      return (data != null ? _i26.UniqueNoRelease.fromJson(data) : null) as T;
-    }
-    if (t == _i29.getType<_i27.UniqueSetNullChild?>()) {
-      return (data != null ? _i27.UniqueSetNullChild.fromJson(data) : null)
-          as T;
-    }
-    if (t == _i29.getType<_i28.UniqueUuid?>()) {
-      return (data != null ? _i28.UniqueUuid.fromJson(data) : null) as T;
-    }
-    if (t == List<_i17.Person>) {
-      return (data as List).map((e) => deserialize<_i17.Person>(e)).toList()
-          as T;
-    }
-    if (t == _i29.getType<List<_i17.Person>?>()) {
+    if (t == _isc.getType<_icv70ksq.FkChainSetNullMiddle?>()) {
       return (data != null
-              ? (data as List).map((e) => deserialize<_i17.Person>(e)).toList()
+              ? _icv70ksq.FkChainSetNullMiddle.fromJson(data)
               : null)
           as T;
     }
-    if (t == List<_i16.Organization>) {
+    if (t == _isc.getType<_ix62gjf0.FkChainSetNullRestrictChild?>()) {
+      return (data != null
+              ? _ix62gjf0.FkChainSetNullRestrictChild.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _isc.getType<_ihkyqxiw.FkChainSetNullSetNullChild?>()) {
+      return (data != null
+              ? _ihkyqxiw.FkChainSetNullSetNullChild.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _isc.getType<_irjtvpke.Organization?>()) {
+      return (data != null ? _irjtvpke.Organization.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_iensfz4m.Person?>()) {
+      return (data != null ? _iensfz4m.Person.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_i1huw131.RequiredSetNullChild?>()) {
+      return (data != null
+              ? _i1huw131.RequiredSetNullChild.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _isc.getType<_isrf0aof.RestrictChild?>()) {
+      return (data != null ? _isrf0aof.RestrictChild.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_iytblq2r.Town?>()) {
+      return (data != null ? _iytblq2r.Town.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_iwxwszsz.Types?>()) {
+      return (data != null ? _iwxwszsz.Types.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_ire5m5mj.TypesEnum?>()) {
+      return (data != null ? _ire5m5mj.TypesEnum.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_ivpwn84u.Unique?>()) {
+      return (data != null ? _ivpwn84u.Unique.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_iv4klbbv.UniqueComposite?>()) {
+      return (data != null ? _iv4klbbv.UniqueComposite.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_ixfoa5hm.UniqueDiscriminator?>()) {
+      return (data != null
+              ? _ixfoa5hm.UniqueDiscriminator.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _isc.getType<_i91ey4jd.UniqueNoRelease?>()) {
+      return (data != null ? _i91ey4jd.UniqueNoRelease.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_iy3qfphx.UniqueSetNullChild?>()) {
+      return (data != null ? _iy3qfphx.UniqueSetNullChild.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_i5jtfsbn.UniqueUuid?>()) {
+      return (data != null ? _i5jtfsbn.UniqueUuid.fromJson(data) : null) as T;
+    }
+    if (t == List<_iensfz4m.Person>) {
       return (data as List)
-              .map((e) => deserialize<_i16.Organization>(e))
+              .map((e) => deserialize<_iensfz4m.Person>(e))
               .toList()
           as T;
     }
-    if (t == _i29.getType<List<_i16.Organization>?>()) {
+    if (t == _isc.getType<List<_iensfz4m.Person>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_i16.Organization>(e))
+                    .map((e) => deserialize<_iensfz4m.Person>(e))
+                    .toList()
+              : null)
+          as T;
+    }
+    if (t == List<_irjtvpke.Organization>) {
+      return (data as List)
+              .map((e) => deserialize<_irjtvpke.Organization>(e))
+              .toList()
+          as T;
+    }
+    if (t == _isc.getType<List<_irjtvpke.Organization>?>()) {
+      return (data != null
+              ? (data as List)
+                    .map((e) => deserialize<_irjtvpke.Organization>(e))
                     .toList()
               : null)
           as T;
@@ -1818,41 +1835,41 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return deserializeDynamicFieldValue(data) as T;
     }
     try {
-      return _i2.Protocol().deserialize<T>(data, t);
-    } on _i29.DeserializationTypeNotFoundException catch (_) {}
+      return _iacc.Protocol().deserialize<T>(data, t);
+    } on _isc.DeserializationTypeNotFoundException catch (_) {}
     try {
-      return _i3.Protocol().deserialize<T>(data, t);
-    } on _i29.DeserializationTypeNotFoundException catch (_) {}
+      return _ipulbpi2.Protocol().deserialize<T>(data, t);
+    } on _isc.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _i4.Address => 'Address',
-      _i5.City => 'City',
-      _i6.Company => 'Company',
-      _i7.FkChainCascadeMiddle => 'FkChainCascadeMiddle',
-      _i8.FkChainMiddleCascadeChild => 'FkChainMiddleCascadeChild',
-      _i9.FkChainMiddleSetNullChild => 'FkChainMiddleSetNullChild',
-      _i10.FkChainRestrictBlocker => 'FkChainRestrictBlocker',
-      _i11.FkChainRoot => 'FkChainRoot',
-      _i12.FkChainSetNullCascadeChild => 'FkChainSetNullCascadeChild',
-      _i13.FkChainSetNullMiddle => 'FkChainSetNullMiddle',
-      _i14.FkChainSetNullRestrictChild => 'FkChainSetNullRestrictChild',
-      _i15.FkChainSetNullSetNullChild => 'FkChainSetNullSetNullChild',
-      _i16.Organization => 'Organization',
-      _i17.Person => 'Person',
-      _i18.RequiredSetNullChild => 'RequiredSetNullChild',
-      _i19.RestrictChild => 'RestrictChild',
-      _i20.Town => 'Town',
-      _i21.Types => 'Types',
-      _i22.TypesEnum => 'TypesEnum',
-      _i23.Unique => 'Unique',
-      _i24.UniqueComposite => 'UniqueComposite',
-      _i25.UniqueDiscriminator => 'UniqueDiscriminator',
-      _i26.UniqueNoRelease => 'UniqueNoRelease',
-      _i27.UniqueSetNullChild => 'UniqueSetNullChild',
-      _i28.UniqueUuid => 'UniqueUuid',
+      _ilb4pipw.Address => 'Address',
+      _ior3absd.City => 'City',
+      _i6pnc270.Company => 'Company',
+      _ivwxm81w.FkChainCascadeMiddle => 'FkChainCascadeMiddle',
+      _ih0wcufc.FkChainMiddleCascadeChild => 'FkChainMiddleCascadeChild',
+      _ifjezkfx.FkChainMiddleSetNullChild => 'FkChainMiddleSetNullChild',
+      _i4k28i3g.FkChainRestrictBlocker => 'FkChainRestrictBlocker',
+      _ifk56fcw.FkChainRoot => 'FkChainRoot',
+      _ideurard.FkChainSetNullCascadeChild => 'FkChainSetNullCascadeChild',
+      _icv70ksq.FkChainSetNullMiddle => 'FkChainSetNullMiddle',
+      _ix62gjf0.FkChainSetNullRestrictChild => 'FkChainSetNullRestrictChild',
+      _ihkyqxiw.FkChainSetNullSetNullChild => 'FkChainSetNullSetNullChild',
+      _irjtvpke.Organization => 'Organization',
+      _iensfz4m.Person => 'Person',
+      _i1huw131.RequiredSetNullChild => 'RequiredSetNullChild',
+      _isrf0aof.RestrictChild => 'RestrictChild',
+      _iytblq2r.Town => 'Town',
+      _iwxwszsz.Types => 'Types',
+      _ire5m5mj.TypesEnum => 'TypesEnum',
+      _ivpwn84u.Unique => 'Unique',
+      _iv4klbbv.UniqueComposite => 'UniqueComposite',
+      _ixfoa5hm.UniqueDiscriminator => 'UniqueDiscriminator',
+      _i91ey4jd.UniqueNoRelease => 'UniqueNoRelease',
+      _iy3qfphx.UniqueSetNullChild => 'UniqueSetNullChild',
+      _i5jtfsbn.UniqueUuid => 'UniqueUuid',
       _ => null,
     };
   }
@@ -1870,64 +1887,64 @@ class Protocol extends _i1.DatabaseSerializationManager {
     }
 
     switch (data) {
-      case _i4.Address():
+      case _ilb4pipw.Address():
         return 'Address';
-      case _i5.City():
+      case _ior3absd.City():
         return 'City';
-      case _i6.Company():
+      case _i6pnc270.Company():
         return 'Company';
-      case _i7.FkChainCascadeMiddle():
+      case _ivwxm81w.FkChainCascadeMiddle():
         return 'FkChainCascadeMiddle';
-      case _i8.FkChainMiddleCascadeChild():
+      case _ih0wcufc.FkChainMiddleCascadeChild():
         return 'FkChainMiddleCascadeChild';
-      case _i9.FkChainMiddleSetNullChild():
+      case _ifjezkfx.FkChainMiddleSetNullChild():
         return 'FkChainMiddleSetNullChild';
-      case _i10.FkChainRestrictBlocker():
+      case _i4k28i3g.FkChainRestrictBlocker():
         return 'FkChainRestrictBlocker';
-      case _i11.FkChainRoot():
+      case _ifk56fcw.FkChainRoot():
         return 'FkChainRoot';
-      case _i12.FkChainSetNullCascadeChild():
+      case _ideurard.FkChainSetNullCascadeChild():
         return 'FkChainSetNullCascadeChild';
-      case _i13.FkChainSetNullMiddle():
+      case _icv70ksq.FkChainSetNullMiddle():
         return 'FkChainSetNullMiddle';
-      case _i14.FkChainSetNullRestrictChild():
+      case _ix62gjf0.FkChainSetNullRestrictChild():
         return 'FkChainSetNullRestrictChild';
-      case _i15.FkChainSetNullSetNullChild():
+      case _ihkyqxiw.FkChainSetNullSetNullChild():
         return 'FkChainSetNullSetNullChild';
-      case _i16.Organization():
+      case _irjtvpke.Organization():
         return 'Organization';
-      case _i17.Person():
+      case _iensfz4m.Person():
         return 'Person';
-      case _i18.RequiredSetNullChild():
+      case _i1huw131.RequiredSetNullChild():
         return 'RequiredSetNullChild';
-      case _i19.RestrictChild():
+      case _isrf0aof.RestrictChild():
         return 'RestrictChild';
-      case _i20.Town():
+      case _iytblq2r.Town():
         return 'Town';
-      case _i21.Types():
+      case _iwxwszsz.Types():
         return 'Types';
-      case _i22.TypesEnum():
+      case _ire5m5mj.TypesEnum():
         return 'TypesEnum';
-      case _i23.Unique():
+      case _ivpwn84u.Unique():
         return 'Unique';
-      case _i24.UniqueComposite():
+      case _iv4klbbv.UniqueComposite():
         return 'UniqueComposite';
-      case _i25.UniqueDiscriminator():
+      case _ixfoa5hm.UniqueDiscriminator():
         return 'UniqueDiscriminator';
-      case _i26.UniqueNoRelease():
+      case _i91ey4jd.UniqueNoRelease():
         return 'UniqueNoRelease';
-      case _i27.UniqueSetNullChild():
+      case _iy3qfphx.UniqueSetNullChild():
         return 'UniqueSetNullChild';
-      case _i28.UniqueUuid():
+      case _i5jtfsbn.UniqueUuid():
         return 'UniqueUuid';
     }
-    className = _i2.Protocol().getClassNameForObject(data);
+    className = _iacc.Protocol().getClassNameForObject(data);
     if (className != null) {
       return className.contains('.')
           ? className
           : 'serverpod_auth_core.$className';
     }
-    className = _i3.Protocol().getClassNameForObject(data);
+    className = _ipulbpi2.Protocol().getClassNameForObject(data);
     if (className != null) {
       return className.contains('.')
           ? className
@@ -1943,171 +1960,174 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return super.deserializeByClassName(data);
     }
     if (dataClassName == 'Address') {
-      return deserialize<_i4.Address>(data['data']);
+      return deserialize<_ilb4pipw.Address>(data['data']);
     }
     if (dataClassName == 'City') {
-      return deserialize<_i5.City>(data['data']);
+      return deserialize<_ior3absd.City>(data['data']);
     }
     if (dataClassName == 'Company') {
-      return deserialize<_i6.Company>(data['data']);
+      return deserialize<_i6pnc270.Company>(data['data']);
     }
     if (dataClassName == 'FkChainCascadeMiddle') {
-      return deserialize<_i7.FkChainCascadeMiddle>(data['data']);
+      return deserialize<_ivwxm81w.FkChainCascadeMiddle>(data['data']);
     }
     if (dataClassName == 'FkChainMiddleCascadeChild') {
-      return deserialize<_i8.FkChainMiddleCascadeChild>(data['data']);
+      return deserialize<_ih0wcufc.FkChainMiddleCascadeChild>(data['data']);
     }
     if (dataClassName == 'FkChainMiddleSetNullChild') {
-      return deserialize<_i9.FkChainMiddleSetNullChild>(data['data']);
+      return deserialize<_ifjezkfx.FkChainMiddleSetNullChild>(data['data']);
     }
     if (dataClassName == 'FkChainRestrictBlocker') {
-      return deserialize<_i10.FkChainRestrictBlocker>(data['data']);
+      return deserialize<_i4k28i3g.FkChainRestrictBlocker>(data['data']);
     }
     if (dataClassName == 'FkChainRoot') {
-      return deserialize<_i11.FkChainRoot>(data['data']);
+      return deserialize<_ifk56fcw.FkChainRoot>(data['data']);
     }
     if (dataClassName == 'FkChainSetNullCascadeChild') {
-      return deserialize<_i12.FkChainSetNullCascadeChild>(data['data']);
+      return deserialize<_ideurard.FkChainSetNullCascadeChild>(data['data']);
     }
     if (dataClassName == 'FkChainSetNullMiddle') {
-      return deserialize<_i13.FkChainSetNullMiddle>(data['data']);
+      return deserialize<_icv70ksq.FkChainSetNullMiddle>(data['data']);
     }
     if (dataClassName == 'FkChainSetNullRestrictChild') {
-      return deserialize<_i14.FkChainSetNullRestrictChild>(data['data']);
+      return deserialize<_ix62gjf0.FkChainSetNullRestrictChild>(data['data']);
     }
     if (dataClassName == 'FkChainSetNullSetNullChild') {
-      return deserialize<_i15.FkChainSetNullSetNullChild>(data['data']);
+      return deserialize<_ihkyqxiw.FkChainSetNullSetNullChild>(data['data']);
     }
     if (dataClassName == 'Organization') {
-      return deserialize<_i16.Organization>(data['data']);
+      return deserialize<_irjtvpke.Organization>(data['data']);
     }
     if (dataClassName == 'Person') {
-      return deserialize<_i17.Person>(data['data']);
+      return deserialize<_iensfz4m.Person>(data['data']);
     }
     if (dataClassName == 'RequiredSetNullChild') {
-      return deserialize<_i18.RequiredSetNullChild>(data['data']);
+      return deserialize<_i1huw131.RequiredSetNullChild>(data['data']);
     }
     if (dataClassName == 'RestrictChild') {
-      return deserialize<_i19.RestrictChild>(data['data']);
+      return deserialize<_isrf0aof.RestrictChild>(data['data']);
     }
     if (dataClassName == 'Town') {
-      return deserialize<_i20.Town>(data['data']);
+      return deserialize<_iytblq2r.Town>(data['data']);
     }
     if (dataClassName == 'Types') {
-      return deserialize<_i21.Types>(data['data']);
+      return deserialize<_iwxwszsz.Types>(data['data']);
     }
     if (dataClassName == 'TypesEnum') {
-      return deserialize<_i22.TypesEnum>(data['data']);
+      return deserialize<_ire5m5mj.TypesEnum>(data['data']);
     }
     if (dataClassName == 'Unique') {
-      return deserialize<_i23.Unique>(data['data']);
+      return deserialize<_ivpwn84u.Unique>(data['data']);
     }
     if (dataClassName == 'UniqueComposite') {
-      return deserialize<_i24.UniqueComposite>(data['data']);
+      return deserialize<_iv4klbbv.UniqueComposite>(data['data']);
     }
     if (dataClassName == 'UniqueDiscriminator') {
-      return deserialize<_i25.UniqueDiscriminator>(data['data']);
+      return deserialize<_ixfoa5hm.UniqueDiscriminator>(data['data']);
     }
     if (dataClassName == 'UniqueNoRelease') {
-      return deserialize<_i26.UniqueNoRelease>(data['data']);
+      return deserialize<_i91ey4jd.UniqueNoRelease>(data['data']);
     }
     if (dataClassName == 'UniqueSetNullChild') {
-      return deserialize<_i27.UniqueSetNullChild>(data['data']);
+      return deserialize<_iy3qfphx.UniqueSetNullChild>(data['data']);
     }
     if (dataClassName == 'UniqueUuid') {
-      return deserialize<_i28.UniqueUuid>(data['data']);
+      return deserialize<_i5jtfsbn.UniqueUuid>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_core.')) {
       data['className'] = dataClassName.substring(20);
-      return _i2.Protocol().deserializeByClassName(data);
+      return _iacc.Protocol().deserializeByClassName(data);
     }
     if (dataClassName.startsWith('serverpod_offline_sync.')) {
       data['className'] = dataClassName.substring(23);
-      return _i3.Protocol().deserializeByClassName(data);
+      return _ipulbpi2.Protocol().deserializeByClassName(data);
     }
     return super.deserializeByClassName(data);
   }
 
   void _registerHostProtocols() {
-    _i2.Protocol().registerHostProtocol('serverpod_offline_sync_test', this);
-    _i3.Protocol().registerHostProtocol('serverpod_offline_sync_test', this);
+    _iacc.Protocol().registerHostProtocol('serverpod_offline_sync_test', this);
+    _ipulbpi2.Protocol().registerHostProtocol(
+      'serverpod_offline_sync_test',
+      this,
+    );
   }
 
   @override
-  _i1.Table? getTableForType(Type t) {
+  _isd.Table? getTableForType(Type t) {
     {
-      var protocol = _i2.Protocol();
-      var table = protocol is _i1.DatabaseSerializationManager
-          ? (protocol as _i1.DatabaseSerializationManager).getTableForType(t)
+      var protocol = _iacc.Protocol();
+      var table = protocol is _isd.DatabaseSerializationManager
+          ? (protocol as _isd.DatabaseSerializationManager).getTableForType(t)
           : null;
       if (table != null) {
         return table;
       }
     }
     {
-      var protocol = _i3.Protocol();
-      var table = protocol is _i1.DatabaseSerializationManager
-          ? (protocol as _i1.DatabaseSerializationManager).getTableForType(t)
+      var protocol = _ipulbpi2.Protocol();
+      var table = protocol is _isd.DatabaseSerializationManager
+          ? (protocol as _isd.DatabaseSerializationManager).getTableForType(t)
           : null;
       if (table != null) {
         return table;
       }
     }
     switch (t) {
-      case _i4.Address:
-        return _i4.Address.t;
-      case _i5.City:
-        return _i5.City.t;
-      case _i6.Company:
-        return _i6.Company.t;
-      case _i7.FkChainCascadeMiddle:
-        return _i7.FkChainCascadeMiddle.t;
-      case _i8.FkChainMiddleCascadeChild:
-        return _i8.FkChainMiddleCascadeChild.t;
-      case _i9.FkChainMiddleSetNullChild:
-        return _i9.FkChainMiddleSetNullChild.t;
-      case _i10.FkChainRestrictBlocker:
-        return _i10.FkChainRestrictBlocker.t;
-      case _i11.FkChainRoot:
-        return _i11.FkChainRoot.t;
-      case _i12.FkChainSetNullCascadeChild:
-        return _i12.FkChainSetNullCascadeChild.t;
-      case _i13.FkChainSetNullMiddle:
-        return _i13.FkChainSetNullMiddle.t;
-      case _i14.FkChainSetNullRestrictChild:
-        return _i14.FkChainSetNullRestrictChild.t;
-      case _i15.FkChainSetNullSetNullChild:
-        return _i15.FkChainSetNullSetNullChild.t;
-      case _i16.Organization:
-        return _i16.Organization.t;
-      case _i17.Person:
-        return _i17.Person.t;
-      case _i18.RequiredSetNullChild:
-        return _i18.RequiredSetNullChild.t;
-      case _i19.RestrictChild:
-        return _i19.RestrictChild.t;
-      case _i20.Town:
-        return _i20.Town.t;
-      case _i21.Types:
-        return _i21.Types.t;
-      case _i23.Unique:
-        return _i23.Unique.t;
-      case _i24.UniqueComposite:
-        return _i24.UniqueComposite.t;
-      case _i25.UniqueDiscriminator:
-        return _i25.UniqueDiscriminator.t;
-      case _i26.UniqueNoRelease:
-        return _i26.UniqueNoRelease.t;
-      case _i27.UniqueSetNullChild:
-        return _i27.UniqueSetNullChild.t;
-      case _i28.UniqueUuid:
-        return _i28.UniqueUuid.t;
+      case _ilb4pipw.Address:
+        return _ilb4pipw.Address.t;
+      case _ior3absd.City:
+        return _ior3absd.City.t;
+      case _i6pnc270.Company:
+        return _i6pnc270.Company.t;
+      case _ivwxm81w.FkChainCascadeMiddle:
+        return _ivwxm81w.FkChainCascadeMiddle.t;
+      case _ih0wcufc.FkChainMiddleCascadeChild:
+        return _ih0wcufc.FkChainMiddleCascadeChild.t;
+      case _ifjezkfx.FkChainMiddleSetNullChild:
+        return _ifjezkfx.FkChainMiddleSetNullChild.t;
+      case _i4k28i3g.FkChainRestrictBlocker:
+        return _i4k28i3g.FkChainRestrictBlocker.t;
+      case _ifk56fcw.FkChainRoot:
+        return _ifk56fcw.FkChainRoot.t;
+      case _ideurard.FkChainSetNullCascadeChild:
+        return _ideurard.FkChainSetNullCascadeChild.t;
+      case _icv70ksq.FkChainSetNullMiddle:
+        return _icv70ksq.FkChainSetNullMiddle.t;
+      case _ix62gjf0.FkChainSetNullRestrictChild:
+        return _ix62gjf0.FkChainSetNullRestrictChild.t;
+      case _ihkyqxiw.FkChainSetNullSetNullChild:
+        return _ihkyqxiw.FkChainSetNullSetNullChild.t;
+      case _irjtvpke.Organization:
+        return _irjtvpke.Organization.t;
+      case _iensfz4m.Person:
+        return _iensfz4m.Person.t;
+      case _i1huw131.RequiredSetNullChild:
+        return _i1huw131.RequiredSetNullChild.t;
+      case _isrf0aof.RestrictChild:
+        return _isrf0aof.RestrictChild.t;
+      case _iytblq2r.Town:
+        return _iytblq2r.Town.t;
+      case _iwxwszsz.Types:
+        return _iwxwszsz.Types.t;
+      case _ivpwn84u.Unique:
+        return _ivpwn84u.Unique.t;
+      case _iv4klbbv.UniqueComposite:
+        return _iv4klbbv.UniqueComposite.t;
+      case _ixfoa5hm.UniqueDiscriminator:
+        return _ixfoa5hm.UniqueDiscriminator.t;
+      case _i91ey4jd.UniqueNoRelease:
+        return _i91ey4jd.UniqueNoRelease.t;
+      case _iy3qfphx.UniqueSetNullChild:
+        return _iy3qfphx.UniqueSetNullChild.t;
+      case _i5jtfsbn.UniqueUuid:
+        return _i5jtfsbn.UniqueUuid.t;
     }
     return null;
   }
 
   @override
-  List<_i1.TableDefinition> getTargetTableDefinitions() =>
+  List<_isd.TableDefinition> getTargetTableDefinitions() =>
       targetTableDefinitions;
 
   @override
@@ -2123,10 +2143,10 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return null;
     }
     try {
-      return _i2.Protocol().mapRecordToJson(record);
+      return _iacc.Protocol().mapRecordToJson(record);
     } catch (_) {}
     try {
-      return _i3.Protocol().mapRecordToJson(record);
+      return _ipulbpi2.Protocol().mapRecordToJson(record);
     } catch (_) {}
     throw Exception('Unsupported record type ${record.runtimeType}');
   }

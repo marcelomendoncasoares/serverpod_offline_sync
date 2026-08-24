@@ -10,11 +10,11 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 
 abstract class FkChainRoot
-    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   FkChainRoot._({
     this.id,
     this.scopeId,
@@ -22,7 +22,7 @@ abstract class FkChainRoot
   });
 
   factory FkChainRoot({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String name,
   }) = _FkChainRootImpl;
@@ -31,7 +31,7 @@ abstract class FkChainRoot
     return FkChainRoot(
       id: jsonSerialization['id'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
     );
@@ -42,7 +42,7 @@ abstract class FkChainRoot
   static const db = FkChainRootRepository._();
 
   @override
-  _i2.UuidValue? id;
+  _isc.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -50,13 +50,13 @@ abstract class FkChainRoot
   String name;
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => t;
+  _isd.Table<_isc.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [FkChainRoot]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   FkChainRoot copyWith({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     String? name,
   });
@@ -85,11 +85,11 @@ abstract class FkChainRoot
   }
 
   static FkChainRootIncludeList includeList({
-    _i1.WhereExpressionBuilder<FkChainRootTable>? where,
+    _isd.WhereExpressionBuilder<FkChainRootTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
+    _isd.OrderByBuilder<FkChainRootTable>? orderBy,
+    _isd.OrderByListBuilder<FkChainRootTable>? orderByList,
     FkChainRootInclude? include,
   }) {
     return FkChainRootIncludeList._(
@@ -104,7 +104,7 @@ abstract class FkChainRoot
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _isc.SerializationManager.encode(this);
   }
 }
 
@@ -112,7 +112,7 @@ class _Undefined {}
 
 class _FkChainRootImpl extends FkChainRoot {
   _FkChainRootImpl({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String name,
   }) : super._(
@@ -123,7 +123,7 @@ class _FkChainRootImpl extends FkChainRoot {
 
   /// Returns a shallow copy of this [FkChainRoot]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   @override
   FkChainRoot copyWith({
     Object? id = _Undefined,
@@ -131,35 +131,35 @@ class _FkChainRootImpl extends FkChainRoot {
     String? name,
   }) {
     return FkChainRoot(
-      id: id is _i2.UuidValue? ? id : this.id,
+      id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
     );
   }
 }
 
-class FkChainRootUpdateTable extends _i1.UpdateTable<FkChainRootTable> {
+class FkChainRootUpdateTable extends _isd.UpdateTable<FkChainRootTable> {
   FkChainRootUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> name(String value) => _isd.ColumnValue(
     table.name,
     value,
   );
 }
 
-class FkChainRootTable extends _i1.Table<_i2.UuidValue?> {
+class FkChainRootTable extends _isd.Table<_isc.UuidValue?> {
   FkChainRootTable({super.tableRelation}) : super(tableName: 'fk_chain_root') {
     updateTable = FkChainRootUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _isd.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _isd.ColumnString(
       'name',
       this,
     );
@@ -168,31 +168,31 @@ class FkChainRootTable extends _i1.Table<_i2.UuidValue?> {
   late final FkChainRootUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _isd.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _isd.ColumnString name;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     scopeId,
     name,
   ];
 }
 
-class FkChainRootInclude extends _i1.IncludeObject {
+class FkChainRootInclude extends _isd.IncludeObject {
   FkChainRootInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _isd.Include?> get includes => {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => FkChainRoot.t;
+  _isd.Table<_isc.UuidValue?> get table => FkChainRoot.t;
 }
 
-class FkChainRootIncludeList extends _i1.IncludeList {
+class FkChainRootIncludeList extends _isd.IncludeList {
   FkChainRootIncludeList._({
-    _i1.WhereExpressionBuilder<FkChainRootTable>? where,
+    _isd.WhereExpressionBuilder<FkChainRootTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -203,10 +203,10 @@ class FkChainRootIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => FkChainRoot.t;
+  _isd.Table<_isc.UuidValue?> get table => FkChainRoot.t;
 }
 
 class FkChainRootRepository {
@@ -235,15 +235,15 @@ class FkChainRootRepository {
   /// );
   /// ```
   Future<List<FkChainRoot>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainRootTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<FkChainRootTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<FkChainRootTable>? orderBy,
+    _isd.OrderByListBuilder<FkChainRootTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<FkChainRoot>(
       where: where?.call(FkChainRoot.t),
@@ -275,14 +275,14 @@ class FkChainRootRepository {
   /// );
   /// ```
   Future<FkChainRoot?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainRootTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<FkChainRootTable>? where,
     int? offset,
-    _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<FkChainRootTable>? orderBy,
+    _isd.OrderByListBuilder<FkChainRootTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<FkChainRoot>(
       where: where?.call(FkChainRoot.t),
@@ -297,11 +297,11 @@ class FkChainRootRepository {
 
   /// Finds a single [FkChainRoot] by its [id] or null if no such row exists.
   Future<FkChainRoot?> findById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<FkChainRoot>(
       id,
@@ -326,9 +326,9 @@ class FkChainRootRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRoot>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<FkChainRoot> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -344,9 +344,9 @@ class FkChainRootRepository {
   ///
   /// The returned [FkChainRoot] will have its `id` field set.
   Future<FkChainRoot> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     FkChainRoot row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<FkChainRoot>(
       row,
@@ -375,12 +375,12 @@ class FkChainRootRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRoot>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<FkChainRoot> rows, {
-    required _i1.ColumnSelections<FkChainRootTable> conflictColumns,
-    _i1.ColumnSelections<FkChainRootTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainRootTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<FkChainRootTable> conflictColumns,
+    _isd.ColumnSelections<FkChainRootTable>? updateColumns,
+    _isd.WhereExpressionBuilder<FkChainRootTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<FkChainRoot>(
@@ -407,12 +407,12 @@ class FkChainRootRepository {
   ///
   /// The returned [FkChainRoot] will have its `id` field set.
   Future<FkChainRoot?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     FkChainRoot row, {
-    required _i1.ColumnSelections<FkChainRootTable> conflictColumns,
-    _i1.ColumnSelections<FkChainRootTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainRootTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<FkChainRootTable> conflictColumns,
+    _isd.ColumnSelections<FkChainRootTable>? updateColumns,
+    _isd.WhereExpressionBuilder<FkChainRootTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<FkChainRoot>(
       row,
@@ -433,10 +433,10 @@ class FkChainRootRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRoot>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<FkChainRoot> rows, {
-    _i1.ColumnSelections<FkChainRootTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<FkChainRootTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<FkChainRoot>(
@@ -451,10 +451,10 @@ class FkChainRootRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<FkChainRoot> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     FkChainRoot row, {
-    _i1.ColumnSelections<FkChainRootTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<FkChainRootTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<FkChainRoot>(
       row,
@@ -466,10 +466,10 @@ class FkChainRootRepository {
   /// Updates a single [FkChainRoot] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<FkChainRoot?> updateById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    required _i1.ColumnValueListBuilder<FkChainRootUpdateTable> columnValues,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    required _isd.ColumnValueListBuilder<FkChainRootUpdateTable> columnValues,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<FkChainRoot>(
       id,
@@ -485,14 +485,14 @@ class FkChainRootRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRoot>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<FkChainRootUpdateTable> columnValues,
-    required _i1.WhereExpressionBuilder<FkChainRootTable> where,
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<FkChainRootUpdateTable> columnValues,
+    required _isd.WhereExpressionBuilder<FkChainRootTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<FkChainRootTable>? orderBy,
+    _isd.OrderByListBuilder<FkChainRootTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<FkChainRoot>(
@@ -519,11 +519,11 @@ class FkChainRootRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRoot>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<FkChainRoot> rows, {
-    _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<FkChainRootTable>? orderBy,
+    _isd.OrderByListBuilder<FkChainRootTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<FkChainRoot>(
@@ -537,9 +537,9 @@ class FkChainRootRepository {
 
   /// Deletes a single [FkChainRoot].
   Future<FkChainRoot> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     FkChainRoot row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<FkChainRoot>(
       row,
@@ -556,11 +556,11 @@ class FkChainRootRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainRoot>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainRootTable> where,
-    _i1.OrderByBuilder<FkChainRootTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainRootTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<FkChainRootTable> where,
+    _isd.OrderByBuilder<FkChainRootTable>? orderBy,
+    _isd.OrderByListBuilder<FkChainRootTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<FkChainRoot>(
@@ -575,10 +575,10 @@ class FkChainRootRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainRootTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<FkChainRootTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<FkChainRoot>(
       where: where?.call(FkChainRoot.t),
@@ -589,11 +589,11 @@ class FkChainRootRepository {
 
   /// Acquires row-level locks on [FkChainRoot] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainRootTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<FkChainRootTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<FkChainRoot>(
       where: where(FkChainRoot.t),

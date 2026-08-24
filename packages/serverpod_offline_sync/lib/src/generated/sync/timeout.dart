@@ -16,8 +16,8 @@ part of 'stream_event.dart';
 /// This is a synthetic event that will be injected in the inbound stream
 /// being awaited if it does not emit any events for a given timeout. It is
 /// what allows both sides to stay silent if they have nothing to send.
-abstract class CrdtSyncIdleTimeout extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtSyncIdleTimeout extends _icw2tu00.CrdtSyncStreamEvent
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncIdleTimeout._();
 
   factory CrdtSyncIdleTimeout() = _CrdtSyncIdleTimeoutImpl;
@@ -29,7 +29,7 @@ abstract class CrdtSyncIdleTimeout extends _i1.CrdtSyncStreamEvent
   /// Returns a shallow copy of this [CrdtSyncIdleTimeout]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncIdleTimeout copyWith();
   @override
   Map<String, dynamic> toJson() {
@@ -43,7 +43,7 @@ abstract class CrdtSyncIdleTimeout extends _i1.CrdtSyncStreamEvent
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -52,7 +52,7 @@ class _CrdtSyncIdleTimeoutImpl extends CrdtSyncIdleTimeout {
 
   /// Returns a shallow copy of this [CrdtSyncIdleTimeout]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSyncIdleTimeout copyWith() {
     return CrdtSyncIdleTimeout();

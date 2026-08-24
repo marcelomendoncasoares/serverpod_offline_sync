@@ -11,13 +11,14 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT schema columns table.
 abstract class CrdtSchemaColumn
-    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtSchemaColumn._({
     this.id,
     required this.tblId,
@@ -28,7 +29,7 @@ abstract class CrdtSchemaColumn
   factory CrdtSchemaColumn({
     int? id,
     required int tblId,
-    _i3.CrdtSchemaTable? tbl,
+    _icw2tu00.CrdtSchemaTable? tbl,
     required String name,
   }) = _CrdtSchemaColumnImpl;
 
@@ -38,7 +39,7 @@ abstract class CrdtSchemaColumn
       tblId: jsonSerialization['tblId'] as int,
       tbl: jsonSerialization['tbl'] == null
           ? null
-          : _i3.Protocol().deserialize<_i3.CrdtSchemaTable>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtSchemaTable>(
               jsonSerialization['tbl'],
             ),
       name: jsonSerialization['name'] as String,
@@ -55,21 +56,21 @@ abstract class CrdtSchemaColumn
   int tblId;
 
   /// Reference to the table this column belongs to.
-  _i3.CrdtSchemaTable? tbl;
+  _icw2tu00.CrdtSchemaTable? tbl;
 
   /// Name of the column.
   String name;
 
   @override
-  _i1.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtSchemaColumn]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtSchemaColumn copyWith({
     int? id,
     int? tblId,
-    _i3.CrdtSchemaTable? tbl,
+    _icw2tu00.CrdtSchemaTable? tbl,
     String? name,
   });
   @override
@@ -94,16 +95,18 @@ abstract class CrdtSchemaColumn
     };
   }
 
-  static CrdtSchemaColumnInclude include({_i3.CrdtSchemaTableInclude? tbl}) {
+  static CrdtSchemaColumnInclude include({
+    _icw2tu00.CrdtSchemaTableInclude? tbl,
+  }) {
     return CrdtSchemaColumnInclude._(tbl: tbl);
   }
 
   static CrdtSchemaColumnIncludeList includeList({
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
+    _isd.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
     CrdtSchemaColumnInclude? include,
   }) {
     return CrdtSchemaColumnIncludeList._(
@@ -118,7 +121,7 @@ abstract class CrdtSchemaColumn
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -128,7 +131,7 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
   _CrdtSchemaColumnImpl({
     int? id,
     required int tblId,
-    _i3.CrdtSchemaTable? tbl,
+    _icw2tu00.CrdtSchemaTable? tbl,
     required String name,
   }) : super._(
          id: id,
@@ -139,7 +142,7 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
 
   /// Returns a shallow copy of this [CrdtSchemaColumn]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSchemaColumn copyWith({
     Object? id = _Undefined,
@@ -150,36 +153,36 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
     return CrdtSchemaColumn(
       id: id is int? ? id : this.id,
       tblId: tblId ?? this.tblId,
-      tbl: tbl is _i3.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
+      tbl: tbl is _icw2tu00.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
       name: name ?? this.name,
     );
   }
 }
 
 class CrdtSchemaColumnUpdateTable
-    extends _i1.UpdateTable<CrdtSchemaColumnTable> {
+    extends _isd.UpdateTable<CrdtSchemaColumnTable> {
   CrdtSchemaColumnUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> tblId(int value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> tblId(int value) => _isd.ColumnValue(
     table.tblId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> name(String value) => _isd.ColumnValue(
     table.name,
     value,
   );
 }
 
-class CrdtSchemaColumnTable extends _i1.Table<int?> {
+class CrdtSchemaColumnTable extends _isd.Table<int?> {
   CrdtSchemaColumnTable({super.tableRelation})
     : super(tableName: 'crdt_schema_columns') {
     updateTable = CrdtSchemaColumnUpdateTable(this);
-    tblId = _i1.ColumnInt(
+    tblId = _isd.ColumnInt(
       'tblId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _isd.ColumnString(
       'name',
       this,
     );
@@ -187,36 +190,36 @@ class CrdtSchemaColumnTable extends _i1.Table<int?> {
 
   late final CrdtSchemaColumnUpdateTable updateTable;
 
-  late final _i1.ColumnInt tblId;
+  late final _isd.ColumnInt tblId;
 
   /// Reference to the table this column belongs to.
-  _i3.CrdtSchemaTableTable? _tbl;
+  _icw2tu00.CrdtSchemaTableTable? _tbl;
 
   /// Name of the column.
-  late final _i1.ColumnString name;
+  late final _isd.ColumnString name;
 
-  _i3.CrdtSchemaTableTable get tbl {
+  _icw2tu00.CrdtSchemaTableTable get tbl {
     if (_tbl != null) return _tbl!;
-    _tbl = _i1.createRelationTable(
+    _tbl = _isd.createRelationTable(
       relationFieldName: 'tbl',
       field: CrdtSchemaColumn.t.tblId,
-      foreignField: _i3.CrdtSchemaTable.t.id,
+      foreignField: _icw2tu00.CrdtSchemaTable.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.CrdtSchemaTableTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtSchemaTableTable(tableRelation: foreignTableRelation),
     );
     return _tbl!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     tblId,
     name,
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'tbl') {
       return tbl;
     }
@@ -224,23 +227,23 @@ class CrdtSchemaColumnTable extends _i1.Table<int?> {
   }
 }
 
-class CrdtSchemaColumnInclude extends _i1.IncludeObject {
-  CrdtSchemaColumnInclude._({_i3.CrdtSchemaTableInclude? tbl}) {
+class CrdtSchemaColumnInclude extends _isd.IncludeObject {
+  CrdtSchemaColumnInclude._({_icw2tu00.CrdtSchemaTableInclude? tbl}) {
     _tbl = tbl;
   }
 
-  _i3.CrdtSchemaTableInclude? _tbl;
+  _icw2tu00.CrdtSchemaTableInclude? _tbl;
 
   @override
-  Map<String, _i1.Include?> get includes => {'tbl': _tbl};
+  Map<String, _isd.Include?> get includes => {'tbl': _tbl};
 
   @override
-  _i1.Table<int?> get table => CrdtSchemaColumn.t;
+  _isd.Table<int?> get table => CrdtSchemaColumn.t;
 }
 
-class CrdtSchemaColumnIncludeList extends _i1.IncludeList {
+class CrdtSchemaColumnIncludeList extends _isd.IncludeList {
   CrdtSchemaColumnIncludeList._({
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -251,10 +254,10 @@ class CrdtSchemaColumnIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<int?> get table => CrdtSchemaColumn.t;
+  _isd.Table<int?> get table => CrdtSchemaColumn.t;
 }
 
 class CrdtSchemaColumnRepository {
@@ -285,16 +288,16 @@ class CrdtSchemaColumnRepository {
   /// );
   /// ```
   Future<List<CrdtSchemaColumn>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtSchemaColumn>(
       where: where?.call(CrdtSchemaColumn.t),
@@ -327,15 +330,15 @@ class CrdtSchemaColumnRepository {
   /// );
   /// ```
   Future<CrdtSchemaColumn?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtSchemaColumn>(
       where: where?.call(CrdtSchemaColumn.t),
@@ -351,12 +354,12 @@ class CrdtSchemaColumnRepository {
 
   /// Finds a single [CrdtSchemaColumn] by its [id] or null if no such row exists.
   Future<CrdtSchemaColumn?> findById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     CrdtSchemaColumnInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtSchemaColumn>(
       id,
@@ -382,9 +385,9 @@ class CrdtSchemaColumnRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaColumn>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaColumn> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -400,9 +403,9 @@ class CrdtSchemaColumnRepository {
   ///
   /// The returned [CrdtSchemaColumn] will have its `id` field set.
   Future<CrdtSchemaColumn> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaColumn row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtSchemaColumn>(
       row,
@@ -431,12 +434,12 @@ class CrdtSchemaColumnRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaColumn>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaColumn> rows, {
-    required _i1.ColumnSelections<CrdtSchemaColumnTable> conflictColumns,
-    _i1.ColumnSelections<CrdtSchemaColumnTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtSchemaColumnTable> conflictColumns,
+    _isd.ColumnSelections<CrdtSchemaColumnTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtSchemaColumn>(
@@ -463,12 +466,12 @@ class CrdtSchemaColumnRepository {
   ///
   /// The returned [CrdtSchemaColumn] will have its `id` field set.
   Future<CrdtSchemaColumn?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaColumn row, {
-    required _i1.ColumnSelections<CrdtSchemaColumnTable> conflictColumns,
-    _i1.ColumnSelections<CrdtSchemaColumnTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtSchemaColumnTable> conflictColumns,
+    _isd.ColumnSelections<CrdtSchemaColumnTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtSchemaColumn>(
       row,
@@ -489,10 +492,10 @@ class CrdtSchemaColumnRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaColumn>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaColumn> rows, {
-    _i1.ColumnSelections<CrdtSchemaColumnTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSchemaColumnTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtSchemaColumn>(
@@ -507,10 +510,10 @@ class CrdtSchemaColumnRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtSchemaColumn> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaColumn row, {
-    _i1.ColumnSelections<CrdtSchemaColumnTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSchemaColumnTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtSchemaColumn>(
       row,
@@ -522,11 +525,11 @@ class CrdtSchemaColumnRepository {
   /// Updates a single [CrdtSchemaColumn] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtSchemaColumn?> updateById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i1.ColumnValueListBuilder<CrdtSchemaColumnUpdateTable>
+    required _isd.ColumnValueListBuilder<CrdtSchemaColumnUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtSchemaColumn>(
       id,
@@ -542,15 +545,15 @@ class CrdtSchemaColumnRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaColumn>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<CrdtSchemaColumnUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtSchemaColumnUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
+    required _isd.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtSchemaColumn>(
@@ -577,11 +580,11 @@ class CrdtSchemaColumnRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaColumn>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaColumn> rows, {
-    _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtSchemaColumn>(
@@ -595,9 +598,9 @@ class CrdtSchemaColumnRepository {
 
   /// Deletes a single [CrdtSchemaColumn].
   Future<CrdtSchemaColumn> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaColumn row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtSchemaColumn>(
       row,
@@ -614,11 +617,11 @@ class CrdtSchemaColumnRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaColumn>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
-    _i1.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
+    _isd.OrderByBuilder<CrdtSchemaColumnTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaColumnTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtSchemaColumn>(
@@ -633,10 +636,10 @@ class CrdtSchemaColumnRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSchemaColumnTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtSchemaColumn>(
       where: where?.call(CrdtSchemaColumn.t),
@@ -647,11 +650,11 @@ class CrdtSchemaColumnRepository {
 
   /// Acquires row-level locks on [CrdtSchemaColumn] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtSchemaColumnTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtSchemaColumn>(
       where: where(CrdtSchemaColumn.t),
@@ -668,10 +671,10 @@ class CrdtSchemaColumnAttachRowRepository {
   /// Creates a relation between the given [CrdtSchemaColumn] and [CrdtSchemaTable]
   /// by setting the [CrdtSchemaColumn]'s foreign key `tblId` to refer to the [CrdtSchemaTable].
   Future<void> tbl(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaColumn crdtSchemaColumn,
-    _i3.CrdtSchemaTable tbl, {
-    _i1.Transaction? transaction,
+    _icw2tu00.CrdtSchemaTable tbl, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtSchemaColumn.id == null) {
       throw ArgumentError.notNull('crdtSchemaColumn.id');

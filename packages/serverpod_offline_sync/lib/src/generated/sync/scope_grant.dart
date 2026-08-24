@@ -10,46 +10,49 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i2;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// A single scope a peer announces in a [CrdtSyncScopeSet].
 ///
 /// Carries the scope UUID and the authoritative [role] the receiving user
 /// holds in it. The personal scope is announced with [CrdtScopeRole.readWrite].
 abstract class CrdtScopeGrant
-    implements _i1.SerializableModel, _i1.ProtocolSerialization {
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtScopeGrant._({
     required this.uuidScopeId,
     required this.role,
   });
 
   factory CrdtScopeGrant({
-    required _i1.UuidValue uuidScopeId,
-    required _i2.CrdtScopeRole role,
+    required _iss.UuidValue uuidScopeId,
+    required _icw2tu00.CrdtScopeRole role,
   }) = _CrdtScopeGrantImpl;
 
   factory CrdtScopeGrant.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtScopeGrant(
-      uuidScopeId: _i1.UuidValueJsonExtension.fromJson(
+      uuidScopeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidScopeId'],
       ),
-      role: _i2.CrdtScopeRole.fromJson((jsonSerialization['role'] as String)),
+      role: _icw2tu00.CrdtScopeRole.fromJson(
+        (jsonSerialization['role'] as String),
+      ),
     );
   }
 
   /// Scope UUID being announced.
-  _i1.UuidValue uuidScopeId;
+  _iss.UuidValue uuidScopeId;
 
   /// Authoritative CRDT access role of the receiving user in this scope.
-  _i2.CrdtScopeRole role;
+  _icw2tu00.CrdtScopeRole role;
 
   /// Returns a shallow copy of this [CrdtScopeGrant]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_iss.useResult
   CrdtScopeGrant copyWith({
-    _i1.UuidValue? uuidScopeId,
-    _i2.CrdtScopeRole? role,
+    _iss.UuidValue? uuidScopeId,
+    _icw2tu00.CrdtScopeRole? role,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -71,14 +74,14 @@ abstract class CrdtScopeGrant
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
 class _CrdtScopeGrantImpl extends CrdtScopeGrant {
   _CrdtScopeGrantImpl({
-    required _i1.UuidValue uuidScopeId,
-    required _i2.CrdtScopeRole role,
+    required _iss.UuidValue uuidScopeId,
+    required _icw2tu00.CrdtScopeRole role,
   }) : super._(
          uuidScopeId: uuidScopeId,
          role: role,
@@ -86,11 +89,11 @@ class _CrdtScopeGrantImpl extends CrdtScopeGrant {
 
   /// Returns a shallow copy of this [CrdtScopeGrant]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_iss.useResult
   @override
   CrdtScopeGrant copyWith({
-    _i1.UuidValue? uuidScopeId,
-    _i2.CrdtScopeRole? role,
+    _iss.UuidValue? uuidScopeId,
+    _icw2tu00.CrdtScopeRole? role,
   }) {
     return CrdtScopeGrant(
       uuidScopeId: uuidScopeId ?? this.uuidScopeId,

@@ -16,16 +16,16 @@ part of 'stream_event.dart';
 /// The server sends the authoritative membership set (with roles). The client
 /// sends an empty set; the server never widens access from follower-reported
 /// state.
-abstract class CrdtSyncScopeSet extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtSyncScopeSet extends _icw2tu00.CrdtSyncStreamEvent
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncScopeSet._({required this.scopes});
 
-  factory CrdtSyncScopeSet({required List<_i1.CrdtScopeGrant> scopes}) =
+  factory CrdtSyncScopeSet({required List<_icw2tu00.CrdtScopeGrant> scopes}) =
       _CrdtSyncScopeSetImpl;
 
   factory CrdtSyncScopeSet.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtSyncScopeSet(
-      scopes: _i1.Protocol().deserialize<List<_i1.CrdtScopeGrant>>(
+      scopes: _icw2tu00.Protocol().deserialize<List<_icw2tu00.CrdtScopeGrant>>(
         jsonSerialization['scopes'],
       ),
     );
@@ -33,13 +33,13 @@ abstract class CrdtSyncScopeSet extends _i1.CrdtSyncStreamEvent
 
   /// Scopes this peer reports for the next sync cycle, each with the receiving
   /// user's authoritative role.
-  List<_i1.CrdtScopeGrant> scopes;
+  List<_icw2tu00.CrdtScopeGrant> scopes;
 
   /// Returns a shallow copy of this [CrdtSyncScopeSet]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
-  CrdtSyncScopeSet copyWith({List<_i1.CrdtScopeGrant>? scopes});
+  @_iss.useResult
+  CrdtSyncScopeSet copyWith({List<_icw2tu00.CrdtScopeGrant>? scopes});
   @override
   Map<String, dynamic> toJson() {
     return {
@@ -58,19 +58,19 @@ abstract class CrdtSyncScopeSet extends _i1.CrdtSyncStreamEvent
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
 class _CrdtSyncScopeSetImpl extends CrdtSyncScopeSet {
-  _CrdtSyncScopeSetImpl({required List<_i1.CrdtScopeGrant> scopes})
+  _CrdtSyncScopeSetImpl({required List<_icw2tu00.CrdtScopeGrant> scopes})
     : super._(scopes: scopes);
 
   /// Returns a shallow copy of this [CrdtSyncScopeSet]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
-  CrdtSyncScopeSet copyWith({List<_i1.CrdtScopeGrant>? scopes}) {
+  CrdtSyncScopeSet copyWith({List<_icw2tu00.CrdtScopeGrant>? scopes}) {
     return CrdtSyncScopeSet(
       scopes: scopes ?? this.scopes.map((e0) => e0.copyWith()).toList(),
     );

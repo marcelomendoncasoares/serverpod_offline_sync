@@ -12,8 +12,8 @@
 part of 'stream_event.dart';
 
 /// Marks the end of a framed sync batch.
-abstract class CrdtSyncEndOfBatch extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtSyncEndOfBatch extends _icw2tu00.CrdtSyncStreamEvent
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncEndOfBatch._();
 
   factory CrdtSyncEndOfBatch() = _CrdtSyncEndOfBatchImpl;
@@ -25,7 +25,7 @@ abstract class CrdtSyncEndOfBatch extends _i1.CrdtSyncStreamEvent
   /// Returns a shallow copy of this [CrdtSyncEndOfBatch]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncEndOfBatch copyWith();
   @override
   Map<String, dynamic> toJson() {
@@ -39,7 +39,7 @@ abstract class CrdtSyncEndOfBatch extends _i1.CrdtSyncStreamEvent
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -48,7 +48,7 @@ class _CrdtSyncEndOfBatchImpl extends CrdtSyncEndOfBatch {
 
   /// Returns a shallow copy of this [CrdtSyncEndOfBatch]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSyncEndOfBatch copyWith() {
     return CrdtSyncEndOfBatch();

@@ -11,16 +11,17 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
-import 'package:serverpod_database/serverpod_database.dart' as _i2;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i3;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT visibility generation table.
 ///
 /// This table stores materialized monotone CLFlag metadata after a visibility
 /// change event has been recorded.
-abstract class CrdtDataDeleted extends _i1.BaseHlc
-    implements _i2.TableRow<int?>, _i3.ProtocolSerialization {
+abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtDataDeleted._({
     this.id,
     required super.hlcDatetime,
@@ -37,33 +38,35 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
-    _i1.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row,
     required int rowId,
     required int nodeId,
-    _i1.CrdtNode? node,
+    _icw2tu00.CrdtNode? node,
     required int clFlag,
-    required _i1.CrdtDataDeletedReason reason,
+    required _icw2tu00.CrdtDataDeletedReason reason,
   }) = _CrdtDataDeletedImpl;
 
   factory CrdtDataDeleted.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtDataDeleted(
       id: jsonSerialization['id'] as int?,
-      hlcDatetime: _i3.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
       row: jsonSerialization['row'] == null
           ? null
-          : _i1.Protocol().deserialize<_i1.CrdtDataRow>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataRow>(
               jsonSerialization['row'],
             ),
       rowId: jsonSerialization['rowId'] as int,
       nodeId: jsonSerialization['nodeId'] as int,
       node: jsonSerialization['node'] == null
           ? null
-          : _i1.Protocol().deserialize<_i1.CrdtNode>(jsonSerialization['node']),
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtNode>(
+              jsonSerialization['node'],
+            ),
       clFlag: jsonSerialization['clFlag'] as int,
-      reason: _i1.CrdtDataDeletedReason.fromJson(
+      reason: _icw2tu00.CrdtDataDeletedReason.fromJson(
         (jsonSerialization['reason'] as int),
       ),
     );
@@ -77,38 +80,38 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
   int? id;
 
   /// Row whose visibility is tracked.
-  _i1.CrdtDataRow? row;
+  _icw2tu00.CrdtDataRow? row;
 
   int rowId;
 
   int nodeId;
 
   /// The node that updated the field.
-  _i1.CrdtNode? node;
+  _icw2tu00.CrdtNode? node;
 
   /// Monotone causal-length flag. Odd values are visible and even values are deleted.
   int clFlag;
 
   /// Why the row entered its current visibility generation.
-  _i1.CrdtDataDeletedReason reason;
+  _icw2tu00.CrdtDataDeletedReason reason;
 
   @override
-  _i2.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtDataDeleted]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i3.useResult
+  @_iss.useResult
   CrdtDataDeleted copyWith({
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i1.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row,
     int? rowId,
     int? nodeId,
-    _i1.CrdtNode? node,
+    _icw2tu00.CrdtNode? node,
     int? clFlag,
-    _i1.CrdtDataDeletedReason? reason,
+    _icw2tu00.CrdtDataDeletedReason? reason,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -143,8 +146,8 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
   }
 
   static CrdtDataDeletedInclude include({
-    _i1.CrdtDataRowInclude? row,
-    _i1.CrdtNodeInclude? node,
+    _icw2tu00.CrdtDataRowInclude? row,
+    _icw2tu00.CrdtNodeInclude? node,
   }) {
     return CrdtDataDeletedInclude._(
       row: row,
@@ -153,11 +156,11 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
   }
 
   static CrdtDataDeletedIncludeList includeList({
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     int? limit,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
     CrdtDataDeletedInclude? include,
   }) {
     return CrdtDataDeletedIncludeList._(
@@ -172,7 +175,7 @@ abstract class CrdtDataDeleted extends _i1.BaseHlc
 
   @override
   String toString() {
-    return _i3.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -183,12 +186,12 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
-    _i1.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row,
     required int rowId,
     required int nodeId,
-    _i1.CrdtNode? node,
+    _icw2tu00.CrdtNode? node,
     required int clFlag,
-    required _i1.CrdtDataDeletedReason reason,
+    required _icw2tu00.CrdtDataDeletedReason reason,
   }) : super._(
          id: id,
          hlcDatetime: hlcDatetime,
@@ -203,7 +206,7 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
 
   /// Returns a shallow copy of this [CrdtDataDeleted]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_iss.useResult
   @override
   CrdtDataDeleted copyWith({
     Object? id = _Undefined,
@@ -214,142 +217,145 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     int? nodeId,
     Object? node = _Undefined,
     int? clFlag,
-    _i1.CrdtDataDeletedReason? reason,
+    _icw2tu00.CrdtDataDeletedReason? reason,
   }) {
     return CrdtDataDeleted(
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
-      row: row is _i1.CrdtDataRow? ? row : this.row?.copyWith(),
+      row: row is _icw2tu00.CrdtDataRow? ? row : this.row?.copyWith(),
       rowId: rowId ?? this.rowId,
       nodeId: nodeId ?? this.nodeId,
-      node: node is _i1.CrdtNode? ? node : this.node?.copyWith(),
+      node: node is _icw2tu00.CrdtNode? ? node : this.node?.copyWith(),
       clFlag: clFlag ?? this.clFlag,
       reason: reason ?? this.reason,
     );
   }
 }
 
-class CrdtDataDeletedUpdateTable extends _i2.UpdateTable<CrdtDataDeletedTable> {
+class CrdtDataDeletedUpdateTable
+    extends _isd.UpdateTable<CrdtDataDeletedTable> {
   CrdtDataDeletedUpdateTable(super.table);
 
-  _i2.ColumnValue<DateTime, DateTime> hlcDatetime(DateTime value) =>
-      _i2.ColumnValue(
+  _isd.ColumnValue<DateTime, DateTime> hlcDatetime(DateTime value) =>
+      _isd.ColumnValue(
         table.hlcDatetime,
         value,
       );
 
-  _i2.ColumnValue<int, int> hlcCounter(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> hlcCounter(int value) => _isd.ColumnValue(
     table.hlcCounter,
     value,
   );
 
-  _i2.ColumnValue<int, int> rowId(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> rowId(int value) => _isd.ColumnValue(
     table.rowId,
     value,
   );
 
-  _i2.ColumnValue<int, int> nodeId(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> nodeId(int value) => _isd.ColumnValue(
     table.nodeId,
     value,
   );
 
-  _i2.ColumnValue<int, int> clFlag(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> clFlag(int value) => _isd.ColumnValue(
     table.clFlag,
     value,
   );
 
-  _i2.ColumnValue<_i1.CrdtDataDeletedReason, _i1.CrdtDataDeletedReason> reason(
-    _i1.CrdtDataDeletedReason value,
-  ) => _i2.ColumnValue(
+  _isd.ColumnValue<
+    _icw2tu00.CrdtDataDeletedReason,
+    _icw2tu00.CrdtDataDeletedReason
+  >
+  reason(_icw2tu00.CrdtDataDeletedReason value) => _isd.ColumnValue(
     table.reason,
     value,
   );
 }
 
-class CrdtDataDeletedTable extends _i2.Table<int?> {
+class CrdtDataDeletedTable extends _isd.Table<int?> {
   CrdtDataDeletedTable({super.tableRelation})
     : super(tableName: 'crdt_data_tombstone') {
     updateTable = CrdtDataDeletedUpdateTable(this);
-    hlcDatetime = _i2.ColumnDateTime(
+    hlcDatetime = _isd.ColumnDateTime(
       'hlcDatetime',
       this,
     );
-    hlcCounter = _i2.ColumnInt(
+    hlcCounter = _isd.ColumnInt(
       'hlcCounter',
       this,
     );
-    rowId = _i2.ColumnInt(
+    rowId = _isd.ColumnInt(
       'rowId',
       this,
     );
-    nodeId = _i2.ColumnInt(
+    nodeId = _isd.ColumnInt(
       'nodeId',
       this,
     );
-    clFlag = _i2.ColumnInt(
+    clFlag = _isd.ColumnInt(
       'clFlag',
       this,
     );
-    reason = _i2.ColumnEnum(
+    reason = _isd.ColumnEnum(
       'reason',
       this,
-      _i2.EnumSerialization.byIndex,
+      _isd.EnumSerialization.byIndex,
     );
   }
 
   late final CrdtDataDeletedUpdateTable updateTable;
 
   /// The datetime component of the HLC timestamp.
-  late final _i2.ColumnDateTime hlcDatetime;
+  late final _isd.ColumnDateTime hlcDatetime;
 
   /// The counter component of the HLC timestamp.
-  late final _i2.ColumnInt hlcCounter;
+  late final _isd.ColumnInt hlcCounter;
 
   /// Row whose visibility is tracked.
-  _i1.CrdtDataRowTable? _row;
+  _icw2tu00.CrdtDataRowTable? _row;
 
-  late final _i2.ColumnInt rowId;
+  late final _isd.ColumnInt rowId;
 
-  late final _i2.ColumnInt nodeId;
+  late final _isd.ColumnInt nodeId;
 
   /// The node that updated the field.
-  _i1.CrdtNodeTable? _node;
+  _icw2tu00.CrdtNodeTable? _node;
 
   /// Monotone causal-length flag. Odd values are visible and even values are deleted.
-  late final _i2.ColumnInt clFlag;
+  late final _isd.ColumnInt clFlag;
 
   /// Why the row entered its current visibility generation.
-  late final _i2.ColumnEnum<_i1.CrdtDataDeletedReason> reason;
+  late final _isd.ColumnEnum<_icw2tu00.CrdtDataDeletedReason> reason;
 
-  _i1.CrdtDataRowTable get row {
+  _icw2tu00.CrdtDataRowTable get row {
     if (_row != null) return _row!;
-    _row = _i2.createRelationTable(
+    _row = _isd.createRelationTable(
       relationFieldName: 'row',
       field: CrdtDataDeleted.t.rowId,
-      foreignField: _i1.CrdtDataRow.t.id,
+      foreignField: _icw2tu00.CrdtDataRow.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i1.CrdtDataRowTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
     return _row!;
   }
 
-  _i1.CrdtNodeTable get node {
+  _icw2tu00.CrdtNodeTable get node {
     if (_node != null) return _node!;
-    _node = _i2.createRelationTable(
+    _node = _isd.createRelationTable(
       relationFieldName: 'node',
       field: CrdtDataDeleted.t.nodeId,
-      foreignField: _i1.CrdtNode.t.id,
+      foreignField: _icw2tu00.CrdtNode.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i1.CrdtNodeTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtNodeTable(tableRelation: foreignTableRelation),
     );
     return _node!;
   }
 
   @override
-  List<_i2.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     hlcDatetime,
     hlcCounter,
@@ -360,7 +366,7 @@ class CrdtDataDeletedTable extends _i2.Table<int?> {
   ];
 
   @override
-  _i2.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'row') {
       return row;
     }
@@ -371,32 +377,32 @@ class CrdtDataDeletedTable extends _i2.Table<int?> {
   }
 }
 
-class CrdtDataDeletedInclude extends _i2.IncludeObject {
+class CrdtDataDeletedInclude extends _isd.IncludeObject {
   CrdtDataDeletedInclude._({
-    _i1.CrdtDataRowInclude? row,
-    _i1.CrdtNodeInclude? node,
+    _icw2tu00.CrdtDataRowInclude? row,
+    _icw2tu00.CrdtNodeInclude? node,
   }) {
     _row = row;
     _node = node;
   }
 
-  _i1.CrdtDataRowInclude? _row;
+  _icw2tu00.CrdtDataRowInclude? _row;
 
-  _i1.CrdtNodeInclude? _node;
+  _icw2tu00.CrdtNodeInclude? _node;
 
   @override
-  Map<String, _i2.Include?> get includes => {
+  Map<String, _isd.Include?> get includes => {
     'row': _row,
     'node': _node,
   };
 
   @override
-  _i2.Table<int?> get table => CrdtDataDeleted.t;
+  _isd.Table<int?> get table => CrdtDataDeleted.t;
 }
 
-class CrdtDataDeletedIncludeList extends _i2.IncludeList {
+class CrdtDataDeletedIncludeList extends _isd.IncludeList {
   CrdtDataDeletedIncludeList._({
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -407,10 +413,10 @@ class CrdtDataDeletedIncludeList extends _i2.IncludeList {
   }
 
   @override
-  Map<String, _i2.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i2.Table<int?> get table => CrdtDataDeleted.t;
+  _isd.Table<int?> get table => CrdtDataDeleted.t;
 }
 
 class CrdtDataDeletedRepository {
@@ -441,16 +447,16 @@ class CrdtDataDeletedRepository {
   /// );
   /// ```
   Future<List<CrdtDataDeleted>> find(
-    _i2.DatabaseSession session, {
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     int? limit,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtDataDeletedInclude? include,
-    _i2.LockMode? lockMode,
-    _i2.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtDataDeleted>(
       where: where?.call(CrdtDataDeleted.t),
@@ -483,15 +489,15 @@ class CrdtDataDeletedRepository {
   /// );
   /// ```
   Future<CrdtDataDeleted?> findFirstRow(
-    _i2.DatabaseSession session, {
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtDataDeletedInclude? include,
-    _i2.LockMode? lockMode,
-    _i2.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtDataDeleted>(
       where: where?.call(CrdtDataDeleted.t),
@@ -507,12 +513,12 @@ class CrdtDataDeletedRepository {
 
   /// Finds a single [CrdtDataDeleted] by its [id] or null if no such row exists.
   Future<CrdtDataDeleted?> findById(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
     CrdtDataDeletedInclude? include,
-    _i2.LockMode? lockMode,
-    _i2.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtDataDeleted>(
       id,
@@ -538,9 +544,9 @@ class CrdtDataDeletedRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataDeleted>> insert(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataDeleted> rows, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -556,9 +562,9 @@ class CrdtDataDeletedRepository {
   ///
   /// The returned [CrdtDataDeleted] will have its `id` field set.
   Future<CrdtDataDeleted> insertRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataDeleted row, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtDataDeleted>(
       row,
@@ -587,12 +593,12 @@ class CrdtDataDeletedRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataDeleted>> upsert(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataDeleted> rows, {
-    required _i2.ColumnSelections<CrdtDataDeletedTable> conflictColumns,
-    _i2.ColumnSelections<CrdtDataDeletedTable>? updateColumns,
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? updateWhere,
-    _i2.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtDataDeletedTable> conflictColumns,
+    _isd.ColumnSelections<CrdtDataDeletedTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtDataDeleted>(
@@ -619,12 +625,12 @@ class CrdtDataDeletedRepository {
   ///
   /// The returned [CrdtDataDeleted] will have its `id` field set.
   Future<CrdtDataDeleted?> upsertRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataDeleted row, {
-    required _i2.ColumnSelections<CrdtDataDeletedTable> conflictColumns,
-    _i2.ColumnSelections<CrdtDataDeletedTable>? updateColumns,
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? updateWhere,
-    _i2.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtDataDeletedTable> conflictColumns,
+    _isd.ColumnSelections<CrdtDataDeletedTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtDataDeleted>(
       row,
@@ -645,10 +651,10 @@ class CrdtDataDeletedRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataDeleted>> update(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataDeleted> rows, {
-    _i2.ColumnSelections<CrdtDataDeletedTable>? columns,
-    _i2.Transaction? transaction,
+    _isd.ColumnSelections<CrdtDataDeletedTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtDataDeleted>(
@@ -663,10 +669,10 @@ class CrdtDataDeletedRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtDataDeleted> updateRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataDeleted row, {
-    _i2.ColumnSelections<CrdtDataDeletedTable>? columns,
-    _i2.Transaction? transaction,
+    _isd.ColumnSelections<CrdtDataDeletedTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtDataDeleted>(
       row,
@@ -678,11 +684,11 @@ class CrdtDataDeletedRepository {
   /// Updates a single [CrdtDataDeleted] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtDataDeleted?> updateById(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i2.ColumnValueListBuilder<CrdtDataDeletedUpdateTable>
+    required _isd.ColumnValueListBuilder<CrdtDataDeletedUpdateTable>
     columnValues,
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtDataDeleted>(
       id,
@@ -698,15 +704,15 @@ class CrdtDataDeletedRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataDeleted>> updateWhere(
-    _i2.DatabaseSession session, {
-    required _i2.ColumnValueListBuilder<CrdtDataDeletedUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtDataDeletedUpdateTable>
     columnValues,
-    required _i2.WhereExpressionBuilder<CrdtDataDeletedTable> where,
+    required _isd.WhereExpressionBuilder<CrdtDataDeletedTable> where,
     int? limit,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtDataDeleted>(
@@ -733,11 +739,11 @@ class CrdtDataDeletedRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataDeleted>> delete(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataDeleted> rows, {
-    _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtDataDeleted>(
@@ -751,9 +757,9 @@ class CrdtDataDeletedRepository {
 
   /// Deletes a single [CrdtDataDeleted].
   Future<CrdtDataDeleted> deleteRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataDeleted row, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtDataDeleted>(
       row,
@@ -770,11 +776,11 @@ class CrdtDataDeletedRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataDeleted>> deleteWhere(
-    _i2.DatabaseSession session, {
-    required _i2.WhereExpressionBuilder<CrdtDataDeletedTable> where,
-    _i2.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtDataDeletedTable> where,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtDataDeleted>(
@@ -789,10 +795,10 @@ class CrdtDataDeletedRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i2.DatabaseSession session, {
-    _i2.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
     int? limit,
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtDataDeleted>(
       where: where?.call(CrdtDataDeleted.t),
@@ -803,11 +809,11 @@ class CrdtDataDeletedRepository {
 
   /// Acquires row-level locks on [CrdtDataDeleted] rows matching the [where] expression.
   Future<void> lockRows(
-    _i2.DatabaseSession session, {
-    required _i2.WhereExpressionBuilder<CrdtDataDeletedTable> where,
-    required _i2.LockMode lockMode,
-    required _i2.Transaction transaction,
-    _i2.LockBehavior lockBehavior = _i2.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtDataDeletedTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtDataDeleted>(
       where: where(CrdtDataDeleted.t),
@@ -824,10 +830,10 @@ class CrdtDataDeletedAttachRowRepository {
   /// Creates a relation between the given [CrdtDataDeleted] and [CrdtDataRow]
   /// by setting the [CrdtDataDeleted]'s foreign key `rowId` to refer to the [CrdtDataRow].
   Future<void> row(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataDeleted crdtDataDeleted,
-    _i1.CrdtDataRow row, {
-    _i2.Transaction? transaction,
+    _icw2tu00.CrdtDataRow row, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtDataDeleted.id == null) {
       throw ArgumentError.notNull('crdtDataDeleted.id');
@@ -847,10 +853,10 @@ class CrdtDataDeletedAttachRowRepository {
   /// Creates a relation between the given [CrdtDataDeleted] and [CrdtNode]
   /// by setting the [CrdtDataDeleted]'s foreign key `nodeId` to refer to the [CrdtNode].
   Future<void> node(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataDeleted crdtDataDeleted,
-    _i1.CrdtNode node, {
-    _i2.Transaction? transaction,
+    _icw2tu00.CrdtNode node, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtDataDeleted.id == null) {
       throw ArgumentError.notNull('crdtDataDeleted.id');

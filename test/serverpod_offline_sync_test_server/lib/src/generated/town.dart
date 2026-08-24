@@ -11,14 +11,14 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import 'city.dart' as _i2;
-import 'person.dart' as _i3;
+import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
-    as _i4;
+    as _ixxccm81;
+import 'city.dart' as _ior3absd;
+import 'person.dart' as _iensfz4m;
 
 abstract class Town
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Town._({
     this.id,
     this.scopeId,
@@ -30,34 +30,38 @@ abstract class Town
   });
 
   factory Town({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i1.UuidValue? cityId,
-    _i2.City? city,
-    _i1.UuidValue? mayorId,
-    _i3.Person? mayor,
+    _is.UuidValue? cityId,
+    _ior3absd.City? city,
+    _is.UuidValue? mayorId,
+    _iensfz4m.Person? mayor,
   }) = _TownImpl;
 
   factory Town.fromJson(Map<String, dynamic> jsonSerialization) {
     return Town(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       cityId: jsonSerialization['cityId'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['cityId']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['cityId']),
       city: jsonSerialization['city'] == null
           ? null
-          : _i4.Protocol().deserialize<_i2.City>(jsonSerialization['city']),
+          : _ixxccm81.Protocol().deserialize<_ior3absd.City>(
+              jsonSerialization['city'],
+            ),
       mayorId: jsonSerialization['mayorId'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['mayorId']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['mayorId']),
       mayor: jsonSerialization['mayor'] == null
           ? null
-          : _i4.Protocol().deserialize<_i3.Person>(jsonSerialization['mayor']),
+          : _ixxccm81.Protocol().deserialize<_iensfz4m.Person>(
+              jsonSerialization['mayor'],
+            ),
     );
   }
 
@@ -66,35 +70,35 @@ abstract class Town
   static const db = TownRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
 
   String name;
 
-  _i1.UuidValue? cityId;
+  _is.UuidValue? cityId;
 
-  _i2.City? city;
+  _ior3absd.City? city;
 
-  _i1.UuidValue? mayorId;
+  _is.UuidValue? mayorId;
 
-  _i3.Person? mayor;
+  _iensfz4m.Person? mayor;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [Town]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   Town copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _i1.UuidValue? cityId,
-    _i2.City? city,
-    _i1.UuidValue? mayorId,
-    _i3.Person? mayor,
+    _is.UuidValue? cityId,
+    _ior3absd.City? city,
+    _is.UuidValue? mayorId,
+    _iensfz4m.Person? mayor,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -125,8 +129,8 @@ abstract class Town
   }
 
   static TownInclude include({
-    _i2.CityInclude? city,
-    _i3.PersonInclude? mayor,
+    _ior3absd.CityInclude? city,
+    _iensfz4m.PersonInclude? mayor,
   }) {
     return TownInclude._(
       city: city,
@@ -135,11 +139,11 @@ abstract class Town
   }
 
   static TownIncludeList includeList({
-    _i1.WhereExpressionBuilder<TownTable>? where,
+    _is.WhereExpressionBuilder<TownTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<TownTable>? orderBy,
-    _i1.OrderByListBuilder<TownTable>? orderByList,
+    _is.OrderByBuilder<TownTable>? orderBy,
+    _is.OrderByListBuilder<TownTable>? orderByList,
     TownInclude? include,
   }) {
     return TownIncludeList._(
@@ -154,7 +158,7 @@ abstract class Town
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -162,13 +166,13 @@ class _Undefined {}
 
 class _TownImpl extends Town {
   _TownImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i1.UuidValue? cityId,
-    _i2.City? city,
-    _i1.UuidValue? mayorId,
-    _i3.Person? mayor,
+    _is.UuidValue? cityId,
+    _ior3absd.City? city,
+    _is.UuidValue? mayorId,
+    _iensfz4m.Person? mayor,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -181,7 +185,7 @@ class _TownImpl extends Town {
 
   /// Returns a shallow copy of this [Town]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   Town copyWith({
     Object? id = _Undefined,
@@ -193,59 +197,59 @@ class _TownImpl extends Town {
     Object? mayor = _Undefined,
   }) {
     return Town(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      cityId: cityId is _i1.UuidValue? ? cityId : this.cityId,
-      city: city is _i2.City? ? city : this.city?.copyWith(),
-      mayorId: mayorId is _i1.UuidValue? ? mayorId : this.mayorId,
-      mayor: mayor is _i3.Person? ? mayor : this.mayor?.copyWith(),
+      cityId: cityId is _is.UuidValue? ? cityId : this.cityId,
+      city: city is _ior3absd.City? ? city : this.city?.copyWith(),
+      mayorId: mayorId is _is.UuidValue? ? mayorId : this.mayorId,
+      mayor: mayor is _iensfz4m.Person? ? mayor : this.mayor?.copyWith(),
     );
   }
 }
 
-class TownUpdateTable extends _i1.UpdateTable<TownTable> {
+class TownUpdateTable extends _is.UpdateTable<TownTable> {
   TownUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> cityId(_i1.UuidValue? value) =>
-      _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> cityId(_is.UuidValue? value) =>
+      _is.ColumnValue(
         table.cityId,
         value,
       );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> mayorId(_i1.UuidValue? value) =>
-      _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> mayorId(_is.UuidValue? value) =>
+      _is.ColumnValue(
         table.mayorId,
         value,
       );
 }
 
-class TownTable extends _i1.Table<_i1.UuidValue?> {
+class TownTable extends _is.Table<_is.UuidValue?> {
   TownTable({super.tableRelation}) : super(tableName: 'town') {
     updateTable = TownUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
-    cityId = _i1.ColumnUuid(
+    cityId = _is.ColumnUuid(
       'cityId',
       this,
     );
-    mayorId = _i1.ColumnUuid(
+    mayorId = _is.ColumnUuid(
       'mayorId',
       this,
     );
@@ -254,46 +258,46 @@ class TownTable extends _i1.Table<_i1.UuidValue?> {
   late final TownUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
-  late final _i1.ColumnUuid cityId;
+  late final _is.ColumnUuid cityId;
 
-  _i2.CityTable? _city;
+  _ior3absd.CityTable? _city;
 
-  late final _i1.ColumnUuid mayorId;
+  late final _is.ColumnUuid mayorId;
 
-  _i3.PersonTable? _mayor;
+  _iensfz4m.PersonTable? _mayor;
 
-  _i2.CityTable get city {
+  _ior3absd.CityTable get city {
     if (_city != null) return _city!;
-    _city = _i1.createRelationTable(
+    _city = _is.createRelationTable(
       relationFieldName: 'city',
       field: Town.t.cityId,
-      foreignField: _i2.City.t.id,
+      foreignField: _ior3absd.City.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.CityTable(tableRelation: foreignTableRelation),
+          _ior3absd.CityTable(tableRelation: foreignTableRelation),
     );
     return _city!;
   }
 
-  _i3.PersonTable get mayor {
+  _iensfz4m.PersonTable get mayor {
     if (_mayor != null) return _mayor!;
-    _mayor = _i1.createRelationTable(
+    _mayor = _is.createRelationTable(
       relationFieldName: 'mayor',
       field: Town.t.mayorId,
-      foreignField: _i3.Person.t.id,
+      foreignField: _iensfz4m.Person.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.PersonTable(tableRelation: foreignTableRelation),
+          _iensfz4m.PersonTable(tableRelation: foreignTableRelation),
     );
     return _mayor!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     name,
@@ -302,7 +306,7 @@ class TownTable extends _i1.Table<_i1.UuidValue?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _is.Table? getRelationTable(String relationField) {
     if (relationField == 'city') {
       return city;
     }
@@ -313,32 +317,32 @@ class TownTable extends _i1.Table<_i1.UuidValue?> {
   }
 }
 
-class TownInclude extends _i1.IncludeObject {
+class TownInclude extends _is.IncludeObject {
   TownInclude._({
-    _i2.CityInclude? city,
-    _i3.PersonInclude? mayor,
+    _ior3absd.CityInclude? city,
+    _iensfz4m.PersonInclude? mayor,
   }) {
     _city = city;
     _mayor = mayor;
   }
 
-  _i2.CityInclude? _city;
+  _ior3absd.CityInclude? _city;
 
-  _i3.PersonInclude? _mayor;
+  _iensfz4m.PersonInclude? _mayor;
 
   @override
-  Map<String, _i1.Include?> get includes => {
+  Map<String, _is.Include?> get includes => {
     'city': _city,
     'mayor': _mayor,
   };
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => Town.t;
+  _is.Table<_is.UuidValue?> get table => Town.t;
 }
 
-class TownIncludeList extends _i1.IncludeList {
+class TownIncludeList extends _is.IncludeList {
   TownIncludeList._({
-    _i1.WhereExpressionBuilder<TownTable>? where,
+    _is.WhereExpressionBuilder<TownTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -349,10 +353,10 @@ class TownIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => Town.t;
+  _is.Table<_is.UuidValue?> get table => Town.t;
 }
 
 class TownRepository {
@@ -385,16 +389,16 @@ class TownRepository {
   /// );
   /// ```
   Future<List<Town>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<TownTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<TownTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<TownTable>? orderBy,
-    _i1.OrderByListBuilder<TownTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<TownTable>? orderBy,
+    _is.OrderByListBuilder<TownTable>? orderByList,
+    _is.Transaction? transaction,
     TownInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<Town>(
       where: where?.call(Town.t),
@@ -427,15 +431,15 @@ class TownRepository {
   /// );
   /// ```
   Future<Town?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<TownTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<TownTable>? where,
     int? offset,
-    _i1.OrderByBuilder<TownTable>? orderBy,
-    _i1.OrderByListBuilder<TownTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<TownTable>? orderBy,
+    _is.OrderByListBuilder<TownTable>? orderByList,
+    _is.Transaction? transaction,
     TownInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<Town>(
       where: where?.call(Town.t),
@@ -451,12 +455,12 @@ class TownRepository {
 
   /// Finds a single [Town] by its [id] or null if no such row exists.
   Future<Town?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
     TownInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<Town>(
       id,
@@ -482,9 +486,9 @@ class TownRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Town>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Town> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -500,9 +504,9 @@ class TownRepository {
   ///
   /// The returned [Town] will have its `id` field set.
   Future<Town> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<Town>(
       row,
@@ -531,12 +535,12 @@ class TownRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Town>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Town> rows, {
-    required _i1.ColumnSelections<TownTable> conflictColumns,
-    _i1.ColumnSelections<TownTable>? updateColumns,
-    _i1.WhereExpressionBuilder<TownTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<TownTable> conflictColumns,
+    _is.ColumnSelections<TownTable>? updateColumns,
+    _is.WhereExpressionBuilder<TownTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<Town>(
@@ -563,12 +567,12 @@ class TownRepository {
   ///
   /// The returned [Town] will have its `id` field set.
   Future<Town?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town row, {
-    required _i1.ColumnSelections<TownTable> conflictColumns,
-    _i1.ColumnSelections<TownTable>? updateColumns,
-    _i1.WhereExpressionBuilder<TownTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<TownTable> conflictColumns,
+    _is.ColumnSelections<TownTable>? updateColumns,
+    _is.WhereExpressionBuilder<TownTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<Town>(
       row,
@@ -589,10 +593,10 @@ class TownRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Town>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Town> rows, {
-    _i1.ColumnSelections<TownTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<TownTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<Town>(
@@ -607,10 +611,10 @@ class TownRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<Town> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town row, {
-    _i1.ColumnSelections<TownTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<TownTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<Town>(
       row,
@@ -622,10 +626,10 @@ class TownRepository {
   /// Updates a single [Town] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<Town?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<TownUpdateTable> columnValues,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<TownUpdateTable> columnValues,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<Town>(
       id,
@@ -641,14 +645,14 @@ class TownRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Town>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<TownUpdateTable> columnValues,
-    required _i1.WhereExpressionBuilder<TownTable> where,
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<TownUpdateTable> columnValues,
+    required _is.WhereExpressionBuilder<TownTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<TownTable>? orderBy,
-    _i1.OrderByListBuilder<TownTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<TownTable>? orderBy,
+    _is.OrderByListBuilder<TownTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<Town>(
@@ -675,11 +679,11 @@ class TownRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Town>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Town> rows, {
-    _i1.OrderByBuilder<TownTable>? orderBy,
-    _i1.OrderByListBuilder<TownTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<TownTable>? orderBy,
+    _is.OrderByListBuilder<TownTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<Town>(
@@ -693,9 +697,9 @@ class TownRepository {
 
   /// Deletes a single [Town].
   Future<Town> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<Town>(
       row,
@@ -712,11 +716,11 @@ class TownRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Town>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<TownTable> where,
-    _i1.OrderByBuilder<TownTable>? orderBy,
-    _i1.OrderByListBuilder<TownTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<TownTable> where,
+    _is.OrderByBuilder<TownTable>? orderBy,
+    _is.OrderByListBuilder<TownTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<Town>(
@@ -731,10 +735,10 @@ class TownRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<TownTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<TownTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<Town>(
       where: where?.call(Town.t),
@@ -745,11 +749,11 @@ class TownRepository {
 
   /// Acquires row-level locks on [Town] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<TownTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<TownTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<Town>(
       where: where(Town.t),
@@ -766,10 +770,10 @@ class TownAttachRowRepository {
   /// Creates a relation between the given [Town] and [City]
   /// by setting the [Town]'s foreign key `cityId` to refer to the [City].
   Future<void> city(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town town,
-    _i2.City city, {
-    _i1.Transaction? transaction,
+    _ior3absd.City city, {
+    _is.Transaction? transaction,
   }) async {
     if (town.id == null) {
       throw ArgumentError.notNull('town.id');
@@ -789,10 +793,10 @@ class TownAttachRowRepository {
   /// Creates a relation between the given [Town] and [Person]
   /// by setting the [Town]'s foreign key `mayorId` to refer to the [Person].
   Future<void> mayor(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town town,
-    _i3.Person mayor, {
-    _i1.Transaction? transaction,
+    _iensfz4m.Person mayor, {
+    _is.Transaction? transaction,
   }) async {
     if (town.id == null) {
       throw ArgumentError.notNull('town.id');
@@ -819,9 +823,9 @@ class TownDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> city(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town town, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     if (town.id == null) {
       throw ArgumentError.notNull('town.id');
@@ -841,9 +845,9 @@ class TownDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> mayor(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Town town, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     if (town.id == null) {
       throw ArgumentError.notNull('town.id');

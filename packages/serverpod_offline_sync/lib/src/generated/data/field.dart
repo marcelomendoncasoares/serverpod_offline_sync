@@ -11,16 +11,17 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
-import 'package:serverpod_database/serverpod_database.dart' as _i2;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i3;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT data table.
 ///
 /// This table stores only the HLC timestamp for a field. During merge, if the
 /// other HLC is greater, the actual data must be fetched from the table itself.
-abstract class CrdtDataField extends _i1.BaseHlc
-    implements _i2.TableRow<int?>, _i3.ProtocolSerialization {
+abstract class CrdtDataField extends _icw2tu00.BaseHlc
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtDataField._({
     this.id,
     required super.hlcDatetime,
@@ -39,40 +40,42 @@ abstract class CrdtDataField extends _i1.BaseHlc
     required DateTime hlcDatetime,
     required int hlcCounter,
     required int rowId,
-    _i1.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row,
     required int columnId,
-    _i1.CrdtSchemaColumn? column,
+    _icw2tu00.CrdtSchemaColumn? column,
     required int nodeId,
-    _i1.CrdtNode? node,
-    _i1.CrdtDataForeignKey? foreignKey,
+    _icw2tu00.CrdtNode? node,
+    _icw2tu00.CrdtDataForeignKey? foreignKey,
   }) = _CrdtDataFieldImpl;
 
   factory CrdtDataField.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtDataField(
       id: jsonSerialization['id'] as int?,
-      hlcDatetime: _i3.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
       rowId: jsonSerialization['rowId'] as int,
       row: jsonSerialization['row'] == null
           ? null
-          : _i1.Protocol().deserialize<_i1.CrdtDataRow>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataRow>(
               jsonSerialization['row'],
             ),
       columnId: jsonSerialization['columnId'] as int,
       column: jsonSerialization['column'] == null
           ? null
-          : _i1.Protocol().deserialize<_i1.CrdtSchemaColumn>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtSchemaColumn>(
               jsonSerialization['column'],
             ),
       nodeId: jsonSerialization['nodeId'] as int,
       node: jsonSerialization['node'] == null
           ? null
-          : _i1.Protocol().deserialize<_i1.CrdtNode>(jsonSerialization['node']),
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtNode>(
+              jsonSerialization['node'],
+            ),
       foreignKey: jsonSerialization['foreignKey'] == null
           ? null
-          : _i1.Protocol().deserialize<_i1.CrdtDataForeignKey>(
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataForeignKey>(
               jsonSerialization['foreignKey'],
             ),
     );
@@ -88,40 +91,40 @@ abstract class CrdtDataField extends _i1.BaseHlc
   int rowId;
 
   /// Row that the field belongs to.
-  _i1.CrdtDataRow? row;
+  _icw2tu00.CrdtDataRow? row;
 
   int columnId;
 
   /// Column that the field belongs to.
-  _i1.CrdtSchemaColumn? column;
+  _icw2tu00.CrdtSchemaColumn? column;
 
   int nodeId;
 
   /// The node that updated the field.
-  _i1.CrdtNode? node;
+  _icw2tu00.CrdtNode? node;
 
   /// The foreign key information for the field, if this field holds a
   /// reference to another row.
-  _i1.CrdtDataForeignKey? foreignKey;
+  _icw2tu00.CrdtDataForeignKey? foreignKey;
 
   @override
-  _i2.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtDataField]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i3.useResult
+  @_iss.useResult
   CrdtDataField copyWith({
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? rowId,
-    _i1.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row,
     int? columnId,
-    _i1.CrdtSchemaColumn? column,
+    _icw2tu00.CrdtSchemaColumn? column,
     int? nodeId,
-    _i1.CrdtNode? node,
-    _i1.CrdtDataForeignKey? foreignKey,
+    _icw2tu00.CrdtNode? node,
+    _icw2tu00.CrdtDataForeignKey? foreignKey,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -158,10 +161,10 @@ abstract class CrdtDataField extends _i1.BaseHlc
   }
 
   static CrdtDataFieldInclude include({
-    _i1.CrdtDataRowInclude? row,
-    _i1.CrdtSchemaColumnInclude? column,
-    _i1.CrdtNodeInclude? node,
-    _i1.CrdtDataForeignKeyInclude? foreignKey,
+    _icw2tu00.CrdtDataRowInclude? row,
+    _icw2tu00.CrdtSchemaColumnInclude? column,
+    _icw2tu00.CrdtNodeInclude? node,
+    _icw2tu00.CrdtDataForeignKeyInclude? foreignKey,
   }) {
     return CrdtDataFieldInclude._(
       row: row,
@@ -172,11 +175,11 @@ abstract class CrdtDataField extends _i1.BaseHlc
   }
 
   static CrdtDataFieldIncludeList includeList({
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     int? limit,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
     CrdtDataFieldInclude? include,
   }) {
     return CrdtDataFieldIncludeList._(
@@ -191,7 +194,7 @@ abstract class CrdtDataField extends _i1.BaseHlc
 
   @override
   String toString() {
-    return _i3.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -203,12 +206,12 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     required DateTime hlcDatetime,
     required int hlcCounter,
     required int rowId,
-    _i1.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row,
     required int columnId,
-    _i1.CrdtSchemaColumn? column,
+    _icw2tu00.CrdtSchemaColumn? column,
     required int nodeId,
-    _i1.CrdtNode? node,
-    _i1.CrdtDataForeignKey? foreignKey,
+    _icw2tu00.CrdtNode? node,
+    _icw2tu00.CrdtDataForeignKey? foreignKey,
   }) : super._(
          id: id,
          hlcDatetime: hlcDatetime,
@@ -224,7 +227,7 @@ class _CrdtDataFieldImpl extends CrdtDataField {
 
   /// Returns a shallow copy of this [CrdtDataField]
   /// with some or all fields replaced by the given arguments.
-  @_i3.useResult
+  @_iss.useResult
   @override
   CrdtDataField copyWith({
     Object? id = _Undefined,
@@ -243,71 +246,71 @@ class _CrdtDataFieldImpl extends CrdtDataField {
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
       rowId: rowId ?? this.rowId,
-      row: row is _i1.CrdtDataRow? ? row : this.row?.copyWith(),
+      row: row is _icw2tu00.CrdtDataRow? ? row : this.row?.copyWith(),
       columnId: columnId ?? this.columnId,
-      column: column is _i1.CrdtSchemaColumn?
+      column: column is _icw2tu00.CrdtSchemaColumn?
           ? column
           : this.column?.copyWith(),
       nodeId: nodeId ?? this.nodeId,
-      node: node is _i1.CrdtNode? ? node : this.node?.copyWith(),
-      foreignKey: foreignKey is _i1.CrdtDataForeignKey?
+      node: node is _icw2tu00.CrdtNode? ? node : this.node?.copyWith(),
+      foreignKey: foreignKey is _icw2tu00.CrdtDataForeignKey?
           ? foreignKey
           : this.foreignKey?.copyWith(),
     );
   }
 }
 
-class CrdtDataFieldUpdateTable extends _i2.UpdateTable<CrdtDataFieldTable> {
+class CrdtDataFieldUpdateTable extends _isd.UpdateTable<CrdtDataFieldTable> {
   CrdtDataFieldUpdateTable(super.table);
 
-  _i2.ColumnValue<DateTime, DateTime> hlcDatetime(DateTime value) =>
-      _i2.ColumnValue(
+  _isd.ColumnValue<DateTime, DateTime> hlcDatetime(DateTime value) =>
+      _isd.ColumnValue(
         table.hlcDatetime,
         value,
       );
 
-  _i2.ColumnValue<int, int> hlcCounter(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> hlcCounter(int value) => _isd.ColumnValue(
     table.hlcCounter,
     value,
   );
 
-  _i2.ColumnValue<int, int> rowId(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> rowId(int value) => _isd.ColumnValue(
     table.rowId,
     value,
   );
 
-  _i2.ColumnValue<int, int> columnId(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> columnId(int value) => _isd.ColumnValue(
     table.columnId,
     value,
   );
 
-  _i2.ColumnValue<int, int> nodeId(int value) => _i2.ColumnValue(
+  _isd.ColumnValue<int, int> nodeId(int value) => _isd.ColumnValue(
     table.nodeId,
     value,
   );
 }
 
-class CrdtDataFieldTable extends _i2.Table<int?> {
+class CrdtDataFieldTable extends _isd.Table<int?> {
   CrdtDataFieldTable({super.tableRelation})
     : super(tableName: 'crdt_data_fields') {
     updateTable = CrdtDataFieldUpdateTable(this);
-    hlcDatetime = _i2.ColumnDateTime(
+    hlcDatetime = _isd.ColumnDateTime(
       'hlcDatetime',
       this,
     );
-    hlcCounter = _i2.ColumnInt(
+    hlcCounter = _isd.ColumnInt(
       'hlcCounter',
       this,
     );
-    rowId = _i2.ColumnInt(
+    rowId = _isd.ColumnInt(
       'rowId',
       this,
     );
-    columnId = _i2.ColumnInt(
+    columnId = _isd.ColumnInt(
       'columnId',
       this,
     );
-    nodeId = _i2.ColumnInt(
+    nodeId = _isd.ColumnInt(
       'nodeId',
       this,
     );
@@ -316,84 +319,85 @@ class CrdtDataFieldTable extends _i2.Table<int?> {
   late final CrdtDataFieldUpdateTable updateTable;
 
   /// The datetime component of the HLC timestamp.
-  late final _i2.ColumnDateTime hlcDatetime;
+  late final _isd.ColumnDateTime hlcDatetime;
 
   /// The counter component of the HLC timestamp.
-  late final _i2.ColumnInt hlcCounter;
+  late final _isd.ColumnInt hlcCounter;
 
-  late final _i2.ColumnInt rowId;
+  late final _isd.ColumnInt rowId;
 
   /// Row that the field belongs to.
-  _i1.CrdtDataRowTable? _row;
+  _icw2tu00.CrdtDataRowTable? _row;
 
-  late final _i2.ColumnInt columnId;
+  late final _isd.ColumnInt columnId;
 
   /// Column that the field belongs to.
-  _i1.CrdtSchemaColumnTable? _column;
+  _icw2tu00.CrdtSchemaColumnTable? _column;
 
-  late final _i2.ColumnInt nodeId;
+  late final _isd.ColumnInt nodeId;
 
   /// The node that updated the field.
-  _i1.CrdtNodeTable? _node;
+  _icw2tu00.CrdtNodeTable? _node;
 
   /// The foreign key information for the field, if this field holds a
   /// reference to another row.
-  _i1.CrdtDataForeignKeyTable? _foreignKey;
+  _icw2tu00.CrdtDataForeignKeyTable? _foreignKey;
 
-  _i1.CrdtDataRowTable get row {
+  _icw2tu00.CrdtDataRowTable get row {
     if (_row != null) return _row!;
-    _row = _i2.createRelationTable(
+    _row = _isd.createRelationTable(
       relationFieldName: 'row',
       field: CrdtDataField.t.rowId,
-      foreignField: _i1.CrdtDataRow.t.id,
+      foreignField: _icw2tu00.CrdtDataRow.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i1.CrdtDataRowTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtDataRowTable(tableRelation: foreignTableRelation),
     );
     return _row!;
   }
 
-  _i1.CrdtSchemaColumnTable get column {
+  _icw2tu00.CrdtSchemaColumnTable get column {
     if (_column != null) return _column!;
-    _column = _i2.createRelationTable(
+    _column = _isd.createRelationTable(
       relationFieldName: 'column',
       field: CrdtDataField.t.columnId,
-      foreignField: _i1.CrdtSchemaColumn.t.id,
+      foreignField: _icw2tu00.CrdtSchemaColumn.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i1.CrdtSchemaColumnTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtSchemaColumnTable(tableRelation: foreignTableRelation),
     );
     return _column!;
   }
 
-  _i1.CrdtNodeTable get node {
+  _icw2tu00.CrdtNodeTable get node {
     if (_node != null) return _node!;
-    _node = _i2.createRelationTable(
+    _node = _isd.createRelationTable(
       relationFieldName: 'node',
       field: CrdtDataField.t.nodeId,
-      foreignField: _i1.CrdtNode.t.id,
+      foreignField: _icw2tu00.CrdtNode.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i1.CrdtNodeTable(tableRelation: foreignTableRelation),
+          _icw2tu00.CrdtNodeTable(tableRelation: foreignTableRelation),
     );
     return _node!;
   }
 
-  _i1.CrdtDataForeignKeyTable get foreignKey {
+  _icw2tu00.CrdtDataForeignKeyTable get foreignKey {
     if (_foreignKey != null) return _foreignKey!;
-    _foreignKey = _i2.createRelationTable(
+    _foreignKey = _isd.createRelationTable(
       relationFieldName: 'foreignKey',
       field: CrdtDataField.t.id,
-      foreignField: _i1.CrdtDataForeignKey.t.fieldId,
+      foreignField: _icw2tu00.CrdtDataForeignKey.t.fieldId,
       tableRelation: tableRelation,
-      createTable: (foreignTableRelation) =>
-          _i1.CrdtDataForeignKeyTable(tableRelation: foreignTableRelation),
+      createTable: (foreignTableRelation) => _icw2tu00.CrdtDataForeignKeyTable(
+        tableRelation: foreignTableRelation,
+      ),
     );
     return _foreignKey!;
   }
 
   @override
-  List<_i2.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     hlcDatetime,
     hlcCounter,
@@ -403,7 +407,7 @@ class CrdtDataFieldTable extends _i2.Table<int?> {
   ];
 
   @override
-  _i2.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'row') {
       return row;
     }
@@ -420,12 +424,12 @@ class CrdtDataFieldTable extends _i2.Table<int?> {
   }
 }
 
-class CrdtDataFieldInclude extends _i2.IncludeObject {
+class CrdtDataFieldInclude extends _isd.IncludeObject {
   CrdtDataFieldInclude._({
-    _i1.CrdtDataRowInclude? row,
-    _i1.CrdtSchemaColumnInclude? column,
-    _i1.CrdtNodeInclude? node,
-    _i1.CrdtDataForeignKeyInclude? foreignKey,
+    _icw2tu00.CrdtDataRowInclude? row,
+    _icw2tu00.CrdtSchemaColumnInclude? column,
+    _icw2tu00.CrdtNodeInclude? node,
+    _icw2tu00.CrdtDataForeignKeyInclude? foreignKey,
   }) {
     _row = row;
     _column = column;
@@ -433,16 +437,16 @@ class CrdtDataFieldInclude extends _i2.IncludeObject {
     _foreignKey = foreignKey;
   }
 
-  _i1.CrdtDataRowInclude? _row;
+  _icw2tu00.CrdtDataRowInclude? _row;
 
-  _i1.CrdtSchemaColumnInclude? _column;
+  _icw2tu00.CrdtSchemaColumnInclude? _column;
 
-  _i1.CrdtNodeInclude? _node;
+  _icw2tu00.CrdtNodeInclude? _node;
 
-  _i1.CrdtDataForeignKeyInclude? _foreignKey;
+  _icw2tu00.CrdtDataForeignKeyInclude? _foreignKey;
 
   @override
-  Map<String, _i2.Include?> get includes => {
+  Map<String, _isd.Include?> get includes => {
     'row': _row,
     'column': _column,
     'node': _node,
@@ -450,12 +454,12 @@ class CrdtDataFieldInclude extends _i2.IncludeObject {
   };
 
   @override
-  _i2.Table<int?> get table => CrdtDataField.t;
+  _isd.Table<int?> get table => CrdtDataField.t;
 }
 
-class CrdtDataFieldIncludeList extends _i2.IncludeList {
+class CrdtDataFieldIncludeList extends _isd.IncludeList {
   CrdtDataFieldIncludeList._({
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -466,10 +470,10 @@ class CrdtDataFieldIncludeList extends _i2.IncludeList {
   }
 
   @override
-  Map<String, _i2.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i2.Table<int?> get table => CrdtDataField.t;
+  _isd.Table<int?> get table => CrdtDataField.t;
 }
 
 class CrdtDataFieldRepository {
@@ -502,16 +506,16 @@ class CrdtDataFieldRepository {
   /// );
   /// ```
   Future<List<CrdtDataField>> find(
-    _i2.DatabaseSession session, {
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     int? limit,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtDataFieldInclude? include,
-    _i2.LockMode? lockMode,
-    _i2.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtDataField>(
       where: where?.call(CrdtDataField.t),
@@ -544,15 +548,15 @@ class CrdtDataFieldRepository {
   /// );
   /// ```
   Future<CrdtDataField?> findFirstRow(
-    _i2.DatabaseSession session, {
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    _isd.Transaction? transaction,
     CrdtDataFieldInclude? include,
-    _i2.LockMode? lockMode,
-    _i2.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtDataField>(
       where: where?.call(CrdtDataField.t),
@@ -568,12 +572,12 @@ class CrdtDataFieldRepository {
 
   /// Finds a single [CrdtDataField] by its [id] or null if no such row exists.
   Future<CrdtDataField?> findById(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
     CrdtDataFieldInclude? include,
-    _i2.LockMode? lockMode,
-    _i2.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtDataField>(
       id,
@@ -599,9 +603,9 @@ class CrdtDataFieldRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataField>> insert(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataField> rows, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -617,9 +621,9 @@ class CrdtDataFieldRepository {
   ///
   /// The returned [CrdtDataField] will have its `id` field set.
   Future<CrdtDataField> insertRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField row, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtDataField>(
       row,
@@ -648,12 +652,12 @@ class CrdtDataFieldRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataField>> upsert(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataField> rows, {
-    required _i2.ColumnSelections<CrdtDataFieldTable> conflictColumns,
-    _i2.ColumnSelections<CrdtDataFieldTable>? updateColumns,
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? updateWhere,
-    _i2.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtDataFieldTable> conflictColumns,
+    _isd.ColumnSelections<CrdtDataFieldTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtDataField>(
@@ -680,12 +684,12 @@ class CrdtDataFieldRepository {
   ///
   /// The returned [CrdtDataField] will have its `id` field set.
   Future<CrdtDataField?> upsertRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField row, {
-    required _i2.ColumnSelections<CrdtDataFieldTable> conflictColumns,
-    _i2.ColumnSelections<CrdtDataFieldTable>? updateColumns,
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? updateWhere,
-    _i2.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtDataFieldTable> conflictColumns,
+    _isd.ColumnSelections<CrdtDataFieldTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtDataField>(
       row,
@@ -706,10 +710,10 @@ class CrdtDataFieldRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataField>> update(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataField> rows, {
-    _i2.ColumnSelections<CrdtDataFieldTable>? columns,
-    _i2.Transaction? transaction,
+    _isd.ColumnSelections<CrdtDataFieldTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtDataField>(
@@ -724,10 +728,10 @@ class CrdtDataFieldRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtDataField> updateRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField row, {
-    _i2.ColumnSelections<CrdtDataFieldTable>? columns,
-    _i2.Transaction? transaction,
+    _isd.ColumnSelections<CrdtDataFieldTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtDataField>(
       row,
@@ -739,10 +743,10 @@ class CrdtDataFieldRepository {
   /// Updates a single [CrdtDataField] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtDataField?> updateById(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i2.ColumnValueListBuilder<CrdtDataFieldUpdateTable> columnValues,
-    _i2.Transaction? transaction,
+    required _isd.ColumnValueListBuilder<CrdtDataFieldUpdateTable> columnValues,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtDataField>(
       id,
@@ -758,14 +762,14 @@ class CrdtDataFieldRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataField>> updateWhere(
-    _i2.DatabaseSession session, {
-    required _i2.ColumnValueListBuilder<CrdtDataFieldUpdateTable> columnValues,
-    required _i2.WhereExpressionBuilder<CrdtDataFieldTable> where,
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtDataFieldUpdateTable> columnValues,
+    required _isd.WhereExpressionBuilder<CrdtDataFieldTable> where,
     int? limit,
     int? offset,
-    _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtDataField>(
@@ -792,11 +796,11 @@ class CrdtDataFieldRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataField>> delete(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtDataField> rows, {
-    _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtDataField>(
@@ -810,9 +814,9 @@ class CrdtDataFieldRepository {
 
   /// Deletes a single [CrdtDataField].
   Future<CrdtDataField> deleteRow(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField row, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtDataField>(
       row,
@@ -829,11 +833,11 @@ class CrdtDataFieldRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtDataField>> deleteWhere(
-    _i2.DatabaseSession session, {
-    required _i2.WhereExpressionBuilder<CrdtDataFieldTable> where,
-    _i2.OrderByBuilder<CrdtDataFieldTable>? orderBy,
-    _i2.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
-    _i2.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtDataFieldTable> where,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtDataField>(
@@ -848,10 +852,10 @@ class CrdtDataFieldRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i2.DatabaseSession session, {
-    _i2.WhereExpressionBuilder<CrdtDataFieldTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? where,
     int? limit,
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtDataField>(
       where: where?.call(CrdtDataField.t),
@@ -862,11 +866,11 @@ class CrdtDataFieldRepository {
 
   /// Acquires row-level locks on [CrdtDataField] rows matching the [where] expression.
   Future<void> lockRows(
-    _i2.DatabaseSession session, {
-    required _i2.WhereExpressionBuilder<CrdtDataFieldTable> where,
-    required _i2.LockMode lockMode,
-    required _i2.Transaction transaction,
-    _i2.LockBehavior lockBehavior = _i2.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtDataFieldTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtDataField>(
       where: where(CrdtDataField.t),
@@ -883,10 +887,10 @@ class CrdtDataFieldAttachRowRepository {
   /// Creates a relation between the given [CrdtDataField] and [CrdtDataRow]
   /// by setting the [CrdtDataField]'s foreign key `rowId` to refer to the [CrdtDataRow].
   Future<void> row(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i1.CrdtDataRow row, {
-    _i2.Transaction? transaction,
+    _icw2tu00.CrdtDataRow row, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtDataField.id == null) {
       throw ArgumentError.notNull('crdtDataField.id');
@@ -906,10 +910,10 @@ class CrdtDataFieldAttachRowRepository {
   /// Creates a relation between the given [CrdtDataField] and [CrdtSchemaColumn]
   /// by setting the [CrdtDataField]'s foreign key `columnId` to refer to the [CrdtSchemaColumn].
   Future<void> column(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i1.CrdtSchemaColumn column, {
-    _i2.Transaction? transaction,
+    _icw2tu00.CrdtSchemaColumn column, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtDataField.id == null) {
       throw ArgumentError.notNull('crdtDataField.id');
@@ -929,10 +933,10 @@ class CrdtDataFieldAttachRowRepository {
   /// Creates a relation between the given [CrdtDataField] and [CrdtNode]
   /// by setting the [CrdtDataField]'s foreign key `nodeId` to refer to the [CrdtNode].
   Future<void> node(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i1.CrdtNode node, {
-    _i2.Transaction? transaction,
+    _icw2tu00.CrdtNode node, {
+    _isd.Transaction? transaction,
   }) async {
     if (crdtDataField.id == null) {
       throw ArgumentError.notNull('crdtDataField.id');
@@ -952,10 +956,10 @@ class CrdtDataFieldAttachRowRepository {
   /// Creates a relation between the given [CrdtDataField] and [CrdtDataForeignKey]
   /// by setting the [CrdtDataField]'s foreign key `id` to refer to the [CrdtDataForeignKey].
   Future<void> foreignKey(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _i1.CrdtDataForeignKey foreignKey, {
-    _i2.Transaction? transaction,
+    _icw2tu00.CrdtDataForeignKey foreignKey, {
+    _isd.Transaction? transaction,
   }) async {
     if (foreignKey.id == null) {
       throw ArgumentError.notNull('foreignKey.id');
@@ -965,9 +969,9 @@ class CrdtDataFieldAttachRowRepository {
     }
 
     var $foreignKey = foreignKey.copyWith(fieldId: crdtDataField.id);
-    await session.db.updateRow<_i1.CrdtDataForeignKey>(
+    await session.db.updateRow<_icw2tu00.CrdtDataForeignKey>(
       $foreignKey,
-      columns: [_i1.CrdtDataForeignKey.t.fieldId],
+      columns: [_icw2tu00.CrdtDataForeignKey.t.fieldId],
       transaction: transaction,
     );
   }
@@ -982,9 +986,9 @@ class CrdtDataFieldDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> foreignKey(
-    _i2.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtDataField crdtDataField, {
-    _i2.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     var $foreignKey = crdtDataField.foreignKey;
 
@@ -999,9 +1003,9 @@ class CrdtDataFieldDetachRowRepository {
     }
 
     var $$foreignKey = $foreignKey.copyWith(fieldId: null);
-    await session.db.updateRow<_i1.CrdtDataForeignKey>(
+    await session.db.updateRow<_icw2tu00.CrdtDataForeignKey>(
       $$foreignKey,
-      columns: [_i1.CrdtDataForeignKey.t.fieldId],
+      columns: [_icw2tu00.CrdtDataForeignKey.t.fieldId],
       transaction: transaction,
     );
   }

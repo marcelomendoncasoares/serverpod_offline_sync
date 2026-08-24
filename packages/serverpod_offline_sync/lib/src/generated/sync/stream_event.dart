@@ -10,8 +10,9 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 part 'close.dart';
 part 'connect.dart';
 part 'end_of_batch.dart';
@@ -24,11 +25,11 @@ part 'timeout.dart';
 ///
 /// This is the base class of the CRDT sync protocol.
 sealed class CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncStreamEvent();
 
   /// Returns a shallow copy of this [CrdtSyncStreamEvent]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncStreamEvent copyWith();
 }

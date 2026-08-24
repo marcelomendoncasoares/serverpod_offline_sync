@@ -12,8 +12,8 @@
 part of 'change.dart';
 
 /// A remote field update to merge.
-abstract class CrdtMergeUpdate extends _i1.CrdtMergeChange
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtMergeUpdate extends _icw2tu00.CrdtMergeChange
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtMergeUpdate._({
     required super.hlcDatetime,
     required super.hlcCounter,
@@ -28,32 +28,32 @@ abstract class CrdtMergeUpdate extends _i1.CrdtMergeChange
   factory CrdtMergeUpdate({
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required _i2.UuidValue uuidScopeId,
+    required _iss.UuidValue uuidScopeId,
     required String tableName,
-    required _i2.UuidValue uuidRowId,
-    required _i2.UuidValue uuidNodeId,
+    required _iss.UuidValue uuidRowId,
+    required _iss.UuidValue uuidNodeId,
     required String columnName,
     required dynamic value,
   }) = _CrdtMergeUpdateImpl;
 
   factory CrdtMergeUpdate.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtMergeUpdate(
-      hlcDatetime: _i2.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
-      uuidScopeId: _i2.UuidValueJsonExtension.fromJson(
+      uuidScopeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidScopeId'],
       ),
       tableName: jsonSerialization['tableName'] as String,
-      uuidRowId: _i2.UuidValueJsonExtension.fromJson(
+      uuidRowId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidRowId'],
       ),
-      uuidNodeId: _i2.UuidValueJsonExtension.fromJson(
+      uuidNodeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidNodeId'],
       ),
       columnName: jsonSerialization['columnName'] as String,
-      value: _i1.Protocol().deserializeDynamicFieldValue(
+      value: _icw2tu00.Protocol().deserializeDynamicFieldValue(
         jsonSerialization['value'],
       ),
     );
@@ -68,14 +68,14 @@ abstract class CrdtMergeUpdate extends _i1.CrdtMergeChange
   /// Returns a shallow copy of this [CrdtMergeUpdate]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtMergeUpdate copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     String? tableName,
-    _i2.UuidValue? uuidRowId,
-    _i2.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidRowId,
+    _iss.UuidValue? uuidNodeId,
     String? columnName,
     dynamic value,
   });
@@ -90,7 +90,7 @@ abstract class CrdtMergeUpdate extends _i1.CrdtMergeChange
       'uuidRowId': uuidRowId.toJson(),
       'uuidNodeId': uuidNodeId.toJson(),
       'columnName': columnName,
-      'value': _i1.Protocol().dynamicFieldToJson(value),
+      'value': _icw2tu00.Protocol().dynamicFieldToJson(value),
     };
   }
 
@@ -105,7 +105,7 @@ abstract class CrdtMergeUpdate extends _i1.CrdtMergeChange
       'uuidRowId': uuidRowId.toJson(),
       'uuidNodeId': uuidNodeId.toJson(),
       'columnName': columnName,
-      'value': _i1.Protocol().dynamicFieldToJson(
+      'value': _icw2tu00.Protocol().dynamicFieldToJson(
         value,
         forProtocol: true,
       ),
@@ -114,7 +114,7 @@ abstract class CrdtMergeUpdate extends _i1.CrdtMergeChange
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -122,10 +122,10 @@ class _CrdtMergeUpdateImpl extends CrdtMergeUpdate {
   _CrdtMergeUpdateImpl({
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required _i2.UuidValue uuidScopeId,
+    required _iss.UuidValue uuidScopeId,
     required String tableName,
-    required _i2.UuidValue uuidRowId,
-    required _i2.UuidValue uuidNodeId,
+    required _iss.UuidValue uuidRowId,
+    required _iss.UuidValue uuidNodeId,
     required String columnName,
     required dynamic value,
   }) : super._(
@@ -141,15 +141,15 @@ class _CrdtMergeUpdateImpl extends CrdtMergeUpdate {
 
   /// Returns a shallow copy of this [CrdtMergeUpdate]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtMergeUpdate copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     String? tableName,
-    _i2.UuidValue? uuidRowId,
-    _i2.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidRowId,
+    _iss.UuidValue? uuidNodeId,
     String? columnName,
     Object? value = _Undefined,
   }) {
