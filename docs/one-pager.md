@@ -88,7 +88,8 @@ Due to the nature of merge conflicts, the package imposes some limitations on th
 - Unique indexes are only supported with at least one `String`/`UuidValue`/nullable column.
 - All 1:1 relations must have the foreign-key column nullable (`optional` relation).
 - The only allowed non-synced-to-synced relation is `scopeId -> crdt_scopes.id`.
-- All foreign-key relations must be `deferrable`* (see the technical debts section).
+- Foreign-key relations that foreign-key projection cannot repair — non-nullable columns and composite relations — must be `deferred`.
+- `onDelete=Restrict` is unsupported on synced tables; use `onDelete=NoAction`.
 
 Respecting these limitations, all other database invariants, including foreign-key actions, are preserved - with the exception of check constraints, which are also not supported by Serverpod.
 
@@ -176,7 +177,6 @@ The package is functionally in a production-ready state, but some APIs need to i
 
 ### Technical debts
 
-- **Require that all foreign-key relations are declared deferrable**. Because the package does not store a copy of the data with the metadata, there are some scenarios in which the stored data might violate the causal order of the foreign-key constraints and a merge can fail irreversibly. To prevent this, all foreign-key constraints must be deferrable, which will be enabled by Serverpod's issue #5338.
 - **Rename the `scope` name for data isolation to `space`**. This is a small refactor to avoid confusion with the `scope` keyword used in the Serverpod Auth modules. Using `space` is also clearer for usage on an application level.
 
 ### Post-integration UX improvements

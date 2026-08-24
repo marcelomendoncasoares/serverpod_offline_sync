@@ -277,7 +277,8 @@ the design and can never be lifted.
 - All 1:1 relations must have the foreign-key column nullable (`optional`
   relation).
 - The only allowed non-synced-to-synced relation is `scopeId -> crdt_scopes.id`.
-- All foreign-key relations must be `deferrable` (pending [serverpod#5338](https://github.com/serverpod/serverpod/issues/5338)).
+- Non-nullable foreign-key relations must be declared as `deferred`.
+- Foreign-key action `onDelete=Restrict` must be replaced by `onDelete=NoAction`.
 
 Respecting these limitations, all other database invariants — including
 foreign-key actions — are preserved, with the exception of check constraints,
@@ -293,12 +294,13 @@ which Serverpod does not support either.
   Migrations are generated symmetrically for both ends. The engine respects the
   three mathematical properties a CRDT must hold to be consistent: idempotence,
   associativity, and commutativity.
-- **Metadata model.** Three metadata tables track change history *without copying
-  row data*: `crdt_data_rows` (insert + visibility), `crdt_data_fields` (update),
-  and `crdt_data_tombstone` (delete/restore). Hybrid logical clocks order
-  field-level values and break ties. A monotone causal-length tombstone governs
-  row existence, so add/delete/restore advance generations forward and can never
-  oscillate.
+- **Metadata model.** Four metadata tables track change history and relational
+  projection state: `crdt_data_rows` (insert + visibility), `crdt_data_fields`
+  (update), `crdt_data_foreign_key` (attempted and materialized foreign-key
+  values), and `crdt_data_tombstone` (delete/restore). Hybrid logical clocks
+  order field-level values and break ties. A monotone causal-length tombstone
+  governs row existence, so add/delete/restore advance generations forward and
+  can never oscillate.
 - **Visibility as a pure function.** Replicas never coordinate. Each merge
   applies remote facts monotonically, then derives the visible database —
   tombstone state, unique-conflict winners, and foreign-key repair — as a
