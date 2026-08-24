@@ -6,5 +6,5 @@ fields:
   ### Owner scope of this row. Maintained by the CRDT sync layer.
   scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   name: String
-  setNullMiddle: FkChainSetNullMiddle?, relation(field=setNullMiddleId, onDelete=SetNull)
+  setNullMiddle: FkChainSetNullMiddle?, relation(field=setNullMiddleId, onDelete=SetNull, deferred)
   setNullMiddleId: UuidValue?

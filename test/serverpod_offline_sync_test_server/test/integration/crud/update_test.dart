@@ -135,7 +135,7 @@ void main() {
 
         expect(
           fields.map((e) => e.column!.name).toSet(),
-          {'name', 'surname', 'organizationId', 'oldCompanyId'},
+          {'name', 'surname', 'organizationId', 'oldCompanyId', 'cityId'},
         );
       });
     });
