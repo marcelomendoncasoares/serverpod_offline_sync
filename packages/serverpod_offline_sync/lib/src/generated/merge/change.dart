@@ -10,15 +10,16 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 part 'delete.dart';
 part 'insert.dart';
 part 'update.dart';
 
 /// A remote CRDT change to merge.
-sealed class CrdtMergeChange extends _i1.BaseHlc
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+sealed class CrdtMergeChange extends _icw2tu00.BaseHlc
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtMergeChange({
     required super.hlcDatetime,
     required super.hlcCounter,
@@ -29,27 +30,27 @@ sealed class CrdtMergeChange extends _i1.BaseHlc
   });
 
   /// The scope this change belongs to.
-  _i2.UuidValue uuidScopeId;
+  _iss.UuidValue uuidScopeId;
 
   /// The table receiving the change.
   String tableName;
 
   /// The domain row identifier receiving the change.
-  _i2.UuidValue uuidRowId;
+  _iss.UuidValue uuidRowId;
 
   /// The remote node that produced the change.
-  _i2.UuidValue uuidNodeId;
+  _iss.UuidValue uuidNodeId;
 
   /// Returns a shallow copy of this [CrdtMergeChange]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtMergeChange copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _i2.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidScopeId,
     String? tableName,
-    _i2.UuidValue? uuidRowId,
-    _i2.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidRowId,
+    _iss.UuidValue? uuidNodeId,
   });
 }
 

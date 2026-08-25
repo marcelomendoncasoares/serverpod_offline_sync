@@ -11,16 +11,17 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
-import 'address.dart' as _i3;
-import 'organization.dart' as _i4;
-import 'company.dart' as _i5;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
-    as _i6;
+    as _imkb9kra;
+import 'address.dart' as _ilb4pipw;
+import 'city.dart' as _ior3absd;
+import 'company.dart' as _i6pnc270;
+import 'organization.dart' as _irjtvpke;
 
 abstract class Person
-    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   Person._({
     this.id,
     this.scopeId,
@@ -31,57 +32,64 @@ abstract class Person
     this.organization,
     this.oldCompanyId,
     this.oldCompany,
-  }) : _cityCitizensCityId = null;
+    this.cityId,
+    this.city,
+  });
 
   factory Person({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String name,
     String? surname,
-    _i3.Address? address,
-    _i2.UuidValue? organizationId,
-    _i4.Organization? organization,
-    _i2.UuidValue? oldCompanyId,
-    _i5.Company? oldCompany,
+    _ilb4pipw.Address? address,
+    _isc.UuidValue? organizationId,
+    _irjtvpke.Organization? organization,
+    _isc.UuidValue? oldCompanyId,
+    _i6pnc270.Company? oldCompany,
+    _isc.UuidValue? cityId,
+    _ior3absd.City? city,
   }) = _PersonImpl;
 
   factory Person.fromJson(Map<String, dynamic> jsonSerialization) {
-    return PersonImplicit._(
+    return Person(
       id: jsonSerialization['id'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       surname: jsonSerialization['surname'] as String?,
       address: jsonSerialization['address'] == null
           ? null
-          : _i6.Protocol().deserialize<_i3.Address>(
+          : _imkb9kra.Protocol().deserialize<_ilb4pipw.Address>(
               jsonSerialization['address'],
             ),
       organizationId: jsonSerialization['organizationId'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _isc.UuidValueJsonExtension.fromJson(
               jsonSerialization['organizationId'],
             ),
       organization: jsonSerialization['organization'] == null
           ? null
-          : _i6.Protocol().deserialize<_i4.Organization>(
+          : _imkb9kra.Protocol().deserialize<_irjtvpke.Organization>(
               jsonSerialization['organization'],
             ),
       oldCompanyId: jsonSerialization['oldCompanyId'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _isc.UuidValueJsonExtension.fromJson(
               jsonSerialization['oldCompanyId'],
             ),
       oldCompany: jsonSerialization['oldCompany'] == null
           ? null
-          : _i6.Protocol().deserialize<_i5.Company>(
+          : _imkb9kra.Protocol().deserialize<_i6pnc270.Company>(
               jsonSerialization['oldCompany'],
             ),
-      $_cityCitizensCityId: jsonSerialization['_cityCitizensCityId'] == null
+      cityId: jsonSerialization['cityId'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
-              jsonSerialization['_cityCitizensCityId'],
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['cityId']),
+      city: jsonSerialization['city'] == null
+          ? null
+          : _imkb9kra.Protocol().deserialize<_ior3absd.City>(
+              jsonSerialization['city'],
             ),
     );
   }
@@ -91,7 +99,7 @@ abstract class Person
   static const db = PersonRepository._();
 
   @override
-  _i2.UuidValue? id;
+  _isc.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -100,34 +108,38 @@ abstract class Person
 
   String? surname;
 
-  _i3.Address? address;
+  _ilb4pipw.Address? address;
 
-  _i2.UuidValue? organizationId;
+  _isc.UuidValue? organizationId;
 
-  _i4.Organization? organization;
+  _irjtvpke.Organization? organization;
 
-  _i2.UuidValue? oldCompanyId;
+  _isc.UuidValue? oldCompanyId;
 
-  _i5.Company? oldCompany;
+  _i6pnc270.Company? oldCompany;
 
-  final _i2.UuidValue? _cityCitizensCityId;
+  _isc.UuidValue? cityId;
+
+  _ior3absd.City? city;
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => t;
+  _isd.Table<_isc.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [Person]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   Person copyWith({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     String? name,
     String? surname,
-    _i3.Address? address,
-    _i2.UuidValue? organizationId,
-    _i4.Organization? organization,
-    _i2.UuidValue? oldCompanyId,
-    _i5.Company? oldCompany,
+    _ilb4pipw.Address? address,
+    _isc.UuidValue? organizationId,
+    _irjtvpke.Organization? organization,
+    _isc.UuidValue? oldCompanyId,
+    _i6pnc270.Company? oldCompany,
+    _isc.UuidValue? cityId,
+    _ior3absd.City? city,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -142,8 +154,8 @@ abstract class Person
       if (organization != null) 'organization': organization?.toJson(),
       if (oldCompanyId != null) 'oldCompanyId': oldCompanyId?.toJson(),
       if (oldCompany != null) 'oldCompany': oldCompany?.toJson(),
-      if (_cityCitizensCityId != null)
-        '_cityCitizensCityId': _cityCitizensCityId.toJson(),
+      if (cityId != null) 'cityId': cityId?.toJson(),
+      if (city != null) 'city': city?.toJson(),
     };
   }
 
@@ -161,27 +173,31 @@ abstract class Person
         'organization': organization?.toJsonForProtocol(),
       if (oldCompanyId != null) 'oldCompanyId': oldCompanyId?.toJson(),
       if (oldCompany != null) 'oldCompany': oldCompany?.toJsonForProtocol(),
+      if (cityId != null) 'cityId': cityId?.toJson(),
+      if (city != null) 'city': city?.toJsonForProtocol(),
     };
   }
 
   static PersonInclude include({
-    _i3.AddressInclude? address,
-    _i4.OrganizationInclude? organization,
-    _i5.CompanyInclude? oldCompany,
+    _ilb4pipw.AddressInclude? address,
+    _irjtvpke.OrganizationInclude? organization,
+    _i6pnc270.CompanyInclude? oldCompany,
+    _ior3absd.CityInclude? city,
   }) {
     return PersonInclude._(
       address: address,
       organization: organization,
       oldCompany: oldCompany,
+      city: city,
     );
   }
 
   static PersonIncludeList includeList({
-    _i1.WhereExpressionBuilder<PersonTable>? where,
+    _isd.WhereExpressionBuilder<PersonTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<PersonTable>? orderBy,
-    _i1.OrderByListBuilder<PersonTable>? orderByList,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
     PersonInclude? include,
   }) {
     return PersonIncludeList._(
@@ -196,7 +212,7 @@ abstract class Person
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _isc.SerializationManager.encode(this);
   }
 }
 
@@ -204,15 +220,17 @@ class _Undefined {}
 
 class _PersonImpl extends Person {
   _PersonImpl({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required String name,
     String? surname,
-    _i3.Address? address,
-    _i2.UuidValue? organizationId,
-    _i4.Organization? organization,
-    _i2.UuidValue? oldCompanyId,
-    _i5.Company? oldCompany,
+    _ilb4pipw.Address? address,
+    _isc.UuidValue? organizationId,
+    _irjtvpke.Organization? organization,
+    _isc.UuidValue? oldCompanyId,
+    _i6pnc270.Company? oldCompany,
+    _isc.UuidValue? cityId,
+    _ior3absd.City? city,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -223,11 +241,13 @@ class _PersonImpl extends Person {
          organization: organization,
          oldCompanyId: oldCompanyId,
          oldCompany: oldCompany,
+         cityId: cityId,
+         city: city,
        );
 
   /// Returns a shallow copy of this [Person]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   @override
   Person copyWith({
     Object? id = _Undefined,
@@ -239,142 +259,100 @@ class _PersonImpl extends Person {
     Object? organization = _Undefined,
     Object? oldCompanyId = _Undefined,
     Object? oldCompany = _Undefined,
+    Object? cityId = _Undefined,
+    Object? city = _Undefined,
   }) {
-    return PersonImplicit._(
-      id: id is _i2.UuidValue? ? id : this.id,
+    return Person(
+      id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
       surname: surname is String? ? surname : this.surname,
-      address: address is _i3.Address? ? address : this.address?.copyWith(),
-      organizationId: organizationId is _i2.UuidValue?
+      address: address is _ilb4pipw.Address?
+          ? address
+          : this.address?.copyWith(),
+      organizationId: organizationId is _isc.UuidValue?
           ? organizationId
           : this.organizationId,
-      organization: organization is _i4.Organization?
+      organization: organization is _irjtvpke.Organization?
           ? organization
           : this.organization?.copyWith(),
-      oldCompanyId: oldCompanyId is _i2.UuidValue?
+      oldCompanyId: oldCompanyId is _isc.UuidValue?
           ? oldCompanyId
           : this.oldCompanyId,
-      oldCompany: oldCompany is _i5.Company?
+      oldCompany: oldCompany is _i6pnc270.Company?
           ? oldCompany
           : this.oldCompany?.copyWith(),
-      $_cityCitizensCityId: this._cityCitizensCityId,
+      cityId: cityId is _isc.UuidValue? ? cityId : this.cityId,
+      city: city is _ior3absd.City? ? city : this.city?.copyWith(),
     );
   }
 }
 
-class PersonImplicit extends _PersonImpl {
-  PersonImplicit._({
-    _i2.UuidValue? id,
-    int? scopeId,
-    required String name,
-    String? surname,
-    _i3.Address? address,
-    _i2.UuidValue? organizationId,
-    _i4.Organization? organization,
-    _i2.UuidValue? oldCompanyId,
-    _i5.Company? oldCompany,
-    _i2.UuidValue? $_cityCitizensCityId,
-  }) : _cityCitizensCityId = $_cityCitizensCityId,
-       super(
-         id: id,
-         scopeId: scopeId,
-         name: name,
-         surname: surname,
-         address: address,
-         organizationId: organizationId,
-         organization: organization,
-         oldCompanyId: oldCompanyId,
-         oldCompany: oldCompany,
-       );
-
-  factory PersonImplicit(
-    Person person, {
-    _i2.UuidValue? $_cityCitizensCityId,
-  }) {
-    return PersonImplicit._(
-      id: person.id,
-      scopeId: person.scopeId,
-      name: person.name,
-      surname: person.surname,
-      address: person.address,
-      organizationId: person.organizationId,
-      organization: person.organization,
-      oldCompanyId: person.oldCompanyId,
-      oldCompany: person.oldCompany,
-      $_cityCitizensCityId: $_cityCitizensCityId,
-    );
-  }
-
-  @override
-  final _i2.UuidValue? _cityCitizensCityId;
-}
-
-class PersonUpdateTable extends _i1.UpdateTable<PersonTable> {
+class PersonUpdateTable extends _isd.UpdateTable<PersonTable> {
   PersonUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> name(String value) => _isd.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<String, String> surname(String? value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> surname(String? value) => _isd.ColumnValue(
     table.surname,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> organizationId(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_isc.UuidValue, _isc.UuidValue> organizationId(
+    _isc.UuidValue? value,
+  ) => _isd.ColumnValue(
     table.organizationId,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> oldCompanyId(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_isc.UuidValue, _isc.UuidValue> oldCompanyId(
+    _isc.UuidValue? value,
+  ) => _isd.ColumnValue(
     table.oldCompanyId,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> $_cityCitizensCityId(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
-    table.$_cityCitizensCityId,
+  _isd.ColumnValue<_isc.UuidValue, _isc.UuidValue> cityId(
+    _isc.UuidValue? value,
+  ) => _isd.ColumnValue(
+    table.cityId,
     value,
   );
 }
 
-class PersonTable extends _i1.Table<_i2.UuidValue?> {
+class PersonTable extends _isd.Table<_isc.UuidValue?> {
   PersonTable({super.tableRelation}) : super(tableName: 'person') {
     updateTable = PersonUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _isd.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _isd.ColumnString(
       'name',
       this,
     );
-    surname = _i1.ColumnString(
+    surname = _isd.ColumnString(
       'surname',
       this,
     );
-    organizationId = _i1.ColumnUuid(
+    organizationId = _isd.ColumnUuid(
       'organizationId',
       this,
     );
-    oldCompanyId = _i1.ColumnUuid(
+    oldCompanyId = _isd.ColumnUuid(
       'oldCompanyId',
       this,
     );
-    $_cityCitizensCityId = _i1.ColumnUuid(
-      '_cityCitizensCityId',
+    cityId = _isd.ColumnUuid(
+      'cityId',
       this,
     );
   }
@@ -382,86 +360,91 @@ class PersonTable extends _i1.Table<_i2.UuidValue?> {
   late final PersonUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _isd.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _isd.ColumnString name;
 
-  late final _i1.ColumnString surname;
+  late final _isd.ColumnString surname;
 
-  _i3.AddressTable? _address;
+  _ilb4pipw.AddressTable? _address;
 
-  late final _i1.ColumnUuid organizationId;
+  late final _isd.ColumnUuid organizationId;
 
-  _i4.OrganizationTable? _organization;
+  _irjtvpke.OrganizationTable? _organization;
 
-  late final _i1.ColumnUuid oldCompanyId;
+  late final _isd.ColumnUuid oldCompanyId;
 
-  _i5.CompanyTable? _oldCompany;
+  _i6pnc270.CompanyTable? _oldCompany;
 
-  late final _i1.ColumnUuid $_cityCitizensCityId;
+  late final _isd.ColumnUuid cityId;
 
-  _i3.AddressTable get address {
+  _ior3absd.CityTable? _city;
+
+  _ilb4pipw.AddressTable get address {
     if (_address != null) return _address!;
-    _address = _i1.createRelationTable(
+    _address = _isd.createRelationTable(
       relationFieldName: 'address',
       field: Person.t.id,
-      foreignField: _i3.Address.t.inhabitantId,
+      foreignField: _ilb4pipw.Address.t.inhabitantId,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i3.AddressTable(tableRelation: foreignTableRelation),
+          _ilb4pipw.AddressTable(tableRelation: foreignTableRelation),
     );
     return _address!;
   }
 
-  _i4.OrganizationTable get organization {
+  _irjtvpke.OrganizationTable get organization {
     if (_organization != null) return _organization!;
-    _organization = _i1.createRelationTable(
+    _organization = _isd.createRelationTable(
       relationFieldName: 'organization',
       field: Person.t.organizationId,
-      foreignField: _i4.Organization.t.id,
+      foreignField: _irjtvpke.Organization.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i4.OrganizationTable(tableRelation: foreignTableRelation),
+          _irjtvpke.OrganizationTable(tableRelation: foreignTableRelation),
     );
     return _organization!;
   }
 
-  _i5.CompanyTable get oldCompany {
+  _i6pnc270.CompanyTable get oldCompany {
     if (_oldCompany != null) return _oldCompany!;
-    _oldCompany = _i1.createRelationTable(
+    _oldCompany = _isd.createRelationTable(
       relationFieldName: 'oldCompany',
       field: Person.t.oldCompanyId,
-      foreignField: _i5.Company.t.id,
+      foreignField: _i6pnc270.Company.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i5.CompanyTable(tableRelation: foreignTableRelation),
+          _i6pnc270.CompanyTable(tableRelation: foreignTableRelation),
     );
     return _oldCompany!;
   }
 
+  _ior3absd.CityTable get city {
+    if (_city != null) return _city!;
+    _city = _isd.createRelationTable(
+      relationFieldName: 'city',
+      field: Person.t.cityId,
+      foreignField: _ior3absd.City.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          _ior3absd.CityTable(tableRelation: foreignTableRelation),
+    );
+    return _city!;
+  }
+
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     scopeId,
     name,
     surname,
     organizationId,
     oldCompanyId,
-    $_cityCitizensCityId,
+    cityId,
   ];
 
   @override
-  List<_i1.Column> get managedColumns => [
-    id,
-    scopeId,
-    name,
-    surname,
-    organizationId,
-    oldCompanyId,
-  ];
-
-  @override
-  _i1.Table? getRelationTable(String relationField) {
+  _isd.Table? getRelationTable(String relationField) {
     if (relationField == 'address') {
       return address;
     }
@@ -471,41 +454,49 @@ class PersonTable extends _i1.Table<_i2.UuidValue?> {
     if (relationField == 'oldCompany') {
       return oldCompany;
     }
+    if (relationField == 'city') {
+      return city;
+    }
     return null;
   }
 }
 
-class PersonInclude extends _i1.IncludeObject {
+class PersonInclude extends _isd.IncludeObject {
   PersonInclude._({
-    _i3.AddressInclude? address,
-    _i4.OrganizationInclude? organization,
-    _i5.CompanyInclude? oldCompany,
+    _ilb4pipw.AddressInclude? address,
+    _irjtvpke.OrganizationInclude? organization,
+    _i6pnc270.CompanyInclude? oldCompany,
+    _ior3absd.CityInclude? city,
   }) {
     _address = address;
     _organization = organization;
     _oldCompany = oldCompany;
+    _city = city;
   }
 
-  _i3.AddressInclude? _address;
+  _ilb4pipw.AddressInclude? _address;
 
-  _i4.OrganizationInclude? _organization;
+  _irjtvpke.OrganizationInclude? _organization;
 
-  _i5.CompanyInclude? _oldCompany;
+  _i6pnc270.CompanyInclude? _oldCompany;
+
+  _ior3absd.CityInclude? _city;
 
   @override
-  Map<String, _i1.Include?> get includes => {
+  Map<String, _isd.Include?> get includes => {
     'address': _address,
     'organization': _organization,
     'oldCompany': _oldCompany,
+    'city': _city,
   };
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => Person.t;
+  _isd.Table<_isc.UuidValue?> get table => Person.t;
 }
 
-class PersonIncludeList extends _i1.IncludeList {
+class PersonIncludeList extends _isd.IncludeList {
   PersonIncludeList._({
-    _i1.WhereExpressionBuilder<PersonTable>? where,
+    _isd.WhereExpressionBuilder<PersonTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -516,10 +507,10 @@ class PersonIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => Person.t;
+  _isd.Table<_isc.UuidValue?> get table => Person.t;
 }
 
 class PersonRepository {
@@ -552,16 +543,16 @@ class PersonRepository {
   /// );
   /// ```
   Future<List<Person>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<PersonTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<PersonTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<PersonTable>? orderBy,
-    _i1.OrderByListBuilder<PersonTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
+    _isd.Transaction? transaction,
     PersonInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<Person>(
       where: where?.call(Person.t),
@@ -594,15 +585,15 @@ class PersonRepository {
   /// );
   /// ```
   Future<Person?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<PersonTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<PersonTable>? where,
     int? offset,
-    _i1.OrderByBuilder<PersonTable>? orderBy,
-    _i1.OrderByListBuilder<PersonTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
+    _isd.Transaction? transaction,
     PersonInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<Person>(
       where: where?.call(Person.t),
@@ -618,12 +609,12 @@ class PersonRepository {
 
   /// Finds a single [Person] by its [id] or null if no such row exists.
   Future<Person?> findById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    _isd.Transaction? transaction,
     PersonInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<Person>(
       id,
@@ -649,9 +640,9 @@ class PersonRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Person>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<Person> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -667,9 +658,9 @@ class PersonRepository {
   ///
   /// The returned [Person] will have its `id` field set.
   Future<Person> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<Person>(
       row,
@@ -698,12 +689,12 @@ class PersonRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Person>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<Person> rows, {
-    required _i1.ColumnSelections<PersonTable> conflictColumns,
-    _i1.ColumnSelections<PersonTable>? updateColumns,
-    _i1.WhereExpressionBuilder<PersonTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<PersonTable> conflictColumns,
+    _isd.ColumnSelections<PersonTable>? updateColumns,
+    _isd.WhereExpressionBuilder<PersonTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<Person>(
@@ -730,12 +721,12 @@ class PersonRepository {
   ///
   /// The returned [Person] will have its `id` field set.
   Future<Person?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person row, {
-    required _i1.ColumnSelections<PersonTable> conflictColumns,
-    _i1.ColumnSelections<PersonTable>? updateColumns,
-    _i1.WhereExpressionBuilder<PersonTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<PersonTable> conflictColumns,
+    _isd.ColumnSelections<PersonTable>? updateColumns,
+    _isd.WhereExpressionBuilder<PersonTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<Person>(
       row,
@@ -756,10 +747,10 @@ class PersonRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Person>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<Person> rows, {
-    _i1.ColumnSelections<PersonTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<PersonTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<Person>(
@@ -774,10 +765,10 @@ class PersonRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<Person> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person row, {
-    _i1.ColumnSelections<PersonTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<PersonTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<Person>(
       row,
@@ -789,10 +780,10 @@ class PersonRepository {
   /// Updates a single [Person] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<Person?> updateById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    required _i1.ColumnValueListBuilder<PersonUpdateTable> columnValues,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    required _isd.ColumnValueListBuilder<PersonUpdateTable> columnValues,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<Person>(
       id,
@@ -808,14 +799,14 @@ class PersonRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Person>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<PersonUpdateTable> columnValues,
-    required _i1.WhereExpressionBuilder<PersonTable> where,
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<PersonUpdateTable> columnValues,
+    required _isd.WhereExpressionBuilder<PersonTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<PersonTable>? orderBy,
-    _i1.OrderByListBuilder<PersonTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<Person>(
@@ -842,11 +833,11 @@ class PersonRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Person>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<Person> rows, {
-    _i1.OrderByBuilder<PersonTable>? orderBy,
-    _i1.OrderByListBuilder<PersonTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<Person>(
@@ -860,9 +851,9 @@ class PersonRepository {
 
   /// Deletes a single [Person].
   Future<Person> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<Person>(
       row,
@@ -879,11 +870,11 @@ class PersonRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Person>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<PersonTable> where,
-    _i1.OrderByBuilder<PersonTable>? orderBy,
-    _i1.OrderByListBuilder<PersonTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<PersonTable> where,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<Person>(
@@ -898,10 +889,10 @@ class PersonRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<PersonTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<PersonTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<Person>(
       where: where?.call(Person.t),
@@ -912,11 +903,11 @@ class PersonRepository {
 
   /// Acquires row-level locks on [Person] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<PersonTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<PersonTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<Person>(
       where: where(Person.t),
@@ -933,10 +924,10 @@ class PersonAttachRowRepository {
   /// Creates a relation between the given [Person] and [Address]
   /// by setting the [Person]'s foreign key `id` to refer to the [Address].
   Future<void> address(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person person,
-    _i3.Address address, {
-    _i1.Transaction? transaction,
+    _ilb4pipw.Address address, {
+    _isd.Transaction? transaction,
   }) async {
     if (address.id == null) {
       throw ArgumentError.notNull('address.id');
@@ -946,9 +937,9 @@ class PersonAttachRowRepository {
     }
 
     var $address = address.copyWith(inhabitantId: person.id);
-    await session.db.updateRow<_i3.Address>(
+    await session.db.updateRow<_ilb4pipw.Address>(
       $address,
-      columns: [_i3.Address.t.inhabitantId],
+      columns: [_ilb4pipw.Address.t.inhabitantId],
       transaction: transaction,
     );
   }
@@ -956,10 +947,10 @@ class PersonAttachRowRepository {
   /// Creates a relation between the given [Person] and [Organization]
   /// by setting the [Person]'s foreign key `organizationId` to refer to the [Organization].
   Future<void> organization(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person person,
-    _i4.Organization organization, {
-    _i1.Transaction? transaction,
+    _irjtvpke.Organization organization, {
+    _isd.Transaction? transaction,
   }) async {
     if (person.id == null) {
       throw ArgumentError.notNull('person.id');
@@ -979,10 +970,10 @@ class PersonAttachRowRepository {
   /// Creates a relation between the given [Person] and [Company]
   /// by setting the [Person]'s foreign key `oldCompanyId` to refer to the [Company].
   Future<void> oldCompany(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person person,
-    _i5.Company oldCompany, {
-    _i1.Transaction? transaction,
+    _i6pnc270.Company oldCompany, {
+    _isd.Transaction? transaction,
   }) async {
     if (person.id == null) {
       throw ArgumentError.notNull('person.id');
@@ -998,6 +989,29 @@ class PersonAttachRowRepository {
       transaction: transaction,
     );
   }
+
+  /// Creates a relation between the given [Person] and [City]
+  /// by setting the [Person]'s foreign key `cityId` to refer to the [City].
+  Future<void> city(
+    _isd.DatabaseSession session,
+    Person person,
+    _ior3absd.City city, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (person.id == null) {
+      throw ArgumentError.notNull('person.id');
+    }
+    if (city.id == null) {
+      throw ArgumentError.notNull('city.id');
+    }
+
+    var $person = person.copyWith(cityId: city.id);
+    await session.db.updateRow<Person>(
+      $person,
+      columns: [Person.t.cityId],
+      transaction: transaction,
+    );
+  }
 }
 
 class PersonDetachRowRepository {
@@ -1009,9 +1023,9 @@ class PersonDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> address(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person person, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     var $address = person.address;
 
@@ -1026,9 +1040,9 @@ class PersonDetachRowRepository {
     }
 
     var $$address = $address.copyWith(inhabitantId: null);
-    await session.db.updateRow<_i3.Address>(
+    await session.db.updateRow<_ilb4pipw.Address>(
       $$address,
-      columns: [_i3.Address.t.inhabitantId],
+      columns: [_ilb4pipw.Address.t.inhabitantId],
       transaction: transaction,
     );
   }
@@ -1039,9 +1053,9 @@ class PersonDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> organization(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person person, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     if (person.id == null) {
       throw ArgumentError.notNull('person.id');
@@ -1061,9 +1075,9 @@ class PersonDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> oldCompany(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     Person person, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     if (person.id == null) {
       throw ArgumentError.notNull('person.id');
@@ -1073,6 +1087,28 @@ class PersonDetachRowRepository {
     await session.db.updateRow<Person>(
       $person,
       columns: [Person.t.oldCompanyId],
+      transaction: transaction,
+    );
+  }
+
+  /// Detaches the relation between this [Person] and the [City] set in `city`
+  /// by setting the [Person]'s foreign key `cityId` to `null`.
+  ///
+  /// This removes the association between the two models without deleting
+  /// the related record.
+  Future<void> city(
+    _isd.DatabaseSession session,
+    Person person, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (person.id == null) {
+      throw ArgumentError.notNull('person.id');
+    }
+
+    var $person = person.copyWith(cityId: null);
+    await session.db.updateRow<Person>(
+      $person,
+      columns: [Person.t.cityId],
       transaction: transaction,
     );
   }

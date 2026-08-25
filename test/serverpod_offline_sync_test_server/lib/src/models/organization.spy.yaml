@@ -7,4 +7,4 @@ fields:
   scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   name: String
   people: List<Person>?, relation(name=org_person)
-  city: City?, relation(name=city_org, optional, onDelete=Cascade)
+  city: City?, relation(name=city_org, optional, onDelete=Cascade, deferred)

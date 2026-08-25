@@ -10,10 +10,10 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Why a foreign key projection override is active.
-enum CrdtForeignKeyOverrideReason implements _i1.SerializableModel {
+enum CrdtForeignKeyOverrideReason implements _iss.SerializableModel {
   /// The attempted parent target is hidden or missing and the FK projection
   /// set the column to null.
   setNull,

@@ -11,13 +11,13 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import '../fk_chain/root.dart' as _i2;
+import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
-    as _i3;
+    as _ixxccm81;
+import '../fk_chain/root.dart' as _iv6n0jeb;
 
 abstract class FkChainCascadeMiddle
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   FkChainCascadeMiddle._({
     this.id,
     this.scopeId,
@@ -27,11 +27,11 @@ abstract class FkChainCascadeMiddle
   });
 
   factory FkChainCascadeMiddle({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.FkChainRoot? root,
-    _i1.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
+    _is.UuidValue? rootId,
   }) = _FkChainCascadeMiddleImpl;
 
   factory FkChainCascadeMiddle.fromJson(
@@ -40,17 +40,17 @@ abstract class FkChainCascadeMiddle
     return FkChainCascadeMiddle(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       root: jsonSerialization['root'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.FkChainRoot>(
+          : _ixxccm81.Protocol().deserialize<_iv6n0jeb.FkChainRoot>(
               jsonSerialization['root'],
             ),
       rootId: jsonSerialization['rootId'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['rootId']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['rootId']),
     );
   }
 
@@ -59,29 +59,29 @@ abstract class FkChainCascadeMiddle
   static const db = FkChainCascadeMiddleRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
 
   String name;
 
-  _i2.FkChainRoot? root;
+  _iv6n0jeb.FkChainRoot? root;
 
-  _i1.UuidValue? rootId;
+  _is.UuidValue? rootId;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [FkChainCascadeMiddle]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   FkChainCascadeMiddle copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _i2.FkChainRoot? root,
-    _i1.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
+    _is.UuidValue? rootId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -107,16 +107,18 @@ abstract class FkChainCascadeMiddle
     };
   }
 
-  static FkChainCascadeMiddleInclude include({_i2.FkChainRootInclude? root}) {
+  static FkChainCascadeMiddleInclude include({
+    _iv6n0jeb.FkChainRootInclude? root,
+  }) {
     return FkChainCascadeMiddleInclude._(root: root);
   }
 
   static FkChainCascadeMiddleIncludeList includeList({
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
+    _is.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
+    _is.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
     FkChainCascadeMiddleInclude? include,
   }) {
     return FkChainCascadeMiddleIncludeList._(
@@ -131,7 +133,7 @@ abstract class FkChainCascadeMiddle
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -139,11 +141,11 @@ class _Undefined {}
 
 class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
   _FkChainCascadeMiddleImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.FkChainRoot? root,
-    _i1.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
+    _is.UuidValue? rootId,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -154,7 +156,7 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
 
   /// Returns a shallow copy of this [FkChainCascadeMiddle]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   FkChainCascadeMiddle copyWith({
     Object? id = _Undefined,
@@ -164,49 +166,49 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
     Object? rootId = _Undefined,
   }) {
     return FkChainCascadeMiddle(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      root: root is _i2.FkChainRoot? ? root : this.root?.copyWith(),
-      rootId: rootId is _i1.UuidValue? ? rootId : this.rootId,
+      root: root is _iv6n0jeb.FkChainRoot? ? root : this.root?.copyWith(),
+      rootId: rootId is _is.UuidValue? ? rootId : this.rootId,
     );
   }
 }
 
 class FkChainCascadeMiddleUpdateTable
-    extends _i1.UpdateTable<FkChainCascadeMiddleTable> {
+    extends _is.UpdateTable<FkChainCascadeMiddleTable> {
   FkChainCascadeMiddleUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> rootId(_i1.UuidValue? value) =>
-      _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> rootId(_is.UuidValue? value) =>
+      _is.ColumnValue(
         table.rootId,
         value,
       );
 }
 
-class FkChainCascadeMiddleTable extends _i1.Table<_i1.UuidValue?> {
+class FkChainCascadeMiddleTable extends _is.Table<_is.UuidValue?> {
   FkChainCascadeMiddleTable({super.tableRelation})
     : super(tableName: 'fk_chain_cascade_middle') {
     updateTable = FkChainCascadeMiddleUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
-    rootId = _i1.ColumnUuid(
+    rootId = _is.ColumnUuid(
       'rootId',
       this,
     );
@@ -215,29 +217,29 @@ class FkChainCascadeMiddleTable extends _i1.Table<_i1.UuidValue?> {
   late final FkChainCascadeMiddleUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
-  _i2.FkChainRootTable? _root;
+  _iv6n0jeb.FkChainRootTable? _root;
 
-  late final _i1.ColumnUuid rootId;
+  late final _is.ColumnUuid rootId;
 
-  _i2.FkChainRootTable get root {
+  _iv6n0jeb.FkChainRootTable get root {
     if (_root != null) return _root!;
-    _root = _i1.createRelationTable(
+    _root = _is.createRelationTable(
       relationFieldName: 'root',
       field: FkChainCascadeMiddle.t.rootId,
-      foreignField: _i2.FkChainRoot.t.id,
+      foreignField: _iv6n0jeb.FkChainRoot.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.FkChainRootTable(tableRelation: foreignTableRelation),
+          _iv6n0jeb.FkChainRootTable(tableRelation: foreignTableRelation),
     );
     return _root!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     name,
@@ -245,7 +247,7 @@ class FkChainCascadeMiddleTable extends _i1.Table<_i1.UuidValue?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _is.Table? getRelationTable(String relationField) {
     if (relationField == 'root') {
       return root;
     }
@@ -253,23 +255,23 @@ class FkChainCascadeMiddleTable extends _i1.Table<_i1.UuidValue?> {
   }
 }
 
-class FkChainCascadeMiddleInclude extends _i1.IncludeObject {
-  FkChainCascadeMiddleInclude._({_i2.FkChainRootInclude? root}) {
+class FkChainCascadeMiddleInclude extends _is.IncludeObject {
+  FkChainCascadeMiddleInclude._({_iv6n0jeb.FkChainRootInclude? root}) {
     _root = root;
   }
 
-  _i2.FkChainRootInclude? _root;
+  _iv6n0jeb.FkChainRootInclude? _root;
 
   @override
-  Map<String, _i1.Include?> get includes => {'root': _root};
+  Map<String, _is.Include?> get includes => {'root': _root};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => FkChainCascadeMiddle.t;
+  _is.Table<_is.UuidValue?> get table => FkChainCascadeMiddle.t;
 }
 
-class FkChainCascadeMiddleIncludeList extends _i1.IncludeList {
+class FkChainCascadeMiddleIncludeList extends _is.IncludeList {
   FkChainCascadeMiddleIncludeList._({
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -280,10 +282,10 @@ class FkChainCascadeMiddleIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => FkChainCascadeMiddle.t;
+  _is.Table<_is.UuidValue?> get table => FkChainCascadeMiddle.t;
 }
 
 class FkChainCascadeMiddleRepository {
@@ -316,16 +318,16 @@ class FkChainCascadeMiddleRepository {
   /// );
   /// ```
   Future<List<FkChainCascadeMiddle>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
+    _is.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
+    _is.Transaction? transaction,
     FkChainCascadeMiddleInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<FkChainCascadeMiddle>(
       where: where?.call(FkChainCascadeMiddle.t),
@@ -358,15 +360,15 @@ class FkChainCascadeMiddleRepository {
   /// );
   /// ```
   Future<FkChainCascadeMiddle?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
     int? offset,
-    _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
+    _is.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
+    _is.Transaction? transaction,
     FkChainCascadeMiddleInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<FkChainCascadeMiddle>(
       where: where?.call(FkChainCascadeMiddle.t),
@@ -382,12 +384,12 @@ class FkChainCascadeMiddleRepository {
 
   /// Finds a single [FkChainCascadeMiddle] by its [id] or null if no such row exists.
   Future<FkChainCascadeMiddle?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
     FkChainCascadeMiddleInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<FkChainCascadeMiddle>(
       id,
@@ -413,9 +415,9 @@ class FkChainCascadeMiddleRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainCascadeMiddle>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainCascadeMiddle> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -431,9 +433,9 @@ class FkChainCascadeMiddleRepository {
   ///
   /// The returned [FkChainCascadeMiddle] will have its `id` field set.
   Future<FkChainCascadeMiddle> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainCascadeMiddle row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<FkChainCascadeMiddle>(
       row,
@@ -462,12 +464,12 @@ class FkChainCascadeMiddleRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainCascadeMiddle>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainCascadeMiddle> rows, {
-    required _i1.ColumnSelections<FkChainCascadeMiddleTable> conflictColumns,
-    _i1.ColumnSelections<FkChainCascadeMiddleTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<FkChainCascadeMiddleTable> conflictColumns,
+    _is.ColumnSelections<FkChainCascadeMiddleTable>? updateColumns,
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<FkChainCascadeMiddle>(
@@ -494,12 +496,12 @@ class FkChainCascadeMiddleRepository {
   ///
   /// The returned [FkChainCascadeMiddle] will have its `id` field set.
   Future<FkChainCascadeMiddle?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainCascadeMiddle row, {
-    required _i1.ColumnSelections<FkChainCascadeMiddleTable> conflictColumns,
-    _i1.ColumnSelections<FkChainCascadeMiddleTable>? updateColumns,
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<FkChainCascadeMiddleTable> conflictColumns,
+    _is.ColumnSelections<FkChainCascadeMiddleTable>? updateColumns,
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<FkChainCascadeMiddle>(
       row,
@@ -520,10 +522,10 @@ class FkChainCascadeMiddleRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainCascadeMiddle>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainCascadeMiddle> rows, {
-    _i1.ColumnSelections<FkChainCascadeMiddleTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainCascadeMiddleTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<FkChainCascadeMiddle>(
@@ -538,10 +540,10 @@ class FkChainCascadeMiddleRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<FkChainCascadeMiddle> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainCascadeMiddle row, {
-    _i1.ColumnSelections<FkChainCascadeMiddleTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<FkChainCascadeMiddleTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<FkChainCascadeMiddle>(
       row,
@@ -553,11 +555,11 @@ class FkChainCascadeMiddleRepository {
   /// Updates a single [FkChainCascadeMiddle] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<FkChainCascadeMiddle?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<FkChainCascadeMiddleUpdateTable>
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<FkChainCascadeMiddleUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<FkChainCascadeMiddle>(
       id,
@@ -573,15 +575,15 @@ class FkChainCascadeMiddleRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainCascadeMiddle>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<FkChainCascadeMiddleUpdateTable>
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<FkChainCascadeMiddleUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
+    required _is.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
+    _is.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<FkChainCascadeMiddle>(
@@ -608,11 +610,11 @@ class FkChainCascadeMiddleRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainCascadeMiddle>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<FkChainCascadeMiddle> rows, {
-    _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
+    _is.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<FkChainCascadeMiddle>(
@@ -626,9 +628,9 @@ class FkChainCascadeMiddleRepository {
 
   /// Deletes a single [FkChainCascadeMiddle].
   Future<FkChainCascadeMiddle> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainCascadeMiddle row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<FkChainCascadeMiddle>(
       row,
@@ -645,11 +647,11 @@ class FkChainCascadeMiddleRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<FkChainCascadeMiddle>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
-    _i1.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
-    _i1.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
+    _is.OrderByBuilder<FkChainCascadeMiddleTable>? orderBy,
+    _is.OrderByListBuilder<FkChainCascadeMiddleTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<FkChainCascadeMiddle>(
@@ -664,10 +666,10 @@ class FkChainCascadeMiddleRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<FkChainCascadeMiddleTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<FkChainCascadeMiddle>(
       where: where?.call(FkChainCascadeMiddle.t),
@@ -678,11 +680,11 @@ class FkChainCascadeMiddleRepository {
 
   /// Acquires row-level locks on [FkChainCascadeMiddle] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<FkChainCascadeMiddleTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<FkChainCascadeMiddle>(
       where: where(FkChainCascadeMiddle.t),
@@ -699,10 +701,10 @@ class FkChainCascadeMiddleAttachRowRepository {
   /// Creates a relation between the given [FkChainCascadeMiddle] and [FkChainRoot]
   /// by setting the [FkChainCascadeMiddle]'s foreign key `rootId` to refer to the [FkChainRoot].
   Future<void> root(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainCascadeMiddle fkChainCascadeMiddle,
-    _i2.FkChainRoot root, {
-    _i1.Transaction? transaction,
+    _iv6n0jeb.FkChainRoot root, {
+    _is.Transaction? transaction,
   }) async {
     if (fkChainCascadeMiddle.id == null) {
       throw ArgumentError.notNull('fkChainCascadeMiddle.id');
@@ -729,9 +731,9 @@ class FkChainCascadeMiddleDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> root(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     FkChainCascadeMiddle fkChainCascadeMiddle, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     if (fkChainCascadeMiddle.id == null) {
       throw ArgumentError.notNull('fkChainCascadeMiddle.id');

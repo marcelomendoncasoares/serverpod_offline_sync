@@ -1,4 +1,5 @@
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -534,6 +535,201 @@ void main() {
             ),
           ),
         ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table whose only non-deferred foreign key is the scopeId relation to crdt_scopes, '
+    'when the registry is created, '
+    'then no error is thrown.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final nonDeferredScopeDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+                ? fk.copyWith(deferrable: null)
+                : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [nonDeferredScopeDefinition],
+        ),
+        returnsNormally,
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with a non-deferred non-nullable foreign key, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final childDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere(
+            (definition) => definition.name == RequiredSetNullChild.t.tableName,
+          );
+      final nonDeferredDefinition = childDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in childDefinition.foreignKeys)
+            fk.columns.contains('parentId') ? fk.copyWith(deferrable: null) : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [RequiredSetNullChild.t],
+          tableDefinitions: [nonDeferredDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'CRDT requires deferred foreign keys for non-optional relations, '
+                'but 1 foreign key(s) are not deferred: '
+                '"required_set_null_child.parentId". Mark these as "deferred" '
+                'or make the relation optional.',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with an initiallyImmediate non-nullable foreign key, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final childDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere(
+            (definition) => definition.name == RequiredSetNullChild.t.tableName,
+          );
+      final immediateDefinition = childDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in childDefinition.foreignKeys)
+            fk.columns.contains('parentId')
+                ? fk.copyWith(deferrable: .initiallyImmediate)
+                : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [RequiredSetNullChild.t],
+          tableDefinitions: [immediateDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'CRDT requires deferred foreign keys for non-optional relations, '
+                'but 1 foreign key(s) are not deferred: '
+                '"required_set_null_child.parentId". Mark these as "deferred" '
+                'or make the relation optional.',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with a non-deferred nullable foreign key, '
+    'when the registry is created, '
+    'then no error is thrown because projection can repair it.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final nonDeferredNullableDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            fk.columns.contains('organizationId') ? fk.copyWith(deferrable: null) : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [nonDeferredNullableDefinition],
+        ),
+        returnsNormally,
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table with a deferred foreign key using onDelete Restrict, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final restrictDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            fk.columns.contains('organizationId')
+                ? fk.copyWith(onDelete: ForeignKeyAction.restrict)
+                : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [restrictDefinition],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'CRDT cannot synchronize tables with "onDelete=Restrict" foreign '
+                'keys, but 1 foreign key(s) use it: "person.organizationId". '
+                'Replace by "onDelete=NoAction" instead, which produces the '
+                'same effect.',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a synced table whose scopeId relation uses onDelete Restrict, '
+    'when the registry is created, '
+    'then the scopeId relation is not exempt from the cascade requirement.',
+    () async {
+      final personDefinition = testSession.db.serializationManager
+          .getTargetTableDefinitions()
+          .firstWhere((definition) => definition.name == Person.t.tableName);
+      final restrictScopeDefinition = personDefinition.copyWith(
+        foreignKeys: [
+          for (final fk in personDefinition.foreignKeys)
+            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+                ? fk.copyWith(onDelete: ForeignKeyAction.restrict)
+                : fk,
+        ],
+      );
+
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Person.t],
+          tableDefinitions: [restrictScopeDefinition],
+        ),
+        throwsA(isA<StateError>()),
       );
     },
   );

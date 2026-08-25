@@ -10,27 +10,27 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_client/serverpod_client.dart' as _i1;
-import 'dart:async' as _i2;
+import 'dart:async' as _ida;
+import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
-    as _i3;
+    as _iacc;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
-    as _i4;
-import 'package:http/http.dart' as _i5;
-import 'protocol.dart' as _i6;
-import 'package:serverpod_database/serverpod_database.dart' as _i7;
+    as _ipulbpi2;
+import 'protocol.dart' as _il2as5qe;
 import 'package:serverpod_offline_sync_test_client/migrations/migration_registry.dart';
 
 /// Passwordless auth endpoint used by the offline-sync demo app.
 /// {@category Endpoint}
-class EndpointDemoAuth extends _i1.EndpointRef {
-  EndpointDemoAuth(_i1.EndpointCaller caller) : super(caller);
+class EndpointDemoAuth extends _isc.EndpointRef {
+  EndpointDemoAuth(_isc.EndpointCaller caller) : super(caller);
 
   @override
   String get name => 'demoAuth';
 
   /// Creates or reuses a demo auth user and returns its bearer token.
-  _i2.Future<String> loginOrCreateUser(String username) =>
+  _ida.Future<String> loginOrCreateUser(String username) =>
       caller.callServerEndpoint<String>(
         'demoAuth',
         'loginOrCreateUser',
@@ -41,8 +41,8 @@ class EndpointDemoAuth extends _i1.EndpointRef {
 /// Read-only inspection endpoint used by the offline-sync demo app to show the
 /// server's merged truth for the authenticated user's scope.
 /// {@category Endpoint}
-class EndpointDemoDebug extends _i1.EndpointRef {
-  EndpointDemoDebug(_i1.EndpointCaller caller) : super(caller);
+class EndpointDemoDebug extends _isc.EndpointRef {
+  EndpointDemoDebug(_isc.EndpointCaller caller) : super(caller);
 
   @override
   String get name => 'demoDebug';
@@ -57,12 +57,13 @@ class EndpointDemoDebug extends _i1.EndpointRef {
   /// deserializes them straight back into typed models with no per-table
   /// plumbing on either side. The client flags hidden rows by diffing a
   /// visible-only fetch against an include-hidden one.
-  _i2.Future<List<dynamic>> fetchScopeSnapshot({required bool includeHidden}) =>
-      caller.callServerEndpoint<List<dynamic>>(
-        'demoDebug',
-        'fetchScopeSnapshot',
-        {'includeHidden': includeHidden},
-      );
+  _ida.Future<List<dynamic>> fetchScopeSnapshot({
+    required bool includeHidden,
+  }) => caller.callServerEndpoint<List<dynamic>>(
+    'demoDebug',
+    'fetchScopeSnapshot',
+    {'includeHidden': includeHidden},
+  );
 
   /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
   /// table cascades on `scopeId` → `crdt_scopes`, so all domain rows and CRDT
@@ -74,7 +75,7 @@ class EndpointDemoDebug extends _i1.EndpointRef {
   /// cascade off `crdt_scopes`), and SQLite's cascade order can transiently
   /// violate those immediate checks. Deferring them to commit lets the whole
   /// cascade complete first.
-  _i2.Future<void> resetScope() => caller.callServerEndpoint<void>(
+  _ida.Future<void> resetScope() => caller.callServerEndpoint<void>(
     'demoDebug',
     'resetScope',
     {},
@@ -84,7 +85,7 @@ class EndpointDemoDebug extends _i1.EndpointRef {
   /// without going through a replica. Lets the "Server" seed target exercise the
   /// fetch-from-scratch flow: seed here, reset a replica, then sync to pull it
   /// down. [text] carries an optional name/value for the single-row kinds.
-  _i2.Future<void> seedScope(
+  _ida.Future<void> seedScope(
     String kind,
     String? text,
   ) => caller.callServerEndpoint<void>(
@@ -99,33 +100,33 @@ class EndpointDemoDebug extends _i1.EndpointRef {
 
 class Modules {
   Modules(Client client) {
-    serverpod_auth_core = _i3.Caller(client);
-    serverpod_offline_sync = _i4.Caller(client);
+    serverpod_auth_core = _iacc.Caller(client);
+    serverpod_offline_sync = _ipulbpi2.Caller(client);
   }
 
-  late final _i3.Caller serverpod_auth_core;
+  late final _iacc.Caller serverpod_auth_core;
 
-  late final _i4.Caller serverpod_offline_sync;
+  late final _ipulbpi2.Caller serverpod_offline_sync;
 }
 
-class Client extends _i1.ServerpodClientShared {
+class Client extends _isc.ServerpodClientShared {
   Client(
     String host, {
     dynamic securityContext,
     Duration? streamingConnectionTimeout,
     Duration? connectionTimeout,
     Function(
-      _i1.MethodCallContext,
+      _isc.MethodCallContext,
       Object,
       StackTrace,
     )?
     onFailedCall,
-    Function(_i1.MethodCallContext)? onSucceededCall,
+    Function(_isc.MethodCallContext)? onSucceededCall,
     bool? disconnectStreamsOnLostInternetConnection,
-    _i5.Client? httpClientOverride,
+    _i85jenna.Client? httpClientOverride,
   }) : super(
          host,
-         _i6.Protocol(),
+         _il2as5qe.Protocol(),
          securityContext: securityContext,
          streamingConnectionTimeout: streamingConnectionTimeout,
          connectionTimeout: connectionTimeout,
@@ -147,13 +148,13 @@ class Client extends _i1.ServerpodClientShared {
   late final Modules modules;
 
   @override
-  Map<String, _i1.EndpointRef> get endpointRefLookup => {
+  Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'demoAuth': demoAuth,
     'demoDebug': demoDebug,
   };
 
   @override
-  Map<String, _i1.ModuleEndpointCaller> get moduleLookup => {
+  Map<String, _isc.ModuleEndpointCaller> get moduleLookup => {
     'serverpod_auth_core': modules.serverpod_auth_core,
     'serverpod_offline_sync': modules.serverpod_offline_sync,
   };
@@ -171,14 +172,14 @@ class Client extends _i1.ServerpodClientShared {
   /// If [isDebugMode] is true, the database integrity will be verified after
   /// the migrations are applied to provide feedback of possible issues. On a
   /// Flutter application, this should be set to [kDebugMode].
-  _i2.Future<_i7.ClientDatabaseSession> createSession(
+  _ida.Future<_isd.ClientDatabaseSession> createSession(
     String path, {
     bool runMigrations = true,
     bool isDebugMode = false,
   }) async {
-    return await _i7.ClientDatabaseSession.open(
+    return await _isd.ClientDatabaseSession.open(
       path,
-      _i6.Protocol(),
+      _il2as5qe.Protocol(),
       clientMigrations: MigrationRegistry.migrations,
       runMigrations: runMigrations,
       isDebugMode: isDebugMode,

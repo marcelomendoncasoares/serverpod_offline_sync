@@ -10,11 +10,11 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_client/serverpod_client.dart' as _i2;
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
 
 abstract class UniqueNoRelease
-    implements _i1.TableRow<_i2.UuidValue?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   UniqueNoRelease._({
     this.id,
     this.scopeId,
@@ -22,7 +22,7 @@ abstract class UniqueNoRelease
   });
 
   factory UniqueNoRelease({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required int categoryId,
   }) = _UniqueNoReleaseImpl;
@@ -31,7 +31,7 @@ abstract class UniqueNoRelease
     return UniqueNoRelease(
       id: jsonSerialization['id'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       categoryId: jsonSerialization['categoryId'] as int,
     );
@@ -42,7 +42,7 @@ abstract class UniqueNoRelease
   static const db = UniqueNoReleaseRepository._();
 
   @override
-  _i2.UuidValue? id;
+  _isc.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -50,13 +50,13 @@ abstract class UniqueNoRelease
   int categoryId;
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => t;
+  _isd.Table<_isc.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [UniqueNoRelease]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   UniqueNoRelease copyWith({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     int? categoryId,
   });
@@ -85,11 +85,11 @@ abstract class UniqueNoRelease
   }
 
   static UniqueNoReleaseIncludeList includeList({
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
     UniqueNoReleaseInclude? include,
   }) {
     return UniqueNoReleaseIncludeList._(
@@ -104,7 +104,7 @@ abstract class UniqueNoRelease
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _isc.SerializationManager.encode(this);
   }
 }
 
@@ -112,7 +112,7 @@ class _Undefined {}
 
 class _UniqueNoReleaseImpl extends UniqueNoRelease {
   _UniqueNoReleaseImpl({
-    _i2.UuidValue? id,
+    _isc.UuidValue? id,
     int? scopeId,
     required int categoryId,
   }) : super._(
@@ -123,7 +123,7 @@ class _UniqueNoReleaseImpl extends UniqueNoRelease {
 
   /// Returns a shallow copy of this [UniqueNoRelease]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_isc.useResult
   @override
   UniqueNoRelease copyWith({
     Object? id = _Undefined,
@@ -131,36 +131,37 @@ class _UniqueNoReleaseImpl extends UniqueNoRelease {
     int? categoryId,
   }) {
     return UniqueNoRelease(
-      id: id is _i2.UuidValue? ? id : this.id,
+      id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       categoryId: categoryId ?? this.categoryId,
     );
   }
 }
 
-class UniqueNoReleaseUpdateTable extends _i1.UpdateTable<UniqueNoReleaseTable> {
+class UniqueNoReleaseUpdateTable
+    extends _isd.UpdateTable<UniqueNoReleaseTable> {
   UniqueNoReleaseUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<int, int> categoryId(int value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> categoryId(int value) => _isd.ColumnValue(
     table.categoryId,
     value,
   );
 }
 
-class UniqueNoReleaseTable extends _i1.Table<_i2.UuidValue?> {
+class UniqueNoReleaseTable extends _isd.Table<_isc.UuidValue?> {
   UniqueNoReleaseTable({super.tableRelation})
     : super(tableName: 'unique_no_release') {
     updateTable = UniqueNoReleaseUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _isd.ColumnInt(
       'scopeId',
       this,
     );
-    categoryId = _i1.ColumnInt(
+    categoryId = _isd.ColumnInt(
       'categoryId',
       this,
     );
@@ -169,31 +170,31 @@ class UniqueNoReleaseTable extends _i1.Table<_i2.UuidValue?> {
   late final UniqueNoReleaseUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _isd.ColumnInt scopeId;
 
-  late final _i1.ColumnInt categoryId;
+  late final _isd.ColumnInt categoryId;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     scopeId,
     categoryId,
   ];
 }
 
-class UniqueNoReleaseInclude extends _i1.IncludeObject {
+class UniqueNoReleaseInclude extends _isd.IncludeObject {
   UniqueNoReleaseInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _isd.Include?> get includes => {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => UniqueNoRelease.t;
+  _isd.Table<_isc.UuidValue?> get table => UniqueNoRelease.t;
 }
 
-class UniqueNoReleaseIncludeList extends _i1.IncludeList {
+class UniqueNoReleaseIncludeList extends _isd.IncludeList {
   UniqueNoReleaseIncludeList._({
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -204,10 +205,10 @@ class UniqueNoReleaseIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i2.UuidValue?> get table => UniqueNoRelease.t;
+  _isd.Table<_isc.UuidValue?> get table => UniqueNoRelease.t;
 }
 
 class UniqueNoReleaseRepository {
@@ -236,15 +237,15 @@ class UniqueNoReleaseRepository {
   /// );
   /// ```
   Future<List<UniqueNoRelease>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<UniqueNoRelease>(
       where: where?.call(UniqueNoRelease.t),
@@ -276,14 +277,14 @@ class UniqueNoReleaseRepository {
   /// );
   /// ```
   Future<UniqueNoRelease?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
     int? offset,
-    _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<UniqueNoRelease>(
       where: where?.call(UniqueNoRelease.t),
@@ -298,11 +299,11 @@ class UniqueNoReleaseRepository {
 
   /// Finds a single [UniqueNoRelease] by its [id] or null if no such row exists.
   Future<UniqueNoRelease?> findById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<UniqueNoRelease>(
       id,
@@ -327,9 +328,9 @@ class UniqueNoReleaseRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueNoRelease>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueNoRelease> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -345,9 +346,9 @@ class UniqueNoReleaseRepository {
   ///
   /// The returned [UniqueNoRelease] will have its `id` field set.
   Future<UniqueNoRelease> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueNoRelease row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<UniqueNoRelease>(
       row,
@@ -376,12 +377,12 @@ class UniqueNoReleaseRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueNoRelease>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueNoRelease> rows, {
-    required _i1.ColumnSelections<UniqueNoReleaseTable> conflictColumns,
-    _i1.ColumnSelections<UniqueNoReleaseTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<UniqueNoReleaseTable> conflictColumns,
+    _isd.ColumnSelections<UniqueNoReleaseTable>? updateColumns,
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<UniqueNoRelease>(
@@ -408,12 +409,12 @@ class UniqueNoReleaseRepository {
   ///
   /// The returned [UniqueNoRelease] will have its `id` field set.
   Future<UniqueNoRelease?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueNoRelease row, {
-    required _i1.ColumnSelections<UniqueNoReleaseTable> conflictColumns,
-    _i1.ColumnSelections<UniqueNoReleaseTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<UniqueNoReleaseTable> conflictColumns,
+    _isd.ColumnSelections<UniqueNoReleaseTable>? updateColumns,
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<UniqueNoRelease>(
       row,
@@ -434,10 +435,10 @@ class UniqueNoReleaseRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueNoRelease>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueNoRelease> rows, {
-    _i1.ColumnSelections<UniqueNoReleaseTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<UniqueNoReleaseTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<UniqueNoRelease>(
@@ -452,10 +453,10 @@ class UniqueNoReleaseRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<UniqueNoRelease> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueNoRelease row, {
-    _i1.ColumnSelections<UniqueNoReleaseTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<UniqueNoReleaseTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<UniqueNoRelease>(
       row,
@@ -467,11 +468,11 @@ class UniqueNoReleaseRepository {
   /// Updates a single [UniqueNoRelease] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<UniqueNoRelease?> updateById(
-    _i1.DatabaseSession session,
-    _i2.UuidValue id, {
-    required _i1.ColumnValueListBuilder<UniqueNoReleaseUpdateTable>
+    _isd.DatabaseSession session,
+    _isc.UuidValue id, {
+    required _isd.ColumnValueListBuilder<UniqueNoReleaseUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<UniqueNoRelease>(
       id,
@@ -487,15 +488,15 @@ class UniqueNoReleaseRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueNoRelease>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<UniqueNoReleaseUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<UniqueNoReleaseUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<UniqueNoReleaseTable> where,
+    required _isd.WhereExpressionBuilder<UniqueNoReleaseTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<UniqueNoRelease>(
@@ -522,11 +523,11 @@ class UniqueNoReleaseRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueNoRelease>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<UniqueNoRelease> rows, {
-    _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<UniqueNoRelease>(
@@ -540,9 +541,9 @@ class UniqueNoReleaseRepository {
 
   /// Deletes a single [UniqueNoRelease].
   Future<UniqueNoRelease> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     UniqueNoRelease row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<UniqueNoRelease>(
       row,
@@ -559,11 +560,11 @@ class UniqueNoReleaseRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueNoRelease>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueNoReleaseTable> where,
-    _i1.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<UniqueNoReleaseTable> where,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<UniqueNoRelease>(
@@ -578,10 +579,10 @@ class UniqueNoReleaseRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<UniqueNoRelease>(
       where: where?.call(UniqueNoRelease.t),
@@ -592,11 +593,11 @@ class UniqueNoReleaseRepository {
 
   /// Acquires row-level locks on [UniqueNoRelease] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueNoReleaseTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<UniqueNoReleaseTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<UniqueNoRelease>(
       where: where(UniqueNoRelease.t),

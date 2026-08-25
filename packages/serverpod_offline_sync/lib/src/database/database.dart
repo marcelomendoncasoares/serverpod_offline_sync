@@ -560,9 +560,7 @@ class CrdtDatabase implements Database {
       transaction: transaction,
     );
     if (result.length > 1) {
-      // FIXME: We can't use the proper `DatabaseUpsertRowException` because
-      // it is declared as a base type on the `serverpod_database` package.
-      throw Exception(
+      throw DatabaseUnexpectedResultException(
         'Failed to upsert row, affected number of rows is ${result.length} != 1',
       );
     }
@@ -655,9 +653,9 @@ class CrdtDatabase implements Database {
     );
 
     if (updatedRows.isEmpty) {
-      // FIXME: We can't use the proper `DatabaseUpdateRowException` because
-      // it is declared as a base type on the `serverpod_database` package.
-      throw Exception('Failed to update row, no rows updated.');
+      throw DatabaseUnexpectedResultException(
+        'Failed to update row, no rows updated',
+      );
     }
 
     final updatedRow = updatedRows.single;
@@ -774,9 +772,9 @@ class CrdtDatabase implements Database {
     );
 
     if (deletedRows.isEmpty) {
-      // FIXME: We can't use the proper `DatabaseDeleteRowException` because
-      // it is declared as a base type on the `serverpod_database` package.
-      throw Exception('Failed to delete row, no rows deleted.');
+      throw DatabaseUnexpectedResultException(
+        'Failed to delete row, no rows deleted.',
+      );
     }
 
     return deletedRows.single;

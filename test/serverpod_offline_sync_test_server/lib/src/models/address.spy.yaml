@@ -7,4 +7,4 @@ fields:
   scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   street: String
   inhabitantId: UuidValue?, unique
-  inhabitant: Person?, relation(name=person_address, field=inhabitantId, onDelete=Restrict)
+  inhabitant: Person?, relation(name=person_address, field=inhabitantId, onDelete=NoAction)

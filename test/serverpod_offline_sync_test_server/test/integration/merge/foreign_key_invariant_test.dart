@@ -1,4 +1,3 @@
-import 'package:serverpod/serverpod.dart' show DatabaseQueryException;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -1994,7 +1993,17 @@ void main() {
         });
 
         test('then the merge fails at the database constraint backstop.', () {
-          expect(mergeError, isA<DatabaseQueryException>());
+          // FIXME: Replace the generic check below on the next Serverpod release.
+          // See: https://github.com/serverpod/serverpod/issues/5634
+          // expect(mergeError, isA<DatabaseForeignKeyViolationException>());
+          expect(
+            mergeError,
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'toString',
+              contains('FOREIGN KEY constraint failed'),
+            ),
+          );
         });
 
         test('then the failed merge leaves no partial state behind.', () async {
@@ -2012,6 +2021,172 @@ void main() {
           expect(crdtRow, isNull);
           expect(projection, isNull);
         });
+      });
+    },
+  );
+
+  // The other half of the causal-completeness contract above: the parent fact
+  // accompanies the child fact, but later in the same batch. An insert carries
+  // the row body as it looks when changes are collected while keeping the
+  // original insert HLC (issue #42), so a row inserted with a null foreign key
+  // and later pointed at a parent is ordered before the parent it references.
+  // A nullable column is repaired by projection, which nulls it for the insert
+  // and restores the real value once the parent lands.
+  group(
+    'Given a merge set whose nullable child insert carries a foreign key to a '
+    'parent that is inserted after it,',
+    () {
+      late Person parent;
+      late Address child;
+      late CrdtMergeSet mergeSet;
+
+      setUp(() {
+        final remoteNodeId = const Uuid().v7obj();
+        parent = Person(id: const Uuid().v7obj(), name: 'late parent');
+        child = Address(
+          id: const Uuid().v7obj(),
+          street: 'early child',
+          inhabitantId: parent.id,
+        );
+
+        final childHlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+        final parentHlc = Hlc(childHlc.datetime.advance(), 0, remoteNodeId);
+
+        mergeSet = [
+          CrdtMergeInsert(
+            uuidScopeId: testCrdtUserId,
+            tableName: Address.t.tableName,
+            uuidRowId: child.id!,
+            uuidNodeId: remoteNodeId,
+            hlcDatetime: childHlc.datetime,
+            hlcCounter: childHlc.counter,
+            data: child,
+          ),
+          CrdtMergeInsert(
+            uuidScopeId: testCrdtUserId,
+            tableName: Person.t.tableName,
+            uuidRowId: parent.id!,
+            uuidNodeId: remoteNodeId,
+            hlcDatetime: parentHlc.datetime,
+            hlcCounter: parentHlc.counter,
+            data: parent,
+          ),
+        ];
+      });
+
+      group('when merging,', () {
+        setUp(() async {
+          await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
+        });
+
+        test(
+          'then both rows are visible and the child keeps its foreign key.',
+          () async {
+            final visibleParent = await Person.db.findById(session, parent.id!);
+            final visibleChild = await Address.db.findById(session, child.id!);
+
+            expect(visibleParent, isNotNull);
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.inhabitantId, parent.id);
+          },
+        );
+
+        test(
+          'then the child keeps a visible insert state and is not hidden by projection.',
+          () async {
+            final crdtRow = await CrdtDataRow.db.findFirstRow(
+              session,
+              where: (t) => t.uuidRowId.equals(child.id),
+            );
+
+            expect(crdtRow, isNotNull);
+            expect(crdtRow!.visibility, CrdtDataRowVisibility.userInsert);
+          },
+        );
+
+        test(
+          'then the foreign key was authored as-is, with no projection override.',
+          () async {
+            final projection = await _findForeignKeyProjection(
+              rowId: child.id!,
+              columnName: Address.t.inhabitantId.columnName,
+            );
+
+            expect(projection, isNotNull);
+            expect(projection!.attemptedValue, parent.id);
+            expect(projection.hasOverride, isFalse);
+          },
+        );
+      });
+    },
+  );
+
+  // A non-nullable foreign key cannot be nulled, so projection leaves the real
+  // parent id on the row and it is written while the parent does not exist yet.
+  // Only the deferred constraint keeps that write legal until the merge
+  // transaction commits: drop `DEFERRABLE INITIALLY DEFERRED` from the schema
+  // and this group fails with a foreign key violation.
+  group(
+    'Given a merge set whose non-nullable child insert carries a foreign key '
+    'to a parent that is inserted after it,',
+    () {
+      late Person parent;
+      late RequiredSetNullChild child;
+      late CrdtMergeSet mergeSet;
+
+      setUp(() {
+        final remoteNodeId = const Uuid().v7obj();
+        parent = Person(id: const Uuid().v7obj(), name: 'late required parent');
+        child = RequiredSetNullChild(
+          id: const Uuid().v7obj(),
+          name: 'early required child',
+          parentId: parent.id!,
+        );
+
+        final childHlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+        final parentHlc = Hlc(childHlc.datetime.advance(), 0, remoteNodeId);
+
+        mergeSet = [
+          CrdtMergeInsert(
+            uuidScopeId: testCrdtUserId,
+            tableName: RequiredSetNullChild.t.tableName,
+            uuidRowId: child.id!,
+            uuidNodeId: remoteNodeId,
+            hlcDatetime: childHlc.datetime,
+            hlcCounter: childHlc.counter,
+            data: child,
+          ),
+          CrdtMergeInsert(
+            uuidScopeId: testCrdtUserId,
+            tableName: Person.t.tableName,
+            uuidRowId: parent.id!,
+            uuidNodeId: remoteNodeId,
+            hlcDatetime: parentHlc.datetime,
+            hlcCounter: parentHlc.counter,
+            data: parent,
+          ),
+        ];
+      });
+
+      group('when merging,', () {
+        setUp(() async {
+          await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
+        });
+
+        test(
+          'then both rows are visible and the child keeps its foreign key.',
+          () async {
+            final visibleParent = await Person.db.findById(session, parent.id!);
+            final visibleChild = await RequiredSetNullChild.db.findById(
+              session,
+              child.id!,
+            );
+
+            expect(visibleParent, isNotNull);
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.parentId, parent.id);
+          },
+        );
       });
     },
   );

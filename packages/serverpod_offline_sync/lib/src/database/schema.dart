@@ -97,6 +97,32 @@ class CrdtSchemaRegistry {
         '$_scopeIdFieldHelp',
       );
     }
+
+    final nonDeferredForeignKeys = _nonDeferredForeignKeyViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (nonDeferredForeignKeys.isNotEmpty) {
+      throw StateError(
+        'CRDT requires deferred foreign keys for non-optional relations, but '
+        '${nonDeferredForeignKeys.length} foreign key(s) are not deferred: '
+        '${nonDeferredForeignKeys.map((fk) => '"$fk"').join(', ')}. Mark these '
+        'as "deferred" or make the relation optional.',
+      );
+    }
+
+    final restrictForeignKeys = _restrictForeignKeyViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (restrictForeignKeys.isNotEmpty) {
+      throw StateError(
+        'CRDT cannot synchronize tables with "onDelete=Restrict" foreign keys, '
+        'but ${restrictForeignKeys.length} foreign key(s) use it: '
+        '${restrictForeignKeys.map((fk) => '"$fk"').join(', ')}. Replace by '
+        '"onDelete=NoAction" instead, which produces the same effect.',
+      );
+    }
   }
 
   /// Help text appended to schema validation errors that describes the required
@@ -259,12 +285,53 @@ List<String> _missingCrdtScopeRelations(
 
 bool _hasCrdtScopeRelation(TableDefinition tableDefinition) {
   return tableDefinition.foreignKeys.any(
-    (fk) =>
-        fk.columns.length == 1 &&
-        fk.columns.single == 'scopeId' &&
-        fk.referenceTable == 'crdt_scopes' &&
-        fk.referenceColumns.length == 1 &&
-        fk.referenceColumns.single == 'id' &&
-        fk.onDelete == ForeignKeyAction.cascade,
+    (fk) => _isCrdtScopeForeignKey(fk) && fk.onDelete == ForeignKeyAction.cascade,
   );
+}
+
+bool _isCrdtScopeForeignKey(ForeignKeyDefinition fk) {
+  return fk.columns.length == 1 &&
+      fk.columns.single == 'scopeId' &&
+      fk.referenceTable == 'crdt_scopes' &&
+      fk.referenceColumns.length == 1 &&
+      fk.referenceColumns.single == 'id';
+}
+
+List<String> _nonDeferredForeignKeyViolations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  return [
+    for (final table in syncTables)
+      if (tableDefinitionsByName[table.tableName] case final tableDefinition?)
+        for (final fk in tableDefinition.foreignKeys)
+          if (!_isCrdtScopeForeignKey(fk) &&
+              !_isRepairableByProjection(fk, tableDefinition) &&
+              fk.deferrable != DeferrableConstraint.initiallyDeferred)
+            '${table.tableName}.${fk.columns.join(',')}',
+  ];
+}
+
+bool _isRepairableByProjection(
+  ForeignKeyDefinition fk,
+  TableDefinition tableDefinition,
+) {
+  if (fk.columns.length != 1) return false;
+  for (final column in tableDefinition.columns) {
+    if (column.name == fk.columns.single) return column.isNullable;
+  }
+  return false;
+}
+
+List<String> _restrictForeignKeyViolations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  return [
+    for (final table in syncTables)
+      if (tableDefinitionsByName.containsKey(table.tableName))
+        for (final fk in tableDefinitionsByName[table.tableName]!.foreignKeys)
+          if (!_isCrdtScopeForeignKey(fk) && fk.onDelete == ForeignKeyAction.restrict)
+            '${table.tableName}.${fk.columns.join(',')}',
+  ];
 }

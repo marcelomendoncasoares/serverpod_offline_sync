@@ -6,5 +6,5 @@ fields:
   ### Owner scope of this row. Maintained by the CRDT sync layer.
   scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   name: String
-  root: FkChainRoot?, relation(field=rootId, onDelete=Cascade)
+  root: FkChainRoot?, relation(field=rootId, onDelete=Cascade, deferred)
   rootId: UuidValue?

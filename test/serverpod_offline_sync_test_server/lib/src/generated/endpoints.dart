@@ -10,49 +10,49 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import '../endpoints/demo_auth_endpoint.dart' as _i2;
-import '../endpoints/demo_debug_endpoint.dart' as _i3;
+import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
-    as _i4;
+    as _iacs;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
-    as _i5;
+    as _izehhkf5;
+import '../endpoints/demo_auth_endpoint.dart' as _il5og7ym;
+import '../endpoints/demo_debug_endpoint.dart' as _ikfteyi1;
 
-class Endpoints extends _i1.EndpointDispatch {
+class Endpoints extends _is.EndpointDispatch {
   @override
-  void initializeEndpoints(_i1.Server server) {
-    var endpoints = <String, _i1.Endpoint>{
-      'demoAuth': _i2.DemoAuthEndpoint()
+  void initializeEndpoints(_is.Server server) {
+    var endpoints = <String, _is.Endpoint>{
+      'demoAuth': _il5og7ym.DemoAuthEndpoint()
         ..initialize(
           server,
           'demoAuth',
           null,
         ),
-      'demoDebug': _i3.DemoDebugEndpoint()
+      'demoDebug': _ikfteyi1.DemoDebugEndpoint()
         ..initialize(
           server,
           'demoDebug',
           null,
         ),
     };
-    connectors['demoAuth'] = _i1.EndpointConnector(
+    connectors['demoAuth'] = _is.EndpointConnector(
       name: 'demoAuth',
       endpoint: endpoints['demoAuth']!,
       methodConnectors: {
-        'loginOrCreateUser': _i1.MethodConnector(
+        'loginOrCreateUser': _is.MethodConnector(
           name: 'loginOrCreateUser',
           params: {
-            'username': _i1.ParameterDescription(
+            'username': _is.ParameterDescription(
               name: 'username',
-              type: _i1.getType<String>(),
+              type: _is.getType<String>(),
               nullable: false,
             ),
           },
           call:
               (
-                _i1.Session session,
+                _is.Session session,
                 Map<String, dynamic> params,
-              ) async => (endpoints['demoAuth'] as _i2.DemoAuthEndpoint)
+              ) async => (endpoints['demoAuth'] as _il5og7ym.DemoAuthEndpoint)
                   .loginOrCreateUser(
                     session,
                     params['username'],
@@ -60,59 +60,59 @@ class Endpoints extends _i1.EndpointDispatch {
         ),
       },
     );
-    connectors['demoDebug'] = _i1.EndpointConnector(
+    connectors['demoDebug'] = _is.EndpointConnector(
       name: 'demoDebug',
       endpoint: endpoints['demoDebug']!,
       methodConnectors: {
-        'fetchScopeSnapshot': _i1.MethodConnector(
+        'fetchScopeSnapshot': _is.MethodConnector(
           name: 'fetchScopeSnapshot',
           params: {
-            'includeHidden': _i1.ParameterDescription(
+            'includeHidden': _is.ParameterDescription(
               name: 'includeHidden',
-              type: _i1.getType<bool>(),
+              type: _is.getType<bool>(),
               nullable: false,
             ),
           },
           call:
               (
-                _i1.Session session,
+                _is.Session session,
                 Map<String, dynamic> params,
-              ) async => (endpoints['demoDebug'] as _i3.DemoDebugEndpoint)
+              ) async => (endpoints['demoDebug'] as _ikfteyi1.DemoDebugEndpoint)
                   .fetchScopeSnapshot(
                     session,
                     includeHidden: params['includeHidden'],
                   ),
         ),
-        'resetScope': _i1.MethodConnector(
+        'resetScope': _is.MethodConnector(
           name: 'resetScope',
           params: {},
           call:
               (
-                _i1.Session session,
+                _is.Session session,
                 Map<String, dynamic> params,
-              ) async => (endpoints['demoDebug'] as _i3.DemoDebugEndpoint)
+              ) async => (endpoints['demoDebug'] as _ikfteyi1.DemoDebugEndpoint)
                   .resetScope(session),
         ),
-        'seedScope': _i1.MethodConnector(
+        'seedScope': _is.MethodConnector(
           name: 'seedScope',
           params: {
-            'kind': _i1.ParameterDescription(
+            'kind': _is.ParameterDescription(
               name: 'kind',
-              type: _i1.getType<String>(),
+              type: _is.getType<String>(),
               nullable: false,
             ),
-            'text': _i1.ParameterDescription(
+            'text': _is.ParameterDescription(
               name: 'text',
-              type: _i1.getType<String?>(),
+              type: _is.getType<String?>(),
               nullable: true,
             ),
           },
           call:
               (
-                _i1.Session session,
+                _is.Session session,
                 Map<String, dynamic> params,
-              ) async =>
-                  (endpoints['demoDebug'] as _i3.DemoDebugEndpoint).seedScope(
+              ) async => (endpoints['demoDebug'] as _ikfteyi1.DemoDebugEndpoint)
+                  .seedScope(
                     session,
                     params['kind'],
                     params['text'],
@@ -120,9 +120,9 @@ class Endpoints extends _i1.EndpointDispatch {
         ),
       },
     );
-    modules['serverpod_auth_core'] = _i4.Endpoints()
+    modules['serverpod_auth_core'] = _iacs.Endpoints()
       ..initializeEndpoints(server);
-    modules['serverpod_offline_sync'] = _i5.Endpoints()
+    modules['serverpod_offline_sync'] = _izehhkf5.Endpoints()
       ..initializeEndpoints(server);
   }
 }

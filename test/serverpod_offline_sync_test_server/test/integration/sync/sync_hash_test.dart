@@ -130,7 +130,7 @@ void main() {
             // Only mutate the inhabitantId FK; the scopeId->crdt_scopes FK
             // must remain unchanged so it does not interfere with this test.
             if (fk.columns.contains('inhabitantId'))
-              fk.copyWith(onDelete: ForeignKeyAction.noAction)
+              fk.copyWith(onDelete: ForeignKeyAction.cascade)
             else
               fk,
         ],

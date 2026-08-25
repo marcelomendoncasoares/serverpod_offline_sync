@@ -10,10 +10,10 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
+import 'package:serverpod/serverpod.dart' as _is;
 
 abstract class Unique
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Unique._({
     this.id,
     this.scopeId,
@@ -21,7 +21,7 @@ abstract class Unique
   });
 
   factory Unique({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
   }) = _UniqueImpl;
@@ -30,7 +30,7 @@ abstract class Unique
     return Unique(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
     );
@@ -41,7 +41,7 @@ abstract class Unique
   static const db = UniqueRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
@@ -49,13 +49,13 @@ abstract class Unique
   String name;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [Unique]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   Unique copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     String? name,
   });
@@ -84,11 +84,11 @@ abstract class Unique
   }
 
   static UniqueIncludeList includeList({
-    _i1.WhereExpressionBuilder<UniqueTable>? where,
+    _is.WhereExpressionBuilder<UniqueTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueTable>? orderByList,
+    _is.OrderByBuilder<UniqueTable>? orderBy,
+    _is.OrderByListBuilder<UniqueTable>? orderByList,
     UniqueInclude? include,
   }) {
     return UniqueIncludeList._(
@@ -103,7 +103,7 @@ abstract class Unique
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -111,7 +111,7 @@ class _Undefined {}
 
 class _UniqueImpl extends Unique {
   _UniqueImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
   }) : super._(
@@ -122,7 +122,7 @@ class _UniqueImpl extends Unique {
 
   /// Returns a shallow copy of this [Unique]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   Unique copyWith({
     Object? id = _Undefined,
@@ -130,35 +130,35 @@ class _UniqueImpl extends Unique {
     String? name,
   }) {
     return Unique(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
     );
   }
 }
 
-class UniqueUpdateTable extends _i1.UpdateTable<UniqueTable> {
+class UniqueUpdateTable extends _is.UpdateTable<UniqueTable> {
   UniqueUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 }
 
-class UniqueTable extends _i1.Table<_i1.UuidValue?> {
+class UniqueTable extends _is.Table<_is.UuidValue?> {
   UniqueTable({super.tableRelation}) : super(tableName: 'unique') {
     updateTable = UniqueUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
@@ -167,31 +167,31 @@ class UniqueTable extends _i1.Table<_i1.UuidValue?> {
   late final UniqueUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     name,
   ];
 }
 
-class UniqueInclude extends _i1.IncludeObject {
+class UniqueInclude extends _is.IncludeObject {
   UniqueInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _is.Include?> get includes => {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => Unique.t;
+  _is.Table<_is.UuidValue?> get table => Unique.t;
 }
 
-class UniqueIncludeList extends _i1.IncludeList {
+class UniqueIncludeList extends _is.IncludeList {
   UniqueIncludeList._({
-    _i1.WhereExpressionBuilder<UniqueTable>? where,
+    _is.WhereExpressionBuilder<UniqueTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -202,10 +202,10 @@ class UniqueIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => Unique.t;
+  _is.Table<_is.UuidValue?> get table => Unique.t;
 }
 
 class UniqueRepository {
@@ -234,15 +234,15 @@ class UniqueRepository {
   /// );
   /// ```
   Future<List<Unique>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.OrderByBuilder<UniqueTable>? orderBy,
+    _is.OrderByListBuilder<UniqueTable>? orderByList,
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<Unique>(
       where: where?.call(Unique.t),
@@ -274,14 +274,14 @@ class UniqueRepository {
   /// );
   /// ```
   Future<Unique?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueTable>? where,
     int? offset,
-    _i1.OrderByBuilder<UniqueTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.OrderByBuilder<UniqueTable>? orderBy,
+    _is.OrderByListBuilder<UniqueTable>? orderByList,
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<Unique>(
       where: where?.call(Unique.t),
@@ -296,11 +296,11 @@ class UniqueRepository {
 
   /// Finds a single [Unique] by its [id] or null if no such row exists.
   Future<Unique?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<Unique>(
       id,
@@ -325,9 +325,9 @@ class UniqueRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Unique>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Unique> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -343,9 +343,9 @@ class UniqueRepository {
   ///
   /// The returned [Unique] will have its `id` field set.
   Future<Unique> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Unique row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<Unique>(
       row,
@@ -374,12 +374,12 @@ class UniqueRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Unique>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Unique> rows, {
-    required _i1.ColumnSelections<UniqueTable> conflictColumns,
-    _i1.ColumnSelections<UniqueTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<UniqueTable> conflictColumns,
+    _is.ColumnSelections<UniqueTable>? updateColumns,
+    _is.WhereExpressionBuilder<UniqueTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<Unique>(
@@ -406,12 +406,12 @@ class UniqueRepository {
   ///
   /// The returned [Unique] will have its `id` field set.
   Future<Unique?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Unique row, {
-    required _i1.ColumnSelections<UniqueTable> conflictColumns,
-    _i1.ColumnSelections<UniqueTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<UniqueTable> conflictColumns,
+    _is.ColumnSelections<UniqueTable>? updateColumns,
+    _is.WhereExpressionBuilder<UniqueTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<Unique>(
       row,
@@ -432,10 +432,10 @@ class UniqueRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Unique>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Unique> rows, {
-    _i1.ColumnSelections<UniqueTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<UniqueTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<Unique>(
@@ -450,10 +450,10 @@ class UniqueRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<Unique> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Unique row, {
-    _i1.ColumnSelections<UniqueTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<UniqueTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<Unique>(
       row,
@@ -465,10 +465,10 @@ class UniqueRepository {
   /// Updates a single [Unique] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<Unique?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<UniqueUpdateTable> columnValues,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<UniqueUpdateTable> columnValues,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<Unique>(
       id,
@@ -484,14 +484,14 @@ class UniqueRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Unique>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<UniqueUpdateTable> columnValues,
-    required _i1.WhereExpressionBuilder<UniqueTable> where,
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<UniqueUpdateTable> columnValues,
+    required _is.WhereExpressionBuilder<UniqueTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueTable>? orderBy,
+    _is.OrderByListBuilder<UniqueTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<Unique>(
@@ -518,11 +518,11 @@ class UniqueRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Unique>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<Unique> rows, {
-    _i1.OrderByBuilder<UniqueTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueTable>? orderBy,
+    _is.OrderByListBuilder<UniqueTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<Unique>(
@@ -536,9 +536,9 @@ class UniqueRepository {
 
   /// Deletes a single [Unique].
   Future<Unique> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     Unique row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<Unique>(
       row,
@@ -555,11 +555,11 @@ class UniqueRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<Unique>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueTable> where,
-    _i1.OrderByBuilder<UniqueTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<UniqueTable> where,
+    _is.OrderByBuilder<UniqueTable>? orderBy,
+    _is.OrderByListBuilder<UniqueTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<Unique>(
@@ -574,10 +574,10 @@ class UniqueRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<Unique>(
       where: where?.call(Unique.t),
@@ -588,11 +588,11 @@ class UniqueRepository {
 
   /// Acquires row-level locks on [Unique] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<UniqueTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<Unique>(
       where: where(Unique.t),

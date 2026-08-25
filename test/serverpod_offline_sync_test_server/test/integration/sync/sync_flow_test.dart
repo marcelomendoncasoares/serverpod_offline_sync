@@ -1406,13 +1406,7 @@ void main() {
             unauthenticatedClient.crdt
                 .syncOnce(clientSession)
                 .timeout(const Duration(seconds: 3)),
-            throwsA(
-              predicate<Object>(
-                (error) =>
-                    error.toString() ==
-                    'ServerpodClientException: Unauthorized, statusCode = 401',
-              ),
-            ),
+            throwsA(isA<client.ServerpodClientUnauthorized>()),
           );
         },
       );

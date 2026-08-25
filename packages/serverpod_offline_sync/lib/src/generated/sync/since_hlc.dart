@@ -12,31 +12,31 @@
 part of 'stream_event.dart';
 
 /// Per-scope checkpoint sent by each peer before the first visit to a scope.
-abstract class CrdtSyncSinceHlc extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtSyncSinceHlc extends _icw2tu00.CrdtSyncStreamEvent
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncSinceHlc._({
     required this.uuidScopeId,
     required this.nodeCheckpoints,
   });
 
   factory CrdtSyncSinceHlc({
-    required _i2.UuidValue uuidScopeId,
-    required List<_i1.Hlc> nodeCheckpoints,
+    required _iss.UuidValue uuidScopeId,
+    required List<_icw2tu00.Hlc> nodeCheckpoints,
   }) = _CrdtSyncSinceHlcImpl;
 
   factory CrdtSyncSinceHlc.fromJson(Map<String, dynamic> jsonSerialization) {
     return CrdtSyncSinceHlc(
-      uuidScopeId: _i2.UuidValueJsonExtension.fromJson(
+      uuidScopeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidScopeId'],
       ),
-      nodeCheckpoints: _i1.Protocol().deserialize<List<_i1.Hlc>>(
+      nodeCheckpoints: _icw2tu00.Protocol().deserialize<List<_icw2tu00.Hlc>>(
         jsonSerialization['nodeCheckpoints'],
       ),
     );
   }
 
   /// Scope this checkpoint belongs to.
-  _i2.UuidValue uuidScopeId;
+  _iss.UuidValue uuidScopeId;
 
   /// Per-node checkpoints that describe which changes the sender already has.
   ///
@@ -44,15 +44,15 @@ abstract class CrdtSyncSinceHlc extends _i1.CrdtSyncStreamEvent
   /// checkpointed. The receiver uses this list to compute a diff without
   /// relying on a single global HLC, which would miss concurrent changes from
   /// nodes unknown at the time of the previous sync.
-  List<_i1.Hlc> nodeCheckpoints;
+  List<_icw2tu00.Hlc> nodeCheckpoints;
 
   /// Returns a shallow copy of this [CrdtSyncSinceHlc]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncSinceHlc copyWith({
-    _i2.UuidValue? uuidScopeId,
-    List<_i1.Hlc>? nodeCheckpoints,
+    _iss.UuidValue? uuidScopeId,
+    List<_icw2tu00.Hlc>? nodeCheckpoints,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -71,8 +71,8 @@ abstract class CrdtSyncSinceHlc extends _i1.CrdtSyncStreamEvent
       'nodeCheckpoints': nodeCheckpoints.toJson(
         valueToJson: (v) =>
             // ignore: unnecessary_type_check
-            v is _i2.ProtocolSerialization
-            ? (v as _i2.ProtocolSerialization).toJsonForProtocol()
+            v is _iss.ProtocolSerialization
+            ? (v as _iss.ProtocolSerialization).toJsonForProtocol()
             :
               // ignore: dead_code
               v.toJson(),
@@ -82,14 +82,14 @@ abstract class CrdtSyncSinceHlc extends _i1.CrdtSyncStreamEvent
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
 class _CrdtSyncSinceHlcImpl extends CrdtSyncSinceHlc {
   _CrdtSyncSinceHlcImpl({
-    required _i2.UuidValue uuidScopeId,
-    required List<_i1.Hlc> nodeCheckpoints,
+    required _iss.UuidValue uuidScopeId,
+    required List<_icw2tu00.Hlc> nodeCheckpoints,
   }) : super._(
          uuidScopeId: uuidScopeId,
          nodeCheckpoints: nodeCheckpoints,
@@ -97,11 +97,11 @@ class _CrdtSyncSinceHlcImpl extends CrdtSyncSinceHlc {
 
   /// Returns a shallow copy of this [CrdtSyncSinceHlc]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSyncSinceHlc copyWith({
-    _i2.UuidValue? uuidScopeId,
-    List<_i1.Hlc>? nodeCheckpoints,
+    _iss.UuidValue? uuidScopeId,
+    List<_icw2tu00.Hlc>? nodeCheckpoints,
   }) {
     return CrdtSyncSinceHlc(
       uuidScopeId: uuidScopeId ?? this.uuidScopeId,

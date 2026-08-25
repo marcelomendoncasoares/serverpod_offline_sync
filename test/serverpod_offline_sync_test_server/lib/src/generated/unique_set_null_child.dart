@@ -11,13 +11,13 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import 'person.dart' as _i2;
+import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
-    as _i3;
+    as _ixxccm81;
+import 'person.dart' as _iensfz4m;
 
 abstract class UniqueSetNullChild
-    implements _i1.TableRow<_i1.UuidValue?>, _i1.ProtocolSerialization {
+    implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueSetNullChild._({
     this.id,
     this.scopeId,
@@ -27,26 +27,28 @@ abstract class UniqueSetNullChild
   });
 
   factory UniqueSetNullChild({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.Person? parent,
-    _i1.UuidValue? parentId,
+    _iensfz4m.Person? parent,
+    _is.UuidValue? parentId,
   }) = _UniqueSetNullChildImpl;
 
   factory UniqueSetNullChild.fromJson(Map<String, dynamic> jsonSerialization) {
     return UniqueSetNullChild(
       id: jsonSerialization['id'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
       parent: jsonSerialization['parent'] == null
           ? null
-          : _i3.Protocol().deserialize<_i2.Person>(jsonSerialization['parent']),
+          : _ixxccm81.Protocol().deserialize<_iensfz4m.Person>(
+              jsonSerialization['parent'],
+            ),
       parentId: jsonSerialization['parentId'] == null
           ? null
-          : _i1.UuidValueJsonExtension.fromJson(jsonSerialization['parentId']),
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['parentId']),
     );
   }
 
@@ -55,29 +57,29 @@ abstract class UniqueSetNullChild
   static const db = UniqueSetNullChildRepository._();
 
   @override
-  _i1.UuidValue? id;
+  _is.UuidValue? id;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
   int? scopeId;
 
   String name;
 
-  _i2.Person? parent;
+  _iensfz4m.Person? parent;
 
-  _i1.UuidValue? parentId;
+  _is.UuidValue? parentId;
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => t;
+  _is.Table<_is.UuidValue?> get table => t;
 
   /// Returns a shallow copy of this [UniqueSetNullChild]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   UniqueSetNullChild copyWith({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _i2.Person? parent,
-    _i1.UuidValue? parentId,
+    _iensfz4m.Person? parent,
+    _is.UuidValue? parentId,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -103,16 +105,16 @@ abstract class UniqueSetNullChild
     };
   }
 
-  static UniqueSetNullChildInclude include({_i2.PersonInclude? parent}) {
+  static UniqueSetNullChildInclude include({_iensfz4m.PersonInclude? parent}) {
     return UniqueSetNullChildInclude._(parent: parent);
   }
 
   static UniqueSetNullChildIncludeList includeList({
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    _is.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
     UniqueSetNullChildInclude? include,
   }) {
     return UniqueSetNullChildIncludeList._(
@@ -127,7 +129,7 @@ abstract class UniqueSetNullChild
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _is.SerializationManager.encode(this);
   }
 }
 
@@ -135,11 +137,11 @@ class _Undefined {}
 
 class _UniqueSetNullChildImpl extends UniqueSetNullChild {
   _UniqueSetNullChildImpl({
-    _i1.UuidValue? id,
+    _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _i2.Person? parent,
-    _i1.UuidValue? parentId,
+    _iensfz4m.Person? parent,
+    _is.UuidValue? parentId,
   }) : super._(
          id: id,
          scopeId: scopeId,
@@ -150,7 +152,7 @@ class _UniqueSetNullChildImpl extends UniqueSetNullChild {
 
   /// Returns a shallow copy of this [UniqueSetNullChild]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_is.useResult
   @override
   UniqueSetNullChild copyWith({
     Object? id = _Undefined,
@@ -160,50 +162,50 @@ class _UniqueSetNullChildImpl extends UniqueSetNullChild {
     Object? parentId = _Undefined,
   }) {
     return UniqueSetNullChild(
-      id: id is _i1.UuidValue? ? id : this.id,
+      id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      parent: parent is _i2.Person? ? parent : this.parent?.copyWith(),
-      parentId: parentId is _i1.UuidValue? ? parentId : this.parentId,
+      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
+      parentId: parentId is _is.UuidValue? ? parentId : this.parentId,
     );
   }
 }
 
 class UniqueSetNullChildUpdateTable
-    extends _i1.UpdateTable<UniqueSetNullChildTable> {
+    extends _is.UpdateTable<UniqueSetNullChildTable> {
   UniqueSetNullChildUpdateTable(super.table);
 
-  _i1.ColumnValue<int, int> scopeId(int? value) => _i1.ColumnValue(
+  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
     table.scopeId,
     value,
   );
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _is.ColumnValue<String, String> name(String value) => _is.ColumnValue(
     table.name,
     value,
   );
 
-  _i1.ColumnValue<_i1.UuidValue, _i1.UuidValue> parentId(
-    _i1.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> parentId(
+    _is.UuidValue? value,
+  ) => _is.ColumnValue(
     table.parentId,
     value,
   );
 }
 
-class UniqueSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
+class UniqueSetNullChildTable extends _is.Table<_is.UuidValue?> {
   UniqueSetNullChildTable({super.tableRelation})
     : super(tableName: 'unique_set_null_child') {
     updateTable = UniqueSetNullChildUpdateTable(this);
-    scopeId = _i1.ColumnInt(
+    scopeId = _is.ColumnInt(
       'scopeId',
       this,
     );
-    name = _i1.ColumnString(
+    name = _is.ColumnString(
       'name',
       this,
     );
-    parentId = _i1.ColumnUuid(
+    parentId = _is.ColumnUuid(
       'parentId',
       this,
     );
@@ -212,29 +214,29 @@ class UniqueSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
   late final UniqueSetNullChildUpdateTable updateTable;
 
   /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _i1.ColumnInt scopeId;
+  late final _is.ColumnInt scopeId;
 
-  late final _i1.ColumnString name;
+  late final _is.ColumnString name;
 
-  _i2.PersonTable? _parent;
+  _iensfz4m.PersonTable? _parent;
 
-  late final _i1.ColumnUuid parentId;
+  late final _is.ColumnUuid parentId;
 
-  _i2.PersonTable get parent {
+  _iensfz4m.PersonTable get parent {
     if (_parent != null) return _parent!;
-    _parent = _i1.createRelationTable(
+    _parent = _is.createRelationTable(
       relationFieldName: 'parent',
       field: UniqueSetNullChild.t.parentId,
-      foreignField: _i2.Person.t.id,
+      foreignField: _iensfz4m.Person.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _i2.PersonTable(tableRelation: foreignTableRelation),
+          _iensfz4m.PersonTable(tableRelation: foreignTableRelation),
     );
     return _parent!;
   }
 
   @override
-  List<_i1.Column> get columns => [
+  List<_is.Column> get columns => [
     id,
     scopeId,
     name,
@@ -242,7 +244,7 @@ class UniqueSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
   ];
 
   @override
-  _i1.Table? getRelationTable(String relationField) {
+  _is.Table? getRelationTable(String relationField) {
     if (relationField == 'parent') {
       return parent;
     }
@@ -250,23 +252,23 @@ class UniqueSetNullChildTable extends _i1.Table<_i1.UuidValue?> {
   }
 }
 
-class UniqueSetNullChildInclude extends _i1.IncludeObject {
-  UniqueSetNullChildInclude._({_i2.PersonInclude? parent}) {
+class UniqueSetNullChildInclude extends _is.IncludeObject {
+  UniqueSetNullChildInclude._({_iensfz4m.PersonInclude? parent}) {
     _parent = parent;
   }
 
-  _i2.PersonInclude? _parent;
+  _iensfz4m.PersonInclude? _parent;
 
   @override
-  Map<String, _i1.Include?> get includes => {'parent': _parent};
+  Map<String, _is.Include?> get includes => {'parent': _parent};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => UniqueSetNullChild.t;
+  _is.Table<_is.UuidValue?> get table => UniqueSetNullChild.t;
 }
 
-class UniqueSetNullChildIncludeList extends _i1.IncludeList {
+class UniqueSetNullChildIncludeList extends _is.IncludeList {
   UniqueSetNullChildIncludeList._({
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -277,10 +279,10 @@ class UniqueSetNullChildIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _is.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<_i1.UuidValue?> get table => UniqueSetNullChild.t;
+  _is.Table<_is.UuidValue?> get table => UniqueSetNullChild.t;
 }
 
 class UniqueSetNullChildRepository {
@@ -313,16 +315,16 @@ class UniqueSetNullChildRepository {
   /// );
   /// ```
   Future<List<UniqueSetNullChild>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     UniqueSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<UniqueSetNullChild>(
       where: where?.call(UniqueSetNullChild.t),
@@ -355,15 +357,15 @@ class UniqueSetNullChildRepository {
   /// );
   /// ```
   Future<UniqueSetNullChild?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
     int? offset,
-    _i1.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     UniqueSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<UniqueSetNullChild>(
       where: where?.call(UniqueSetNullChild.t),
@@ -379,12 +381,12 @@ class UniqueSetNullChildRepository {
 
   /// Finds a single [UniqueSetNullChild] by its [id] or null if no such row exists.
   Future<UniqueSetNullChild?> findById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    _is.Transaction? transaction,
     UniqueSetNullChildInclude? include,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _is.LockMode? lockMode,
+    _is.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<UniqueSetNullChild>(
       id,
@@ -410,9 +412,9 @@ class UniqueSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueSetNullChild>> insert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueSetNullChild> rows, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -428,9 +430,9 @@ class UniqueSetNullChildRepository {
   ///
   /// The returned [UniqueSetNullChild] will have its `id` field set.
   Future<UniqueSetNullChild> insertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueSetNullChild row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.insertRow<UniqueSetNullChild>(
       row,
@@ -459,12 +461,12 @@ class UniqueSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueSetNullChild>> upsert(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueSetNullChild> rows, {
-    required _i1.ColumnSelections<UniqueSetNullChildTable> conflictColumns,
-    _i1.ColumnSelections<UniqueSetNullChildTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<UniqueSetNullChildTable> conflictColumns,
+    _is.ColumnSelections<UniqueSetNullChildTable>? updateColumns,
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? updateWhere,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<UniqueSetNullChild>(
@@ -491,12 +493,12 @@ class UniqueSetNullChildRepository {
   ///
   /// The returned [UniqueSetNullChild] will have its `id` field set.
   Future<UniqueSetNullChild?> upsertRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueSetNullChild row, {
-    required _i1.ColumnSelections<UniqueSetNullChildTable> conflictColumns,
-    _i1.ColumnSelections<UniqueSetNullChildTable>? updateColumns,
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _is.ColumnSelections<UniqueSetNullChildTable> conflictColumns,
+    _is.ColumnSelections<UniqueSetNullChildTable>? updateColumns,
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? updateWhere,
+    _is.Transaction? transaction,
   }) async {
     return session.db.upsertRow<UniqueSetNullChild>(
       row,
@@ -517,10 +519,10 @@ class UniqueSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueSetNullChild>> update(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueSetNullChild> rows, {
-    _i1.ColumnSelections<UniqueSetNullChildTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<UniqueSetNullChildTable>? columns,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<UniqueSetNullChild>(
@@ -535,10 +537,10 @@ class UniqueSetNullChildRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<UniqueSetNullChild> updateRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueSetNullChild row, {
-    _i1.ColumnSelections<UniqueSetNullChildTable>? columns,
-    _i1.Transaction? transaction,
+    _is.ColumnSelections<UniqueSetNullChildTable>? columns,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateRow<UniqueSetNullChild>(
       row,
@@ -550,11 +552,11 @@ class UniqueSetNullChildRepository {
   /// Updates a single [UniqueSetNullChild] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<UniqueSetNullChild?> updateById(
-    _i1.DatabaseSession session,
-    _i1.UuidValue id, {
-    required _i1.ColumnValueListBuilder<UniqueSetNullChildUpdateTable>
+    _is.DatabaseSession session,
+    _is.UuidValue id, {
+    required _is.ColumnValueListBuilder<UniqueSetNullChildUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.updateById<UniqueSetNullChild>(
       id,
@@ -570,15 +572,15 @@ class UniqueSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueSetNullChild>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<UniqueSetNullChildUpdateTable>
+    _is.DatabaseSession session, {
+    required _is.ColumnValueListBuilder<UniqueSetNullChildUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<UniqueSetNullChildTable> where,
+    required _is.WhereExpressionBuilder<UniqueSetNullChildTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<UniqueSetNullChild>(
@@ -605,11 +607,11 @@ class UniqueSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueSetNullChild>> delete(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     List<UniqueSetNullChild> rows, {
-    _i1.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<UniqueSetNullChild>(
@@ -623,9 +625,9 @@ class UniqueSetNullChildRepository {
 
   /// Deletes a single [UniqueSetNullChild].
   Future<UniqueSetNullChild> deleteRow(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueSetNullChild row, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.deleteRow<UniqueSetNullChild>(
       row,
@@ -642,11 +644,11 @@ class UniqueSetNullChildRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<UniqueSetNullChild>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueSetNullChildTable> where,
-    _i1.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
-    _i1.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
-    _i1.Transaction? transaction,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<UniqueSetNullChildTable> where,
+    _is.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _is.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    _is.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<UniqueSetNullChild>(
@@ -661,10 +663,10 @@ class UniqueSetNullChildRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     return session.db.count<UniqueSetNullChild>(
       where: where?.call(UniqueSetNullChild.t),
@@ -675,11 +677,11 @@ class UniqueSetNullChildRepository {
 
   /// Acquires row-level locks on [UniqueSetNullChild] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<UniqueSetNullChildTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _is.DatabaseSession session, {
+    required _is.WhereExpressionBuilder<UniqueSetNullChildTable> where,
+    required _is.LockMode lockMode,
+    required _is.Transaction transaction,
+    _is.LockBehavior lockBehavior = _is.LockBehavior.wait,
   }) async {
     return session.db.lockRows<UniqueSetNullChild>(
       where: where(UniqueSetNullChild.t),
@@ -696,10 +698,10 @@ class UniqueSetNullChildAttachRowRepository {
   /// Creates a relation between the given [UniqueSetNullChild] and [Person]
   /// by setting the [UniqueSetNullChild]'s foreign key `parentId` to refer to the [Person].
   Future<void> parent(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueSetNullChild uniqueSetNullChild,
-    _i2.Person parent, {
-    _i1.Transaction? transaction,
+    _iensfz4m.Person parent, {
+    _is.Transaction? transaction,
   }) async {
     if (uniqueSetNullChild.id == null) {
       throw ArgumentError.notNull('uniqueSetNullChild.id');
@@ -726,9 +728,9 @@ class UniqueSetNullChildDetachRowRepository {
   /// This removes the association between the two models without deleting
   /// the related record.
   Future<void> parent(
-    _i1.DatabaseSession session,
+    _is.DatabaseSession session,
     UniqueSetNullChild uniqueSetNullChild, {
-    _i1.Transaction? transaction,
+    _is.Transaction? transaction,
   }) async {
     if (uniqueSetNullChild.id == null) {
       throw ArgumentError.notNull('uniqueSetNullChild.id');

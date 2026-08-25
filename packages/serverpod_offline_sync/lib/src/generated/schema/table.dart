@@ -10,12 +10,12 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT schema tables table.
 abstract class CrdtSchemaTable
-    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtSchemaTable._({
     this.id,
     required this.name,
@@ -44,11 +44,11 @@ abstract class CrdtSchemaTable
   String name;
 
   @override
-  _i1.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtSchemaTable]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtSchemaTable copyWith({
     int? id,
     String? name,
@@ -76,11 +76,11 @@ abstract class CrdtSchemaTable
   }
 
   static CrdtSchemaTableIncludeList includeList({
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
+    _isd.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
     CrdtSchemaTableInclude? include,
   }) {
     return CrdtSchemaTableIncludeList._(
@@ -95,7 +95,7 @@ abstract class CrdtSchemaTable
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -112,7 +112,7 @@ class _CrdtSchemaTableImpl extends CrdtSchemaTable {
 
   /// Returns a shallow copy of this [CrdtSchemaTable]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSchemaTable copyWith({
     Object? id = _Undefined,
@@ -125,20 +125,21 @@ class _CrdtSchemaTableImpl extends CrdtSchemaTable {
   }
 }
 
-class CrdtSchemaTableUpdateTable extends _i1.UpdateTable<CrdtSchemaTableTable> {
+class CrdtSchemaTableUpdateTable
+    extends _isd.UpdateTable<CrdtSchemaTableTable> {
   CrdtSchemaTableUpdateTable(super.table);
 
-  _i1.ColumnValue<String, String> name(String value) => _i1.ColumnValue(
+  _isd.ColumnValue<String, String> name(String value) => _isd.ColumnValue(
     table.name,
     value,
   );
 }
 
-class CrdtSchemaTableTable extends _i1.Table<int?> {
+class CrdtSchemaTableTable extends _isd.Table<int?> {
   CrdtSchemaTableTable({super.tableRelation})
     : super(tableName: 'crdt_schema_tables') {
     updateTable = CrdtSchemaTableUpdateTable(this);
-    name = _i1.ColumnString(
+    name = _isd.ColumnString(
       'name',
       this,
     );
@@ -147,28 +148,28 @@ class CrdtSchemaTableTable extends _i1.Table<int?> {
   late final CrdtSchemaTableUpdateTable updateTable;
 
   /// Name of the synchronized table.
-  late final _i1.ColumnString name;
+  late final _isd.ColumnString name;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     name,
   ];
 }
 
-class CrdtSchemaTableInclude extends _i1.IncludeObject {
+class CrdtSchemaTableInclude extends _isd.IncludeObject {
   CrdtSchemaTableInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _isd.Include?> get includes => {};
 
   @override
-  _i1.Table<int?> get table => CrdtSchemaTable.t;
+  _isd.Table<int?> get table => CrdtSchemaTable.t;
 }
 
-class CrdtSchemaTableIncludeList extends _i1.IncludeList {
+class CrdtSchemaTableIncludeList extends _isd.IncludeList {
   CrdtSchemaTableIncludeList._({
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -179,10 +180,10 @@ class CrdtSchemaTableIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<int?> get table => CrdtSchemaTable.t;
+  _isd.Table<int?> get table => CrdtSchemaTable.t;
 }
 
 class CrdtSchemaTableRepository {
@@ -211,15 +212,15 @@ class CrdtSchemaTableRepository {
   /// );
   /// ```
   Future<List<CrdtSchemaTable>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtSchemaTable>(
       where: where?.call(CrdtSchemaTable.t),
@@ -251,14 +252,14 @@ class CrdtSchemaTableRepository {
   /// );
   /// ```
   Future<CrdtSchemaTable?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtSchemaTable>(
       where: where?.call(CrdtSchemaTable.t),
@@ -273,11 +274,11 @@ class CrdtSchemaTableRepository {
 
   /// Finds a single [CrdtSchemaTable] by its [id] or null if no such row exists.
   Future<CrdtSchemaTable?> findById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtSchemaTable>(
       id,
@@ -302,9 +303,9 @@ class CrdtSchemaTableRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaTable>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaTable> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -320,9 +321,9 @@ class CrdtSchemaTableRepository {
   ///
   /// The returned [CrdtSchemaTable] will have its `id` field set.
   Future<CrdtSchemaTable> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaTable row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtSchemaTable>(
       row,
@@ -351,12 +352,12 @@ class CrdtSchemaTableRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaTable>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaTable> rows, {
-    required _i1.ColumnSelections<CrdtSchemaTableTable> conflictColumns,
-    _i1.ColumnSelections<CrdtSchemaTableTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtSchemaTableTable> conflictColumns,
+    _isd.ColumnSelections<CrdtSchemaTableTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtSchemaTable>(
@@ -383,12 +384,12 @@ class CrdtSchemaTableRepository {
   ///
   /// The returned [CrdtSchemaTable] will have its `id` field set.
   Future<CrdtSchemaTable?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaTable row, {
-    required _i1.ColumnSelections<CrdtSchemaTableTable> conflictColumns,
-    _i1.ColumnSelections<CrdtSchemaTableTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? updateWhere,
-    _i1.Transaction? transaction,
+    required _isd.ColumnSelections<CrdtSchemaTableTable> conflictColumns,
+    _isd.ColumnSelections<CrdtSchemaTableTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtSchemaTable>(
       row,
@@ -409,10 +410,10 @@ class CrdtSchemaTableRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaTable>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaTable> rows, {
-    _i1.ColumnSelections<CrdtSchemaTableTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSchemaTableTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtSchemaTable>(
@@ -427,10 +428,10 @@ class CrdtSchemaTableRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtSchemaTable> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaTable row, {
-    _i1.ColumnSelections<CrdtSchemaTableTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSchemaTableTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtSchemaTable>(
       row,
@@ -442,11 +443,11 @@ class CrdtSchemaTableRepository {
   /// Updates a single [CrdtSchemaTable] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtSchemaTable?> updateById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i1.ColumnValueListBuilder<CrdtSchemaTableUpdateTable>
+    required _isd.ColumnValueListBuilder<CrdtSchemaTableUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtSchemaTable>(
       id,
@@ -462,15 +463,15 @@ class CrdtSchemaTableRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaTable>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<CrdtSchemaTableUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtSchemaTableUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<CrdtSchemaTableTable> where,
+    required _isd.WhereExpressionBuilder<CrdtSchemaTableTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtSchemaTable>(
@@ -497,11 +498,11 @@ class CrdtSchemaTableRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaTable>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSchemaTable> rows, {
-    _i1.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtSchemaTable>(
@@ -515,9 +516,9 @@ class CrdtSchemaTableRepository {
 
   /// Deletes a single [CrdtSchemaTable].
   Future<CrdtSchemaTable> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSchemaTable row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtSchemaTable>(
       row,
@@ -534,11 +535,11 @@ class CrdtSchemaTableRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSchemaTable>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtSchemaTableTable> where,
-    _i1.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtSchemaTableTable> where,
+    _isd.OrderByBuilder<CrdtSchemaTableTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSchemaTableTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtSchemaTable>(
@@ -553,10 +554,10 @@ class CrdtSchemaTableRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSchemaTableTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtSchemaTable>(
       where: where?.call(CrdtSchemaTable.t),
@@ -567,11 +568,11 @@ class CrdtSchemaTableRepository {
 
   /// Acquires row-level locks on [CrdtSchemaTable] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtSchemaTableTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtSchemaTableTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtSchemaTable>(
       where: where(CrdtSchemaTable.t),

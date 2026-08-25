@@ -10,9 +10,10 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_database/serverpod_database.dart' as _i1;
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Durable record of a terminal CRDT sync integrity violation.
 ///
@@ -23,7 +24,7 @@ import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
 /// useful after merge rollbacks and across databases that do not share the
 /// same local CRDT metadata rows.
 abstract class CrdtSyncIntegrityViolation
-    implements _i1.TableRow<int?>, _i2.ProtocolSerialization {
+    implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   CrdtSyncIntegrityViolation._({
     this.id,
     required this.type,
@@ -43,13 +44,13 @@ abstract class CrdtSyncIntegrityViolation
 
   factory CrdtSyncIntegrityViolation({
     int? id,
-    required _i3.CrdtSyncViolationType type,
+    required _icw2tu00.CrdtSyncViolationType type,
     required String domainTableName,
-    required _i2.UuidValue uuidRowId,
-    _i2.UuidValue? ownerScopeUuid,
-    required _i2.UuidValue incomingScopeUuid,
-    required _i3.CrdtSyncViolationOperation operation,
-    _i2.UuidValue? uuidNodeId,
+    required _iss.UuidValue uuidRowId,
+    _iss.UuidValue? ownerScopeUuid,
+    required _iss.UuidValue incomingScopeUuid,
+    required _icw2tu00.CrdtSyncViolationOperation operation,
+    _iss.UuidValue? uuidNodeId,
     int? crdtDataRowId,
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -63,40 +64,40 @@ abstract class CrdtSyncIntegrityViolation
   ) {
     return CrdtSyncIntegrityViolation(
       id: jsonSerialization['id'] as int?,
-      type: _i3.CrdtSyncViolationType.fromJson(
+      type: _icw2tu00.CrdtSyncViolationType.fromJson(
         (jsonSerialization['type'] as String),
       ),
       domainTableName: jsonSerialization['domainTableName'] as String,
-      uuidRowId: _i2.UuidValueJsonExtension.fromJson(
+      uuidRowId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidRowId'],
       ),
       ownerScopeUuid: jsonSerialization['ownerScopeUuid'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _iss.UuidValueJsonExtension.fromJson(
               jsonSerialization['ownerScopeUuid'],
             ),
-      incomingScopeUuid: _i2.UuidValueJsonExtension.fromJson(
+      incomingScopeUuid: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['incomingScopeUuid'],
       ),
-      operation: _i3.CrdtSyncViolationOperation.fromJson(
+      operation: _icw2tu00.CrdtSyncViolationOperation.fromJson(
         (jsonSerialization['operation'] as String),
       ),
       uuidNodeId: jsonSerialization['uuidNodeId'] == null
           ? null
-          : _i2.UuidValueJsonExtension.fromJson(
+          : _iss.UuidValueJsonExtension.fromJson(
               jsonSerialization['uuidNodeId'],
             ),
       crdtDataRowId: jsonSerialization['crdtDataRowId'] as int?,
       hlcDatetime: jsonSerialization['hlcDatetime'] == null
           ? null
-          : _i2.DateTimeJsonExtension.fromJson(
+          : _iss.DateTimeJsonExtension.fromJson(
               jsonSerialization['hlcDatetime'],
             ),
       hlcCounter: jsonSerialization['hlcCounter'] as int?,
-      firstSeenAt: _i2.DateTimeJsonExtension.fromJson(
+      firstSeenAt: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['firstSeenAt'],
       ),
-      lastSeenAt: _i2.DateTimeJsonExtension.fromJson(
+      lastSeenAt: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['lastSeenAt'],
       ),
       occurrences: jsonSerialization['occurrences'] as int,
@@ -111,25 +112,25 @@ abstract class CrdtSyncIntegrityViolation
   int? id;
 
   /// High-level integrity violation category.
-  _i3.CrdtSyncViolationType type;
+  _icw2tu00.CrdtSyncViolationType type;
 
   /// Durable table name for the violated domain row.
   String domainTableName;
 
   /// Domain row UUID involved in the violation.
-  _i2.UuidValue uuidRowId;
+  _iss.UuidValue uuidRowId;
 
   /// Global scope UUID that owns the physical domain row, when known.
-  _i2.UuidValue? ownerScopeUuid;
+  _iss.UuidValue? ownerScopeUuid;
 
   /// Global scope UUID that attempted to operate on the row.
-  _i2.UuidValue incomingScopeUuid;
+  _iss.UuidValue incomingScopeUuid;
 
   /// Merge or sync operation that observed the violation.
-  _i3.CrdtSyncViolationOperation operation;
+  _icw2tu00.CrdtSyncViolationOperation operation;
 
   /// UUID of the node that authored the rejected change, when known.
-  _i2.UuidValue? uuidNodeId;
+  _iss.UuidValue? uuidNodeId;
 
   /// Local CRDT metadata row id observed for the rejected operation, when known.
   int? crdtDataRowId;
@@ -150,20 +151,20 @@ abstract class CrdtSyncIntegrityViolation
   int occurrences;
 
   @override
-  _i1.Table<int?> get table => t;
+  _isd.Table<int?> get table => t;
 
   /// Returns a shallow copy of this [CrdtSyncIntegrityViolation]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncIntegrityViolation copyWith({
     int? id,
-    _i3.CrdtSyncViolationType? type,
+    _icw2tu00.CrdtSyncViolationType? type,
     String? domainTableName,
-    _i2.UuidValue? uuidRowId,
-    _i2.UuidValue? ownerScopeUuid,
-    _i2.UuidValue? incomingScopeUuid,
-    _i3.CrdtSyncViolationOperation? operation,
-    _i2.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidRowId,
+    _iss.UuidValue? ownerScopeUuid,
+    _iss.UuidValue? incomingScopeUuid,
+    _icw2tu00.CrdtSyncViolationOperation? operation,
+    _iss.UuidValue? uuidNodeId,
     int? crdtDataRowId,
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -218,11 +219,11 @@ abstract class CrdtSyncIntegrityViolation
   }
 
   static CrdtSyncIntegrityViolationIncludeList includeList({
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
+    _isd.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
     CrdtSyncIntegrityViolationInclude? include,
   }) {
     return CrdtSyncIntegrityViolationIncludeList._(
@@ -237,7 +238,7 @@ abstract class CrdtSyncIntegrityViolation
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -246,13 +247,13 @@ class _Undefined {}
 class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
   _CrdtSyncIntegrityViolationImpl({
     int? id,
-    required _i3.CrdtSyncViolationType type,
+    required _icw2tu00.CrdtSyncViolationType type,
     required String domainTableName,
-    required _i2.UuidValue uuidRowId,
-    _i2.UuidValue? ownerScopeUuid,
-    required _i2.UuidValue incomingScopeUuid,
-    required _i3.CrdtSyncViolationOperation operation,
-    _i2.UuidValue? uuidNodeId,
+    required _iss.UuidValue uuidRowId,
+    _iss.UuidValue? ownerScopeUuid,
+    required _iss.UuidValue incomingScopeUuid,
+    required _icw2tu00.CrdtSyncViolationOperation operation,
+    _iss.UuidValue? uuidNodeId,
     int? crdtDataRowId,
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -278,16 +279,16 @@ class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
 
   /// Returns a shallow copy of this [CrdtSyncIntegrityViolation]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSyncIntegrityViolation copyWith({
     Object? id = _Undefined,
-    _i3.CrdtSyncViolationType? type,
+    _icw2tu00.CrdtSyncViolationType? type,
     String? domainTableName,
-    _i2.UuidValue? uuidRowId,
+    _iss.UuidValue? uuidRowId,
     Object? ownerScopeUuid = _Undefined,
-    _i2.UuidValue? incomingScopeUuid,
-    _i3.CrdtSyncViolationOperation? operation,
+    _iss.UuidValue? incomingScopeUuid,
+    _icw2tu00.CrdtSyncViolationOperation? operation,
     Object? uuidNodeId = _Undefined,
     Object? crdtDataRowId = _Undefined,
     Object? hlcDatetime = _Undefined,
@@ -301,12 +302,12 @@ class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
       type: type ?? this.type,
       domainTableName: domainTableName ?? this.domainTableName,
       uuidRowId: uuidRowId ?? this.uuidRowId,
-      ownerScopeUuid: ownerScopeUuid is _i2.UuidValue?
+      ownerScopeUuid: ownerScopeUuid is _iss.UuidValue?
           ? ownerScopeUuid
           : this.ownerScopeUuid,
       incomingScopeUuid: incomingScopeUuid ?? this.incomingScopeUuid,
       operation: operation ?? this.operation,
-      uuidNodeId: uuidNodeId is _i2.UuidValue? ? uuidNodeId : this.uuidNodeId,
+      uuidNodeId: uuidNodeId is _iss.UuidValue? ? uuidNodeId : this.uuidNodeId,
       crdtDataRowId: crdtDataRowId is int? ? crdtDataRowId : this.crdtDataRowId,
       hlcDatetime: hlcDatetime is DateTime? ? hlcDatetime : this.hlcDatetime,
       hlcCounter: hlcCounter is int? ? hlcCounter : this.hlcCounter,
@@ -318,148 +319,150 @@ class _CrdtSyncIntegrityViolationImpl extends CrdtSyncIntegrityViolation {
 }
 
 class CrdtSyncIntegrityViolationUpdateTable
-    extends _i1.UpdateTable<CrdtSyncIntegrityViolationTable> {
+    extends _isd.UpdateTable<CrdtSyncIntegrityViolationTable> {
   CrdtSyncIntegrityViolationUpdateTable(super.table);
 
-  _i1.ColumnValue<_i3.CrdtSyncViolationType, _i3.CrdtSyncViolationType> type(
-    _i3.CrdtSyncViolationType value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<
+    _icw2tu00.CrdtSyncViolationType,
+    _icw2tu00.CrdtSyncViolationType
+  >
+  type(_icw2tu00.CrdtSyncViolationType value) => _isd.ColumnValue(
     table.type,
     value,
   );
 
-  _i1.ColumnValue<String, String> domainTableName(String value) =>
-      _i1.ColumnValue(
+  _isd.ColumnValue<String, String> domainTableName(String value) =>
+      _isd.ColumnValue(
         table.domainTableName,
         value,
       );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> uuidRowId(
-    _i2.UuidValue value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> uuidRowId(
+    _iss.UuidValue value,
+  ) => _isd.ColumnValue(
     table.uuidRowId,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> ownerScopeUuid(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> ownerScopeUuid(
+    _iss.UuidValue? value,
+  ) => _isd.ColumnValue(
     table.ownerScopeUuid,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> incomingScopeUuid(
-    _i2.UuidValue value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> incomingScopeUuid(
+    _iss.UuidValue value,
+  ) => _isd.ColumnValue(
     table.incomingScopeUuid,
     value,
   );
 
-  _i1.ColumnValue<
-    _i3.CrdtSyncViolationOperation,
-    _i3.CrdtSyncViolationOperation
+  _isd.ColumnValue<
+    _icw2tu00.CrdtSyncViolationOperation,
+    _icw2tu00.CrdtSyncViolationOperation
   >
-  operation(_i3.CrdtSyncViolationOperation value) => _i1.ColumnValue(
+  operation(_icw2tu00.CrdtSyncViolationOperation value) => _isd.ColumnValue(
     table.operation,
     value,
   );
 
-  _i1.ColumnValue<_i2.UuidValue, _i2.UuidValue> uuidNodeId(
-    _i2.UuidValue? value,
-  ) => _i1.ColumnValue(
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> uuidNodeId(
+    _iss.UuidValue? value,
+  ) => _isd.ColumnValue(
     table.uuidNodeId,
     value,
   );
 
-  _i1.ColumnValue<int, int> crdtDataRowId(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> crdtDataRowId(int? value) => _isd.ColumnValue(
     table.crdtDataRowId,
     value,
   );
 
-  _i1.ColumnValue<DateTime, DateTime> hlcDatetime(DateTime? value) =>
-      _i1.ColumnValue(
+  _isd.ColumnValue<DateTime, DateTime> hlcDatetime(DateTime? value) =>
+      _isd.ColumnValue(
         table.hlcDatetime,
         value,
       );
 
-  _i1.ColumnValue<int, int> hlcCounter(int? value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> hlcCounter(int? value) => _isd.ColumnValue(
     table.hlcCounter,
     value,
   );
 
-  _i1.ColumnValue<DateTime, DateTime> firstSeenAt(DateTime value) =>
-      _i1.ColumnValue(
+  _isd.ColumnValue<DateTime, DateTime> firstSeenAt(DateTime value) =>
+      _isd.ColumnValue(
         table.firstSeenAt,
         value,
       );
 
-  _i1.ColumnValue<DateTime, DateTime> lastSeenAt(DateTime value) =>
-      _i1.ColumnValue(
+  _isd.ColumnValue<DateTime, DateTime> lastSeenAt(DateTime value) =>
+      _isd.ColumnValue(
         table.lastSeenAt,
         value,
       );
 
-  _i1.ColumnValue<int, int> occurrences(int value) => _i1.ColumnValue(
+  _isd.ColumnValue<int, int> occurrences(int value) => _isd.ColumnValue(
     table.occurrences,
     value,
   );
 }
 
-class CrdtSyncIntegrityViolationTable extends _i1.Table<int?> {
+class CrdtSyncIntegrityViolationTable extends _isd.Table<int?> {
   CrdtSyncIntegrityViolationTable({super.tableRelation})
     : super(tableName: 'crdt_sync_integrity_violations') {
     updateTable = CrdtSyncIntegrityViolationUpdateTable(this);
-    type = _i1.ColumnEnum(
+    type = _isd.ColumnEnum(
       'type',
       this,
-      _i1.EnumSerialization.byName,
+      _isd.EnumSerialization.byName,
     );
-    domainTableName = _i1.ColumnString(
+    domainTableName = _isd.ColumnString(
       'domainTableName',
       this,
     );
-    uuidRowId = _i1.ColumnUuid(
+    uuidRowId = _isd.ColumnUuid(
       'uuidRowId',
       this,
     );
-    ownerScopeUuid = _i1.ColumnUuid(
+    ownerScopeUuid = _isd.ColumnUuid(
       'ownerScopeUuid',
       this,
     );
-    incomingScopeUuid = _i1.ColumnUuid(
+    incomingScopeUuid = _isd.ColumnUuid(
       'incomingScopeUuid',
       this,
     );
-    operation = _i1.ColumnEnum(
+    operation = _isd.ColumnEnum(
       'operation',
       this,
-      _i1.EnumSerialization.byName,
+      _isd.EnumSerialization.byName,
     );
-    uuidNodeId = _i1.ColumnUuid(
+    uuidNodeId = _isd.ColumnUuid(
       'uuidNodeId',
       this,
     );
-    crdtDataRowId = _i1.ColumnInt(
+    crdtDataRowId = _isd.ColumnInt(
       'crdtDataRowId',
       this,
     );
-    hlcDatetime = _i1.ColumnDateTime(
+    hlcDatetime = _isd.ColumnDateTime(
       'hlcDatetime',
       this,
     );
-    hlcCounter = _i1.ColumnInt(
+    hlcCounter = _isd.ColumnInt(
       'hlcCounter',
       this,
     );
-    firstSeenAt = _i1.ColumnDateTime(
+    firstSeenAt = _isd.ColumnDateTime(
       'firstSeenAt',
       this,
     );
-    lastSeenAt = _i1.ColumnDateTime(
+    lastSeenAt = _isd.ColumnDateTime(
       'lastSeenAt',
       this,
     );
-    occurrences = _i1.ColumnInt(
+    occurrences = _isd.ColumnInt(
       'occurrences',
       this,
     );
@@ -468,46 +471,46 @@ class CrdtSyncIntegrityViolationTable extends _i1.Table<int?> {
   late final CrdtSyncIntegrityViolationUpdateTable updateTable;
 
   /// High-level integrity violation category.
-  late final _i1.ColumnEnum<_i3.CrdtSyncViolationType> type;
+  late final _isd.ColumnEnum<_icw2tu00.CrdtSyncViolationType> type;
 
   /// Durable table name for the violated domain row.
-  late final _i1.ColumnString domainTableName;
+  late final _isd.ColumnString domainTableName;
 
   /// Domain row UUID involved in the violation.
-  late final _i1.ColumnUuid uuidRowId;
+  late final _isd.ColumnUuid uuidRowId;
 
   /// Global scope UUID that owns the physical domain row, when known.
-  late final _i1.ColumnUuid ownerScopeUuid;
+  late final _isd.ColumnUuid ownerScopeUuid;
 
   /// Global scope UUID that attempted to operate on the row.
-  late final _i1.ColumnUuid incomingScopeUuid;
+  late final _isd.ColumnUuid incomingScopeUuid;
 
   /// Merge or sync operation that observed the violation.
-  late final _i1.ColumnEnum<_i3.CrdtSyncViolationOperation> operation;
+  late final _isd.ColumnEnum<_icw2tu00.CrdtSyncViolationOperation> operation;
 
   /// UUID of the node that authored the rejected change, when known.
-  late final _i1.ColumnUuid uuidNodeId;
+  late final _isd.ColumnUuid uuidNodeId;
 
   /// Local CRDT metadata row id observed for the rejected operation, when known.
-  late final _i1.ColumnInt crdtDataRowId;
+  late final _isd.ColumnInt crdtDataRowId;
 
   /// Last observed HLC datetime for the rejected change, when known.
-  late final _i1.ColumnDateTime hlcDatetime;
+  late final _isd.ColumnDateTime hlcDatetime;
 
   /// Last observed HLC counter for the rejected change, when known.
-  late final _i1.ColumnInt hlcCounter;
+  late final _isd.ColumnInt hlcCounter;
 
   /// First time this violation key was observed.
-  late final _i1.ColumnDateTime firstSeenAt;
+  late final _isd.ColumnDateTime firstSeenAt;
 
   /// Most recent time this violation key was observed.
-  late final _i1.ColumnDateTime lastSeenAt;
+  late final _isd.ColumnDateTime lastSeenAt;
 
   /// Number of times this violation key has been observed.
-  late final _i1.ColumnInt occurrences;
+  late final _isd.ColumnInt occurrences;
 
   @override
-  List<_i1.Column> get columns => [
+  List<_isd.Column> get columns => [
     id,
     type,
     domainTableName,
@@ -525,19 +528,19 @@ class CrdtSyncIntegrityViolationTable extends _i1.Table<int?> {
   ];
 }
 
-class CrdtSyncIntegrityViolationInclude extends _i1.IncludeObject {
+class CrdtSyncIntegrityViolationInclude extends _isd.IncludeObject {
   CrdtSyncIntegrityViolationInclude._();
 
   @override
-  Map<String, _i1.Include?> get includes => {};
+  Map<String, _isd.Include?> get includes => {};
 
   @override
-  _i1.Table<int?> get table => CrdtSyncIntegrityViolation.t;
+  _isd.Table<int?> get table => CrdtSyncIntegrityViolation.t;
 }
 
-class CrdtSyncIntegrityViolationIncludeList extends _i1.IncludeList {
+class CrdtSyncIntegrityViolationIncludeList extends _isd.IncludeList {
   CrdtSyncIntegrityViolationIncludeList._({
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     super.limit,
     super.offset,
     super.orderBy,
@@ -548,10 +551,10 @@ class CrdtSyncIntegrityViolationIncludeList extends _i1.IncludeList {
   }
 
   @override
-  Map<String, _i1.Include?> get includes => include?.includes ?? {};
+  Map<String, _isd.Include?> get includes => include?.includes ?? {};
 
   @override
-  _i1.Table<int?> get table => CrdtSyncIntegrityViolation.t;
+  _isd.Table<int?> get table => CrdtSyncIntegrityViolation.t;
 }
 
 class CrdtSyncIntegrityViolationRepository {
@@ -580,15 +583,15 @@ class CrdtSyncIntegrityViolationRepository {
   /// );
   /// ```
   Future<List<CrdtSyncIntegrityViolation>> find(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.find<CrdtSyncIntegrityViolation>(
       where: where?.call(CrdtSyncIntegrityViolation.t),
@@ -620,14 +623,14 @@ class CrdtSyncIntegrityViolationRepository {
   /// );
   /// ```
   Future<CrdtSyncIntegrityViolation?> findFirstRow(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     int? offset,
-    _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findFirstRow<CrdtSyncIntegrityViolation>(
       where: where?.call(CrdtSyncIntegrityViolation.t),
@@ -642,11 +645,11 @@ class CrdtSyncIntegrityViolationRepository {
 
   /// Finds a single [CrdtSyncIntegrityViolation] by its [id] or null if no such row exists.
   Future<CrdtSyncIntegrityViolation?> findById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    _i1.Transaction? transaction,
-    _i1.LockMode? lockMode,
-    _i1.LockBehavior? lockBehavior,
+    _isd.Transaction? transaction,
+    _isd.LockMode? lockMode,
+    _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<CrdtSyncIntegrityViolation>(
       id,
@@ -671,9 +674,9 @@ class CrdtSyncIntegrityViolationRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSyncIntegrityViolation>> insert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSyncIntegrityViolation> rows, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
     bool ignoreConflicts = false,
     bool noReturn = false,
   }) async {
@@ -689,9 +692,9 @@ class CrdtSyncIntegrityViolationRepository {
   ///
   /// The returned [CrdtSyncIntegrityViolation] will have its `id` field set.
   Future<CrdtSyncIntegrityViolation> insertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSyncIntegrityViolation row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.insertRow<CrdtSyncIntegrityViolation>(
       row,
@@ -720,13 +723,13 @@ class CrdtSyncIntegrityViolationRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSyncIntegrityViolation>> upsert(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSyncIntegrityViolation> rows, {
-    required _i1.ColumnSelections<CrdtSyncIntegrityViolationTable>
+    required _isd.ColumnSelections<CrdtSyncIntegrityViolationTable>
     conflictColumns,
-    _i1.ColumnSelections<CrdtSyncIntegrityViolationTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? updateWhere,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSyncIntegrityViolationTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? updateWhere,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.upsert<CrdtSyncIntegrityViolation>(
@@ -753,13 +756,13 @@ class CrdtSyncIntegrityViolationRepository {
   ///
   /// The returned [CrdtSyncIntegrityViolation] will have its `id` field set.
   Future<CrdtSyncIntegrityViolation?> upsertRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSyncIntegrityViolation row, {
-    required _i1.ColumnSelections<CrdtSyncIntegrityViolationTable>
+    required _isd.ColumnSelections<CrdtSyncIntegrityViolationTable>
     conflictColumns,
-    _i1.ColumnSelections<CrdtSyncIntegrityViolationTable>? updateColumns,
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? updateWhere,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSyncIntegrityViolationTable>? updateColumns,
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? updateWhere,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.upsertRow<CrdtSyncIntegrityViolation>(
       row,
@@ -780,10 +783,10 @@ class CrdtSyncIntegrityViolationRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSyncIntegrityViolation>> update(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSyncIntegrityViolation> rows, {
-    _i1.ColumnSelections<CrdtSyncIntegrityViolationTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSyncIntegrityViolationTable>? columns,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.update<CrdtSyncIntegrityViolation>(
@@ -798,10 +801,10 @@ class CrdtSyncIntegrityViolationRepository {
   /// Optionally, a list of [columns] can be provided to only update those
   /// columns. Defaults to all columns.
   Future<CrdtSyncIntegrityViolation> updateRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSyncIntegrityViolation row, {
-    _i1.ColumnSelections<CrdtSyncIntegrityViolationTable>? columns,
-    _i1.Transaction? transaction,
+    _isd.ColumnSelections<CrdtSyncIntegrityViolationTable>? columns,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateRow<CrdtSyncIntegrityViolation>(
       row,
@@ -813,11 +816,11 @@ class CrdtSyncIntegrityViolationRepository {
   /// Updates a single [CrdtSyncIntegrityViolation] by its [id] with the specified [columnValues].
   /// Returns the updated row or null if no row with the given id exists.
   Future<CrdtSyncIntegrityViolation?> updateById(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     int id, {
-    required _i1.ColumnValueListBuilder<CrdtSyncIntegrityViolationUpdateTable>
+    required _isd.ColumnValueListBuilder<CrdtSyncIntegrityViolationUpdateTable>
     columnValues,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.updateById<CrdtSyncIntegrityViolation>(
       id,
@@ -833,15 +836,15 @@ class CrdtSyncIntegrityViolationRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSyncIntegrityViolation>> updateWhere(
-    _i1.DatabaseSession session, {
-    required _i1.ColumnValueListBuilder<CrdtSyncIntegrityViolationUpdateTable>
+    _isd.DatabaseSession session, {
+    required _isd.ColumnValueListBuilder<CrdtSyncIntegrityViolationUpdateTable>
     columnValues,
-    required _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
+    required _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
     int? limit,
     int? offset,
-    _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.updateWhere<CrdtSyncIntegrityViolation>(
@@ -868,11 +871,11 @@ class CrdtSyncIntegrityViolationRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSyncIntegrityViolation>> delete(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     List<CrdtSyncIntegrityViolation> rows, {
-    _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.delete<CrdtSyncIntegrityViolation>(
@@ -886,9 +889,9 @@ class CrdtSyncIntegrityViolationRepository {
 
   /// Deletes a single [CrdtSyncIntegrityViolation].
   Future<CrdtSyncIntegrityViolation> deleteRow(
-    _i1.DatabaseSession session,
+    _isd.DatabaseSession session,
     CrdtSyncIntegrityViolation row, {
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.deleteRow<CrdtSyncIntegrityViolation>(
       row,
@@ -905,11 +908,11 @@ class CrdtSyncIntegrityViolationRepository {
   /// the database and an empty list is returned. This avoids the overhead of
   /// transferring and deserializing the rows when the result is not needed.
   Future<List<CrdtSyncIntegrityViolation>> deleteWhere(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
-    _i1.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
-    _i1.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
-    _i1.Transaction? transaction,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
+    _isd.OrderByBuilder<CrdtSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtSyncIntegrityViolationTable>? orderByList,
+    _isd.Transaction? transaction,
     bool noReturn = false,
   }) async {
     return session.db.deleteWhere<CrdtSyncIntegrityViolation>(
@@ -924,10 +927,10 @@ class CrdtSyncIntegrityViolationRepository {
   /// Counts the number of rows matching the [where] expression. If omitted,
   /// will return the count of all rows in the table.
   Future<int> count(
-    _i1.DatabaseSession session, {
-    _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable>? where,
     int? limit,
-    _i1.Transaction? transaction,
+    _isd.Transaction? transaction,
   }) async {
     return session.db.count<CrdtSyncIntegrityViolation>(
       where: where?.call(CrdtSyncIntegrityViolation.t),
@@ -938,11 +941,11 @@ class CrdtSyncIntegrityViolationRepository {
 
   /// Acquires row-level locks on [CrdtSyncIntegrityViolation] rows matching the [where] expression.
   Future<void> lockRows(
-    _i1.DatabaseSession session, {
-    required _i1.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
-    required _i1.LockMode lockMode,
-    required _i1.Transaction transaction,
-    _i1.LockBehavior lockBehavior = _i1.LockBehavior.wait,
+    _isd.DatabaseSession session, {
+    required _isd.WhereExpressionBuilder<CrdtSyncIntegrityViolationTable> where,
+    required _isd.LockMode lockMode,
+    required _isd.Transaction transaction,
+    _isd.LockBehavior lockBehavior = _isd.LockBehavior.wait,
   }) async {
     return session.db.lockRows<CrdtSyncIntegrityViolation>(
       where: where(CrdtSyncIntegrityViolation.t),

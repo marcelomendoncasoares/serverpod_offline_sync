@@ -10,13 +10,13 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod_serialization/serverpod_serialization.dart' as _i1;
+import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Base class for HLC timestamps.
 ///
 /// This class is used to represent the base HLC timestamp, which will be
 /// extended with the node ID (in its canonical or normalized form).
-class BaseHlc implements _i1.SerializableModel, _i1.ProtocolSerialization {
+class BaseHlc implements _iss.SerializableModel, _iss.ProtocolSerialization {
   BaseHlc({
     required this.hlcDatetime,
     required this.hlcCounter,
@@ -24,7 +24,7 @@ class BaseHlc implements _i1.SerializableModel, _i1.ProtocolSerialization {
 
   factory BaseHlc.fromJson(Map<String, dynamic> jsonSerialization) {
     return BaseHlc(
-      hlcDatetime: _i1.DateTimeJsonExtension.fromJson(
+      hlcDatetime: _iss.DateTimeJsonExtension.fromJson(
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
@@ -39,7 +39,7 @@ class BaseHlc implements _i1.SerializableModel, _i1.ProtocolSerialization {
 
   /// Returns a shallow copy of this [BaseHlc]
   /// with some or all fields replaced by the given arguments.
-  @_i1.useResult
+  @_iss.useResult
   BaseHlc copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
@@ -70,6 +70,6 @@ class BaseHlc implements _i1.SerializableModel, _i1.ProtocolSerialization {
 
   @override
   String toString() {
-    return _i1.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }

@@ -8,5 +8,6 @@ fields:
   name: String
   surname: String?
   address: Address?, relation(name=person_address)
-  organization: Organization?, relation(name=org_person, optional, onDelete=Cascade)
+  organization: Organization?, relation(name=org_person, optional, onDelete=Cascade, deferred)
   oldCompany: Company?, relation(optional)
+  city: City?, relation(name=city_citizens, optional, deferred)

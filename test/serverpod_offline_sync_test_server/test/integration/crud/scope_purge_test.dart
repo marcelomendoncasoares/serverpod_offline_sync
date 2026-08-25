@@ -325,10 +325,13 @@ void main() {
         'when the scope is purged by deleting its crdt_scopes row, '
         'then all domain rows and CRDT metadata are removed.',
         () async {
-          await CrdtScope.db.deleteWhere(
-            session,
-            where: (t) => t.id.equals(scope.id),
-          );
+          await session.db.transaction((tx) async {
+            await CrdtScope.db.deleteWhere(
+              session,
+              where: (t) => t.id.equals(scope.id),
+              transaction: tx,
+            );
+          });
 
           expect(await CrdtScope.db.findById(session, scope.id!), isNull);
           expect(
@@ -346,18 +349,6 @@ void main() {
             0,
           );
         },
-        skip:
-            'Purging this scope by deleting its crdt_scopes row currently fails '
-            'with "FOREIGN KEY constraint failed". The scopeId cascade fans out '
-            'across the CRDT metadata diamond: crdt_data_rows / crdt_data_fields '
-            '/ crdt_data_tombstone reference crdt_nodes with ON DELETE NO ACTION '
-            'while both those tables and crdt_nodes cascade off crdt_scopes, so '
-            'SQLite enforces the immediate NO ACTION checks mid-cascade before the '
-            'referencing rows are themselves deleted. The fix is to generate '
-            'those foreign keys as DEFERRABLE INITIALLY DEFERRED, which depends on '
-            'upstream Serverpod support for emitting deferrable constraints in '
-            'migrations. Until that lands, callers must wrap the purge in a '
-            'transaction with "PRAGMA defer_foreign_keys = ON".',
       );
     },
   );

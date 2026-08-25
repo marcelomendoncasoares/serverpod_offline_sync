@@ -16,8 +16,8 @@ part of 'stream_event.dart';
 /// Both peers send [CrdtSyncClose] after merging the final batch in a
 /// one-shot session so each side can shut down without closing the transport
 /// early.
-abstract class CrdtSyncClose extends _i1.CrdtSyncStreamEvent
-    implements _i2.SerializableModel, _i2.ProtocolSerialization {
+abstract class CrdtSyncClose extends _icw2tu00.CrdtSyncStreamEvent
+    implements _iss.SerializableModel, _iss.ProtocolSerialization {
   CrdtSyncClose._();
 
   factory CrdtSyncClose() = _CrdtSyncCloseImpl;
@@ -29,7 +29,7 @@ abstract class CrdtSyncClose extends _i1.CrdtSyncStreamEvent
   /// Returns a shallow copy of this [CrdtSyncClose]
   /// with some or all fields replaced by the given arguments.
   @override
-  @_i2.useResult
+  @_iss.useResult
   CrdtSyncClose copyWith();
   @override
   Map<String, dynamic> toJson() {
@@ -43,7 +43,7 @@ abstract class CrdtSyncClose extends _i1.CrdtSyncStreamEvent
 
   @override
   String toString() {
-    return _i2.SerializationManager.encode(this);
+    return _iss.SerializationManager.encode(this);
   }
 }
 
@@ -52,7 +52,7 @@ class _CrdtSyncCloseImpl extends CrdtSyncClose {
 
   /// Returns a shallow copy of this [CrdtSyncClose]
   /// with some or all fields replaced by the given arguments.
-  @_i2.useResult
+  @_iss.useResult
   @override
   CrdtSyncClose copyWith() {
     return CrdtSyncClose();

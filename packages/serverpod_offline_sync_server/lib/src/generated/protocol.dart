@@ -11,34 +11,35 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:serverpod/serverpod.dart' as _i1;
-import 'package:serverpod/protocol.dart' as _i2;
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart' as _i3;
+import 'package:serverpod/protocol.dart' as _isp;
+import 'package:serverpod/serverpod.dart' as _is;
+import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
+    as _icw2tu00;
 export 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     hide Protocol;
 
-class Protocol extends _i1.DatabaseSerializationManager {
+class Protocol extends _is.DatabaseSerializationManager {
   Protocol._();
 
   factory Protocol() => _instance;
 
   static final Protocol _instance = Protocol._();
 
-  final Set<_i1.SerializationManager> _hostProtocols = {};
+  final Set<_is.SerializationManager> _hostProtocols = {};
 
-  static List<_i2.TableDefinition> get targetTableDefinitions => [
-    ..._i3.Protocol() is _i1.DatabaseSerializationManager
-        ? (_i3.Protocol() as _i1.DatabaseSerializationManager)
+  static List<_isp.TableDefinition> get targetTableDefinitions => [
+    ..._icw2tu00.Protocol() is _is.DatabaseSerializationManager
+        ? (_icw2tu00.Protocol() as _is.DatabaseSerializationManager)
               .getTargetTableDefinitions()
         : [],
   ];
 
   void registerHostProtocol(
     String projectName,
-    _i1.SerializationManager protocol,
+    _is.SerializationManager protocol,
   ) {
     _hostProtocols.add(protocol);
-    _i3.Protocol().registerHostProtocol(projectName, protocol);
+    _icw2tu00.Protocol().registerHostProtocol(projectName, protocol);
   }
 
   static String? getClassNameFromObjectJson(dynamic data) {
@@ -70,24 +71,24 @@ class Protocol extends _i1.DatabaseSerializationManager {
       }
     }
 
-    if (t == _i3.Hlc) {
-      return _i3.Hlc.fromJson(data) as T;
+    if (t == _icw2tu00.Hlc) {
+      return _icw2tu00.Hlc.fromJson(data) as T;
     }
-    if (t == _i1.getType<_i3.Hlc?>()) {
-      return (data != null ? _i3.Hlc.fromJson(data) : null) as T;
+    if (t == _is.getType<_icw2tu00.Hlc?>()) {
+      return (data != null ? _icw2tu00.Hlc.fromJson(data) : null) as T;
     }
     try {
-      return _i3.Protocol().deserialize<T>(data, t);
-    } on _i1.DeserializationTypeNotFoundException catch (_) {}
+      return _icw2tu00.Protocol().deserialize<T>(data, t);
+    } on _is.DeserializationTypeNotFoundException catch (_) {}
     try {
-      return _i2.Protocol().deserialize<T>(data, t);
-    } on _i1.DeserializationTypeNotFoundException catch (_) {}
+      return _isp.Protocol().deserialize<T>(data, t);
+    } on _is.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _i3.Hlc => 'Hlc',
+      _icw2tu00.Hlc => 'Hlc',
       _ => null,
     };
   }
@@ -105,12 +106,12 @@ class Protocol extends _i1.DatabaseSerializationManager {
     }
 
     switch (data) {
-      case _i3.Hlc():
+      case _icw2tu00.Hlc():
         return 'Hlc';
     }
-    className = _i3.Protocol().getClassNameForObject(data);
+    className = _icw2tu00.Protocol().getClassNameForObject(data);
     if (className != null) return className;
-    className = _i2.Protocol().getClassNameForObject(data);
+    className = _isp.Protocol().getClassNameForObject(data);
     if (className != null) {
       return className.contains('.') ? className : 'serverpod.$className';
     }
@@ -124,14 +125,14 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return super.deserializeByClassName(data);
     }
     if (dataClassName == 'Hlc') {
-      return deserialize<_i3.Hlc>(data['data']);
+      return deserialize<_icw2tu00.Hlc>(data['data']);
     }
     try {
-      return _i3.Protocol().deserializeByClassName(data);
+      return _icw2tu00.Protocol().deserializeByClassName(data);
     } on FormatException catch (_) {}
     if (dataClassName.startsWith('serverpod.')) {
       data['className'] = dataClassName.substring(10);
-      return _i2.Protocol().deserializeByClassName(data);
+      return _isp.Protocol().deserializeByClassName(data);
     }
     return super.deserializeByClassName(data);
   }
@@ -154,8 +155,8 @@ class Protocol extends _i1.DatabaseSerializationManager {
         'data': object,
       };
       return forProtocol
-          ? _i1.SerializationManager.toEncodableForProtocol(wrapped)
-          : _i1.SerializationManager.toEncodable(wrapped);
+          ? _is.SerializationManager.toEncodableForProtocol(wrapped)
+          : _is.SerializationManager.toEncodable(wrapped);
     }
     return super.dynamicFieldToJson(object, forProtocol: forProtocol);
   }
@@ -196,18 +197,18 @@ class Protocol extends _i1.DatabaseSerializationManager {
   }
 
   @override
-  _i1.Table? getTableForType(Type t) {
+  _is.Table? getTableForType(Type t) {
     {
-      var protocol = _i3.Protocol();
-      var table = protocol is _i1.DatabaseSerializationManager
-          ? (protocol as _i1.DatabaseSerializationManager).getTableForType(t)
+      var protocol = _icw2tu00.Protocol();
+      var table = protocol is _is.DatabaseSerializationManager
+          ? (protocol as _is.DatabaseSerializationManager).getTableForType(t)
           : null;
       if (table != null) {
         return table;
       }
     }
     {
-      var table = _i2.Protocol().getTableForType(t);
+      var table = _isp.Protocol().getTableForType(t);
       if (table != null) {
         return table;
       }
@@ -216,7 +217,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
   }
 
   @override
-  List<_i2.TableDefinition> getTargetTableDefinitions() =>
+  List<_isp.TableDefinition> getTargetTableDefinitions() =>
       targetTableDefinitions;
 
   @override
@@ -232,7 +233,7 @@ class Protocol extends _i1.DatabaseSerializationManager {
       return null;
     }
     try {
-      return _i2.Protocol().mapRecordToJson(record);
+      return _isp.Protocol().mapRecordToJson(record);
     } catch (_) {}
     throw Exception('Unsupported record type ${record.runtimeType}');
   }
