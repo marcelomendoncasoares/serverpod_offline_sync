@@ -297,10 +297,12 @@ which Serverpod does not support either.
 - **Metadata model.** Four metadata tables track change history and relational
   projection state: `crdt_data_rows` (insert + visibility), `crdt_data_fields`
   (update), `crdt_data_foreign_key` (attempted and materialized foreign-key
-  values), and `crdt_data_tombstone` (delete/restore). Hybrid logical clocks
-  order field-level values and break ties. A monotone causal-length tombstone
-  governs row existence, so add/delete/restore advance generations forward and
-  can never oscillate.
+  values while an override is active), and `crdt_data_tombstone`
+  (delete/restore). Valid insert-time relations reuse the row clock, so they do
+  not create field or projection rows. Hybrid logical clocks order field-level
+  values and break ties. A monotone causal-length tombstone governs row
+  existence, so add/delete/restore advance generations forward and can never
+  oscillate.
 - **Visibility as a pure function.** Replicas never coordinate. Each merge
   applies remote facts monotonically, then derives the visible database —
   tombstone state, unique-conflict winners, and foreign-key repair — as a
@@ -320,7 +322,9 @@ For a deeper dive, see the design docs in [`docs/`](docs):
 [row ownership](docs/row-ownership.md),
 [foreign-key invariants](docs/foreign-key-invariants.md),
 [unique-constraint invariants](docs/unique-constraint-invariants.md), and
-[sync/non-sync relations](docs/sync-non-sync-relations.md).
+[sync/non-sync relations](docs/sync-non-sync-relations.md). The focused
+[relation storage report](docs/relation-storage.md) measures the sparse metadata
+model on SQLite and PostgreSQL.
 
 ## Performance
 

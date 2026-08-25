@@ -73,6 +73,16 @@ class CrdtDatabaseContext {
     );
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
 
+    // Before projections became sparse, every populated foreign key had a row
+    // whose null reason represented the normal state. The domain row is already
+    // the attempted-value source in that state, so pruning these legacy rows is
+    // safe, idempotent, and lets upgraded databases realize the reduction.
+    await CrdtDataForeignKey.db.deleteWhere(
+      session,
+      where: (t) => t.overrideReason.equals(null),
+      noReturn: true,
+    );
+
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
     for (final column in columnRows) {
       columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;

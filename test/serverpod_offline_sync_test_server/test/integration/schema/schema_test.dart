@@ -208,6 +208,62 @@ void main() {
   );
 
   test(
+    'Given resolved projection metadata from an older database, '
+    'when a new CRDT database context is initialized, '
+    'then the redundant projection row is removed and its field clock remains.',
+    () async {
+      late Town child;
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        final parent = await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'legacy mayor'),
+          transaction: tx,
+        );
+        child = await Town.db.insertRow(
+          session,
+          Town(id: const Uuid().v7obj(), name: 'legacy town'),
+          transaction: tx,
+        );
+        child = await Town.db.updateRow(
+          session,
+          child.copyWith(mayorId: parent.id),
+          columns: (t) => [t.mayorId],
+          transaction: tx,
+        );
+      });
+
+      final field = await CrdtDataField.db.findFirstRow(
+        session,
+        where: (t) =>
+            t.row.uuidRowId.equals(child.id) &
+            t.column.name.equals(Town.t.mayorId.columnName),
+      );
+      await CrdtDataForeignKey.db.insertRow(
+        session,
+        CrdtDataForeignKey(
+          fieldId: field!.id!,
+          attemptedValue: child.mayorId,
+        ),
+      );
+
+      final upgradedSession = CrdtDatabaseSession.wraps(
+        testSession,
+        syncTables: [Person.t, Town.t],
+      );
+      await upgradedSession.db.initialize();
+
+      expect(
+        await CrdtDataForeignKey.db.findFirstRow(
+          session,
+          where: (t) => t.fieldId.equals(field.id),
+        ),
+        isNull,
+      );
+      expect(await CrdtDataField.db.findById(session, field.id!), isNotNull);
+    },
+  );
+
+  test(
     'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
     'when the registry is created, '
     'then no error is thrown.',

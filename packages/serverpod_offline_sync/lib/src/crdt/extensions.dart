@@ -56,9 +56,8 @@ extension CrdtDataDeletedExtension on CrdtDataDeleted {
 extension CrdtDataForeignKeyExtension on CrdtDataForeignKey {
   /// Whether an active projection override exists for this FK field.
   ///
-  /// Derived from [CrdtDataForeignKey.overrideReason]: an override is active if
-  /// and only if [overrideReason] is non-null. This is the authoritative test
-  /// for whether the domain row's FK value differs from the attempted value.
+  /// Sparse projection rows should always carry a non-null [overrideReason].
+  /// This remains defensive for data created by older package versions.
   bool get hasOverride => overrideReason != null;
 }
 

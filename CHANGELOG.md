@@ -1,3 +1,8 @@
+## Unreleased
+
+- perf: Stores foreign-key projection metadata only for active overrides and
+  creates insert-time relation field clocks lazily when a repair needs them.
+
 ## 0.0.3
 
 - fix: Requires non-nullable foreign keys to be `deferred`.

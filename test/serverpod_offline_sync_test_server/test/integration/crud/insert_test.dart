@@ -246,6 +246,52 @@ void main() {
     );
   });
 
+  group('Given a visible parent row,', () {
+    late Person parent;
+    late Town child;
+
+    setUp(() async {
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        parent = await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'mayor'),
+          transaction: tx,
+        );
+        child = await Town.db.insertRow(
+          session,
+          Town(
+            id: const Uuid().v7obj(),
+            name: 'sparse metadata town',
+            mayorId: parent.id,
+          ),
+          transaction: tx,
+        );
+      });
+    });
+
+    test(
+      'when a child references it on insert, '
+      'then no relation field or projection rows are stored.',
+      () async {
+        final field = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.row.uuidRowId.equals(child.id) &
+              t.column.name.equals(Town.t.mayorId.columnName),
+          include: CrdtDataField.include(
+            foreignKey: CrdtDataForeignKey.include(),
+          ),
+        );
+
+        expect(field, isNull);
+        expect(
+          await CrdtDataForeignKey.db.count(session),
+          0,
+        );
+      },
+    );
+  });
+
   group('Given a person row with a fixed id,', () {
     late UuidValue id;
 

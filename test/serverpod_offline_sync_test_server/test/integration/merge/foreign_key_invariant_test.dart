@@ -737,10 +737,7 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, isNull);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isFalse);
+              expect(projection, isNull);
               expect(mayorFieldAfterUpdate, isNotNull);
               expect(
                 mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
@@ -807,8 +804,6 @@ void main() {
       });
 
       group('when the user changes the foreign key to a visible parent,', () {
-        late CrdtDataForeignKey projection;
-
         setUp(() async {
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
             child = await Town.db.updateRow(
@@ -818,11 +813,6 @@ void main() {
               transaction: tx,
             );
           });
-
-          projection = (await _findForeignKeyProjection(
-            rowId: child.id!,
-            columnName: Town.t.mayorId.columnName,
-          ))!;
         });
 
         test('then the child foreign key uses the new visible parent.', () async {
@@ -833,11 +823,14 @@ void main() {
         });
 
         test(
-          'then foreign key tracking records the new visible user value without an active override.',
+          'then foreign key tracking removes the resolved projection override.',
           () async {
-            expect(projection.attemptedValue, newParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
+            final projection = await _findForeignKeyProjection(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+            );
+
+            expect(projection, isNull);
           },
         );
       });
@@ -857,7 +850,7 @@ void main() {
         });
 
         test(
-          'then the child foreign key is restored and projection metadata records the visible attempted value.',
+          'then the child foreign key is restored and the resolved projection metadata is removed.',
           () async {
             final visibleParent = await Person.db.findById(
               session,
@@ -868,14 +861,18 @@ void main() {
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
+            final field = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+            );
 
             expect(visibleParent, isNotNull);
             expect(visibleChild, isNotNull);
             expect(visibleChild!.mayorId, attemptedParent.id);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
+            expect(field, isNotNull);
+            expect(projection, isNull);
           },
         );
       });
@@ -976,10 +973,7 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, newParent.id);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, newParent.id);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isFalse);
+              expect(projection, isNull);
               expect(mayorFieldAfterUpdate, isNotNull);
               expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
             },
@@ -1030,9 +1024,7 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, isNull);
-              expect(projection.hasOverride, isFalse);
+              expect(projection, isNull);
               expect(mayorFieldAfterUpdate, isNotNull);
               expect(
                 mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
@@ -1190,6 +1182,25 @@ void main() {
             expect(projection.hasOverride, isTrue);
           },
         );
+
+        test(
+          'then the repair creates its relation field lazily at the child insert HLC.',
+          () async {
+            final field = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+              include: CrdtDataField.include(
+                row: CrdtDataRow.include(node: CrdtNode.include()),
+                node: CrdtNode.include(),
+              ),
+            );
+
+            expect(field, isNotNull);
+            expect(field!.hlc, field.row!.hlc);
+          },
+        );
       });
     },
   );
@@ -1252,6 +1263,25 @@ void main() {
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
             expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
+          },
+        );
+
+        test(
+          'then the projection creates its relation field lazily at the row insert HLC.',
+          () async {
+            final field = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+              include: CrdtDataField.include(
+                row: CrdtDataRow.include(node: CrdtNode.include()),
+                node: CrdtNode.include(),
+              ),
+            );
+
+            expect(field, isNotNull);
+            expect(field!.hlc, field.row!.hlc);
           },
         );
       });
@@ -1535,9 +1565,7 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.townId, otherTown.id);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, otherTown.id);
-              expect(projection.hasOverride, isFalse);
+              expect(projection, isNull);
               expect(townIdFieldAfterUpdate, isNotNull);
               expect(
                 townIdFieldAfterUpdate!.hlc > townIdFieldHlcBeforeUpdate,
@@ -1691,11 +1719,7 @@ void main() {
               columnName: Company.t.townId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedTown.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
-            expect(projection.overrideReason, isNull);
+            expect(projection, isNull);
           },
         );
       });
@@ -1932,10 +1956,7 @@ void main() {
               columnName: Person.t.organizationId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, organization.id);
-            expect(projection.hasOverride, isFalse);
-            expect(projection.overrideReason, isNull);
+            expect(projection, isNull);
           },
         );
       });
@@ -2105,16 +2126,21 @@ void main() {
         );
 
         test(
-          'then the foreign key was authored as-is, with no projection override.',
+          'then the foreign key was authored as-is, with no field or projection metadata.',
           () async {
             final projection = await _findForeignKeyProjection(
               rowId: child.id!,
               columnName: Address.t.inhabitantId.columnName,
             );
+            final field = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Address.t.inhabitantId.columnName),
+            );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, parent.id);
-            expect(projection.hasOverride, isFalse);
+            expect(field, isNull);
+            expect(projection, isNull);
           },
         );
       });
@@ -2612,10 +2638,7 @@ void main() {
 
             expect(visibleSetNullGrandchild, isNotNull);
             expect(visibleSetNullGrandchild!.restrictBlockerId, restrictBlocker.id);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, restrictBlocker.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
+            expect(projection, isNull);
           },
         );
 
@@ -2900,10 +2923,7 @@ void main() {
 
             expect(visibleSetNullGrandchild, isNotNull);
             expect(visibleSetNullGrandchild!.setNullMiddleId, setNullMiddle.id);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, setNullMiddle.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
+            expect(projection, isNull);
           },
         );
 

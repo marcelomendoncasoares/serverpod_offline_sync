@@ -46,6 +46,13 @@ typedef _ForeignKeyDefaultProjection = ({bool valid, UuidValue? value});
 
 typedef _DomainRowUpdatesByKey = Map<MergeRowKey, Map<String, Object?>>;
 
+typedef _ActiveForeignKeyProjection = ({
+  _ProjectedForeignKeyRow child,
+  UuidValue? attemptedValue,
+  UuidValue? visibleValue,
+  CrdtForeignKeyOverrideReason reason,
+});
+
 /// Computes and materializes the foreign key projection for CRDT rows.
 ///
 /// Tracks the durable attempted foreign key values, repairs references to
@@ -235,7 +242,12 @@ class CrdtForeignKeyProjector {
       transaction: transaction,
     );
 
+    final existingProjections = await _loadProjections(
+      fieldIds.values.toSet(),
+      transaction,
+    );
     final projectionWrites = <CrdtDataForeignKey>[];
+    final resolvedFieldIds = <int>{};
     for (final rowId in rowIds) {
       final values = valuesByRowId[rowId];
       if (values == null) continue;
@@ -263,18 +275,28 @@ class CrdtForeignKeyProjector {
           }
         }
 
-        projectionWrites.add(
-          CrdtDataForeignKey(
-            fieldId: fieldId,
-            attemptedValue: attemptedValue,
-            visibleValue: overrideActive ? visibleValue : null,
-            overrideReason: overrideReason,
-          ),
-        );
+        if (overrideActive) {
+          projectionWrites.add(
+            CrdtDataForeignKey(
+              fieldId: fieldId,
+              attemptedValue: attemptedValue,
+              visibleValue: visibleValue,
+              overrideReason: overrideReason,
+            ),
+          );
+        } else if (existingProjections.containsKey(fieldId)) {
+          resolvedFieldIds.add(fieldId);
+        }
       }
     }
 
-    await _upsertProjections(projectionWrites, transaction);
+    await _persistSparseProjections(
+      projectionWrites,
+      transaction,
+      existingProjections: existingProjections,
+      resolvedFieldIds: resolvedFieldIds,
+    );
+    await _deleteRedundantRowClockFields(resolvedFieldIds, transaction);
   }
 
   Future<void> recordInsertAttempts(
@@ -294,72 +316,41 @@ class CrdtForeignKeyProjector {
       foreignKeyColumns.toList(),
       transaction,
     );
-    final valuesByRowId = {
-      for (final rowId in rowIds)
-        rowId: {
-          for (final columnName in foreignKeyColumns)
-            columnName: attemptedValues.containsKey((tableName, rowId, columnName))
-                ? attemptedValues[(tableName, rowId, columnName)]!.value
-                : visibleValuesByRowId[rowId]?[columnName],
-        },
-    };
-    final attemptedColumns = <String>{};
-    for (final values in valuesByRowId.values) {
+    final activeOverrideKeys = <MergeFieldKey>{};
+    for (final rowId in rowIds) {
       for (final columnName in foreignKeyColumns) {
-        if (values[columnName] != null) {
-          attemptedColumns.add(columnName);
+        final fieldKey = (tableName, rowId, columnName);
+        final attempt = attemptedValues[fieldKey];
+        if (attempt == null) continue;
+
+        final visibleValue = visibleValuesByRowId[rowId]?[columnName].toUuidValue();
+        if (attempt.value.sameUuidValue(visibleValue)) continue;
+        if (attempt.reason == null) {
+          throw StateError(
+            'FK projection override active for $tableName.$columnName '
+            'on row $rowId but no reason was provided. All override-producing '
+            'paths must supply a reason via safeIncomingData.',
+          );
         }
+        activeOverrideKeys.add(fieldKey);
       }
     }
-    if (attemptedColumns.isEmpty) return;
+    if (activeOverrideKeys.isEmpty) return;
 
     final crdtRows = await _context.findCrdtRows(tableName, rowIds, transaction);
     if (crdtRows.isEmpty) return;
-
-    final columnIds = _context.schemaColumnIds(tableName, attemptedColumns);
-    if (columnIds.isEmpty) return;
-
-    final existingFields = await _findFieldIds(
-      tableName: tableName,
-      rowIds: rowIds,
-      columnNames: columnIds.keys.toSet(),
-      transaction: transaction,
+    final crdtRowsById = {for (final row in crdtRows) row.uuidRowId: row};
+    await _ensureFieldsForKeys(
+      {
+        for (final fieldKey in activeOverrideKeys) fieldKey: crdtRowsById[fieldKey.$2]!,
+      },
+      transaction,
     );
-    final fieldsToInsert = <CrdtDataField>[];
-    for (final crdtRow in crdtRows) {
-      final values = valuesByRowId[crdtRow.uuidRowId];
-      if (values == null) continue;
-
-      for (final MapEntry(key: columnName, value: columnId) in columnIds.entries) {
-        if (values[columnName] == null) continue;
-        if (existingFields.containsKey((tableName, crdtRow.uuidRowId, columnName))) {
-          continue;
-        }
-
-        fieldsToInsert.add(
-          CrdtDataField(
-            rowId: crdtRow.id!,
-            columnId: columnId,
-            nodeId: crdtRow.nodeId,
-            hlcDatetime: crdtRow.hlcDatetime,
-            hlcCounter: crdtRow.hlcCounter,
-          ),
-        );
-      }
-    }
-
-    if (fieldsToInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(
-        _context.databaseSession,
-        fieldsToInsert,
-        transaction: transaction,
-      );
-    }
 
     await recordAttemptsForRows(
       tableName,
-      rowIds,
-      columnIds.keys.toSet(),
+      activeOverrideKeys.map((key) => key.$2).toSet(),
+      activeOverrideKeys.map((key) => key.$3).toSet(),
       transaction,
       attemptedValues: attemptedValues,
     );
@@ -481,9 +472,9 @@ class CrdtForeignKeyProjector {
   /// Recomputes FK projection and materializes it into domain tables.
   ///
   /// Updates row visibility for cascade/restrict semantics, writes visible FK
-  /// values to domain columns, and upserts [CrdtDataForeignKey] metadata with
-  /// the durable attempted values. Called after inbound merge and local
-  /// FK-affecting mutations.
+  /// values to domain columns, and stores [CrdtDataForeignKey] metadata only
+  /// while a projection override is active. Called after inbound merge and
+  /// local FK-affecting mutations.
   Future<void> project(Transaction transaction) async {
     if (_foreignKeys.edges.isEmpty) return;
 
@@ -707,6 +698,83 @@ class CrdtForeignKeyProjector {
     );
 
     return {for (final projection in projections) projection.fieldId: projection};
+  }
+
+  Future<Map<MergeFieldKey, int>> _ensureFieldsForKeys(
+    Map<MergeFieldKey, CrdtDataRow> rowsByField,
+    Transaction transaction,
+  ) async {
+    if (rowsByField.isEmpty) return {};
+
+    final keysByTable = <String, Set<MergeFieldKey>>{};
+    for (final fieldKey in rowsByField.keys) {
+      keysByTable.putIfAbsent(fieldKey.$1, () => {}).add(fieldKey);
+    }
+
+    final result = <MergeFieldKey, int>{};
+    final fieldsToInsert = <CrdtDataField>[];
+    for (final MapEntry(key: tableName, value: fieldKeys) in keysByTable.entries) {
+      final rowIds = fieldKeys.map((key) => key.$2).toSet();
+      final columnNames = fieldKeys.map((key) => key.$3).toSet();
+      final existing = await _findFieldIds(
+        tableName: tableName,
+        rowIds: rowIds,
+        columnNames: columnNames,
+        transaction: transaction,
+      );
+      result.addAll(existing);
+
+      final columnIds = _context.schemaColumnIds(tableName, columnNames);
+      for (final fieldKey in fieldKeys) {
+        if (existing.containsKey(fieldKey)) continue;
+        final columnId = columnIds[fieldKey.$3];
+        if (columnId == null) {
+          throw StateError(
+            'No CRDT schema column for $tableName.${fieldKey.$3}.',
+          );
+        }
+        final row = rowsByField[fieldKey]!;
+        fieldsToInsert.add(
+          CrdtDataField(
+            rowId: row.id!,
+            columnId: columnId,
+            nodeId: row.nodeId,
+            hlcDatetime: row.hlcDatetime,
+            hlcCounter: row.hlcCounter,
+          ),
+        );
+      }
+    }
+
+    if (fieldsToInsert.isNotEmpty) {
+      await CrdtDataField.db.insert(
+        _context.databaseSession,
+        fieldsToInsert,
+        transaction: transaction,
+        ignoreConflicts: true,
+      );
+
+      for (final MapEntry(key: tableName, value: fieldKeys) in keysByTable.entries) {
+        result.addAll(
+          await _findFieldIds(
+            tableName: tableName,
+            rowIds: fieldKeys.map((key) => key.$2).toSet(),
+            columnNames: fieldKeys.map((key) => key.$3).toSet(),
+            transaction: transaction,
+          ),
+        );
+      }
+    }
+
+    return {
+      for (final fieldKey in rowsByField.keys)
+        fieldKey:
+            result[fieldKey] ??
+            (throw StateError(
+              'Failed to create CRDT field for '
+              '${fieldKey.$1}.${fieldKey.$3} on row ${fieldKey.$2}.',
+            )),
+    };
   }
 
   Set<MergeRowKey> _computeHiddenRows(
@@ -966,7 +1034,8 @@ class CrdtForeignKeyProjector {
     required Transaction transaction,
   }) async {
     final changedUpdatesByRow = <MergeRowKey, Map<String, Object?>>{};
-    final projectionWrites = <CrdtDataForeignKey>[];
+    final activeProjections = <MergeFieldKey, _ActiveForeignKeyProjection>{};
+    final resolvedFieldIds = <int>{};
 
     for (final edge in _foreignKeys.edges) {
       for (final child
@@ -1022,31 +1091,48 @@ class CrdtForeignKeyProjector {
               desiredVisibleValue;
         }
 
-        final fieldId = state.fieldIds[projectionKey];
-        if (fieldId == null || (overrideReason == null && existingProjection == null)) {
-          continue;
-        }
-
-        projectionWrites.add(
-          CrdtDataForeignKey(
-            fieldId: fieldId,
+        if (overrideReason != null) {
+          activeProjections[projectionKey] = (
+            child: child,
             attemptedValue: attemptedValue,
-            visibleValue: overrideReason != null ? desiredVisibleValue : null,
-            overrideReason: overrideReason,
-          ),
-        );
+            visibleValue: desiredVisibleValue,
+            reason: overrideReason,
+          );
+        } else if (existingProjection != null) {
+          resolvedFieldIds.add(existingProjection.fieldId);
+        }
       }
     }
 
     await _applyBatchedDomainRowUpdates(changedUpdatesByRow, transaction);
-    await _upsertProjections(
-      projectionWrites,
+    final ensuredFieldIds = await _ensureFieldsForKeys(
+      {
+        for (final MapEntry(key: fieldKey, value: projection)
+            in activeProjections.entries)
+          if (!state.fieldIds.containsKey(fieldKey)) fieldKey: projection.child.crdtRow,
+      },
+      transaction,
+    );
+    state.fieldIds.addAll(ensuredFieldIds);
+    await _persistSparseProjections(
+      [
+        for (final MapEntry(key: fieldKey, value: projection)
+            in activeProjections.entries)
+          CrdtDataForeignKey(
+            fieldId: state.fieldIds[fieldKey]!,
+            attemptedValue: projection.attemptedValue,
+            visibleValue: projection.visibleValue,
+            overrideReason: projection.reason,
+          ),
+      ],
       transaction,
       existingProjections: {
         for (final projection in state.projections.values)
           projection.fieldId: projection,
       },
+      resolvedFieldIds: resolvedFieldIds,
     );
+    await _deleteRedundantRowClockFields(resolvedFieldIds, transaction);
     await _resolveUniqueConflictsAfterProjection(
       changedUpdatesByRow,
       transaction,
@@ -1253,18 +1339,28 @@ class CrdtForeignKeyProjector {
         const <_ProjectedForeignKeyRow>[];
   }
 
-  Future<void> _upsertProjections(
+  Future<void> _persistSparseProjections(
     List<CrdtDataForeignKey> writes,
     Transaction transaction, {
     Map<int, CrdtDataForeignKey> existingProjections = const {},
+    Set<int> resolvedFieldIds = const {},
   }) async {
-    if (writes.isEmpty) return;
+    if (writes.isEmpty && resolvedFieldIds.isEmpty) return;
+
+    for (final write in writes) {
+      if (!write.hasOverride) {
+        throw StateError(
+          'CrdtDataForeignKey rows may only persist active overrides.',
+        );
+      }
+    }
 
     final writeByFieldId = {
       for (final write in writes) write.fieldId: write,
     };
     var existingByFieldId = existingProjections;
-    final missingFieldIds = writeByFieldId.keys
+    final relevantFieldIds = {...writeByFieldId.keys, ...resolvedFieldIds};
+    final missingFieldIds = relevantFieldIds
         .where((fieldId) => !existingByFieldId.containsKey(fieldId))
         .toSet();
     if (missingFieldIds.isNotEmpty) {
@@ -1276,6 +1372,20 @@ class CrdtForeignKeyProjector {
 
     final toInsert = <CrdtDataForeignKey>[];
     final toUpdate = <CrdtDataForeignKey>[];
+    final activeFieldIds = writeByFieldId.keys.toSet();
+    final toDelete = resolvedFieldIds
+        .difference(activeFieldIds)
+        .where(existingByFieldId.containsKey)
+        .toSet();
+
+    if (toDelete.isNotEmpty) {
+      await CrdtDataForeignKey.db.deleteWhere(
+        _context.databaseSession,
+        where: (t) => t.fieldId.inSet(toDelete),
+        transaction: transaction,
+        noReturn: true,
+      );
+    }
 
     for (final write in writeByFieldId.values) {
       final existing = existingByFieldId[write.fieldId];
@@ -1312,6 +1422,35 @@ class CrdtForeignKeyProjector {
         transaction: transaction,
       );
     }
+  }
+
+  Future<void> _deleteRedundantRowClockFields(
+    Set<int> resolvedFieldIds,
+    Transaction transaction,
+  ) async {
+    if (resolvedFieldIds.isEmpty) return;
+
+    final fields = await CrdtDataField.db.find(
+      _context.databaseSession,
+      where: (t) => t.id.inSet(resolvedFieldIds),
+      include: CrdtDataField.include(row: CrdtDataRow.include()),
+      transaction: transaction,
+    );
+    final redundantFieldIds = {
+      for (final field in fields)
+        if (field.nodeId == field.row!.nodeId &&
+            field.hlcDatetime == field.row!.hlcDatetime &&
+            field.hlcCounter == field.row!.hlcCounter)
+          field.id!,
+    };
+    if (redundantFieldIds.isEmpty) return;
+
+    await CrdtDataField.db.deleteWhere(
+      _context.databaseSession,
+      where: (t) => t.id.inSet(redundantFieldIds),
+      transaction: transaction,
+      noReturn: true,
+    );
   }
 
   bool _projectionMatches(

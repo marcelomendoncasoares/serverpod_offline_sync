@@ -18,12 +18,13 @@ import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT field foreign key value and projection table.
 ///
-/// This table stores the user/attempted foreign key value for a CRDT field and
-/// the materialized foreign key projection for that value. CrdtDataField stores
-/// only HLC metadata, so FK columns store their durable attempted value here.
+/// This sparse table exists only while the value visible in a domain foreign
+/// key differs from the user/attempted value. CrdtDataField stores the field
+/// HLC, while this row preserves the attempted value until the override is
+/// resolved and the row is removed.
 ///
 /// Repairs must be recomputable from merged CRDT row, field, and tombstone
-/// facts plus this attempted FK value. The projection columns record what was
+/// facts plus an active override row. The projection columns record what was
 /// materialized into the domain row; they do not decide business semantics or
 /// create user field updates during merge.
 abstract class CrdtDataForeignKey
@@ -85,10 +86,10 @@ abstract class CrdtDataForeignKey
 
   int fieldId;
 
-  /// The user-attempted foreign key value that the CRDT field currently carries.
+  /// The user-attempted foreign key value hidden by the active override.
   ///
-  /// This may be null for nullable foreign keys. This is durable FK field-value
-  /// storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
+  /// This may be null for nullable foreign keys. When no override is active,
+  /// the attempted value is read directly from the domain row instead.
   _iss.UuidValue? attemptedValue;
 
   /// The foreign key value that is currently visible in the actual data row
@@ -97,10 +98,9 @@ abstract class CrdtDataForeignKey
 
   /// The authoritative indicator and reason for an active projection override.
   ///
-  /// This is the single source of truth for whether an override is active:
-  /// non-null means an override is active; null means no override. It also
-  /// names the cause of the override. The FK resolver recomputes it from merged
-  /// row, field, and tombstone facts.
+  /// Every stored row has a non-null reason naming the cause of the override.
+  /// The FK resolver recomputes it from merged row, field, and tombstone facts
+  /// and removes the row after the override resolves.
   _icw2tu00.CrdtForeignKeyOverrideReason? overrideReason;
 
   @override
@@ -285,10 +285,10 @@ class CrdtDataForeignKeyTable extends _isd.Table<int?> {
 
   late final _isd.ColumnInt fieldId;
 
-  /// The user-attempted foreign key value that the CRDT field currently carries.
+  /// The user-attempted foreign key value hidden by the active override.
   ///
-  /// This may be null for nullable foreign keys. This is durable FK field-value
-  /// storage for CRDT columns whose CrdtDataField row stores only HLC metadata.
+  /// This may be null for nullable foreign keys. When no override is active,
+  /// the attempted value is read directly from the domain row instead.
   late final _isd.ColumnUuid attemptedValue;
 
   /// The foreign key value that is currently visible in the actual data row
@@ -297,10 +297,9 @@ class CrdtDataForeignKeyTable extends _isd.Table<int?> {
 
   /// The authoritative indicator and reason for an active projection override.
   ///
-  /// This is the single source of truth for whether an override is active:
-  /// non-null means an override is active; null means no override. It also
-  /// names the cause of the override. The FK resolver recomputes it from merged
-  /// row, field, and tombstone facts.
+  /// Every stored row has a non-null reason naming the cause of the override.
+  /// The FK resolver recomputes it from merged row, field, and tombstone facts
+  /// and removes the row after the override resolves.
   late final _isd.ColumnEnum<_icw2tu00.CrdtForeignKeyOverrideReason>
   overrideReason;
 
