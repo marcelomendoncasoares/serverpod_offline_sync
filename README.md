@@ -114,35 +114,34 @@ dependencies:
 > Version `0.0.4` requires Serverpod `4.0.0-rc.1`.
 
 After adding the dependencies, list the `serverpod_offline_sync` module on the
-`generator.yaml` file:
+`generator.yaml` file and enable the experimental `database: sync` option:
 
 ```yaml
 modules:
   serverpod_offline_sync:
     nickname: offline_sync
+
+experimental_features:
+  databaseSync: true
 ```
 
 The next call to `serverpod generate` and `serverpod create-migration` will
 include the `offline_sync` module in the project. Note that the client tables
 will only be present on the client's migration if at least one model on the
-project is defined with `database: all` or `database: client`.
+project is defined with `database: sync`, `database: all`, or `database: client`.
 
 ### 2. Prepare the synced tables
 
-Each model you want to sync must be defined with `database: all` (so it exists
-on both the client and the server), have a UUID primary key, and declare a
-`scopeId` field. You mostly never set `scopeId` nor see its value on reads; it
-is maintained by the CRDT sync layer.
+Each model you want to sync must be defined with `database: sync`. That generates
+the table on both the client and the server, uses a UUID primary key, and
+injects the `scopeId` ownership field. You mostly never set `scopeId` nor see
+its value on reads; it is maintained by the CRDT sync layer.
 
 ```yaml
 class: Person
 table: person
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  ### The user never sets this field nor sees its value on reads.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   name: String
 ```
 
@@ -263,13 +262,15 @@ sync session for changes to take effect.
 ### Data modeling limitations
 
 Because of the nature of merge conflicts, the package imposes some data-modeling
-limitations, enforced at runtime during initialization. Most are fundamental to
-the design and can never be lifted.
+limitations. With `database: sync`, Serverpod reports most of them at generate
+time. The rest are enforced at runtime during initialization. Most are
+fundamental to the design and can never be lifted.
 
-- Every synced table must:
-  - Exist on both the client and the server with `database: all`.
-  - Have a UUID primary key.
-  - Declare the field `scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)`.
+- Every synced table must be defined with `database: sync`.
+  - Will exist on both the client and the server, like `database: all`.
+  - The type of the `id` will be `UuidValue` with `defaultPersist=random_v7`.
+  - A `scopeId` field will be added as a cascade relation to `crdt_scopes`.
+  - Both `id` and `scopeId` can be manually declared for more control.
 - Unique indexes must include `scopeId` together with the target columns.
 - Global unique indexes are unsupported, except for FK-only indexes.
 - Unique indexes are only supported with at least one
