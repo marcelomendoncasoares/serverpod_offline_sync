@@ -44,7 +44,7 @@ abstract class FkChainRoot
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
@@ -167,7 +167,7 @@ class FkChainRootTable extends _isd.Table<_isc.UuidValue?> {
 
   late final FkChainRootUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   late final _isd.ColumnString name;

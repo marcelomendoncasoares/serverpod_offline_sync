@@ -47,7 +47,7 @@ abstract class UniqueDiscriminator
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   int categoryId;
@@ -190,7 +190,7 @@ class UniqueDiscriminatorTable extends _isd.Table<_isc.UuidValue?> {
 
   late final UniqueDiscriminatorUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   late final _isd.ColumnInt categoryId;

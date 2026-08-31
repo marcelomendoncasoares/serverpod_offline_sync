@@ -47,7 +47,7 @@ abstract class UniqueComposite
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   /// This scope field has no relation with the CRDT sync layer.
@@ -191,7 +191,7 @@ class UniqueCompositeTable extends _isd.Table<_isc.UuidValue?> {
 
   late final UniqueCompositeUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   /// This scope field has no relation with the CRDT sync layer.

@@ -22,16 +22,16 @@ abstract class UniqueSetNullChild
     this.id,
     this.scopeId,
     required this.name,
-    this.parent,
     this.parentId,
+    this.parent,
   });
 
   factory UniqueSetNullChild({
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iensfz4m.Person? parent,
     _is.UuidValue? parentId,
+    _iensfz4m.Person? parent,
   }) = _UniqueSetNullChildImpl;
 
   factory UniqueSetNullChild.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -41,14 +41,14 @@ abstract class UniqueSetNullChild
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
+      parentId: jsonSerialization['parentId'] == null
+          ? null
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['parentId']),
       parent: jsonSerialization['parent'] == null
           ? null
           : _ixxccm81.Protocol().deserialize<_iensfz4m.Person>(
               jsonSerialization['parent'],
             ),
-      parentId: jsonSerialization['parentId'] == null
-          ? null
-          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['parentId']),
     );
   }
 
@@ -59,14 +59,14 @@ abstract class UniqueSetNullChild
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iensfz4m.Person? parent;
-
   _is.UuidValue? parentId;
+
+  _iensfz4m.Person? parent;
 
   @override
   _is.Table<_is.UuidValue?> get table => t;
@@ -78,8 +78,8 @@ abstract class UniqueSetNullChild
     _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _iensfz4m.Person? parent,
     _is.UuidValue? parentId,
+    _iensfz4m.Person? parent,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -88,8 +88,8 @@ abstract class UniqueSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (parent != null) 'parent': parent?.toJson(),
       if (parentId != null) 'parentId': parentId?.toJson(),
+      if (parent != null) 'parent': parent?.toJson(),
     };
   }
 
@@ -100,8 +100,8 @@ abstract class UniqueSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (parent != null) 'parent': parent?.toJsonForProtocol(),
       if (parentId != null) 'parentId': parentId?.toJson(),
+      if (parent != null) 'parent': parent?.toJsonForProtocol(),
     };
   }
 
@@ -140,14 +140,14 @@ class _UniqueSetNullChildImpl extends UniqueSetNullChild {
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iensfz4m.Person? parent,
     _is.UuidValue? parentId,
+    _iensfz4m.Person? parent,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         parent: parent,
          parentId: parentId,
+         parent: parent,
        );
 
   /// Returns a shallow copy of this [UniqueSetNullChild]
@@ -158,15 +158,15 @@ class _UniqueSetNullChildImpl extends UniqueSetNullChild {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? parent = _Undefined,
     Object? parentId = _Undefined,
+    Object? parent = _Undefined,
   }) {
     return UniqueSetNullChild(
       id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
       parentId: parentId is _is.UuidValue? ? parentId : this.parentId,
+      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
     );
   }
 }
@@ -213,14 +213,14 @@ class UniqueSetNullChildTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueSetNullChildUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnString name;
 
-  _iensfz4m.PersonTable? _parent;
-
   late final _is.ColumnUuid parentId;
+
+  _iensfz4m.PersonTable? _parent;
 
   _iensfz4m.PersonTable get parent {
     if (_parent != null) return _parent!;

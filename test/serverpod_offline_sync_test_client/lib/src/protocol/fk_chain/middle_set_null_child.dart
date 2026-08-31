@@ -23,16 +23,16 @@ abstract class FkChainMiddleSetNullChild
     this.id,
     this.scopeId,
     required this.name,
-    this.restrictBlocker,
     this.restrictBlockerId,
+    this.restrictBlocker,
   });
 
   factory FkChainMiddleSetNullChild({
     _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
     _isc.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
   }) = _FkChainMiddleSetNullChildImpl;
 
   factory FkChainMiddleSetNullChild.fromJson(
@@ -44,15 +44,15 @@ abstract class FkChainMiddleSetNullChild
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
-      restrictBlocker: jsonSerialization['restrictBlocker'] == null
-          ? null
-          : _imkb9kra.Protocol().deserialize<_iavpmkia.FkChainRestrictBlocker>(
-              jsonSerialization['restrictBlocker'],
-            ),
       restrictBlockerId: jsonSerialization['restrictBlockerId'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(
               jsonSerialization['restrictBlockerId'],
+            ),
+      restrictBlocker: jsonSerialization['restrictBlocker'] == null
+          ? null
+          : _imkb9kra.Protocol().deserialize<_iavpmkia.FkChainRestrictBlocker>(
+              jsonSerialization['restrictBlocker'],
             ),
     );
   }
@@ -64,14 +64,14 @@ abstract class FkChainMiddleSetNullChild
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iavpmkia.FkChainRestrictBlocker? restrictBlocker;
-
   _isc.UuidValue? restrictBlockerId;
+
+  _iavpmkia.FkChainRestrictBlocker? restrictBlocker;
 
   @override
   _isd.Table<_isc.UuidValue?> get table => t;
@@ -83,8 +83,8 @@ abstract class FkChainMiddleSetNullChild
     _isc.UuidValue? id,
     int? scopeId,
     String? name,
-    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
     _isc.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -93,9 +93,9 @@ abstract class FkChainMiddleSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (restrictBlocker != null) 'restrictBlocker': restrictBlocker?.toJson(),
       if (restrictBlockerId != null)
         'restrictBlockerId': restrictBlockerId?.toJson(),
+      if (restrictBlocker != null) 'restrictBlocker': restrictBlocker?.toJson(),
     };
   }
 
@@ -106,10 +106,10 @@ abstract class FkChainMiddleSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (restrictBlocker != null)
-        'restrictBlocker': restrictBlocker?.toJsonForProtocol(),
       if (restrictBlockerId != null)
         'restrictBlockerId': restrictBlockerId?.toJson(),
+      if (restrictBlocker != null)
+        'restrictBlocker': restrictBlocker?.toJsonForProtocol(),
     };
   }
 
@@ -150,14 +150,14 @@ class _FkChainMiddleSetNullChildImpl extends FkChainMiddleSetNullChild {
     _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
     _isc.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         restrictBlocker: restrictBlocker,
          restrictBlockerId: restrictBlockerId,
+         restrictBlocker: restrictBlocker,
        );
 
   /// Returns a shallow copy of this [FkChainMiddleSetNullChild]
@@ -168,19 +168,19 @@ class _FkChainMiddleSetNullChildImpl extends FkChainMiddleSetNullChild {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? restrictBlocker = _Undefined,
     Object? restrictBlockerId = _Undefined,
+    Object? restrictBlocker = _Undefined,
   }) {
     return FkChainMiddleSetNullChild(
       id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      restrictBlocker: restrictBlocker is _iavpmkia.FkChainRestrictBlocker?
-          ? restrictBlocker
-          : this.restrictBlocker?.copyWith(),
       restrictBlockerId: restrictBlockerId is _isc.UuidValue?
           ? restrictBlockerId
           : this.restrictBlockerId,
+      restrictBlocker: restrictBlocker is _iavpmkia.FkChainRestrictBlocker?
+          ? restrictBlocker
+          : this.restrictBlocker?.copyWith(),
     );
   }
 }
@@ -227,14 +227,14 @@ class FkChainMiddleSetNullChildTable extends _isd.Table<_isc.UuidValue?> {
 
   late final FkChainMiddleSetNullChildUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   late final _isd.ColumnString name;
 
-  _iavpmkia.FkChainRestrictBlockerTable? _restrictBlocker;
-
   late final _isd.ColumnUuid restrictBlockerId;
+
+  _iavpmkia.FkChainRestrictBlockerTable? _restrictBlocker;
 
   _iavpmkia.FkChainRestrictBlockerTable get restrictBlocker {
     if (_restrictBlocker != null) return _restrictBlocker!;

@@ -80,7 +80,7 @@ abstract class Types
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   bool aBool;
@@ -375,7 +375,7 @@ class TypesTable extends _is.Table<_is.UuidValue?> {
 
   late final TypesUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnBool aBool;

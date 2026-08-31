@@ -23,16 +23,16 @@ abstract class RequiredSetNullChild
     this.id,
     this.scopeId,
     required this.name,
-    this.parent,
     required this.parentId,
+    this.parent,
   });
 
   factory RequiredSetNullChild({
     _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _iensfz4m.Person? parent,
     required _isc.UuidValue parentId,
+    _iensfz4m.Person? parent,
   }) = _RequiredSetNullChildImpl;
 
   factory RequiredSetNullChild.fromJson(
@@ -44,14 +44,14 @@ abstract class RequiredSetNullChild
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
+      parentId: _isc.UuidValueJsonExtension.fromJson(
+        jsonSerialization['parentId'],
+      ),
       parent: jsonSerialization['parent'] == null
           ? null
           : _imkb9kra.Protocol().deserialize<_iensfz4m.Person>(
               jsonSerialization['parent'],
             ),
-      parentId: _isc.UuidValueJsonExtension.fromJson(
-        jsonSerialization['parentId'],
-      ),
     );
   }
 
@@ -62,14 +62,14 @@ abstract class RequiredSetNullChild
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iensfz4m.Person? parent;
-
   _isc.UuidValue parentId;
+
+  _iensfz4m.Person? parent;
 
   @override
   _isd.Table<_isc.UuidValue?> get table => t;
@@ -81,8 +81,8 @@ abstract class RequiredSetNullChild
     _isc.UuidValue? id,
     int? scopeId,
     String? name,
-    _iensfz4m.Person? parent,
     _isc.UuidValue? parentId,
+    _iensfz4m.Person? parent,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -91,8 +91,8 @@ abstract class RequiredSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (parent != null) 'parent': parent?.toJson(),
       'parentId': parentId.toJson(),
+      if (parent != null) 'parent': parent?.toJson(),
     };
   }
 
@@ -103,8 +103,8 @@ abstract class RequiredSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (parent != null) 'parent': parent?.toJsonForProtocol(),
       'parentId': parentId.toJson(),
+      if (parent != null) 'parent': parent?.toJsonForProtocol(),
     };
   }
 
@@ -145,14 +145,14 @@ class _RequiredSetNullChildImpl extends RequiredSetNullChild {
     _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _iensfz4m.Person? parent,
     required _isc.UuidValue parentId,
+    _iensfz4m.Person? parent,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         parent: parent,
          parentId: parentId,
+         parent: parent,
        );
 
   /// Returns a shallow copy of this [RequiredSetNullChild]
@@ -163,15 +163,15 @@ class _RequiredSetNullChildImpl extends RequiredSetNullChild {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? parent = _Undefined,
     _isc.UuidValue? parentId,
+    Object? parent = _Undefined,
   }) {
     return RequiredSetNullChild(
       id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
       parentId: parentId ?? this.parentId,
+      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
     );
   }
 }
@@ -218,14 +218,14 @@ class RequiredSetNullChildTable extends _isd.Table<_isc.UuidValue?> {
 
   late final RequiredSetNullChildUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   late final _isd.ColumnString name;
 
-  _iensfz4m.PersonTable? _parent;
-
   late final _isd.ColumnUuid parentId;
+
+  _iensfz4m.PersonTable? _parent;
 
   _iensfz4m.PersonTable get parent {
     if (_parent != null) return _parent!;

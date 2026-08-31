@@ -23,16 +23,16 @@ abstract class FkChainCascadeMiddle
     this.id,
     this.scopeId,
     required this.name,
-    this.root,
     this.rootId,
+    this.root,
   });
 
   factory FkChainCascadeMiddle({
     _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _iv6n0jeb.FkChainRoot? root,
     _isc.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
   }) = _FkChainCascadeMiddleImpl;
 
   factory FkChainCascadeMiddle.fromJson(
@@ -44,14 +44,14 @@ abstract class FkChainCascadeMiddle
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
+      rootId: jsonSerialization['rootId'] == null
+          ? null
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['rootId']),
       root: jsonSerialization['root'] == null
           ? null
           : _imkb9kra.Protocol().deserialize<_iv6n0jeb.FkChainRoot>(
               jsonSerialization['root'],
             ),
-      rootId: jsonSerialization['rootId'] == null
-          ? null
-          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['rootId']),
     );
   }
 
@@ -62,14 +62,14 @@ abstract class FkChainCascadeMiddle
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iv6n0jeb.FkChainRoot? root;
-
   _isc.UuidValue? rootId;
+
+  _iv6n0jeb.FkChainRoot? root;
 
   @override
   _isd.Table<_isc.UuidValue?> get table => t;
@@ -81,8 +81,8 @@ abstract class FkChainCascadeMiddle
     _isc.UuidValue? id,
     int? scopeId,
     String? name,
-    _iv6n0jeb.FkChainRoot? root,
     _isc.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -91,8 +91,8 @@ abstract class FkChainCascadeMiddle
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (root != null) 'root': root?.toJson(),
       if (rootId != null) 'rootId': rootId?.toJson(),
+      if (root != null) 'root': root?.toJson(),
     };
   }
 
@@ -103,8 +103,8 @@ abstract class FkChainCascadeMiddle
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (root != null) 'root': root?.toJsonForProtocol(),
       if (rootId != null) 'rootId': rootId?.toJson(),
+      if (root != null) 'root': root?.toJsonForProtocol(),
     };
   }
 
@@ -145,14 +145,14 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
     _isc.UuidValue? id,
     int? scopeId,
     required String name,
-    _iv6n0jeb.FkChainRoot? root,
     _isc.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         root: root,
          rootId: rootId,
+         root: root,
        );
 
   /// Returns a shallow copy of this [FkChainCascadeMiddle]
@@ -163,15 +163,15 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? root = _Undefined,
     Object? rootId = _Undefined,
+    Object? root = _Undefined,
   }) {
     return FkChainCascadeMiddle(
       id: id is _isc.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      root: root is _iv6n0jeb.FkChainRoot? ? root : this.root?.copyWith(),
       rootId: rootId is _isc.UuidValue? ? rootId : this.rootId,
+      root: root is _iv6n0jeb.FkChainRoot? ? root : this.root?.copyWith(),
     );
   }
 }
@@ -218,14 +218,14 @@ class FkChainCascadeMiddleTable extends _isd.Table<_isc.UuidValue?> {
 
   late final FkChainCascadeMiddleUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   late final _isd.ColumnString name;
 
-  _iv6n0jeb.FkChainRootTable? _root;
-
   late final _isd.ColumnUuid rootId;
+
+  _iv6n0jeb.FkChainRootTable? _root;
 
   _iv6n0jeb.FkChainRootTable get root {
     if (_root != null) return _root!;
