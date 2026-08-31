@@ -137,16 +137,20 @@ void main() {
         await push(author, server);
       });
 
-      test('when every client has synced with the server, '
-          'then all nodes agree on the referencing column.', () async {
-        for (var round = 0; round < 3; round++) {
-          await syncWithServer(author, server);
-          await syncWithServer(deleter, server);
-        }
+      group('when every client has synced with the server,', () {
+        setUp(() async {
+          for (var round = 0; round < 3; round++) {
+            await syncWithServer(author, server);
+            await syncWithServer(deleter, server);
+          }
+        });
 
-        final expected = await render(server);
-        expect(await render(author), expected);
-        expect(await render(deleter), expected);
+        test('then all nodes agree on the referencing column.', () async {
+          final expected = await render(server);
+
+          expect(await render(author), expected);
+          expect(await render(deleter), expected);
+        });
       });
     },
   );

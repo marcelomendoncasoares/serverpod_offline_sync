@@ -73,8 +73,7 @@ void main() {
   }
 
   group(
-    'Given a deleted row whose released unique value was overwritten by a '
-    'concurrent rename,',
+    'Given a deleted row whose released unique value was overwritten by a concurrent rename,',
     () {
       late _Node server;
       late _Node deleter;
@@ -115,10 +114,8 @@ void main() {
         await syncWithServer(deleter, server);
       });
 
-      test(
-        'when a client that never saw the row claims that value and syncs, '
-        'then the merge succeeds and all nodes agree.',
-        () async {
+      group('when a client that never saw the row claims that value and syncs,', () {
+        setUp(() async {
           final claim = Unique(id: const Uuid().v7obj(), name: 'target');
           await newcomer.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
             await Unique.db.insertRow(newcomer.crdt, claim, transaction: tx);
@@ -128,13 +125,16 @@ void main() {
           await syncWithServer(deleter, server);
           await syncWithServer(renamer, server);
           await syncWithServer(newcomer, server);
+        });
 
+        test('then the merge succeeds and all nodes agree.', () async {
           final expected = await render(server);
+
           expect(await render(deleter), expected);
           expect(await render(renamer), expected);
           expect(await render(newcomer), expected);
-        },
-      );
+        });
+      });
     },
   );
 }

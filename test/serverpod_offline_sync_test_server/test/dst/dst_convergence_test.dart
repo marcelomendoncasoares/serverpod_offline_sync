@@ -24,8 +24,7 @@ void main() {
     for (final (index, seed) in config.seeds.indexed) {
       test(
         'when simulation $index reorders, delays, and repeats delivery, '
-        'then the replicas converge with foreign key and unique invariants '
-        'intact.',
+        'then the replicas converge with foreign key and unique invariants intact.',
         () async {
           final report = await runWithSeedReported(
             index: index,

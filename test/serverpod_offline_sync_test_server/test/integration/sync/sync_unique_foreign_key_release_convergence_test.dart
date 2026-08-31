@@ -69,8 +69,7 @@ void main() {
   }
 
   group(
-    'Given a client that synced a foreign-key unique claim before any '
-    'competing claim reached the server,',
+    'Given a client that synced a foreign-key unique claim before any competing claim reached the server,',
     () {
       late _Node server;
       late _Node winnerClient;
@@ -111,10 +110,8 @@ void main() {
         await syncWithServer(bystander, server);
       });
 
-      test(
-        'when the winning claim is deleted and every client syncs again, '
-        'then all nodes agree on the released reference.',
-        () async {
+      group('when the winning claim is deleted and every client syncs again,', () {
+        setUp(() async {
           await winnerClient.crdt.db.transactionForUser(testCrdtUserId, (
             tx,
           ) async {
@@ -130,13 +127,16 @@ void main() {
             await syncWithServer(loserClient, server);
             await syncWithServer(bystander, server);
           }
+        });
 
+        test('then all nodes agree on the released reference.', () async {
           final expected = await render(server);
+
           expect(await render(winnerClient), expected);
           expect(await render(loserClient), expected);
           expect(await render(bystander), expected);
-        },
-      );
+        });
+      });
     },
   );
 }

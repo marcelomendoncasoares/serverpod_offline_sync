@@ -76,69 +76,67 @@ void main() {
   }
 
   group(
-    'Given a client that authored and deleted a referencing row while unaware '
-    'that the referenced row had been deleted,',
+    'Given a client that authored and deleted a referencing row while unaware that the referenced row had been deleted,',
     () {
-      test(
-        'when every client has synced with the server, '
-        'then all nodes agree on the referencing column.',
-        () async {
-          final server = await node(testSession);
-          final referenceOwner = await node(await createAdditionalTestSession());
-          final townOwner = await node(await createAdditionalTestSession());
+      late _Node server;
+      late _Node referenceOwner;
+      late _Node townOwner;
 
-          final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
-          await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (
-            tx,
-          ) async {
-            await Person.db.insertRow(
-              referenceOwner.crdt,
-              mayor,
-              transaction: tx,
-            );
-          });
-          await syncWithServer(referenceOwner, server);
-          await syncWithServer(townOwner, server);
+      setUp(() async {
+        server = await node(testSession);
+        referenceOwner = await node(await createAdditionalTestSession());
+        townOwner = await node(await createAdditionalTestSession());
 
-          // Offline, one client deletes the referenced row.
-          await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (
-            tx,
-          ) async {
-            await Person.db.deleteRow(
-              referenceOwner.crdt,
-              mayor,
-              transaction: tx,
-            );
-          });
-
-          // Offline and unaware of that delete, the other client creates a row
-          // referencing it and then deletes that row again.
-          final town = Town(
-            id: const Uuid().v7obj(),
-            name: 'town',
-            mayorId: mayor.id,
+        final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
+        await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(
+            referenceOwner.crdt,
+            mayor,
+            transaction: tx,
           );
-          await townOwner.crdt.db.transactionForUser(testCrdtUserId, (
-            tx,
-          ) async {
-            await Town.db.insertRow(townOwner.crdt, town, transaction: tx);
-          });
-          await townOwner.crdt.db.transactionForUser(testCrdtUserId, (
-            tx,
-          ) async {
-            await Town.db.deleteRow(townOwner.crdt, town, transaction: tx);
-          });
+        });
+        await syncWithServer(referenceOwner, server);
+        await syncWithServer(townOwner, server);
 
+        // Offline, one client deletes the referenced row.
+        await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(
+            referenceOwner.crdt,
+            mayor,
+            transaction: tx,
+          );
+        });
+
+        // Offline and unaware of that delete, the other client creates a row
+        // referencing it and then deletes that row again.
+        final town = Town(
+          id: const Uuid().v7obj(),
+          name: 'town',
+          mayorId: mayor.id,
+        );
+        await townOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(townOwner.crdt, town, transaction: tx);
+        });
+        await townOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.deleteRow(townOwner.crdt, town, transaction: tx);
+        });
+      });
+
+      group('when every client has synced with the server,', () {
+        setUp(() async {
           for (var round = 0; round < 3; round++) {
             await syncWithServer(referenceOwner, server);
             await syncWithServer(townOwner, server);
           }
+        });
 
+        test('then all nodes agree on the referencing column.', () async {
           final expected = await render(server);
+
           expect(await render(referenceOwner), expected);
           expect(await render(townOwner), expected);
-        },
-      );
+        });
+      });
     },
   );
 }

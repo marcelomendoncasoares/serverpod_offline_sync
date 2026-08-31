@@ -19,36 +19,18 @@ void main() {
   final syncTables = [City.t, Person.t, Town.t];
 
   late CrdtSync crdtSync;
-  late CrdtDatabaseSession authorSession;
   late CrdtDatabaseSession peerSession;
-  late City originalCity;
-  late City replacementCity;
-  late Town town;
 
   setUp(() async {
     crdtSync = CrdtSync(
       syncTables: syncTables,
       serializationManager: testSession.db.serializationManager,
     );
-    authorSession = CrdtDatabaseSession.wraps(
-      testSession,
-      syncTables: syncTables,
-    );
-    await authorSession.db.initialize();
-
     peerSession = CrdtDatabaseSession.wraps(
       await createAdditionalTestSession(),
       syncTables: syncTables,
     );
     await peerSession.db.initialize();
-
-    originalCity = City(id: const Uuid().v7obj(), name: 'original city');
-    replacementCity = City(id: const Uuid().v7obj(), name: 'replacement city');
-    town = Town(
-      id: const Uuid().v7obj(),
-      name: 'original name',
-      cityId: originalCity.id,
-    );
   });
 
   Future<CrdtMergeSet> collectAuthoredChanges() {
@@ -61,74 +43,94 @@ void main() {
   }
 
   group(
-    'Given a row inserted and updated before its changes are collected,',
+    'Given a row inserted and updated on an ordinary column before its changes are collected,',
     () {
-      test(
-        'when the update targets an ordinary column, '
-        'then the peer merges the batch and sees the updated value.',
-        () async {
-          await authorSession.db.transactionForUser(testCrdtUserId, (tx) async {
-            await City.db.insertRow(
-              authorSession,
-              originalCity,
-              transaction: tx,
-            );
-            await Town.db.insertRow(authorSession, town, transaction: tx);
-            await Town.db.updateRow(
-              authorSession,
-              town.copyWith(name: 'updated name'),
-              columns: (t) => [t.name],
-              transaction: tx,
-            );
-          });
+      late City originalCity;
+      late Town town;
 
+      setUp(() async {
+        originalCity = City(id: const Uuid().v7obj(), name: 'original city');
+        town = Town(
+          id: const Uuid().v7obj(),
+          name: 'original name',
+          cityId: originalCity.id,
+        );
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(session, originalCity, transaction: tx);
+          await Town.db.insertRow(session, town, transaction: tx);
+          await Town.db.updateRow(
+            session,
+            town.copyWith(name: 'updated name'),
+            columns: (t) => [t.name],
+            transaction: tx,
+          );
+        });
+      });
+
+      group('when a peer merges the collected batch,', () {
+        setUp(() async {
           await peerSession.db.mergeChanges(
             await collectAuthoredChanges(),
             scopeId: testCrdtUserId,
           );
+        });
 
+        test('then the peer sees the updated value.', () async {
           final merged = await Town.db.findById(peerSession, town.id!);
+
           expect(merged, isNotNull);
           expect(merged!.name, 'updated name');
           expect(merged.cityId, originalCity.id);
-        },
-      );
+        });
+      });
+    },
+  );
 
-      test(
-        'when the update targets a foreign key column, '
-        'then the peer merges the batch and sees the updated reference.',
-        () async {
-          await authorSession.db.transactionForUser(testCrdtUserId, (tx) async {
-            await City.db.insertRow(
-              authorSession,
-              originalCity,
-              transaction: tx,
-            );
-            await City.db.insertRow(
-              authorSession,
-              replacementCity,
-              transaction: tx,
-            );
-            await Town.db.insertRow(authorSession, town, transaction: tx);
-            await Town.db.updateRow(
-              authorSession,
-              town.copyWith(cityId: replacementCity.id),
-              columns: (t) => [t.cityId],
-              transaction: tx,
-            );
-          });
+  group(
+    'Given a row inserted and updated on a foreign key column before its changes are collected,',
+    () {
+      late City replacementCity;
+      late Town town;
 
+      setUp(() async {
+        final originalCity = City(id: const Uuid().v7obj(), name: 'original city');
+        replacementCity = City(id: const Uuid().v7obj(), name: 'replacement city');
+        town = Town(
+          id: const Uuid().v7obj(),
+          name: 'original name',
+          cityId: originalCity.id,
+        );
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(session, originalCity, transaction: tx);
+          await City.db.insertRow(session, replacementCity, transaction: tx);
+          await Town.db.insertRow(session, town, transaction: tx);
+          await Town.db.updateRow(
+            session,
+            town.copyWith(cityId: replacementCity.id),
+            columns: (t) => [t.cityId],
+            transaction: tx,
+          );
+        });
+      });
+
+      group('when a peer merges the collected batch,', () {
+        setUp(() async {
           await peerSession.db.mergeChanges(
             await collectAuthoredChanges(),
             scopeId: testCrdtUserId,
           );
+        });
 
+        test('then the peer sees the updated reference.', () async {
           final merged = await Town.db.findById(peerSession, town.id!);
+
           expect(merged, isNotNull);
           expect(merged!.cityId, replacementCity.id);
           expect(merged.name, 'original name');
-        },
-      );
+        });
+      });
     },
   );
 }

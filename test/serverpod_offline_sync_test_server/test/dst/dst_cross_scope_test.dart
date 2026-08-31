@@ -29,9 +29,8 @@ void main() {
     // reported on failure instead, where it is needed.
     for (final (index, seed) in config.seeds.indexed) {
       test(
-        'when simulation $index drives random operations and adversarial '
-        'delivery, then every scope looks identical to all replicas holding it '
-        'and no foreign key links across scopes.',
+        'when simulation $index drives random operations and adversarial delivery, '
+        'then every scope looks identical to all replicas holding it and no foreign key links across scopes.',
         () async {
           final report = await runWithSeedReported(
             index: index,

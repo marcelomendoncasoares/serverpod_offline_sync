@@ -52,36 +52,50 @@ void main() {
       );
     });
 
-    test('when another scope merges an insert claiming the same row id, '
-        'then the merge fails, records a durable violation, and leaves the '
-        "owner's row unchanged.", () async {
-      final intrusion = CrdtMergeInsert(
-        uuidScopeId: intruderScopeUuid,
-        tableName: Person.t.tableName,
-        uuidRowId: rowId,
-        uuidNodeId: DstIds(DstRandom(2)).next(),
-        hlcDatetime: DateTime.utc(2026, 1, 2),
-        hlcCounter: 0,
-        data: Person(id: rowId, name: 'intruder'),
-      );
+    group('when another scope merges an insert claiming the same row id,', () {
+      late Object? mergeError;
 
-      await expectLater(
-        replica.merge([intrusion], intruderScopeUuid),
-        throwsA(isA<CrdtSyncIntegrityViolationException>()),
-      );
+      setUp(() async {
+        final intrusion = CrdtMergeInsert(
+          uuidScopeId: intruderScopeUuid,
+          tableName: Person.t.tableName,
+          uuidRowId: rowId,
+          uuidNodeId: DstIds(DstRandom(2)).next(),
+          hlcDatetime: DateTime.utc(2026, 1, 2),
+          hlcCounter: 0,
+          data: Person(id: rowId, name: 'intruder'),
+        );
 
-      final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
-        replica.session,
-        where: (t) => t.uuidRowId.equals(rowId),
-      );
-      expect(violation, isNotNull);
-      expect(violation!.type, CrdtSyncViolationType.ownershipCollision);
-      expect(violation.ownerScopeUuid, ownerScopeUuid);
-      expect(violation.incomingScopeUuid, intruderScopeUuid);
+        try {
+          await replica.merge([intrusion], intruderScopeUuid);
+          mergeError = null;
+        } on Exception catch (error) {
+          mergeError = error;
+        }
+      });
 
-      final owned = await Person.db.findById(replica.session, rowId);
-      expect(owned, isNotNull);
-      expect(owned!.name, 'original owner');
+      test('then the merge fails with a CrdtSyncIntegrityViolationException.', () {
+        expect(mergeError, isA<CrdtSyncIntegrityViolationException>());
+      });
+
+      test('then a durable ownership-collision violation is recorded.', () async {
+        final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
+          replica.session,
+          where: (t) => t.uuidRowId.equals(rowId),
+        );
+
+        expect(violation, isNotNull);
+        expect(violation!.type, CrdtSyncViolationType.ownershipCollision);
+        expect(violation.ownerScopeUuid, ownerScopeUuid);
+        expect(violation.incomingScopeUuid, intruderScopeUuid);
+      });
+
+      test("then the owner's row is unchanged.", () async {
+        final owned = await Person.db.findById(replica.session, rowId);
+
+        expect(owned, isNotNull);
+        expect(owned!.name, 'original owner');
+      });
     });
   });
 }
