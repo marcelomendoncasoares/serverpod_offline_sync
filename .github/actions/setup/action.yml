@@ -6,6 +6,7 @@ runs:
   steps:
     - uses: dart-lang/setup-dart@v1
       with:
+        sdk: 3.12.2
         # Composite actions set GITHUB_ACTION_PATH to this folder, so the
         # default matcher looks for dart-analyzer.json here and fails setup.
         problem-matcher: false
