@@ -3,5 +3,4 @@ table: fk_chain_cascade_middle
 database: sync
 fields:
   name: String
-  root: FkChainRoot?, relation(field=rootId, onDelete=Cascade, deferred)
-  rootId: UuidValue?
+  root: FkChainRoot?, relation(fk, optional, onDelete=Cascade, deferred)

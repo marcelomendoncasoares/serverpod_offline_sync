@@ -3,5 +3,4 @@ table: fk_chain_set_null_restrict_child
 database: sync
 fields:
   name: String
-  setNullMiddle: FkChainSetNullMiddle?, relation(field=setNullMiddleId, onDelete=NoAction, deferred)
-  setNullMiddleId: UuidValue?
+  setNullMiddle: FkChainSetNullMiddle?, relation(fk, optional, onDelete=NoAction, deferred)

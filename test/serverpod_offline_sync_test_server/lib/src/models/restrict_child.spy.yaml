@@ -3,5 +3,4 @@ table: restrict_child
 database: sync
 fields:
   name: String
-  parent: Person?, relation(field=parentId, onDelete=NoAction, deferred)
-  parentId: UuidValue?
+  parent: Person?, relation(fk, optional, onDelete=NoAction, deferred)

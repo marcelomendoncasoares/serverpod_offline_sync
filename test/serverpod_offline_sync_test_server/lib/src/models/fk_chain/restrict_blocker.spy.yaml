@@ -3,5 +3,4 @@ table: fk_chain_restrict_blocker
 database: sync
 fields:
   name: String
-  cascadeMiddle: FkChainCascadeMiddle?, relation(field=cascadeMiddleId, onDelete=NoAction, deferred)
-  cascadeMiddleId: UuidValue?
+  cascadeMiddle: FkChainCascadeMiddle?, relation(fk, optional, onDelete=NoAction, deferred)

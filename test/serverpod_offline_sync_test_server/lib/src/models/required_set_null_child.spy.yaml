@@ -3,5 +3,4 @@ table: required_set_null_child
 database: sync
 fields:
   name: String
-  parent: Person?, relation(field=parentId, onDelete=SetNull, deferred)
-  parentId: UuidValue
+  parent: Person?, relation(fk, onDelete=SetNull, deferred)

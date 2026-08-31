@@ -3,5 +3,4 @@ table: fk_chain_middle_set_null_child
 database: sync
 fields:
   name: String
-  restrictBlocker: FkChainRestrictBlocker?, relation(field=restrictBlockerId, onDelete=SetNull, deferred)
-  restrictBlockerId: UuidValue?
+  restrictBlocker: FkChainRestrictBlocker?, relation(fk, optional, onDelete=SetNull, deferred)
