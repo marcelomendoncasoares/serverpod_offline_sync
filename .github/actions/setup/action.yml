@@ -5,6 +5,10 @@ runs:
   using: composite
   steps:
     - uses: dart-lang/setup-dart@v1
+      with:
+        # Composite actions set GITHUB_ACTION_PATH to this folder, so the
+        # default matcher looks for dart-analyzer.json here and fails setup.
+        problem-matcher: false
 
     - shell: bash
       run: dart pub global activate melos
