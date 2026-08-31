@@ -13,6 +13,8 @@ workspace:
   - test/serverpod_offline_sync_test_server
 
 dev_dependencies:
+  # Pin generate's ignore_for_file layout (4.12.0 moved library-prefix ignores).
+  code_builder: 4.12.0
   melos: ^7.5.1
   serverpod_cli: 4.0.0-rc.1
 

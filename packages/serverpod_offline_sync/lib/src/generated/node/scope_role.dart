@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// CRDT access role for a member of a shared scope.
@@ -17,8 +18,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 /// The role gates CRDT writes only. Reads remain membership-wide.
 enum CrdtScopeRole implements _iss.SerializableModel {
   readOnly,
-  readWrite,
-  ;
+  readWrite;
 
   static CrdtScopeRole fromJson(String name) {
     switch (name) {
