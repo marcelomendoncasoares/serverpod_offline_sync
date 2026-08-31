@@ -1000,7 +1000,7 @@ class CrdtForeignKeyProjector {
       for (final child
           in state.rowsByTable[edge.childTableName] ??
               const <_ProjectedForeignKeyRow>[]) {
-        if (finalHidden.contains(child.key)) continue;
+        final isHidden = finalHidden.contains(child.key);
 
         final attemptedValue = _attemptedValue(child, edge, state);
         final currentVisibleValue = child.values[edge.childColumn].toUuidValue();
@@ -1041,6 +1041,31 @@ class CrdtForeignKeyProjector {
             case ForeignKeyAction.noAction:
             case ForeignKeyAction.cascade:
               break;
+          }
+        }
+
+        // A hidden row is repaired like any other, so replicas that hid it by
+        // different routes still agree about its columns. Two values it must
+        // not materialize, though:
+        //
+        // - one whose parent row is absent entirely, which the physical
+        //   foreign key constraint rejects - that is why a row whose parent is
+        //   missing is hidden with its safe value left in place;
+        // - one on a unique-indexed column that it would be adopting *back*
+        //   after a repair. A hidden row is invisible to unique conflict
+        //   resolution but still occupies the physical unique index, so
+        //   re-adopting the value when the parent returns wedges every later
+        //   legitimate claim on it.
+        if (isHidden && desiredVisibleValue != null) {
+          if (_parentRowForValue(edge, desiredVisibleValue, state) == null) {
+            continue;
+          }
+          if (overrideReason == null &&
+              _uniqueResolver.isUniqueIndexedColumn(
+                edge.childTableName,
+                edge.childColumn,
+              )) {
+            continue;
           }
         }
 
