@@ -3,7 +3,7 @@
 - fix: Requires non-nullable foreign keys to be `deferred`.
 - fix: Rejects `onDelete=Restrict` on synced tables in favor of `onDelete=NoAction`.
 - fix: Throws proper `DatabaseException` instead of bare `Exception` on the database.
-- chore: Updated Serverpod to `4.0.0-beta.4`.
+- chore: Updated Serverpod to `4.0.0-rc.1`.
 
 ## 0.0.2
 
