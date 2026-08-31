@@ -17,8 +17,8 @@ typedef CrdtSyncTransport =
 class CrdtSyncSession {
   CrdtSyncSession._({
     required this.done,
-    required Future<void> Function() cancel,
-  }) : _cancel = cancel;
+    required this._cancel,
+  });
 
   /// Completes when the sync session ends normally or after [cancel].
   final Future<void> done;

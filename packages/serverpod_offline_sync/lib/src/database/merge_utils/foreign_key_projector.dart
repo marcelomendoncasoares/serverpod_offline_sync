@@ -56,10 +56,9 @@ class CrdtForeignKeyProjector {
   /// Creates a projector over the given recorder context.
   CrdtForeignKeyProjector(
     this._context, {
-    required CrdtForeignKeyGraph foreignKeys,
-    required CrdtUniqueConflictResolver uniqueResolver,
-  }) : _foreignKeys = foreignKeys,
-       _uniqueResolver = uniqueResolver;
+    required this._foreignKeys,
+    required this._uniqueResolver,
+  });
 
   final CrdtRecorderContext _context;
   final CrdtForeignKeyGraph _foreignKeys;
