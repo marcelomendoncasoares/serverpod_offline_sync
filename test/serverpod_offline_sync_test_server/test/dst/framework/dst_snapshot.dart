@@ -41,6 +41,16 @@ const dstForeignKeys = <DstForeignKey>[
     action: 'restrict',
     uniqueIndexed: true,
   ),
+  // The only edge where repair and unique resolution act on one column: a
+  // set-null action frees the value, and a restored parent makes it eligible
+  // again on a row that may already be tombstoned.
+  (
+    child: DstTable.uniqueSetNullChild,
+    column: 'parentId',
+    parent: DstTable.person,
+    action: 'setNull',
+    uniqueIndexed: true,
+  ),
 ];
 
 /// One row as the simulation compares it.
@@ -293,6 +303,13 @@ class DstSnapshot {
         includeHidden
             ? Unique.db.find(session, where: (t) => t.includeHiddenRows)
             : Unique.db.find(session),
+      DstTable.uniqueSetNullChild =>
+        includeHidden
+            ? UniqueSetNullChild.db.find(
+                session,
+                where: (t) => t.includeHiddenRows,
+              )
+            : UniqueSetNullChild.db.find(session),
     };
   }
 }
@@ -423,8 +440,9 @@ class DstOracle {
 
   /// No visible unique index is violated.
   ///
-  /// `unique.name` is unique per scope; `address.inhabitantId` carries the
-  /// foreign-key-only global unique index.
+  /// `unique.name` is unique per scope; `address.inhabitantId` and
+  /// `unique_set_null_child.parentId` carry the foreign-key-only global unique
+  /// index.
   static List<DstViolation> uniqueClosure(DstSnapshot snapshot) {
     final violations = <DstViolation>[];
 
@@ -459,6 +477,25 @@ class DstOracle {
         continue;
       }
       inhabitants[value] = entry.key;
+    }
+
+    final parents = <UuidValue, UuidValue>{};
+    final uniqueChildren =
+        snapshot.visible[DstTable.uniqueSetNullChild.tableName] ?? const {};
+    for (final entry in uniqueChildren.entries) {
+      final value = _foreignKeyValue(entry.value.columns, 'parentId');
+      if (value == null) continue;
+      final existing = parents[value];
+      if (existing != null) {
+        violations.add((
+          property: 'uniqueClosure',
+          detail:
+              'unique_set_null_child.parentId $value held by both $existing '
+              'and ${entry.key}',
+        ));
+        continue;
+      }
+      parents[value] = entry.key;
     }
 
     return violations;

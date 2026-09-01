@@ -23,6 +23,9 @@ final dstSyncTables = testSyncTables;
 /// - `town.cityId` is `onDelete=Cascade`; `town.mayorId` is `onDelete=SetNull`.
 /// - `address.inhabitantId` is `onDelete=Restrict` and carries the
 ///   foreign-key-only global unique index.
+/// - `unique_set_null_child.parentId` is `onDelete=SetNull` and *also* carries
+///   that global unique index - the one shape where foreign key repair and
+///   unique resolution act on the same column.
 /// - `unique.name` is unique per scope.
 enum DstTable {
   /// The `city` table: a parent with no outbound foreign key.
@@ -38,7 +41,16 @@ enum DstTable {
   address('address'),
 
   /// The `unique` table: a per-scope unique name and no foreign key.
-  unique('unique');
+  unique('unique'),
+
+  /// The `unique_set_null_child` table: set-null to `person` on a column that
+  /// also carries a global unique index.
+  ///
+  /// Repair frees that value while the parent is hidden, and the parent coming
+  /// back makes the attempted value eligible again - on a row that may by then
+  /// be tombstoned, and so invisible to unique resolution while still holding
+  /// the value in the physical index.
+  uniqueSetNullChild('unique_set_null_child');
 
   const DstTable(this.tableName);
 
@@ -251,6 +263,7 @@ class DstOperations {
       DstTable.town: 3,
       DstTable.address: 3,
       DstTable.unique: 2,
+      DstTable.uniqueSetNullChild: 3,
     });
     final action = random.weighted({
       _Action.insert: 5,
@@ -339,6 +352,18 @@ class DstOperations {
           transaction: tx,
         );
 
+      case (DstTable.uniqueSetNullChild, _Action.insert):
+        final parent = await _pickRow(Person.db.find(session, transaction: tx));
+        await UniqueSetNullChild.db.insertRow(
+          session,
+          UniqueSetNullChild(
+            id: _newId(),
+            name: _name('unique-child'),
+            parentId: parent?.id,
+          ),
+          transaction: tx,
+        );
+
       case (DstTable.city, _Action.update):
         final row = await _pickRow(City.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
@@ -401,6 +426,21 @@ class DstOperations {
           transaction: tx,
         );
 
+      case (DstTable.uniqueSetNullChild, _Action.update):
+        final row = await _pickRow(
+          UniqueSetNullChild.db.find(session, transaction: tx),
+        );
+        if (row == null) return DstOperationOutcome.skipped;
+        // Repointing the unique foreign key is what makes two rows claim one
+        // parent; renaming would never exercise the index.
+        final parent = await _pickRow(Person.db.find(session, transaction: tx));
+        await UniqueSetNullChild.db.updateRow(
+          session,
+          row.copyWith(parentId: parent?.id),
+          columns: (t) => [t.parentId],
+          transaction: tx,
+        );
+
       case (DstTable.city, _Action.delete):
         final row = await _pickRow(City.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
@@ -425,6 +465,13 @@ class DstOperations {
         final row = await _pickRow(Unique.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Unique.db.deleteRow(session, row, transaction: tx);
+
+      case (DstTable.uniqueSetNullChild, _Action.delete):
+        final row = await _pickRow(
+          UniqueSetNullChild.db.find(session, transaction: tx),
+        );
+        if (row == null) return DstOperationOutcome.skipped;
+        await UniqueSetNullChild.db.deleteRow(session, row, transaction: tx);
     }
 
     return DstOperationOutcome.applied;

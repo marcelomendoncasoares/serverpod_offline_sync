@@ -70,11 +70,12 @@ void main() {
       for (final row in await UniqueSetNullChild.db.find(node.crdt)) row.id,
     };
     rows.sort((left, right) => left.name.compareTo(right.name));
-    return [
-      for (final row in rows)
-        '${visible.contains(row.id) ? 'visible' : 'hidden'} ${row.name} '
-            'parentId=${row.parentId}',
-    ].join(' | ');
+    return rows
+        .map((row) {
+          final state = visible.contains(row.id) ? 'visible' : 'hidden';
+          return '$state ${row.name} parentId=${row.parentId}';
+        })
+        .join(' | ');
   }
 
   group(
@@ -87,6 +88,7 @@ void main() {
       late _Node restorer;
       late _Node claimant;
       late Person parent;
+      late UniqueSetNullChild child;
 
       setUp(() async {
         server = await node(testSession);
@@ -114,7 +116,7 @@ void main() {
         // Unaware, the author claims the person on a unique set-null column.
         // Merging that insert repairs the reference to null, because the
         // person is hidden.
-        final child = UniqueSetNullChild(
+        child = UniqueSetNullChild(
           id: const Uuid().v7obj(),
           name: 'child',
           parentId: parent.id,
@@ -187,6 +189,47 @@ void main() {
           expect(await render(deleter), expected, reason: 'deleter');
           expect(await render(restorer), expected, reason: 'restorer');
           expect(await render(claimant), expected, reason: 'claimant');
+        });
+
+        group('and the tombstoned child is then restored,', () {
+          late Object? restoreError;
+
+          setUp(() async {
+            // Reinserting a tombstoned row restores it
+            // (`CrdtDataDeletedReason.userReinsert`). Its attempted reference
+            // is still the parent, which another row now holds on a column
+            // that is unique across the table.
+            try {
+              await author.crdt.db.transactionForUser(testCrdtUserId, (
+                tx,
+              ) async {
+                await UniqueSetNullChild.db.insertRow(
+                  author.crdt,
+                  child,
+                  transaction: tx,
+                );
+              });
+              restoreError = null;
+            } on Object catch (error) {
+              restoreError = error;
+            }
+          });
+
+          test('then the restore is resolved rather than failing the write.', () {
+            expect(restoreError, isNull);
+          });
+
+          test('then all nodes agree after syncing.', () async {
+            for (final peer in [author, deleter, restorer, claimant]) {
+              await syncWithServer(peer, server);
+            }
+            final expected = await render(server);
+
+            expect(await render(author), expected, reason: 'author');
+            expect(await render(deleter), expected, reason: 'deleter');
+            expect(await render(restorer), expected, reason: 'restorer');
+            expect(await render(claimant), expected, reason: 'claimant');
+          });
         });
       });
     },
