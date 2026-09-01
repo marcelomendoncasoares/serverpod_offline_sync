@@ -8,9 +8,9 @@
 // ignore_for_file: type_literal_in_constant_pattern
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
-// ignore_for_file: dead_code, unnecessary_null_comparison
+// ignore_for_file: dead_code, no_leading_underscores_for_library_prefixes
+// ignore_for_file: unnecessary_null_comparison
 
-// ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as _ixxccm81;
@@ -22,16 +22,16 @@ abstract class FkChainMiddleCascadeChild
     this.id,
     this.scopeId,
     required this.name,
-    this.restrictBlocker,
     this.restrictBlockerId,
+    this.restrictBlocker,
   });
 
   factory FkChainMiddleCascadeChild({
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
     _is.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
   }) = _FkChainMiddleCascadeChildImpl;
 
   factory FkChainMiddleCascadeChild.fromJson(
@@ -43,15 +43,15 @@ abstract class FkChainMiddleCascadeChild
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
-      restrictBlocker: jsonSerialization['restrictBlocker'] == null
-          ? null
-          : _ixxccm81.Protocol().deserialize<_iavpmkia.FkChainRestrictBlocker>(
-              jsonSerialization['restrictBlocker'],
-            ),
       restrictBlockerId: jsonSerialization['restrictBlockerId'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(
               jsonSerialization['restrictBlockerId'],
+            ),
+      restrictBlocker: jsonSerialization['restrictBlocker'] == null
+          ? null
+          : _ixxccm81.Protocol().deserialize<_iavpmkia.FkChainRestrictBlocker>(
+              jsonSerialization['restrictBlocker'],
             ),
     );
   }
@@ -63,14 +63,14 @@ abstract class FkChainMiddleCascadeChild
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iavpmkia.FkChainRestrictBlocker? restrictBlocker;
-
   _is.UuidValue? restrictBlockerId;
+
+  _iavpmkia.FkChainRestrictBlocker? restrictBlocker;
 
   @override
   _is.Table<_is.UuidValue?> get table => t;
@@ -82,8 +82,8 @@ abstract class FkChainMiddleCascadeChild
     _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
     _is.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -92,9 +92,9 @@ abstract class FkChainMiddleCascadeChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (restrictBlocker != null) 'restrictBlocker': restrictBlocker?.toJson(),
       if (restrictBlockerId != null)
         'restrictBlockerId': restrictBlockerId?.toJson(),
+      if (restrictBlocker != null) 'restrictBlocker': restrictBlocker?.toJson(),
     };
   }
 
@@ -105,10 +105,10 @@ abstract class FkChainMiddleCascadeChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (restrictBlocker != null)
-        'restrictBlocker': restrictBlocker?.toJsonForProtocol(),
       if (restrictBlockerId != null)
         'restrictBlockerId': restrictBlockerId?.toJson(),
+      if (restrictBlocker != null)
+        'restrictBlocker': restrictBlocker?.toJsonForProtocol(),
     };
   }
 
@@ -149,14 +149,14 @@ class _FkChainMiddleCascadeChildImpl extends FkChainMiddleCascadeChild {
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
     _is.UuidValue? restrictBlockerId,
+    _iavpmkia.FkChainRestrictBlocker? restrictBlocker,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         restrictBlocker: restrictBlocker,
          restrictBlockerId: restrictBlockerId,
+         restrictBlocker: restrictBlocker,
        );
 
   /// Returns a shallow copy of this [FkChainMiddleCascadeChild]
@@ -167,19 +167,19 @@ class _FkChainMiddleCascadeChildImpl extends FkChainMiddleCascadeChild {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? restrictBlocker = _Undefined,
     Object? restrictBlockerId = _Undefined,
+    Object? restrictBlocker = _Undefined,
   }) {
     return FkChainMiddleCascadeChild(
       id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      restrictBlocker: restrictBlocker is _iavpmkia.FkChainRestrictBlocker?
-          ? restrictBlocker
-          : this.restrictBlocker?.copyWith(),
       restrictBlockerId: restrictBlockerId is _is.UuidValue?
           ? restrictBlockerId
           : this.restrictBlockerId,
+      restrictBlocker: restrictBlocker is _iavpmkia.FkChainRestrictBlocker?
+          ? restrictBlocker
+          : this.restrictBlocker?.copyWith(),
     );
   }
 }
@@ -226,14 +226,14 @@ class FkChainMiddleCascadeChildTable extends _is.Table<_is.UuidValue?> {
 
   late final FkChainMiddleCascadeChildUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnString name;
 
-  _iavpmkia.FkChainRestrictBlockerTable? _restrictBlocker;
-
   late final _is.ColumnUuid restrictBlockerId;
+
+  _iavpmkia.FkChainRestrictBlockerTable? _restrictBlocker;
 
   _iavpmkia.FkChainRestrictBlockerTable get restrictBlocker {
     if (_restrictBlocker != null) return _restrictBlocker!;

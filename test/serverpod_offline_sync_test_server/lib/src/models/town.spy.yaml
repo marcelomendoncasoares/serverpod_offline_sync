@@ -1,10 +1,7 @@
 class: Town
 table: town
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   name: String
   city: City?, relation(optional, onDelete=Cascade, deferred)
   mayor: Person?, relation(optional, onDelete=SetNull, deferred)

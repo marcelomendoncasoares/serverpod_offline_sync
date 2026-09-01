@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Why a foreign key projection override is active.
@@ -26,8 +27,7 @@ enum CrdtForeignKeyOverrideReason implements _iss.SerializableModel {
   /// cannot repair the value (restrict, no action, cascade, or the column is
   /// non-nullable), so the row is hidden by projection while the attempt is
   /// preserved.
-  missingParent,
-  ;
+  missingParent;
 
   static CrdtForeignKeyOverrideReason fromJson(int index) {
     switch (index) {

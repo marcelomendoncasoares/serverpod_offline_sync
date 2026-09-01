@@ -8,9 +8,9 @@
 // ignore_for_file: type_literal_in_constant_pattern
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
-// ignore_for_file: dead_code, unnecessary_null_comparison
+// ignore_for_file: dead_code, no_leading_underscores_for_library_prefixes
+// ignore_for_file: unnecessary_null_comparison
 
-// ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as _ixxccm81;
@@ -22,16 +22,16 @@ abstract class RequiredSetNullChild
     this.id,
     this.scopeId,
     required this.name,
-    this.parent,
     required this.parentId,
+    this.parent,
   });
 
   factory RequiredSetNullChild({
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iensfz4m.Person? parent,
     required _is.UuidValue parentId,
+    _iensfz4m.Person? parent,
   }) = _RequiredSetNullChildImpl;
 
   factory RequiredSetNullChild.fromJson(
@@ -43,14 +43,14 @@ abstract class RequiredSetNullChild
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
+      parentId: _is.UuidValueJsonExtension.fromJson(
+        jsonSerialization['parentId'],
+      ),
       parent: jsonSerialization['parent'] == null
           ? null
           : _ixxccm81.Protocol().deserialize<_iensfz4m.Person>(
               jsonSerialization['parent'],
             ),
-      parentId: _is.UuidValueJsonExtension.fromJson(
-        jsonSerialization['parentId'],
-      ),
     );
   }
 
@@ -61,14 +61,14 @@ abstract class RequiredSetNullChild
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iensfz4m.Person? parent;
-
   _is.UuidValue parentId;
+
+  _iensfz4m.Person? parent;
 
   @override
   _is.Table<_is.UuidValue?> get table => t;
@@ -80,8 +80,8 @@ abstract class RequiredSetNullChild
     _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _iensfz4m.Person? parent,
     _is.UuidValue? parentId,
+    _iensfz4m.Person? parent,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -90,8 +90,8 @@ abstract class RequiredSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (parent != null) 'parent': parent?.toJson(),
       'parentId': parentId.toJson(),
+      if (parent != null) 'parent': parent?.toJson(),
     };
   }
 
@@ -102,8 +102,8 @@ abstract class RequiredSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (parent != null) 'parent': parent?.toJsonForProtocol(),
       'parentId': parentId.toJson(),
+      if (parent != null) 'parent': parent?.toJsonForProtocol(),
     };
   }
 
@@ -144,14 +144,14 @@ class _RequiredSetNullChildImpl extends RequiredSetNullChild {
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iensfz4m.Person? parent,
     required _is.UuidValue parentId,
+    _iensfz4m.Person? parent,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         parent: parent,
          parentId: parentId,
+         parent: parent,
        );
 
   /// Returns a shallow copy of this [RequiredSetNullChild]
@@ -162,15 +162,15 @@ class _RequiredSetNullChildImpl extends RequiredSetNullChild {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? parent = _Undefined,
     _is.UuidValue? parentId,
+    Object? parent = _Undefined,
   }) {
     return RequiredSetNullChild(
       id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
       parentId: parentId ?? this.parentId,
+      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
     );
   }
 }
@@ -216,14 +216,14 @@ class RequiredSetNullChildTable extends _is.Table<_is.UuidValue?> {
 
   late final RequiredSetNullChildUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnString name;
 
-  _iensfz4m.PersonTable? _parent;
-
   late final _is.ColumnUuid parentId;
+
+  _iensfz4m.PersonTable? _parent;
 
   _iensfz4m.PersonTable get parent {
     if (_parent != null) return _parent!;

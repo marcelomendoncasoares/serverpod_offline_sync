@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 
@@ -47,7 +48,7 @@ abstract class UniqueComposite
   @override
   _isc.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   /// This scope field has no relation with the CRDT sync layer.
@@ -191,7 +192,7 @@ class UniqueCompositeTable extends _isd.Table<_isc.UuidValue?> {
 
   late final UniqueCompositeUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _isd.ColumnInt scopeId;
 
   /// This scope field has no relation with the CRDT sync layer.

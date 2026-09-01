@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Merge or sync operation that observed an integrity violation.
@@ -19,8 +20,7 @@ enum CrdtSyncViolationOperation implements _iss.SerializableModel {
   mergeDelete,
   outboundInsert,
   outboundUpdate,
-  outboundDelete,
-  ;
+  outboundDelete;
 
   static CrdtSyncViolationOperation fromJson(String name) {
     switch (name) {

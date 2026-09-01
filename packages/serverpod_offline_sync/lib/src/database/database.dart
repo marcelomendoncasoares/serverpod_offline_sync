@@ -67,14 +67,11 @@ class CrdtDatabase implements Database {
   CrdtDatabase._(
     this._delegate,
     this._context, {
-    required List<Table> syncTables,
-    required int syncBatchSize,
-    required Duration continuousSyncInterval,
+    required this._syncTables,
+    required this._syncBatchSize,
+    required this._continuousSyncInterval,
     required UuidValue? persistentUserId,
-  }) : _syncTables = syncTables,
-       _syncBatchSize = syncBatchSize,
-       _continuousSyncInterval = continuousSyncInterval,
-       _recorder = CrdtMutationRecorder(
+  }) : _recorder = CrdtMutationRecorder(
          _delegate,
          context: _context,
          persistentUserId: persistentUserId,

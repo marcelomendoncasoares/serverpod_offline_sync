@@ -47,7 +47,7 @@ class CrdtSync {
     int syncBatchSize = defaultSyncBatchSize,
 
     /// Delay between continuous sync rounds.
-    Duration continuousSyncInterval = defaultContinuousSyncInterval,
+    this._continuousSyncInterval = defaultContinuousSyncInterval,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
        _databaseContext =
@@ -56,8 +56,7 @@ class CrdtSync {
              syncTables: syncTables,
              serializationManager: serializationManager,
            ),
-       _syncBatchSize = syncBatchSize,
-       _continuousSyncInterval = continuousSyncInterval {
+       _syncBatchSize = syncBatchSize {
     if (syncBatchSize < 1) {
       throw ArgumentError.value(syncBatchSize, 'syncBatchSize', 'Must be >= 1');
     }

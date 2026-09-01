@@ -1,10 +1,7 @@
 class: Address
 table: address
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   street: String
   inhabitantId: UuidValue?, unique
   inhabitant: Person?, relation(name=person_address, field=inhabitantId, onDelete=NoAction)

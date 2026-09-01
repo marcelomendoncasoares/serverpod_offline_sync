@@ -3,13 +3,13 @@ description: Starting point for a Serverpod client.
 publish_to: none
 
 environment:
-  sdk: '^3.10.3'
+  sdk: '^3.12.2'
 
 resolution: workspace
 
 dependencies:
-  serverpod_auth_core_client: 4.0.0-beta.4
-  serverpod_client: 4.0.0-beta.4
-  serverpod_database: 4.0.0-beta.4
+  serverpod_auth_core_client: 4.0.0-rc.1
+  serverpod_client: 4.0.0-rc.1
+  serverpod_database: 4.0.0-rc.1
   serverpod_offline_sync_client:
     path: ../../packages/serverpod_offline_sync_client

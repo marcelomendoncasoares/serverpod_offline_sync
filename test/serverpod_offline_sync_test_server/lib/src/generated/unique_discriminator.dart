@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod/serverpod.dart' as _is;
 
 abstract class UniqueDiscriminator
@@ -46,7 +47,7 @@ abstract class UniqueDiscriminator
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   int categoryId;
@@ -189,7 +190,7 @@ class UniqueDiscriminatorTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueDiscriminatorUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnInt categoryId;

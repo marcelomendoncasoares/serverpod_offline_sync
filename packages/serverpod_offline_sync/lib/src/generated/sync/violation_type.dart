@@ -10,14 +10,14 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// High-level category of a durable CRDT sync integrity violation.
 enum CrdtSyncViolationType implements _iss.SerializableModel {
   ownershipCollision,
   missingDomainRow,
-  unauthorizedWrite,
-  ;
+  unauthorizedWrite;
 
   static CrdtSyncViolationType fromJson(String name) {
     switch (name) {

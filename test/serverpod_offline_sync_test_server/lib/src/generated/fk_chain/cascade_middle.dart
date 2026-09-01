@@ -8,9 +8,9 @@
 // ignore_for_file: type_literal_in_constant_pattern
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
-// ignore_for_file: dead_code, unnecessary_null_comparison
+// ignore_for_file: dead_code, no_leading_underscores_for_library_prefixes
+// ignore_for_file: unnecessary_null_comparison
 
-// ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as _ixxccm81;
@@ -22,16 +22,16 @@ abstract class FkChainCascadeMiddle
     this.id,
     this.scopeId,
     required this.name,
-    this.root,
     this.rootId,
+    this.root,
   });
 
   factory FkChainCascadeMiddle({
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iv6n0jeb.FkChainRoot? root,
     _is.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
   }) = _FkChainCascadeMiddleImpl;
 
   factory FkChainCascadeMiddle.fromJson(
@@ -43,14 +43,14 @@ abstract class FkChainCascadeMiddle
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
+      rootId: jsonSerialization['rootId'] == null
+          ? null
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['rootId']),
       root: jsonSerialization['root'] == null
           ? null
           : _ixxccm81.Protocol().deserialize<_iv6n0jeb.FkChainRoot>(
               jsonSerialization['root'],
             ),
-      rootId: jsonSerialization['rootId'] == null
-          ? null
-          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['rootId']),
     );
   }
 
@@ -61,14 +61,14 @@ abstract class FkChainCascadeMiddle
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _iv6n0jeb.FkChainRoot? root;
-
   _is.UuidValue? rootId;
+
+  _iv6n0jeb.FkChainRoot? root;
 
   @override
   _is.Table<_is.UuidValue?> get table => t;
@@ -80,8 +80,8 @@ abstract class FkChainCascadeMiddle
     _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _iv6n0jeb.FkChainRoot? root,
     _is.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -90,8 +90,8 @@ abstract class FkChainCascadeMiddle
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (root != null) 'root': root?.toJson(),
       if (rootId != null) 'rootId': rootId?.toJson(),
+      if (root != null) 'root': root?.toJson(),
     };
   }
 
@@ -102,8 +102,8 @@ abstract class FkChainCascadeMiddle
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (root != null) 'root': root?.toJsonForProtocol(),
       if (rootId != null) 'rootId': rootId?.toJson(),
+      if (root != null) 'root': root?.toJsonForProtocol(),
     };
   }
 
@@ -144,14 +144,14 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _iv6n0jeb.FkChainRoot? root,
     _is.UuidValue? rootId,
+    _iv6n0jeb.FkChainRoot? root,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         root: root,
          rootId: rootId,
+         root: root,
        );
 
   /// Returns a shallow copy of this [FkChainCascadeMiddle]
@@ -162,15 +162,15 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? root = _Undefined,
     Object? rootId = _Undefined,
+    Object? root = _Undefined,
   }) {
     return FkChainCascadeMiddle(
       id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      root: root is _iv6n0jeb.FkChainRoot? ? root : this.root?.copyWith(),
       rootId: rootId is _is.UuidValue? ? rootId : this.rootId,
+      root: root is _iv6n0jeb.FkChainRoot? ? root : this.root?.copyWith(),
     );
   }
 }
@@ -216,14 +216,14 @@ class FkChainCascadeMiddleTable extends _is.Table<_is.UuidValue?> {
 
   late final FkChainCascadeMiddleUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnString name;
 
-  _iv6n0jeb.FkChainRootTable? _root;
-
   late final _is.ColumnUuid rootId;
+
+  _iv6n0jeb.FkChainRootTable? _root;
 
   _iv6n0jeb.FkChainRootTable get root {
     if (_root != null) return _root!;
