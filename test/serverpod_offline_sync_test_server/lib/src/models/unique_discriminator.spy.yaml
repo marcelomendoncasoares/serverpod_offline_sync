@@ -1,9 +1,6 @@
 class: UniqueDiscriminator
 table: unique_discriminator
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   categoryId: int
   name: String, unique(per=[scopeId, categoryId])

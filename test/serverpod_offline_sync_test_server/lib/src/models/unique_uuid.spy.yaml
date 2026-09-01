@@ -1,8 +1,5 @@
 class: UniqueUuid
 table: unique_uuid
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   value: UuidValue, unique(per=scopeId)

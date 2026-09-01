@@ -1,18 +1,18 @@
 name: serverpod_offline_sync
-version: 0.0.3
+version: 0.0.4
 description: Shared package for the Serverpod Offline Sync project.
 homepage: https://github.com/marcelomendoncasoares/serverpod_offline_sync
 
 environment:
-  sdk: '^3.10.3'
+  sdk: '^3.12.2'
 
 resolution: workspace
 
 dependencies:
   clock: ^1.1.2
   meta: ^1.18.0
-  serverpod_database: 4.0.0-beta.4
-  serverpod_serialization: 4.0.0-beta.4
+  serverpod_database: 4.0.0-rc.1
+  serverpod_serialization: 4.0.0-rc.1
   uuid: ^4.5.3
 
 dev_dependencies:

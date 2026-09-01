@@ -1,10 +1,6 @@
 class: FkChainCascadeMiddle
 table: fk_chain_cascade_middle
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   name: String
-  root: FkChainRoot?, relation(field=rootId, onDelete=Cascade, deferred)
-  rootId: UuidValue?
+  root: FkChainRoot?, relation(fk, optional, onDelete=Cascade, deferred)

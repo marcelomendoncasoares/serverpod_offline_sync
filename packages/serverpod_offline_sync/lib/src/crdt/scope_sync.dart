@@ -55,18 +55,16 @@ bool _grantsEqual(List<CrdtScopeGrant>? a, List<CrdtScopeGrant> b) {
 /// control flow); this owns the scopes. It needs only a [DatabaseSession] and
 /// the membership helpers, so it carries no protocol or transport concerns.
 class CrdtScopeSyncSession {
-  /// Creates a scope session for [userId] acting in [mode] against [_session].
+  /// Creates a scope session for [_userId] acting in [_mode] against [_session].
   ///
-  /// [peerNodeId] is the remote peer's CRDT node, learned from its connect
+  /// [_peerNodeId] is the remote peer's CRDT node, learned from its connect
   /// handshake before this session is constructed.
   CrdtScopeSyncSession(
     this._session, {
-    required UuidValue userId,
-    required CrdtSyncPeerMode mode,
-    required UuidValue peerNodeId,
-  }) : _userId = userId,
-       _mode = mode,
-       _peerNodeId = peerNodeId;
+    required this._userId,
+    required this._mode,
+    required this._peerNodeId,
+  });
 
   final DatabaseSession _session;
   final UuidValue _userId;

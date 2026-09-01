@@ -1,10 +1,7 @@
 class: UniqueComposite
 table: unique_composite
-database: all
+database: sync
 fields:
-  id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
   ### This scope field has no relation with the CRDT sync layer.
   scope: String
   value: String, unique(per=[scopeId, scope])

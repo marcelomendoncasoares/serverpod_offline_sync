@@ -8,9 +8,9 @@
 // ignore_for_file: type_literal_in_constant_pattern
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
-// ignore_for_file: dead_code, unnecessary_null_comparison
+// ignore_for_file: dead_code, no_leading_underscores_for_library_prefixes
+// ignore_for_file: unnecessary_null_comparison
 
-// ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as _ixxccm81;
@@ -22,16 +22,16 @@ abstract class FkChainSetNullSetNullChild
     this.id,
     this.scopeId,
     required this.name,
-    this.setNullMiddle,
     this.setNullMiddleId,
+    this.setNullMiddle,
   });
 
   factory FkChainSetNullSetNullChild({
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
     _is.UuidValue? setNullMiddleId,
+    _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
   }) = _FkChainSetNullSetNullChildImpl;
 
   factory FkChainSetNullSetNullChild.fromJson(
@@ -43,15 +43,15 @@ abstract class FkChainSetNullSetNullChild
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
       scopeId: jsonSerialization['scopeId'] as int?,
       name: jsonSerialization['name'] as String,
-      setNullMiddle: jsonSerialization['setNullMiddle'] == null
-          ? null
-          : _ixxccm81.Protocol().deserialize<_izcicqvj.FkChainSetNullMiddle>(
-              jsonSerialization['setNullMiddle'],
-            ),
       setNullMiddleId: jsonSerialization['setNullMiddleId'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(
               jsonSerialization['setNullMiddleId'],
+            ),
+      setNullMiddle: jsonSerialization['setNullMiddle'] == null
+          ? null
+          : _ixxccm81.Protocol().deserialize<_izcicqvj.FkChainSetNullMiddle>(
+              jsonSerialization['setNullMiddle'],
             ),
     );
   }
@@ -63,14 +63,14 @@ abstract class FkChainSetNullSetNullChild
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   int? scopeId;
 
   String name;
 
-  _izcicqvj.FkChainSetNullMiddle? setNullMiddle;
-
   _is.UuidValue? setNullMiddleId;
+
+  _izcicqvj.FkChainSetNullMiddle? setNullMiddle;
 
   @override
   _is.Table<_is.UuidValue?> get table => t;
@@ -82,8 +82,8 @@ abstract class FkChainSetNullSetNullChild
     _is.UuidValue? id,
     int? scopeId,
     String? name,
-    _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
     _is.UuidValue? setNullMiddleId,
+    _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -92,8 +92,8 @@ abstract class FkChainSetNullSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
-      if (setNullMiddle != null) 'setNullMiddle': setNullMiddle?.toJson(),
       if (setNullMiddleId != null) 'setNullMiddleId': setNullMiddleId?.toJson(),
+      if (setNullMiddle != null) 'setNullMiddle': setNullMiddle?.toJson(),
     };
   }
 
@@ -104,9 +104,9 @@ abstract class FkChainSetNullSetNullChild
       if (id != null) 'id': id?.toJson(),
       if (scopeId != null) 'scopeId': scopeId,
       'name': name,
+      if (setNullMiddleId != null) 'setNullMiddleId': setNullMiddleId?.toJson(),
       if (setNullMiddle != null)
         'setNullMiddle': setNullMiddle?.toJsonForProtocol(),
-      if (setNullMiddleId != null) 'setNullMiddleId': setNullMiddleId?.toJson(),
     };
   }
 
@@ -147,14 +147,14 @@ class _FkChainSetNullSetNullChildImpl extends FkChainSetNullSetNullChild {
     _is.UuidValue? id,
     int? scopeId,
     required String name,
-    _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
     _is.UuidValue? setNullMiddleId,
+    _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
   }) : super._(
          id: id,
          scopeId: scopeId,
          name: name,
-         setNullMiddle: setNullMiddle,
          setNullMiddleId: setNullMiddleId,
+         setNullMiddle: setNullMiddle,
        );
 
   /// Returns a shallow copy of this [FkChainSetNullSetNullChild]
@@ -165,19 +165,19 @@ class _FkChainSetNullSetNullChildImpl extends FkChainSetNullSetNullChild {
     Object? id = _Undefined,
     Object? scopeId = _Undefined,
     String? name,
-    Object? setNullMiddle = _Undefined,
     Object? setNullMiddleId = _Undefined,
+    Object? setNullMiddle = _Undefined,
   }) {
     return FkChainSetNullSetNullChild(
       id: id is _is.UuidValue? ? id : this.id,
       scopeId: scopeId is int? ? scopeId : this.scopeId,
       name: name ?? this.name,
-      setNullMiddle: setNullMiddle is _izcicqvj.FkChainSetNullMiddle?
-          ? setNullMiddle
-          : this.setNullMiddle?.copyWith(),
       setNullMiddleId: setNullMiddleId is _is.UuidValue?
           ? setNullMiddleId
           : this.setNullMiddleId,
+      setNullMiddle: setNullMiddle is _izcicqvj.FkChainSetNullMiddle?
+          ? setNullMiddle
+          : this.setNullMiddle?.copyWith(),
     );
   }
 }
@@ -224,14 +224,14 @@ class FkChainSetNullSetNullChildTable extends _is.Table<_is.UuidValue?> {
 
   late final FkChainSetNullSetNullChildUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
+  /// The scope owning this row. Maintained by the sync engine.
   late final _is.ColumnInt scopeId;
 
   late final _is.ColumnString name;
 
-  _izcicqvj.FkChainSetNullMiddleTable? _setNullMiddle;
-
   late final _is.ColumnUuid setNullMiddleId;
+
+  _izcicqvj.FkChainSetNullMiddleTable? _setNullMiddle;
 
   _izcicqvj.FkChainSetNullMiddleTable get setNullMiddle {
     if (_setNullMiddle != null) return _setNullMiddle!;
