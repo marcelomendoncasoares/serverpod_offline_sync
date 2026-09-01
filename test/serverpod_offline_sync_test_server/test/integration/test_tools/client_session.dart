@@ -33,6 +33,7 @@ final testSyncTables = [
   RestrictChild.t,
   Town.t,
   Unique.t,
+  UniqueCascadeChild.t,
   UniqueComposite.t,
   UniqueDiscriminator.t,
   UniqueSetNullChild.t,
