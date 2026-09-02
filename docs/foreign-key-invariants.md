@@ -31,13 +31,6 @@ not new user field updates emitted opportunistically during merge.
   reject the local delete while visible children exist; `SET NULL` and
   `SET DEFAULT` update child FK fields and their ordinary `CrdtDataField` HLCs;
   `CASCADE` records user-delete tombstones for the visible cascade descendants.
-- Keep the user/attempted FK value as the CRDT field value for authored
-  operations.
-- During merge projection, materialize a separate visible FK value only when FK
-  repair requires it. `CrdtDataForeignKey.attemptedValue` is the durable FK
-  field-value payload for FK columns because `CrdtDataField` stores only HLC
-  metadata. `visibleValue`, `hasOverride`, and `overrideReason` are projection
-  metadata, not business conflict classes.
 - Do not create ordinary user field updates for `SET NULL` or `SET DEFAULT`
   repairs during merge. Doing so makes repair HLCs depend on merge timing. This
   does not apply to locally initiated `SET NULL` or `SET DEFAULT` actions,
@@ -91,63 +84,14 @@ would cascade-delete `B`, but `B` has a visible `RESTRICT` child `C`, then `A`,
 `B`, and `C` remain visible. The result must not depend on whether cascade or
 restrict edges are evaluated first internally.
 
-## Projection Metadata
+## Combined Projection Boundary
 
-`CrdtDataForeignKey` should represent the FK field payload and materialized FK
-projection for one `CrdtDataField`:
-
-- `attemptedValue`: the current user-attempted FK value carried by the CRDT
-  field. It may be null for nullable FKs. This is durable FK field-value storage
-  and is part of the CRDT facts for FK columns.
-- `visibleValue`: the value currently materialized into the domain row when an
-  override is active (`overrideReason` is non-null).
-- `overrideReason`: the authoritative stored indicator that an override is
-  active, and the cause. Non-null means an override is active; null means no
-  override (the domain row carries `attemptedValue`). Values: `setNull` — the
-  parent was hidden/deleted and the column was set null by the FK action;
-  `setDefault` — the column was set to a default FK value; `missingParent` —
-  the parent is hidden or missing and cannot be repaired, so the row is hidden
-  by projection. The derived `hasOverride` bool (`overrideReason != null`) is
-  available as a convenience getter.
-
-`visibleValue` is meaningful only when `overrideReason` is non-null. When
-`overrideReason` is null the domain row carries `attemptedValue` directly; when
-`overrideReason` is non-null and `visibleValue` is null it means "materialize
-null".
-
-The resolver may use `visibleValue` and `overrideReason` for efficient
-materialization and write deduplication. It must not use those projection fields
-as the authority for FK conflict decisions; the authority is the deterministic
-resolver over merged CRDT row, field, tombstone, and FK attempt facts.
-
-A local full-row update (no column narrowing) that writes an FK value equal to
-the materialized projected value is a passthrough of the repair, not an authored
-FK change: the existing override and attempted value are preserved and the FK
-field HLC does not advance. Writing a different FK value, or updating the FK
-column with narrowed columns (even when the written value equals the projected
-value), authors the change as an ordinary user field fact: the FK field HLC
-advances, `attemptedValue` becomes the new value, and `overrideReason` becomes
-null.
-
-## Merge Pipeline
-
-1. Merge CRDT row, field, and tombstone facts by their existing HLC/CLFlag
-   rules.
-2. Identify whether inserts, updates, deletes, FK columns, parent reference
-   columns, or existing FK projection records can affect FK state. Skip FK
-   projection when the merge touches none of them.
-3. For FK-affecting work, expand to the FK closure in both directions: parents
-   needed by children and children affected by parent visibility. A full graph
-   recomputation may be used instead of the minimal closure.
-4. Compute effective row visibility and visible FK values to a fixed point.
-5. Apply only the materialized differences:
-   - update domain FK columns when projection differs from attempted value;
-   - update `CrdtDataForeignKey` projection metadata;
-   - update system tombstones only for deterministic derived visibility where
-     that is part of the chosen storage model.
-6. Re-run unique conflict projection after FK projection if FK repairs can
-   change unique columns, or define the opposite stage order and prove it with
-   the full recomputation oracle.
+The attempted-value schema, hidden-row lifecycle, exact FK-before-unique
+pipeline, atomic materialization rules, and rebuild behavior are defined once in
+[Rebuildable FK and unique projection strategy](rebuildable-projection-strategy.md).
+This document adds only the FK requirement: compute effective visibility and an
+FK-safe candidate to the affected-closure fixed point without treating derived
+unique output as an FK fact.
 
 ## Invariants
 
@@ -235,18 +179,9 @@ null.
 
 ### Cross-Cutting
 
-13. Given an FK repair changes a unique-indexed column, when unique projection
-    and FK projection are recomputed, then the documented stage order prevents
-    visible unique and FK violations.
-
-14. Given the same remote operations arrive in one batch or several smaller
-    batches, when all operations have merged, then visible rows, visible FK
-    values, FK projection metadata, unique projection, and tombstones are the
-    same.
-
-15. Given a merge touches only a non-indexed, non-FK field that is not a parent
-    reference column, then FK projection is skipped and the visible FK graph is
-    unchanged.
+The combined FK/unique, hidden-row restoration, batching, and unrelated-update
+cases are centralized under the
+[strategy verification gates](rebuildable-projection-strategy.md#verification-gates).
 
 ## What These Tests Prove
 

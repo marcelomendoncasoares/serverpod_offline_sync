@@ -2,15 +2,15 @@
 
 ## Summary
 
-Concurrent inserts or updates can make multiple CRDT rows claim the same unique
-value. The current merge model resolves this without hiding rows: every row
-remains visible, and the losing unique claims are materialized with
+Concurrent inserts or updates can make multiple visible CRDT rows claim the same
+unique value. The current merge model resolves this without hiding rows because
+of the unique conflict itself: losing unique claims are materialized with
 deterministic conflict-free visible values.
 
 This is the `flag` policy. It is intentionally simple:
 
 - all rows remain CRDT facts;
-- all rows remain visible domain rows;
+- all rows involved in a unique conflict remain visible domain rows;
 - one deterministic winner keeps the claimed unique value;
 - each loser keeps its own row identity and receives a conflict-free visible
   unique value;
@@ -22,7 +22,13 @@ implementation.
 
 ## Current Policy: Flag
 
-For each unique index conflict group:
+Candidate construction, hidden-row release, canonical attempted-value lookup,
+and restoration are defined by
+[Rebuildable FK and unique projection strategy](rebuildable-projection-strategy.md#exact-projection-order).
+The `flag` policy operates only on the visible conflict groups supplied by that
+shared planner.
+
+For each conflict group among visible rows:
 
 1. Compute each row's unique claim timestamp from the HLC of the unique-indexed
    field or fields. For an insert, use the insert HLC and any incoming field HLCs
@@ -30,20 +36,25 @@ For each unique index conflict group:
 2. Pick the winner deterministically by oldest unique-claim HLC, using the same
    full HLC ordering as the rest of CRDT merge. This includes node id as the HLC
    tie-break. Row id is only a final fallback for identical HLCs.
-3. Leave the winner's unique value unchanged.
+3. Materialize the winner's canonical claim. This lets a previously released
+   visible loser reclaim its authored value after the prior winner is hidden or
+   changes its claim.
 4. Rewrite each loser's visible releasable unique-indexed value to a
    deterministic conflict-free value:
-   - nullable unique values may be released to `null`;
+   - nullable values of a supported candidate type may be released to `null`;
    - text values receive a stable `__conflict__<rowId>` suffix;
    - UUID values receive a deterministic synthetic UUID.
-5. Keep all rows visible. Application code can decide whether and how to surface
-   the changed visible value as a business conflict.
+5. Keep every conflict-group row visible. Application code can decide whether
+   and how to surface the changed visible value as a business conflict.
 
 For a composite unique index, fixed partition columns such as `scopeId` are not
 released, and not every remaining indexed column has to be releasable. The index
 is supported when at least one non-`scopeId` column can be released
 deterministically. Stable discriminator columns may remain unchanged; changing
 the releasable column or columns is enough to make the unique tuple conflict-free.
+Supported candidate types are defined centrally under
+[Dynamic validation](rebuildable-projection-strategy.md#dynamic-validation);
+nullability alone does not make a type supported.
 
 For the global foreign-key-only unique indexes that Serverpod emits for synced
 relations, every indexed FK column must be nullable under the current `flag`
@@ -84,7 +95,7 @@ unique facts -> conflict components -> winner + losers + released loser values
 Future policies then interpret that canonical result:
 
 ```text
-flag      = show all rows; losers show released unique values
+flag      = show all conflict-component rows; losers show released unique values
 overwrite = use flag winner; alias/hide losers in the visible projection
 merge     = overwrite projection + deterministic field folding into winner
 ```
@@ -152,8 +163,9 @@ For now, the `flag` policy gives a safer and smaller invariant:
 unique projection changes values, not row identity or row visibility
 ```
 
-Foreign key repair can then be developed independently as a projection over row
-visibility and FK values, without also needing row aliasing and field folding.
+The `flag` winner/loser policy therefore remains independent of FK action
+semantics even though the shared planner feeds FK-safe candidates into unique
+resolution.
 
 ## Invariants
 
