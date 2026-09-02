@@ -138,19 +138,6 @@ class CrdtForeignKeyProjector {
         final referencedValue = reference.parentColumn == 'id'
             ? parentId
             : parentValuesById?[parentId]?[reference.parentColumn];
-        switch (reference.action) {
-          case ForeignKeyAction.setNull:
-          case ForeignKeyAction.setDefault:
-            // Domain rewrites and attempted-value retention are projection.
-            // Writing here would author a field HLC and destroy the attempted
-            // parent id.
-            continue;
-          case ForeignKeyAction.restrict:
-          case ForeignKeyAction.noAction:
-          case ForeignKeyAction.cascade:
-            break;
-        }
-
         final childIds = await _context.findVisibleReferencingRowIds(
           tableName: reference.childTableName,
           columnName: reference.childColumn,
@@ -167,8 +154,31 @@ class CrdtForeignKeyProjector {
               '${reference.childTableName}.${reference.childColumn} references it.',
             );
           case ForeignKeyAction.setNull:
+            await _updateChildColumnTo(
+              reference.childTableName,
+              childIds,
+              reference.childColumn,
+              null,
+              transaction,
+            );
           case ForeignKeyAction.setDefault:
-            continue;
+            final defaultValue = _context.defaultValueForColumn(
+              reference.childTableName,
+              reference.childColumn,
+            );
+            if (defaultValue == null) {
+              throw StateError(
+                'No default value found for '
+                '${reference.childTableName}.${reference.childColumn}.',
+              );
+            }
+            await _updateChildColumnTo(
+              reference.childTableName,
+              childIds,
+              reference.childColumn,
+              defaultValue,
+              transaction,
+            );
           case ForeignKeyAction.cascade:
             cascadeDeletes
                 .putIfAbsent(reference.childTableName, () => {})
@@ -178,6 +188,33 @@ class CrdtForeignKeyProjector {
     }
 
     return cascadeDeletes;
+  }
+
+  /// Applies a local `ON DELETE` action to a child column.
+  ///
+  /// A locally initiated `SET NULL` or `SET DEFAULT` is an authored CRDT fact,
+  /// not projection: it is the observable consequence of the delete the user
+  /// just performed, so it advances the child field HLC. The merge-triggered
+  /// action is the projection case and is handled by the planner instead.
+  Future<void> _updateChildColumnTo(
+    String childTableName,
+    Set<UuidValue> childIds,
+    String childColumn,
+    Object? value,
+    Transaction transaction,
+  ) async {
+    await _context.updateDomainRows(
+      childTableName,
+      childIds,
+      {childColumn: value},
+      transaction,
+    );
+    await _context.recordFieldsUpdatedByTable(
+      childTableName,
+      childIds,
+      [childColumn],
+      transaction,
+    );
   }
 
   bool mergeOperationsMayAffectProjection(

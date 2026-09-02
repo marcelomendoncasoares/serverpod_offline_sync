@@ -610,24 +610,16 @@ void main() {
         expect(updatedTown!.mayorId, isNull);
       });
 
-      test(
-        'then the mayor field keeps its authored HLC and stores the attempt.',
-        () async {
-          final crdtField = await CrdtDataField.db.findFirstRow(
-            session,
-            where: (t) =>
-                t.row.uuidRowId.equals(town.id) & t.column.name.equals('mayorId'),
-            include: CrdtDataField.include(
-              node: CrdtNode.include(),
-              attemptedValue: CrdtDataAttemptedValue.include(),
-            ),
-          );
+      test('then the CRDT field entry for the mayor is updated.', () async {
+        final crdtField = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.row.uuidRowId.equals(town.id) & t.column.name.equals('mayorId'),
+          include: CrdtDataField.include(node: CrdtNode.include()),
+        );
 
-          expect(crdtField!.hlc, attachedCrdtField.hlc);
-          expect(crdtField.attemptedValue, isNotNull);
-          expect(crdtField.attemptedValue!.value, person.id);
-        },
-      );
+        expect(crdtField!.hlc, greaterThan(attachedCrdtField.hlc));
+      });
     });
   });
 
@@ -686,25 +678,16 @@ void main() {
         expect(updatedCompany!.townId, defaultTown.id);
       });
 
-      test(
-        'then the town field is not authored and stores the attempted parent.',
-        () async {
-          final crdtField = await CrdtDataField.db.findFirstRow(
-            session,
-            where: (t) =>
-                t.row.uuidRowId.equals(company.id) &
-                t.column.name.equals('townId'),
-            include: CrdtDataField.include(
-              node: CrdtNode.include(),
-              attemptedValue: CrdtDataAttemptedValue.include(),
-            ),
-          );
+      test('then a CRDT field entry for the town is updated.', () async {
+        final crdtField = await CrdtDataField.db.findFirstRow(
+          session,
+          where: (t) =>
+              t.row.uuidRowId.equals(company.id) & t.column.name.equals('townId'),
+          include: CrdtDataField.include(node: CrdtNode.include()),
+        );
 
-          expect(crdtField!.hlc, companyCrdtRow.hlc);
-          expect(crdtField.attemptedValue, isNotNull);
-          expect(crdtField.attemptedValue!.value, town.id);
-        },
-      );
+        expect(crdtField!.hlc, greaterThan(companyCrdtRow.hlc));
+      });
     });
   });
 

@@ -320,7 +320,7 @@ void main() {
 
       test(
         'when pending changes are collected, '
-        'then the outbound child insert carries the authored parent.',
+        'then the outbound child insert carries the authored null.',
         () async {
           final domainChild = await UniqueSetNullChild.db.findById(
             session,
@@ -328,28 +328,19 @@ void main() {
           );
           expect(domainChild!.parentId, isNull);
 
+          // A locally initiated SET NULL is the observable consequence of the
+          // delete the user just performed, so it is authored rather than
+          // projected: the null is the authored value and nothing is retained.
           final attempted = await _attemptedValue(
             child.id!,
             UniqueSetNullChild.t.parentId.columnName,
           );
-          expect(attempted, isNotNull);
-          expect(attempted!.value, parent.id);
-          expect(
-            attempted.projectionReason,
-            CrdtProjectionReason.foreignKeySetNull,
-          );
+          expect(attempted, isNull);
 
           final insert = (await _pendingInserts(crdtSync))
               .where((change) => change.uuidRowId == child.id)
               .single;
-          expect((insert.data as UniqueSetNullChild).parentId, parent.id);
-
-          final parentIdUpdates = (await _pendingUpdates(crdtSync)).where(
-            (change) =>
-                change.uuidRowId == child.id &&
-                change.columnName == UniqueSetNullChild.t.parentId.columnName,
-          );
-          expect(parentIdUpdates, isEmpty);
+          expect((insert.data as UniqueSetNullChild).parentId, isNull);
         },
       );
     },
