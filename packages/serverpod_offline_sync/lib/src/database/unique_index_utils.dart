@@ -192,11 +192,20 @@ enum CrdtUniqueConflictReleaseKind {
   syntheticUuid,
 }
 
+/// Whether [column] is a JSON-backed domain column that cannot participate in
+/// a synchronized unique claim.
+@internal
+bool isCrdtUnsupportedJsonUniqueColumn(ColumnDefinition column) {
+  return column.columnType == ColumnType.json ||
+      column.columnType == ColumnType.jsonb;
+}
+
 @internal
 CrdtUniqueConflictReleaseKind? crdtUniqueConflictReleaseKindForColumn(
   TableDefinition table,
   ColumnDefinition column,
 ) {
+  if (isCrdtUnsupportedJsonUniqueColumn(column)) return null;
   if (column.isNullable) return CrdtUniqueConflictReleaseKind.setNull;
   if (column.columnType == ColumnType.text) {
     return CrdtUniqueConflictReleaseKind.textSuffix;
@@ -206,6 +215,46 @@ CrdtUniqueConflictReleaseKind? crdtUniqueConflictReleaseKindForColumn(
     return CrdtUniqueConflictReleaseKind.syntheticUuid;
   }
   return null;
+}
+
+/// Unique indexes that include a json or jsonb domain column.
+///
+/// Sync has no canonical cross-dialect JSON equality, so neither a nullable
+/// JSON releasable candidate nor a non-nullable JSON fixed component is
+/// supported.
+@internal
+List<String> crdtJsonUniqueIndexViolations(
+  List<Table> syncTables,
+  Map<String, TableDefinition> tableDefinitionsByName,
+) {
+  final syncTableNames = {for (final table in syncTables) table.tableName};
+  return [
+    for (final tableName in syncTableNames)
+      if (tableDefinitionsByName[tableName] case final table?)
+        for (final index in crdtSyncableUniqueIndexesForTable(
+          table,
+          syncTableNames,
+        ))
+          if (_jsonUniqueIndexColumns(table, index).isNotEmpty)
+            '$tableName.${index.indexName}',
+  ];
+}
+
+List<String> _jsonUniqueIndexColumns(
+  TableDefinition table,
+  IndexDefinition index,
+) {
+  final columnsByName = {
+    for (final column in table.columns) column.name: column,
+  };
+  return [
+    for (final element in index.elements)
+      if (element.type == IndexElementDefinitionType.column &&
+          element.definition != 'scopeId')
+        if (columnsByName[element.definition] case final column?
+            when isCrdtUnsupportedJsonUniqueColumn(column))
+          column.name,
+  ];
 }
 
 @internal

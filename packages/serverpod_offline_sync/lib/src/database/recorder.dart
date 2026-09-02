@@ -50,6 +50,12 @@ class CrdtDatabaseContext {
 
   _CrdtSchema? _schema;
   Future<_CrdtSchema>? _schemaFuture;
+  var _registryChanged = false;
+
+  /// Whether schema reconciliation inserted, updated, or deleted registry rows
+  /// during this context's first [initialize].
+  @internal
+  bool get registryChanged => _registryChanged;
 
   /// Initializes shared schema rows and caches their generated identifiers.
   Future<void> initialize(DatabaseSession session) async {
@@ -73,6 +79,7 @@ class CrdtDatabaseContext {
       tableDefinitions: _tableDefinitions,
     );
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
+    _registryChanged = schemaRegistry.registryChanged;
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
     for (final column in columnRows) {
@@ -257,10 +264,33 @@ class CrdtMutationRecorder {
 
   Future<void> _initializeOnce() async {
     await _databaseContext.initialize(_session);
+    if (_databaseContext.registryChanged) {
+      await _rebuildProjectionsForAllScopes();
+    }
     if (persistentUserId != null) {
       await _context.scopeManager.getOrCreate(persistentUserId!);
     }
     _isInitialized = true;
+  }
+
+  Future<void> _rebuildProjectionsForAllScopes() async {
+    if (_foreignKeys.edges.isEmpty) return;
+
+    final scopes = await CrdtScope.db.find(
+      _session,
+      include: CrdtScope.include(currentNode: CrdtNode.include()),
+    );
+    for (final scope in scopes) {
+      if (scope.currentNode == null || scope.currentNodeId == null) continue;
+      await _db.transaction((tx) async {
+        scopeForTransaction[tx] = scope;
+        try {
+          await _foreignKeyProjector.project(tx);
+        } finally {
+          scopeForTransaction.remove(tx);
+        }
+      });
+    }
   }
 
   /// The user ID to use for all CRDT operations. This should only be used for

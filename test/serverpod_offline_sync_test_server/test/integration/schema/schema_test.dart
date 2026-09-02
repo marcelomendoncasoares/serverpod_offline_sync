@@ -10,8 +10,16 @@ void main() {
   initTestClientSession();
 
   tearDown(() async {
+    await session.db.unsafeExecute('PRAGMA foreign_keys = OFF');
+    await CrdtDataForeignKey.db.deleteWhere(
+      session,
+      where: (t) => Constant.bool(true),
+    );
+    await CrdtDataField.db.deleteWhere(session, where: (t) => Constant.bool(true));
+    await CrdtDataRow.db.deleteWhere(session, where: (t) => Constant.bool(true));
     await CrdtSchemaColumn.db.deleteWhere(session, where: (t) => Constant.bool(true));
     await CrdtSchemaTable.db.deleteWhere(session, where: (t) => Constant.bool(true));
+    await session.db.unsafeExecute('PRAGMA foreign_keys = ON');
   });
 
   test(
@@ -38,10 +46,7 @@ void main() {
       late List<CrdtSchemaColumn> columnRows;
 
       setUp(() async {
-        (tableRows, columnRows) = await CrdtSchemaRegistry(
-          session,
-          syncTables: [table],
-        ).syncAndGetSchema();
+        (tableRows, columnRows) = await _uuidPkRegistry([table]).syncAndGetSchema();
       });
 
       test(
@@ -59,7 +64,7 @@ void main() {
           expect(columnRows, hasLength(table.columns.syncColumnNames.length));
           expect(
             columnRows.map((c) => c.name).toSet(),
-            table.columns.syncColumnNames,
+            table.columns.syncColumnNames.toSet(),
           );
           expect(columnRows.map((c) => c.tblId).toSet(), {tableRows.single.id!});
         },
@@ -78,10 +83,7 @@ void main() {
         _UuidPkTable(name: 'table3'),
       ];
 
-      final (tableRows, columnRows) = await CrdtSchemaRegistry(
-        session,
-        syncTables: tables,
-      ).syncAndGetSchema();
+      final (tableRows, columnRows) = await _uuidPkRegistry(tables).syncAndGetSchema();
 
       expect(tableRows, hasLength(tables.length));
       expect(
@@ -105,20 +107,18 @@ void main() {
       late List<CrdtSchemaColumn> firstColumnRows;
 
       setUp(() async {
-        (firstTableRows, firstColumnRows) = await CrdtSchemaRegistry(
-          session,
-          syncTables: [table],
-        ).syncAndGetSchema();
+        (firstTableRows, firstColumnRows) = await _uuidPkRegistry([
+          table,
+        ]).syncAndGetSchema();
       });
 
       test(
         'when syncAndGetSchema is called again with the same tables as the sync list, '
         'then the table and columns are not duplicated.',
         () async {
-          final (secondTableRows, secondColumnRows) = await CrdtSchemaRegistry(
-            session,
-            syncTables: [table],
-          ).syncAndGetSchema();
+          final (secondTableRows, secondColumnRows) = await _uuidPkRegistry([
+            table,
+          ]).syncAndGetSchema();
 
           expect(secondTableRows, hasLength(1));
           expect(secondTableRows.single.name, table.tableName);
@@ -733,18 +733,403 @@ void main() {
       );
     },
   );
+
+  test(
+    'Given a CRDT schema registry for Unique, '
+    'when syncAndGetSchema is called, '
+    'then the name column persists storage type, Dart type, and nullability.',
+    () async {
+      final (_, columnRows) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Unique.t],
+      ).syncAndGetSchema();
+
+      final nameColumn = columnRows.singleWhere((column) => column.name == 'name');
+      expect(nameColumn.columnType, ColumnType.text.name);
+      expect(nameColumn.dartType, 'String');
+      expect(nameColumn.isNullable, isFalse);
+    },
+  );
+
+  test(
+    'Given a synced Unique name column whose type identity already matches, '
+    'when syncAndGetSchema is called again, '
+    'then the persisted column id and type identity are unchanged.',
+    () async {
+      final registry = CrdtSchemaRegistry(session, syncTables: [Unique.t]);
+      final (_, firstColumns) = await registry.syncAndGetSchema();
+      final firstName = firstColumns.singleWhere((column) => column.name == 'name');
+
+      final (_, secondColumns) = await registry.syncAndGetSchema();
+      final secondName = secondColumns.singleWhere((column) => column.name == 'name');
+
+      expect(secondName.id, firstName.id);
+      expect(secondName.columnType, firstName.columnType);
+      expect(secondName.dartType, firstName.dartType);
+      expect(secondName.isNullable, firstName.isNullable);
+      expect(registry.registryChanged, isFalse);
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a nullable json unique index, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () {
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Unique.t],
+          tableDefinitions: [
+            _uniqueNameDefinition(
+              columnType: ColumnType.json,
+              isNullable: true,
+            ),
+          ],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('json or jsonb'),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry with a non-nullable jsonb unique index, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () {
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [Unique.t],
+          tableDefinitions: [
+            _uniqueNameDefinition(columnType: ColumnType.jsonb),
+          ],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('json or jsonb'),
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'Given a registered Unique name column with no attempted-value rows, '
+    'when the persisted type identity changes, '
+    'then the existing schema column is updated in place.',
+    () async {
+      final registry = CrdtSchemaRegistry(session, syncTables: [Unique.t]);
+      final (_, firstColumns) = await registry.syncAndGetSchema();
+      final firstName = firstColumns.singleWhere((column) => column.name == 'name');
+
+      final (_, secondColumns) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Unique.t],
+        tableDefinitions: [
+          _uniqueNameDefinition(dartType: 'String?', isNullable: true),
+        ],
+      ).syncAndGetSchema();
+      final secondName = secondColumns.singleWhere((column) => column.name == 'name');
+
+      expect(secondName.id, firstName.id);
+      expect(secondName.columnType, ColumnType.text.name);
+      expect(secondName.dartType, 'String?');
+      expect(secondName.isNullable, isTrue);
+    },
+  );
+
+  test(
+    'Given a registered Unique name column with an attempted-value row, '
+    'when the persisted type identity changes, '
+    'then initialization fails without mutating the registry.',
+    () async {
+      final registry = CrdtSchemaRegistry(session, syncTables: [Unique.t]);
+      final (tables, firstColumns) = await registry.syncAndGetSchema();
+      final firstName = firstColumns.singleWhere((column) => column.name == 'name');
+      await _insertAttemptedValue(column: firstName, table: tables.single);
+
+      await expectLater(
+        CrdtSchemaRegistry(
+          session,
+          syncTables: [Unique.t],
+          tableDefinitions: [
+            _uniqueNameDefinition(dartType: 'String?', isNullable: true),
+          ],
+        ).syncAndGetSchema(),
+        throwsA(
+          isA<CrdtSchemaReconciliationException>().having(
+            (error) => error.toString(),
+            'toString',
+            allOf(
+              contains('${Unique.t.tableName}.name'),
+              contains('columnType=${ColumnType.text.name}'),
+              contains('dartType=String'),
+              contains('isNullable=false'),
+              contains('dartType=String?'),
+              contains('isNullable=true'),
+              contains('attest completion'),
+            ),
+          ),
+        ),
+      );
+
+      final stored = await CrdtSchemaColumn.db.findById(session, firstName.id!);
+      expect(stored!.dartType, 'String');
+      expect(stored.isNullable, isFalse);
+    },
+  );
+
+  test(
+    'Given a registered Unique name column with field metadata but no attempted '
+    'value, '
+    'when the persisted type identity changes, '
+    'then the existing schema column is updated in place.',
+    () async {
+      final registry = CrdtSchemaRegistry(session, syncTables: [Unique.t]);
+      final (tables, firstColumns) = await registry.syncAndGetSchema();
+      final firstName = firstColumns.singleWhere((column) => column.name == 'name');
+      await _insertFieldMetadata(column: firstName, table: tables.single);
+
+      final (_, secondColumns) = await CrdtSchemaRegistry(
+        session,
+        syncTables: [Unique.t],
+        tableDefinitions: [
+          _uniqueNameDefinition(dartType: 'String?', isNullable: true),
+        ],
+      ).syncAndGetSchema();
+      final secondName = secondColumns.singleWhere((column) => column.name == 'name');
+
+      expect(secondName.id, firstName.id);
+      expect(secondName.dartType, 'String?');
+      expect(secondName.isNullable, isTrue);
+    },
+  );
+
+  test(
+    'Given a registered uuid-pk table whose name column has field metadata, '
+    'when the table both drops that column and adds another, '
+    'then initialization fails without mutating the registry.',
+    () async {
+      final original = _UuidPkTable();
+      final (tables, firstColumns) = await _uuidPkRegistry([
+        original,
+      ]).syncAndGetSchema();
+      final nameColumn = firstColumns.singleWhere((column) => column.name == 'name');
+      await _insertFieldMetadata(column: nameColumn, table: tables.single);
+
+      final renamed = _UuidPkTable(extraColumnNames: const ['title', 'is_active']);
+      await expectLater(
+        _uuidPkRegistry([renamed]).syncAndGetSchema(),
+        throwsA(
+          isA<CrdtSchemaReconciliationException>().having(
+            (error) => error.toString(),
+            'toString',
+            allOf(
+              contains('${original.tableName}.name'),
+              contains('${original.tableName}.title'),
+              contains('Update CrdtSchemaColumn.name'),
+            ),
+          ),
+        ),
+      );
+
+      final storedNames = (await CrdtSchemaColumn.db.find(session))
+          .where((column) => column.tblId == tables.single.id)
+          .map((column) => column.name)
+          .toSet();
+      expect(storedNames, contains('name'));
+      expect(storedNames, isNot(contains('title')));
+    },
+  );
+
+  test(
+    'Given a registered uuid-pk table with no field metadata, '
+    'when the table both drops a column and adds another, '
+    'then the drop and add are applied.',
+    () async {
+      await _uuidPkRegistry([_UuidPkTable()]).syncAndGetSchema();
+
+      final renamed = _UuidPkTable(extraColumnNames: const ['title', 'is_active']);
+      final (_, columns) = await _uuidPkRegistry([renamed]).syncAndGetSchema();
+
+      expect(columns.map((column) => column.name).toSet(), {
+        'id',
+        'title',
+        'is_active',
+      });
+    },
+  );
+
+  test(
+    'Given a CRDT schema registry for a table with no TableDefinition, '
+    'when the registry is created, '
+    'then an error is thrown.',
+    () {
+      expect(
+        () => CrdtSchemaRegistry(
+          session,
+          syncTables: [_UuidPkTable()],
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('TableDefinition'),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _UuidPkTable extends Table<UuidValue> {
-  _UuidPkTable({String? name}) : super(tableName: name ?? 'uuid_pk_table');
+  _UuidPkTable({
+    String? name,
+    this.extraColumnNames = const ['name', 'is_active'],
+  }) : super(tableName: name ?? 'uuid_pk_table');
+
+  final List<String> extraColumnNames;
 
   @override
   List<Column> get columns => [
     id,
     ColumnInt('scopeId', this),
-    ColumnString('name', this),
-    ColumnBool('is_active', this),
+    for (final columnName in extraColumnNames)
+      if (columnName == 'is_active')
+        ColumnBool(columnName, this)
+      else
+        ColumnString(columnName, this),
   ];
+}
+
+CrdtSchemaRegistry _uuidPkRegistry(List<_UuidPkTable> tables) {
+  return CrdtSchemaRegistry(
+    session,
+    syncTables: tables,
+    tableDefinitions: [for (final table in tables) _uuidPkTableDefinition(table)],
+  );
+}
+
+TableDefinition _uuidPkTableDefinition(_UuidPkTable table) {
+  return TableDefinition(
+    name: table.tableName,
+    schema: 'public',
+    columns: [
+      for (final column in table.columns)
+        ColumnDefinition(
+          name: column.columnName,
+          columnType: switch (column.columnName) {
+            'id' => ColumnType.uuid,
+            'scopeId' => ColumnType.bigint,
+            'is_active' => ColumnType.boolean,
+            _ => ColumnType.text,
+          },
+          isNullable: column.columnName == 'id' || column.columnName == 'scopeId',
+          dartType: switch (column.columnName) {
+            'id' => 'UuidValue?',
+            'scopeId' => 'int?',
+            'is_active' => 'bool',
+            _ => 'String',
+          },
+        ),
+    ],
+    foreignKeys: [
+      ForeignKeyDefinition(
+        constraintName: '${table.tableName}_fk_scopeId',
+        columns: const ['scopeId'],
+        referenceTable: 'crdt_scopes',
+        referenceTableSchema: 'public',
+        referenceColumns: const ['id'],
+        onDelete: ForeignKeyAction.cascade,
+      ),
+    ],
+    indexes: const [],
+  );
+}
+
+TableDefinition _uniqueNameDefinition({
+  ColumnType? columnType,
+  String? dartType,
+  bool? isNullable,
+}) {
+  final definition = session.db.serializationManager
+      .getTargetTableDefinitions()
+      .firstWhere((table) => table.name == Unique.t.tableName);
+  return definition.copyWith(
+    columns: [
+      for (final column in definition.columns)
+        column.name == 'name'
+            ? column.copyWith(
+                columnType: columnType ?? column.columnType,
+                dartType: dartType ?? column.dartType,
+                isNullable: isNullable ?? column.isNullable,
+              )
+            : column,
+    ],
+  );
+}
+
+Future<({CrdtScope scope, CrdtNode node})> _insertScopeAndNode() async {
+  final node = await CrdtNode.db.insertRow(
+    session,
+    CrdtNode(uuidNodeId: const Uuid().v7obj()),
+  );
+  final scope = await CrdtScope.db.insertRow(
+    session,
+    CrdtScope(uuidScopeId: testCrdtUserId, currentNodeId: node.id),
+  );
+  return (scope: scope, node: node);
+}
+
+Future<CrdtDataField> _insertFieldMetadata({
+  required CrdtSchemaColumn column,
+  required CrdtSchemaTable table,
+}) async {
+  final (:scope, :node) = await _insertScopeAndNode();
+  final row = await CrdtDataRow.db.insertRow(
+    session,
+    CrdtDataRow(
+      scopeId: scope.id!,
+      tblId: table.id!,
+      uuidRowId: const Uuid().v7obj(),
+      nodeId: node.id!,
+      hlcDatetime: DateTime.now().toUtc(),
+      hlcCounter: 0,
+    ),
+  );
+  return CrdtDataField.db.insertRow(
+    session,
+    CrdtDataField(
+      rowId: row.id!,
+      columnId: column.id!,
+      nodeId: node.id!,
+      hlcDatetime: row.hlcDatetime,
+      hlcCounter: 0,
+    ),
+  );
+}
+
+Future<void> _insertAttemptedValue({
+  required CrdtSchemaColumn column,
+  required CrdtSchemaTable table,
+}) async {
+  final field = await _insertFieldMetadata(column: column, table: table);
+  await CrdtDataForeignKey.db.insertRow(
+    session,
+    CrdtDataForeignKey(
+      fieldId: field.id!,
+      attemptedValue: const Uuid().v7obj(),
+    ),
+  );
 }
 
 extension on List<Column<dynamic>> {

@@ -196,6 +196,106 @@ void main() {
       },
     );
   });
+
+  group('Given table definitions with different column storage types,', () {
+    final baseDefinitions = [
+      uniqueDefinition,
+    ];
+    final changedDefinitions = [
+      uniqueDefinition.copyWith(
+        columns: [
+          for (final column in uniqueDefinition.columns)
+            column.name == 'name'
+                ? column.copyWith(columnType: ColumnType.uuid)
+                : column,
+        ],
+      ),
+    ];
+
+    test(
+      'when comparing the definition hashes, '
+      'then their hash values are different.',
+      () {
+        final baseHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: baseDefinitions,
+        );
+
+        final changedHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: changedDefinitions,
+        );
+
+        expect(changedHash, isNot(baseHash));
+      },
+    );
+  });
+
+  group('Given table definitions with different column Dart types,', () {
+    final baseDefinitions = [
+      uniqueDefinition,
+    ];
+    final changedDefinitions = [
+      uniqueDefinition.copyWith(
+        columns: [
+          for (final column in uniqueDefinition.columns)
+            column.name == 'name'
+                ? column.copyWith(dartType: 'String?')
+                : column,
+        ],
+      ),
+    ];
+
+    test(
+      'when comparing the definition hashes, '
+      'then their hash values are different.',
+      () {
+        final baseHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: baseDefinitions,
+        );
+
+        final changedHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: changedDefinitions,
+        );
+
+        expect(changedHash, isNot(baseHash));
+      },
+    );
+  });
+
+  group('Given table definitions with different column nullability,', () {
+    final baseDefinitions = [
+      uniqueDefinition,
+    ];
+    final changedDefinitions = [
+      uniqueDefinition.copyWith(
+        columns: [
+          for (final column in uniqueDefinition.columns)
+            column.name == 'name' ? column.copyWith(isNullable: true) : column,
+        ],
+      ),
+    ];
+
+    test(
+      'when comparing the definition hashes, '
+      'then their hash values are different.',
+      () {
+        final baseHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: baseDefinitions,
+        );
+
+        final changedHash = CrdtSync.computeSyncTablesHash(
+          syncTables,
+          tableDefinitions: changedDefinitions,
+        );
+
+        expect(changedHash, isNot(baseHash));
+      },
+    );
+  });
 }
 
 extension on DatabaseSerializationManager {

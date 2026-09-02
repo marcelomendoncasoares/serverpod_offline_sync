@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../database/database.dart';
 import '../database/merge_utils/database_helpers.dart';
 import '../database/recorder.dart';
+import '../database/unique_index_utils.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/scope.dart';
@@ -1065,10 +1066,11 @@ class CrdtSync {
         .map((table) {
           final definition = tableDefinitionsByName[table.tableName];
           final columns = [
-            for (final column in definition?.columns ?? const <ColumnDefinition>[])
-              if (column.name != 'scopeId')
-                '${column.name}:${column.columnType.name}:${column.dartType}',
-            if (definition == null)
+            if (definition != null)
+              for (final column in definition.columns)
+                if (column.name != 'scopeId')
+                  _canonicalColumnIdentity(definition, column)
+            else
               for (final column in table.columns)
                 if (column.columnName != 'scopeId') column.columnName,
           ]..sort();
@@ -1080,6 +1082,15 @@ class CrdtSync {
               'uq[${uniqueIndexes.join(';')}]';
         })
         .join(';');
+  }
+
+  static String _canonicalColumnIdentity(
+    TableDefinition table,
+    ColumnDefinition column,
+  ) {
+    final releaseKind = crdtUniqueConflictReleaseKindForColumn(table, column);
+    return '${column.name}:${column.columnType.name}:${column.dartType}:'
+        '${column.isNullable}:${releaseKind?.name ?? '-'}';
   }
 
   static List<String> _canonicalForeignKeys(TableDefinition? definition) {
