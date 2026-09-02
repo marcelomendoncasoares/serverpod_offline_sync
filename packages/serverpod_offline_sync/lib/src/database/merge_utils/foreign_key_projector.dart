@@ -1441,6 +1441,20 @@ class CrdtForeignKeyProjector {
         'No CRDT schema column for ${fieldKey.$1}.${fieldKey.$3}.',
       );
     }
+    // The projector's state only holds fields it loaded for the columns and
+    // scope of this pass, so a field for this row and column can already exist.
+    // Reuse it instead of inserting a duplicate onto the row/column index.
+    final existing = await CrdtDataField.db.findFirstRow(
+      _context.databaseSession,
+      where: (t) =>
+          t.rowId.equals(row.crdtRow.id) & t.columnId.equals(columnId),
+      transaction: transaction,
+    );
+    if (existing != null) {
+      state.fieldIds[fieldKey] = existing.id!;
+      return existing.id!;
+    }
+
     final inserted = await CrdtDataField.db.insert(
       _context.databaseSession,
       [

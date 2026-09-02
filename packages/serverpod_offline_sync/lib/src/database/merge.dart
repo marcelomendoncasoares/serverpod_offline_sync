@@ -522,7 +522,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     CrdtDataField? currentField,
     Transaction transaction,
   ) async {
-    if (currentField == null) {
+    // Projection can create field metadata for a row this merge context loaded
+    // before the row existed, so an unseen field may still be persisted. Adopt
+    // it instead of inserting a second row onto the row/column unique index.
+    final existingField =
+        currentField ??
+        await CrdtDataField.db.findFirstRow(
+          _session,
+          where: (t) => t.rowId.equals(row.id) & t.columnId.equals(column.id),
+          transaction: transaction,
+        );
+
+    if (existingField == null) {
       final insertedField = await CrdtDataField.db.insertRow(
         _session,
         CrdtDataField(
@@ -542,7 +553,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       );
     }
 
-    final updatedField = currentField.copyWith(
+    final updatedField = existingField.copyWith(
       row: row,
       column: column,
       nodeId: remoteNode.id,
