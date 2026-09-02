@@ -134,13 +134,18 @@ void main() {
         await syncWithServer(author, server);
       });
 
-      test('then the child is hidden on every node that saw it.', () async {
-        await syncWithServer(deleter, server);
+        test('then the child is hidden on every node that saw it.', () async {
+          await syncWithServer(deleter, server);
 
-        expect(await render(server), 'hidden taken', reason: 'server');
-        expect(await render(author), 'hidden taken', reason: 'author');
-        expect(await render(deleter), 'hidden taken', reason: 'deleter');
-      });
+          final expected = await render(server);
+          expect(
+            expected,
+            matches(RegExp(r'^hidden taken__hidden__[0-9a-f-]+$')),
+            reason: 'server',
+          );
+          expect(await render(author), expected, reason: 'author');
+          expect(await render(deleter), expected, reason: 'deleter');
+        });
 
       group('when a client that never saw that child claims the name,', () {
         late Object? claimError;

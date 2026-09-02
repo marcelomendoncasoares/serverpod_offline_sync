@@ -52,14 +52,13 @@ extension CrdtDataDeletedExtension on CrdtDataDeleted {
       : toHlcForNode(node!.uuidNodeId);
 }
 
-/// Extensions for the [CrdtDataForeignKey] class.
-extension CrdtDataForeignKeyExtension on CrdtDataForeignKey {
-  /// Whether an active projection override exists for this FK field.
+/// Extensions for the [CrdtDataAttemptedValue] class.
+extension CrdtDataAttemptedValueExtension on CrdtDataAttemptedValue {
+  /// Whether this sparse row records an active projection override.
   ///
-  /// Derived from [CrdtDataForeignKey.overrideReason]: an override is active if
-  /// and only if [overrideReason] is non-null. This is the authoritative test
-  /// for whether the domain row's FK value differs from the attempted value.
-  bool get hasOverride => overrideReason != null;
+  /// [CrdtDataAttemptedValue] is stored only while the domain value differs
+  /// from the authored value, so the row's presence is the override.
+  bool get hasOverride => true;
 }
 
 /// Extensions for the [CrdtDataDeletedReason] enum.

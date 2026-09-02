@@ -274,8 +274,6 @@ class CrdtMutationRecorder {
   }
 
   Future<void> _rebuildProjectionsForAllScopes() async {
-    if (_foreignKeys.edges.isEmpty) return;
-
     final scopes = await CrdtScope.db.find(
       _session,
       include: CrdtScope.include(currentNode: CrdtNode.include()),
@@ -358,11 +356,203 @@ class CrdtMutationRecorder {
     });
   }
 
+  /// Recomputes FK/unique projection for currently stored rows.
+  ///
+  /// Used before upsert so hidden unique claims are released before the
+  /// physical write can occupy the same index.
+  Future<void> projectCurrent(Transaction transaction) {
+    return _foreignKeyProjector.project(transaction);
+  }
+
+  /// Plans FK/unique projection for rows that are about to be inserted.
+  ///
+  /// Releases hidden unique claims first and returns copies whose unique/FK
+  /// columns already hold the planned domain values, so the physical write
+  /// cannot violate an immediate unique index. Authored values that differ
+  /// from the planned domain are returned so they can be stored as attempted
+  /// values after the insert.
+  Future<({List<T> rows, ForeignKeyAttemptsByField attempts})> planLocalInserts<T
+      extends TableRow>(
+    List<T> rows,
+    Transaction transaction,
+  ) async {
+    if (rows.isEmpty) {
+      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+    }
+    final tableName = rows.first.table.tableName;
+    if (!_context.isCrdtTrackedTableName(tableName)) {
+      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+    }
+    if (!_foreignKeyProjector.needsProjection(tableName, null)) {
+      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+    }
+
+    final hlcManager = _context.hlcManagerFor(transaction);
+    final pendingHlc = hlcManager.increment();
+    final node = hlcManager.getNode();
+    final pending = <PendingProjectionRow>[
+      for (final row in rows)
+        if (row.id is UuidValue)
+          (
+            tableName: tableName,
+            rowId: row.id as UuidValue,
+            authoredValues: _authoredValuesFromRow(row, null),
+            rowHlc: pendingHlc,
+            node: node,
+            hidden: false,
+          ),
+    ];
+    if (pending.isEmpty) {
+      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+    }
+
+    final planned = await _foreignKeyProjector.project(
+      transaction,
+      pendingInserts: pending,
+    );
+    final attempts = <MergeFieldKey, ForeignKeyAttempt>{};
+    for (final pendingRow in pending) {
+      final plannedDomain =
+          planned[(pendingRow.tableName, pendingRow.rowId)] ??
+          pendingRow.authoredValues;
+      for (final MapEntry(key: columnName, value: authored)
+          in pendingRow.authoredValues.entries) {
+        if (projectionValuesEqual(plannedDomain[columnName], authored)) continue;
+        attempts[(pendingRow.tableName, pendingRow.rowId, columnName)] = (
+          value: authored,
+          reason: CrdtProjectionReason.uniqueConflict,
+        );
+      }
+    }
+    return (
+      rows: [
+        for (final row in rows)
+          _withPlannedDomainValues(
+            row,
+            planned[(tableName, row.id as UuidValue)],
+          ),
+      ],
+      attempts: attempts,
+    );
+  }
+
+  /// Plans FK/unique projection for rows that are about to be updated.
+  Future<List<T>> planLocalUpdates<T extends TableRow>(
+    List<T> rows,
+    List<Column>? columns,
+    Transaction transaction,
+  ) async {
+    if (rows.isEmpty) return rows;
+    final tableName = rows.first.table.tableName;
+    if (!_context.isCrdtTrackedTableName(tableName)) return rows;
+    final columnNames = columns?.map((column) => column.columnName).toSet();
+    if (!_foreignKeyProjector.needsProjection(tableName, columnNames)) {
+      return rows;
+    }
+
+    final authored = {
+      for (final row in rows)
+        if (row.id is UuidValue)
+          for (final MapEntry(key: columnName, value: value)
+              in _authoredValuesFromRow(row, columns).entries)
+            (tableName, row.id as UuidValue, columnName): canonicalDomainValue(
+              value,
+            ),
+    };
+    var overlays = authored;
+    if (columns == null) {
+      final currentDomain = await _readPlannedDomainValues(
+        tableName,
+        {
+          for (final row in rows)
+            if (row.id is UuidValue) row.id as UuidValue,
+        },
+        {for (final fieldKey in authored.keys) fieldKey.$3},
+        transaction,
+      );
+      overlays = {
+        for (final MapEntry(key: fieldKey, value: value) in authored.entries)
+          if (!projectionValuesEqual(
+            currentDomain[fieldKey.$2]?[fieldKey.$3],
+            value,
+          ))
+            fieldKey: value,
+      };
+    }
+    final planned = await _foreignKeyProjector.project(
+      transaction,
+      authoredOverlays: overlays,
+    );
+    return [
+      for (final row in rows)
+        _withPlannedDomainValues(row, planned[(tableName, row.id as UuidValue)]),
+    ];
+  }
+
+  Map<String, Object?> _authoredValuesFromRow<T extends TableRow>(
+    T row,
+    List<Column>? columns,
+  ) {
+    final json = row.toJsonForDatabase() as Map<String, dynamic>;
+    final columnNames = [
+      for (final column in (columns ?? row.table.managedColumns))
+        if (column.columnName != 'id' && column.columnName != 'scopeId')
+          column.columnName,
+    ];
+    return {
+      for (final columnName in columnNames) columnName: json[columnName],
+    };
+  }
+
+  T _withPlannedDomainValues<T extends TableRow>(
+    T row,
+    Map<String, Object?>? planned,
+  ) {
+    if (planned == null || planned.isEmpty) return row;
+    // Merge inserts are typed as [TableRow], and generated models are often a
+    // private `_*Impl` subclass. Read `__className__` from the payload so
+    // explicit nulls (e.g. a missing-parent FK) are applied.
+    final data = Map<String, dynamic>.from(row.toJson() as Map);
+    for (final column in row.table.crdtSyncableColumns) {
+      if (planned.containsKey(column.columnName)) {
+        data[column.fieldName] = planned[column.columnName];
+      }
+    }
+    final className = data.remove('__className__') as String?;
+    if (className == null) {
+      throw StateError(
+        'Cannot apply planned domain values: ${row.runtimeType} has no class name.',
+      );
+    }
+    return _session.db.serializationManager.deserializeByClassName({
+      'className': className,
+      'data': data,
+    }) as T;
+  }
+
+  Future<Map<UuidValue, Map<String, Object?>>> _readPlannedDomainValues(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Set<String> columnNames,
+    Transaction transaction,
+  ) {
+    if (rowIds.isEmpty || columnNames.isEmpty) {
+      return Future.value(const {});
+    }
+    return _context.readDomainColumnValues(
+      tableName,
+      rowIds,
+      columnNames.toList(),
+      transaction,
+    );
+  }
+
   /// Insert the CRDT metadata for the inserted rows.
   Future<void> afterInsert<T extends TableRow>(
     List<T> insertedRows,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    ForeignKeyAttemptsByField attempts = const {},
+  }) async {
     await _forTrackedRows(insertedRows, transaction, (
       tableName,
       rowIds,
@@ -381,9 +571,9 @@ class CrdtMutationRecorder {
         tableName,
         rowIds,
         transaction,
-        {},
+        attempts,
       );
-      await _maybeProjectForeignKeys(tableName, null, transaction);
+      await _maybeProject(tableName, null, transaction);
     });
   }
 
@@ -411,14 +601,40 @@ class CrdtMutationRecorder {
         CrdtDataDeletedReason.userReinsert,
         transaction,
       );
-      await _recordUpdatedFields(reinsertedRows, crdtDataRows, null, transaction);
+      final skippedFields = {
+        ...await _foreignKeyProjector.findImplicitRepairFields(
+          tableName: tableName,
+          rowIds: rowIds,
+          transaction: transaction,
+        ),
+        ...await _foreignKeyProjector.findRestoredAuthoredFields(
+          tableName: tableName,
+          rowIds: rowIds,
+          transaction: transaction,
+        ),
+        ...await _foreignKeyProjector.findActiveAttemptedFields(
+          tableName: tableName,
+          rowIds: rowIds,
+          transaction: transaction,
+        ),
+      };
+      // Reinsert is a full-row passthrough. Projected unique/FK columns must
+      // keep their original claim HLC so restoration can reclaim or lose
+      // without authoring a newer unique claim.
+      await _recordUpdatedFields(
+        reinsertedRows,
+        crdtDataRows,
+        null,
+        transaction,
+        skippedFields: skippedFields,
+      );
       await _foreignKeyProjector.recordAttemptsForRows(
         tableName,
         rowIds,
         null,
         transaction,
       );
-      await _maybeProjectForeignKeys(tableName, null, transaction);
+      await _maybeProject(tableName, null, transaction);
     });
   }
 
@@ -463,7 +679,7 @@ class CrdtMutationRecorder {
         transaction,
         skippedFields: implicitForeignKeyRepairFields,
       );
-      await _maybeProjectForeignKeys(
+      await _maybeProject(
         tableName,
         updatedColumnNames,
         transaction,
@@ -471,12 +687,12 @@ class CrdtMutationRecorder {
     });
   }
 
-  Future<void> _maybeProjectForeignKeys(
+  Future<void> _maybeProject(
     String tableName,
     Set<String>? columnNames,
     Transaction transaction,
   ) async {
-    if (_foreignKeys.columnsMayAffectForeignKeys(tableName, columnNames)) {
+    if (_foreignKeyProjector.needsProjection(tableName, columnNames)) {
       await _foreignKeyProjector.project(transaction);
     }
   }
@@ -589,7 +805,7 @@ class CrdtMutationRecorder {
       null,
       CrdtDataDeletedReason.userDelete,
     );
-    await _maybeProjectForeignKeys(tableName, null, transaction);
+    await _maybeProject(tableName, null, transaction);
   }
 
   Future<void> _softDeleteRowsByTable(
@@ -629,7 +845,6 @@ class CrdtMutationRecorder {
         transaction,
         processing,
       );
-      await _uniqueResolver.releaseOnDelete(tableName, visibleRowIds, transaction);
       await _context.markCrdtRowsDeleted(visibleCrdtRows, true, reason, transaction);
       for (final MapEntry(key: childTableName, value: childIds)
           in cascadeDeletes.entries) {

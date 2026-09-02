@@ -11,7 +11,7 @@ void main() {
 
   tearDown(() async {
     await session.db.unsafeExecute('PRAGMA foreign_keys = OFF');
-    await CrdtDataForeignKey.db.deleteWhere(
+    await CrdtDataAttemptedValue.db.deleteWhere(
       session,
       where: (t) => Constant.bool(true),
     );
@@ -1123,11 +1123,12 @@ Future<void> _insertAttemptedValue({
   required CrdtSchemaTable table,
 }) async {
   final field = await _insertFieldMetadata(column: column, table: table);
-  await CrdtDataForeignKey.db.insertRow(
+  await CrdtDataAttemptedValue.db.insertRow(
     session,
-    CrdtDataForeignKey(
+    CrdtDataAttemptedValue(
       fieldId: field.id!,
-      attemptedValue: const Uuid().v7obj(),
+      value: const Uuid().v7obj(),
+      projectionReason: CrdtProjectionReason.foreignKeySetNull,
     ),
   );
 }

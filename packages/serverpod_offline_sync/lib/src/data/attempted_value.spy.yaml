@@ -1,0 +1,18 @@
+### Authored field value retained while the domain column holds a projection.
+###
+### Sparse one-to-one dependent of CrdtDataField. Present only while the
+### materialized domain value differs from the authored value. `value` is a
+### durable authored fact; `projectionReason` is disposable diagnostic state.
+class: CrdtDataAttemptedValue
+table: crdt_data_attempted_value
+database: all
+fields:
+  ### The field whose authored value this row preserves.
+  fieldId: int, unique
+  field: CrdtDataField?, relation(name=field_attempted_value, field=fieldId, onDelete=Cascade)
+
+  ### The authored value, using Serverpod's dynamic `{className, data}` envelope.
+  value: dynamic, serializationDataType=jsonb
+
+  ### Terminal projector that selected the current domain value.
+  projectionReason: CrdtProjectionReason

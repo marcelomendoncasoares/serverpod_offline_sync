@@ -333,6 +333,7 @@ class CrdtDatabase implements Database {
           for (final row in prepared.rows)
             if (!deletedRowIds.contains(row.id)) row,
         ];
+        final plannedInsert = await _recorder.planLocalInserts(rowsToInsert, tx);
 
         // Tracked rows can only skip RETURNING when the prepared rows are
         // exactly what gets inserted: every id is caller-provided and a
@@ -340,17 +341,21 @@ class CrdtDatabase implements Database {
         final skipReturn =
             noReturn && !ignoreConflicts && !rows.any((row) => row.id == null);
 
-        final result = rowsToInsert.isEmpty
+        final result = plannedInsert.rows.isEmpty
             ? <T>[]
             : await _delegate.insert<T>(
-                rowsToInsert,
+                plannedInsert.rows,
                 transaction: tx,
                 ignoreConflicts: ignoreConflicts,
                 noReturn: skipReturn,
               );
 
-        final insertedRows = skipReturn ? rowsToInsert : result;
-        await _recorder.afterInsert<T>(insertedRows, tx);
+        final insertedRows = skipReturn ? plannedInsert.rows : result;
+        await _recorder.afterInsert<T>(
+          insertedRows,
+          tx,
+          attempts: plannedInsert.attempts,
+        );
 
         final reinsertedRows = await _reinsertTombstonedRows(
           prepared.rows,
@@ -405,6 +410,7 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
+        await _recorder.projectCurrent(tx);
 
         // CRDT metadata needs the affected rows even when the public call uses
         // noReturn, because inserted rows may have database-generated ids.
@@ -482,8 +488,13 @@ class CrdtDatabase implements Database {
     ];
     if (rowsToReinsert.isEmpty) return [];
 
-    final reinsertedRows = await _delegate.update<T>(
+    final plannedReinserts = await _recorder.planLocalUpdates(
       rowsToReinsert,
+      null,
+      transaction,
+    );
+    final reinsertedRows = await _delegate.update<T>(
+      plannedReinserts,
       transaction: transaction,
     );
     await _recorder.afterReinsert(reinsertedRows, transaction);
@@ -585,8 +596,9 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
+        final plannedUpdates = await _recorder.planLocalUpdates(rows, columns, tx);
         final updatedRows = [
-          for (final row in rows)
+          for (final row in plannedUpdates)
             await _updateRowWithoutRecording(
               row,
               stripScopeId: _shouldStripReturnedScopeId(row, tx),
@@ -612,9 +624,14 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
+        final plannedUpdates = await _recorder.planLocalUpdates(
+          [row],
+          columns,
+          tx,
+        );
         final stripScopeId = _shouldStripReturnedScopeId(row, tx);
         final updatedRow = await _updateRowWithoutRecording(
-          row,
+          plannedUpdates.single,
           stripScopeId: stripScopeId,
           transaction: tx,
           columns: columns,

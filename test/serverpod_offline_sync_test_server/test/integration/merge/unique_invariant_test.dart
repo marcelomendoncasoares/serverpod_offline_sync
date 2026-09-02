@@ -209,14 +209,20 @@ void main() {
         );
 
         test(
-          'then the silently released row does not receive CRDT field metadata.',
+          'then the released name is not authored as a field update.',
           () async {
+            final crdtRow = await CrdtDataRow.db.findFirstRow(
+              session,
+              where: (t) => t.uuidRowId.equals(existingLoser.id),
+              include: CrdtDataRow.include(node: CrdtNode.include()),
+            );
             final fields = await CrdtDataField.db.find(
               session,
               where: (t) => t.row.uuidRowId.equals(existingLoser.id),
+              include: CrdtDataField.include(node: CrdtNode.include()),
             );
 
-            expect(fields, isEmpty);
+            expect(fields.where((field) => field.hlc != crdtRow!.hlc), isEmpty);
           },
         );
       });
@@ -591,7 +597,7 @@ void main() {
             expect(hiddenRow, isNotNull);
             expect(
               hiddenRow!.name,
-              'shared-name__deleted__${deletedRow.id!.uuid}',
+              'shared-name__hidden__${deletedRow.id!.uuid}',
             );
           },
         );

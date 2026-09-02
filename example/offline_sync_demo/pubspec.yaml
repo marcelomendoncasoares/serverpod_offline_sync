@@ -27,6 +27,10 @@ dependencies:
 dev_dependencies:
   flutter_lints: ^6.0.0
 
+dependency_overrides:
+  serverpod_offline_sync:
+    path: ../../packages/serverpod_offline_sync
+
 # dependency_overrides:
 #   meta: 1.18.2
 #   serverpod_auth_core_client:

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
@@ -48,7 +50,22 @@ extension UuidValueExtension on Object? {
     if (value == null) return null;
     if (value is UuidValue) return value;
     if (value is String) return UuidValue.withValidation(value);
+    if (value is Uint8List) return UuidValue.fromByteList(value);
+    if (value is List && value.length == 16) {
+      return UuidValue.fromByteList(Uint8List.fromList(List<int>.from(value)));
+    }
     return UuidValueJsonExtension.fromJson(value);
+  }
+}
+
+/// Canonicalizes a domain/attempted value so UUID blobs round-trip as
+/// [UuidValue] rather than as SQLite byte lists.
+@internal
+Object? canonicalDomainValue(Object? value) {
+  try {
+    return value.toUuidValue() ?? value;
+  } on Object {
+    return value;
   }
 }
 

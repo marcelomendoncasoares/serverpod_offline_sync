@@ -1,3 +1,4 @@
+import 'package:serverpod_database/serverpod_database.dart' show ValueEncoder;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -570,7 +571,7 @@ void main() {
             expect(projection!.attemptedValue, attemptedParent.id);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
+            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetNull);
           },
         );
 
@@ -807,7 +808,7 @@ void main() {
       });
 
       group('when the user changes the foreign key to a visible parent,', () {
-        late CrdtDataForeignKey projection;
+        late _FkProjection projection;
 
         setUp(() async {
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -1251,7 +1252,7 @@ void main() {
             expect(projection!.attemptedValue, missingParentId);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
+            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetNull);
           },
         );
       });
@@ -1319,7 +1320,7 @@ void main() {
             expect(projection!.attemptedValue, missingParentId);
             expect(projection.visibleValue, isNull);
             expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setNull);
+            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetNull);
           },
         );
       });
@@ -1406,7 +1407,7 @@ void main() {
             expect(projection!.attemptedValue, attemptedTown.id);
             expect(projection.visibleValue, defaultTown.id);
             expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setDefault);
+            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetDefault);
           },
         );
       });
@@ -1614,7 +1615,7 @@ void main() {
             expect(projection!.attemptedValue, missingTownId);
             expect(projection.visibleValue, defaultTown.id);
             expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtForeignKeyOverrideReason.setDefault);
+            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetDefault);
           },
         );
       });
@@ -1772,7 +1773,7 @@ void main() {
             expect(projection.hasOverride, isTrue);
             expect(
               projection.overrideReason,
-              CrdtForeignKeyOverrideReason.missingParent,
+              CrdtProjectionReason.foreignKeyMissingParent,
             );
           },
         );
@@ -1853,7 +1854,7 @@ void main() {
             expect(projection.hasOverride, isTrue);
             expect(
               projection.overrideReason,
-              CrdtForeignKeyOverrideReason.missingParent,
+              CrdtProjectionReason.foreignKeyMissingParent,
             );
           },
         );
@@ -3422,16 +3423,73 @@ Future<Hlc> _rowHlc(
   return crdtRow!.hlc;
 }
 
-Future<CrdtDataForeignKey?> _findForeignKeyProjection({
+class _FkProjection {
+  _FkProjection({
+    required this.attemptedValue,
+    required this.visibleValue,
+    required this.hasOverride,
+    this.overrideReason,
+  });
+
+  final UuidValue? attemptedValue;
+  final UuidValue? visibleValue;
+  final bool hasOverride;
+  final CrdtProjectionReason? overrideReason;
+}
+
+Future<_FkProjection?> _findForeignKeyProjection({
   required UuidValue rowId,
   required String columnName,
   CrdtDatabaseSession? databaseSession,
-}) {
-  return CrdtDataForeignKey.db.findFirstRow(
-    databaseSession ?? session,
-    where: (t) =>
-        t.field.row.uuidRowId.equals(rowId) & t.field.column.name.equals(columnName),
+}) async {
+  final dbSession = databaseSession ?? session;
+  final field = await CrdtDataField.db.findFirstRow(
+    dbSession,
+    where: (t) => t.row.uuidRowId.equals(rowId) & t.column.name.equals(columnName),
+    include: CrdtDataField.include(
+      row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
+      column: CrdtSchemaColumn.include(),
+      attemptedValue: CrdtDataAttemptedValue.include(),
+    ),
   );
+  if (field == null || field.row?.tbl?.name == null) return null;
+
+  final tableName = field.row!.tbl!.name;
+  final visible = await _domainUuidValue(
+    dbSession,
+    tableName: tableName,
+    rowId: rowId,
+    columnName: columnName,
+  );
+  final attempted = field.attemptedValue;
+  final authoredRaw = attempted?.value ?? visible;
+  return _FkProjection(
+    attemptedValue: authoredRaw == null
+        ? null
+        : authoredRaw is UuidValue
+        ? authoredRaw
+        : UuidValueJsonExtension.fromJson(authoredRaw),
+    visibleValue: attempted == null ? null : visible,
+    hasOverride: attempted != null,
+    overrideReason: attempted?.projectionReason,
+  );
+}
+
+Future<UuidValue?> _domainUuidValue(
+  CrdtDatabaseSession dbSession, {
+  required String tableName,
+  required UuidValue rowId,
+  required String columnName,
+}) async {
+  final result = await dbSession.db.unsafeQuery(
+    'SELECT "$columnName" FROM "$tableName" '
+    'WHERE "id" = ${ValueEncoder.instance.convert(rowId)} LIMIT 1',
+  );
+  if (result.isEmpty) return null;
+  final value = result.first[0];
+  if (value == null) return null;
+  if (value is UuidValue) return value;
+  return UuidValueJsonExtension.fromJson(value);
 }
 
 Future<List<String>> _visibilitySnapshot() async {
@@ -3454,9 +3512,9 @@ Future<List<String>> _visibilitySnapshot() async {
 }
 
 Future<List<String>> _foreignKeyProjectionSnapshot() async {
-  final projections = await CrdtDataForeignKey.db.find(
+  final projections = await CrdtDataAttemptedValue.db.find(
     session,
-    include: CrdtDataForeignKey.include(
+    include: CrdtDataAttemptedValue.include(
       field: CrdtDataField.include(
         row: CrdtDataRow.include(),
         column: CrdtSchemaColumn.include(),
@@ -3469,10 +3527,8 @@ Future<List<String>> _foreignKeyProjectionSnapshot() async {
       [
         projection.field!.row!.uuidRowId.uuid,
         projection.field!.column!.name,
-        projection.attemptedValue?.uuid,
-        projection.visibleValue?.uuid,
-        projection.hasOverride,
-        projection.overrideReason?.toJson(),
+        projection.value is UuidValue ? (projection.value as UuidValue).uuid : projection.value,
+        projection.projectionReason.toJson(),
       ].join('|'),
   ]..sort();
 }

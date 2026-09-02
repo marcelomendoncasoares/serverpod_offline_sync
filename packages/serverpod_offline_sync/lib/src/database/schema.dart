@@ -492,8 +492,8 @@ class CrdtSchemaRegistry {
 
   Future<bool> _hasAttemptedValueRows(int columnId, Transaction transaction) {
     return _exists(
-      'SELECT 1 FROM crdt_data_foreign_key fk '
-      'INNER JOIN crdt_data_fields f ON f.id = fk."fieldId" '
+      'SELECT 1 FROM crdt_data_attempted_value av '
+      'INNER JOIN crdt_data_fields f ON f.id = av."fieldId" '
       'WHERE f."columnId" = ${columnId.sqlLiteral()} '
       'LIMIT 1',
       transaction,

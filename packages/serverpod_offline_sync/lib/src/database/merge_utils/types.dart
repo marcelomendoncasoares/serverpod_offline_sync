@@ -41,3 +41,21 @@ typedef MergeNodes = ({
   Map<UuidValue, CrdtNode> nodesByUuid,
   Map<UuidValue, CrdtScopeNode> scopeNodesByUuid,
 });
+
+/// A row that will be written after projection, included in unique/FK planning.
+@internal
+typedef PendingProjectionRow = ({
+  String tableName,
+  UuidValue rowId,
+  Map<String, Object?> authoredValues,
+  Hlc rowHlc,
+  CrdtNode node,
+  bool hidden,
+});
+
+/// Authored value retained while a projector materializes a different domain value.
+@internal
+typedef ProjectionAttempt = ({
+  Object? value,
+  CrdtProjectionReason reason,
+});
