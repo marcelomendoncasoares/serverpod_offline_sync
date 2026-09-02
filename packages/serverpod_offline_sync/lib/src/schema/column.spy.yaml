@@ -9,6 +9,22 @@ fields:
   ### Name of the column.
   name: String
 
+  ### Database storage type of the column, as Serverpod's stable ColumnType
+  ### enum name.
+  ###
+  ### Persisted so schema reconciliation can detect storage-type changes
+  ### before trusting or rebuilding projection state.
+  columnType: String
+
+  ### Canonical Dart type of the column, including nullability (e.g. `int?`).
+  ###
+  ### Records the dynamic value semantics of the column: one database type can
+  ### back several Dart types, and one Dart type can use different storage.
+  dartType: String
+
+  ### Whether the column is nullable.
+  isNullable: bool
+
 indexes:
   crdt_schema_columns_table_column_idx:
     fields: tblId, name

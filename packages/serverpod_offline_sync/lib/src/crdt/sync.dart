@@ -1066,7 +1066,8 @@ class CrdtSync {
           final definition = tableDefinitionsByName[table.tableName];
           final columns = [
             for (final column in definition?.columns ?? const <ColumnDefinition>[])
-              if (column.name != 'scopeId') column.name,
+              if (column.name != 'scopeId')
+                '${column.name}:${column.columnType.name}:${column.dartType}',
             if (definition == null)
               for (final column in table.columns)
                 if (column.columnName != 'scopeId') column.columnName,

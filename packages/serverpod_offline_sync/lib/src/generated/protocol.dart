@@ -506,6 +506,24 @@ class Protocol extends _isd.DatabaseSerializationManager {
           isNullable: false,
           dartType: 'String',
         ),
+        _isd.ColumnDefinition(
+          name: 'columnType',
+          columnType: _isd.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isd.ColumnDefinition(
+          name: 'dartType',
+          columnType: _isd.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isd.ColumnDefinition(
+          name: 'isNullable',
+          columnType: _isd.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+        ),
       ],
       foreignKeys: [
         _isd.ForeignKeyDefinition(

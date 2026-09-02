@@ -24,6 +24,9 @@ abstract class CrdtSchemaColumn
     required this.tblId,
     this.tbl,
     required this.name,
+    required this.columnType,
+    required this.dartType,
+    required this.isNullable,
   });
 
   factory CrdtSchemaColumn({
@@ -31,6 +34,9 @@ abstract class CrdtSchemaColumn
     required int tblId,
     _icw2tu00.CrdtSchemaTable? tbl,
     required String name,
+    required String columnType,
+    required String dartType,
+    required bool isNullable,
   }) = _CrdtSchemaColumnImpl;
 
   factory CrdtSchemaColumn.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -43,6 +49,11 @@ abstract class CrdtSchemaColumn
               jsonSerialization['tbl'],
             ),
       name: jsonSerialization['name'] as String,
+      columnType: jsonSerialization['columnType'] as String,
+      dartType: jsonSerialization['dartType'] as String,
+      isNullable: _iss.BoolJsonExtension.fromJson(
+        jsonSerialization['isNullable'],
+      ),
     );
   }
 
@@ -61,6 +72,22 @@ abstract class CrdtSchemaColumn
   /// Name of the column.
   String name;
 
+  /// Database storage type of the column, as Serverpod's stable ColumnType
+  /// enum name.
+  ///
+  /// Persisted so schema reconciliation can detect storage-type changes
+  /// before trusting or rebuilding projection state.
+  String columnType;
+
+  /// Canonical Dart type of the column, including nullability (e.g. `int?`).
+  ///
+  /// Records the dynamic value semantics of the column: one database type can
+  /// back several Dart types, and one Dart type can use different storage.
+  String dartType;
+
+  /// Whether the column is nullable.
+  bool isNullable;
+
   @override
   _isd.Table<int?> get table => t;
 
@@ -72,6 +99,9 @@ abstract class CrdtSchemaColumn
     int? tblId,
     _icw2tu00.CrdtSchemaTable? tbl,
     String? name,
+    String? columnType,
+    String? dartType,
+    bool? isNullable,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -81,6 +111,9 @@ abstract class CrdtSchemaColumn
       'tblId': tblId,
       if (tbl != null) 'tbl': tbl?.toJson(),
       'name': name,
+      'columnType': columnType,
+      'dartType': dartType,
+      'isNullable': isNullable,
     };
   }
 
@@ -92,6 +125,9 @@ abstract class CrdtSchemaColumn
       'tblId': tblId,
       if (tbl != null) 'tbl': tbl?.toJsonForProtocol(),
       'name': name,
+      'columnType': columnType,
+      'dartType': dartType,
+      'isNullable': isNullable,
     };
   }
 
@@ -133,11 +169,17 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
     required int tblId,
     _icw2tu00.CrdtSchemaTable? tbl,
     required String name,
+    required String columnType,
+    required String dartType,
+    required bool isNullable,
   }) : super._(
          id: id,
          tblId: tblId,
          tbl: tbl,
          name: name,
+         columnType: columnType,
+         dartType: dartType,
+         isNullable: isNullable,
        );
 
   /// Returns a shallow copy of this [CrdtSchemaColumn]
@@ -149,12 +191,18 @@ class _CrdtSchemaColumnImpl extends CrdtSchemaColumn {
     int? tblId,
     Object? tbl = _Undefined,
     String? name,
+    String? columnType,
+    String? dartType,
+    bool? isNullable,
   }) {
     return CrdtSchemaColumn(
       id: id is int? ? id : this.id,
       tblId: tblId ?? this.tblId,
       tbl: tbl is _icw2tu00.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
       name: name ?? this.name,
+      columnType: columnType ?? this.columnType,
+      dartType: dartType ?? this.dartType,
+      isNullable: isNullable ?? this.isNullable,
     );
   }
 }
@@ -172,6 +220,21 @@ class CrdtSchemaColumnUpdateTable
     table.name,
     value,
   );
+
+  _isd.ColumnValue<String, String> columnType(String value) => _isd.ColumnValue(
+    table.columnType,
+    value,
+  );
+
+  _isd.ColumnValue<String, String> dartType(String value) => _isd.ColumnValue(
+    table.dartType,
+    value,
+  );
+
+  _isd.ColumnValue<bool, bool> isNullable(bool value) => _isd.ColumnValue(
+    table.isNullable,
+    value,
+  );
 }
 
 class CrdtSchemaColumnTable extends _isd.Table<int?> {
@@ -186,6 +249,18 @@ class CrdtSchemaColumnTable extends _isd.Table<int?> {
       'name',
       this,
     );
+    columnType = _isd.ColumnString(
+      'columnType',
+      this,
+    );
+    dartType = _isd.ColumnString(
+      'dartType',
+      this,
+    );
+    isNullable = _isd.ColumnBool(
+      'isNullable',
+      this,
+    );
   }
 
   late final CrdtSchemaColumnUpdateTable updateTable;
@@ -197,6 +272,22 @@ class CrdtSchemaColumnTable extends _isd.Table<int?> {
 
   /// Name of the column.
   late final _isd.ColumnString name;
+
+  /// Database storage type of the column, as Serverpod's stable ColumnType
+  /// enum name.
+  ///
+  /// Persisted so schema reconciliation can detect storage-type changes
+  /// before trusting or rebuilding projection state.
+  late final _isd.ColumnString columnType;
+
+  /// Canonical Dart type of the column, including nullability (e.g. `int?`).
+  ///
+  /// Records the dynamic value semantics of the column: one database type can
+  /// back several Dart types, and one Dart type can use different storage.
+  late final _isd.ColumnString dartType;
+
+  /// Whether the column is nullable.
+  late final _isd.ColumnBool isNullable;
 
   _icw2tu00.CrdtSchemaTableTable get tbl {
     if (_tbl != null) return _tbl!;
@@ -216,6 +307,9 @@ class CrdtSchemaColumnTable extends _isd.Table<int?> {
     id,
     tblId,
     name,
+    columnType,
+    dartType,
+    isNullable,
   ];
 
   @override

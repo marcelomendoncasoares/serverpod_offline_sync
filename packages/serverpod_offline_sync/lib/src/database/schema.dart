@@ -37,12 +37,13 @@ class CrdtSchemaRegistry {
       );
     }
 
-    final tableDefinitionsByName = {
+    _tableDefinitionsByName = {
       for (final tableDefinition
           in tableDefinitions ??
               _session.db.serializationManager.getTargetTableDefinitions())
         tableDefinition.name: tableDefinition,
     };
+    final tableDefinitionsByName = _tableDefinitionsByName;
     final globalUniqueIndexes = _globalUniqueIndexViolations(
       syncTables,
       tableDefinitionsByName,
@@ -142,12 +143,27 @@ class CrdtSchemaRegistry {
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
 
+  /// Serverpod table definitions by table name.
+  late final Map<String, TableDefinition> _tableDefinitionsByName;
+
   late final _columnsPerTableName = {
     for (final table in syncTables)
       table.tableName: [
         for (final column in table.columns)
           if (column.columnName != 'scopeId') column.columnName,
       ],
+  };
+
+  /// The target column definitions of every synced table, keyed by table and
+  /// column name.
+  late final _columnDefinitionsPerTableName = {
+    for (final table in syncTables)
+      table.tableName: {
+        for (final column
+            in _tableDefinitionsByName[table.tableName]?.columns ??
+                const <ColumnDefinition>[])
+          if (column.name != 'scopeId') column.name: column,
+      },
   };
 
   /// Ensures that the CRDT schema is created for the database.
@@ -205,7 +221,7 @@ class CrdtSchemaRegistry {
       [
         for (final table in tableRows)
           for (final column in _columnsPerTableName[table.name]!)
-            CrdtSchemaColumn(tblId: table.id!, name: column),
+            _newSchemaColumn(table, column),
       ],
       transaction: transaction,
       ignoreConflicts: true,
@@ -235,6 +251,24 @@ class CrdtSchemaRegistry {
     );
 
     return foundColumnRows;
+  }
+
+  /// Builds the registry row for [columnName] of [table], carrying the
+  /// column's persisted type identity from its [ColumnDefinition].
+  CrdtSchemaColumn _newSchemaColumn(CrdtSchemaTable table, String columnName) {
+    final definition = _columnDefinitionsPerTableName[table.name]?[columnName];
+    if (definition == null) {
+      throw StateError(
+        'No column definition found for ${table.name}.$columnName.',
+      );
+    }
+    return CrdtSchemaColumn(
+      tblId: table.id!,
+      name: columnName,
+      columnType: definition.columnType.name,
+      dartType: definition.dartType ?? '',
+      isNullable: definition.isNullable,
+    );
   }
 }
 
