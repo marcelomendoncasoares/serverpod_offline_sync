@@ -410,7 +410,9 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
-        await _recorder.projectCurrent(tx);
+        if (rows.isNotEmpty) {
+          await _recorder.projectCurrent(rows.first.table.tableName, tx);
+        }
 
         // CRDT metadata needs the affected rows even when the public call uses
         // noReturn, because inserted rows may have database-generated ids.

@@ -132,6 +132,29 @@ class CrdtForeignKeyGraph {
         );
   }
 
+  /// Tables joined to [seedTables] by any chain of foreign keys.
+  ///
+  /// Projection resolves cascade and repair to a fixed point over the foreign
+  /// key graph, so a row can only be affected by a change in a table its own
+  /// table can reach. Unique conflicts are resolved within one table and never
+  /// cross this boundary, so loading the seeds' connected components is enough
+  /// to reproduce a full-graph pass.
+  Set<String> connectedTables(Iterable<String> seedTables) {
+    final reached = <String>{};
+    final queue = [...seedTables];
+    while (queue.isNotEmpty) {
+      final tableName = queue.removeLast();
+      if (!reached.add(tableName)) continue;
+      for (final edge in edgesByChildTable[tableName] ?? const <ForeignKeyEdge>[]) {
+        queue.add(edge.parentTableName);
+      }
+      for (final edge in edgesByParentTable[tableName] ?? const <ForeignKeyEdge>[]) {
+        queue.add(edge.childTableName);
+      }
+    }
+    return reached;
+  }
+
   /// The child column names of foreign keys outgoing from [tableName].
   ///
   /// When [columnNames] is provided, only edges whose child column is in the set

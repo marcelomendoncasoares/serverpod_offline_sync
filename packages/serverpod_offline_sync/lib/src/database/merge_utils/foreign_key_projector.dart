@@ -587,16 +587,24 @@ class CrdtForeignKeyProjector {
   /// authored value of existing rows before planning. When [materialize] is
   /// false, only the in-memory plan is computed so a later physical insert is
   /// not blocked by this rebuild.
+  /// Recomputes projection and, unless [materialize] is false, writes it.
+  ///
+  /// [seedTables] names the tables this pass changed. Only their foreign key
+  /// components are loaded, which is equivalent to a full pass because no
+  /// projection decision crosses a component boundary. Pass null when the
+  /// affected tables are unknown, such as a rebuild, to load every table.
   Future<ProjectionPlan> project(
     Transaction transaction, {
     List<PendingProjectionRow> pendingInserts = const [],
     Map<MergeFieldKey, Object?> authoredOverlays = const {},
+    Set<String>? seedTables,
     bool materialize = true,
   }) async {
     final state = await _loadProjectionState(
       transaction,
       pendingInserts: pendingInserts,
       authoredOverlays: authoredOverlays,
+      seedTables: seedTables,
     );
     if (state.rows.isEmpty) {
       return (
@@ -641,6 +649,7 @@ class CrdtForeignKeyProjector {
     Transaction transaction, {
     List<PendingProjectionRow> pendingInserts = const [],
     Map<MergeFieldKey, Object?> authoredOverlays = const {},
+    Set<String>? seedTables,
   }) async {
     final rows = <MergeRowKey, _ProjectedForeignKeyRow>{};
     final fieldIds = <MergeFieldKey, int>{};
@@ -648,7 +657,19 @@ class CrdtForeignKeyProjector {
     final fieldHlcs = <MergeFieldKey, Hlc>{};
     final columnsByTable = <String, Set<String>>{};
 
+    final tablesToLoad = seedTables == null
+        ? _context.syncTableByName.keys.toSet()
+        : _foreignKeys
+              .connectedTables({
+                ...seedTables,
+                for (final pending in pendingInserts) pending.tableName,
+                for (final fieldKey in authoredOverlays.keys) fieldKey.$1,
+              })
+              .where(_context.syncTableByName.containsKey)
+              .toSet();
+
     for (final edge in _foreignKeys.edges) {
+      if (!tablesToLoad.contains(edge.childTableName)) continue;
       columnsByTable.putIfAbsent(edge.childTableName, () => {}).add(edge.childColumn);
       if (edge.parentColumn != 'id') {
         columnsByTable
@@ -656,7 +677,7 @@ class CrdtForeignKeyProjector {
             .add(edge.parentColumn);
       }
     }
-    for (final tableName in _context.syncTableByName.keys) {
+    for (final tableName in tablesToLoad) {
       columnsByTable
           .putIfAbsent(tableName, () => {})
           .addAll(_uniqueResolver.uniqueColumnNamesFor(tableName));
@@ -670,7 +691,7 @@ class CrdtForeignKeyProjector {
       columnsByTable.putIfAbsent(fieldKey.$1, () => {}).add(fieldKey.$3);
     }
 
-    for (final tableName in _context.syncTableByName.keys) {
+    for (final tableName in tablesToLoad) {
       final (tableId, _) = _context.schema[tableName]!;
       final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
       final crdtRows = await CrdtDataRow.db.find(

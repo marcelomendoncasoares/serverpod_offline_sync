@@ -34,10 +34,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final nodesByUuid = remoteNodes.nodesByUuid;
     final context = await _loadMergeContext(mergeSet, transaction);
 
+    // Deletes carry no authored overlay but still change visibility, so the
+    // seed is every touched table, not just the ones with overlays.
+    final touchedTables = <String>{};
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) {
         continue;
       }
+      touchedTables.add(operation.tableName);
 
       switch (operation) {
         case final CrdtMergeInsert insert:
@@ -69,6 +73,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     await _foreignKeyProjector.project(
       transaction,
       authoredOverlays: authoredOverlays,
+      seedTables: touchedTables,
     );
     await _updateHlcFromIncomingOperations(
       operations,
@@ -301,6 +306,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             );
             final planned = await _foreignKeyProjector.project(
               savepoint,
+              seedTables: {insert.tableName},
               pendingInserts: [
                 (
                   tableName: insert.tableName,

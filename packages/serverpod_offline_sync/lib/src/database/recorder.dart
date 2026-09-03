@@ -360,8 +360,11 @@ class CrdtMutationRecorder {
   ///
   /// Used before upsert so hidden unique claims are released before the
   /// physical write can occupy the same index.
-  Future<void> projectCurrent(Transaction transaction) {
-    return _foreignKeyProjector.project(transaction);
+  Future<void> projectCurrent(String tableName, Transaction transaction) {
+    return _foreignKeyProjector.project(
+      transaction,
+      seedTables: {tableName},
+    );
   }
 
   /// Plans FK/unique projection for rows that are about to be inserted.
@@ -409,6 +412,7 @@ class CrdtMutationRecorder {
     final planned = await _foreignKeyProjector.project(
       transaction,
       pendingInserts: pending,
+      seedTables: {tableName},
     );
     final attempts = <MergeFieldKey, ProjectionAttempt>{};
     for (final pendingRow in pending) {
@@ -485,6 +489,7 @@ class CrdtMutationRecorder {
     final planned = await _foreignKeyProjector.project(
       transaction,
       authoredOverlays: overlays,
+      seedTables: {tableName},
     );
     return [
       for (final row in rows)
@@ -690,7 +695,10 @@ class CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     if (_foreignKeyProjector.needsProjection(tableName, columnNames)) {
-      await _foreignKeyProjector.project(transaction);
+      await _foreignKeyProjector.project(
+        transaction,
+        seedTables: {tableName},
+      );
     }
   }
 
