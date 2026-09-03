@@ -959,22 +959,6 @@ class CrdtForeignKeyProjector {
       enqueue(rowKey.$1, [rowKey.$2]);
       (frontier[rowKey.$1] ??= <UuidValue>{}).add(rowKey.$2);
     }
-    // A row owed a claim or a restore lives in a table a seed can reach
-    // downward; the ancestors in the closure are read, never rewritten, so
-    // scanning their attempted values would find nothing this pass can use.
-    final changeableTables = _foreignKeys
-        .descendantTables({
-          for (final rowKey in seedRows) rowKey.$1,
-          for (final rowKey in unwrittenValues.keys) rowKey.$1,
-        })
-        .where(tablesToLoad.contains)
-        .toSet();
-    for (final rowKey in await _rowKeysHoldingAttemptedValues(
-      changeableTables,
-      transaction,
-    )) {
-      enqueue(rowKey.$1, [rowKey.$2]);
-    }
     // A set-default edge names its target in the schema, so no row points at
     // it until the repair runs.
     for (final edge in _foreignKeys.edges) {
@@ -1077,6 +1061,17 @@ class CrdtForeignKeyProjector {
               transaction: transaction,
             ),
           );
+          // A child repaired away from this parent no longer names it in the
+          // domain column; its authored value is the only record left.
+          enqueue(
+            edge.childTableName,
+            await _context.findRowIdsHoldingAttemptedValues(
+              tableName: edge.childTableName,
+              columnNames: {edge.childColumn},
+              values: references,
+              transaction: transaction,
+            ),
+          );
         }
       }
 
@@ -1150,31 +1145,23 @@ class CrdtForeignKeyProjector {
             transaction: transaction,
           ),
         );
+
+        // A row that lost this claim was parked on a value derived from its own
+        // id, so the index cannot find it. It kept the claim as its authored
+        // value, which is what makes it reachable.
+        enqueue(
+          tableName,
+          await _context.findRowIdsHoldingAttemptedValues(
+            tableName: tableName,
+            columnNames: uniqueIndex.indexedColumns.toSet(),
+            values: {
+              for (final claims in claimedByColumn.values) ...claims,
+            },
+            transaction: transaction,
+          ),
+        );
       }
     }
-  }
-
-  /// Rows of [tableNames] that currently hold a sparse attempted value.
-  Future<Set<MergeRowKey>> _rowKeysHoldingAttemptedValues(
-    Set<String> tableNames,
-    Transaction transaction,
-  ) async {
-    final tableNameById = <int, String>{
-      for (final tableName in tableNames)
-        if (_context.schema[tableName] case (final tableId, _))
-          tableId: tableName,
-    };
-    if (tableNameById.isEmpty) return const {};
-
-    final rowKeys = await _context.findRowKeysHoldingAttemptedValues(
-      tableIds: tableNameById.keys.toSet(),
-      transaction: transaction,
-    );
-
-    return {
-      for (final (tableId, rowId) in rowKeys)
-        if (tableNameById[tableId] case final tableName?) (tableName, rowId),
-    };
   }
 
   Future<List<CrdtDataField>> _loadFields({

@@ -4,6 +4,9 @@ import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../../crdt/extensions.dart';
 import '../../generated/protocol.dart';
+// Prefixed so the module's Protocol wins over the one serverpod_database
+// exports; the generated models encode their dynamic fields with this one.
+import '../../generated/protocol.dart' as offline_sync;
 import '../../managers/hlc.dart';
 import '../../managers/scope.dart';
 import '../database.dart';
@@ -388,34 +391,55 @@ WHERE "${columnName.escapeIdentifier()}" IN (${values.sqlLiteralList()})
     };
   }
 
-  /// `(tblId, uuidRowId)` of the scope's rows that hold an attempted value.
+  /// Row ids of [tableName] owed one of [values] on one of [columnNames].
   ///
-  /// Read as tuples rather than through the ORM: a projection pass only needs
-  /// to know which rows to pull into its closure, and materializing the
-  /// attempted value, its field and its row to answer that costs three objects
-  /// per active projection.
-  Future<Set<(int, UuidValue)>> findRowKeysHoldingAttemptedValues({
-    required Set<int> tableIds,
+  /// A row that does not hold its authored value keeps it in a sparse attempted
+  /// value, so this is how a pass finds the rows waiting for a claim or a
+  /// parent it is about to free. The comparison literal is built by the same
+  /// encoders the write path uses — the dynamic envelope from the protocol, then
+  /// the structured-column encoder — which is what keeps it dialect correct:
+  /// `jsonb(...)` against SQLite's binary JSONB, a jsonb literal on Postgres.
+  Future<Set<UuidValue>> findRowIdsHoldingAttemptedValues({
+    required String tableName,
+    required Set<String> columnNames,
+    required Set<Object?> values,
     required Transaction transaction,
   }) async {
-    if (tableIds.isEmpty) return const {};
+    if (columnNames.isEmpty || values.isEmpty) return const {};
+
+    final (tableId, columns) = schema[tableName]!;
+    final columnIds = {
+      for (final columnName in columnNames) ?columns[columnName]?.id,
+    };
+    if (columnIds.isEmpty) return const {};
+
+    final encodedValues = {
+      for (final value in values)
+        if (value != null)
+          ValueEncoder.instance.encodeColumnValue(
+            CrdtDataAttemptedValue.t.value,
+            offline_sync.Protocol().dynamicFieldToJson(value),
+          ),
+    };
+    if (encodedValues.isEmpty) return const {};
 
     final scopeId = hlcManagerFor(transaction).normalizedScopeId;
     final result = await database.unsafeQuery(
       '''
-SELECT DISTINCT r."tblId", r."uuidRowId"
+SELECT DISTINCT r."uuidRowId"
 FROM "crdt_data_attempted_value" a
 JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
 WHERE r."scopeId" = $scopeId
-  AND r."tblId" IN (${tableIds.join(', ')})
+  AND r."tblId" = $tableId
+  AND f."columnId" IN (${columnIds.join(', ')})
+  AND a."value" IN (${encodedValues.join(', ')})
 ''',
       transaction: transaction,
     );
 
     return {
-      for (final row in result)
-        ((row[0] as num).toInt(), UuidValueJsonExtension.fromJson(row[1])),
+      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
     };
   }
 

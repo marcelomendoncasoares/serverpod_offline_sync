@@ -155,26 +155,6 @@ class CrdtForeignKeyGraph {
     return reached;
   }
 
-  /// Tables reachable from [seedTables] by following foreign keys downward.
-  ///
-  /// Only a seed row and its descendants can change in a pass: a row changes
-  /// because it was touched, because its parent's value or visibility changed,
-  /// or because it contests a unique claim with such a row — and that last one
-  /// stays inside a single table. Rows loaded above a seed are read to judge
-  /// the seeds, never rewritten, so their tables are outside this set.
-  Set<String> descendantTables(Iterable<String> seedTables) {
-    final reached = <String>{};
-    final queue = [...seedTables];
-    while (queue.isNotEmpty) {
-      final tableName = queue.removeLast();
-      if (!reached.add(tableName)) continue;
-      for (final edge in edgesByParentTable[tableName] ?? const <ForeignKeyEdge>[]) {
-        queue.add(edge.childTableName);
-      }
-    }
-    return reached;
-  }
-
   /// The child column names of foreign keys outgoing from [tableName].
   ///
   /// When [columnNames] is provided, only edges whose child column is in the set

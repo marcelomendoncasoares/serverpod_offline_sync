@@ -1,6 +1,7 @@
 # Merge projection performance
 
-Status: **options 1, 2, 4 and 5 implemented, projection gate restored; 3 and 6 rejected.**
+Status: **options 1, 2, 4 and 5 implemented, projection gate restored, attempted
+values looked up by value; 3 and 6 rejected.**
 
 Merging inserts is roughly two orders of magnitude slower than merging updates
 or deletes, and the gap widens as a scope fills up. This document records the
@@ -21,15 +22,15 @@ it is the bar to get back to, not the redesign's own starting point.
 
 Throughput, changes per second:
 
-| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate | Option 4 | Option 5 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| merge insert | 1,002 | 8 | 9 | 628 | 900 | 961 | **925** |
-| merge update | 1,697 | 1,150 | 1,222 | 1,250 | 1,670 | 1,730 | **1,666** |
-| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | 2,389 | 2,480 | **2,531** |
-| merge mixed | 1,855 | 16 | 20 | 805 | 1,579 | 1,588 | **1,663** |
-| merge unique conflict | 564 | 8 | 18 | 306 | 309 | 280 | **307** |
-| merge fk chain insert | 350 | 14 | 16 | 345 | 369 | 400 | **434** |
-| merge fk chain delete | 584 | — | — | 598 | 494 | 519 | **542** |
+| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate | Option 4 | Option 5 | By value |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| merge insert | 1,002 | 8 | 9 | 628 | 900 | 961 | 925 | **893** |
+| merge update | 1,697 | 1,150 | 1,222 | 1,250 | 1,670 | 1,730 | 1,666 | **1,476** |
+| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | 2,389 | 2,480 | 2,531 | **2,194** |
+| merge mixed | 1,855 | 16 | 20 | 805 | 1,579 | 1,588 | 1,663 | **1,434** |
+| merge unique conflict | 564 | 8 | 18 | 306 | 309 | 280 | 307 | **302** |
+| merge fk chain insert | 350 | 14 | 16 | 345 | 369 | 400 | 434 | **369** |
+| merge fk chain delete | 584 | — | — | 598 | 494 | 519 | 542 | **693** |
 
 The redesign and option 1 columns are from the original runs; everything else
 was measured back to back in one session. Nothing hinges on the difference: the
@@ -37,15 +38,15 @@ columns that matter differ by two orders of magnitude.
 
 Rows read per merged change, the quantity that drove the regression:
 
-| Batch | Pre-work | Option 2 | Gate | Option 4 | Option 5 |
-| --- | --- | --- | --- | --- | --- |
-| merge insert | 0.0 | 7.0 | **0.0** | **0.0** | **0.0** |
-| merge update | 4.6 | 9.2 | **4.6** | **4.6** | **4.6** |
-| merge delete | 2.0 | 5.0 | **2.0** | **2.0** | **2.0** |
-| merge mixed | 1.3 | 12.0 | **1.3** | **1.3** | **1.3** |
-| merge unique conflict | 2.0 | 21.0 | 21.0 | 24.0 | 31.5 |
-| merge fk chain insert | 13.6 | 15.7 | 15.7 | **8.1** | **8.1** |
-| merge fk chain delete | 44.3 | 33.3 | 33.3 | 43.3 | 43.3 |
+| Batch | Pre-work | Option 2 | Gate | Option 4 | Option 5 | By value |
+| --- | --- | --- | --- | --- | --- | --- |
+| merge insert | 0.0 | 7.0 | **0.0** | **0.0** | **0.0** | **0.0** |
+| merge update | 4.6 | 9.2 | **4.6** | **4.6** | **4.6** | **4.5** |
+| merge delete | 2.0 | 5.0 | **2.0** | **2.0** | **2.0** | **2.0** |
+| merge mixed | 1.3 | 12.0 | **1.3** | **1.3** | **1.3** | **1.3** |
+| merge unique conflict | 2.0 | 21.0 | 21.0 | 24.0 | 31.5 | **16.0** |
+| merge fk chain insert | 13.6 | 15.7 | 15.7 | **8.1** | **8.1** | **8.1** |
+| merge fk chain delete | 44.3 | 33.3 | 33.3 | 43.3 | 43.3 | **18.5** |
 
 Read the unique row counts with care from option 4 on. The counter counts every
 row a query hands back, and the closure walk replaced whole-table loads of
@@ -59,20 +60,30 @@ Option 2 removed the repeated reads and is where the time went. The gate then
 removed the passes that never had anything to do, and option 4 halved what an
 fk chain insert reads.
 
-Options 4 and 5 leave the unique batch where it was, and the reason is the
-benchmark rather than the change. Every claim a pass might have to hand back is
-held by a row that carries an attempted value, so the closure has to contain all
-of them, and the unique-conflict scenario manufactures one per merged change:
-its closure *is* the table. On data where projections are the exception, which
-is the normal case, the closure is a handful of rows.
+Looking attempted values up by value is what finally bounded the closure. Until
+then a pass loaded every row of its tables holding an attempted value, because
+any of them might be owed a claim; the unique-conflict scenario manufactures one
+such row per merged change, so its closure grew with everything the scope had
+ever parked. Asking for the rows owed *the values in this batch* leaves that
+history out: 31.5 rows per change to 16.0, and 43.3 to 18.5 on fk chain delete.
+
+It does not move the unique batch's clock, because that batch is no longer
+paying for its closure. At ~10 queries per change against ~2 elsewhere, its cost
+is per-change metadata work — `recordInsertAttempts`, `recordAttemptsForRows`
+and `safeIncomingData` each running per row — roughly 5,000 queries for a batch
+of 500. The closure loads are a handful of queries against that. What the value
+filter removes is the growth term: closure size no longer tracks how many
+projections the scope holds.
 
 The remaining gap to pre-work is the unique-conflict batch, at 0.55x. That work
 is real — releasing values stranded on hidden rows is the defect the redesign
 exists to fix, and the pre-work engine was not doing it — but 21 rows per change
 is more than it needs. Options 4 and 5 address that.
 
-Scenario throughput varies by up to ~15% between runs on this machine; the fk
-chain delete column is within that band.
+Scenario throughput varies by up to ~15% between runs on this machine, and the
+by-value column was measured under load, so read its drops as noise and its row
+counts as the signal. The one clock change it makes on its own is fk chain
+delete, which reads less than half of what it did.
 
 ## Measurements before the fix
 
@@ -232,6 +243,35 @@ authored value holds an attempted value instead, and those rows are already in
 the closure, so a hidden row's released claim is reachable without inverting the
 release function.
 
+### 5b. Ask for the rows owed a value, rather than all of them — done
+
+The walk needs rows nothing points at: a child repaired away from its parent no
+longer names it in the domain column, and a row that lost a unique claim was
+parked on a value derived from its own id. Both keep what they are owed in a
+sparse attempted value, so the walk asks for that.
+
+- **The predicate is built by the write path's own encoders.** The authored
+  value goes through the protocol's dynamic-field encoding and then the
+  structured-column encoder, which is what makes it dialect correct without a
+  hand-written one: `jsonb('…')` against SQLite's binary JSONB, a jsonb literal
+  on Postgres. `ColumnStructured` exposes no comparison operators, so this has
+  to be raw SQL, but nothing about the encoding is reimplemented.
+- **It runs inside the walk, not before it.** The values a pass contests are
+  discovered wave by wave, so the lookup sits beside the domain lookups that
+  already use those same sets — parent references for foreign keys, claim tuples
+  for unique indexes.
+- **It is deliberately not narrowed to the seeds' descendants.** An earlier
+  version scanned only tables a seed could reach downward, on the argument that
+  nothing else can change. The DST disagreed: a pass repairs whatever its
+  closure can see, and a stale override on a table reached only upward stayed
+  stale, tripping `projectionPurity` on three seeds. Repair opportunity is not
+  bounded by the seed's descendants.
+- **An index on the column is not available.** Declaring one on the model
+  produces a definition entry but no `CREATE INDEX`: the generator drops indexes
+  on jsonb columns. The lookup is a scan of the attempted-value table alone,
+  which measures ~1 ms against 3,000 rows with 500 values in the predicate, so
+  it is not currently worth pursuing.
+
 ### 6. Keep projection out of the insert path entirely
 
 Write inserts with a deterministic parking value for every unique and FK column,
@@ -257,16 +297,11 @@ worst case.
 
 Two ways to make even that case cheap, neither implemented:
 
-1. **Find attempted values by value.** The authored value lives in a `dynamic`
-   jsonb column, so it cannot be searched. A scalar mirror column with an index
-   would let the walk ask "who is owed this claim" instead of loading them all.
-   Filtering by table does not substitute for this. The scan is already limited
-   to the tables a seed can reach downward — the only ones a pass can change —
-   and in the unique-conflict scenario that set is the merged table itself,
-   because `unique` and `unique_uuid` declare no relations at all. The rows it
-   returns are all in the table being written to, so no table predicate can
-   exclude them.
-2. **Skip the load when no claim can be freed.** A claim only comes back when a
+1. **Per-change metadata work in the unique path.** `recordInsertAttempts`,
+   `recordAttemptsForRows` and `safeIncomingData` each run per row. That is the
+   ~10 queries per change the unique batch pays, and the only thing between it
+   and the ~2 that everything else costs.
+2. **Skip the lookup when no claim can be freed.** A claim only comes back when a
    claimant is hidden, deleted, or changes its value; a batch that only inserts
    new rows cannot free one. The winner is the maximum over claimants under a
    total order, and a row that already lost cannot win by a new row arriving, so
