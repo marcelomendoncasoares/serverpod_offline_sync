@@ -22,11 +22,8 @@ class CrdtUniqueConflictResolver {
   final CrdtRecorderContext _context;
 
   /// Whether [tableName] has any synchronized unique index.
-  bool tableHasUniqueIndexes(String tableName) {
-    final tableDefinition = _context.tableDefinitionsByName[tableName];
-    if (tableDefinition == null) return false;
-    return _context.uniqueIndexesForTable(tableDefinition).isNotEmpty;
-  }
+  bool tableHasUniqueIndexes(String tableName) =>
+      uniqueIndexesFor(tableName).isNotEmpty;
 
   /// Unique indexes declared for [tableName].
   List<UniqueIndexConflictRelease> uniqueIndexesFor(String tableName) {
@@ -49,11 +46,12 @@ class CrdtUniqueConflictResolver {
   }
 
   /// Releasable unique columns for [tableName], used by two-phase parking.
+  ///
+  /// A column can be indexed more than once, and releasing it is one act, so
+  /// the columns are deduplicated by name.
   List<UniqueColumnConflictRelease> uniqueReleaseColumnsFor(String tableName) {
-    final tableDefinition = _context.tableDefinitionsByName[tableName];
-    if (tableDefinition == null) return const [];
     final byName = <String, UniqueColumnConflictRelease>{};
-    for (final uniqueIndex in _context.uniqueIndexesForTable(tableDefinition)) {
+    for (final uniqueIndex in uniqueIndexesFor(tableName)) {
       for (final column in uniqueIndex.releaseColumns) {
         byName[column.columnName] = column;
       }

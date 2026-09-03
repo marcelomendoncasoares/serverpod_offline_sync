@@ -384,35 +384,32 @@ class CrdtMutationRecorder {
     List<T> rows,
     Transaction transaction,
   ) async {
-    if (rows.isEmpty) {
-      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
-    }
-    final tableName = rows.first.table.tableName;
-    if (!_context.isCrdtTrackedTableName(tableName)) {
-      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
-    }
-    if (!_foreignKeyProjector.needsProjection(tableName, null)) {
-      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
+    const unplanned = <MergeFieldKey, ProjectionAttempt>{};
+    final tableName = rows.firstOrNull?.table.tableName;
+    if (tableName == null ||
+        !_context.isCrdtTrackedTableName(tableName) ||
+        !_foreignKeyProjector.needsProjection(tableName, null)) {
+      return (rows: rows, attempts: unplanned);
     }
 
     final hlcManager = _context.hlcManagerFor(transaction);
     final pendingHlc = hlcManager.peekNext();
     final node = hlcManager.getNode();
+    // A row with no id yet takes a database-generated one, so there is nothing
+    // to plan against: no stored row can be contesting a claim it cannot name.
     final pending = <PendingProjectionRow>[
       for (final row in rows)
-        if (row.id is UuidValue)
+        if (row.id case final UuidValue rowId)
           (
             tableName: tableName,
-            rowId: row.id as UuidValue,
+            rowId: rowId,
             authoredValues: _authoredValuesFromRow(row, null),
             rowHlc: pendingHlc,
             node: node,
             hidden: false,
           ),
     ];
-    if (pending.isEmpty) {
-      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
-    }
+    if (pending.isEmpty) return (rows: rows, attempts: unplanned);
 
     final planned = await _foreignKeyProjector.project(
       transaction,
@@ -440,10 +437,10 @@ class CrdtMutationRecorder {
     return (
       rows: [
         for (final row in rows)
-          _withPlannedDomainValues(
+          if (row.id case final UuidValue rowId)
+            _withPlannedDomainValues(row, planned.domain[(tableName, rowId)])
+          else
             row,
-            planned.domain[(tableName, row.id as UuidValue)],
-          ),
       ],
       attempts: attempts,
     );
