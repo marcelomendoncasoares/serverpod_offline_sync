@@ -1,13 +1,9 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
-
-/// One node in the topology: the raw session collection reads from, the CRDT
-/// session used for reads and merges, and its own sync engine.
-typedef _Node = ({DatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync});
+import '../test_tools/sync_topology.dart';
 
 /// Deleted rows stay in their table, so a hidden row still occupies every
 /// physical index it is part of - while being invisible to unique conflict
@@ -29,39 +25,10 @@ void main() {
 
   final syncTables = testSyncTables;
 
-  Future<_Node> node(DatabaseSession raw) async {
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-    await crdt.db.initialize();
-    return (
-      raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
-        syncTables: syncTables,
-        serializationManager: raw.db.serializationManager,
-      ),
-    );
-  }
-
-  Future<void> push(_Node from, _Node to) async {
-    final changes = await from.sync
-        .collectPendingChanges(
-          from.raw,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
-        )
-        .toList();
-    await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
-  }
-
-  /// One client sync cycle: push local changes up, then merge the server's.
-  Future<void> syncWithServer(_Node client, _Node server) async {
-    await push(client, server);
-    await push(server, client);
-  }
-
   /// Every child with its visibility and reference, ordered by name so nodes
   /// compare directly. Hidden rows are included because a hidden row holding
   /// the contested value is exactly what this asserts about.
-  Future<String> render(_Node node) async {
+  Future<String> render(SyncNode node) async {
     final rows = await UniqueSetNullChild.db.find(
       node.crdt,
       where: (t) => t.includeHiddenRows,
@@ -82,20 +49,20 @@ void main() {
     'Given a tombstoned child whose unique foreign key was repaired away and '
     'whose parent was then restored,',
     () {
-      late _Node server;
-      late _Node author;
-      late _Node deleter;
-      late _Node restorer;
-      late _Node claimant;
+      late SyncNode server;
+      late SyncNode author;
+      late SyncNode deleter;
+      late SyncNode restorer;
+      late SyncNode claimant;
       late Person parent;
       late UniqueSetNullChild child;
 
       setUp(() async {
-        server = await node(testSession);
-        author = await node(await createAdditionalTestSession());
-        deleter = await node(await createAdditionalTestSession());
-        restorer = await node(await createAdditionalTestSession());
-        claimant = await node(await createAdditionalTestSession());
+        server = await syncNode(testSession, syncTables);
+        author = await syncNode(await createAdditionalTestSession(), syncTables);
+        deleter = await syncNode(await createAdditionalTestSession(), syncTables);
+        restorer = await syncNode(await createAdditionalTestSession(), syncTables);
+        claimant = await syncNode(await createAdditionalTestSession(), syncTables);
 
         // A person every node knows.
         parent = Person(id: const Uuid().v7obj(), name: 'parent');

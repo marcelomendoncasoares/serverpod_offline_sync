@@ -1,51 +1,16 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
-
-typedef _Node = ({
-  DatabaseSession raw,
-  CrdtDatabaseSession crdt,
-  CrdtSync sync,
-});
+import '../test_tools/sync_topology.dart';
 
 void main() {
   initTestClientSession();
 
   final syncTables = [Address.t, City.t, Person.t, Town.t];
 
-  Future<_Node> node(DatabaseSession raw) async {
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-    await crdt.db.initialize();
-    return (
-      raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
-        syncTables: syncTables,
-        serializationManager: raw.db.serializationManager,
-      ),
-    );
-  }
-
-  Future<void> push(_Node from, _Node to) async {
-    final changes = await from.sync
-        .collectPendingChanges(
-          from.raw,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
-        )
-        .toList();
-    await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
-  }
-
-  /// Push local changes up, then merge the server's.
-  Future<void> syncWithServer(_Node client, _Node server) async {
-    await push(client, server);
-    await push(server, client);
-  }
-
-  Future<String> render(_Node node) async {
+  Future<String> render(SyncNode node) async {
     final persons = await Person.db.find(
       node.crdt,
       where: (t) => t.includeHiddenRows,
@@ -78,14 +43,14 @@ void main() {
   group(
     'Given a deleted person restored by a restrict reference after a hidden town had its set-null reference to it repaired,',
     () {
-      late _Node server;
-      late _Node author;
-      late _Node deleter;
+      late SyncNode server;
+      late SyncNode author;
+      late SyncNode deleter;
 
       setUp(() async {
-        server = await node(testSession);
-        author = await node(await createAdditionalTestSession());
-        deleter = await node(await createAdditionalTestSession());
+        server = await syncNode(testSession, syncTables);
+        author = await syncNode(await createAdditionalTestSession(), syncTables);
+        deleter = await syncNode(await createAdditionalTestSession(), syncTables);
 
         // A person every node knows.
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
@@ -113,7 +78,7 @@ void main() {
         await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insertRow(author.crdt, town, transaction: tx);
         });
-        await push(author, server);
+        await pushChanges(author, server);
         await syncWithServer(deleter, server);
 
         // The town is deleted before the restore below arrives, freezing its
@@ -134,7 +99,7 @@ void main() {
         await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
           await Address.db.insertRow(author.crdt, address, transaction: tx);
         });
-        await push(author, server);
+        await pushChanges(author, server);
       });
 
       group('when every client has synced with the server,', () {

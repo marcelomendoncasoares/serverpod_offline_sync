@@ -1,45 +1,16 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
-
-typedef _Node = ({
-  DatabaseSession raw,
-  CrdtDatabaseSession crdt,
-  CrdtSync sync,
-});
+import '../test_tools/sync_topology.dart';
 
 void main() {
   initTestClientSession();
 
   final syncTables = [Address.t, City.t, Person.t, Town.t];
 
-  Future<_Node> node(DatabaseSession raw) async {
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-    await crdt.db.initialize();
-    return (
-      raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
-        syncTables: syncTables,
-        serializationManager: raw.db.serializationManager,
-      ),
-    );
-  }
-
-  Future<void> push(_Node from, _Node to) async {
-    final changes = await from.sync
-        .collectPendingChanges(
-          from.raw,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
-        )
-        .toList();
-    await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
-  }
-
-  Future<String> render(_Node node) async {
+  Future<String> render(SyncNode node) async {
     final persons = await Person.db.find(
       node.crdt,
       where: (t) => t.includeHiddenRows,
@@ -72,24 +43,24 @@ void main() {
   group(
     'Given a hidden town whose set-null reference outlived the delete of the person it points at, because a restrict reference restored it,',
     () {
-      late _Node author;
+      late SyncNode author;
 
       setUp(() async {
-        author = await node(testSession);
-        final deleter = await node(await createAdditionalTestSession());
+        author = await syncNode(testSession, syncTables);
+        final deleter = await syncNode(await createAdditionalTestSession(), syncTables);
 
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
         await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
           await Person.db.insertRow(author.crdt, mayor, transaction: tx);
         });
-        await push(author, deleter);
+        await pushChanges(author, deleter);
 
         // The person is deleted and the author merges that, so it holds the
         // delete as a fact and hides the person.
         await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
           await Person.db.deleteRow(deleter.crdt, mayor, transaction: tx);
         });
-        await push(deleter, author);
+        await pushChanges(deleter, author);
 
         // A restrict reference to the hidden person makes the delete lose,
         // restoring it.
@@ -118,11 +89,11 @@ void main() {
       });
 
       group('when a node with no prior state merges the whole scope in one batch,', () {
-        late _Node fresh;
+        late SyncNode fresh;
 
         setUp(() async {
-          fresh = await node(await createAdditionalTestSession());
-          await push(author, fresh);
+          fresh = await syncNode(await createAdditionalTestSession(), syncTables);
+          await pushChanges(author, fresh);
         });
 
         test('then it agrees with the node it bootstrapped from.', () async {

@@ -1,46 +1,16 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
-
-typedef _Node = ({DatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync});
+import '../test_tools/sync_topology.dart';
 
 void main() {
   initTestClientSession();
 
   final syncTables = [Address.t, Person.t];
 
-  Future<_Node> node(DatabaseSession raw) async {
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-    await crdt.db.initialize();
-    return (
-      raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
-        syncTables: syncTables,
-        serializationManager: raw.db.serializationManager,
-      ),
-    );
-  }
-
-  Future<void> push(_Node from, _Node to) async {
-    final changes = await from.sync
-        .collectPendingChanges(
-          from.raw,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
-        )
-        .toList();
-    await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
-  }
-
-  Future<void> syncWithServer(_Node client, _Node server) async {
-    await push(client, server);
-    await push(server, client);
-  }
-
-  Future<Address> claim(_Node owner, String street, Person inhabitant) async {
+  Future<Address> claim(SyncNode owner, String street, Person inhabitant) async {
     final row = Address(
       id: const Uuid().v7obj(),
       street: street,
@@ -52,7 +22,7 @@ void main() {
     return row;
   }
 
-  Future<String> render(_Node node) async {
+  Future<String> render(SyncNode node) async {
     final rows = await Address.db.find(
       node.crdt,
       where: (t) => t.includeHiddenRows,
@@ -70,17 +40,17 @@ void main() {
   group(
     'Given a client that synced a foreign-key unique claim before any competing claim reached the server,',
     () {
-      late _Node server;
-      late _Node winnerClient;
-      late _Node loserClient;
-      late _Node bystander;
+      late SyncNode server;
+      late SyncNode winnerClient;
+      late SyncNode loserClient;
+      late SyncNode bystander;
       late Address winner;
 
       setUp(() async {
-        server = await node(testSession);
-        winnerClient = await node(await createAdditionalTestSession());
-        loserClient = await node(await createAdditionalTestSession());
-        bystander = await node(await createAdditionalTestSession());
+        server = await syncNode(testSession, syncTables);
+        winnerClient = await syncNode(await createAdditionalTestSession(), syncTables);
+        loserClient = await syncNode(await createAdditionalTestSession(), syncTables);
+        bystander = await syncNode(await createAdditionalTestSession(), syncTables);
 
         // The referenced row every node knows
         final inhabitant = Person(
@@ -91,9 +61,9 @@ void main() {
         await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
           await Person.db.insertRow(server.crdt, inhabitant, transaction: tx);
         });
-        await push(server, winnerClient);
-        await push(server, loserClient);
-        await push(server, bystander);
+        await pushChanges(server, winnerClient);
+        await pushChanges(server, loserClient);
+        await pushChanges(server, bystander);
 
         // The winning claim is authored first, so it holds the earlier HLC,
         // but it stays offline while the losing claim reaches the server.
