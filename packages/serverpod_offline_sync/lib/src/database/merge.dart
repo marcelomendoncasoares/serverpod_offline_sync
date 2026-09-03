@@ -103,11 +103,24 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     final nodesByUuid = remoteNodes.nodesByUuid;
     final context = await _loadMergeContext(mergeSet, transaction);
+
+    // Deletes carry no authored overlay but still change visibility, so the
+    // seed is every touched row, not just the ones with overlays.
+    final touchedTables = <String>{};
+    final touchedRows = <MergeRowKey>{};
+    for (final operation in operations) {
+      if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
+      touchedTables.add(operation.tableName);
+      touchedRows.add((operation.tableName, operation.uuidRowId));
+    }
+
     final batch = mayAffectProjection
         ? await _planBatchInserts(
             operations,
             nodesByUuid,
             context,
+            touchedTables,
+            touchedRows,
             transaction,
           )
         : (plan: null, pending: const <PendingProjectionRow>[]);
@@ -125,17 +138,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     // than per row: every query behind it already takes a set of row ids.
     final pendingAttempts = _PendingInsertAttempts();
 
-    // Deletes carry no authored overlay but still change visibility, so the
-    // seed is every touched row, not just the ones with overlays.
-    final touchedTables = <String>{};
-    final touchedRows = <MergeRowKey>{};
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) {
         continue;
       }
-      touchedTables.add(operation.tableName);
-      touchedRows.add((operation.tableName, operation.uuidRowId));
-
       // A later operation on a row resolves its field metadata through the
       // merge cache, so anything still pending for that row is written first.
       if (pendingAttempts.holds((operation.tableName, operation.uuidRowId))) {
@@ -396,22 +402,19 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     List<CrdtMergeChange> operations,
     Map<UuidValue, CrdtNode> remoteNodes,
     MergeContext context,
+    Set<String> seedTables,
+    Set<MergeRowKey> seedRows,
     Transaction transaction,
   ) async {
     final pending = <PendingProjectionRow>[];
     final seenRowKeys = <MergeRowKey>{};
-    final seedTables = <String>{};
-    final seedRows = <MergeRowKey>{};
 
     for (final operation in operations) {
-      if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
-      seedTables.add(operation.tableName);
-      seedRows.add((operation.tableName, operation.uuidRowId));
-
       // An update or a delete only seeds the pass. Operations are causally
       // ordered, so an update newer than its insert is applied after it, and
       // the end-of-batch pass is what resolves the value it claims.
       if (operation is! CrdtMergeInsert) continue;
+      if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
 
       // Only rows this merge will create need a pre-write plan, and only the
       // first insert for a row id takes that path.
