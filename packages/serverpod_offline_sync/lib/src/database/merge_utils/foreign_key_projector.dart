@@ -1530,6 +1530,29 @@ class CrdtForeignKeyProjector {
     return resolved;
   }
 
+  /// Writes [authoredValues] straight to their domain rows.
+  ///
+  /// Only valid when nothing in the batch can affect projection: with no
+  /// foreign key column and no unique column in play there is no candidate to
+  /// compute and no claim to resolve, so a pass would materialize exactly the
+  /// authored value. Skipping it avoids loading state to rediscover that.
+  Future<void> writeAuthoredValues(
+    Map<MergeFieldKey, Object?> authoredValues,
+    Transaction transaction,
+  ) async {
+    if (authoredValues.isEmpty) return;
+
+    final updatesByRow = <MergeRowKey, Map<String, Object?>>{};
+    for (final MapEntry(key: fieldKey, value: value) in authoredValues.entries) {
+      updatesByRow.putIfAbsent(
+        (fieldKey.$1, fieldKey.$2),
+        () => <String, Object?>{},
+      )[fieldKey.$3] = value;
+    }
+
+    await _applyBatchedDomainRowUpdates(updatesByRow, transaction);
+  }
+
   Future<void> _applyBatchedDomainRowUpdates(
     _DomainRowUpdatesByKey updatesByRow,
     Transaction transaction,

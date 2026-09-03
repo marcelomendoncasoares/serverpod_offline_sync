@@ -24,6 +24,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (mergeSet.isEmpty) return;
 
     final operations = mergeSet.causallyOrderedChanges;
+    // Nothing in this batch touches a foreign key or a unique index, so no
+    // projection decision can change: skip both passes instead of loading
+    // state for tables that cannot produce a candidate or a conflict.
+    final mayAffectProjection = _foreignKeyProjector
+        .mergeOperationsMayAffectProjection(operations);
     final authoredOverlays = <MergeFieldKey, Object?>{};
     final currentUser = _context.effectiveScopeFor(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
@@ -33,12 +38,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     final nodesByUuid = remoteNodes.nodesByUuid;
     final context = await _loadMergeContext(mergeSet, transaction);
-    final batchPlan = await _planBatchInserts(
-      operations,
-      nodesByUuid,
-      context,
-      transaction,
-    );
+    final batchPlan = mayAffectProjection
+        ? await _planBatchInserts(
+            operations,
+            nodesByUuid,
+            context,
+            transaction,
+          )
+        : null;
 
     // Deletes carry no authored overlay but still change visibility, so the
     // seed is every touched table, not just the ones with overlays.
@@ -77,11 +84,20 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
-    await _foreignKeyProjector.project(
-      transaction,
-      authoredOverlays: authoredOverlays,
-      seedTables: touchedTables,
-    );
+    if (mayAffectProjection) {
+      await _foreignKeyProjector.project(
+        transaction,
+        authoredOverlays: authoredOverlays,
+        seedTables: touchedTables,
+      );
+    } else {
+      // The pass is also what writes an update's value, so its authored
+      // values still have to land when it is skipped.
+      await _foreignKeyProjector.writeAuthoredValues(
+        authoredOverlays,
+        transaction,
+      );
+    }
     await _updateHlcFromIncomingOperations(
       operations,
       remoteNodes,

@@ -1,6 +1,6 @@
 # Merge projection performance
 
-Status: **options 1 and 2 implemented; 3–6 still open.**
+Status: **options 1 and 2 implemented, projection gate restored; 3–6 still open.**
 
 Merging inserts is roughly two orders of magnitude slower than merging updates
 or deletes, and the gap widens as a scope fills up. This document records the
@@ -14,35 +14,47 @@ Related documents:
 
 ## Result
 
-Options 1 and 2 are in. Merge insert went from 8 to 556 changes/s and the
-quadratic term is gone: per-change cost no longer grows with batch size.
+Measured with `benchmark/merge_only.dart`, 500 changes per batch, SQLite, 22
+synced tables, one scope. The pre-work column is `d3c2a96`, the last commit
+before the projection redesign, measured with the same instrumented benchmark:
+it is the bar to get back to, not the redesign's own starting point.
 
-| Batch | Before | Option 1 | Option 2 | Queries/change |
-| --- | --- | --- | --- | --- |
-| merge insert | 8/s | 9/s | **556/s** | 26.06 -> 2.02 |
-| merge mixed | 16/s | 20/s | **792/s** | 10.46 -> 2.36 |
-| merge unique conflict | 8/s | 18/s | **288/s** | 36.07 -> 10.04 |
-| merge fk chain insert | 14/s | 16/s | **328/s** | 46.61 -> 8.38 |
-| merge update | 1,150/s | 1,222/s | 1,191/s | 2.46 -> 2.42 |
-| merge delete | 1,907/s | 1,960/s | 1,739/s | 2.06 -> 2.02 |
+Throughput, changes per second:
 
-Scaling, ms per change at 250 vs 500 rows:
+| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate |
+| --- | --- | --- | --- | --- | --- |
+| merge insert | 1,002 | 8 | 9 | 628 | **900** |
+| merge update | 1,697 | 1,150 | 1,222 | 1,250 | **1,670** |
+| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | **2,389** |
+| merge mixed | 1,855 | 16 | 20 | 805 | **1,579** |
+| merge unique conflict | 564 | 8 | 18 | 306 | 309 |
+| merge fk chain insert | 350 | 14 | 16 | 345 | 369 |
+| merge fk chain delete | 584 | — | — | 598 | 494 |
 
-| Batch | Before | After |
-| --- | --- | --- |
-| merge insert | 67.9 -> 123.9 (1.82x) | 1.84 -> 1.80 (0.98x) |
-| merge unique conflict | 65.7 -> 124.3 (1.89x) | 4.72 -> 3.47 (0.74x) |
-| merge fk chain insert | 46.4 -> 74.6 (1.61x) | 4.67 -> 3.05 (0.65x) |
+Rows read per merged change, the quantity that drove the regression:
 
-Ratios below 1.0 are fixed per-batch cost amortizing over more changes.
+| Batch | Pre-work | Option 2 | Gate |
+| --- | --- | --- | --- |
+| merge insert | 0.0 | 7.0 | **0.0** |
+| merge update | 4.6 | 9.2 | **4.6** |
+| merge delete | 2.0 | 5.0 | **2.0** |
+| merge mixed | 1.3 | 12.0 | **1.3** |
+| merge unique conflict | 2.0 | 21.0 | 21.0 |
+| merge fk chain insert | 13.6 | 15.7 | 15.7 |
+| merge fk chain delete | 44.3 | 33.3 | 33.3 |
 
 Option 1 cut queries per change by 64–81% but barely moved the clock, because
 insert cost was dominated by how much each query read rather than how many ran.
-Option 2 removed the repeated reads and is where the time went.
+Option 2 removed the repeated reads and is where the time went. The gate then
+removed the passes that never had anything to do.
 
-The remaining gap to update and delete throughput is the two unique-heavy
-batches, which still issue ~10 queries per change. Options 4 and 5 address that
-and are no longer urgent.
+The remaining gap to pre-work is the unique-conflict batch, at 0.55x. That work
+is real — releasing values stranded on hidden rows is the defect the redesign
+exists to fix, and the pre-work engine was not doing it — but 21 rows per change
+is more than it needs. Options 4 and 5 address that.
+
+Scenario throughput varies by up to ~15% between runs on this machine; the fk
+chain delete column is within that band.
 
 ## Measurements before the fix
 
@@ -130,6 +142,30 @@ materialize the constraint-safe values, then perform the physical writes.
   insert's own authored value for a reason projection did not cause.
 - Biggest single win: this is where merge insert went from 9 to 556 changes/s.
 
+### 0. Restore the projection gate — done
+
+The pre-work merge path gated the whole pass:
+
+```dart
+final shouldProjectForeignKeys =
+    _foreignKeyProjector.mergeOperationsMayAffectForeignKeys(operations);
+...
+if (shouldProjectForeignKeys) await _foreignKeyProjector.project(transaction);
+```
+
+The redesign kept the predicate, renamed to `mergeOperationsMayAffectProjection`,
+but stopped calling it, so a batch on a table with no foreign key and no unique
+index still loaded that table's whole CRDT row set — twice, once to plan and
+once at the end.
+
+- Restores pre-work cost for every table that has nothing to project.
+- The pass is also what writes an update's value, so the skipped path has to
+  write the authored values itself; `writeAuthoredValues` does that through the
+  same batched domain writer.
+- Sound for the same reason the predicate is: with no foreign key column and no
+  unique column in the batch there is no candidate to compute and no claim to
+  resolve, so the pass would have materialized exactly the authored value.
+
 ### 3. Memoize projection state per transaction
 
 Weaker version of 2: keep `_loadProjectionState`'s result on the transaction and
@@ -182,11 +218,11 @@ then let the single end-of-batch pass materialize final values.
 
 ## What is left
 
-Options 1 and 2 met the target of hundreds of changes per second. Remaining
-work, in order of expected value:
+The gate met the pre-work bar on every batch that does not use a unique index.
+Remaining work, in order of expected value:
 
 1. Options 4 and 5 for the unique-heavy batches, which still cost ~10 queries
-   per change against ~2 for everything else.
+   and 21 rows per change against ~2 and ~2 for everything else.
 2. Option 3 is now redundant: one pass per batch already removes the repeated
    reads it was meant to cache away.
 3. Option 6 is unnecessary.
