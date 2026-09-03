@@ -959,8 +959,18 @@ class CrdtForeignKeyProjector {
       enqueue(rowKey.$1, [rowKey.$2]);
       (frontier[rowKey.$1] ??= <UuidValue>{}).add(rowKey.$2);
     }
+    // A row owed a claim or a restore lives in a table a seed can reach
+    // downward; the ancestors in the closure are read, never rewritten, so
+    // scanning their attempted values would find nothing this pass can use.
+    final changeableTables = _foreignKeys
+        .descendantTables({
+          for (final rowKey in seedRows) rowKey.$1,
+          for (final rowKey in unwrittenValues.keys) rowKey.$1,
+        })
+        .where(tablesToLoad.contains)
+        .toSet();
     for (final rowKey in await _rowKeysHoldingAttemptedValues(
-      tablesToLoad,
+      changeableTables,
       transaction,
     )) {
       enqueue(rowKey.$1, [rowKey.$2]);

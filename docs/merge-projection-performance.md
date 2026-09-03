@@ -260,6 +260,12 @@ Two ways to make even that case cheap, neither implemented:
 1. **Find attempted values by value.** The authored value lives in a `dynamic`
    jsonb column, so it cannot be searched. A scalar mirror column with an index
    would let the walk ask "who is owed this claim" instead of loading them all.
+   Filtering by table does not substitute for this. The scan is already limited
+   to the tables a seed can reach downward — the only ones a pass can change —
+   and in the unique-conflict scenario that set is the merged table itself,
+   because `unique` and `unique_uuid` declare no relations at all. The rows it
+   returns are all in the table being written to, so no table predicate can
+   exclude them.
 2. **Skip the load when no claim can be freed.** A claim only comes back when a
    claimant is hidden, deleted, or changes its value; a batch that only inserts
    new rows cannot free one. The winner is the maximum over claimants under a
