@@ -906,9 +906,8 @@ class CrdtForeignKeyProjector {
   /// attempted value join the seeds: their domain column no longer names the
   /// parent they want, so no edge query would find them.
   ///
-  /// Tables with a unique index still load whole. A claim can be held by any
-  /// row of the table and there is no index to find it by, which is what
-  /// option 5 of `docs/merge-projection-performance.md` adds.
+  /// Rows contesting a unique claim join the same walk, found through the
+  /// table's own unique index rather than by loading the table.
   Future<void> _loadRowClosureInto({
     required Set<String> tablesToLoad,
     required Set<MergeRowKey> seedRows,
@@ -950,22 +949,7 @@ class CrdtForeignKeyProjector {
       }
     }
 
-    var frontier = <String, Set<UuidValue>>{};
-    for (final tableName in tablesToLoad) {
-      if (!_uniqueResolver.tableHasUniqueIndexes(tableName)) continue;
-      final loaded = await _loadTableRowsInto(
-        tableName: tableName,
-        rowIds: null,
-        columnNames: columnsByTable[tableName] ?? const <String>{},
-        rows: rows,
-        fieldIds: fieldIds,
-        attemptedValues: attemptedValues,
-        fieldHlcs: fieldHlcs,
-        transaction: transaction,
-      );
-      requested.putIfAbsent(tableName, () => <UuidValue>{}).addAll(loaded);
-      if (loaded.isNotEmpty) frontier[tableName] = loaded;
-    }
+    final frontier = <String, Set<UuidValue>>{};
 
     for (final rowKey in seedRows) {
       enqueue(rowKey.$1, [rowKey.$2]);
@@ -1024,7 +1008,7 @@ class CrdtForeignKeyProjector {
       for (final MapEntry(key: tableName, value: ids) in frontier.entries) {
         (loadedNow[tableName] ??= <UuidValue>{}).addAll(ids);
       }
-      frontier = <String, Set<UuidValue>>{};
+      frontier.clear();
       if (loadedNow.isEmpty) break;
 
       await _expandRowClosure(
@@ -1124,6 +1108,40 @@ class CrdtForeignKeyProjector {
         }
       }
     }
+
+    // A unique claim is contested by value, not along an edge: the row holding
+    // the tuple this one wants can be any row of the table, so ask the table's
+    // own unique index for it. A row that wants a value it does not hold is
+    // already loaded, because holding a projection means holding an attempted
+    // value.
+    for (final MapEntry(key: tableName, value: rowIds) in loadedNow.entries) {
+      for (final uniqueIndex in _uniqueResolver.uniqueIndexesFor(tableName)) {
+        final claimedByColumn = <String, Set<Object?>>{};
+        for (final rowId in rowIds) {
+          final rowKey = (tableName, rowId);
+          for (final columnName in uniqueIndex.indexedColumns) {
+            final claims = <Object?>{
+              ...valuesFor(rowKey, columnName),
+              ?attemptedValues[(tableName, rowId, columnName)]?.value,
+            }..remove(null);
+            if (claims.isEmpty) continue;
+            (claimedByColumn[columnName] ??= <Object?>{}).addAll(claims);
+          }
+        }
+        if (claimedByColumn.length != uniqueIndex.indexedColumns.length) {
+          continue;
+        }
+
+        enqueue(
+          tableName,
+          await _context.findDomainRowIdsWhereColumnsIn(
+            tableName: tableName,
+            valuesByColumn: claimedByColumn,
+            transaction: transaction,
+          ),
+        );
+      }
+    }
   }
 
   /// Rows of [tableNames] that currently hold a sparse attempted value.
@@ -1138,23 +1156,14 @@ class CrdtForeignKeyProjector {
     };
     if (tableNameById.isEmpty) return const {};
 
-    final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
-    final attempted = await CrdtDataAttemptedValue.db.find(
-      _context.databaseSession,
-      where: (t) =>
-          t.field.row.scopeId.equals(userId) &
-          t.field.row.tblId.inSet(tableNameById.keys.toSet()),
-      include: CrdtDataAttemptedValue.include(
-        field: CrdtDataField.include(row: CrdtDataRow.include()),
-      ),
+    final rowKeys = await _context.findRowKeysHoldingAttemptedValues(
+      tableIds: tableNameById.keys.toSet(),
       transaction: transaction,
     );
 
     return {
-      for (final value in attempted)
-        if (value.field?.row case final row?)
-          if (tableNameById[row.tblId] case final tableName?)
-            (tableName, row.uuidRowId),
+      for (final (tableId, rowId) in rowKeys)
+        if (tableNameById[tableId] case final tableName?) (tableName, rowId),
     };
   }
 

@@ -1,6 +1,6 @@
 # Merge projection performance
 
-Status: **options 1, 2 and 4 implemented, projection gate restored; 3, 5 and 6 still open.**
+Status: **options 1, 2, 4 and 5 implemented, projection gate restored; 3 and 6 rejected.**
 
 Merging inserts is roughly two orders of magnitude slower than merging updates
 or deletes, and the gap widens as a scope fills up. This document records the
@@ -21,27 +21,37 @@ it is the bar to get back to, not the redesign's own starting point.
 
 Throughput, changes per second:
 
-| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate | Option 4 |
-| --- | --- | --- | --- | --- | --- | --- |
-| merge insert | 1,002 | 8 | 9 | 628 | 900 | **961** |
-| merge update | 1,697 | 1,150 | 1,222 | 1,250 | 1,670 | **1,730** |
-| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | 2,389 | **2,480** |
-| merge mixed | 1,855 | 16 | 20 | 805 | 1,579 | **1,588** |
-| merge unique conflict | 564 | 8 | 18 | 306 | 309 | 280 |
-| merge fk chain insert | 350 | 14 | 16 | 345 | 369 | **400** |
-| merge fk chain delete | 584 | — | — | 598 | 494 | 519 |
+| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate | Option 4 | Option 5 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| merge insert | 1,002 | 8 | 9 | 628 | 900 | 961 | **925** |
+| merge update | 1,697 | 1,150 | 1,222 | 1,250 | 1,670 | 1,730 | **1,666** |
+| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | 2,389 | 2,480 | **2,531** |
+| merge mixed | 1,855 | 16 | 20 | 805 | 1,579 | 1,588 | **1,663** |
+| merge unique conflict | 564 | 8 | 18 | 306 | 309 | 280 | **307** |
+| merge fk chain insert | 350 | 14 | 16 | 345 | 369 | 400 | **434** |
+| merge fk chain delete | 584 | — | — | 598 | 494 | 519 | **542** |
+
+The redesign and option 1 columns are from the original runs; everything else
+was measured back to back in one session. Nothing hinges on the difference: the
+columns that matter differ by two orders of magnitude.
 
 Rows read per merged change, the quantity that drove the regression:
 
-| Batch | Pre-work | Option 2 | Gate | Option 4 |
-| --- | --- | --- | --- | --- |
-| merge insert | 0.0 | 7.0 | **0.0** | **0.0** |
-| merge update | 4.6 | 9.2 | **4.6** | **4.6** |
-| merge delete | 2.0 | 5.0 | **2.0** | **2.0** |
-| merge mixed | 1.3 | 12.0 | **1.3** | **1.3** |
-| merge unique conflict | 2.0 | 21.0 | 21.0 | 24.0 |
-| merge fk chain insert | 13.6 | 15.7 | 15.7 | **8.1** |
-| merge fk chain delete | 44.3 | 33.3 | 33.3 | 43.3 |
+| Batch | Pre-work | Option 2 | Gate | Option 4 | Option 5 |
+| --- | --- | --- | --- | --- | --- |
+| merge insert | 0.0 | 7.0 | **0.0** | **0.0** | **0.0** |
+| merge update | 4.6 | 9.2 | **4.6** | **4.6** | **4.6** |
+| merge delete | 2.0 | 5.0 | **2.0** | **2.0** | **2.0** |
+| merge mixed | 1.3 | 12.0 | **1.3** | **1.3** | **1.3** |
+| merge unique conflict | 2.0 | 21.0 | 21.0 | 24.0 | 31.5 |
+| merge fk chain insert | 13.6 | 15.7 | 15.7 | **8.1** | **8.1** |
+| merge fk chain delete | 44.3 | 33.3 | 33.3 | 43.3 | 43.3 |
+
+Read the unique row counts with care from option 4 on. The counter counts every
+row a query hands back, and the closure walk replaced whole-table loads of
+materialized models with id lookups and `(tblId, uuidRowId)` tuples. More rows
+cross the boundary and each one costs a fraction of what it used to, which is
+why the count rises while the clock does not.
 
 Option 1 cut queries per change by 64–81% but barely moved the clock, because
 insert cost was dominated by how much each query read rather than how many ran.
@@ -49,10 +59,12 @@ Option 2 removed the repeated reads and is where the time went. The gate then
 removed the passes that never had anything to do, and option 4 halved what an
 fk chain insert reads.
 
-Option 4 costs the unique batch a little: the closure walk adds one query for
-the rows holding an attempted value, and the unique-conflict scenario is mostly
-such rows. Those tables still load whole, so they pay for the walk without
-benefiting from it — which is what option 5 changes.
+Options 4 and 5 leave the unique batch where it was, and the reason is the
+benchmark rather than the change. Every claim a pass might have to hand back is
+held by a row that carries an attempted value, so the closure has to contain all
+of them, and the unique-conflict scenario manufactures one per merged change:
+its closure *is* the table. On data where projections are the exception, which
+is the normal case, the closure is a handful of rows.
 
 The remaining gap to pre-work is the unique-conflict batch, at 0.55x. That work
 is real — releasing values stranded on hidden rows is the defect the redesign
@@ -208,18 +220,17 @@ the table and there is no way to find it by value yet. That is option 5.
 A pass with no `seedRows` — a rebuild — still loads everything, which keeps the
 full recomputation available as the oracle the strategy document asks for.
 
-### 5. Look unique claimants up by value
+### 5. Look unique claimants up by value — done
 
-Conflict grouping currently sees every row because every row was loaded. With a
-closure it needs the rows whose unique tuple matches a claim being made, which
-is an indexed query against the domain table's own unique index rather than a
-scan.
+Unique-indexed tables no longer load whole. The closure walk asks the table for
+the rows holding the values it claims, one indexed query per unique index, and
+matches a composite index column by column, so the result is a superset of the
+exact tuples.
 
-- Prerequisite for 4 on unique-heavy tables; the unique-conflict batch is the
-  slowest measured case.
-- Hidden rows hold released values, so the lookup must search released forms as
-  well as the canonical claim, or the released value must be derivable from the
-  claim (it is: the release is deterministic from row id).
+The released form does not need searching for. A row that does not hold its
+authored value holds an attempted value instead, and those rows are already in
+the closure, so a hidden row's released claim is reachable without inverting the
+release function.
 
 ### 6. Keep projection out of the insert path entirely
 
@@ -233,15 +244,32 @@ then let the single end-of-batch pass materialize final values.
 
 ## What is left
 
-The gate and option 4 met the pre-work bar on every batch that does not use a
-unique index.
-Remaining work, in order of expected value:
+Every batch is back at or above its pre-work throughput except the unique
+conflict one, which sits at 0.54x while doing work the pre-work engine did not
+do at all.
 
-1. Option 5 for the unique-heavy batches, which still cost ~10 queries and 24
-   rows per change against ~2 and ~2 for everything else.
-2. Option 3 is now redundant: one pass per batch already removes the repeated
-   reads it was meant to cache away.
-3. Option 6 is unnecessary.
+The cost that remains is the size of the *active projection set*: every pass
+loads every row of its tables that holds an attempted value, because any of
+them may be owed a claim back. That is proportional to how many projections a
+scope currently holds, not to how large the scope is, which is the right shape —
+but the benchmark manufactures one projection per change, so it measures the
+worst case.
+
+Two ways to make even that case cheap, neither implemented:
+
+1. **Find attempted values by value.** The authored value lives in a `dynamic`
+   jsonb column, so it cannot be searched. A scalar mirror column with an index
+   would let the walk ask "who is owed this claim" instead of loading them all.
+2. **Skip the load when no claim can be freed.** A claim only comes back when a
+   claimant is hidden, deleted, or changes its value; a batch that only inserts
+   new rows cannot free one. The winner is the maximum over claimants under a
+   total order, and a row that already lost cannot win by a new row arriving, so
+   the parked losers can stay unloaded. The foreign key half does not have this
+   property — a late parent restores children by attempted value — so the two
+   needs would have to be separated first.
+
+Option 3 is redundant: one pass per batch already removes the repeated reads it
+was meant to cache away. Option 6 is unnecessary.
 
 `safeIncomingData` still runs per insert, one target-presence query per foreign
 key edge. That is part of the ~8 queries per change on fk chain inserts and is

@@ -388,6 +388,71 @@ WHERE "${columnName.escapeIdentifier()}" IN (${values.sqlLiteralList()})
     };
   }
 
+  /// `(tblId, uuidRowId)` of the scope's rows that hold an attempted value.
+  ///
+  /// Read as tuples rather than through the ORM: a projection pass only needs
+  /// to know which rows to pull into its closure, and materializing the
+  /// attempted value, its field and its row to answer that costs three objects
+  /// per active projection.
+  Future<Set<(int, UuidValue)>> findRowKeysHoldingAttemptedValues({
+    required Set<int> tableIds,
+    required Transaction transaction,
+  }) async {
+    if (tableIds.isEmpty) return const {};
+
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final result = await database.unsafeQuery(
+      '''
+SELECT DISTINCT r."tblId", r."uuidRowId"
+FROM "crdt_data_attempted_value" a
+JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
+JOIN "crdt_data_rows" r ON r."id" = f."rowId"
+WHERE r."scopeId" = $scopeId
+  AND r."tblId" IN (${tableIds.join(', ')})
+''',
+      transaction: transaction,
+    );
+
+    return {
+      for (final row in result)
+        ((row[0] as num).toInt(), UuidValueJsonExtension.fromJson(row[1])),
+    };
+  }
+
+  /// Row ids in [tableName] whose columns hold one of the listed values.
+  ///
+  /// A composite unique index is matched column by column, so the result is a
+  /// superset of the exact tuples. Loading a few extra rows is what a whole
+  /// table load did anyway, and the query stays a plain indexed lookup.
+  Future<Set<UuidValue>> findDomainRowIdsWhereColumnsIn({
+    required String tableName,
+    required Map<String, Set<Object?>> valuesByColumn,
+    required Transaction transaction,
+  }) async {
+    if (valuesByColumn.isEmpty) return const {};
+    if (valuesByColumn.values.any((values) => values.isEmpty)) return const {};
+
+    final predicates = valuesByColumn.entries
+        .map(
+          (entry) =>
+              '"${entry.key.escapeIdentifier()}" IN (${entry.value.sqlLiteralList()})',
+        )
+        .join(') AND (');
+
+    final result = await database.unsafeQuery(
+      '''
+SELECT "id"
+FROM "${tableName.escapeIdentifier()}"
+WHERE ($predicates)
+''',
+      transaction: transaction,
+    );
+
+    return {
+      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
+    };
+  }
+
   Future<Set<UuidValue>> findVisibleDomainRowIdsWhere({
     required String tableName,
     required List<String> predicates,

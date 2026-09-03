@@ -28,12 +28,17 @@ class CrdtUniqueConflictResolver {
     return _context.uniqueIndexesForTable(tableDefinition).isNotEmpty;
   }
 
+  /// Unique indexes declared for [tableName].
+  List<UniqueIndexConflictRelease> uniqueIndexesFor(String tableName) {
+    final tableDefinition = _context.tableDefinitionsByName[tableName];
+    if (tableDefinition == null) return const [];
+    return _context.uniqueIndexesForTable(tableDefinition);
+  }
+
   /// Unique-indexed column names for [tableName], excluding `scopeId`.
   Set<String> uniqueColumnNamesFor(String tableName) {
-    final tableDefinition = _context.tableDefinitionsByName[tableName];
-    if (tableDefinition == null) return const {};
     return {
-      for (final uniqueIndex in _context.uniqueIndexesForTable(tableDefinition))
+      for (final uniqueIndex in uniqueIndexesFor(tableName))
         ...uniqueIndex.indexedColumns,
     };
   }
