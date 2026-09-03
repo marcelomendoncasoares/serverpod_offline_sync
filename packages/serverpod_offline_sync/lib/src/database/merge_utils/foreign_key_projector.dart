@@ -32,8 +32,7 @@ class CrdtForeignKeyPresenceCache {
   final Map<MergeRowKey, ForeignKeyTargetPresence> _presenceByRow = {};
 
   /// What is known about [rowKey], or null when it has not been asked.
-  ForeignKeyTargetPresence? presenceOf(MergeRowKey rowKey) =>
-      _presenceByRow[rowKey];
+  ForeignKeyTargetPresence? presenceOf(MergeRowKey rowKey) => _presenceByRow[rowKey];
 
   /// Remembers [presence] for [rowKey].
   void record(MergeRowKey rowKey, ForeignKeyTargetPresence presence) =>
@@ -221,33 +220,6 @@ class CrdtForeignKeyProjector {
     }
 
     return cascadeDeletes;
-  }
-
-  /// Applies a local `ON DELETE` action to a child column.
-  ///
-  /// A locally initiated `SET NULL` or `SET DEFAULT` is an authored CRDT fact,
-  /// not projection: it is the observable consequence of the delete the user
-  /// just performed, so it advances the child field HLC. The merge-triggered
-  /// action is the projection case and is handled by the planner instead.
-  Future<void> _updateChildColumnTo(
-    String childTableName,
-    Set<UuidValue> childIds,
-    String childColumn,
-    Object? value,
-    Transaction transaction,
-  ) async {
-    await _context.updateDomainRows(
-      childTableName,
-      childIds,
-      {childColumn: value},
-      transaction,
-    );
-    await _context.recordFieldsUpdatedByTable(
-      childTableName,
-      childIds,
-      [childColumn],
-      transaction,
-    );
   }
 
   bool mergeOperationsMayAffectProjection(
@@ -513,30 +485,6 @@ class CrdtForeignKeyProjector {
     return cache;
   }
 
-  Future<ForeignKeyTargetPresence> _targetPresence({
-    required ForeignKeyEdge edge,
-    required UuidValue value,
-    required CrdtForeignKeyPresenceCache? presence,
-    required Transaction transaction,
-  }) async {
-    final rowKey = (edge.parentTableName, value);
-    if (presence != null && edge.parentColumn == 'id') {
-      final cached = presence.presenceOf(rowKey);
-      if (cached != null) return cached;
-    }
-
-    final resolved = await _context.lookupForeignKeyTargetPresence(
-      parentTableName: edge.parentTableName,
-      parentColumn: edge.parentColumn,
-      value: value,
-      transaction: transaction,
-    );
-    if (presence != null && edge.parentColumn == 'id') {
-      presence.record(rowKey, resolved);
-    }
-    return resolved;
-  }
-
   Future<SafeIncomingForeignKeyData> safeIncomingData(
     String tableName,
     UuidValue rowId,
@@ -753,6 +701,57 @@ class CrdtForeignKeyProjector {
     );
   }
 
+  /// Applies a local `ON DELETE` action to a child column.
+  ///
+  /// A locally initiated `SET NULL` or `SET DEFAULT` is an authored CRDT fact,
+  /// not projection: it is the observable consequence of the delete the user
+  /// just performed, so it advances the child field HLC. The merge-triggered
+  /// action is the projection case and is handled by the planner instead.
+  Future<void> _updateChildColumnTo(
+    String childTableName,
+    Set<UuidValue> childIds,
+    String childColumn,
+    Object? value,
+    Transaction transaction,
+  ) async {
+    await _context.updateDomainRows(
+      childTableName,
+      childIds,
+      {childColumn: value},
+      transaction,
+    );
+    await _context.recordFieldsUpdatedByTable(
+      childTableName,
+      childIds,
+      [childColumn],
+      transaction,
+    );
+  }
+
+  Future<ForeignKeyTargetPresence> _targetPresence({
+    required ForeignKeyEdge edge,
+    required UuidValue value,
+    required CrdtForeignKeyPresenceCache? presence,
+    required Transaction transaction,
+  }) async {
+    final rowKey = (edge.parentTableName, value);
+    if (presence != null && edge.parentColumn == 'id') {
+      final cached = presence.presenceOf(rowKey);
+      if (cached != null) return cached;
+    }
+
+    final resolved = await _context.lookupForeignKeyTargetPresence(
+      parentTableName: edge.parentTableName,
+      parentColumn: edge.parentColumn,
+      value: value,
+      transaction: transaction,
+    );
+    if (presence != null && edge.parentColumn == 'id') {
+      presence.record(rowKey, resolved);
+    }
+    return resolved;
+  }
+
   Future<_ForeignKeyProjectionState> _loadProjectionState(
     Transaction transaction, {
     List<PendingProjectionRow> pendingInserts = const [],
@@ -792,9 +791,11 @@ class CrdtForeignKeyProjector {
           .addAll(_uniqueResolver.uniqueColumnNamesFor(tableName));
     }
     for (final pending in pendingInserts) {
-      columnsByTable.putIfAbsent(pending.tableName, () => {}).addAll(
-        pending.authoredValues.keys,
-      );
+      columnsByTable
+          .putIfAbsent(pending.tableName, () => {})
+          .addAll(
+            pending.authoredValues.keys,
+          );
     }
     for (final fieldKey in authoredOverlays.keys) {
       columnsByTable.putIfAbsent(fieldKey.$1, () => {}).add(fieldKey.$3);
@@ -829,8 +830,7 @@ class CrdtForeignKeyProjector {
     }
 
     final originalDomain = {
-      for (final row in rows.values)
-        row.key: Map<String, Object?>.from(row.values),
+      for (final row in rows.values) row.key: Map<String, Object?>.from(row.values),
     };
     // Overlays hide attempted rows from planning so the new authored value is
     // used. Keep the persisted rows so sync can delete them when domain again
@@ -1035,8 +1035,7 @@ class CrdtForeignKeyProjector {
         ...pending.authoredValues,
       };
     }
-    for (final MapEntry(key: fieldKey, value: value)
-        in authoredOverlays.entries) {
+    for (final MapEntry(key: fieldKey, value: value) in authoredOverlays.entries) {
       unwrittenValues.putIfAbsent(
         (fieldKey.$1, fieldKey.$2),
         () => <String, Object?>{},
@@ -2187,5 +2186,4 @@ class CrdtForeignKeyProjector {
       );
     }
   }
-
 }

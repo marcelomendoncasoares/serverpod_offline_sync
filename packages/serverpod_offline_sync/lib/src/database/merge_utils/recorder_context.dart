@@ -1,12 +1,9 @@
 import 'package:meta/meta.dart';
-import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../../crdt/extensions.dart';
 import '../../generated/protocol.dart';
-// Prefixed so the module's Protocol wins over the one serverpod_database
-// exports; the generated models encode their dynamic fields with this one.
-import '../../generated/protocol.dart' as offline_sync;
 import '../../managers/hlc.dart';
 import '../../managers/scope.dart';
 import '../database.dart';
@@ -418,7 +415,7 @@ WHERE "${columnName.escapeIdentifier()}" IN (${values.sqlLiteralList()})
         if (value != null)
           ValueEncoder.instance.encodeColumnValue(
             CrdtDataAttemptedValue.t.value,
-            offline_sync.Protocol().dynamicFieldToJson(value),
+            Protocol().dynamicFieldToJson(value),
           ),
     };
     if (encodedValues.isEmpty) return const {};
@@ -533,8 +530,7 @@ LIMIT 1
   ///
   /// The single-value form asked once per foreign key of every merged insert.
   /// Values with no row are absent from the result rather than reported.
-  Future<Map<UuidValue, ForeignKeyTargetPresence>>
-  lookupForeignKeyTargetPresences({
+  Future<Map<UuidValue, ForeignKeyTargetPresence>> lookupForeignKeyTargetPresences({
     required String parentTableName,
     required String parentColumn,
     required Set<UuidValue> values,
@@ -561,8 +557,7 @@ WHERE (${domainColumnPredicate('scopeId', scopeId)})
 
     return {
       for (final row in result)
-        UuidValueJsonExtension.fromJson(row.first):
-            (row[1] as num) == 1
+        UuidValueJsonExtension.fromJson(row.first): (row[1] as num) == 1
             ? ForeignKeyTargetPresence.visible
             : ForeignKeyTargetPresence.hidden,
     };

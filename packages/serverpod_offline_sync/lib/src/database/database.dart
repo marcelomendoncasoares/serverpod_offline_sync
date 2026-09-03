@@ -411,14 +411,11 @@ class CrdtDatabase implements Database {
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
         if (rows.isNotEmpty) {
-          await _recorder.projectCurrent(
-            rows.first.table.tableName,
-            {
-              for (final row in rows)
-                if (row.id case final UuidValue rowId) rowId,
-            },
-            tx,
-          );
+          final rowIds = {
+            for (final row in rows)
+              if (row.id case final UuidValue rowId) rowId,
+          };
+          await _recorder.projectCurrent(rows.first.table.tableName, rowIds, tx);
         }
 
         // CRDT metadata needs the affected rows even when the public call uses
@@ -633,11 +630,7 @@ class CrdtDatabase implements Database {
       _delegate,
       transaction,
       (tx) async {
-        final plannedUpdates = await _recorder.planLocalUpdates(
-          [row],
-          columns,
-          tx,
-        );
+        final plannedUpdates = await _recorder.planLocalUpdates([row], columns, tx);
         final stripScopeId = _shouldStripReturnedScopeId(row, tx);
         final updatedRow = await _updateRowWithoutRecording(
           plannedUpdates.single,
