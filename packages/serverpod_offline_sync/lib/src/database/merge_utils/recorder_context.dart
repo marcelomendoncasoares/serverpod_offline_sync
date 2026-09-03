@@ -361,6 +361,33 @@ class CrdtRecorderContext {
     );
   }
 
+  /// Row ids in [tableName] whose [columnName] holds one of [values].
+  ///
+  /// Unlike [findVisibleReferencingRowIds] this keeps hidden rows: projection
+  /// has to see a hidden child before it can decide whether the child comes
+  /// back with its parent.
+  Future<Set<UuidValue>> findDomainRowIdsWhereColumnIn({
+    required String tableName,
+    required String columnName,
+    required Set<Object?> values,
+    required Transaction transaction,
+  }) async {
+    if (values.isEmpty) return const {};
+
+    final result = await database.unsafeQuery(
+      '''
+SELECT "id"
+FROM "${tableName.escapeIdentifier()}"
+WHERE "${columnName.escapeIdentifier()}" IN (${values.sqlLiteralList()})
+''',
+      transaction: transaction,
+    );
+
+    return {
+      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
+    };
+  }
+
   Future<Set<UuidValue>> findVisibleDomainRowIdsWhere({
     required String tableName,
     required List<String> predicates,

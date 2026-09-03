@@ -360,10 +360,15 @@ class CrdtMutationRecorder {
   ///
   /// Used before upsert so hidden unique claims are released before the
   /// physical write can occupy the same index.
-  Future<void> projectCurrent(String tableName, Transaction transaction) {
+  Future<void> projectCurrent(
+    String tableName,
+    Set<UuidValue> rowIds,
+    Transaction transaction,
+  ) {
     return _foreignKeyProjector.project(
       transaction,
       seedTables: {tableName},
+      seedRows: {for (final rowId in rowIds) (tableName, rowId)},
     );
   }
 
@@ -413,6 +418,7 @@ class CrdtMutationRecorder {
       transaction,
       pendingInserts: pending,
       seedTables: {tableName},
+      seedRows: {for (final row in pending) (tableName, row.rowId)},
     );
     final attempts = <MergeFieldKey, ProjectionAttempt>{};
     for (final pendingRow in pending) {
@@ -490,6 +496,10 @@ class CrdtMutationRecorder {
       transaction,
       authoredOverlays: overlays,
       seedTables: {tableName},
+      seedRows: {
+        for (final row in rows)
+          if (row.id case final UuidValue rowId) (tableName, rowId),
+      },
     );
     return [
       for (final row in rows)
@@ -584,7 +594,7 @@ class CrdtMutationRecorder {
         transaction,
         attempts,
       );
-      await _maybeProject(tableName, null, transaction);
+      await _maybeProject(tableName, rowIds, null, transaction);
     });
   }
 
@@ -636,7 +646,7 @@ class CrdtMutationRecorder {
         null,
         transaction,
       );
-      await _maybeProject(tableName, null, transaction);
+      await _maybeProject(tableName, rowIds, null, transaction);
     });
   }
 
@@ -683,6 +693,7 @@ class CrdtMutationRecorder {
       );
       await _maybeProject(
         tableName,
+        rowIds,
         updatedColumnNames,
         transaction,
       );
@@ -691,6 +702,7 @@ class CrdtMutationRecorder {
 
   Future<void> _maybeProject(
     String tableName,
+    Set<UuidValue> rowIds,
     Set<String>? columnNames,
     Transaction transaction,
   ) async {
@@ -698,6 +710,7 @@ class CrdtMutationRecorder {
       await _foreignKeyProjector.project(
         transaction,
         seedTables: {tableName},
+        seedRows: {for (final rowId in rowIds) (tableName, rowId)},
       );
     }
   }
@@ -810,7 +823,12 @@ class CrdtMutationRecorder {
       null,
       CrdtDataDeletedReason.userDelete,
     );
-    await _maybeProject(tableName, null, transaction);
+    await _maybeProject(
+      tableName,
+      deletedRows.uuidRowIds,
+      null,
+      transaction,
+    );
   }
 
   Future<void> _softDeleteRowsByTable(

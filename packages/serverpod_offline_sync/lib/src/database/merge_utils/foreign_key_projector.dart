@@ -598,6 +598,7 @@ class CrdtForeignKeyProjector {
     List<PendingProjectionRow> pendingInserts = const [],
     Map<MergeFieldKey, Object?> authoredOverlays = const {},
     Set<String>? seedTables,
+    Set<MergeRowKey>? seedRows,
     bool materialize = true,
   }) async {
     final state = await _loadProjectionState(
@@ -605,6 +606,7 @@ class CrdtForeignKeyProjector {
       pendingInserts: pendingInserts,
       authoredOverlays: authoredOverlays,
       seedTables: seedTables,
+      seedRows: seedRows,
     );
     if (state.rows.isEmpty) {
       return (
@@ -650,6 +652,7 @@ class CrdtForeignKeyProjector {
     List<PendingProjectionRow> pendingInserts = const [],
     Map<MergeFieldKey, Object?> authoredOverlays = const {},
     Set<String>? seedTables,
+    Set<MergeRowKey>? seedRows,
   }) async {
     final rows = <MergeRowKey, _ProjectedForeignKeyRow>{};
     final fieldIds = <MergeFieldKey, int>{};
@@ -691,59 +694,32 @@ class CrdtForeignKeyProjector {
       columnsByTable.putIfAbsent(fieldKey.$1, () => {}).add(fieldKey.$3);
     }
 
-    for (final tableName in tablesToLoad) {
-      final (tableId, _) = _context.schema[tableName]!;
-      final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
-      final crdtRows = await CrdtDataRow.db.find(
-        _context.databaseSession,
-        where: (t) => t.scopeId.equals(userId) & t.tblId.equals(tableId),
-        include: CrdtDataRow.include(
-          node: CrdtNode.include(),
-          deleted: CrdtDataDeleted.include(node: CrdtNode.include()),
-        ),
-        orderBy: (t) => t.uuidRowId,
-        transaction: transaction,
-      );
-      if (crdtRows.isEmpty) continue;
-
-      final rowIds = {for (final row in crdtRows) row.uuidRowId};
-      final columnNames = columnsByTable[tableName] ?? const <String>{};
-      final valuesByRowId = columnNames.isEmpty
-          ? <UuidValue, Map<String, Object?>>{}
-          : await _context.readDomainColumnValues(
-              tableName,
-              rowIds,
-              columnNames.toList(),
-              transaction,
-            );
-
-      for (final row in crdtRows) {
-        final rowId = row.uuidRowId;
-        final key = (tableName, rowId);
-        rows[key] = (
-          key: key,
-          crdtRow: row,
-          values: Map<String, Object?>.from(valuesByRowId[rowId] ?? const {}),
-        );
-      }
-
-      if (columnNames.isNotEmpty) {
-        final loadedFields = await _loadFields(
+    if (seedRows == null) {
+      for (final tableName in tablesToLoad) {
+        await _loadTableRowsInto(
           tableName: tableName,
-          rowIds: rowIds,
-          columnNames: columnNames,
+          rowIds: null,
+          columnNames: columnsByTable[tableName] ?? const <String>{},
+          rows: rows,
+          fieldIds: fieldIds,
+          attemptedValues: attemptedValues,
+          fieldHlcs: fieldHlcs,
           transaction: transaction,
         );
-        for (final field in loadedFields) {
-          final fieldKey = (tableName, field.row!.uuidRowId, field.column!.name);
-          fieldIds[fieldKey] = field.id!;
-          fieldHlcs[fieldKey] = field.hlc;
-          final attempted = field.attemptedValue;
-          if (attempted != null) {
-            attemptedValues[fieldKey] = attempted;
-          }
-        }
       }
+    } else {
+      await _loadRowClosureInto(
+        tablesToLoad: tablesToLoad,
+        seedRows: seedRows,
+        pendingInserts: pendingInserts,
+        authoredOverlays: authoredOverlays,
+        columnsByTable: columnsByTable,
+        rows: rows,
+        fieldIds: fieldIds,
+        attemptedValues: attemptedValues,
+        fieldHlcs: fieldHlcs,
+        transaction: transaction,
+      );
     }
 
     final originalDomain = {
@@ -846,6 +822,340 @@ class CrdtForeignKeyProjector {
       pendingInsertKeys: pendingInsertKeys,
       originalDomain: originalDomain,
     );
+  }
+
+  /// Loads [rowIds] of [tableName], or every row of it when [rowIds] is null.
+  ///
+  /// Returns the row ids that exist, so a closure pass can expand from them.
+  Future<Set<UuidValue>> _loadTableRowsInto({
+    required String tableName,
+    required Set<UuidValue>? rowIds,
+    required Set<String> columnNames,
+    required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
+    required Map<MergeFieldKey, int> fieldIds,
+    required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+    required Map<MergeFieldKey, Hlc> fieldHlcs,
+    required Transaction transaction,
+  }) async {
+    if (rowIds != null && rowIds.isEmpty) return const {};
+
+    final (tableId, _) = _context.schema[tableName]!;
+    final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
+    final crdtRows = await CrdtDataRow.db.find(
+      _context.databaseSession,
+      where: (t) {
+        final inScope = t.scopeId.equals(userId) & t.tblId.equals(tableId);
+        return rowIds == null ? inScope : inScope & t.uuidRowId.inSet(rowIds);
+      },
+      include: CrdtDataRow.include(
+        node: CrdtNode.include(),
+        deleted: CrdtDataDeleted.include(node: CrdtNode.include()),
+      ),
+      orderBy: (t) => t.uuidRowId,
+      transaction: transaction,
+    );
+    if (crdtRows.isEmpty) return const {};
+
+    final loadedIds = {for (final row in crdtRows) row.uuidRowId};
+    final valuesByRowId = columnNames.isEmpty
+        ? <UuidValue, Map<String, Object?>>{}
+        : await _context.readDomainColumnValues(
+            tableName,
+            loadedIds,
+            columnNames.toList(),
+            transaction,
+          );
+
+    for (final row in crdtRows) {
+      final key = (tableName, row.uuidRowId);
+      rows[key] = (
+        key: key,
+        crdtRow: row,
+        values: Map<String, Object?>.from(valuesByRowId[row.uuidRowId] ?? const {}),
+      );
+    }
+
+    if (columnNames.isNotEmpty) {
+      final loadedFields = await _loadFields(
+        tableName: tableName,
+        rowIds: loadedIds,
+        columnNames: columnNames,
+        transaction: transaction,
+      );
+      for (final field in loadedFields) {
+        final fieldKey = (tableName, field.row!.uuidRowId, field.column!.name);
+        fieldIds[fieldKey] = field.id!;
+        fieldHlcs[fieldKey] = field.hlc;
+        final attempted = field.attemptedValue;
+        if (attempted != null) {
+          attemptedValues[fieldKey] = attempted;
+        }
+      }
+    }
+
+    return loadedIds;
+  }
+
+  /// Loads the rows the seeds can reach instead of every row of their tables.
+  ///
+  /// Cascade, restrict and repair all travel along foreign key edges, and a
+  /// row reached by no edge from a seed cannot change, so the closure is the
+  /// seeds plus their foreign key component: children of a loaded row, because
+  /// hiding or restoring a parent decides their fate, and parents of a loaded
+  /// row, because an unloaded parent reads as a missing one. Rows holding an
+  /// attempted value join the seeds: their domain column no longer names the
+  /// parent they want, so no edge query would find them.
+  ///
+  /// Tables with a unique index still load whole. A claim can be held by any
+  /// row of the table and there is no index to find it by, which is what
+  /// option 5 of `docs/merge-projection-performance.md` adds.
+  Future<void> _loadRowClosureInto({
+    required Set<String> tablesToLoad,
+    required Set<MergeRowKey> seedRows,
+    required List<PendingProjectionRow> pendingInserts,
+    required Map<MergeFieldKey, Object?> authoredOverlays,
+    required Map<String, Set<String>> columnsByTable,
+    required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
+    required Map<MergeFieldKey, int> fieldIds,
+    required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+    required Map<MergeFieldKey, Hlc> fieldHlcs,
+    required Transaction transaction,
+  }) async {
+    // A pending insert has no row yet, and an overlay's new value is applied
+    // after loading, so neither is visible to an edge query. Both name the
+    // parent the pass has to judge them against, so they seed the walk too.
+    final unwrittenValues = <MergeRowKey, Map<String, Object?>>{};
+    for (final pending in pendingInserts) {
+      unwrittenValues[(pending.tableName, pending.rowId)] = {
+        ...pending.authoredValues,
+      };
+    }
+    for (final MapEntry(key: fieldKey, value: value)
+        in authoredOverlays.entries) {
+      unwrittenValues.putIfAbsent(
+        (fieldKey.$1, fieldKey.$2),
+        () => <String, Object?>{},
+      )[fieldKey.$3] = value;
+    }
+
+    final requested = <String, Set<UuidValue>>{};
+    var queued = <String, Set<UuidValue>>{};
+
+    void enqueue(String tableName, Iterable<UuidValue> ids) {
+      if (!tablesToLoad.contains(tableName)) return;
+      final seen = requested.putIfAbsent(tableName, () => <UuidValue>{});
+      for (final id in ids) {
+        if (!seen.add(id)) continue;
+        queued.putIfAbsent(tableName, () => <UuidValue>{}).add(id);
+      }
+    }
+
+    var frontier = <String, Set<UuidValue>>{};
+    for (final tableName in tablesToLoad) {
+      if (!_uniqueResolver.tableHasUniqueIndexes(tableName)) continue;
+      final loaded = await _loadTableRowsInto(
+        tableName: tableName,
+        rowIds: null,
+        columnNames: columnsByTable[tableName] ?? const <String>{},
+        rows: rows,
+        fieldIds: fieldIds,
+        attemptedValues: attemptedValues,
+        fieldHlcs: fieldHlcs,
+        transaction: transaction,
+      );
+      requested.putIfAbsent(tableName, () => <UuidValue>{}).addAll(loaded);
+      if (loaded.isNotEmpty) frontier[tableName] = loaded;
+    }
+
+    for (final rowKey in seedRows) {
+      enqueue(rowKey.$1, [rowKey.$2]);
+    }
+    for (final rowKey in unwrittenValues.keys) {
+      if (!tablesToLoad.contains(rowKey.$1)) continue;
+      enqueue(rowKey.$1, [rowKey.$2]);
+      (frontier[rowKey.$1] ??= <UuidValue>{}).add(rowKey.$2);
+    }
+    for (final rowKey in await _rowKeysHoldingAttemptedValues(
+      tablesToLoad,
+      transaction,
+    )) {
+      enqueue(rowKey.$1, [rowKey.$2]);
+    }
+    // A set-default edge names its target in the schema, so no row points at
+    // it until the repair runs.
+    for (final edge in _foreignKeys.edges) {
+      if (!tablesToLoad.contains(edge.childTableName)) continue;
+      final defaultValue = edge.defaultValue.toUuidValue();
+      if (defaultValue == null) continue;
+      if (edge.parentColumn == 'id') {
+        enqueue(edge.parentTableName, [defaultValue]);
+        continue;
+      }
+      enqueue(
+        edge.parentTableName,
+        await _context.findDomainRowIdsWhereColumnIn(
+          tableName: edge.parentTableName,
+          columnName: edge.parentColumn,
+          values: {defaultValue},
+          transaction: transaction,
+        ),
+      );
+    }
+
+    while (queued.isNotEmpty || frontier.isNotEmpty) {
+      final wave = queued;
+      queued = <String, Set<UuidValue>>{};
+
+      final loadedNow = <String, Set<UuidValue>>{};
+      for (final MapEntry(key: tableName, value: ids) in wave.entries) {
+        final loaded = await _loadTableRowsInto(
+          tableName: tableName,
+          rowIds: ids,
+          columnNames: columnsByTable[tableName] ?? const <String>{},
+          rows: rows,
+          fieldIds: fieldIds,
+          attemptedValues: attemptedValues,
+          fieldHlcs: fieldHlcs,
+          transaction: transaction,
+        );
+        if (loaded.isNotEmpty) loadedNow[tableName] = loaded;
+      }
+
+      for (final MapEntry(key: tableName, value: ids) in frontier.entries) {
+        (loadedNow[tableName] ??= <UuidValue>{}).addAll(ids);
+      }
+      frontier = <String, Set<UuidValue>>{};
+      if (loadedNow.isEmpty) break;
+
+      await _expandRowClosure(
+        loadedNow: loadedNow,
+        tablesToLoad: tablesToLoad,
+        rows: rows,
+        unwrittenValues: unwrittenValues,
+        attemptedValues: attemptedValues,
+        enqueue: enqueue,
+        transaction: transaction,
+      );
+    }
+  }
+
+  Future<void> _expandRowClosure({
+    required Map<String, Set<UuidValue>> loadedNow,
+    required Set<String> tablesToLoad,
+    required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
+    required Map<MergeRowKey, Map<String, Object?>> unwrittenValues,
+    required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required Transaction transaction,
+  }) async {
+    // Both the stored and the unwritten value matter: the walk has to reach the
+    // parent a row points at now and the one it is about to point at.
+    Set<Object?> valuesFor(MergeRowKey rowKey, String columnName) {
+      return <Object?>{
+        rows[rowKey]?.values[columnName],
+        if (unwrittenValues[rowKey]?.containsKey(columnName) ?? false)
+          unwrittenValues[rowKey]![columnName],
+      }..remove(null);
+    }
+
+    for (final edge in _foreignKeys.edges) {
+      final parentIds = loadedNow[edge.parentTableName];
+      if (parentIds != null &&
+          parentIds.isNotEmpty &&
+          tablesToLoad.contains(edge.childTableName)) {
+        final references = <Object?>{};
+        for (final parentId in parentIds) {
+          if (edge.parentColumn == 'id') {
+            references.add(parentId);
+            continue;
+          }
+          references.addAll(
+            valuesFor((edge.parentTableName, parentId), edge.parentColumn),
+          );
+        }
+        if (references.isNotEmpty) {
+          enqueue(
+            edge.childTableName,
+            await _context.findDomainRowIdsWhereColumnIn(
+              tableName: edge.childTableName,
+              columnName: edge.childColumn,
+              values: references,
+              transaction: transaction,
+            ),
+          );
+        }
+      }
+
+      final childIds = loadedNow[edge.childTableName];
+      if (childIds != null &&
+          childIds.isNotEmpty &&
+          tablesToLoad.contains(edge.parentTableName)) {
+        final references = <UuidValue>{};
+        for (final childId in childIds) {
+          final rowKey = (edge.childTableName, childId);
+          for (final value in valuesFor(rowKey, edge.childColumn)) {
+            final reference = tryUuidValue(value);
+            if (reference != null) references.add(reference);
+          }
+          final child = rows[rowKey];
+          if (child == null) continue;
+          // The attempted value names the parent a repair is waiting for.
+          final attempted = _attemptedValueFromProjections(
+            child,
+            edge,
+            attemptedValues,
+          );
+          if (attempted != null) references.add(attempted);
+        }
+        if (references.isEmpty) continue;
+
+        if (edge.parentColumn == 'id') {
+          enqueue(edge.parentTableName, references);
+        } else {
+          enqueue(
+            edge.parentTableName,
+            await _context.findDomainRowIdsWhereColumnIn(
+              tableName: edge.parentTableName,
+              columnName: edge.parentColumn,
+              values: references,
+              transaction: transaction,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// Rows of [tableNames] that currently hold a sparse attempted value.
+  Future<Set<MergeRowKey>> _rowKeysHoldingAttemptedValues(
+    Set<String> tableNames,
+    Transaction transaction,
+  ) async {
+    final tableNameById = <int, String>{
+      for (final tableName in tableNames)
+        if (_context.schema[tableName] case (final tableId, _))
+          tableId: tableName,
+    };
+    if (tableNameById.isEmpty) return const {};
+
+    final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
+    final attempted = await CrdtDataAttemptedValue.db.find(
+      _context.databaseSession,
+      where: (t) =>
+          t.field.row.scopeId.equals(userId) &
+          t.field.row.tblId.inSet(tableNameById.keys.toSet()),
+      include: CrdtDataAttemptedValue.include(
+        field: CrdtDataField.include(row: CrdtDataRow.include()),
+      ),
+      transaction: transaction,
+    );
+
+    return {
+      for (final value in attempted)
+        if (value.field?.row case final row?)
+          if (tableNameById[row.tblId] case final tableName?)
+            (tableName, row.uuidRowId),
+    };
   }
 
   Future<List<CrdtDataField>> _loadFields({

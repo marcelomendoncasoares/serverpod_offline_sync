@@ -1,6 +1,6 @@
 # Merge projection performance
 
-Status: **options 1 and 2 implemented, projection gate restored; 3–6 still open.**
+Status: **options 1, 2 and 4 implemented, projection gate restored; 3, 5 and 6 still open.**
 
 Merging inserts is roughly two orders of magnitude slower than merging updates
 or deletes, and the gap widens as a scope fills up. This document records the
@@ -21,32 +21,38 @@ it is the bar to get back to, not the redesign's own starting point.
 
 Throughput, changes per second:
 
-| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate |
-| --- | --- | --- | --- | --- | --- |
-| merge insert | 1,002 | 8 | 9 | 628 | **900** |
-| merge update | 1,697 | 1,150 | 1,222 | 1,250 | **1,670** |
-| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | **2,389** |
-| merge mixed | 1,855 | 16 | 20 | 805 | **1,579** |
-| merge unique conflict | 564 | 8 | 18 | 306 | 309 |
-| merge fk chain insert | 350 | 14 | 16 | 345 | 369 |
-| merge fk chain delete | 584 | — | — | 598 | 494 |
+| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate | Option 4 |
+| --- | --- | --- | --- | --- | --- | --- |
+| merge insert | 1,002 | 8 | 9 | 628 | 900 | **961** |
+| merge update | 1,697 | 1,150 | 1,222 | 1,250 | 1,670 | **1,730** |
+| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | 2,389 | **2,480** |
+| merge mixed | 1,855 | 16 | 20 | 805 | 1,579 | **1,588** |
+| merge unique conflict | 564 | 8 | 18 | 306 | 309 | 280 |
+| merge fk chain insert | 350 | 14 | 16 | 345 | 369 | **400** |
+| merge fk chain delete | 584 | — | — | 598 | 494 | 519 |
 
 Rows read per merged change, the quantity that drove the regression:
 
-| Batch | Pre-work | Option 2 | Gate |
-| --- | --- | --- | --- |
-| merge insert | 0.0 | 7.0 | **0.0** |
-| merge update | 4.6 | 9.2 | **4.6** |
-| merge delete | 2.0 | 5.0 | **2.0** |
-| merge mixed | 1.3 | 12.0 | **1.3** |
-| merge unique conflict | 2.0 | 21.0 | 21.0 |
-| merge fk chain insert | 13.6 | 15.7 | 15.7 |
-| merge fk chain delete | 44.3 | 33.3 | 33.3 |
+| Batch | Pre-work | Option 2 | Gate | Option 4 |
+| --- | --- | --- | --- | --- |
+| merge insert | 0.0 | 7.0 | **0.0** | **0.0** |
+| merge update | 4.6 | 9.2 | **4.6** | **4.6** |
+| merge delete | 2.0 | 5.0 | **2.0** | **2.0** |
+| merge mixed | 1.3 | 12.0 | **1.3** | **1.3** |
+| merge unique conflict | 2.0 | 21.0 | 21.0 | 24.0 |
+| merge fk chain insert | 13.6 | 15.7 | 15.7 | **8.1** |
+| merge fk chain delete | 44.3 | 33.3 | 33.3 | 43.3 |
 
 Option 1 cut queries per change by 64–81% but barely moved the clock, because
 insert cost was dominated by how much each query read rather than how many ran.
 Option 2 removed the repeated reads and is where the time went. The gate then
-removed the passes that never had anything to do.
+removed the passes that never had anything to do, and option 4 halved what an
+fk chain insert reads.
+
+Option 4 costs the unique batch a little: the closure walk adds one query for
+the rows holding an attempted value, and the unique-conflict scenario is mostly
+such rows. Those tables still load whole, so they pay for the walk without
+benefiting from it — which is what option 5 changes.
 
 The remaining gap to pre-work is the unique-conflict batch, at 0.55x. That work
 is real — releasing values stranded on hidden rows is the defect the redesign
@@ -177,21 +183,30 @@ then reuse one load.
   divergence this engine exists to prevent. Needs the DST as a gate.
 - Worth it only if 2 proves too invasive.
 
-### 4. Load the affected closure instead of the whole scope
+### 4. Load the affected closure instead of the whole scope — done
 
-The strategy document already anticipates this: "A full recomputation is the
-oracle for any incremental affected-closure algorithm." Only the oracle is
-implemented. The closure of a merge set is the rows reachable through FK edges
-from the touched rows, plus the rows claiming a unique tuple that the batch
-claims.
+Cost is now proportional to the rows a pass can reach rather than to the tables
+it can reach. Callers pass the rows they touched as `seedRows`; the loader walks
+outward from them and loads nothing else.
 
-- Removes the quadratic term: cost becomes proportional to the closure, not to
-  scope size.
-- The unique half needs an indexed lookup by claim value (option 5) to avoid
-  loading a table to find its claimants.
-- Correctness is checkable: the full pass is the oracle, so an equivalence test
-  comparing closure output against full recomputation is straightforward, and
-  the strategy's verification gates already ask for it.
+The closure is the seeds plus their foreign key component, in both directions:
+
+- **Down**, to children of a loaded row, because hiding or restoring a parent
+  decides the child's fate — that is cascade, restrict and repair.
+- **Up**, to parents of a loaded row, transitively. This one is not optional: a
+  parent that is not loaded reads as a *missing* parent, and the pass would hide
+  or rewrite a row that a full pass leaves alone.
+- Plus three sets no edge query can reach: rows holding an attempted value (a
+  late parent restores them, and their domain column no longer names it), the
+  values a pending insert or an authored overlay is about to write (they are
+  applied after loading), and the target of a set-default edge (named by the
+  schema, not by any row).
+
+Tables with a unique index still load whole: a claim can be held by any row of
+the table and there is no way to find it by value yet. That is option 5.
+
+A pass with no `seedRows` — a rebuild — still loads everything, which keeps the
+full recomputation available as the oracle the strategy document asks for.
 
 ### 5. Look unique claimants up by value
 
@@ -218,11 +233,12 @@ then let the single end-of-batch pass materialize final values.
 
 ## What is left
 
-The gate met the pre-work bar on every batch that does not use a unique index.
+The gate and option 4 met the pre-work bar on every batch that does not use a
+unique index.
 Remaining work, in order of expected value:
 
-1. Options 4 and 5 for the unique-heavy batches, which still cost ~10 queries
-   and 21 rows per change against ~2 and ~2 for everything else.
+1. Option 5 for the unique-heavy batches, which still cost ~10 queries and 24
+   rows per change against ~2 and ~2 for everything else.
 2. Option 3 is now redundant: one pass per batch already removes the repeated
    reads it was meant to cache away.
 3. Option 6 is unnecessary.

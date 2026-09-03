@@ -411,7 +411,14 @@ class CrdtDatabase implements Database {
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
         if (rows.isNotEmpty) {
-          await _recorder.projectCurrent(rows.first.table.tableName, tx);
+          await _recorder.projectCurrent(
+            rows.first.table.tableName,
+            {
+              for (final row in rows)
+                if (row.id case final UuidValue rowId) rowId,
+            },
+            tx,
+          );
         }
 
         // CRDT metadata needs the affected rows even when the public call uses

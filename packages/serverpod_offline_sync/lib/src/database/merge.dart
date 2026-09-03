@@ -48,13 +48,15 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         : null;
 
     // Deletes carry no authored overlay but still change visibility, so the
-    // seed is every touched table, not just the ones with overlays.
+    // seed is every touched row, not just the ones with overlays.
     final touchedTables = <String>{};
+    final touchedRows = <MergeRowKey>{};
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) {
         continue;
       }
       touchedTables.add(operation.tableName);
+      touchedRows.add((operation.tableName, operation.uuidRowId));
 
       switch (operation) {
         case final CrdtMergeInsert insert:
@@ -89,6 +91,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
         authoredOverlays: authoredOverlays,
         seedTables: touchedTables,
+        seedRows: touchedRows,
       );
     } else {
       // The pass is also what writes an update's value, so its authored
@@ -306,9 +309,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final pending = <PendingProjectionRow>[];
     final seenRowKeys = <MergeRowKey>{};
     final seedTables = <String>{};
+    final seedRows = <MergeRowKey>{};
 
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
+      seedRows.add((operation.tableName, operation.uuidRowId));
       switch (operation) {
         case CrdtMergeUpdate():
           // An update is not folded in here. Operations are causally ordered,
@@ -343,6 +348,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       transaction,
       pendingInserts: pending,
       seedTables: seedTables,
+      seedRows: seedRows,
     );
   }
 
