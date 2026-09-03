@@ -289,24 +289,13 @@ class CrdtSchemaRegistry {
       ];
 
       if (addedColumnNames.isNotEmpty && droppedColumns.isNotEmpty) {
-        final droppedWithMetadata = <String>[];
-        for (final column in droppedColumns) {
-          if (column.id != null &&
-              await _hasFieldMetadata(column.id!, transaction)) {
-            droppedWithMetadata.add('$tableName.${column.name}');
-          }
-        }
-        if (droppedWithMetadata.isNotEmpty) {
-          failures.add(
-            'Cannot reconcile $tableName: columns '
-            '${droppedWithMetadata.join(', ')} would be dropped while '
-            '${addedColumnNames.map((name) => '$tableName.$name').join(', ')} '
-            'would be added, and the dropped columns still have CRDT field '
-            'metadata. Update CrdtSchemaColumn.name in a migration to rename, '
-            'or explicitly delete the old schema column (cascading field '
-            'metadata) for a real drop, then initialize again.',
-          );
-        }
+        final failure = await _describeAmbiguousColumnDrop(
+          tableName: tableName,
+          addedColumnNames: addedColumnNames,
+          droppedColumns: droppedColumns,
+          transaction: transaction,
+        );
+        if (failure != null) failures.add(failure);
       }
 
       for (final columnName in addedColumnNames) {
@@ -329,15 +318,7 @@ class CrdtSchemaRegistry {
         if (stored.id != null &&
             await _hasAttemptedValueRows(stored.id!, transaction)) {
           failures.add(
-            'Cannot change $tableName.$columnName type identity from '
-            '${_formatTypeIdentity(stored)} to '
-            '${_formatTypeIdentityFromDefinition(definition)}, because '
-            'attempted-value rows still exist. Convert the domain column and '
-            'every affected attempted-value envelope to the target types, then '
-            'attest completion by updating CrdtSchemaColumn for '
-            '$tableName.$columnName to '
-            '${_formatTypeIdentityFromDefinition(definition)} as the final '
-            'step of the same migration.',
+            _describeUnconvertedTypeChange(tableName, columnName, stored, definition),
           );
           continue;
         }
@@ -353,22 +334,12 @@ class CrdtSchemaRegistry {
     }
 
     if (tablesToInsert.isNotEmpty && tablesToDelete.isNotEmpty) {
-      final droppedTablesWithRows = <String>[];
-      for (final table in tablesToDelete) {
-        if (table.id != null && await _hasDataRows(table.id!, transaction)) {
-          droppedTablesWithRows.add(table.name);
-        }
-      }
-      if (droppedTablesWithRows.isNotEmpty) {
-        failures.add(
-          'Cannot reconcile schema: tables ${droppedTablesWithRows.join(', ')} '
-          'would be dropped while ${tablesToInsert.join(', ')} would be added, '
-          'and the dropped tables still have CRDT row metadata. Update '
-          'CrdtSchemaTable.name in a migration to rename, or explicitly delete '
-          'the old schema table (cascading metadata) for a real drop, then '
-          'initialize again.',
-        );
-      }
+      final failure = await _describeAmbiguousTableDrop(
+        tablesToInsert: tablesToInsert,
+        tablesToDelete: tablesToDelete,
+        transaction: transaction,
+      );
+      if (failure != null) failures.add(failure);
     }
 
     return _SchemaReconciliationPlan(
@@ -379,6 +350,73 @@ class CrdtSchemaRegistry {
       columnsToDelete: columnsToDelete,
       failures: failures,
     );
+  }
+
+  /// Why an add-and-drop in the same table cannot be told apart from a rename,
+  /// or null when the dropped columns carry no CRDT field metadata.
+  ///
+  /// A rename reaches reconciliation as one column disappearing and another
+  /// appearing, and adopting the wrong one would silently reassign history.
+  Future<String?> _describeAmbiguousColumnDrop({
+    required String tableName,
+    required List<String> addedColumnNames,
+    required List<CrdtSchemaColumn> droppedColumns,
+    required Transaction transaction,
+  }) async {
+    final droppedWithMetadata = <String>[];
+    for (final column in droppedColumns) {
+      if (column.id != null && await _hasFieldMetadata(column.id!, transaction)) {
+        droppedWithMetadata.add('$tableName.${column.name}');
+      }
+    }
+    if (droppedWithMetadata.isEmpty) return null;
+
+    return 'Cannot reconcile $tableName: columns '
+        '${droppedWithMetadata.join(', ')} would be dropped while '
+        '${addedColumnNames.map((name) => '$tableName.$name').join(', ')} '
+        'would be added, and the dropped columns still have CRDT field '
+        'metadata. Update CrdtSchemaColumn.name in a migration to rename, '
+        'or explicitly delete the old schema column (cascading field '
+        'metadata) for a real drop, then initialize again.';
+  }
+
+  /// The table-level counterpart of [_describeAmbiguousColumnDrop].
+  Future<String?> _describeAmbiguousTableDrop({
+    required List<String> tablesToInsert,
+    required List<CrdtSchemaTable> tablesToDelete,
+    required Transaction transaction,
+  }) async {
+    final droppedTablesWithRows = <String>[];
+    for (final table in tablesToDelete) {
+      if (table.id != null && await _hasDataRows(table.id!, transaction)) {
+        droppedTablesWithRows.add(table.name);
+      }
+    }
+    if (droppedTablesWithRows.isEmpty) return null;
+
+    return 'Cannot reconcile schema: tables ${droppedTablesWithRows.join(', ')} '
+        'would be dropped while ${tablesToInsert.join(', ')} would be added, '
+        'and the dropped tables still have CRDT row metadata. Update '
+        'CrdtSchemaTable.name in a migration to rename, or explicitly delete '
+        'the old schema table (cascading metadata) for a real drop, then '
+        'initialize again.';
+  }
+
+  /// Why a column's type identity cannot move while attempted values still
+  /// hold envelopes written against the old one.
+  String _describeUnconvertedTypeChange(
+    String tableName,
+    String columnName,
+    CrdtSchemaColumn stored,
+    ColumnDefinition definition,
+  ) {
+    final target = _formatTypeIdentityFromDefinition(definition);
+    return 'Cannot change $tableName.$columnName type identity from '
+        '${_formatTypeIdentity(stored)} to $target, because attempted-value '
+        'rows still exist. Convert the domain column and every affected '
+        'attempted-value envelope to the target types, then attest completion '
+        'by updating CrdtSchemaColumn for $tableName.$columnName to $target as '
+        'the final step of the same migration.';
   }
 
   Future<(List<CrdtSchemaTable>, List<CrdtSchemaColumn>)> _applyReconciliation(
