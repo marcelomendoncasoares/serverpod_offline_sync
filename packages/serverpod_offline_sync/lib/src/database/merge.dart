@@ -405,34 +405,30 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
 
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
+      seedTables.add(operation.tableName);
       seedRows.add((operation.tableName, operation.uuidRowId));
-      switch (operation) {
-        case CrdtMergeUpdate():
-          // An update is not folded in here. Operations are causally ordered,
-          // so an update newer than its insert is applied after it, and the
-          // end-of-batch pass is what resolves the value it claims.
-          seedTables.add(operation.tableName);
-        case final CrdtMergeInsert insert:
-          final rowKey = (insert.tableName, insert.uuidRowId);
-          seedTables.add(insert.tableName);
-          // Only rows this merge will create need a pre-write plan, and only
-          // the first insert for a row id takes that path.
-          if (context.rows[rowKey] != null) continue;
-          if (!seenRowKeys.add(rowKey)) continue;
-          pending.add((
-            tableName: insert.tableName,
-            rowId: insert.uuidRowId,
-            authoredValues: _sanitizeMergeRowData(
-              insert.tableName,
-              insert.databaseColumns,
-            ),
-            rowHlc: insert.hlc,
-            node: _requireRemoteNode(remoteNodes, insert.uuidNodeId),
-            hidden: false,
-          ));
-        case CrdtMergeDelete():
-          seedTables.add(operation.tableName);
-      }
+
+      // An update or a delete only seeds the pass. Operations are causally
+      // ordered, so an update newer than its insert is applied after it, and
+      // the end-of-batch pass is what resolves the value it claims.
+      if (operation is! CrdtMergeInsert) continue;
+
+      // Only rows this merge will create need a pre-write plan, and only the
+      // first insert for a row id takes that path.
+      final rowKey = (operation.tableName, operation.uuidRowId);
+      if (context.rows[rowKey] != null) continue;
+      if (!seenRowKeys.add(rowKey)) continue;
+      pending.add((
+        tableName: operation.tableName,
+        rowId: operation.uuidRowId,
+        authoredValues: _sanitizeMergeRowData(
+          operation.tableName,
+          operation.databaseColumns,
+        ),
+        rowHlc: operation.hlc,
+        node: _requireRemoteNode(remoteNodes, operation.uuidNodeId),
+        hidden: false,
+      ));
     }
     if (pending.isEmpty) return (plan: null, pending: pending);
 
@@ -485,60 +481,21 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           _db,
           transaction,
           (savepoint) async {
-            final fkSafe = await _foreignKeyProjector.safeIncomingData(
-              insert.tableName,
-              insert.uuidRowId,
+            final planned = await _planMergeInsertValues(
+              insert,
               data,
+              batchPlan,
+              presence,
               savepoint,
-              presence: presence,
             );
-            final planned =
-                batchPlan ??
-                (
-                  domain: const <MergeRowKey, Map<String, Object?>>{},
-                  reasons: const <MergeFieldKey, CrdtProjectionReason>{},
-                );
-            // Foreign-key safety is folded in after planning, so where it
-            // forces a null it is also the terminal cause for that column.
-            final forcedNullColumns = {
-              for (final MapEntry(key: columnName, value: value)
-                  in fkSafe.data.entries)
-                if (value == null) columnName,
-            };
-            final plannedDomain = {
-              ...data,
-              ...?planned.domain[(insert.tableName, insert.uuidRowId)],
-              for (final columnName in forcedNullColumns) columnName: null,
-            };
-            final attempts = <MergeFieldKey, ProjectionAttempt>{};
-            for (final MapEntry(key: columnName, value: authored)
-                in data.entries) {
-              if (projectionValuesEqual(plannedDomain[columnName], authored)) {
-                continue;
-              }
-              final fieldKey = (insert.tableName, insert.uuidRowId, columnName);
-              final planReason = planned.reasons[fieldKey];
-              final foreignKeyReason = fkSafe.attempts[fieldKey]?.reason;
-              final reason = forcedNullColumns.contains(columnName)
-                  ? foreignKeyReason ?? planReason
-                  : planReason ?? foreignKeyReason;
-              if (reason == null) {
-                throw StateError(
-                  'Projection changed ${insert.tableName}.$columnName on row '
-                  '${insert.uuidRowId} without recording why.',
-                );
-              }
-              attempts[fieldKey] = (value: authored, reason: reason);
-            }
-
             final insertedRow = await _applyMergeInsertForMissingRow(
               insert,
               remoteNode,
               incomingHlc,
-              plannedDomain,
+              planned.domain,
               savepoint,
             );
-            pendingWrites = attempts;
+            pendingWrites = planned.attempts;
             return insertedRow;
           },
         );
@@ -582,6 +539,59 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       // This one can resurrect a tombstoned row, so drop what was known.
       presence?.forget(rowKey);
     }
+  }
+
+  /// The domain values a merged insert can physically write, paired with the
+  /// authored values projection displaced.
+  ///
+  /// The batch plan already resolved this row's claims against the rest of the
+  /// batch. Foreign key safety is folded in after it, so where safety forces a
+  /// null it is also the terminal cause for that column.
+  Future<({Map<String, Object?> domain, ProjectionAttemptsByField attempts})>
+  _planMergeInsertValues(
+    CrdtMergeInsert insert,
+    Map<String, Object?> data,
+    ProjectionPlan? batchPlan,
+    CrdtForeignKeyPresenceCache? presence,
+    Transaction transaction,
+  ) async {
+    final fkSafe = await _foreignKeyProjector.safeIncomingData(
+      insert.tableName,
+      insert.uuidRowId,
+      data,
+      transaction,
+      presence: presence,
+    );
+    final forcedNullColumns = {
+      for (final MapEntry(key: columnName, value: value) in fkSafe.data.entries)
+        if (value == null) columnName,
+    };
+    final plannedDomain = {
+      ...data,
+      ...?batchPlan?.domain[(insert.tableName, insert.uuidRowId)],
+      for (final columnName in forcedNullColumns) columnName: null,
+    };
+
+    final attempts = <MergeFieldKey, ProjectionAttempt>{};
+    for (final MapEntry(key: columnName, value: authored) in data.entries) {
+      if (projectionValuesEqual(plannedDomain[columnName], authored)) continue;
+
+      final fieldKey = (insert.tableName, insert.uuidRowId, columnName);
+      final planReason = batchPlan?.reasons[fieldKey];
+      final foreignKeyReason = fkSafe.attempts[fieldKey]?.reason;
+      final reason = forcedNullColumns.contains(columnName)
+          ? foreignKeyReason ?? planReason
+          : planReason ?? foreignKeyReason;
+      if (reason == null) {
+        throw StateError(
+          'Projection changed ${insert.tableName}.$columnName on row '
+          '${insert.uuidRowId} without recording why.',
+        );
+      }
+      attempts[fieldKey] = (value: authored, reason: reason);
+    }
+
+    return (domain: plannedDomain, attempts: attempts);
   }
 
   /// Writes the field metadata collected for merged inserts, one call per

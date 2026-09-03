@@ -507,15 +507,19 @@ class CrdtSchemaRegistry {
         stored.isNullable == target.isNullable;
   }
 
-  String _formatTypeIdentity(CrdtSchemaColumn stored) {
-    return 'columnType=${stored.columnType} dartType=${stored.dartType} '
-        'isNullable=${stored.isNullable}';
-  }
+  /// The stored and target forms of a type identity are formatted alike so a
+  /// failure message reads as one comparison.
+  String _formatTypeIdentity(CrdtSchemaColumn stored) =>
+      _typeIdentity(stored.columnType, stored.dartType, stored.isNullable);
 
-  String _formatTypeIdentityFromDefinition(ColumnDefinition target) {
-    return 'columnType=${target.columnType.name} '
-        'dartType=${target.dartType ?? ''} isNullable=${target.isNullable}';
-  }
+  String _formatTypeIdentityFromDefinition(ColumnDefinition target) => _typeIdentity(
+    target.columnType.name,
+    target.dartType ?? '',
+    target.isNullable,
+  );
+
+  String _typeIdentity(String columnType, String dartType, bool isNullable) =>
+      'columnType=$columnType dartType=$dartType isNullable=$isNullable';
 
   Future<bool> _hasAttemptedValueRows(int columnId, Transaction transaction) async {
     final row = await CrdtDataAttemptedValue.db.findFirstRow(
