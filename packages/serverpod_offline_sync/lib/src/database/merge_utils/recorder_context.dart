@@ -529,6 +529,45 @@ LIMIT 1
         : ForeignKeyTargetPresence.hidden;
   }
 
+  /// Presence of every [values] target in [parentTableName], by value.
+  ///
+  /// The single-value form asked once per foreign key of every merged insert.
+  /// Values with no row are absent from the result rather than reported.
+  Future<Map<UuidValue, ForeignKeyTargetPresence>>
+  lookupForeignKeyTargetPresences({
+    required String parentTableName,
+    required String parentColumn,
+    required Set<UuidValue> values,
+    required Transaction transaction,
+  }) async {
+    if (values.isEmpty) return const {};
+
+    final (tableId, _) = schema[parentTableName]!;
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final result = await database.unsafeQuery(
+      '''
+SELECT d."${parentColumn.escapeIdentifier()}", CASE
+  WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
+  ELSE 0
+END AS visible
+FROM "${parentTableName.escapeIdentifier()}" d
+LEFT JOIN "crdt_data_rows" r
+  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+WHERE (${domainColumnPredicate('scopeId', scopeId)})
+  AND (d."${parentColumn.escapeIdentifier()}" IN (${values.sqlLiteralList()}))
+''',
+      transaction: transaction,
+    );
+
+    return {
+      for (final row in result)
+        UuidValueJsonExtension.fromJson(row.first):
+            (row[1] as num) == 1
+            ? ForeignKeyTargetPresence.visible
+            : ForeignKeyTargetPresence.hidden,
+    };
+  }
+
   Future<void> updateDomainRows(
     String tableName,
     Set<UuidValue> rowIds,

@@ -17,6 +17,37 @@ typedef _ProjectedForeignKeyRow = ({
   Map<String, Object?> values,
 });
 
+/// Foreign key target presence resolved once for a merge batch.
+///
+/// A merged insert cannot be written until it knows whether the row its foreign
+/// key names is visible, hidden or absent, and asking per row costs one query
+/// per edge per insert. One query per parent table answers it for the whole
+/// batch, and the batch keeps the answers current as it writes, because a
+/// family of related rows normally arrives parent first.
+///
+/// Only targets referenced by `id` are cached. A relation pointing at another
+/// column would have to be re-resolved every time that column is written.
+@internal
+class CrdtForeignKeyPresenceCache {
+  final Map<MergeRowKey, ForeignKeyTargetPresence> _presenceByRow = {};
+
+  /// What is known about [rowKey], or null when it has not been asked.
+  ForeignKeyTargetPresence? presenceOf(MergeRowKey rowKey) =>
+      _presenceByRow[rowKey];
+
+  /// Remembers [presence] for [rowKey].
+  void record(MergeRowKey rowKey, ForeignKeyTargetPresence presence) =>
+      _presenceByRow[rowKey] = presence;
+
+  /// A row this batch just wrote is present and visible: projection runs after
+  /// the batch, so nothing can have hidden it yet.
+  void markVisible(MergeRowKey rowKey) =>
+      record(rowKey, ForeignKeyTargetPresence.visible);
+
+  /// Drops what is known about [rowKey] so the next question is asked again.
+  void forget(MergeRowKey rowKey) => _presenceByRow.remove(rowKey);
+}
+
 /// An authored value retained because projection materialized a different one,
 /// together with the projector that selected the materialized value.
 @internal
@@ -433,12 +464,86 @@ class CrdtForeignKeyProjector {
     );
   }
 
+  /// Resolves the foreign key targets [pendingInserts] name, and the targets
+  /// their set-default repairs would fall back to, one query per parent table.
+  Future<CrdtForeignKeyPresenceCache> resolvePresenceForInserts(
+    List<PendingProjectionRow> pendingInserts,
+    Transaction transaction,
+  ) async {
+    final cache = CrdtForeignKeyPresenceCache();
+    final valuesByParentTable = <String, Set<UuidValue>>{};
+
+    for (final pending in pendingInserts) {
+      for (final edge
+          in _foreignKeys.edgesByChildTable[pending.tableName] ??
+              const <ForeignKeyEdge>[]) {
+        if (edge.parentColumn != 'id') continue;
+
+        final value = pending.authoredValues[edge.childColumn].toUuidValue();
+        if (value != null) {
+          (valuesByParentTable[edge.parentTableName] ??= <UuidValue>{}).add(
+            value,
+          );
+        }
+        final defaultValue = edge.defaultValue.toUuidValue();
+        if (defaultValue != null) {
+          (valuesByParentTable[edge.parentTableName] ??= <UuidValue>{}).add(
+            defaultValue,
+          );
+        }
+      }
+    }
+
+    for (final MapEntry(key: parentTableName, value: values)
+        in valuesByParentTable.entries) {
+      final presences = await _context.lookupForeignKeyTargetPresences(
+        parentTableName: parentTableName,
+        parentColumn: 'id',
+        values: values,
+        transaction: transaction,
+      );
+      for (final value in values) {
+        cache.record(
+          (parentTableName, value),
+          presences[value] ?? ForeignKeyTargetPresence.absent,
+        );
+      }
+    }
+
+    return cache;
+  }
+
+  Future<ForeignKeyTargetPresence> _targetPresence({
+    required ForeignKeyEdge edge,
+    required UuidValue value,
+    required CrdtForeignKeyPresenceCache? presence,
+    required Transaction transaction,
+  }) async {
+    final rowKey = (edge.parentTableName, value);
+    if (presence != null && edge.parentColumn == 'id') {
+      final cached = presence.presenceOf(rowKey);
+      if (cached != null) return cached;
+    }
+
+    final resolved = await _context.lookupForeignKeyTargetPresence(
+      parentTableName: edge.parentTableName,
+      parentColumn: edge.parentColumn,
+      value: value,
+      transaction: transaction,
+    );
+    if (presence != null && edge.parentColumn == 'id') {
+      presence.record(rowKey, resolved);
+    }
+    return resolved;
+  }
+
   Future<SafeIncomingForeignKeyData> safeIncomingData(
     String tableName,
     UuidValue rowId,
     Map<String, Object?> data,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    CrdtForeignKeyPresenceCache? presence,
+  }) async {
     final safeData = {...data};
     final attempts = <MergeFieldKey, ProjectionAttempt>{};
 
@@ -450,10 +555,10 @@ class CrdtForeignKeyProjector {
       final attemptedValue = data[edge.childColumn].toUuidValue();
       if (attemptedValue == null) continue;
 
-      final targetPresence = await _context.lookupForeignKeyTargetPresence(
-        parentTableName: edge.parentTableName,
-        parentColumn: edge.parentColumn,
+      final targetPresence = await _targetPresence(
+        edge: edge,
         value: attemptedValue,
+        presence: presence,
         transaction: transaction,
       );
       if (targetPresence == ForeignKeyTargetPresence.visible ||
@@ -475,6 +580,7 @@ class CrdtForeignKeyProjector {
           final defaultProjection = await _defaultProjectionValueFromDatabase(
             edge,
             transaction,
+            presence: presence,
           );
           if (defaultProjection.valid) {
             safeData[edge.childColumn] = defaultProjection.value;
@@ -1968,17 +2074,18 @@ class CrdtForeignKeyProjector {
 
   Future<_ForeignKeyDefaultProjection> _defaultProjectionValueFromDatabase(
     ForeignKeyEdge edge,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    CrdtForeignKeyPresenceCache? presence,
+  }) async {
     final defaultValue = edge.defaultValue.toUuidValue();
     if (defaultValue == null) {
       return (valid: edge.childNullable, value: null);
     }
 
-    final targetVisible = await _context.lookupForeignKeyTargetPresence(
-      parentTableName: edge.parentTableName,
-      parentColumn: edge.parentColumn,
+    final targetVisible = await _targetPresence(
+      edge: edge,
       value: defaultValue,
+      presence: presence,
       transaction: transaction,
     );
     if (targetVisible == ForeignKeyTargetPresence.visible) {

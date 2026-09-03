@@ -103,14 +103,23 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     final nodesByUuid = remoteNodes.nodesByUuid;
     final context = await _loadMergeContext(mergeSet, transaction);
-    final batchPlan = mayAffectProjection
+    final batch = mayAffectProjection
         ? await _planBatchInserts(
             operations,
             nodesByUuid,
             context,
             transaction,
           )
-        : null;
+        : (plan: null, pending: const <PendingProjectionRow>[]);
+    // Every merged insert has to know whether the rows its foreign keys name
+    // are there, which is one query per edge unless the batch resolves them
+    // together and then keeps the answers current as it writes.
+    final presence = batch.pending.isEmpty
+        ? null
+        : await _foreignKeyProjector.resolvePresenceForInserts(
+            batch.pending,
+            transaction,
+          );
 
     // Field metadata for merged inserts is recorded per table and node rather
     // than per row: every query behind it already takes a set of row ids.
@@ -140,8 +149,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             nodesByUuid,
             context,
             authoredOverlays,
-            batchPlan,
+            batch.plan,
             pendingAttempts,
+            presence,
             transaction,
           );
         case final CrdtMergeUpdate update:
@@ -159,6 +169,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             context,
             transaction,
           );
+          // A delete can hide the row, and a resurrecting one can bring it
+          // back; either way what was known about it no longer holds.
+          presence?.forget((delete.tableName, delete.uuidRowId));
       }
     }
 
@@ -378,7 +391,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   /// over all of them resolves the batch's claims against each other and
   /// against stored rows. The end-of-batch pass remains authoritative for what
   /// is finally materialized.
-  Future<ProjectionPlan?> _planBatchInserts(
+  Future<({ProjectionPlan? plan, List<PendingProjectionRow> pending})>
+  _planBatchInserts(
     List<CrdtMergeChange> operations,
     Map<UuidValue, CrdtNode> remoteNodes,
     MergeContext context,
@@ -420,13 +434,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           seedTables.add(operation.tableName);
       }
     }
-    if (pending.isEmpty) return null;
+    if (pending.isEmpty) return (plan: null, pending: pending);
 
-    return _foreignKeyProjector.project(
-      transaction,
-      pendingInserts: pending,
-      seedTables: seedTables,
-      seedRows: seedRows,
+    return (
+      plan: await _foreignKeyProjector.project(
+        transaction,
+        pendingInserts: pending,
+        seedTables: seedTables,
+        seedRows: seedRows,
+      ),
+      pending: pending,
     );
   }
 
@@ -437,6 +454,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Map<MergeFieldKey, Object?> authoredOverlays,
     ProjectionPlan? batchPlan,
     _PendingInsertAttempts pendingAttempts,
+    CrdtForeignKeyPresenceCache? presence,
     Transaction transaction,
   ) async {
     final rowKey = (insert.tableName, insert.uuidRowId);
@@ -472,6 +490,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
               insert.uuidRowId,
               data,
               savepoint,
+              presence: presence,
             );
             final planned =
                 batchPlan ??
@@ -533,6 +552,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           node: remoteNode,
           attempts: pendingWrites ?? const {},
         );
+        // Written and visible, so the children arriving after it in this batch
+        // can point at it without asking the database again.
+        presence?.markVisible(rowKey);
       } on _ForeignScopeRowCollision catch (collision) {
         await _throwOwnershipCollision(
           operation: CrdtSyncViolationOperation.mergeInsert,
@@ -557,6 +579,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         authoredOverlays,
         transaction,
       );
+      // This one can resurrect a tombstoned row, so drop what was known.
+      presence?.forget(rowKey);
     }
   }
 
