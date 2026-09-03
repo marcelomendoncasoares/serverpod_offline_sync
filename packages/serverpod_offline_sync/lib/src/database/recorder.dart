@@ -640,12 +640,6 @@ class CrdtMutationRecorder {
         transaction,
         skippedFields: skippedFields,
       );
-      await _foreignKeyProjector.recordAttemptsForRows(
-        tableName,
-        rowIds,
-        null,
-        transaction,
-      );
       await _maybeProject(tableName, rowIds, null, transaction);
     });
   }
@@ -684,13 +678,6 @@ class CrdtMutationRecorder {
         skippedFields: implicitForeignKeyRepairFields,
       );
       final updatedColumnNames = columns?.map((column) => column.columnName).toSet();
-      await _foreignKeyProjector.recordAttemptsForRows(
-        tableName,
-        rowIds,
-        updatedColumnNames,
-        transaction,
-        skippedFields: implicitForeignKeyRepairFields,
-      );
       await _maybeProject(
         tableName,
         rowIds,

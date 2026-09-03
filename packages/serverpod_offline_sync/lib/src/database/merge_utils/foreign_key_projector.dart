@@ -243,24 +243,25 @@ class CrdtForeignKeyProjector {
     return false;
   }
 
-  Future<void> recordAttemptsForRows(
+  /// Persists the attempted value of every field [attemptedValues] claims for
+  /// [rowIds], skipping the ones the domain row already holds.
+  ///
+  /// Only a field with an attempt can produce a row: the sparse attempted value
+  /// exists precisely to record that domain and authored disagree, so a column
+  /// nothing projected has nothing to write.
+  Future<void> _recordAttemptsForRows(
     String tableName,
     Set<UuidValue> rowIds,
-    Set<String>? columnNames,
-    Transaction transaction, {
-    Set<MergeFieldKey> skippedFields = const {},
-    ProjectionAttemptsByField attemptedValues = const {},
-  }) async {
+    ProjectionAttemptsByField attemptedValues,
+    Transaction transaction,
+  ) async {
     if (rowIds.isEmpty) return;
 
-    final columnsToRecord = {
-      ..._foreignKeys.foreignKeyColumnsFor(
-        tableName,
-        columnNames: columnNames,
-      ),
-      for (final fieldKey in attemptedValues.keys)
-        if (fieldKey.$1 == tableName && rowIds.contains(fieldKey.$2)) fieldKey.$3,
-    };
+    final columnsToRecord = _attemptedColumnsFor(
+      tableName,
+      rowIds,
+      attemptedValues,
+    );
     if (columnsToRecord.isEmpty) return;
 
     final valuesByRowId = await _context.readDomainColumnValues(
@@ -284,7 +285,6 @@ class CrdtForeignKeyProjector {
       for (final columnName in columnsToRecord) {
         final fieldId = fieldIds[(tableName, rowId, columnName)];
         if (fieldId == null) continue;
-        if (skippedFields.contains((tableName, rowId, columnName))) continue;
 
         final attempt = attemptedValues[(tableName, rowId, columnName)];
         if (attempt == null) continue;
@@ -298,6 +298,16 @@ class CrdtForeignKeyProjector {
 
     await _upsertAttemptedWrites(projectionWrites, transaction);
   }
+
+  /// The columns of [tableName] that [attemptedValues] claims for [rowIds].
+  Set<String> _attemptedColumnsFor(
+    String tableName,
+    Set<UuidValue> rowIds,
+    ProjectionAttemptsByField attemptedValues,
+  ) => {
+    for (final fieldKey in attemptedValues.keys)
+      if (fieldKey.$1 == tableName && rowIds.contains(fieldKey.$2)) fieldKey.$3,
+  };
 
   /// Records the foreign key attempts carried by an incoming insert.
   ///
@@ -321,11 +331,9 @@ class CrdtForeignKeyProjector {
   }) async {
     if (rowIds.isEmpty) return;
 
-    final foreignKeyColumns = _foreignKeys.foreignKeyColumnsFor(tableName);
     final columns = {
-      ...foreignKeyColumns,
-      for (final fieldKey in attemptedValues.keys)
-        if (fieldKey.$1 == tableName && rowIds.contains(fieldKey.$2)) fieldKey.$3,
+      ..._foreignKeys.foreignKeyColumnsFor(tableName),
+      ..._attemptedColumnsFor(tableName, rowIds, attemptedValues),
     };
     if (columns.isEmpty) return;
 
@@ -420,12 +428,11 @@ class CrdtForeignKeyProjector {
       }
     }
 
-    await recordAttemptsForRows(
+    await _recordAttemptsForRows(
       tableName,
       rowIds,
-      columnIds.keys.toSet(),
+      attemptedValues,
       transaction,
-      attemptedValues: attemptedValues,
     );
   }
 
