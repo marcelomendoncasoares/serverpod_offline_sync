@@ -371,22 +371,11 @@ class CrdtRecorderContext {
     required String columnName,
     required Set<Object?> values,
     required Transaction transaction,
-  }) async {
-    if (values.isEmpty) return const {};
-
-    final result = await database.unsafeQuery(
-      '''
-SELECT "id"
-FROM "${tableName.escapeIdentifier()}"
-WHERE "${columnName.escapeIdentifier()}" IN (${values.sqlLiteralList()})
-''',
-      transaction: transaction,
-    );
-
-    return {
-      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
-    };
-  }
+  }) => findDomainRowIdsWhereColumnsIn(
+    tableName: tableName,
+    valuesByColumn: {columnName: values},
+    transaction: transaction,
+  );
 
   /// Row ids of [tableName] owed one of [values] on one of [columnNames].
   ///
@@ -435,9 +424,7 @@ WHERE r."scopeId" = $scopeId
       transaction: transaction,
     );
 
-    return {
-      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
-    };
+    return _rowIds(result);
   }
 
   /// Row ids in [tableName] whose columns hold one of the listed values.
@@ -469,9 +456,7 @@ WHERE ($predicates)
       transaction: transaction,
     );
 
-    return {
-      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
-    };
+    return _rowIds(result);
   }
 
   Future<Set<UuidValue>> findVisibleDomainRowIdsWhere({
@@ -479,56 +464,59 @@ WHERE ($predicates)
     required List<String> predicates,
     required Transaction transaction,
   }) async {
-    final (tableId, _) = schema[tableName]!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
     final result = await database.unsafeQuery(
       '''
 SELECT d."id"
-FROM "${tableName.escapeIdentifier()}" d
-LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+${_visibilityJoin(tableName, transaction)}
 WHERE (${predicates.join(') AND (')})
-  AND (r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex)
+  AND ($_rowVisible)
 ''',
       transaction: transaction,
     );
-    return {
-      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
-    };
+    return _rowIds(result);
   }
 
+  /// The `FROM` and `JOIN` pairing domain rows of [tableName] with their CRDT
+  /// metadata, as the aliases `d` and `r`.
+  ///
+  /// An untracked row has no metadata, so `r` is null for it; [_rowVisible]
+  /// reads that pair as one boolean.
+  String _visibilityJoin(String tableName, Transaction transaction) {
+    final (tableId, _) = schema[tableName]!;
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    return '''
+FROM "${tableName.escapeIdentifier()}" d
+LEFT JOIN "crdt_data_rows" r
+  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"''';
+  }
+
+  /// Whether the row joined by [_visibilityJoin] is visible in this scope.
+  static final _rowVisible =
+      'r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex';
+
+  /// Presence of the [value] target in [parentTableName].
+  ///
+  /// A foreign key can only reference a unique column, so at most one row
+  /// answers; a value with no row at all is [ForeignKeyTargetPresence.absent].
   Future<ForeignKeyTargetPresence> lookupForeignKeyTargetPresence({
     required String parentTableName,
     required String parentColumn,
     required UuidValue value,
     required Transaction transaction,
   }) async {
-    final (tableId, _) = schema[parentTableName]!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
-    final result = await database.unsafeQuery(
-      '''
-SELECT CASE
-  WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
-  ELSE 0
-END AS visible
-FROM "${parentTableName.escapeIdentifier()}" d
-LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
-WHERE (${domainColumnPredicate('scopeId', scopeId)})
-  AND (${domainColumnPredicate(parentColumn, value)})
-LIMIT 1
-''',
+    final presences = await lookupForeignKeyTargetPresences(
+      parentTableName: parentTableName,
+      parentColumn: parentColumn,
+      values: {value},
       transaction: transaction,
     );
-    if (result.isEmpty) return ForeignKeyTargetPresence.absent;
-    return (result.first[0] as num) == 1
-        ? ForeignKeyTargetPresence.visible
-        : ForeignKeyTargetPresence.hidden;
+    return presences[value] ?? ForeignKeyTargetPresence.absent;
   }
 
   /// Presence of every [values] target in [parentTableName], by value.
   ///
-  /// The single-value form asked once per foreign key of every merged insert.
+  /// Resolving a whole merge batch at once is what keeps the single-value form
+  /// off the insert path, where it asked once per foreign key of every row.
   /// Values with no row are absent from the result rather than reported.
   Future<Map<UuidValue, ForeignKeyTargetPresence>> lookupForeignKeyTargetPresences({
     required String parentTableName,
@@ -538,17 +526,12 @@ LIMIT 1
   }) async {
     if (values.isEmpty) return const {};
 
-    final (tableId, _) = schema[parentTableName]!;
     final scopeId = hlcManagerFor(transaction).normalizedScopeId;
     final result = await database.unsafeQuery(
       '''
-SELECT d."${parentColumn.escapeIdentifier()}", CASE
-  WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
-  ELSE 0
-END AS visible
-FROM "${parentTableName.escapeIdentifier()}" d
-LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+SELECT d."${parentColumn.escapeIdentifier()}",
+  CASE WHEN $_rowVisible THEN 1 ELSE 0 END AS visible
+${_visibilityJoin(parentTableName, transaction)}
 WHERE (${domainColumnPredicate('scopeId', scopeId)})
   AND (d."${parentColumn.escapeIdentifier()}" IN (${values.sqlLiteralList()}))
 ''',
@@ -584,6 +567,11 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
       transaction: transaction,
     );
   }
+
+  /// The `id` column of every row of a result whose first column is a row id.
+  Set<UuidValue> _rowIds(DatabaseResult result) => {
+    for (final row in result) UuidValueJsonExtension.fromJson(row.first),
+  };
 
   Future<Map<UuidValue, Map<String, Object?>>> readDomainColumnValues(
     String tableName,

@@ -286,19 +286,12 @@ class CrdtForeignKeyProjector {
         if (fieldId == null) continue;
         if (skippedFields.contains((tableName, rowId, columnName))) continue;
 
-        final fieldKey = (tableName, rowId, columnName);
-        final visibleValue = values[columnName];
-        final attempt = attemptedValues[fieldKey];
-        final attemptedValue = attempt != null ? attempt.value : visibleValue;
-        if (projectionValuesEqual(attemptedValue, visibleValue)) continue;
-        final overrideReason = attempt!.reason;
+        final attempt = attemptedValues[(tableName, rowId, columnName)];
+        if (attempt == null) continue;
+        if (projectionValuesEqual(attempt.value, values[columnName])) continue;
 
         projectionWrites.add(
-          (
-            fieldId: fieldId,
-            value: attemptedValue,
-            reason: overrideReason,
-          ),
+          (fieldId: fieldId, value: attempt.value, reason: attempt.reason),
         );
       }
     }
@@ -641,7 +634,6 @@ class CrdtForeignKeyProjector {
   /// authored value of existing rows before planning. When [materialize] is
   /// false, only the in-memory plan is computed so a later physical insert is
   /// not blocked by this rebuild.
-  /// Recomputes projection and, unless [materialize] is false, writes it.
   ///
   /// [seedTables] names the tables this pass changed. Only their foreign key
   /// components are loaded, which is equivalent to a full pass because no
@@ -858,17 +850,10 @@ class CrdtForeignKeyProjector {
         ).copyWith(node: pending.node),
         values: Map<String, Object?>.from(pending.authoredValues),
       );
-      for (final MapEntry(key: columnName, value: value)
-          in pending.authoredValues.entries) {
+      for (final columnName in pending.authoredValues.keys) {
         fieldHlcs[(pending.tableName, pending.rowId, columnName)] = pending.rowHlc;
         // Pending authored values overlay any stale attempted row.
         attemptedValues.remove((pending.tableName, pending.rowId, columnName));
-        if (!projectionValuesEqual(
-          value,
-          rows[key]!.values[columnName],
-        )) {
-          // Domain equals authored until projection runs; keep as authored.
-        }
       }
     }
 

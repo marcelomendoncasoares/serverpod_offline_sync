@@ -57,14 +57,6 @@ UniqueIndexConflictRelease uniqueIndexConflictReleaseForIndex(
 }
 
 @internal
-extension UniqueIndexConflictReleaseExtension on UniqueIndexConflictRelease {
-  /// Column names released when tombstoning rows covered by this index.
-  Set<String> get releaseColumnNames => {
-    for (final column in releaseColumns) column.columnName,
-  };
-}
-
-@internal
 bool isCrdtAllowedForeignKeyOnlyUniqueIndex(
   TableDefinition tableDefinition,
   IndexDefinition index,
@@ -235,26 +227,23 @@ List<String> crdtJsonUniqueIndexViolations(
           table,
           syncTableNames,
         ))
-          if (_jsonUniqueIndexColumns(table, index).isNotEmpty)
-            '$tableName.${index.indexName}',
+          if (_hasJsonUniqueColumn(table, index)) '$tableName.${index.indexName}',
   ];
 }
 
-List<String> _jsonUniqueIndexColumns(
-  TableDefinition table,
-  IndexDefinition index,
-) {
+bool _hasJsonUniqueColumn(TableDefinition table, IndexDefinition index) {
   final columnsByName = {
     for (final column in table.columns) column.name: column,
   };
-  return [
-    for (final element in index.elements)
-      if (element.type == IndexElementDefinitionType.column &&
-          element.definition != 'scopeId')
-        if (columnsByName[element.definition] case final column?
-            when isCrdtUnsupportedJsonUniqueColumn(column))
-          column.name,
-  ];
+  return index.elements.any(
+    (element) =>
+        element.type == IndexElementDefinitionType.column &&
+        element.definition != 'scopeId' &&
+        switch (columnsByName[element.definition]) {
+          final column? => isCrdtUnsupportedJsonUniqueColumn(column),
+          null => false,
+        },
+  );
 }
 
 @internal
