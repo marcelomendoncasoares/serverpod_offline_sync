@@ -313,25 +313,38 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
               ],
               authoredOverlays: authoredOverlays,
             );
-            final plannedDomain = {
-              ...data,
-              ...?planned[(insert.tableName, insert.uuidRowId)],
+            // Foreign-key safety is folded in after planning, so where it
+            // forces a null it is also the terminal cause for that column.
+            final forcedNullColumns = {
               for (final MapEntry(key: columnName, value: value)
                   in fkSafe.data.entries)
-                if (value == null) columnName: null,
+                if (value == null) columnName,
             };
-            final attempts = <MergeFieldKey, ForeignKeyAttempt>{
-              for (final MapEntry(key: columnName, value: authored)
-                  in data.entries)
-                if (!projectionValuesEqual(
-                  plannedDomain[columnName],
-                  authored,
-                ))
-                  (insert.tableName, insert.uuidRowId, columnName): (
-                    value: authored,
-                    reason: CrdtProjectionReason.uniqueConflict,
-                  ),
+            final plannedDomain = {
+              ...data,
+              ...?planned.domain[(insert.tableName, insert.uuidRowId)],
+              for (final columnName in forcedNullColumns) columnName: null,
             };
+            final attempts = <MergeFieldKey, ProjectionAttempt>{};
+            for (final MapEntry(key: columnName, value: authored)
+                in data.entries) {
+              if (projectionValuesEqual(plannedDomain[columnName], authored)) {
+                continue;
+              }
+              final fieldKey = (insert.tableName, insert.uuidRowId, columnName);
+              final planReason = planned.reasons[fieldKey];
+              final foreignKeyReason = fkSafe.attempts[fieldKey]?.reason;
+              final reason = forcedNullColumns.contains(columnName)
+                  ? foreignKeyReason ?? planReason
+                  : planReason ?? foreignKeyReason;
+              if (reason == null) {
+                throw StateError(
+                  'Projection changed ${insert.tableName}.$columnName on row '
+                  '${insert.uuidRowId} without recording why.',
+                );
+              }
+              attempts[fieldKey] = (value: authored, reason: reason);
+            }
 
             final insertedRow = await _applyMergeInsertForMissingRow(
               insert,

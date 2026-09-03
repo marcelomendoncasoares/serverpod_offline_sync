@@ -572,7 +572,7 @@ class CrdtSync {
       ),
     );
 
-    final foreignKeyAttemptFieldsByRowId = await _loadProjectedForeignKeyAttemptFields(
+    final attemptedValueFieldsByRowId = await _loadAttemptedValueFields(
       session,
       rows,
     );
@@ -594,7 +594,7 @@ class CrdtSync {
         row.uuidRowId,
         table,
         dartName,
-        foreignKeyAttemptFieldsByRowId[row.id!],
+        attemptedValueFieldsByRowId[row.id!],
         scopeId,
         ownerCache,
       );
@@ -825,7 +825,7 @@ class CrdtSync {
     UuidValue rowId,
     Table table,
     String dartName,
-    List<CrdtDataField>? foreignKeyAttemptFields,
+    List<CrdtDataField>? attemptedValueFields,
     int scopeId,
     DomainRowOwnerCache ownerCache,
   ) async {
@@ -849,7 +849,7 @@ class CrdtSync {
     final columnMap = result.first.toColumnMap()
       // Domain columns hold visible/materialized FK values; restore attempted
       // values for override columns before building the outbound merge payload.
-      ..applyProjectedForeignKeyAttempts(foreignKeyAttemptFields)
+      ..applyAuthoredAttemptedValues(attemptedValueFields)
       // scopeId is local ownership metadata; it is never emitted on the wire.
       ..remove('scopeId');
 
@@ -1002,7 +1002,7 @@ class CrdtSync {
   /// Returns fields that currently have a [CrdtDataAttemptedValue] row, keyed
   /// by CRDT row id. These are the columns whose domain-table value differs
   /// from the durable authored fact.
-  Future<Map<int, List<CrdtDataField>>> _loadProjectedForeignKeyAttemptFields(
+  Future<Map<int, List<CrdtDataField>>> _loadAttemptedValueFields(
     DatabaseSession session,
     List<CrdtDataRow> rows,
   ) async {
@@ -1162,9 +1162,9 @@ extension on Map<String, dynamic> {
   /// while [CrdtDataAttemptedValue.value] preserves what was actually tried.
   /// Outbound sync must send the attempted value so peers can apply their own
   /// projection from the same fact.
-  void applyProjectedForeignKeyAttempts(List<CrdtDataField>? foreignKeyAttemptFields) {
-    if (foreignKeyAttemptFields == null) return;
-    for (final field in foreignKeyAttemptFields) {
+  void applyAuthoredAttemptedValues(List<CrdtDataField>? attemptedValueFields) {
+    if (attemptedValueFields == null) return;
+    for (final field in attemptedValueFields) {
       final attempted = field.attemptedValue;
       if (attempted == null) continue;
       this[field.column!.name] = canonicalDomainValue(attempted.value);

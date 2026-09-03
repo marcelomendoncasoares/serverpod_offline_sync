@@ -371,24 +371,24 @@ class CrdtMutationRecorder {
   /// cannot violate an immediate unique index. Authored values that differ
   /// from the planned domain are returned so they can be stored as attempted
   /// values after the insert.
-  Future<({List<T> rows, ForeignKeyAttemptsByField attempts})> planLocalInserts<T
+  Future<({List<T> rows, ProjectionAttemptsByField attempts})> planLocalInserts<T
       extends TableRow>(
     List<T> rows,
     Transaction transaction,
   ) async {
     if (rows.isEmpty) {
-      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
     }
     final tableName = rows.first.table.tableName;
     if (!_context.isCrdtTrackedTableName(tableName)) {
-      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
     }
     if (!_foreignKeyProjector.needsProjection(tableName, null)) {
-      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
     }
 
     final hlcManager = _context.hlcManagerFor(transaction);
-    final pendingHlc = hlcManager.increment();
+    final pendingHlc = hlcManager.peekNext();
     final node = hlcManager.getNode();
     final pending = <PendingProjectionRow>[
       for (final row in rows)
@@ -403,25 +403,28 @@ class CrdtMutationRecorder {
           ),
     ];
     if (pending.isEmpty) {
-      return (rows: rows, attempts: const <MergeFieldKey, ForeignKeyAttempt>{});
+      return (rows: rows, attempts: const <MergeFieldKey, ProjectionAttempt>{});
     }
 
     final planned = await _foreignKeyProjector.project(
       transaction,
       pendingInserts: pending,
     );
-    final attempts = <MergeFieldKey, ForeignKeyAttempt>{};
+    final attempts = <MergeFieldKey, ProjectionAttempt>{};
     for (final pendingRow in pending) {
       final plannedDomain =
-          planned[(pendingRow.tableName, pendingRow.rowId)] ??
+          planned.domain[(pendingRow.tableName, pendingRow.rowId)] ??
           pendingRow.authoredValues;
       for (final MapEntry(key: columnName, value: authored)
           in pendingRow.authoredValues.entries) {
         if (projectionValuesEqual(plannedDomain[columnName], authored)) continue;
-        attempts[(pendingRow.tableName, pendingRow.rowId, columnName)] = (
-          value: authored,
-          reason: CrdtProjectionReason.uniqueConflict,
-        );
+        final fieldKey = (pendingRow.tableName, pendingRow.rowId, columnName);
+        final reason = planned.reasons[fieldKey];
+        // No reason means projection did not choose this value. The planner
+        // also returns the stored row for an id the insert will not create
+        // (`ignoreConflicts`), and that difference is not an authored attempt.
+        if (reason == null) continue;
+        attempts[fieldKey] = (value: authored, reason: reason);
       }
     }
     return (
@@ -429,7 +432,7 @@ class CrdtMutationRecorder {
         for (final row in rows)
           _withPlannedDomainValues(
             row,
-            planned[(tableName, row.id as UuidValue)],
+            planned.domain[(tableName, row.id as UuidValue)],
           ),
       ],
       attempts: attempts,
@@ -485,7 +488,10 @@ class CrdtMutationRecorder {
     );
     return [
       for (final row in rows)
-        _withPlannedDomainValues(row, planned[(tableName, row.id as UuidValue)]),
+        _withPlannedDomainValues(
+          row,
+          planned.domain[(tableName, row.id as UuidValue)],
+        ),
     ];
   }
 
@@ -551,7 +557,7 @@ class CrdtMutationRecorder {
   Future<void> afterInsert<T extends TableRow>(
     List<T> insertedRows,
     Transaction transaction, {
-    ForeignKeyAttemptsByField attempts = const {},
+    ProjectionAttemptsByField attempts = const {},
   }) async {
     await _forTrackedRows(insertedRows, transaction, (
       tableName,

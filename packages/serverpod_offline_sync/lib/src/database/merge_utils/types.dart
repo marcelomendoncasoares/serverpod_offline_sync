@@ -53,9 +53,14 @@ typedef PendingProjectionRow = ({
   bool hidden,
 });
 
-/// Authored value retained while a projector materializes a different domain value.
+/// The outcome of one projection pass.
+///
+/// `domain` holds the final materialized value per row and column; `reasons`
+/// holds the terminal projector that selected a value that differs from the
+/// authored one, so callers that persist attempted values after their own
+/// write record the real cause instead of guessing.
 @internal
-typedef ProjectionAttempt = ({
-  Object? value,
-  CrdtProjectionReason reason,
+typedef ProjectionPlan = ({
+  Map<MergeRowKey, Map<String, Object?>> domain,
+  Map<MergeFieldKey, CrdtProjectionReason> reasons,
 });

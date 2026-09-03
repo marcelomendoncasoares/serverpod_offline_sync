@@ -236,7 +236,12 @@ class CrdtSchemaRegistry {
       if (plan.failures.isNotEmpty) {
         throw CrdtSchemaReconciliationException(plan.failures);
       }
-      return _applyReconciliation(plan, transaction);
+      return _applyReconciliation(
+        plan,
+        existingTables: existingTables,
+        existingColumns: existingColumns,
+        transaction: transaction,
+      );
     });
   }
 
@@ -377,18 +382,23 @@ class CrdtSchemaRegistry {
   }
 
   Future<(List<CrdtSchemaTable>, List<CrdtSchemaColumn>)> _applyReconciliation(
-    _SchemaReconciliationPlan plan,
-    Transaction transaction,
-  ) async {
+    _SchemaReconciliationPlan plan, {
+    required List<CrdtSchemaTable> existingTables,
+    required List<CrdtSchemaColumn> existingColumns,
+    required Transaction transaction,
+  }) async {
     _registryChanged = plan.hasMutations;
 
-    if (plan.tablesToInsert.isNotEmpty) {
-      await CrdtSchemaTable.db.insert(
-        _session,
-        [for (final name in plan.tablesToInsert) CrdtSchemaTable(name: name)],
-        transaction: transaction,
-      );
-    }
+    // The registry is small but this runs on the path into the app, so the
+    // result is folded from the rows already read plus what the writes return
+    // rather than reading both tables a second time.
+    final insertedTables = plan.tablesToInsert.isEmpty
+        ? const <CrdtSchemaTable>[]
+        : await CrdtSchemaTable.db.insert(
+            _session,
+            [for (final name in plan.tablesToInsert) CrdtSchemaTable(name: name)],
+            transaction: transaction,
+          );
 
     if (plan.columnsToDelete.isNotEmpty) {
       await CrdtSchemaColumn.db.delete(
@@ -405,28 +415,34 @@ class CrdtSchemaRegistry {
       );
     }
 
+    // Deleted ids are only removed from rows read before the delete: the
+    // database can hand a freed id straight back to a row inserted after it.
+    final deletedTableIds = {for (final table in plan.tablesToDelete) table.id};
     final tableRows = [
-      for (final table
-          in await CrdtSchemaTable.db.find(_session, transaction: transaction))
+      for (final table in existingTables)
+        if (!deletedTableIds.contains(table.id) &&
+            _columnsPerTableName.containsKey(table.name))
+          table,
+      for (final table in insertedTables)
         if (_columnsPerTableName.containsKey(table.name)) table,
     ];
     final tableIdByName = {for (final table in tableRows) table.name: table.id!};
     final tableNameById = {for (final table in tableRows) table.id!: table.name};
 
-    if (plan.columnsToInsert.isNotEmpty) {
-      await CrdtSchemaColumn.db.insert(
-        _session,
-        [
-          for (final pending in plan.columnsToInsert)
-            _newSchemaColumn(
-              tableName: pending.tableName,
-              tblId: pending.tblId ?? tableIdByName[pending.tableName]!,
-              columnName: pending.columnName,
-            ),
-        ],
-        transaction: transaction,
-      );
-    }
+    final insertedColumns = plan.columnsToInsert.isEmpty
+        ? const <CrdtSchemaColumn>[]
+        : await CrdtSchemaColumn.db.insert(
+            _session,
+            [
+              for (final pending in plan.columnsToInsert)
+                _newSchemaColumn(
+                  tableName: pending.tableName,
+                  tblId: pending.tblId ?? tableIdByName[pending.tableName]!,
+                  columnName: pending.columnName,
+                ),
+            ],
+            transaction: transaction,
+          );
     if (plan.columnsToUpdate.isNotEmpty) {
       await CrdtSchemaColumn.db.update(
         _session,
@@ -436,14 +452,25 @@ class CrdtSchemaRegistry {
       );
     }
 
+    final deletedColumnIds = {for (final column in plan.columnsToDelete) column.id};
+    final updatedColumnsById = {
+      for (final column in plan.columnsToUpdate) column.id: column,
+    };
+    bool isTargetColumn(CrdtSchemaColumn column) {
+      final tableName = tableNameById[column.tblId];
+      if (tableName == null) return false;
+      return (_columnsPerTableName[tableName] ?? const <String>[]).contains(
+        column.name,
+      );
+    }
+
     final columnRows = [
-      for (final column
-          in await CrdtSchemaColumn.db.find(_session, transaction: transaction))
-        if (tableNameById[column.tblId] case final tableName?
-            when (_columnsPerTableName[tableName] ?? const <String>[]).contains(
-              column.name,
-            ))
-          column,
+      for (final stored in existingColumns)
+        if (!deletedColumnIds.contains(stored.id))
+          if (updatedColumnsById[stored.id] ?? stored case final column)
+            if (isTargetColumn(column)) column,
+      for (final column in insertedColumns)
+        if (isTargetColumn(column)) column,
     ];
 
     return (tableRows, columnRows);
