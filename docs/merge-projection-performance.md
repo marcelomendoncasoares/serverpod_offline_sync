@@ -1,6 +1,6 @@
 # Merge projection performance
 
-Status: **problem statement and options — nothing here is implemented.**
+Status: **options 1 and 2 implemented; 3–6 still open.**
 
 Merging inserts is roughly two orders of magnitude slower than merging updates
 or deletes, and the gap widens as a scope fills up. This document records the
@@ -12,10 +12,42 @@ Related documents:
 - [Foreign-key projection invariants](foreign-key-invariants.md)
 - [Unique-constraint invariants](unique-constraint-invariants.md)
 
-## Measurements
+## Result
+
+Options 1 and 2 are in. Merge insert went from 8 to 556 changes/s and the
+quadratic term is gone: per-change cost no longer grows with batch size.
+
+| Batch | Before | Option 1 | Option 2 | Queries/change |
+| --- | --- | --- | --- | --- |
+| merge insert | 8/s | 9/s | **556/s** | 26.06 -> 2.02 |
+| merge mixed | 16/s | 20/s | **792/s** | 10.46 -> 2.36 |
+| merge unique conflict | 8/s | 18/s | **288/s** | 36.07 -> 10.04 |
+| merge fk chain insert | 14/s | 16/s | **328/s** | 46.61 -> 8.38 |
+| merge update | 1,150/s | 1,222/s | 1,191/s | 2.46 -> 2.42 |
+| merge delete | 1,907/s | 1,960/s | 1,739/s | 2.06 -> 2.02 |
+
+Scaling, ms per change at 250 vs 500 rows:
+
+| Batch | Before | After |
+| --- | --- | --- |
+| merge insert | 67.9 -> 123.9 (1.82x) | 1.84 -> 1.80 (0.98x) |
+| merge unique conflict | 65.7 -> 124.3 (1.89x) | 4.72 -> 3.47 (0.74x) |
+| merge fk chain insert | 46.4 -> 74.6 (1.61x) | 4.67 -> 3.05 (0.65x) |
+
+Ratios below 1.0 are fixed per-batch cost amortizing over more changes.
+
+Option 1 cut queries per change by 64–81% but barely moved the clock, because
+insert cost was dominated by how much each query read rather than how many ran.
+Option 2 removed the repeated reads and is where the time went.
+
+The remaining gap to update and delete throughput is the two unique-heavy
+batches, which still issue ~10 queries per change. Options 4 and 5 address that
+and are no longer urgent.
+
+## Measurements before the fix
 
 `melos run benchmark` (`benchmark/run.dart`), SQLite, 22 synced tables, one
-scope. Two row counts, same machine, after the review fixes in `277cbdb`:
+scope. Two row counts, same machine, at `277cbdb`:
 
 | Batch | 250 rows | 500 rows | ms/change ratio | queries/change |
 | --- | --- | --- | --- | --- |
@@ -68,7 +100,7 @@ problem is the granularity, not the existence, of that step.
 
 Roughly ordered by effort. They compose; 1 and 2 are additive, and 4 subsumes 3.
 
-### 1. Prune the table loop to what the operation can affect
+### 1. Prune the table loop to what the operation can affect — done (`361adc7`)
 
 `_loadProjectionState` visits all 22 tables regardless of what changed. The
 projector already answers this question for the caller with `needsProjection`
@@ -82,19 +114,21 @@ unique index with it.
 - Contained: one loop in `_loadProjectionState`, no change to planning
   semantics, and the existing tests plus the DST already cover the result.
 
-### 2. Plan once per batch instead of once per insert
+### 2. Plan once per batch instead of once per insert — done (`d3bc5bc`)
 
 Hoist the pre-write plan out of the per-insert savepoint. Collect every insert
 in the merge set as `pendingInserts`, run one planning pass for the batch,
 materialize the constraint-safe values, then perform the physical writes.
 
 - Turns N+1 passes into 2 (one plan, one final materialization).
-- The per-insert savepoint exists to roll back a foreign-scope row collision
-  without leaving CRDT metadata behind. That savepoint has to stay around the
-  physical write; only the planning moves out. A collision then invalidates the
-  batch plan for that row, so the recovery path needs a replan or a per-row
-  fallback.
-- Biggest single win available, and the one with real design work in it.
+- The per-insert savepoint stays around the physical write and its
+  ownership-collision rollback; only the planning moved out. A collision only
+  drops that row, so the rest of the plan stays valid and no replan is needed.
+- An update must not be folded into the batch plan. Operations are causally
+  ordered, so an update newer than its insert is applied after it; treating its
+  value as authored during planning makes the planned domain differ from the
+  insert's own authored value for a reason projection did not cause.
+- Biggest single win: this is where merge insert went from 9 to 556 changes/s.
 
 ### 3. Memoize projection state per transaction
 
@@ -146,17 +180,20 @@ then let the single end-of-batch pass materialize final values.
   anything reading inside the transaction.
 - Only attractive if 1, 2 and 4 together still fall short.
 
-## Suggested order
+## What is left
 
-1. Option 1, and re-measure. Cheap, and it should show whether the constant
-   factor alone accounts for the shortfall against the target.
-2. Option 2, and re-measure. This is where the N multiplier goes.
-3. Option 4 with 5, if the quadratic term still dominates at realistic scope
-   sizes.
+Options 1 and 2 met the target of hundreds of changes per second. Remaining
+work, in order of expected value:
 
-Target: hundreds of changes per second for insert batches, against 8–19/s now.
-Updates and deletes already run at 1,150–1,919/s on the same schema, so that
-figure is what the engine achieves when projection is not re-run per operation.
+1. Options 4 and 5 for the unique-heavy batches, which still cost ~10 queries
+   per change against ~2 for everything else.
+2. Option 3 is now redundant: one pass per batch already removes the repeated
+   reads it was meant to cache away.
+3. Option 6 is unnecessary.
+
+`safeIncomingData` still runs per insert, one target-presence query per foreign
+key edge. That is part of the ~8 queries per change on fk chain inserts and is
+the next obvious batching target.
 
 ## Verification
 
