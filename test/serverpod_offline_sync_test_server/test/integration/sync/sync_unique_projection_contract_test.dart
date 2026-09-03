@@ -348,22 +348,15 @@ void main() {
   );
 }
 
-Future<List<CrdtMergeInsert>> _pendingInserts(CrdtSync crdtSync) async {
-  final changes = await crdtSync
-      .collectPendingChanges(
-        testSession,
-        checkpointsByScopeUuid: {testCrdtUserId: const []},
-      )
-      .toList();
-  return changes.inserts.toList();
-}
+Future<List<CrdtMergeChange>> _pendingChanges(CrdtSync crdtSync) => crdtSync
+    .collectPendingChanges(
+      testSession,
+      checkpointsByScopeUuid: {testCrdtUserId: const []},
+    )
+    .toList();
 
-Future<List<CrdtMergeUpdate>> _pendingUpdates(CrdtSync crdtSync) async {
-  final changes = await crdtSync
-      .collectPendingChanges(
-        testSession,
-        checkpointsByScopeUuid: {testCrdtUserId: const []},
-      )
-      .toList();
-  return changes.updates.toList();
-}
+Future<List<CrdtMergeInsert>> _pendingInserts(CrdtSync crdtSync) async =>
+    (await _pendingChanges(crdtSync)).inserts.toList();
+
+Future<List<CrdtMergeUpdate>> _pendingUpdates(CrdtSync crdtSync) async =>
+    (await _pendingChanges(crdtSync)).updates.toList();
