@@ -50,12 +50,6 @@ extension UuidValueExtension on Object? {
   UuidValue? toUuidValue() {
     final value = this;
     if (value == null) return null;
-    if (value is UuidValue) return value;
-    if (value is String) return UuidValue.withValidation(value);
-    if (value is Uint8List) return UuidValue.fromByteList(value);
-    if (value is List && value.length == 16) {
-      return UuidValue.fromByteList(Uint8List.fromList(List<int>.from(value)));
-    }
     return UuidValueJsonExtension.fromJson(value);
   }
 }
