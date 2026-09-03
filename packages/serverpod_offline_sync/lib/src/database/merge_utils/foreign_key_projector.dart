@@ -343,25 +343,17 @@ class CrdtForeignKeyProjector {
       columns.toList(),
       transaction,
     );
-    final valuesByRowId = {
+    // A column needs metadata when it holds a value, or when it holds a
+    // projection whose authored value has to be recorded against it.
+    bool needsField(UuidValue rowId, String columnName) =>
+        attemptedValues.containsKey((tableName, rowId, columnName)) ||
+        visibleValuesByRowId[rowId]?[columnName] != null;
+
+    final attemptedColumns = {
       for (final rowId in rowIds)
-        rowId: {
-          for (final columnName in columns)
-            columnName: attemptedValues.containsKey((tableName, rowId, columnName))
-                ? attemptedValues[(tableName, rowId, columnName)]!.value
-                : visibleValuesByRowId[rowId]?[columnName],
-        },
+        for (final columnName in columns)
+          if (needsField(rowId, columnName)) columnName,
     };
-    final attemptedColumns = <String>{};
-    for (final rowId in rowIds) {
-      final values = valuesByRowId[rowId]!;
-      for (final columnName in columns) {
-        if (attemptedValues.containsKey((tableName, rowId, columnName)) ||
-            values[columnName] != null) {
-          attemptedColumns.add(columnName);
-        }
-      }
-    }
     if (attemptedColumns.isEmpty) return;
 
     final crdtRows = await _context.findCrdtRows(tableName, rowIds, transaction);
@@ -370,6 +362,34 @@ class CrdtForeignKeyProjector {
     final columnIds = _context.schemaColumnIds(tableName, attemptedColumns);
     if (columnIds.isEmpty) return;
 
+    await _createAttemptFields(
+      tableName: tableName,
+      rowIds: rowIds,
+      crdtRows: crdtRows,
+      columnIds: columnIds,
+      needsField: needsField,
+      mergeCache: mergeCache,
+      transaction: transaction,
+    );
+
+    await _recordAttemptsForRows(
+      tableName,
+      rowIds,
+      attemptedValues,
+      transaction,
+    );
+  }
+
+  /// Creates the field metadata the columns of [crdtRows] are missing.
+  Future<void> _createAttemptFields({
+    required String tableName,
+    required Set<UuidValue> rowIds,
+    required List<CrdtDataRow> crdtRows,
+    required Map<String, int> columnIds,
+    required bool Function(UuidValue rowId, String columnName) needsField,
+    required MergeFieldCache? mergeCache,
+    required Transaction transaction,
+  }) async {
     final existingFields = await _findFieldIds(
       tableName: tableName,
       rowIds: rowIds,
@@ -381,60 +401,39 @@ class CrdtForeignKeyProjector {
     // returning rows in the order it was given them.
     final pending = <({CrdtDataField field, MergeFieldKey key})>[];
     for (final crdtRow in crdtRows) {
-      final values = valuesByRowId[crdtRow.uuidRowId];
-      if (values == null) continue;
-
       for (final MapEntry(key: columnName, value: columnId) in columnIds.entries) {
-        if (values[columnName] == null &&
-            !attemptedValues.containsKey((
-              tableName,
-              crdtRow.uuidRowId,
-              columnName,
-            ))) {
-          continue;
-        }
-        if (existingFields.containsKey((tableName, crdtRow.uuidRowId, columnName))) {
-          continue;
-        }
-
-        pending.add((
-          field: CrdtDataField(
-            rowId: crdtRow.id!,
-            columnId: columnId,
-            nodeId: crdtRow.nodeId,
-            hlcDatetime: crdtRow.hlcDatetime,
-            hlcCounter: crdtRow.hlcCounter,
-          ),
-          key: (tableName, crdtRow.uuidRowId, columnName),
-        ));
+        final fieldKey = (tableName, crdtRow.uuidRowId, columnName);
+        if (!needsField(crdtRow.uuidRowId, columnName)) continue;
+        if (existingFields.containsKey(fieldKey)) continue;
+        pending.add((field: _newFieldFor(crdtRow, columnId), key: fieldKey));
       }
     }
+    if (pending.isEmpty) return;
 
-    if (pending.isNotEmpty) {
-      final insertedFields = await CrdtDataField.db.insert(
-        _context.databaseSession,
-        [for (final entry in pending) entry.field],
-        transaction: transaction,
-      );
-      if (mergeCache != null) {
-        for (final (index, field) in insertedFields.indexed) {
-          // The node is attached because a cached field is read back through
-          // `CrdtDataField.hlc`, which resolves the node's uuid and throws
-          // without it.
-          mergeCache.fields[pending[index].key] = field.copyWith(
-            node: mergeCache.node,
-          );
-        }
-      }
-    }
-
-    await _recordAttemptsForRows(
-      tableName,
-      rowIds,
-      attemptedValues,
-      transaction,
+    final insertedFields = await CrdtDataField.db.insert(
+      _context.databaseSession,
+      [for (final entry in pending) entry.field],
+      transaction: transaction,
     );
+    if (mergeCache == null) return;
+    for (final (index, field) in insertedFields.indexed) {
+      // The node is attached because a cached field is read back through
+      // `CrdtDataField.hlc`, which resolves the node's uuid and throws
+      // without it.
+      mergeCache.fields[pending[index].key] = field.copyWith(
+        node: mergeCache.node,
+      );
+    }
   }
+
+  /// A field for a column of [crdtRow] that has none, born at the row's HLC.
+  CrdtDataField _newFieldFor(CrdtDataRow crdtRow, int columnId) => CrdtDataField(
+    rowId: crdtRow.id!,
+    columnId: columnId,
+    nodeId: crdtRow.nodeId,
+    hlcDatetime: crdtRow.hlcDatetime,
+    hlcCounter: crdtRow.hlcCounter,
+  );
 
   /// Resolves the foreign key targets [pendingInserts] name, and the targets
   /// their set-default repairs would fall back to, one query per parent table.
@@ -1079,21 +1078,7 @@ class CrdtForeignKeyProjector {
     required Map<MergeFieldKey, Hlc> fieldHlcs,
     required Transaction transaction,
   }) async {
-    // A pending insert has no row yet, and an overlay's new value is applied
-    // after loading, so neither is visible to an edge query. Both name the
-    // parent the pass has to judge them against, so they seed the walk too.
-    final unwrittenValues = <MergeRowKey, Map<String, Object?>>{};
-    for (final pending in pendingInserts) {
-      unwrittenValues[(pending.tableName, pending.rowId)] = {
-        ...pending.authoredValues,
-      };
-    }
-    for (final MapEntry(key: fieldKey, value: value) in authoredOverlays.entries) {
-      unwrittenValues.putIfAbsent(
-        (fieldKey.$1, fieldKey.$2),
-        () => <String, Object?>{},
-      )[fieldKey.$3] = value;
-    }
+    final unwrittenValues = _unwrittenValues(pendingInserts, authoredOverlays);
 
     final requested = <String, Set<UuidValue>>{};
     var queued = <String, Set<UuidValue>>{};
@@ -1117,26 +1102,11 @@ class CrdtForeignKeyProjector {
       enqueue(rowKey.$1, [rowKey.$2]);
       (frontier[rowKey.$1] ??= <UuidValue>{}).add(rowKey.$2);
     }
-    // A set-default edge names its target in the schema, so no row points at
-    // it until the repair runs.
-    for (final edge in _foreignKeys.edges) {
-      if (!tablesToLoad.contains(edge.childTableName)) continue;
-      final defaultValue = edge.defaultValue.toUuidValue();
-      if (defaultValue == null) continue;
-      if (edge.parentColumn == 'id') {
-        enqueue(edge.parentTableName, [defaultValue]);
-        continue;
-      }
-      enqueue(
-        edge.parentTableName,
-        await _context.findDomainRowIdsWhereColumnIn(
-          tableName: edge.parentTableName,
-          columnName: edge.parentColumn,
-          values: {defaultValue},
-          transaction: transaction,
-        ),
-      );
-    }
+    await _enqueueSetDefaultTargets(
+      tablesToLoad: tablesToLoad,
+      enqueue: enqueue,
+      transaction: transaction,
+    );
 
     while (queued.isNotEmpty || frontier.isNotEmpty) {
       final wave = queued;
@@ -1171,6 +1141,57 @@ class CrdtForeignKeyProjector {
         attemptedValues: attemptedValues,
         enqueue: enqueue,
         transaction: transaction,
+      );
+    }
+  }
+
+  /// The values the pass will write but has not written yet, by row.
+  ///
+  /// A pending insert has no row yet, and an overlay's new value is applied
+  /// after loading, so neither is visible to an edge query. Both name the
+  /// parent the pass has to judge them against, so they seed the walk too.
+  Map<MergeRowKey, Map<String, Object?>> _unwrittenValues(
+    List<PendingProjectionRow> pendingInserts,
+    Map<MergeFieldKey, Object?> authoredOverlays,
+  ) {
+    final unwrittenValues = <MergeRowKey, Map<String, Object?>>{
+      for (final pending in pendingInserts)
+        (pending.tableName, pending.rowId): {...pending.authoredValues},
+    };
+    for (final MapEntry(key: fieldKey, value: value) in authoredOverlays.entries) {
+      unwrittenValues.putIfAbsent(
+        (fieldKey.$1, fieldKey.$2),
+        () => <String, Object?>{},
+      )[fieldKey.$3] = value;
+    }
+    return unwrittenValues;
+  }
+
+  /// Enqueues the rows a set-default repair would fall back to.
+  ///
+  /// A set-default edge names its target in the schema, so no row points at it
+  /// until the repair runs and no edge query would reach it.
+  Future<void> _enqueueSetDefaultTargets({
+    required Set<String> tablesToLoad,
+    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required Transaction transaction,
+  }) async {
+    for (final edge in _foreignKeys.edges) {
+      if (!tablesToLoad.contains(edge.childTableName)) continue;
+      final defaultValue = edge.defaultValue.toUuidValue();
+      if (defaultValue == null) continue;
+      if (edge.parentColumn == 'id') {
+        enqueue(edge.parentTableName, [defaultValue]);
+        continue;
+      }
+      enqueue(
+        edge.parentTableName,
+        await _context.findDomainRowIdsWhereColumnIn(
+          tableName: edge.parentTableName,
+          columnName: edge.parentColumn,
+          values: {defaultValue},
+          transaction: transaction,
+        ),
       );
     }
   }
@@ -2077,13 +2098,7 @@ class CrdtForeignKeyProjector {
       _context.databaseSession,
       [
         for (final fieldKey in missing)
-          CrdtDataField(
-            rowId: rowsByKey[fieldKey]!.crdtRow.id!,
-            columnId: columnIdByKey[fieldKey]!,
-            nodeId: rowsByKey[fieldKey]!.crdtRow.nodeId,
-            hlcDatetime: rowsByKey[fieldKey]!.crdtRow.hlcDatetime,
-            hlcCounter: rowsByKey[fieldKey]!.crdtRow.hlcCounter,
-          ),
+          _newFieldFor(rowsByKey[fieldKey]!.crdtRow, columnIdByKey[fieldKey]!),
       ],
       transaction: transaction,
     );
