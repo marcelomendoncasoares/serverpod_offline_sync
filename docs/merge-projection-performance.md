@@ -1,7 +1,7 @@
 # Merge projection performance
 
 Status: **options 1, 2, 4 and 5 implemented, projection gate restored, attempted
-values looked up by value; 3 and 6 rejected.**
+values looked up by value, insert metadata batched; 3 and 6 rejected.**
 
 Merging inserts is roughly two orders of magnitude slower than merging updates
 or deletes, and the gap widens as a scope fills up. This document records the
@@ -22,15 +22,18 @@ it is the bar to get back to, not the redesign's own starting point.
 
 Throughput, changes per second:
 
-| Batch | Pre-work | Redesign | Option 1 | Option 2 | Gate | Option 4 | Option 5 | By value |
+| Batch | Pre-work | Redesign | Option 2 | Gate | Option 4 | Option 5 | By value | Batched |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| merge insert | 1,002 | 8 | 9 | 628 | 900 | 961 | 925 | **893** |
-| merge update | 1,697 | 1,150 | 1,222 | 1,250 | 1,670 | 1,730 | 1,666 | **1,476** |
-| merge delete | 2,431 | 1,907 | 1,960 | 1,935 | 2,389 | 2,480 | 2,531 | **2,194** |
-| merge mixed | 1,855 | 16 | 20 | 805 | 1,579 | 1,588 | 1,663 | **1,434** |
-| merge unique conflict | 564 | 8 | 18 | 306 | 309 | 280 | 307 | **302** |
-| merge fk chain insert | 350 | 14 | 16 | 345 | 369 | 400 | 434 | **369** |
-| merge fk chain delete | 584 | — | — | 598 | 494 | 519 | 542 | **693** |
+| merge insert | 1,002 | 8 | 628 | 900 | 961 | 925 | 893 | **865** |
+| merge update | 1,697 | 1,150 | 1,250 | 1,670 | 1,730 | 1,666 | 1,476 | **1,363** |
+| merge delete | 2,431 | 1,907 | 1,935 | 2,389 | 2,480 | 2,531 | 2,194 | **1,845** |
+| merge mixed | 1,855 | 16 | 805 | 1,579 | 1,588 | 1,663 | 1,434 | **1,514** |
+| merge unique conflict | 564 | 8 | 306 | 309 | 280 | 307 | 302 | **571** |
+| merge fk chain insert | 350 | 14 | 345 | 369 | 400 | 434 | 369 | **688** |
+| merge fk chain delete | 584 | — | 598 | 494 | 519 | 542 | 693 | **706** |
+
+Option 1 is dropped from the table to keep it readable; it sat between the
+redesign and option 2, moving queries but not the clock.
 
 The redesign and option 1 columns are from the original runs; everything else
 was measured back to back in one session. Nothing hinges on the difference: the
@@ -47,6 +50,15 @@ Rows read per merged change, the quantity that drove the regression:
 | merge unique conflict | 2.0 | 21.0 | 21.0 | 24.0 | 31.5 | **16.0** |
 | merge fk chain insert | 13.6 | 15.7 | 15.7 | **8.1** | **8.1** | **8.1** |
 | merge fk chain delete | 44.3 | 33.3 | 33.3 | 43.3 | 43.3 | **18.5** |
+
+Queries per merged change, which is what the last step moved:
+
+| Batch | Pre-work | Option 5 | Batched |
+| --- | --- | --- | --- |
+| merge insert | 2.01 | 2.01 | 2.01 |
+| merge unique conflict | 5.01 | 10.09 | **2.12** |
+| merge fk chain insert | 10.13 | 8.40 | **3.17** |
+| merge fk chain delete | 2.49 | 2.50 | 2.50 |
 
 Read the unique row counts with care from option 4 on. The counter counts every
 row a query hands back, and the closure walk replaced whole-table loads of
@@ -67,13 +79,10 @@ such row per merged change, so its closure grew with everything the scope had
 ever parked. Asking for the rows owed *the values in this batch* leaves that
 history out: 31.5 rows per change to 16.0, and 43.3 to 18.5 on fk chain delete.
 
-It does not move the unique batch's clock, because that batch is no longer
-paying for its closure. At ~10 queries per change against ~2 elsewhere, its cost
-is per-change metadata work — `recordInsertAttempts`, `recordAttemptsForRows`
-and `safeIncomingData` each running per row — roughly 5,000 queries for a batch
-of 500. The closure loads are a handful of queries against that. What the value
-filter removes is the growth term: closure size no longer tracks how many
-projections the scope holds.
+It did not move the unique batch's clock on its own, because by then that batch
+was no longer paying for its closure. What it removes there is the growth term:
+closure size no longer tracks how many projections the scope holds. The clock
+was waiting on the per-change metadata work that the next step batched.
 
 The remaining gap to pre-work is the unique-conflict batch, at 0.55x. That work
 is real — releasing values stranded on hidden rows is the defect the redesign
@@ -272,6 +281,32 @@ sparse attempted value, so the walk asks for that.
   which measures ~1 ms against 3,000 rows with 500 values in the predicate, so
   it is not currently worth pursuing.
 
+### 5c. Record insert metadata once per batch — done
+
+With the closure bounded, the unique batch was spending ~10 queries per change
+against ~2 for everything else, all of it `recordInsertAttempts` running once
+per merged insert: a domain read, a CRDT row read, a field lookup, a field
+insert, and `recordAttemptsForRows` behind it.
+
+Every query in there already takes a *set* of row ids, so it was only ever
+called wrongly. Inserts now collect their attempts and the whole batch is
+recorded per table and node:
+
+- **Grouped by node as well as table.** The merge cache stores each field with
+  the node that authored it, because a cached field resolves its own clock
+  through that node. One call per node keeps that pairing honest.
+- **Collected after the savepoint returns, never inside it.** A rolled back
+  insert — an ownership collision — leaves nothing to record, which is what the
+  savepoint promised.
+- **Flushed before anything can read it.** A later operation on the same row
+  resolves field metadata through the merge cache, so a pending row forces a
+  flush before that operation runs, and the batch always flushes before the
+  end-of-batch projection pass.
+
+Unique conflict went from 10.09 queries per change to 2.12, and 302 to 571
+changes per second — past the pre-work engine, which was not releasing stranded
+claims at all. FK chain insert went 8.40 to 3.17 and 369 to 688.
+
 ### 6. Keep projection out of the insert path entirely
 
 Write inserts with a deterministic parking value for every unique and FK column,
@@ -284,9 +319,13 @@ then let the single end-of-batch pass materialize final values.
 
 ## What is left
 
-Every batch is back at or above its pre-work throughput except the unique
-conflict one, which sits at 0.54x while doing work the pre-work engine did not
-do at all.
+Every batch is now within run-to-run noise of its pre-work throughput or above
+it. The two that carry projection work are clearly above — unique conflict 571
+against 564, fk chain insert 688 against 350 — while doing work the pre-work
+engine did not do at all: releasing unique claims stranded on hidden rows, and
+repairing foreign keys by attempted value. Plain insert and update sit a little
+under (0.92x and 0.98x on the quietest run), which is the cost of the projection
+pass they now go through at all.
 
 The cost that remains is the size of the *active projection set*: every pass
 loads every row of its tables that holds an attempted value, because any of
@@ -297,10 +336,10 @@ worst case.
 
 Two ways to make even that case cheap, neither implemented:
 
-1. **Per-change metadata work in the unique path.** `recordInsertAttempts`,
-   `recordAttemptsForRows` and `safeIncomingData` each run per row. That is the
-   ~10 queries per change the unique batch pays, and the only thing between it
-   and the ~2 that everything else costs.
+1. **`safeIncomingData` still runs per insert**, one target-presence query per
+   foreign key edge. That is most of what separates fk chain insert's 3.17
+   queries per change from the 2.01 a plain insert costs, and it is the same
+   shape of fix: the query takes one row, and it could take the batch.
 2. **Skip the lookup when no claim can be freed.** A claim only comes back when a
    claimant is hidden, deleted, or changes its value; a batch that only inserts
    new rows cannot free one. The winner is the maximum over claimants under a
@@ -311,10 +350,6 @@ Two ways to make even that case cheap, neither implemented:
 
 Option 3 is redundant: one pass per batch already removes the repeated reads it
 was meant to cache away. Option 6 is unnecessary.
-
-`safeIncomingData` still runs per insert, one target-presence query per foreign
-key edge. That is part of the ~8 queries per change on fk chain inserts and is
-the next obvious batching target.
 
 ## Verification
 

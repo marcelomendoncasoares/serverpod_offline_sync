@@ -1,5 +1,70 @@
 part of 'recorder.dart';
 
+/// Field metadata for merged inserts, waiting to be written as one batch.
+///
+/// Every query behind [CrdtForeignKeyProjector.recordInsertAttempts] already
+/// takes a set of row ids, so a batch of inserts into one table costs the same
+/// as one insert. Rows are grouped by node as well as table because the merge
+/// cache stores each field with the node that authored it.
+class _PendingInsertAttempts {
+  final Map<(String, int), ({Set<UuidValue> rowIds, CrdtNode node})> _byGroup =
+      {};
+  final Map<String, ProjectionAttemptsByField> _attemptsByTable = {};
+  final Set<MergeRowKey> _rows = {};
+
+  bool get isEmpty => _byGroup.isEmpty;
+
+  /// Whether metadata for [rowKey] is still unwritten.
+  bool holds(MergeRowKey rowKey) => _rows.contains(rowKey);
+
+  void add({
+    required String tableName,
+    required UuidValue rowId,
+    required CrdtNode node,
+    required ProjectionAttemptsByField attempts,
+  }) {
+    _byGroup
+        .putIfAbsent(
+          (tableName, node.id!),
+          () => (rowIds: <UuidValue>{}, node: node),
+        )
+        .rowIds
+        .add(rowId);
+    _rows.add((tableName, rowId));
+    if (attempts.isEmpty) return;
+    _attemptsByTable
+        .putIfAbsent(tableName, () => <MergeFieldKey, ProjectionAttempt>{})
+        .addAll(attempts);
+  }
+
+  /// Empties the collector and returns what it held.
+  List<
+    ({
+      String tableName,
+      Set<UuidValue> rowIds,
+      CrdtNode node,
+      ProjectionAttemptsByField attempts,
+    })
+  >
+  take() {
+    final groups = [
+      for (final MapEntry(key: key, value: group) in _byGroup.entries)
+        (
+          tableName: key.$1,
+          rowIds: group.rowIds,
+          node: group.node,
+          attempts:
+              _attemptsByTable[key.$1] ??
+              const <MergeFieldKey, ProjectionAttempt>{},
+        ),
+    ];
+    _byGroup.clear();
+    _attemptsByTable.clear();
+    _rows.clear();
+    return groups;
+  }
+}
+
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   /// Locks the current user row so merges can serialize with other work.
@@ -47,6 +112,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           )
         : null;
 
+    // Field metadata for merged inserts is recorded per table and node rather
+    // than per row: every query behind it already takes a set of row ids.
+    final pendingAttempts = _PendingInsertAttempts();
+
     // Deletes carry no authored overlay but still change visibility, so the
     // seed is every touched row, not just the ones with overlays.
     final touchedTables = <String>{};
@@ -58,6 +127,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       touchedTables.add(operation.tableName);
       touchedRows.add((operation.tableName, operation.uuidRowId));
 
+      // A later operation on a row resolves its field metadata through the
+      // merge cache, so anything still pending for that row is written first.
+      if (pendingAttempts.holds((operation.tableName, operation.uuidRowId))) {
+        await _flushInsertAttempts(pendingAttempts, context, transaction);
+      }
+
       switch (operation) {
         case final CrdtMergeInsert insert:
           await _applyMergeInsert(
@@ -66,6 +141,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             context,
             authoredOverlays,
             batchPlan,
+            pendingAttempts,
             transaction,
           );
         case final CrdtMergeUpdate update:
@@ -85,6 +161,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
           );
       }
     }
+
+    await _flushInsertAttempts(pendingAttempts, context, transaction);
 
     if (mayAffectProjection) {
       await _foreignKeyProjector.project(
@@ -358,6 +436,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     MergeContext context,
     Map<MergeFieldKey, Object?> authoredOverlays,
     ProjectionPlan? batchPlan,
+    _PendingInsertAttempts pendingAttempts,
     Transaction transaction,
   ) async {
     final rowKey = (insert.tableName, insert.uuidRowId);
@@ -368,6 +447,10 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     if (currentRow != null && incomingHlc <= currentRow.hlc) {
       return;
     }
+
+    // Set inside the savepoint and read after it, so a rolled back insert
+    // records nothing.
+    ProjectionAttemptsByField? pendingWrites;
 
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
 
@@ -436,13 +519,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
               plannedDomain,
               savepoint,
             );
-            await _foreignKeyProjector.recordInsertAttempts(
-              insert.tableName,
-              {insert.uuidRowId},
-              savepoint,
-              attempts,
-              mergeCache: (fields: context.fields, node: remoteNode),
-            );
+            pendingWrites = attempts;
             return insertedRow;
           },
         );
@@ -450,6 +527,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         // same-scope recovery), so same-merge field updates resolve ownership
         // from the cache instead of re-reading the domain row.
         context.domainOwners[rowKey] = (exists: true, scopeId: mergingScopeId);
+        pendingAttempts.add(
+          tableName: insert.tableName,
+          rowId: insert.uuidRowId,
+          node: remoteNode,
+          attempts: pendingWrites ?? const {},
+        );
       } on _ForeignScopeRowCollision catch (collision) {
         await _throwOwnershipCollision(
           operation: CrdtSyncViolationOperation.mergeInsert,
@@ -473,6 +556,31 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         context,
         authoredOverlays,
         transaction,
+      );
+    }
+  }
+
+  /// Writes the field metadata collected for merged inserts, one call per
+  /// table and node.
+  ///
+  /// Grouped by node because the merge cache pairs every field it stores with
+  /// the node that authored it, which is how the cached field resolves its own
+  /// clock.
+  Future<void> _flushInsertAttempts(
+    _PendingInsertAttempts pending,
+    MergeContext context,
+    Transaction transaction,
+  ) async {
+    if (pending.isEmpty) return;
+
+    final groups = pending.take();
+    for (final group in groups) {
+      await _foreignKeyProjector.recordInsertAttempts(
+        group.tableName,
+        group.rowIds,
+        transaction,
+        group.attempts,
+        mergeCache: (fields: context.fields, node: group.node),
       );
     }
   }
