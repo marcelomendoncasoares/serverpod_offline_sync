@@ -490,37 +490,31 @@ class CrdtSchemaRegistry {
         'dartType=${target.dartType ?? ''} isNullable=${target.isNullable}';
   }
 
-  Future<bool> _hasAttemptedValueRows(int columnId, Transaction transaction) {
-    return _exists(
-      'SELECT 1 FROM crdt_data_attempted_value av '
-      'INNER JOIN crdt_data_fields f ON f.id = av."fieldId" '
-      'WHERE f."columnId" = ${columnId.sqlLiteral()} '
-      'LIMIT 1',
-      transaction,
+  Future<bool> _hasAttemptedValueRows(int columnId, Transaction transaction) async {
+    final row = await CrdtDataAttemptedValue.db.findFirstRow(
+      _session,
+      where: (t) => t.field.columnId.equals(columnId),
+      transaction: transaction,
     );
+    return row != null;
   }
 
-  Future<bool> _hasFieldMetadata(int columnId, Transaction transaction) {
-    return _exists(
-      'SELECT 1 FROM crdt_data_fields '
-      'WHERE "columnId" = ${columnId.sqlLiteral()} '
-      'LIMIT 1',
-      transaction,
+  Future<bool> _hasFieldMetadata(int columnId, Transaction transaction) async {
+    final row = await CrdtDataField.db.findFirstRow(
+      _session,
+      where: (t) => t.columnId.equals(columnId),
+      transaction: transaction,
     );
+    return row != null;
   }
 
-  Future<bool> _hasDataRows(int tableId, Transaction transaction) {
-    return _exists(
-      'SELECT 1 FROM crdt_data_rows '
-      'WHERE "tblId" = ${tableId.sqlLiteral()} '
-      'LIMIT 1',
-      transaction,
+  Future<bool> _hasDataRows(int tableId, Transaction transaction) async {
+    final row = await CrdtDataRow.db.findFirstRow(
+      _session,
+      where: (t) => t.tblId.equals(tableId),
+      transaction: transaction,
     );
-  }
-
-  Future<bool> _exists(String sql, Transaction transaction) async {
-    final result = await _session.db.unsafeQuery(sql, transaction: transaction);
-    return result.isNotEmpty;
+    return row != null;
   }
 }
 

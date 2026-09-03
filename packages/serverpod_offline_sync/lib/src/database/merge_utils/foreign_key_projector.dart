@@ -515,24 +515,16 @@ class CrdtForeignKeyProjector {
     final foreignKeyColumns = _foreignKeys.foreignKeyColumnsFor(tableName);
     if (foreignKeyColumns.isEmpty) return const {};
 
-    final fieldIds = await _findFieldIds(
+    final fields = await _loadFields(
       tableName: tableName,
       rowIds: rowIds,
       columnNames: foreignKeyColumns,
       transaction: transaction,
     );
-    if (fieldIds.isEmpty) return const {};
-
-    final attemptedValues = await _loadAttemptedValues(
-      fieldIds.values.toSet(),
-      transaction,
-    );
-    final activeOverrideFields = <MergeFieldKey, CrdtDataAttemptedValue>{};
-    for (final MapEntry(key: fieldKey, value: fieldId) in fieldIds.entries) {
-      final attempted = attemptedValues[fieldId];
-      if (attempted == null) continue;
-      activeOverrideFields[fieldKey] = attempted;
-    }
+    final activeOverrideFields = <MergeFieldKey, CrdtDataAttemptedValue>{
+      for (final field in fields)
+        (tableName, field.row!.uuidRowId, field.column!.name): ?field.attemptedValue,
+    };
     if (activeOverrideFields.isEmpty) return const {};
 
     final valuesByRowId = await _context.readDomainColumnValues(
@@ -549,49 +541,6 @@ class CrdtForeignKeyProjector {
           attempted.value,
         ))
           fieldKey,
-    };
-  }
-
-  /// Fields whose domain value already equals the stored authored value.
-  ///
-  /// A tombstone restoration that writes the retained authored UUID is not a
-  /// new unique claim; skip the field-HLC bump so winner selection keeps the
-  /// original claim timestamp.
-  Future<Set<MergeFieldKey>> findRestoredAuthoredFields({
-    required String tableName,
-    required Set<UuidValue> rowIds,
-    required Transaction transaction,
-  }) async {
-    if (rowIds.isEmpty) return const {};
-
-    final columnNames = {
-      ..._foreignKeys.foreignKeyColumnsFor(tableName),
-      ..._uniqueResolver.uniqueColumnNamesFor(tableName),
-    };
-    if (columnNames.isEmpty) return const {};
-
-    final fields = await _loadFields(
-      tableName: tableName,
-      rowIds: rowIds,
-      columnNames: columnNames,
-      transaction: transaction,
-    );
-    if (fields.isEmpty) return const {};
-
-    final valuesByRowId = await _context.readDomainColumnValues(
-      tableName,
-      rowIds,
-      columnNames.toList(),
-      transaction,
-    );
-    return {
-      for (final field in fields)
-        if (field.attemptedValue != null)
-          if (projectionValuesEqual(
-            valuesByRowId[field.row!.uuidRowId]?[field.column!.name],
-            field.attemptedValue!.value,
-          ))
-            (tableName, field.row!.uuidRowId, field.column!.name),
     };
   }
 
@@ -967,7 +916,7 @@ class CrdtForeignKeyProjector {
       final closures = <MergeRowKey, Set<MergeRowKey>>{};
       final finalHidden = <MergeRowKey>{};
 
-      for (final root in acceptedRoots.toList()..sort(_compareRowKeys)) {
+      for (final root in acceptedRoots.toList()..sort(compareMergeRowKeys)) {
         if (finalHidden.contains(root)) continue;
 
         final closure = _cascadeClosureForDelete(root, state, <MergeRowKey>{});
@@ -1722,9 +1671,4 @@ class CrdtForeignKeyProjector {
     }
   }
 
-  int _compareRowKeys(MergeRowKey left, MergeRowKey right) {
-    final tableComparison = left.$1.compareTo(right.$1);
-    if (tableComparison != 0) return tableComparison;
-    return left.$2.uuid.compareTo(right.$2.uuid);
-  }
 }

@@ -82,7 +82,7 @@ class CrdtUniqueConflictResolver {
       final tableRowKeys = [
         for (final rowKey in valuesByRow.keys)
           if (rowKey.$1 == tableName) rowKey,
-      ]..sort(_compareRowKeys);
+      ]..sort(compareMergeRowKeys);
 
       for (final uniqueIndex in uniqueIndexes) {
         for (final rowKey in tableRowKeys) {
@@ -237,11 +237,6 @@ class CrdtUniqueConflictResolver {
     return crdtRows[rowKey]!.hlc;
   }
 
-  int _compareRowKeys(MergeRowKey left, MergeRowKey right) {
-    final tableComparison = left.$1.compareTo(right.$1);
-    if (tableComparison != 0) return tableComparison;
-    return left.$2.uuid.compareTo(right.$2.uuid);
-  }
 }
 
 /// Canonical token for unique-claim grouping and equality.

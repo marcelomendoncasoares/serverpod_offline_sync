@@ -601,23 +601,14 @@ class CrdtMutationRecorder {
         CrdtDataDeletedReason.userReinsert,
         transaction,
       );
-      final skippedFields = {
-        ...await _foreignKeyProjector.findImplicitRepairFields(
-          tableName: tableName,
-          rowIds: rowIds,
-          transaction: transaction,
-        ),
-        ...await _foreignKeyProjector.findRestoredAuthoredFields(
-          tableName: tableName,
-          rowIds: rowIds,
-          transaction: transaction,
-        ),
-        ...await _foreignKeyProjector.findActiveAttemptedFields(
-          tableName: tableName,
-          rowIds: rowIds,
-          transaction: transaction,
-        ),
-      };
+      // Every field to skip carries an attempted value: a repaired foreign key
+      // and a restored authored value are both subsets of that set, over a
+      // subset of its columns.
+      final skippedFields = await _foreignKeyProjector.findActiveAttemptedFields(
+        tableName: tableName,
+        rowIds: rowIds,
+        transaction: transaction,
+      );
       // Reinsert is a full-row passthrough. Projected unique/FK columns must
       // keep their original claim HLC so restoration can reclaim or lose
       // without authoring a newer unique claim.

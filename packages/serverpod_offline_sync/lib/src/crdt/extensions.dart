@@ -52,15 +52,6 @@ extension CrdtDataDeletedExtension on CrdtDataDeleted {
       : toHlcForNode(node!.uuidNodeId);
 }
 
-/// Extensions for the [CrdtDataAttemptedValue] class.
-extension CrdtDataAttemptedValueExtension on CrdtDataAttemptedValue {
-  /// Whether this sparse row records an active projection override.
-  ///
-  /// [CrdtDataAttemptedValue] is stored only while the domain value differs
-  /// from the authored value, so the row's presence is the override.
-  bool get hasOverride => true;
-}
-
 /// Extensions for the [CrdtDataDeletedReason] enum.
 extension CrdtDataDeletedReasonExtension on CrdtDataDeletedReason {
   /// Whether this tombstone reason is synced across replicas. All reasons that
