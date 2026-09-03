@@ -4,6 +4,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
+import '../test_tools/crdt_probes.dart';
 
 void main() {
   initTestClientSession();
@@ -45,7 +46,7 @@ void main() {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
             rowId: parent.id!,
-            after: await _rowHlc(parent.id!),
+            after: await rowHlc(parent.id!),
           );
 
           await session.db.mergeChanges(
@@ -117,7 +118,7 @@ void main() {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
             rowId: parent.id!,
-            after: await _rowHlc(parent.id!),
+            after: await rowHlc(parent.id!),
           );
 
           await session.db.mergeChanges(
@@ -187,7 +188,7 @@ void main() {
         final remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: parent.id!,
-          after: await _rowHlc(parent.id!),
+          after: await rowHlc(parent.id!),
         );
 
         await session.db.mergeChanges(
@@ -266,7 +267,7 @@ void main() {
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: parent.id!,
-          after: await _rowHlc(parent.id!),
+          after: await rowHlc(parent.id!),
         );
         await session.db.mergeChanges(
           [remoteParentDelete],
@@ -281,7 +282,7 @@ void main() {
             rowId: firstChild.id!,
             columnName: RestrictChild.t.parentId.columnName,
             value: null,
-            after: (await _rowHlc(firstChild.id!)).maxBetween(
+            after: (await rowHlc(firstChild.id!)).maxBetween(
               remoteParentDelete.hlc,
             ),
           );
@@ -321,7 +322,7 @@ void main() {
             rowId: firstChild.id!,
             columnName: RestrictChild.t.parentId.columnName,
             value: null,
-            after: (await _rowHlc(firstChild.id!)).maxBetween(
+            after: (await rowHlc(firstChild.id!)).maxBetween(
               remoteParentDelete.hlc,
             ),
           );
@@ -330,7 +331,7 @@ void main() {
             rowId: secondChild.id!,
             columnName: RestrictChild.t.parentId.columnName,
             value: null,
-            after: (await _rowHlc(secondChild.id!)).maxBetween(
+            after: (await rowHlc(secondChild.id!)).maxBetween(
               remoteParentDelete.hlc,
             ),
           );
@@ -406,7 +407,7 @@ void main() {
           remoteCompanyDelete = _deleteChange(
             tableName: Company.t.tableName,
             rowId: company.id!,
-            after: await _rowHlc(company.id!),
+            after: await rowHlc(company.id!),
           );
 
           await session.db.mergeChanges(
@@ -465,7 +466,7 @@ void main() {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
             rowId: parent.id!,
-            after: await _rowHlc(parent.id!),
+            after: await rowHlc(parent.id!),
           );
 
           await session.db.mergeChanges(
@@ -533,7 +534,7 @@ void main() {
         );
         childMayorFieldHlc = childMayorField!.hlc;
 
-        final parentHlc = await _rowHlc(attemptedParent.id!);
+        final parentHlc = await rowHlc(attemptedParent.id!);
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
@@ -562,7 +563,7 @@ void main() {
         test(
           'then the attempted foreign key value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -617,7 +618,7 @@ void main() {
           );
         });
 
-        final parentHlc = await _rowHlc(parent.id!);
+        final parentHlc = await rowHlc(parent.id!);
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: parent.id!,
@@ -649,7 +650,7 @@ void main() {
         test(
           'then the attempted unique foreign key value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: UniqueSetNullChild.t.parentId.columnName,
             );
@@ -736,7 +737,7 @@ void main() {
           );
 
           test('then no attempted metadata is recorded.', () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -789,7 +790,7 @@ void main() {
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
-          after: await _rowHlc(attemptedParent.id!),
+          after: await rowHlc(attemptedParent.id!),
         );
 
         await session.db.mergeChanges(
@@ -821,7 +822,7 @@ void main() {
         });
 
         test('then no attempted metadata is recorded.', () async {
-          final attempted = await _attemptedValue(
+          final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Town.t.mayorId.columnName,
           );
@@ -857,7 +858,7 @@ void main() {
         });
 
         test('then the attempted metadata no longer exists.', () async {
-          final attempted = await _attemptedValue(
+          final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Town.t.mayorId.columnName,
           );
@@ -909,7 +910,7 @@ void main() {
         );
 
         test('then the attempted foreign key is recorded in the metadata.', () async {
-          final attempted = await _attemptedValue(
+          final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Town.t.mayorId.columnName,
           );
@@ -966,7 +967,7 @@ void main() {
           );
 
           test('then no attempted metadata is recorded.', () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -1021,7 +1022,7 @@ void main() {
           );
 
           test('then no attempted metadata is recorded.', () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -1063,7 +1064,7 @@ void main() {
         final remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
-          after: await _rowHlc(attemptedParent.id!),
+          after: await rowHlc(attemptedParent.id!),
         );
         await session.db.mergeChanges(
           [remoteParentDelete],
@@ -1076,7 +1077,7 @@ void main() {
           rowId: child.id!,
           columnName: Town.t.name.columnName,
           value: 'renamed remotely',
-          after: (await _rowHlc(child.id!)).maxBetween(remoteParentDelete.hlc),
+          after: (await rowHlc(child.id!)).maxBetween(remoteParentDelete.hlc),
         );
       });
 
@@ -1138,7 +1139,7 @@ void main() {
           );
         });
 
-        final parentHlc = await _rowHlc(attemptedParent.id!);
+        final parentHlc = await rowHlc(attemptedParent.id!);
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
@@ -1167,7 +1168,7 @@ void main() {
         test(
           'then the inserted attempted value is preserved in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -1228,7 +1229,7 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -1260,7 +1261,7 @@ void main() {
           ),
         );
 
-        final childHlc = await _rowHlc(child.id!);
+        final childHlc = await rowHlc(child.id!);
         remoteMissingParentUpdate = CrdtMergeUpdate(
           uuidScopeId: testCrdtUserId,
           tableName: Town.t.tableName,
@@ -1294,7 +1295,7 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
@@ -1350,7 +1351,7 @@ void main() {
           );
         });
 
-        final attemptedTownHlc = await _rowHlc(attemptedTown.id!);
+        final attemptedTownHlc = await rowHlc(attemptedTown.id!);
         remoteAttemptedTownDelete = _deleteChange(
           tableName: Town.t.tableName,
           rowId: attemptedTown.id!,
@@ -1379,7 +1380,7 @@ void main() {
         test(
           'then the attempted set-default foreign key value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
@@ -1450,7 +1451,7 @@ void main() {
           test(
             'then the attempted set-default foreign key value remains recorded in projection metadata.',
             () async {
-              final attempted = await _attemptedValue(
+              final attempted = await attemptedValue(
                 rowId: child.id!,
                 columnName: Company.t.townId.columnName,
               );
@@ -1525,7 +1526,7 @@ void main() {
           );
 
           test('then no attempted metadata is recorded.', () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
@@ -1592,7 +1593,7 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
@@ -1640,7 +1641,7 @@ void main() {
           );
         });
 
-        final attemptedTownHlc = await _rowHlc(attemptedTown.id!);
+        final attemptedTownHlc = await rowHlc(attemptedTown.id!);
         remoteAttemptedTownDelete = _deleteChange(
           tableName: Town.t.tableName,
           rowId: attemptedTown.id!,
@@ -1674,7 +1675,7 @@ void main() {
         test(
           'then no set-default projection override is materialized for the unrepairable delete.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
@@ -1745,7 +1746,7 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Address.t.inhabitantId.columnName,
             );
@@ -1824,7 +1825,7 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Organization.t.cityId.columnName,
             );
@@ -1907,7 +1908,7 @@ void main() {
         test(
           'then no missing-parent projection override is materialized.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: person.id!,
               columnName: Person.t.organizationId.columnName,
             );
@@ -1979,7 +1980,7 @@ void main() {
             session,
             where: (t) => t.uuidRowId.equals(child.id),
           );
-          final attempted = await _attemptedValue(
+          final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Company.t.townId.columnName,
           );
@@ -2074,7 +2075,7 @@ void main() {
         test(
           'then the foreign key was authored as-is, with no projection override.',
           () async {
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Address.t.inhabitantId.columnName,
             );
@@ -2208,10 +2209,10 @@ void main() {
         remoteCityDelete = _deleteChange(
           tableName: City.t.tableName,
           rowId: city.id!,
-          after: await _rowHlc(city.id!),
+          after: await rowHlc(city.id!),
         );
 
-        final attemptedTownHlc = await _rowHlc(attemptedTown.id!);
+        final attemptedTownHlc = await rowHlc(attemptedTown.id!);
         remoteAttemptedTownDelete = _deleteChange(
           tableName: Town.t.tableName,
           rowId: attemptedTown.id!,
@@ -2297,7 +2298,7 @@ void main() {
         remoteCityDelete = _deleteChange(
           tableName: City.t.tableName,
           rowId: city.id!,
-          after: await _rowHlc(city.id!),
+          after: await rowHlc(city.id!),
         );
       });
 
@@ -2413,7 +2414,7 @@ void main() {
               rowId: organization.id!,
               columnName: Organization.t.name.columnName,
               value: 'renamed while hidden',
-              after: (await _rowHlc(organization.id!)).maxBetween(
+              after: (await rowHlc(organization.id!)).maxBetween(
                 remoteCityDelete.hlc,
               ),
             );
@@ -2533,7 +2534,7 @@ void main() {
         remoteRootDelete = _deleteChange(
           tableName: FkChainRoot.t.tableName,
           rowId: root.id!,
-          after: await _rowHlc(root.id!),
+          after: await rowHlc(root.id!),
         );
       });
 
@@ -2570,7 +2571,7 @@ void main() {
           () async {
             final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                 .findById(session, setNullGrandchild.id!);
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: setNullGrandchild.id!,
               columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
             );
@@ -2604,7 +2605,7 @@ void main() {
               scopeId: testCrdtUserId,
             );
 
-            final restrictBlockerHlc = await _rowHlc(restrictBlocker.id!);
+            final restrictBlockerHlc = await rowHlc(restrictBlocker.id!);
             remoteRestrictBlockerDelete = _deleteChange(
               tableName: FkChainRestrictBlocker.t.tableName,
               rowId: restrictBlocker.id!,
@@ -2643,7 +2644,7 @@ void main() {
             () async {
               final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                   .findById(session, setNullGrandchild.id!);
-              final attempted = await _attemptedValue(
+              final attempted = await attemptedValue(
                 rowId: setNullGrandchild.id!,
                 columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
               );
@@ -2662,7 +2663,7 @@ void main() {
         'the same batch,',
         () {
           setUp(() async {
-            final restrictBlockerHlc = await _rowHlc(restrictBlocker.id!);
+            final restrictBlockerHlc = await rowHlc(restrictBlocker.id!);
             final remoteRestrictBlockerDelete = _deleteChange(
               tableName: FkChainRestrictBlocker.t.tableName,
               rowId: restrictBlocker.id!,
@@ -2703,7 +2704,7 @@ void main() {
             () async {
               final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                   .findById(session, setNullGrandchild.id!);
-              final attempted = await _attemptedValue(
+              final attempted = await attemptedValue(
                 rowId: setNullGrandchild.id!,
                 columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
               );
@@ -2797,7 +2798,7 @@ void main() {
         remoteRootDelete = _deleteChange(
           tableName: FkChainRoot.t.tableName,
           rowId: root.id!,
-          after: await _rowHlc(root.id!),
+          after: await rowHlc(root.id!),
         );
       });
 
@@ -2821,7 +2822,7 @@ void main() {
               session,
               setNullMiddle.id!,
             );
-            final middleAttempted = await _attemptedValue(
+            final middleAttempted = await attemptedValue(
               rowId: setNullMiddle.id!,
               columnName: FkChainSetNullMiddle.t.cascadeMiddleId.columnName,
             );
@@ -2849,7 +2850,7 @@ void main() {
           () async {
             final visibleSetNullGrandchild = await FkChainSetNullSetNullChild.db
                 .findById(session, setNullGrandchild.id!);
-            final attempted = await _attemptedValue(
+            final attempted = await attemptedValue(
               rowId: setNullGrandchild.id!,
               columnName: FkChainSetNullSetNullChild.t.setNullMiddleId.columnName,
             );
@@ -2883,7 +2884,7 @@ void main() {
               scopeId: testCrdtUserId,
             );
 
-            final restrictGrandchildHlc = await _rowHlc(restrictGrandchild.id!);
+            final restrictGrandchildHlc = await rowHlc(restrictGrandchild.id!);
             remoteRestrictGrandchildDelete = _deleteChange(
               tableName: FkChainSetNullRestrictChild.t.tableName,
               rowId: restrictGrandchild.id!,
@@ -3001,9 +3002,9 @@ void main() {
         remotePersonDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: person.id!,
-          after: await _rowHlc(person.id!),
+          after: await rowHlc(person.id!),
         );
-        final companyHlc = await _rowHlc(company.id!);
+        final companyHlc = await rowHlc(company.id!);
         remoteCompanyDelete = _deleteChange(
           tableName: Company.t.tableName,
           rowId: company.id!,
@@ -3028,7 +3029,7 @@ void main() {
               final hiddenCompany = await Company.db.findById(session, company.id!);
               final visibleTown = await Town.db.findById(session, town.id!);
 
-              final attempted = await _attemptedValue(
+              final attempted = await attemptedValue(
                 rowId: town.id!,
                 columnName: Town.t.mayorId.columnName,
               );
@@ -3098,11 +3099,11 @@ void main() {
           });
         }
 
-        final singleBatchParentHlc = await _rowHlc(
+        final singleBatchParentHlc = await rowHlc(
           attemptedParent.id!,
           databaseSession: singleBatchSession,
         );
-        final splitBatchParentHlc = await _rowHlc(
+        final splitBatchParentHlc = await rowHlc(
           attemptedParent.id!,
           databaseSession: splitBatchSession,
         );
@@ -3111,11 +3112,11 @@ void main() {
           rowId: attemptedParent.id!,
           after: singleBatchParentHlc.maxBetween(splitBatchParentHlc),
         );
-        final singleBatchChildHlc = await _rowHlc(
+        final singleBatchChildHlc = await rowHlc(
           child.id!,
           databaseSession: singleBatchSession,
         );
-        final splitBatchChildHlc = await _rowHlc(
+        final splitBatchChildHlc = await rowHlc(
           child.id!,
           databaseSession: splitBatchSession,
         );
@@ -3164,12 +3165,12 @@ void main() {
                 child.id!,
               );
 
-              final singleBatch = await _attemptedValue(
+              final singleBatch = await attemptedValue(
                 rowId: child.id!,
                 columnName: Town.t.mayorId.columnName,
                 databaseSession: singleBatchSession,
               );
-              final splitBatch = await _attemptedValue(
+              final splitBatch = await attemptedValue(
                 rowId: child.id!,
                 columnName: Town.t.mayorId.columnName,
                 databaseSession: splitBatchSession,
@@ -3223,11 +3224,11 @@ void main() {
           });
         }
 
-        final singleBatchParentHlc = await _rowHlc(
+        final singleBatchParentHlc = await rowHlc(
           parent.id!,
           databaseSession: singleBatchSession,
         );
-        final splitBatchParentHlc = await _rowHlc(
+        final splitBatchParentHlc = await rowHlc(
           parent.id!,
           databaseSession: splitBatchSession,
         );
@@ -3357,34 +3358,6 @@ CrdtMergeDelete _restoreChange({
     clFlag: 3,
     reason: CrdtDataDeletedReason.userReinsert,
   );
-}
-
-Future<Hlc> _rowHlc(
-  UuidValue rowId, {
-  CrdtDatabaseSession? databaseSession,
-}) async {
-  final crdtRow = await CrdtDataRow.db.findFirstRow(
-    databaseSession ?? session,
-    where: (t) => t.uuidRowId.equals(rowId),
-    include: CrdtDataRow.include(node: CrdtNode.include()),
-  );
-
-  return crdtRow!.hlc;
-}
-
-Future<CrdtDataAttemptedValue?> _attemptedValue({
-  required UuidValue rowId,
-  required String columnName,
-  CrdtDatabaseSession? databaseSession,
-}) async {
-  final field = await CrdtDataField.db.findFirstRow(
-    databaseSession ?? session,
-    where: (t) => t.row.uuidRowId.equals(rowId) & t.column.name.equals(columnName),
-    include: CrdtDataField.include(
-      attemptedValue: CrdtDataAttemptedValue.include(),
-    ),
-  );
-  return field?.attemptedValue;
 }
 
 Future<List<String>> _visibilitySnapshot() async {

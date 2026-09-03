@@ -3,6 +3,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
+import '../test_tools/crdt_probes.dart';
 
 void main() {
   initTestClientSession();
@@ -121,7 +122,7 @@ void main() {
           categoryId: 7,
           name: 'taken',
         );
-        final winnerHlc = await _rowHlc(winner.id!);
+        final winnerHlc = await rowHlc(winner.id!);
         await session.db.mergeChanges(
           [
             CrdtMergeInsert(
@@ -184,7 +185,7 @@ void main() {
           final domainLoser = await Unique.db.findById(session, loser.id!);
           expect(domainLoser!.name, 'shared-name__conflict__${loser.id!.uuid}');
 
-          final attempted = await _attemptedValue(loser.id!, Unique.t.name.columnName);
+          final attempted = await attemptedValue(rowId: loser.id!, columnName: Unique.t.name.columnName);
           expect(attempted, isNotNull);
           expect(attempted!.value, 'shared-name');
           expect(attempted.projectionReason, CrdtProjectionReason.uniqueConflict);
@@ -265,9 +266,9 @@ void main() {
           expect(hidden, isNotNull);
           expect(hidden!.name, 'taken__hidden__${child.id!.uuid}');
 
-          final attempted = await _attemptedValue(
-            child.id!,
-            UniqueCascadeChild.t.name.columnName,
+          final attempted = await attemptedValue(
+            rowId: child.id!,
+            columnName: UniqueCascadeChild.t.name.columnName,
           );
           expect(attempted, isNotNull);
           expect(attempted!.value, 'taken');
@@ -331,9 +332,9 @@ void main() {
           // A locally initiated SET NULL is the observable consequence of the
           // delete the user just performed, so it is authored rather than
           // projected: the null is the authored value and nothing is retained.
-          final attempted = await _attemptedValue(
-            child.id!,
-            UniqueSetNullChild.t.parentId.columnName,
+          final attempted = await attemptedValue(
+            rowId: child.id!,
+            columnName: UniqueSetNullChild.t.parentId.columnName,
           );
           expect(attempted, isNull);
 
@@ -345,30 +346,6 @@ void main() {
       );
     },
   );
-}
-
-Future<Hlc> _rowHlc(UuidValue rowId) async {
-  final crdtRow = await CrdtDataRow.db.findFirstRow(
-    session,
-    where: (t) => t.uuidRowId.equals(rowId),
-    include: CrdtDataRow.include(node: CrdtNode.include()),
-  );
-
-  return crdtRow!.hlc;
-}
-
-Future<CrdtDataAttemptedValue?> _attemptedValue(
-  UuidValue rowId,
-  String columnName,
-) async {
-  final field = await CrdtDataField.db.findFirstRow(
-    session,
-    where: (t) => t.row.uuidRowId.equals(rowId) & t.column.name.equals(columnName),
-    include: CrdtDataField.include(
-      attemptedValue: CrdtDataAttemptedValue.include(),
-    ),
-  );
-  return field?.attemptedValue;
 }
 
 Future<List<CrdtMergeInsert>> _pendingInserts(CrdtSync crdtSync) async {

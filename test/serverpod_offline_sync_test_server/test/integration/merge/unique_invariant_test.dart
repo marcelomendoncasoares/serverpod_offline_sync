@@ -3,6 +3,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
+import '../test_tools/crdt_probes.dart';
 
 void main() {
   initTestClientSession();
@@ -31,7 +32,7 @@ void main() {
           tableName: Unique.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: (await _rowHlc(winner.id!)).datetime.advance(),
+          hlcDatetime: (await rowHlc(winner.id!)).datetime.advance(),
           hlcCounter: 0,
           data: loser,
         );
@@ -72,7 +73,7 @@ void main() {
             [remoteInsert],
             scopeId: testCrdtUserId,
           );
-          loserRowHlcAfterFirstMerge = await _rowHlc(loser.id!);
+          loserRowHlcAfterFirstMerge = await rowHlc(loser.id!);
 
           await session.db.mergeChanges(
             [remoteInsert],
@@ -97,7 +98,7 @@ void main() {
         );
 
         test('then the replay does not change the CRDT row metadata.', () async {
-          expect(await _rowHlc(loser.id!), loserRowHlcAfterFirstMerge);
+          expect(await rowHlc(loser.id!), loserRowHlcAfterFirstMerge);
         });
       });
     },
@@ -130,7 +131,7 @@ void main() {
               tableName: Unique.t.tableName,
               uuidRowId: incoming.id!,
               uuidNodeId: const Uuid().v7obj(),
-              hlcDatetime: (await _rowHlc(owner.id!)).datetime.advance(),
+              hlcDatetime: (await rowHlc(owner.id!)).datetime.advance(),
               hlcCounter: 0,
               data: incoming,
             ),
@@ -176,7 +177,7 @@ void main() {
           tableName: Unique.t.tableName,
           uuidRowId: incomingWinner.id!,
           uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: (await _rowHlc(existingLoser.id!)).datetime.retreat(),
+          hlcDatetime: (await rowHlc(existingLoser.id!)).datetime.retreat(),
           hlcCounter: 0,
           data: incomingWinner,
         );
@@ -263,7 +264,7 @@ void main() {
           tableName: Unique.t.tableName,
           uuidRowId: updatedWinner.id!,
           uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: (await _rowHlc(updatedWinner.id!)).datetime.advance(),
+          hlcDatetime: (await rowHlc(updatedWinner.id!)).datetime.advance(),
           hlcCounter: 0,
           columnName: Unique.t.name.columnName,
           value: 'shared-name',
@@ -332,8 +333,8 @@ void main() {
           parentId: parent.id,
         );
 
-        final winnerHlc = await _rowHlc(winner.id!);
-        final parentHlc = await _rowHlc(parent.id!);
+        final winnerHlc = await rowHlc(winner.id!);
+        final parentHlc = await rowHlc(parent.id!);
         final winnerClaimHlc = winnerHlc.maxBetween(parentHlc);
         remoteInsert = CrdtMergeInsert(
           uuidScopeId: testCrdtUserId,
@@ -492,7 +493,7 @@ void main() {
           tableName: UniqueUuid.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: (await _rowHlc(winner.id!)).datetime.advance(),
+          hlcDatetime: (await rowHlc(winner.id!)).datetime.advance(),
           hlcCounter: 0,
           data: loser,
         );
@@ -560,7 +561,7 @@ void main() {
           tableName: Unique.t.tableName,
           uuidRowId: incomingRow.id!,
           uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: (await _rowHlc(deletedRow.id!)).datetime.advance(),
+          hlcDatetime: (await rowHlc(deletedRow.id!)).datetime.advance(),
           hlcCounter: 0,
           data: incomingRow,
         );
@@ -604,16 +605,6 @@ void main() {
       });
     },
   );
-}
-
-Future<Hlc> _rowHlc(UuidValue rowId) async {
-  final crdtRow = await CrdtDataRow.db.findFirstRow(
-    session,
-    where: (t) => t.uuidRowId.equals(rowId),
-    include: CrdtDataRow.include(node: CrdtNode.include()),
-  );
-
-  return crdtRow!.hlc;
 }
 
 extension on DateTime {
