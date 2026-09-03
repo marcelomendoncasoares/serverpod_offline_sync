@@ -755,43 +755,17 @@ class CrdtForeignKeyProjector {
     final fieldIds = <MergeFieldKey, int>{};
     final attemptedValues = <MergeFieldKey, CrdtDataAttemptedValue>{};
     final fieldHlcs = <MergeFieldKey, Hlc>{};
-    final columnsByTable = <String, Set<String>>{};
 
-    final tablesToLoad = seedTables == null
-        ? _context.syncTableByName.keys.toSet()
-        : _foreignKeys
-              .connectedTables({
-                ...seedTables,
-                for (final pending in pendingInserts) pending.tableName,
-                for (final fieldKey in authoredOverlays.keys) fieldKey.$1,
-              })
-              .where(_context.syncTableByName.containsKey)
-              .toSet();
-
-    for (final edge in _foreignKeys.edges) {
-      if (!tablesToLoad.contains(edge.childTableName)) continue;
-      columnsByTable.putIfAbsent(edge.childTableName, () => {}).add(edge.childColumn);
-      if (edge.parentColumn != 'id') {
-        columnsByTable
-            .putIfAbsent(edge.parentTableName, () => {})
-            .add(edge.parentColumn);
-      }
-    }
-    for (final tableName in tablesToLoad) {
-      columnsByTable
-          .putIfAbsent(tableName, () => {})
-          .addAll(_uniqueResolver.uniqueColumnNamesFor(tableName));
-    }
-    for (final pending in pendingInserts) {
-      columnsByTable
-          .putIfAbsent(pending.tableName, () => {})
-          .addAll(
-            pending.authoredValues.keys,
-          );
-    }
-    for (final fieldKey in authoredOverlays.keys) {
-      columnsByTable.putIfAbsent(fieldKey.$1, () => {}).add(fieldKey.$3);
-    }
+    final tablesToLoad = _tablesToLoad(
+      seedTables: seedTables,
+      pendingInserts: pendingInserts,
+      authoredOverlays: authoredOverlays,
+    );
+    final columnsByTable = _columnsToLoad(
+      tablesToLoad: tablesToLoad,
+      pendingInserts: pendingInserts,
+      authoredOverlays: authoredOverlays,
+    );
 
     if (seedRows == null) {
       for (final tableName in tablesToLoad) {
@@ -831,31 +805,13 @@ class CrdtForeignKeyProjector {
       attemptedValues,
     );
 
-    final pendingInsertKeys = <MergeRowKey>{};
-    for (final pending in pendingInserts) {
-      final key = (pending.tableName, pending.rowId);
-      if (rows.containsKey(key)) continue;
-      pendingInsertKeys.add(key);
-      final (tableId, _) = _context.schema[pending.tableName]!;
-      final scopeId = _context.hlcManagerFor(transaction).normalizedScopeId;
-      rows[key] = (
-        key: key,
-        crdtRow: CrdtDataRow(
-          scopeId: scopeId,
-          tblId: tableId,
-          uuidRowId: pending.rowId,
-          nodeId: pending.node.id!,
-          hlcDatetime: pending.rowHlc.datetime,
-          hlcCounter: pending.rowHlc.counter,
-        ).copyWith(node: pending.node),
-        values: Map<String, Object?>.from(pending.authoredValues),
-      );
-      for (final columnName in pending.authoredValues.keys) {
-        fieldHlcs[(pending.tableName, pending.rowId, columnName)] = pending.rowHlc;
-        // Pending authored values overlay any stale attempted row.
-        attemptedValues.remove((pending.tableName, pending.rowId, columnName));
-      }
-    }
+    final pendingInsertKeys = _seedPendingInsertRows(
+      pendingInserts: pendingInserts,
+      rows: rows,
+      attemptedValues: attemptedValues,
+      fieldHlcs: fieldHlcs,
+      transaction: transaction,
+    );
 
     for (final MapEntry(key: fieldKey, value: overlay) in authoredOverlays.entries) {
       final row = rows[(fieldKey.$1, fieldKey.$2)];
@@ -869,6 +825,116 @@ class CrdtForeignKeyProjector {
       rowsByTable.putIfAbsent(row.key.$1, () => []).add(row);
     }
 
+    return (
+      rows: rows,
+      rowsByTable: rowsByTable,
+      fieldIds: fieldIds,
+      attemptedValues: attemptedValues,
+      persistedAttempted: persistedAttempted,
+      fieldHlcs: fieldHlcs,
+      parentRowsByReference: _indexParentsByReference(rowsByTable),
+      childRowsByAttempt: _indexChildrenByAttempt(rowsByTable, attemptedValues),
+      pendingInsertKeys: pendingInsertKeys,
+      originalDomain: originalDomain,
+    );
+  }
+
+  /// The tables a pass seeded by [seedTables] has to load.
+  ///
+  /// Null [seedTables] means the affected tables are unknown, such as a
+  /// rebuild, so every synced table is loaded.
+  Set<String> _tablesToLoad({
+    required Set<String>? seedTables,
+    required List<PendingProjectionRow> pendingInserts,
+    required Map<MergeFieldKey, Object?> authoredOverlays,
+  }) {
+    if (seedTables == null) return _context.syncTableByName.keys.toSet();
+    return _foreignKeys
+        .connectedTables({
+          ...seedTables,
+          for (final pending in pendingInserts) pending.tableName,
+          for (final fieldKey in authoredOverlays.keys) fieldKey.$1,
+        })
+        .where(_context.syncTableByName.containsKey)
+        .toSet();
+  }
+
+  /// The domain columns to read for each of [tablesToLoad].
+  ///
+  /// A pass only reads what it can decide with: the foreign key columns on
+  /// both sides of an edge, the columns of a unique index, and whatever the
+  /// unwritten inserts and overlays name.
+  Map<String, Set<String>> _columnsToLoad({
+    required Set<String> tablesToLoad,
+    required List<PendingProjectionRow> pendingInserts,
+    required Map<MergeFieldKey, Object?> authoredOverlays,
+  }) {
+    final columnsByTable = <String, Set<String>>{};
+    Set<String> columnsOf(String tableName) =>
+        columnsByTable.putIfAbsent(tableName, () => {});
+
+    for (final edge in _foreignKeys.edges) {
+      if (!tablesToLoad.contains(edge.childTableName)) continue;
+      columnsOf(edge.childTableName).add(edge.childColumn);
+      if (edge.parentColumn != 'id') {
+        columnsOf(edge.parentTableName).add(edge.parentColumn);
+      }
+    }
+    for (final tableName in tablesToLoad) {
+      columnsOf(tableName).addAll(_uniqueResolver.uniqueColumnNamesFor(tableName));
+    }
+    for (final pending in pendingInserts) {
+      columnsOf(pending.tableName).addAll(pending.authoredValues.keys);
+    }
+    for (final fieldKey in authoredOverlays.keys) {
+      columnsOf(fieldKey.$1).add(fieldKey.$3);
+    }
+    return columnsByTable;
+  }
+
+  /// Adds the rows [pendingInserts] will create to the state, and returns their
+  /// keys so materialization can skip writing them.
+  ///
+  /// The row does not exist yet, so it is built from the insert's own node and
+  /// HLC. Its authored values are the domain values until projection decides
+  /// otherwise, which is also why they replace any stale attempted row.
+  Set<MergeRowKey> _seedPendingInsertRows({
+    required List<PendingProjectionRow> pendingInserts,
+    required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
+    required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+    required Map<MergeFieldKey, Hlc> fieldHlcs,
+    required Transaction transaction,
+  }) {
+    final pendingInsertKeys = <MergeRowKey>{};
+    for (final pending in pendingInserts) {
+      final key = (pending.tableName, pending.rowId);
+      if (rows.containsKey(key)) continue;
+      pendingInsertKeys.add(key);
+      final (tableId, _) = _context.schema[pending.tableName]!;
+      rows[key] = (
+        key: key,
+        crdtRow: CrdtDataRow(
+          scopeId: _context.hlcManagerFor(transaction).normalizedScopeId,
+          tblId: tableId,
+          uuidRowId: pending.rowId,
+          nodeId: pending.node.id!,
+          hlcDatetime: pending.rowHlc.datetime,
+          hlcCounter: pending.rowHlc.counter,
+        ).copyWith(node: pending.node),
+        values: Map<String, Object?>.from(pending.authoredValues),
+      );
+      for (final columnName in pending.authoredValues.keys) {
+        fieldHlcs[(pending.tableName, pending.rowId, columnName)] = pending.rowHlc;
+        attemptedValues.remove((pending.tableName, pending.rowId, columnName));
+      }
+    }
+    return pendingInsertKeys;
+  }
+
+  /// The loaded parent row each foreign key value resolves to.
+  Map<ForeignKeyValueKey, _ProjectedForeignKeyRow> _indexParentsByReference(
+    Map<String, List<_ProjectedForeignKeyRow>> rowsByTable,
+  ) {
     final parentRowsByReference = <ForeignKeyValueKey, _ProjectedForeignKeyRow>{};
     for (final edge in _foreignKeys.edges) {
       for (final parent
@@ -881,7 +947,14 @@ class CrdtForeignKeyProjector {
         );
       }
     }
+    return parentRowsByReference;
+  }
 
+  /// The loaded children still waiting for each foreign key value.
+  Map<ForeignKeyValueKey, List<_ProjectedForeignKeyRow>> _indexChildrenByAttempt(
+    Map<String, List<_ProjectedForeignKeyRow>> rowsByTable,
+    Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+  ) {
     final childRowsByAttempt = <ForeignKeyValueKey, List<_ProjectedForeignKeyRow>>{};
     for (final edge in _foreignKeys.edges) {
       for (final child
@@ -900,19 +973,7 @@ class CrdtForeignKeyProjector {
             .add(child);
       }
     }
-
-    return (
-      rows: rows,
-      rowsByTable: rowsByTable,
-      fieldIds: fieldIds,
-      attemptedValues: attemptedValues,
-      persistedAttempted: persistedAttempted,
-      fieldHlcs: fieldHlcs,
-      parentRowsByReference: parentRowsByReference,
-      childRowsByAttempt: childRowsByAttempt,
-      pendingInsertKeys: pendingInsertKeys,
-      originalDomain: originalDomain,
-    );
+    return childRowsByAttempt;
   }
 
   /// Loads [rowIds] of [tableName], or every row of it when [rowIds] is null.
@@ -1127,88 +1188,136 @@ class CrdtForeignKeyProjector {
     }
 
     for (final edge in _foreignKeys.edges) {
-      final parentIds = loadedNow[edge.parentTableName];
-      if (parentIds != null &&
-          parentIds.isNotEmpty &&
-          tablesToLoad.contains(edge.childTableName)) {
-        final references = <Object?>{};
-        for (final parentId in parentIds) {
-          if (edge.parentColumn == 'id') {
-            references.add(parentId);
-            continue;
-          }
-          references.addAll(
-            valuesFor((edge.parentTableName, parentId), edge.parentColumn),
-          );
-        }
-        if (references.isNotEmpty) {
-          enqueue(
-            edge.childTableName,
-            await _context.findDomainRowIdsWhereColumnIn(
-              tableName: edge.childTableName,
-              columnName: edge.childColumn,
-              values: references,
-              transaction: transaction,
-            ),
-          );
-          // A child repaired away from this parent no longer names it in the
-          // domain column; its authored value is the only record left.
-          enqueue(
-            edge.childTableName,
-            await _context.findRowIdsHoldingAttemptedValues(
-              tableName: edge.childTableName,
-              columnNames: {edge.childColumn},
-              values: references,
-              transaction: transaction,
-            ),
-          );
-        }
-      }
-
-      final childIds = loadedNow[edge.childTableName];
-      if (childIds != null &&
-          childIds.isNotEmpty &&
-          tablesToLoad.contains(edge.parentTableName)) {
-        final references = <UuidValue>{};
-        for (final childId in childIds) {
-          final rowKey = (edge.childTableName, childId);
-          for (final value in valuesFor(rowKey, edge.childColumn)) {
-            final reference = tryUuidValue(value);
-            if (reference != null) references.add(reference);
-          }
-          final child = rows[rowKey];
-          if (child == null) continue;
-          // The attempted value names the parent a repair is waiting for.
-          final attempted = _attemptedValueFromProjections(
-            child,
-            edge,
-            attemptedValues,
-          );
-          if (attempted != null) references.add(attempted);
-        }
-        if (references.isEmpty) continue;
-
-        if (edge.parentColumn == 'id') {
-          enqueue(edge.parentTableName, references);
-        } else {
-          enqueue(
-            edge.parentTableName,
-            await _context.findDomainRowIdsWhereColumnIn(
-              tableName: edge.parentTableName,
-              columnName: edge.parentColumn,
-              values: references,
-              transaction: transaction,
-            ),
-          );
-        }
-      }
+      await _expandToChildren(
+        edge: edge,
+        loadedNow: loadedNow,
+        tablesToLoad: tablesToLoad,
+        valuesFor: valuesFor,
+        enqueue: enqueue,
+        transaction: transaction,
+      );
+      await _expandToParents(
+        edge: edge,
+        loadedNow: loadedNow,
+        tablesToLoad: tablesToLoad,
+        rows: rows,
+        attemptedValues: attemptedValues,
+        valuesFor: valuesFor,
+        enqueue: enqueue,
+        transaction: transaction,
+      );
     }
 
-    // A unique claim is contested by value, not along an edge: the row holding
-    // the tuple this one wants can be any row of the table, so ask the table's
-    // own unique index for it. A row that wants a value it does not hold is
-    // already loaded, because holding a projection means holding an attempted
-    // value.
+    await _expandUniqueClaimants(
+      loadedNow: loadedNow,
+      attemptedValues: attemptedValues,
+      valuesFor: valuesFor,
+      enqueue: enqueue,
+      transaction: transaction,
+    );
+  }
+
+  /// Enqueues the children of the parents loaded in this wave.
+  ///
+  /// Hiding or restoring a parent decides its children's fate, so they join the
+  /// walk whether they still name it or only remember it as an attempt.
+  Future<void> _expandToChildren({
+    required ForeignKeyEdge edge,
+    required Map<String, Set<UuidValue>> loadedNow,
+    required Set<String> tablesToLoad,
+    required Set<Object?> Function(MergeRowKey, String) valuesFor,
+    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required Transaction transaction,
+  }) async {
+    final parentIds = loadedNow[edge.parentTableName];
+    if (parentIds == null || parentIds.isEmpty) return;
+    if (!tablesToLoad.contains(edge.childTableName)) return;
+
+    final references = <Object?>{};
+    for (final parentId in parentIds) {
+      if (edge.parentColumn == 'id') {
+        references.add(parentId);
+        continue;
+      }
+      references.addAll(
+        valuesFor((edge.parentTableName, parentId), edge.parentColumn),
+      );
+    }
+    if (references.isEmpty) return;
+
+    await _enqueueRowsClaiming(
+      tableName: edge.childTableName,
+      valuesByColumn: {edge.childColumn: references},
+      enqueue: enqueue,
+      transaction: transaction,
+    );
+  }
+
+  /// Enqueues the parents of the children loaded in this wave.
+  ///
+  /// An unloaded parent reads as a missing one, and the attempted value names
+  /// the parent a repair is still waiting for, so both are followed.
+  Future<void> _expandToParents({
+    required ForeignKeyEdge edge,
+    required Map<String, Set<UuidValue>> loadedNow,
+    required Set<String> tablesToLoad,
+    required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
+    required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+    required Set<Object?> Function(MergeRowKey, String) valuesFor,
+    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required Transaction transaction,
+  }) async {
+    final childIds = loadedNow[edge.childTableName];
+    if (childIds == null || childIds.isEmpty) return;
+    if (!tablesToLoad.contains(edge.parentTableName)) return;
+
+    final references = <UuidValue>{};
+    for (final childId in childIds) {
+      final rowKey = (edge.childTableName, childId);
+      for (final value in valuesFor(rowKey, edge.childColumn)) {
+        final reference = tryUuidValue(value);
+        if (reference != null) references.add(reference);
+      }
+      final child = rows[rowKey];
+      if (child == null) continue;
+      final attempted = _attemptedValueFromProjections(
+        child,
+        edge,
+        attemptedValues,
+      );
+      if (attempted != null) references.add(attempted);
+    }
+    if (references.isEmpty) return;
+
+    if (edge.parentColumn == 'id') {
+      enqueue(edge.parentTableName, references);
+      return;
+    }
+    enqueue(
+      edge.parentTableName,
+      await _context.findDomainRowIdsWhereColumnIn(
+        tableName: edge.parentTableName,
+        columnName: edge.parentColumn,
+        values: references,
+        transaction: transaction,
+      ),
+    );
+  }
+
+  /// Enqueues the rows contesting a unique claim held in this wave.
+  ///
+  /// A unique claim is contested by value, not along an edge: the row holding
+  /// the tuple this one wants can be any row of the table, so ask the table's
+  /// own unique index for it. A row that wants a value it does not hold is
+  /// already loaded, because holding a projection means holding an attempted
+  /// value.
+  Future<void> _expandUniqueClaimants({
+    required Map<String, Set<UuidValue>> loadedNow,
+    required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
+    required Set<Object?> Function(MergeRowKey, String) valuesFor,
+    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required Transaction transaction,
+  }) async {
     for (final MapEntry(key: tableName, value: rowIds) in loadedNow.entries) {
       for (final uniqueIndex in _uniqueResolver.uniqueIndexesFor(tableName)) {
         final claimedByColumn = <String, Set<Object?>>{};
@@ -1223,35 +1332,50 @@ class CrdtForeignKeyProjector {
             (claimedByColumn[columnName] ??= <Object?>{}).addAll(claims);
           }
         }
+        // A partially claimed index cannot be matched: the missing column would
+        // widen the query to every row of the table.
         if (claimedByColumn.length != uniqueIndex.indexedColumns.length) {
           continue;
         }
 
-        enqueue(
-          tableName,
-          await _context.findDomainRowIdsWhereColumnsIn(
-            tableName: tableName,
-            valuesByColumn: claimedByColumn,
-            transaction: transaction,
-          ),
-        );
-
-        // A row that lost this claim was parked on a value derived from its own
-        // id, so the index cannot find it. It kept the claim as its authored
-        // value, which is what makes it reachable.
-        enqueue(
-          tableName,
-          await _context.findRowIdsHoldingAttemptedValues(
-            tableName: tableName,
-            columnNames: uniqueIndex.indexedColumns.toSet(),
-            values: {
-              for (final claims in claimedByColumn.values) ...claims,
-            },
-            transaction: transaction,
-          ),
+        await _enqueueRowsClaiming(
+          tableName: tableName,
+          valuesByColumn: claimedByColumn,
+          enqueue: enqueue,
+          transaction: transaction,
         );
       }
     }
+  }
+
+  /// Enqueues every row of [tableName] that holds, or is owed, these values.
+  ///
+  /// A row that was repaired or released away from a value no longer names it
+  /// in the domain column, so the attempted value is the only record left of
+  /// the claim it is waiting to take back.
+  Future<void> _enqueueRowsClaiming({
+    required String tableName,
+    required Map<String, Set<Object?>> valuesByColumn,
+    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required Transaction transaction,
+  }) async {
+    enqueue(
+      tableName,
+      await _context.findDomainRowIdsWhereColumnsIn(
+        tableName: tableName,
+        valuesByColumn: valuesByColumn,
+        transaction: transaction,
+      ),
+    );
+    enqueue(
+      tableName,
+      await _context.findRowIdsHoldingAttemptedValues(
+        tableName: tableName,
+        columnNames: valuesByColumn.keys.toSet(),
+        values: {for (final values in valuesByColumn.values) ...values},
+        transaction: transaction,
+      ),
+    );
   }
 
   Future<List<CrdtDataField>> _loadFields({
@@ -1590,92 +1714,18 @@ class CrdtForeignKeyProjector {
     required bool materialize,
     required Transaction transaction,
   }) async {
-    final authoredByField = <MergeFieldKey, Object?>{};
-    for (final row in state.rows.values) {
-      for (final MapEntry(key: columnName, value: domainValue) in row.values.entries) {
-        final fieldKey = (row.key.$1, row.key.$2, columnName);
-        if (authoredOverlays.containsKey(fieldKey)) {
-          authoredByField[fieldKey] = canonicalDomainValue(
-            authoredOverlays[fieldKey],
-          );
-        } else {
-          authoredByField[fieldKey] = canonicalDomainValue(
-            state.attemptedValues[fieldKey]?.value ?? domainValue,
-          );
-        }
-      }
-    }
-
-    final fkReasons = <MergeFieldKey, CrdtProjectionReason>{};
-    final fkCandidates = <MergeFieldKey, Object?>{};
-
-    for (final edge in _foreignKeys.edges) {
-      for (final child
-          in state.rowsByTable[edge.childTableName] ??
-              const <_ProjectedForeignKeyRow>[]) {
-        final fieldKey = (
-          edge.childTableName,
-          child.key.$2,
-          edge.childColumn,
-        );
-        final attemptedValue = _attemptedValue(child, edge, state);
-        var desiredVisibleValue = attemptedValue;
-        CrdtProjectionReason? overrideReason;
-
-        if (attemptedValue != null &&
-            _targetHiddenOrMissing(
-              edge,
-              attemptedValue,
-              state,
-              finalHidden,
-            )) {
-          switch (edge.action) {
-            case ForeignKeyAction.setNull:
-              if (edge.childNullable) {
-                desiredVisibleValue = null;
-                overrideReason = CrdtProjectionReason.foreignKeySetNull;
-              }
-            case ForeignKeyAction.setDefault:
-              final defaultProjection = _defaultProjectionValue(
-                edge,
-                state,
-                finalHidden,
-              );
-              if (defaultProjection.valid) {
-                desiredVisibleValue = defaultProjection.value;
-                overrideReason = CrdtProjectionReason.foreignKeySetDefault;
-              }
-            case ForeignKeyAction.restrict:
-            case ForeignKeyAction.noAction:
-            case ForeignKeyAction.cascade:
-              break;
-          }
-        }
-
-        if (desiredVisibleValue != null &&
-            _parentRowForValue(edge, desiredVisibleValue, state) == null) {
-          // Physical FK cannot accept a UUID whose parent row is absent.
-          final safeValue = edge.childNullable ? null : child.values[edge.childColumn];
-          fkCandidates[fieldKey] = safeValue;
-          child.values[edge.childColumn] = safeValue;
-          fkReasons[fieldKey] = CrdtProjectionReason.foreignKeyMissingParent;
-          continue;
-        }
-
-        fkCandidates[fieldKey] = desiredVisibleValue;
-        child.values[edge.childColumn] = desiredVisibleValue;
-        if (overrideReason != null) {
-          fkReasons[fieldKey] = overrideReason;
-        }
-      }
-    }
+    final authoredByField = _authoredValuesByField(state, authoredOverlays);
+    final foreignKeys = _planForeignKeyValues(
+      state: state,
+      finalHidden: finalHidden,
+    );
 
     final claimByField = <MergeFieldKey, Object?>{};
     for (final row in state.rows.values) {
       for (final columnName in row.values.keys) {
         final fieldKey = (row.key.$1, row.key.$2, columnName);
-        claimByField[fieldKey] = fkCandidates.containsKey(fieldKey)
-            ? fkCandidates[fieldKey]
+        claimByField[fieldKey] = foreignKeys.candidates.containsKey(fieldKey)
+            ? foreignKeys.candidates[fieldKey]
             : authoredByField[fieldKey];
       }
     }
@@ -1694,27 +1744,11 @@ class CrdtForeignKeyProjector {
     );
 
     final terminalReasons = <MergeFieldKey, CrdtProjectionReason>{
-      ...fkReasons,
+      ...foreignKeys.reasons,
       ...uniqueReasons,
     };
 
-    // Pending inserts are visible to planning, but they are not domain rows
-    // yet. Writing a child FK UUID that points at one fails the physical FK.
-    for (final edge in _foreignKeys.edges) {
-      for (final child
-          in state.rowsByTable[edge.childTableName] ??
-              const <_ProjectedForeignKeyRow>[]) {
-        if (state.pendingInsertKeys.contains(child.key)) continue;
-        final parentValue = tryUuidValue(child.values[edge.childColumn]);
-        if (parentValue == null) continue;
-        final parent = _parentRowForValue(edge, parentValue, state);
-        if (parent == null || !state.pendingInsertKeys.contains(parent.key)) {
-          continue;
-        }
-        child.values[edge.childColumn] =
-            state.originalDomain[child.key]?[edge.childColumn];
-      }
-    }
+    _restoreReferencesToPendingInserts(state);
 
     final finalDomain = {
       for (final row in state.rows.values) row.key: row.values,
@@ -1744,6 +1778,124 @@ class CrdtForeignKeyProjector {
       },
       reasons: terminalReasons,
     );
+  }
+
+  /// The authored value behind every loaded field.
+  ///
+  /// A field holding a projection keeps its authored value in the attempted
+  /// row; anything else authored what it holds. An overlay is newer than both.
+  Map<MergeFieldKey, Object?> _authoredValuesByField(
+    _ForeignKeyProjectionState state,
+    Map<MergeFieldKey, Object?> authoredOverlays,
+  ) {
+    final authoredByField = <MergeFieldKey, Object?>{};
+    for (final row in state.rows.values) {
+      for (final MapEntry(key: columnName, value: domainValue) in row.values.entries) {
+        final fieldKey = (row.key.$1, row.key.$2, columnName);
+        authoredByField[fieldKey] = canonicalDomainValue(
+          authoredOverlays.containsKey(fieldKey)
+              ? authoredOverlays[fieldKey]
+              : state.attemptedValues[fieldKey]?.value ?? domainValue,
+        );
+      }
+    }
+    return authoredByField;
+  }
+
+  /// Resolves every foreign key column to the value it can hold, writing it
+  /// into the state's rows as the candidate unique planning then judges.
+  ///
+  /// A child pointing at a hidden or missing parent is repaired by its own
+  /// `ON DELETE` action; a value whose parent row is not there at all cannot be
+  /// written regardless of the action, because the physical key would reject it.
+  ({
+    Map<MergeFieldKey, Object?> candidates,
+    Map<MergeFieldKey, CrdtProjectionReason> reasons,
+  })
+  _planForeignKeyValues({
+    required _ForeignKeyProjectionState state,
+    required Set<MergeRowKey> finalHidden,
+  }) {
+    final candidates = <MergeFieldKey, Object?>{};
+    final reasons = <MergeFieldKey, CrdtProjectionReason>{};
+
+    for (final edge in _foreignKeys.edges) {
+      for (final child
+          in state.rowsByTable[edge.childTableName] ??
+              const <_ProjectedForeignKeyRow>[]) {
+        final fieldKey = (edge.childTableName, child.key.$2, edge.childColumn);
+        final attemptedValue = _attemptedValue(child, edge, state);
+        var desiredVisibleValue = attemptedValue;
+        CrdtProjectionReason? overrideReason;
+
+        if (attemptedValue != null &&
+            _targetHiddenOrMissing(edge, attemptedValue, state, finalHidden)) {
+          switch (edge.action) {
+            case ForeignKeyAction.setNull:
+              if (edge.childNullable) {
+                desiredVisibleValue = null;
+                overrideReason = CrdtProjectionReason.foreignKeySetNull;
+              }
+            case ForeignKeyAction.setDefault:
+              final defaultProjection = _defaultProjectionValue(
+                edge,
+                state,
+                finalHidden,
+              );
+              if (defaultProjection.valid) {
+                desiredVisibleValue = defaultProjection.value;
+                overrideReason = CrdtProjectionReason.foreignKeySetDefault;
+              }
+            case ForeignKeyAction.restrict:
+            case ForeignKeyAction.noAction:
+            case ForeignKeyAction.cascade:
+              break;
+          }
+        }
+
+        if (desiredVisibleValue != null &&
+            _parentRowForValue(edge, desiredVisibleValue, state) == null) {
+          // Physical FK cannot accept a UUID whose parent row is absent.
+          final safeValue = edge.childNullable ? null : child.values[edge.childColumn];
+          candidates[fieldKey] = safeValue;
+          child.values[edge.childColumn] = safeValue;
+          reasons[fieldKey] = CrdtProjectionReason.foreignKeyMissingParent;
+          continue;
+        }
+
+        candidates[fieldKey] = desiredVisibleValue;
+        child.values[edge.childColumn] = desiredVisibleValue;
+        if (overrideReason != null) {
+          reasons[fieldKey] = overrideReason;
+        }
+      }
+    }
+
+    return (candidates: candidates, reasons: reasons);
+  }
+
+  /// Puts back the stored value of any reference planning pointed at a row this
+  /// batch has not written yet.
+  ///
+  /// Pending inserts are visible to planning, but they are not domain rows yet,
+  /// so writing a child foreign key naming one fails the physical key. Their
+  /// own insert carries the planned value instead.
+  void _restoreReferencesToPendingInserts(_ForeignKeyProjectionState state) {
+    for (final edge in _foreignKeys.edges) {
+      for (final child
+          in state.rowsByTable[edge.childTableName] ??
+              const <_ProjectedForeignKeyRow>[]) {
+        if (state.pendingInsertKeys.contains(child.key)) continue;
+        final parentValue = tryUuidValue(child.values[edge.childColumn]);
+        if (parentValue == null) continue;
+        final parent = _parentRowForValue(edge, parentValue, state);
+        if (parent == null || !state.pendingInsertKeys.contains(parent.key)) {
+          continue;
+        }
+        child.values[edge.childColumn] =
+            state.originalDomain[child.key]?[edge.childColumn];
+      }
+    }
   }
 
   Future<void> _materializeDomainTwoPhase({
