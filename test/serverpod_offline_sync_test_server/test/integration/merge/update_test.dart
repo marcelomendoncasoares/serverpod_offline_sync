@@ -400,8 +400,7 @@ void main() {
         );
 
         test(
-          'then the silently released unique column is not authored as a '
-          'field update.',
+          'then the silently released unique column is not authored as a field update.',
           () async {
             final fields = await CrdtDataField.db.find(
               session,

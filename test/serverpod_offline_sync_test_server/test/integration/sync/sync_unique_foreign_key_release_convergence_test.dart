@@ -63,8 +63,6 @@ void main() {
     rows.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
     return [
       for (final row in rows)
-        // Each row renders as one string; the adjacent literals are one element.
-        // ignore: no_adjacent_strings_in_list
         '${visible.contains(row.id) ? 'visible' : 'hidden'} ${row.street} inhabitantId=${row.inhabitantId}',
     ].join(' | ');
   }

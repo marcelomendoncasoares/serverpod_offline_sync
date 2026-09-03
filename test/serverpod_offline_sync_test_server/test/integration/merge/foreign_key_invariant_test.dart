@@ -1,4 +1,4 @@
-import 'package:serverpod_database/serverpod_database.dart' show ValueEncoder;
+import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -562,16 +562,14 @@ void main() {
         test(
           'then the attempted foreign key value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetNull);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, attemptedParent.id);
+            expect(attempted.projectionReason, CrdtProjectionReason.foreignKeySetNull);
           },
         );
 
@@ -651,15 +649,13 @@ void main() {
         test(
           'then the attempted unique foreign key value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: UniqueSetNullChild.t.parentId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, parent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, parent.id);
           },
         );
       });
@@ -724,10 +720,6 @@ void main() {
             'then the null foreign key value is authored as a user change.',
             () async {
               final visibleChild = await Town.db.findById(session, child.id!);
-              final projection = await _findForeignKeyProjection(
-                rowId: child.id!,
-                columnName: Town.t.mayorId.columnName,
-              );
               final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -738,17 +730,19 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, isNull);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isFalse);
               expect(mayorFieldAfterUpdate, isNotNull);
-              expect(
-                mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
-                isTrue,
-              );
+              expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
             },
           );
+
+          test('then no attempted metadata is recorded.', () async {
+            final attempted = await _attemptedValue(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+            );
+
+            expect(attempted, isNull);
+          });
         },
       );
     },
@@ -808,8 +802,6 @@ void main() {
       });
 
       group('when the user changes the foreign key to a visible parent,', () {
-        late _FkProjection projection;
-
         setUp(() async {
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
             child = await Town.db.updateRow(
@@ -819,11 +811,6 @@ void main() {
               transaction: tx,
             );
           });
-
-          projection = (await _findForeignKeyProjection(
-            rowId: child.id!,
-            columnName: Town.t.mayorId.columnName,
-          ))!;
         });
 
         test('then the child foreign key uses the new visible parent.', () async {
@@ -833,14 +820,14 @@ void main() {
           expect(visibleChild!.mayorId, newParent.id);
         });
 
-        test(
-          'then foreign key tracking records the new visible user value without an active override.',
-          () async {
-            expect(projection.attemptedValue, newParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
-          },
-        );
+        test('then no attempted metadata is recorded.', () async {
+          final attempted = await _attemptedValue(
+            rowId: child.id!,
+            columnName: Town.t.mayorId.columnName,
+          );
+
+          expect(attempted, isNull);
+        });
       });
 
       group('when a later merge restores the attempted parent,', () {
@@ -857,28 +844,26 @@ void main() {
           );
         });
 
-        test(
-          'then the child foreign key is restored and projection metadata records the visible attempted value.',
-          () async {
-            final visibleParent = await Person.db.findById(
-              session,
-              attemptedParent.id!,
-            );
-            final visibleChild = await Town.db.findById(session, child.id!);
-            final projection = await _findForeignKeyProjection(
-              rowId: child.id!,
-              columnName: Town.t.mayorId.columnName,
-            );
+        test('then the child foreign key is restored.', () async {
+          final visibleParent = await Person.db.findById(
+            session,
+            attemptedParent.id!,
+          );
+          final visibleChild = await Town.db.findById(session, child.id!);
 
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.mayorId, attemptedParent.id);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
-          },
-        );
+          expect(visibleParent, isNotNull);
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.mayorId, attemptedParent.id);
+        });
+
+        test('then the attempted metadata no longer exists.', () async {
+          final attempted = await _attemptedValue(
+            rowId: child.id!,
+            columnName: Town.t.mayorId.columnName,
+          );
+
+          expect(attempted, isNull);
+        });
       });
 
       group('when the row is updated without narrowing columns,', () {
@@ -907,10 +892,6 @@ void main() {
           'then the foreign key write equal to the projected value is a repair passthrough, not an authored update.',
           () async {
             final visibleChild = await Town.db.findById(session, child.id!);
-            final projection = await _findForeignKeyProjection(
-              rowId: child.id!,
-              columnName: Town.t.mayorId.columnName,
-            );
             final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
               session,
               where: (t) =>
@@ -922,14 +903,20 @@ void main() {
             expect(visibleChild, isNotNull);
             expect(visibleChild!.name, 'renamed projected town');
             expect(visibleChild.mayorId, isNull);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
             expect(mayorFieldAfterUpdate, isNotNull);
             expect(mayorFieldAfterUpdate!.hlc, mayorFieldHlcBeforeUpdate);
           },
         );
+
+        test('then the attempted foreign key is recorded in the metadata.', () async {
+          final attempted = await _attemptedValue(
+            rowId: child.id!,
+            columnName: Town.t.mayorId.columnName,
+          );
+
+          expect(attempted, isNotNull);
+          expect(attempted!.value, attemptedParent.id);
+        });
       });
 
       group(
@@ -963,10 +950,6 @@ void main() {
             'then the new foreign key value is authored as a user change.',
             () async {
               final visibleChild = await Town.db.findById(session, child.id!);
-              final projection = await _findForeignKeyProjection(
-                rowId: child.id!,
-                columnName: Town.t.mayorId.columnName,
-              );
               final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -977,14 +960,19 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, newParent.id);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, newParent.id);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isFalse);
               expect(mayorFieldAfterUpdate, isNotNull);
               expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
             },
           );
+
+          test('then no attempted metadata is recorded.', () async {
+            final attempted = await _attemptedValue(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+            );
+
+            expect(attempted, isNull);
+          });
         },
       );
 
@@ -1017,10 +1005,6 @@ void main() {
             'then writing the projected value with narrowed columns is an authored update, not a passthrough.',
             () async {
               final visibleChild = await Town.db.findById(session, child.id!);
-              final projection = await _findForeignKeyProjection(
-                rowId: child.id!,
-                columnName: Town.t.mayorId.columnName,
-              );
               final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -1031,16 +1015,19 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, isNull);
-              expect(projection.hasOverride, isFalse);
               expect(mayorFieldAfterUpdate, isNotNull);
-              expect(
-                mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
-                isTrue,
-              );
+              expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
             },
           );
+
+          test('then no attempted metadata is recorded.', () async {
+            final attempted = await _attemptedValue(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+            );
+
+            expect(attempted, isNull);
+          });
         },
       );
     },
@@ -1180,15 +1167,13 @@ void main() {
         test(
           'then the inserted attempted value is preserved in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedParent.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, attemptedParent.id);
           },
         );
       });
@@ -1243,16 +1228,14 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, missingParentId);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetNull);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, missingParentId);
+            expect(attempted.projectionReason, CrdtProjectionReason.foreignKeySetNull);
           },
         );
       });
@@ -1311,16 +1294,14 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, missingParentId);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetNull);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, missingParentId);
+            expect(attempted.projectionReason, CrdtProjectionReason.foreignKeySetNull);
           },
         );
       });
@@ -1398,16 +1379,17 @@ void main() {
         test(
           'then the attempted set-default foreign key value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedTown.id);
-            expect(projection.visibleValue, defaultTown.id);
-            expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetDefault);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, attemptedTown.id);
+            expect(
+              attempted.projectionReason,
+              CrdtProjectionReason.foreignKeySetDefault,
+            );
           },
         );
       });
@@ -1449,10 +1431,6 @@ void main() {
             'then the set-default foreign key write equal to the projected value is a repair passthrough, not an authored update.',
             () async {
               final visibleChild = await Company.db.findById(session, child.id!);
-              final projection = await _findForeignKeyProjection(
-                rowId: child.id!,
-                columnName: Company.t.townId.columnName,
-              );
               final townIdFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -1464,12 +1442,21 @@ void main() {
               expect(visibleChild, isNotNull);
               expect(visibleChild!.name, 'renamed projected company');
               expect(visibleChild.townId, defaultTown.id);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, attemptedTown.id);
-              expect(projection.visibleValue, defaultTown.id);
-              expect(projection.hasOverride, isTrue);
               expect(townIdFieldAfterUpdate, isNotNull);
               expect(townIdFieldAfterUpdate!.hlc, townIdFieldHlcBeforeUpdate);
+            },
+          );
+
+          test(
+            'then the attempted set-default foreign key value remains recorded in projection metadata.',
+            () async {
+              final attempted = await _attemptedValue(
+                rowId: child.id!,
+                columnName: Company.t.townId.columnName,
+              );
+
+              expect(attempted, isNotNull);
+              expect(attempted!.value, attemptedTown.id);
             },
           );
         },
@@ -1522,10 +1509,6 @@ void main() {
             'then the new foreign key value is authored as a user change.',
             () async {
               final visibleChild = await Company.db.findById(session, child.id!);
-              final projection = await _findForeignKeyProjection(
-                rowId: child.id!,
-                columnName: Company.t.townId.columnName,
-              );
               final townIdFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -1536,16 +1519,19 @@ void main() {
 
               expect(visibleChild, isNotNull);
               expect(visibleChild!.townId, otherTown.id);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, otherTown.id);
-              expect(projection.hasOverride, isFalse);
               expect(townIdFieldAfterUpdate, isNotNull);
-              expect(
-                townIdFieldAfterUpdate!.hlc > townIdFieldHlcBeforeUpdate,
-                isTrue,
-              );
+              expect(townIdFieldAfterUpdate!.hlc > townIdFieldHlcBeforeUpdate, isTrue);
             },
           );
+
+          test('then no attempted metadata is recorded.', () async {
+            final attempted = await _attemptedValue(
+              rowId: child.id!,
+              columnName: Company.t.townId.columnName,
+            );
+
+            expect(attempted, isNull);
+          });
         },
       );
     },
@@ -1606,16 +1592,17 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, missingTownId);
-            expect(projection.visibleValue, defaultTown.id);
-            expect(projection.hasOverride, isTrue);
-            expect(projection.overrideReason, CrdtProjectionReason.foreignKeySetDefault);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, missingTownId);
+            expect(
+              attempted.projectionReason,
+              CrdtProjectionReason.foreignKeySetDefault,
+            );
           },
         );
       });
@@ -1687,16 +1674,12 @@ void main() {
         test(
           'then no set-default projection override is materialized for the unrepairable delete.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, attemptedTown.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
-            expect(projection.overrideReason, isNull);
+            expect(attempted, isNull);
           },
         );
       });
@@ -1762,17 +1745,15 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Address.t.inhabitantId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, missingParentId);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, missingParentId);
             expect(
-              projection.overrideReason,
+              attempted.projectionReason,
               CrdtProjectionReason.foreignKeyMissingParent,
             );
           },
@@ -1843,17 +1824,15 @@ void main() {
         test(
           'then the missing attempted parent value remains recorded in projection metadata.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Organization.t.cityId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, missingParentId);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isTrue);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, missingParentId);
             expect(
-              projection.overrideReason,
+              attempted.projectionReason,
               CrdtProjectionReason.foreignKeyMissingParent,
             );
           },
@@ -1928,15 +1907,12 @@ void main() {
         test(
           'then no missing-parent projection override is materialized.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: person.id!,
               columnName: Person.t.organizationId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, organization.id);
-            expect(projection.hasOverride, isFalse);
-            expect(projection.overrideReason, isNull);
+            expect(attempted, isNull);
           },
         );
       });
@@ -1994,17 +1970,7 @@ void main() {
         });
 
         test('then the merge fails at the database constraint backstop.', () {
-          // FIXME: Replace the generic check below on the next Serverpod release.
-          // See: https://github.com/serverpod/serverpod/issues/5634
-          // expect(mergeError, isA<DatabaseForeignKeyViolationException>());
-          expect(
-            mergeError,
-            isA<Exception>().having(
-              (e) => e.toString(),
-              'toString',
-              contains('FOREIGN KEY constraint failed'),
-            ),
-          );
+          expect(mergeError, isA<DatabaseForeignKeyViolationException>());
         });
 
         test('then the failed merge leaves no partial state behind.', () async {
@@ -2013,14 +1979,14 @@ void main() {
             session,
             where: (t) => t.uuidRowId.equals(child.id),
           );
-          final projection = await _findForeignKeyProjection(
+          final attempted = await _attemptedValue(
             rowId: child.id!,
             columnName: Company.t.townId.columnName,
           );
 
           expect(domainRow, isNull);
           expect(crdtRow, isNull);
-          expect(projection, isNull);
+          expect(attempted, isNull);
         });
       });
     },
@@ -2108,14 +2074,12 @@ void main() {
         test(
           'then the foreign key was authored as-is, with no projection override.',
           () async {
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: child.id!,
               columnName: Address.t.inhabitantId.columnName,
             );
 
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, parent.id);
-            expect(projection.hasOverride, isFalse);
+            expect(attempted, isNull);
           },
         );
       });
@@ -2606,17 +2570,14 @@ void main() {
           () async {
             final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                 .findById(session, setNullGrandchild.id!);
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: setNullGrandchild.id!,
               columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
             );
 
             expect(visibleSetNullGrandchild, isNotNull);
             expect(visibleSetNullGrandchild!.restrictBlockerId, restrictBlocker.id);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, restrictBlocker.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
+            expect(attempted, isNull);
           },
         );
 
@@ -2682,17 +2643,15 @@ void main() {
             () async {
               final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                   .findById(session, setNullGrandchild.id!);
-              final projection = await _findForeignKeyProjection(
+              final attempted = await _attemptedValue(
                 rowId: setNullGrandchild.id!,
                 columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
               );
 
               expect(visibleSetNullGrandchild, isNotNull);
               expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, restrictBlocker.id);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isTrue);
+              expect(attempted, isNotNull);
+              expect(attempted!.value, restrictBlocker.id);
             },
           );
         },
@@ -2744,17 +2703,15 @@ void main() {
             () async {
               final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
                   .findById(session, setNullGrandchild.id!);
-              final projection = await _findForeignKeyProjection(
+              final attempted = await _attemptedValue(
                 rowId: setNullGrandchild.id!,
                 columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
               );
 
               expect(visibleSetNullGrandchild, isNotNull);
               expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, restrictBlocker.id);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isTrue);
+              expect(attempted, isNotNull);
+              expect(attempted!.value, restrictBlocker.id);
             },
           );
         },
@@ -2864,17 +2821,15 @@ void main() {
               session,
               setNullMiddle.id!,
             );
-            final middleProjection = await _findForeignKeyProjection(
+            final middleAttempted = await _attemptedValue(
               rowId: setNullMiddle.id!,
               columnName: FkChainSetNullMiddle.t.cascadeMiddleId.columnName,
             );
 
             expect(visibleSetNullMiddle, isNotNull);
             expect(visibleSetNullMiddle!.cascadeMiddleId, isNull);
-            expect(middleProjection, isNotNull);
-            expect(middleProjection!.attemptedValue, cascadeMiddle.id);
-            expect(middleProjection.visibleValue, isNull);
-            expect(middleProjection.hasOverride, isTrue);
+            expect(middleAttempted, isNotNull);
+            expect(middleAttempted!.value, cascadeMiddle.id);
           },
         );
 
@@ -2894,17 +2849,14 @@ void main() {
           () async {
             final visibleSetNullGrandchild = await FkChainSetNullSetNullChild.db
                 .findById(session, setNullGrandchild.id!);
-            final projection = await _findForeignKeyProjection(
+            final attempted = await _attemptedValue(
               rowId: setNullGrandchild.id!,
               columnName: FkChainSetNullSetNullChild.t.setNullMiddleId.columnName,
             );
 
             expect(visibleSetNullGrandchild, isNotNull);
             expect(visibleSetNullGrandchild!.setNullMiddleId, setNullMiddle.id);
-            expect(projection, isNotNull);
-            expect(projection!.attemptedValue, setNullMiddle.id);
-            expect(projection.visibleValue, isNull);
-            expect(projection.hasOverride, isFalse);
+            expect(attempted, isNull);
           },
         );
 
@@ -3076,7 +3028,7 @@ void main() {
               final hiddenCompany = await Company.db.findById(session, company.id!);
               final visibleTown = await Town.db.findById(session, town.id!);
 
-              final projection = await _findForeignKeyProjection(
+              final attempted = await _attemptedValue(
                 rowId: town.id!,
                 columnName: Town.t.mayorId.columnName,
               );
@@ -3085,10 +3037,8 @@ void main() {
               expect(hiddenCompany, isNull);
               expect(visibleTown, isNotNull);
               expect(visibleTown!.mayorId, isNull);
-              expect(projection, isNotNull);
-              expect(projection!.attemptedValue, person.id);
-              expect(projection.visibleValue, isNull);
-              expect(projection.hasOverride, isTrue);
+              expect(attempted, isNotNull);
+              expect(attempted!.value, person.id);
             },
           );
         },
@@ -3214,12 +3164,12 @@ void main() {
                 child.id!,
               );
 
-              final singleBatch = await _findForeignKeyProjection(
+              final singleBatch = await _attemptedValue(
                 rowId: child.id!,
                 columnName: Town.t.mayorId.columnName,
                 databaseSession: singleBatchSession,
               );
-              final splitBatch = await _findForeignKeyProjection(
+              final splitBatch = await _attemptedValue(
                 rowId: child.id!,
                 columnName: Town.t.mayorId.columnName,
                 databaseSession: splitBatchSession,
@@ -3227,13 +3177,12 @@ void main() {
 
               expect(singleBatchChild?.name, splitBatchChild?.name);
               expect(singleBatchChild?.mayorId?.uuid, splitBatchChild?.mayorId?.uuid);
-              expect(singleBatch?.attemptedValue, splitBatch?.attemptedValue);
-              expect(singleBatch?.visibleValue, splitBatch?.visibleValue);
-              expect(singleBatch?.hasOverride, splitBatch?.hasOverride);
+              expect(singleBatch?.value, splitBatch?.value);
+              expect(singleBatch?.projectionReason, splitBatch?.projectionReason);
               expect(singleBatchChild?.name, 'updated batching town');
               expect(singleBatchChild?.mayorId, isNull);
-              expect(singleBatch?.attemptedValue, attemptedParent.id);
-              expect(singleBatch?.hasOverride, isTrue);
+              expect(singleBatch, isNotNull);
+              expect(singleBatch!.value, attemptedParent.id);
             },
           );
         },
@@ -3423,73 +3372,19 @@ Future<Hlc> _rowHlc(
   return crdtRow!.hlc;
 }
 
-class _FkProjection {
-  _FkProjection({
-    required this.attemptedValue,
-    required this.visibleValue,
-    required this.hasOverride,
-    this.overrideReason,
-  });
-
-  final UuidValue? attemptedValue;
-  final UuidValue? visibleValue;
-  final bool hasOverride;
-  final CrdtProjectionReason? overrideReason;
-}
-
-Future<_FkProjection?> _findForeignKeyProjection({
+Future<CrdtDataAttemptedValue?> _attemptedValue({
   required UuidValue rowId,
   required String columnName,
   CrdtDatabaseSession? databaseSession,
 }) async {
-  final dbSession = databaseSession ?? session;
   final field = await CrdtDataField.db.findFirstRow(
-    dbSession,
+    databaseSession ?? session,
     where: (t) => t.row.uuidRowId.equals(rowId) & t.column.name.equals(columnName),
     include: CrdtDataField.include(
-      row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
-      column: CrdtSchemaColumn.include(),
       attemptedValue: CrdtDataAttemptedValue.include(),
     ),
   );
-  if (field == null || field.row?.tbl?.name == null) return null;
-
-  final tableName = field.row!.tbl!.name;
-  final visible = await _domainUuidValue(
-    dbSession,
-    tableName: tableName,
-    rowId: rowId,
-    columnName: columnName,
-  );
-  final attempted = field.attemptedValue;
-  final authoredRaw = attempted?.value ?? visible;
-  return _FkProjection(
-    attemptedValue: authoredRaw == null
-        ? null
-        : authoredRaw is UuidValue
-        ? authoredRaw
-        : UuidValueJsonExtension.fromJson(authoredRaw),
-    visibleValue: attempted == null ? null : visible,
-    hasOverride: attempted != null,
-    overrideReason: attempted?.projectionReason,
-  );
-}
-
-Future<UuidValue?> _domainUuidValue(
-  CrdtDatabaseSession dbSession, {
-  required String tableName,
-  required UuidValue rowId,
-  required String columnName,
-}) async {
-  final result = await dbSession.db.unsafeQuery(
-    'SELECT "$columnName" FROM "$tableName" '
-    'WHERE "id" = ${ValueEncoder.instance.convert(rowId)} LIMIT 1',
-  );
-  if (result.isEmpty) return null;
-  final value = result.first[0];
-  if (value == null) return null;
-  if (value is UuidValue) return value;
-  return UuidValueJsonExtension.fromJson(value);
+  return field?.attemptedValue;
 }
 
 Future<List<String>> _visibilitySnapshot() async {
@@ -3527,7 +3422,9 @@ Future<List<String>> _foreignKeyProjectionSnapshot() async {
       [
         projection.field!.row!.uuidRowId.uuid,
         projection.field!.column!.name,
-        projection.value is UuidValue ? (projection.value as UuidValue).uuid : projection.value,
+        projection.value is UuidValue
+            ? (projection.value as UuidValue).uuid
+            : projection.value,
         projection.projectionReason.toJson(),
       ].join('|'),
   ]..sort();

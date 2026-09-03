@@ -9,19 +9,6 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  tearDown(() async {
-    await session.db.unsafeExecute('PRAGMA foreign_keys = OFF');
-    await CrdtDataAttemptedValue.db.deleteWhere(
-      session,
-      where: (t) => Constant.bool(true),
-    );
-    await CrdtDataField.db.deleteWhere(session, where: (t) => Constant.bool(true));
-    await CrdtDataRow.db.deleteWhere(session, where: (t) => Constant.bool(true));
-    await CrdtSchemaColumn.db.deleteWhere(session, where: (t) => Constant.bool(true));
-    await CrdtSchemaTable.db.deleteWhere(session, where: (t) => Constant.bool(true));
-    await session.db.unsafeExecute('PRAGMA foreign_keys = ON');
-  });
-
   test(
     'Given a CRDT schema registry with an empty sync table list, '
     'when syncAndGetSchema is called, '
