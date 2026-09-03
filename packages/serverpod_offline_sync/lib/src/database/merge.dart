@@ -33,6 +33,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     final nodesByUuid = remoteNodes.nodesByUuid;
     final context = await _loadMergeContext(mergeSet, transaction);
+    final batchPlan = await _planBatchInserts(
+      operations,
+      nodesByUuid,
+      context,
+      transaction,
+    );
 
     // Deletes carry no authored overlay but still change visibility, so the
     // seed is every touched table, not just the ones with overlays.
@@ -50,6 +56,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             nodesByUuid,
             context,
             authoredOverlays,
+            batchPlan,
             transaction,
           );
         case final CrdtMergeUpdate update:
@@ -267,11 +274,68 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
   }
 
+  /// Plans every insert in the batch in one projection pass.
+  ///
+  /// The physical write of each insert has to be constraint safe before it
+  /// runs, but that plan does not have to be recomputed per insert: one pass
+  /// over all of them resolves the batch's claims against each other and
+  /// against stored rows. The end-of-batch pass remains authoritative for what
+  /// is finally materialized.
+  Future<ProjectionPlan?> _planBatchInserts(
+    List<CrdtMergeChange> operations,
+    Map<UuidValue, CrdtNode> remoteNodes,
+    MergeContext context,
+    Transaction transaction,
+  ) async {
+    final pending = <PendingProjectionRow>[];
+    final seenRowKeys = <MergeRowKey>{};
+    final seedTables = <String>{};
+
+    for (final operation in operations) {
+      if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
+      switch (operation) {
+        case CrdtMergeUpdate():
+          // An update is not folded in here. Operations are causally ordered,
+          // so an update newer than its insert is applied after it, and the
+          // end-of-batch pass is what resolves the value it claims.
+          seedTables.add(operation.tableName);
+        case final CrdtMergeInsert insert:
+          final rowKey = (insert.tableName, insert.uuidRowId);
+          seedTables.add(insert.tableName);
+          // Only rows this merge will create need a pre-write plan, and only
+          // the first insert for a row id takes that path.
+          if (context.rows[rowKey] != null) continue;
+          if (!seenRowKeys.add(rowKey)) continue;
+          pending.add((
+            tableName: insert.tableName,
+            rowId: insert.uuidRowId,
+            authoredValues: _sanitizeMergeRowData(
+              insert.tableName,
+              insert.databaseColumns,
+            ),
+            rowHlc: insert.hlc,
+            node: _requireRemoteNode(remoteNodes, insert.uuidNodeId),
+            hidden: false,
+          ));
+        case CrdtMergeDelete():
+          seedTables.add(operation.tableName);
+      }
+    }
+    if (pending.isEmpty) return null;
+
+    return _foreignKeyProjector.project(
+      transaction,
+      pendingInserts: pending,
+      seedTables: seedTables,
+    );
+  }
+
   Future<void> _applyMergeInsert(
     CrdtMergeInsert insert,
     Map<UuidValue, CrdtNode> remoteNodes,
     MergeContext context,
     Map<MergeFieldKey, Object?> authoredOverlays,
+    ProjectionPlan? batchPlan,
     Transaction transaction,
   ) async {
     final rowKey = (insert.tableName, insert.uuidRowId);
@@ -304,21 +368,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
               data,
               savepoint,
             );
-            final planned = await _foreignKeyProjector.project(
-              savepoint,
-              seedTables: {insert.tableName},
-              pendingInserts: [
+            final planned =
+                batchPlan ??
                 (
-                  tableName: insert.tableName,
-                  rowId: insert.uuidRowId,
-                  authoredValues: data,
-                  rowHlc: incomingHlc,
-                  node: remoteNode,
-                  hidden: false,
-                ),
-              ],
-              authoredOverlays: authoredOverlays,
-            );
+                  domain: const <MergeRowKey, Map<String, Object?>>{},
+                  reasons: const <MergeFieldKey, CrdtProjectionReason>{},
+                );
             // Foreign-key safety is folded in after planning, so where it
             // forces a null it is also the terminal cause for that column.
             final forcedNullColumns = {
