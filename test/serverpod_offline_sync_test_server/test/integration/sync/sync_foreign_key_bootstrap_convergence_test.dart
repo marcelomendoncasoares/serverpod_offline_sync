@@ -1,5 +1,4 @@
-import 'package:serverpod_database/serverpod_database.dart'
-    show DatabaseSession;
+import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -60,9 +59,7 @@ void main() {
     towns.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
 
     final renderedPersons = persons.map((person) {
-      final visibility = visiblePersons.contains(person.id)
-          ? 'visible'
-          : 'hidden';
+      final visibility = visiblePersons.contains(person.id) ? 'visible' : 'hidden';
       return 'person $visibility';
     });
     final renderedTowns = towns.map((town) {
@@ -75,57 +72,65 @@ void main() {
   group(
     'Given a hidden town whose set-null reference outlived the delete of the person it points at, because a restrict reference restored it,',
     () {
-      test(
-        'when a node with no prior state merges the whole scope in one batch, '
-        'then it agrees with the node it bootstrapped from.',
-        () async {
-          final author = await node(testSession);
-          final deleter = await node(await createAdditionalTestSession());
+      late _Node author;
 
-          final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
-          await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Person.db.insertRow(author.crdt, mayor, transaction: tx);
-          });
-          await push(author, deleter);
+      setUp(() async {
+        author = await node(testSession);
+        final deleter = await node(await createAdditionalTestSession());
 
-          // The person is deleted and the author merges that, so it holds the
-          // delete as a fact and hides the person.
-          await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Person.db.deleteRow(deleter.crdt, mayor, transaction: tx);
-          });
-          await push(deleter, author);
+        final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
+        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(author.crdt, mayor, transaction: tx);
+        });
+        await push(author, deleter);
 
-          // A restrict reference to the hidden person makes the delete lose,
-          // restoring it.
-          final address = Address(
-            id: const Uuid().v7obj(),
-            street: 'street',
-            inhabitantId: mayor.id,
-          );
-          await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Address.db.insertRow(author.crdt, address, transaction: tx);
-          });
+        // The person is deleted and the author merges that, so it holds the
+        // delete as a fact and hides the person.
+        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(deleter.crdt, mayor, transaction: tx);
+        });
+        await push(deleter, author);
 
-          // Only now, with the person visible again, is the set-null reference
-          // authored - and then frozen in a hidden row.
-          final town = Town(
-            id: const Uuid().v7obj(),
-            name: 'town',
-            mayorId: mayor.id,
-          );
-          await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Town.db.insertRow(author.crdt, town, transaction: tx);
-          });
-          await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Town.db.deleteRow(author.crdt, town, transaction: tx);
-          });
+        // A restrict reference to the hidden person makes the delete lose,
+        // restoring it.
+        final address = Address(
+          id: const Uuid().v7obj(),
+          street: 'street',
+          inhabitantId: mayor.id,
+        );
+        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Address.db.insertRow(author.crdt, address, transaction: tx);
+        });
 
-          final fresh = await node(await createAdditionalTestSession());
+        // Only now, with the person visible again, is the set-null reference
+        // authored - and then frozen in a hidden row.
+        final town = Town(
+          id: const Uuid().v7obj(),
+          name: 'town',
+          mayorId: mayor.id,
+        );
+        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(author.crdt, town, transaction: tx);
+        });
+        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.deleteRow(author.crdt, town, transaction: tx);
+        });
+      });
+
+      group('when a node with no prior state merges the whole scope in one batch,', () {
+        late _Node fresh;
+
+        setUp(() async {
+          fresh = await node(await createAdditionalTestSession());
           await push(author, fresh);
+        });
 
-          expect(await render(fresh), await render(author));
-        },
-      );
+        test('then it agrees with the node it bootstrapped from.', () async {
+          final expected = await render(author);
+
+          expect(await render(fresh), expected);
+        });
+      });
     },
   );
 }
