@@ -1,13 +1,9 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
-
-/// One node in the topology: the raw session collection reads from, the CRDT
-/// session used for reads and merges, and its own sync engine.
-typedef _Node = ({DatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync});
+import '../test_tools/sync_topology.dart';
 
 /// Deleting a row referenced by an `onDelete=SetNull` edge clears the
 /// referencing column. The repair is derived state, so every node holding the
@@ -28,39 +24,10 @@ void main() {
 
   final syncTables = [City.t, Person.t, Town.t];
 
-  Future<_Node> node(DatabaseSession raw) async {
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-    await crdt.db.initialize();
-    return (
-      raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
-        syncTables: syncTables,
-        serializationManager: raw.db.serializationManager,
-      ),
-    );
-  }
-
-  Future<void> push(_Node from, _Node to) async {
-    final changes = await from.sync
-        .collectPendingChanges(
-          from.raw,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
-        )
-        .toList();
-    await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
-  }
-
-  /// One client sync cycle: push local changes up, then merge the server's.
-  Future<void> syncWithServer(_Node client, _Node server) async {
-    await push(client, server);
-    await push(server, client);
-  }
-
   /// Every town with its visibility and reference, ordered so nodes compare
   /// directly. Hidden rows are included because a repair that is skipped on a
   /// tombstoned row is exactly what this asserts.
-  Future<String> render(_Node node) async {
+  Future<String> render(SyncNode node) async {
     final towns = await Town.db.find(
       node.crdt,
       where: (t) => t.includeHiddenRows,
@@ -78,14 +45,17 @@ void main() {
   group(
     'Given a client that authored and deleted a referencing row while unaware that the referenced row had been deleted,',
     () {
-      late _Node server;
-      late _Node referenceOwner;
-      late _Node townOwner;
+      late SyncNode server;
+      late SyncNode referenceOwner;
+      late SyncNode townOwner;
 
       setUp(() async {
-        server = await node(testSession);
-        referenceOwner = await node(await createAdditionalTestSession());
-        townOwner = await node(await createAdditionalTestSession());
+        server = await syncNode(testSession, syncTables);
+        referenceOwner = await syncNode(
+          await createAdditionalTestSession(),
+          syncTables,
+        );
+        townOwner = await syncNode(await createAdditionalTestSession(), syncTables);
 
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
         await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {

@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
+
+import 'types.dart';
 
 /// Extensions on [String] used for SQL construction.
 @internal
@@ -46,10 +50,51 @@ extension UuidValueExtension on Object? {
   UuidValue? toUuidValue() {
     final value = this;
     if (value == null) return null;
-    if (value is UuidValue) return value;
-    if (value is String) return UuidValue.withValidation(value);
     return UuidValueJsonExtension.fromJson(value);
   }
+}
+
+/// Orders row keys by table name, then row id, for deterministic planning.
+@internal
+int compareMergeRowKeys(MergeRowKey left, MergeRowKey right) {
+  final tableComparison = left.$1.compareTo(right.$1);
+  if (tableComparison != 0) return tableComparison;
+  return left.$2.uuid.compareTo(right.$2.uuid);
+}
+
+/// Canonicalizes a domain/attempted value so UUID blobs round-trip as
+/// [UuidValue] rather than as SQLite byte lists.
+///
+/// Only values already shaped like a UUID are converted. Anything else is
+/// returned unchanged, so an ordinary string or number never pays for a thrown
+/// [FormatException] on the projection and outbound paths.
+@internal
+Object? canonicalDomainValue(Object? value) {
+  if (value is UuidValue) return value;
+  if (value is Uint8List) {
+    return value.length == 16 ? UuidValue.fromByteList(value) : value;
+  }
+  if (value is String) {
+    return _looksLikeUuid(value) ? UuidValue.withValidation(value) : value;
+  }
+  return value;
+}
+
+/// Whether [value] has the 8-4-4-4-12 shape of a canonical UUID string.
+bool _looksLikeUuid(String value) {
+  if (value.length != 36) return false;
+  for (var index = 0; index < 36; index++) {
+    final code = value.codeUnitAt(index);
+    if (index == 8 || index == 13 || index == 18 || index == 23) {
+      if (code != 0x2d) return false;
+      continue;
+    }
+    final isDigit = code >= 0x30 && code <= 0x39;
+    final isLower = code >= 0x61 && code <= 0x66;
+    final isUpper = code >= 0x41 && code <= 0x46;
+    if (!isDigit && !isLower && !isUpper) return false;
+  }
+  return true;
 }
 
 /// Extensions on [UuidValue?] used for UUID comparison.

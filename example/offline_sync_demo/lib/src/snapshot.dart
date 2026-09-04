@@ -111,13 +111,13 @@ class DemoSnapshot {
   DemoSnapshot({
     required this.catalog,
     required this.rows,
-    required this.foreignKeys,
+    required this.attemptedValues,
     required this.tombstones,
   });
 
   final RelationshipCatalog catalog;
   final List<RowView> rows;
-  final List<offline.CrdtDataForeignKey> foreignKeys;
+  final List<offline.CrdtDataAttemptedValue> attemptedValues;
   final List<offline.CrdtDataDeleted> tombstones;
 
   /// Loads the visible rows and the full set (visible + CRDT-hidden, via
@@ -147,7 +147,7 @@ class DemoSnapshot {
     return DemoSnapshot(
       catalog: catalog,
       rows: rows,
-      foreignKeys: await offline.CrdtDataForeignKey.db.find(crdt),
+      attemptedValues: await offline.CrdtDataAttemptedValue.db.find(crdt),
       tombstones: await offline.CrdtDataDeleted.db.find(crdt),
     );
   }
@@ -173,7 +173,7 @@ class DemoSnapshot {
     return DemoSnapshot(
       catalog: catalog,
       rows: rows,
-      foreignKeys: const [],
+      attemptedValues: const [],
       tombstones: const [],
     );
   }
@@ -263,21 +263,20 @@ class DemoSnapshot {
 
     final nodes = <TreeNode<DemoTreeItem>>[
       ...forest,
-      if (foreignKeys.isNotEmpty || tombstones.isNotEmpty)
+      if (attemptedValues.isNotEmpty || tombstones.isNotEmpty)
         TreeItem(
           data: DemoTreeItem.group(
             'CRDT metadata',
-            '${foreignKeys.length} FK projections · ${tombstones.length} tombstones',
+            '${attemptedValues.length} attempted values · ${tombstones.length} tombstones',
           ),
           expanded: false,
           children: [
-            for (final fk in foreignKeys)
+            for (final attempted in attemptedValues)
               TreeItem(
                 data: DemoTreeItem.metadata(
-                  'field ${fk.fieldId}',
-                  'attempted ${shortId(fk.attemptedValue)} '
-                      'visible ${shortId(fk.visibleValue)} '
-                      'reason ${fk.overrideReason?.name ?? 'none'}',
+                  'field ${attempted.fieldId}',
+                  'value ${attempted.value} '
+                      'reason ${attempted.projectionReason.name}',
                 ),
               ),
             for (final tombstone in tombstones)

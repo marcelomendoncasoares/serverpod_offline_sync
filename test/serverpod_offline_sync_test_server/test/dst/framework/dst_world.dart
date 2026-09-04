@@ -301,22 +301,36 @@ class DstOperations {
     Transaction tx,
   ) async {
     final session = replica.session;
-    switch ((table, action)) {
-      case (DstTable.city, _Action.insert):
+    return switch (action) {
+      _Action.insert => _applyInsert(session, table, tx),
+      _Action.update => _applyUpdate(session, table, tx),
+      _Action.delete => _applyDelete(session, table, tx),
+    };
+  }
+
+  /// Inserts one new row, pointing its references at rows this replica can
+  /// currently see. A reference with no candidate is left null.
+  Future<DstOperationOutcome> _applyInsert(
+    DatabaseSession session,
+    DstTable table,
+    Transaction tx,
+  ) async {
+    switch (table) {
+      case DstTable.city:
         await City.db.insertRow(
           session,
           City(id: _newId(), name: _name('city')),
           transaction: tx,
         );
 
-      case (DstTable.person, _Action.insert):
+      case DstTable.person:
         await Person.db.insertRow(
           session,
           Person(id: _newId(), name: _name('person'), surname: _name('sur')),
           transaction: tx,
         );
 
-      case (DstTable.town, _Action.insert):
+      case DstTable.town:
         final city = await _pickRow(City.db.find(session, transaction: tx));
         final mayor = await _pickRow(Person.db.find(session, transaction: tx));
         await Town.db.insertRow(
@@ -330,7 +344,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.address, _Action.insert):
+      case DstTable.address:
         final inhabitant = await _pickRow(
           Person.db.find(session, transaction: tx),
         );
@@ -344,7 +358,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.unique, _Action.insert):
+      case DstTable.unique:
         await Unique.db.insertRow(
           session,
           // A deliberately small alphabet so concurrent replicas collide.
@@ -352,7 +366,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.uniqueSetNullChild, _Action.insert):
+      case DstTable.uniqueSetNullChild:
         final parent = await _pickRow(Person.db.find(session, transaction: tx));
         await UniqueSetNullChild.db.insertRow(
           session,
@@ -363,8 +377,19 @@ class DstOperations {
           ),
           transaction: tx,
         );
+    }
 
-      case (DstTable.city, _Action.update):
+    return DstOperationOutcome.applied;
+  }
+
+  /// Updates one existing row, or skips when the replica has none.
+  Future<DstOperationOutcome> _applyUpdate(
+    DatabaseSession session,
+    DstTable table,
+    Transaction tx,
+  ) async {
+    switch (table) {
+      case DstTable.city:
         final row = await _pickRow(City.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await City.db.updateRow(
@@ -374,7 +399,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.person, _Action.update):
+      case DstTable.person:
         final row = await _pickRow(Person.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Person.db.updateRow(
@@ -384,7 +409,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.town, _Action.update):
+      case DstTable.town:
         final row = await _pickRow(Town.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         // Half the updates re-point the cascade edge, so foreign-key
@@ -406,7 +431,7 @@ class DstOperations {
           );
         }
 
-      case (DstTable.address, _Action.update):
+      case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Address.db.updateRow(
@@ -416,7 +441,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.unique, _Action.update):
+      case DstTable.unique:
         final row = await _pickRow(Unique.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Unique.db.updateRow(
@@ -426,7 +451,7 @@ class DstOperations {
           transaction: tx,
         );
 
-      case (DstTable.uniqueSetNullChild, _Action.update):
+      case DstTable.uniqueSetNullChild:
         final row = await _pickRow(
           UniqueSetNullChild.db.find(session, transaction: tx),
         );
@@ -440,33 +465,44 @@ class DstOperations {
           columns: (t) => [t.parentId],
           transaction: tx,
         );
+    }
 
-      case (DstTable.city, _Action.delete):
+    return DstOperationOutcome.applied;
+  }
+
+  /// Deletes one existing row, or skips when the replica has none.
+  Future<DstOperationOutcome> _applyDelete(
+    DatabaseSession session,
+    DstTable table,
+    Transaction tx,
+  ) async {
+    switch (table) {
+      case DstTable.city:
         final row = await _pickRow(City.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await City.db.deleteRow(session, row, transaction: tx);
 
-      case (DstTable.person, _Action.delete):
+      case DstTable.person:
         final row = await _pickRow(Person.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Person.db.deleteRow(session, row, transaction: tx);
 
-      case (DstTable.town, _Action.delete):
+      case DstTable.town:
         final row = await _pickRow(Town.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Town.db.deleteRow(session, row, transaction: tx);
 
-      case (DstTable.address, _Action.delete):
+      case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Address.db.deleteRow(session, row, transaction: tx);
 
-      case (DstTable.unique, _Action.delete):
+      case DstTable.unique:
         final row = await _pickRow(Unique.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Unique.db.deleteRow(session, row, transaction: tx);
 
-      case (DstTable.uniqueSetNullChild, _Action.delete):
+      case DstTable.uniqueSetNullChild:
         final row = await _pickRow(
           UniqueSetNullChild.db.find(session, transaction: tx),
         );

@@ -400,7 +400,7 @@ void main() {
         );
 
         test(
-          'then the silently released unique column does not receive CRDT field metadata.',
+          'then the silently released unique column is not authored as a field update.',
           () async {
             final fields = await CrdtDataField.db.find(
               session,
@@ -410,10 +410,16 @@ void main() {
                 node: CrdtNode.include(),
               ),
             );
+            final authoredFields = [
+              for (final field in fields)
+                if (field.hlc == remoteUpdate.hlc) field,
+            ];
 
-            expect(fields, hasLength(1));
-            expect(fields.first.column!.name, UniqueComposite.t.scope.columnName);
-            expect(fields.first.hlc, remoteUpdate.hlc);
+            expect(authoredFields, hasLength(1));
+            expect(
+              authoredFields.single.column!.name,
+              UniqueComposite.t.scope.columnName,
+            );
           },
         );
       });

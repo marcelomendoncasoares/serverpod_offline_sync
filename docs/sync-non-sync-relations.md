@@ -50,7 +50,7 @@ also reject server-authoritative reference-table relations even when they use
   reference them.
 - **Package metadata table:** CRDT infrastructure tables owned by this package,
   especially `crdt_scopes`, `crdt_nodes`, `crdt_data_rows`,
-  `crdt_data_fields`, `crdt_data_tombstone`, and FK projection tables.
+  `crdt_data_fields`, `crdt_data_tombstone`, and `crdt_data_attempted_value`.
 
 `crdt_scopes` is not a synced domain table. The `scopeId -> crdt_scopes.id`
 relation is a special package-owned purge boundary, not an application-level

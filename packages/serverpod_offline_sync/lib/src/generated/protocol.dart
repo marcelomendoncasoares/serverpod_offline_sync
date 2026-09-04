@@ -15,11 +15,11 @@ import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
+import 'data/attempted_value.dart' as _ikikkl0e;
 import 'data/deleted.dart' as _ixchaeer;
 import 'data/deleted_reason.dart' as _i9ghhf3z;
 import 'data/field.dart' as _iwcj1b8j;
-import 'data/foreign_key.dart' as _isq49ibf;
-import 'data/foreign_key_override_reason.dart' as _iettvg4j;
+import 'data/projection_reason.dart' as _ijcw1c9t;
 import 'data/row.dart' as _iokmrb1h;
 import 'data/row_visibility.dart' as _ibzh2k8m;
 import 'hlc/base.dart' as _ipogc60q;
@@ -36,11 +36,11 @@ import 'sync/stream_event.dart' as _iimdylh8;
 import 'sync/violation.dart' as _iucor0s6;
 import 'sync/violation_operation.dart' as _ijw2vw1z;
 import 'sync/violation_type.dart' as _itf31ci3;
+export 'data/attempted_value.dart';
 export 'data/deleted.dart';
 export 'data/deleted_reason.dart';
 export 'data/field.dart';
-export 'data/foreign_key.dart';
-export 'data/foreign_key_override_reason.dart';
+export 'data/projection_reason.dart';
 export 'data/row.dart';
 export 'data/row_visibility.dart';
 export 'merge/change.dart';
@@ -68,6 +68,67 @@ class Protocol extends _isd.DatabaseSerializationManager {
   final Set<_iss.SerializationManager> _hostProtocols = {};
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
+    _isd.TableDefinition(
+      name: 'crdt_data_attempted_value',
+      dartName: 'CrdtDataAttemptedValue',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'fieldId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'value',
+          columnType: _isd.ColumnType.jsonb,
+          isNullable: false,
+          dartType: 'dynamic',
+        ),
+        _isd.ColumnDefinition(
+          name: 'projectionReason',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'serverpod_offline_sync:CrdtProjectionReason',
+        ),
+      ],
+      foreignKeys: [
+        _isd.ForeignKeyDefinition(
+          constraintName: 'crdt_data_attempted_value_fk_0',
+          columns: ['fieldId'],
+          referenceTable: 'crdt_data_fields',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isd.IndexDefinition(
+          indexName: 'crdt_data_attempted_value__fieldId__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'fieldId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
     _isd.TableDefinition(
       name: 'crdt_data_fields',
       dartName: 'CrdtDataField',
@@ -156,73 +217,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
             _isd.IndexElementDefinition(
               type: _isd.IndexElementDefinitionType.column,
               definition: 'columnId',
-            ),
-          ],
-          type: 'btree',
-          isUnique: true,
-          isPrimary: false,
-        ),
-      ],
-      managed: true,
-    ),
-    _isd.TableDefinition(
-      name: 'crdt_data_foreign_key',
-      dartName: 'CrdtDataForeignKey',
-      schema: 'public',
-      module: 'serverpod_offline_sync',
-      columns: [
-        _isd.ColumnDefinition(
-          name: 'id',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int?',
-          columnDefault: 'serial',
-        ),
-        _isd.ColumnDefinition(
-          name: 'fieldId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int',
-        ),
-        _isd.ColumnDefinition(
-          name: 'attemptedValue',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: true,
-          dartType: 'UuidValue?',
-        ),
-        _isd.ColumnDefinition(
-          name: 'visibleValue',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: true,
-          dartType: 'UuidValue?',
-        ),
-        _isd.ColumnDefinition(
-          name: 'overrideReason',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: true,
-          dartType: 'serverpod_offline_sync:CrdtForeignKeyOverrideReason?',
-        ),
-      ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_data_foreign_key_fk_0',
-          columns: ['fieldId'],
-          referenceTable: 'crdt_data_fields',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.cascade,
-          matchType: null,
-        ),
-      ],
-      indexes: [
-        _isd.IndexDefinition(
-          indexName: 'crdt_data_foreign_key_field_idx',
-          tableSpace: null,
-          elements: [
-            _isd.IndexElementDefinition(
-              type: _isd.IndexElementDefinitionType.column,
-              definition: 'fieldId',
             ),
           ],
           type: 'btree',
@@ -505,6 +499,24 @@ class Protocol extends _isd.DatabaseSerializationManager {
           columnType: _isd.ColumnType.text,
           isNullable: false,
           dartType: 'String',
+        ),
+        _isd.ColumnDefinition(
+          name: 'columnType',
+          columnType: _isd.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isd.ColumnDefinition(
+          name: 'dartType',
+          columnType: _isd.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isd.ColumnDefinition(
+          name: 'isNullable',
+          columnType: _isd.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
         ),
       ],
       foreignKeys: [
@@ -943,6 +955,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
       }
     }
 
+    if (t == _ikikkl0e.CrdtDataAttemptedValue) {
+      return _ikikkl0e.CrdtDataAttemptedValue.fromJson(data) as T;
+    }
     if (t == _ixchaeer.CrdtDataDeleted) {
       return _ixchaeer.CrdtDataDeleted.fromJson(data) as T;
     }
@@ -952,11 +967,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _iwcj1b8j.CrdtDataField) {
       return _iwcj1b8j.CrdtDataField.fromJson(data) as T;
     }
-    if (t == _isq49ibf.CrdtDataForeignKey) {
-      return _isq49ibf.CrdtDataForeignKey.fromJson(data) as T;
-    }
-    if (t == _iettvg4j.CrdtForeignKeyOverrideReason) {
-      return _iettvg4j.CrdtForeignKeyOverrideReason.fromJson(data) as T;
+    if (t == _ijcw1c9t.CrdtProjectionReason) {
+      return _ijcw1c9t.CrdtProjectionReason.fromJson(data) as T;
     }
     if (t == _iokmrb1h.CrdtDataRow) {
       return _iokmrb1h.CrdtDataRow.fromJson(data) as T;
@@ -1030,6 +1042,12 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _itf31ci3.CrdtSyncViolationType) {
       return _itf31ci3.CrdtSyncViolationType.fromJson(data) as T;
     }
+    if (t == _iss.getType<_ikikkl0e.CrdtDataAttemptedValue?>()) {
+      return (data != null
+              ? _ikikkl0e.CrdtDataAttemptedValue.fromJson(data)
+              : null)
+          as T;
+    }
     if (t == _iss.getType<_ixchaeer.CrdtDataDeleted?>()) {
       return (data != null ? _ixchaeer.CrdtDataDeleted.fromJson(data) : null)
           as T;
@@ -1044,13 +1062,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
       return (data != null ? _iwcj1b8j.CrdtDataField.fromJson(data) : null)
           as T;
     }
-    if (t == _iss.getType<_isq49ibf.CrdtDataForeignKey?>()) {
-      return (data != null ? _isq49ibf.CrdtDataForeignKey.fromJson(data) : null)
-          as T;
-    }
-    if (t == _iss.getType<_iettvg4j.CrdtForeignKeyOverrideReason?>()) {
+    if (t == _iss.getType<_ijcw1c9t.CrdtProjectionReason?>()) {
       return (data != null
-              ? _iettvg4j.CrdtForeignKeyOverrideReason.fromJson(data)
+              ? _ijcw1c9t.CrdtProjectionReason.fromJson(data)
               : null)
           as T;
     }
@@ -1156,6 +1170,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
               : null)
           as T;
     }
+    if (t == dynamic) {
+      return deserializeDynamicFieldValue(data) as T;
+    }
     if (t == List<_icw2tu00.CrdtDataField>) {
       return (data as List)
               .map((e) => deserialize<_icw2tu00.CrdtDataField>(e))
@@ -1169,9 +1186,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
                     .toList()
               : null)
           as T;
-    }
-    if (t == dynamic) {
-      return deserializeDynamicFieldValue(data) as T;
     }
     if (t == _iss.getType<_icw2tu00.Hlc?>()) {
       return (data != null ? _icw2tu00.Hlc.fromJson(data) : null) as T;
@@ -1214,11 +1228,11 @@ class Protocol extends _isd.DatabaseSerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _ikikkl0e.CrdtDataAttemptedValue => 'CrdtDataAttemptedValue',
       _ixchaeer.CrdtDataDeleted => 'CrdtDataDeleted',
       _i9ghhf3z.CrdtDataDeletedReason => 'CrdtDataDeletedReason',
       _iwcj1b8j.CrdtDataField => 'CrdtDataField',
-      _isq49ibf.CrdtDataForeignKey => 'CrdtDataForeignKey',
-      _iettvg4j.CrdtForeignKeyOverrideReason => 'CrdtForeignKeyOverrideReason',
+      _ijcw1c9t.CrdtProjectionReason => 'CrdtProjectionReason',
       _iokmrb1h.CrdtDataRow => 'CrdtDataRow',
       _ibzh2k8m.CrdtDataRowVisibility => 'CrdtDataRowVisibility',
       _i0vvt7eq.CrdtMergeDelete => 'CrdtMergeDelete',
@@ -1260,16 +1274,16 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
 
     switch (data) {
+      case _ikikkl0e.CrdtDataAttemptedValue():
+        return 'CrdtDataAttemptedValue';
       case _ixchaeer.CrdtDataDeleted():
         return 'CrdtDataDeleted';
       case _i9ghhf3z.CrdtDataDeletedReason():
         return 'CrdtDataDeletedReason';
       case _iwcj1b8j.CrdtDataField():
         return 'CrdtDataField';
-      case _isq49ibf.CrdtDataForeignKey():
-        return 'CrdtDataForeignKey';
-      case _iettvg4j.CrdtForeignKeyOverrideReason():
-        return 'CrdtForeignKeyOverrideReason';
+      case _ijcw1c9t.CrdtProjectionReason():
+        return 'CrdtProjectionReason';
       case _iokmrb1h.CrdtDataRow():
         return 'CrdtDataRow';
       case _ibzh2k8m.CrdtDataRowVisibility():
@@ -1328,6 +1342,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
     }
+    if (dataClassName == 'CrdtDataAttemptedValue') {
+      return deserialize<_ikikkl0e.CrdtDataAttemptedValue>(data['data']);
+    }
     if (dataClassName == 'CrdtDataDeleted') {
       return deserialize<_ixchaeer.CrdtDataDeleted>(data['data']);
     }
@@ -1337,11 +1354,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (dataClassName == 'CrdtDataField') {
       return deserialize<_iwcj1b8j.CrdtDataField>(data['data']);
     }
-    if (dataClassName == 'CrdtDataForeignKey') {
-      return deserialize<_isq49ibf.CrdtDataForeignKey>(data['data']);
-    }
-    if (dataClassName == 'CrdtForeignKeyOverrideReason') {
-      return deserialize<_iettvg4j.CrdtForeignKeyOverrideReason>(data['data']);
+    if (dataClassName == 'CrdtProjectionReason') {
+      return deserialize<_ijcw1c9t.CrdtProjectionReason>(data['data']);
     }
     if (dataClassName == 'CrdtDataRow') {
       return deserialize<_iokmrb1h.CrdtDataRow>(data['data']);
@@ -1480,12 +1494,12 @@ class Protocol extends _isd.DatabaseSerializationManager {
   @override
   _isd.Table? getTableForType(Type t) {
     switch (t) {
+      case _ikikkl0e.CrdtDataAttemptedValue:
+        return _ikikkl0e.CrdtDataAttemptedValue.t;
       case _ixchaeer.CrdtDataDeleted:
         return _ixchaeer.CrdtDataDeleted.t;
       case _iwcj1b8j.CrdtDataField:
         return _iwcj1b8j.CrdtDataField.t;
-      case _isq49ibf.CrdtDataForeignKey:
-        return _isq49ibf.CrdtDataForeignKey.t;
       case _iokmrb1h.CrdtDataRow:
         return _iokmrb1h.CrdtDataRow.t;
       case _iyfv8jet.CrdtNode:

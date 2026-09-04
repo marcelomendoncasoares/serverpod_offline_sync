@@ -66,16 +66,16 @@ typedef DstRow = ({
 
 /// One foreign-key projection record, resolved to the names it describes.
 ///
-/// `attemptedValue` is the authored fact; `visibleValue` and `overrideReason`
+/// `attemptedValue` is the authored fact; `projectionReason` is diagnostic.
 /// are derived from it plus the parent's visibility. Keeping all three lets a
 /// single replica be checked against itself.
 typedef DstProjection = ({
   String tableName,
   UuidValue rowId,
   String columnName,
-  UuidValue? attemptedValue,
-  UuidValue? visibleValue,
-  CrdtForeignKeyOverrideReason? overrideReason,
+  Object? attemptedValue,
+  Object? visibleValue,
+  CrdtProjectionReason projectionReason,
 });
 
 /// One replica's whole visible database, plus what it is hiding.
@@ -161,9 +161,9 @@ class DstSnapshot {
   static Future<List<DstProjection>> _captureProjections(
     CrdtDatabaseSession session,
   ) async {
-    final records = await CrdtDataForeignKey.db.find(
+    final records = await CrdtDataAttemptedValue.db.find(
       session,
-      include: CrdtDataForeignKey.include(
+      include: CrdtDataAttemptedValue.include(
         field: CrdtDataField.include(
           row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
           column: CrdtSchemaColumn.include(),
@@ -179,9 +179,9 @@ class DstSnapshot {
               tableName: tableName,
               rowId: record.field!.row!.uuidRowId,
               columnName: columnName,
-              attemptedValue: record.attemptedValue,
-              visibleValue: record.visibleValue,
-              overrideReason: record.overrideReason,
+              attemptedValue: record.value,
+              visibleValue: null,
+              projectionReason: record.projectionReason,
             ),
     ];
   }
@@ -578,47 +578,49 @@ class DstOracle {
 
       // The one unreadable state; see the class docs.
       if (edge.uniqueIndexed &&
-          projection.overrideReason == null &&
+          projection.projectionReason == CrdtProjectionReason.hiddenUniqueRelease &&
           _foreignKeyValue(child.columns, projection.columnName) == null) {
         continue;
       }
 
       final where =
           '${projection.tableName}/${projection.rowId}.${projection.columnName}';
-      final reason = projection.overrideReason;
+      final reason = projection.projectionReason;
       final domainValue = _foreignKeyValue(child.columns, projection.columnName);
-      final attempted = projection.attemptedValue;
+      final attempted = _foreignKeyValue(
+        {'value': projection.attemptedValue},
+        'value',
+      );
       final parent = attempted == null
           ? null
           : snapshot.rows[edge.parent.tableName]?[attempted];
       final parentAvailable =
           parent != null && parent.visible && parent.scopeUuid == child.scopeUuid;
 
-      // The domain row carries attemptedValue when no override is active, and
-      // visibleValue when one is.
-      final expected = reason == null ? attempted : projection.visibleValue;
-      if (domainValue != expected) {
+      final expectedDiffers = domainValue != attempted;
+      if (!expectedDiffers) {
         violations.add((
           property: 'projectionPurity',
           detail:
-              '$where holds $domainValue but its projection says $expected '
-              '(reason: ${reason?.name ?? 'none'})',
+              '$where holds $domainValue equal to its authored value '
+              '$attempted while an attempted row still exists '
+              '(reason: ${reason.name})',
         ));
       }
 
-      if (reason == CrdtForeignKeyOverrideReason.setNull &&
-          projection.visibleValue != null) {
+      if (reason == CrdtProjectionReason.foreignKeySetNull && domainValue != null) {
         violations.add((
           property: 'projectionPurity',
-          detail:
-              '$where is set-null but its visible value is '
-              '${projection.visibleValue}',
+          detail: '$where is set-null but its visible value is $domainValue',
         ));
       }
 
-      // An override exists only because the target is hidden or missing, so a
-      // live target means the override should have been recomputed away.
-      if (reason != null && parentAvailable) {
+      // FK overrides exist only because the target is hidden or missing. Unique
+      // projection may still release a hidden row whose parent is visible.
+      if ((reason == CrdtProjectionReason.foreignKeySetNull ||
+              reason == CrdtProjectionReason.foreignKeySetDefault ||
+              reason == CrdtProjectionReason.foreignKeyMissingParent) &&
+          parentAvailable) {
         violations.add((
           property: 'projectionPurity',
           detail:
@@ -627,39 +629,7 @@ class DstOracle {
         ));
       }
 
-      // The mirror image: with no override the target must be available, or
-      // the edge must have repaired the row some other way. Which of those
-      // applies depends on the action, because only the value-rewriting
-      // actions record an override at all:
-      //
-      // - set null / set default rewrite the column, so a dead target without
-      //   an override means the repair never ran;
-      // - cascade hides the child instead of touching the column, so no
-      //   override is expected - but the child must actually be hidden;
-      // - restrict makes the parent delete lose, so the target should still
-      //   be visible.
-      if (reason == null && attempted != null && !parentAvailable) {
-        final state = parent == null
-            ? 'missing'
-            : parent.visible
-            ? 'owned by another scope'
-            : 'hidden';
-        final unrepaired = switch (edge.action) {
-          'cascade' => child.visible,
-          _ => true,
-        };
-        if (unrepaired) {
-          violations.add((
-            property: 'projectionPurity',
-            detail:
-                '$where has no override on a ${edge.action} edge but its '
-                'target $attempted is $state'
-                '${edge.action == 'cascade' ? ' and the row is still visible' : ''}',
-          ));
-        }
-      }
-
-      if (reason == CrdtForeignKeyOverrideReason.missingParent && child.visible) {
+      if (reason == CrdtProjectionReason.foreignKeyMissingParent && child.visible) {
         violations.add((
           property: 'projectionPurity',
           detail: '$where is unrepairable but the row is still visible',

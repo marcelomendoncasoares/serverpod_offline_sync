@@ -1,5 +1,5 @@
 import 'package:meta/meta.dart';
-import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_database/serverpod_database.dart' hide Protocol;
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../../crdt/extensions.dart';
@@ -361,56 +361,189 @@ class CrdtRecorderContext {
     );
   }
 
+  /// Row ids in [tableName] whose [columnName] holds one of [values].
+  ///
+  /// Unlike [findVisibleReferencingRowIds] this keeps hidden rows: projection
+  /// has to see a hidden child before it can decide whether the child comes
+  /// back with its parent.
+  Future<Set<UuidValue>> findDomainRowIdsWhereColumnIn({
+    required String tableName,
+    required String columnName,
+    required Set<Object?> values,
+    required Transaction transaction,
+  }) => findDomainRowIdsWhereColumnsIn(
+    tableName: tableName,
+    valuesByColumn: {columnName: values},
+    transaction: transaction,
+  );
+
+  /// Row ids of [tableName] owed one of [values] on one of [columnNames].
+  ///
+  /// A row that does not hold its authored value keeps it in a sparse attempted
+  /// value, so this is how a pass finds the rows waiting for a claim or a
+  /// parent it is about to free. The comparison literal is built by the same
+  /// encoders the write path uses — the dynamic envelope from the protocol, then
+  /// the structured-column encoder — which is what keeps it dialect correct:
+  /// `jsonb(...)` against SQLite's binary JSONB, a jsonb literal on Postgres.
+  Future<Set<UuidValue>> findRowIdsHoldingAttemptedValues({
+    required String tableName,
+    required Set<String> columnNames,
+    required Set<Object?> values,
+    required Transaction transaction,
+  }) async {
+    if (columnNames.isEmpty || values.isEmpty) return const {};
+
+    final (tableId, columns) = schema[tableName]!;
+    final columnIds = {
+      for (final columnName in columnNames) ?columns[columnName]?.id,
+    };
+    if (columnIds.isEmpty) return const {};
+
+    final encodedValues = {
+      for (final value in values)
+        if (value != null)
+          ValueEncoder.instance.encodeColumnValue(
+            CrdtDataAttemptedValue.t.value,
+            Protocol().dynamicFieldToJson(value),
+          ),
+    };
+    if (encodedValues.isEmpty) return const {};
+
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final result = await database.unsafeQuery(
+      '''
+SELECT DISTINCT r."uuidRowId"
+FROM "crdt_data_attempted_value" a
+JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
+JOIN "crdt_data_rows" r ON r."id" = f."rowId"
+WHERE r."scopeId" = $scopeId
+  AND r."tblId" = $tableId
+  AND f."columnId" IN (${columnIds.join(', ')})
+  AND a."value" IN (${encodedValues.join(', ')})
+''',
+      transaction: transaction,
+    );
+
+    return _rowIds(result);
+  }
+
+  /// Row ids in [tableName] whose columns hold one of the listed values.
+  ///
+  /// A composite unique index is matched column by column, so the result is a
+  /// superset of the exact tuples. Loading a few extra rows is what a whole
+  /// table load did anyway, and the query stays a plain indexed lookup.
+  Future<Set<UuidValue>> findDomainRowIdsWhereColumnsIn({
+    required String tableName,
+    required Map<String, Set<Object?>> valuesByColumn,
+    required Transaction transaction,
+  }) async {
+    if (valuesByColumn.isEmpty) return const {};
+    if (valuesByColumn.values.any((values) => values.isEmpty)) return const {};
+
+    final predicates = valuesByColumn.entries
+        .map(
+          (entry) =>
+              '"${entry.key.escapeIdentifier()}" IN (${entry.value.sqlLiteralList()})',
+        )
+        .join(') AND (');
+
+    final result = await database.unsafeQuery(
+      '''
+SELECT "id"
+FROM "${tableName.escapeIdentifier()}"
+WHERE ($predicates)
+''',
+      transaction: transaction,
+    );
+
+    return _rowIds(result);
+  }
+
   Future<Set<UuidValue>> findVisibleDomainRowIdsWhere({
     required String tableName,
     required List<String> predicates,
     required Transaction transaction,
   }) async {
-    final (tableId, _) = schema[tableName]!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
     final result = await database.unsafeQuery(
       '''
 SELECT d."id"
-FROM "${tableName.escapeIdentifier()}" d
-LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+${_visibilityJoin(tableName, transaction)}
 WHERE (${predicates.join(') AND (')})
-  AND (r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex)
+  AND ($_rowVisible)
 ''',
       transaction: transaction,
     );
-    return {
-      for (final row in result) UuidValueJsonExtension.fromJson(row.first),
-    };
+    return _rowIds(result);
   }
 
+  /// The `FROM` and `JOIN` pairing domain rows of [tableName] with their CRDT
+  /// metadata, as the aliases `d` and `r`.
+  ///
+  /// An untracked row has no metadata, so `r` is null for it; [_rowVisible]
+  /// reads that pair as one boolean.
+  String _visibilityJoin(String tableName, Transaction transaction) {
+    final (tableId, _) = schema[tableName]!;
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    return '''
+FROM "${tableName.escapeIdentifier()}" d
+LEFT JOIN "crdt_data_rows" r
+  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"''';
+  }
+
+  /// Whether the row joined by [_visibilityJoin] is visible in this scope.
+  static final _rowVisible =
+      'r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex';
+
+  /// Presence of the [value] target in [parentTableName].
+  ///
+  /// A foreign key can only reference a unique column, so at most one row
+  /// answers; a value with no row at all is [ForeignKeyTargetPresence.absent].
   Future<ForeignKeyTargetPresence> lookupForeignKeyTargetPresence({
     required String parentTableName,
     required String parentColumn,
     required UuidValue value,
     required Transaction transaction,
   }) async {
-    final (tableId, _) = schema[parentTableName]!;
+    final presences = await lookupForeignKeyTargetPresences(
+      parentTableName: parentTableName,
+      parentColumn: parentColumn,
+      values: {value},
+      transaction: transaction,
+    );
+    return presences[value] ?? ForeignKeyTargetPresence.absent;
+  }
+
+  /// Presence of every [values] target in [parentTableName], by value.
+  ///
+  /// Resolving a whole merge batch at once is what keeps the single-value form
+  /// off the insert path, where it asked once per foreign key of every row.
+  /// Values with no row are absent from the result rather than reported.
+  Future<Map<UuidValue, ForeignKeyTargetPresence>> lookupForeignKeyTargetPresences({
+    required String parentTableName,
+    required String parentColumn,
+    required Set<UuidValue> values,
+    required Transaction transaction,
+  }) async {
+    if (values.isEmpty) return const {};
+
     final scopeId = hlcManagerFor(transaction).normalizedScopeId;
     final result = await database.unsafeQuery(
       '''
-SELECT CASE
-  WHEN r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex THEN 1
-  ELSE 0
-END AS visible
-FROM "${parentTableName.escapeIdentifier()}" d
-LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"
+SELECT d."${parentColumn.escapeIdentifier()}",
+  CASE WHEN $_rowVisible THEN 1 ELSE 0 END AS visible
+${_visibilityJoin(parentTableName, transaction)}
 WHERE (${domainColumnPredicate('scopeId', scopeId)})
-  AND (${domainColumnPredicate(parentColumn, value)})
-LIMIT 1
+  AND (d."${parentColumn.escapeIdentifier()}" IN (${values.sqlLiteralList()}))
 ''',
       transaction: transaction,
     );
-    if (result.isEmpty) return ForeignKeyTargetPresence.absent;
-    return (result.first[0] as num) == 1
-        ? ForeignKeyTargetPresence.visible
-        : ForeignKeyTargetPresence.hidden;
+
+    return {
+      for (final row in result)
+        UuidValueJsonExtension.fromJson(row.first): (row[1] as num) == 1
+            ? ForeignKeyTargetPresence.visible
+            : ForeignKeyTargetPresence.hidden,
+    };
   }
 
   Future<void> updateDomainRows(
@@ -434,6 +567,11 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
       transaction: transaction,
     );
   }
+
+  /// The `id` column of every row of a result whose first column is a row id.
+  Set<UuidValue> _rowIds(DatabaseResult result) => {
+    for (final row in result) UuidValueJsonExtension.fromJson(row.first),
+  };
 
   Future<Map<UuidValue, Map<String, Object?>>> readDomainColumnValues(
     String tableName,

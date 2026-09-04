@@ -44,6 +44,13 @@ class HlcManager {
     return lastHlc;
   }
 
+  /// The HLC a following [increment] would return, without consuming it.
+  ///
+  /// Planning needs a timestamp to order a not-yet-written row against stored
+  /// ones. It must not advance the clock, because the write that follows takes
+  /// its own timestamp.
+  Hlc peekNext() => lastHlc.increment();
+
   /// Merges another [Hlc] instance into the current one.
   void merge(Hlc other) {
     lastHlc = lastHlc.merge(other);

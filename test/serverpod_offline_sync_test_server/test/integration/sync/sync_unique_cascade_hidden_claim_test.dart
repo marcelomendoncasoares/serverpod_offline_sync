@@ -1,13 +1,9 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
-
-/// One node in the topology: the raw session collection reads from, the CRDT
-/// session used for reads and merges, and its own sync engine.
-typedef _Node = ({DatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync});
+import '../test_tools/sync_topology.dart';
 
 /// Deleting a row releases its unique values by rewriting the column, so a
 /// later row may claim them again. That release is written by the local delete
@@ -34,39 +30,10 @@ void main() {
 
   final syncTables = testSyncTables;
 
-  Future<_Node> node(DatabaseSession raw) async {
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-    await crdt.db.initialize();
-    return (
-      raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
-        syncTables: syncTables,
-        serializationManager: raw.db.serializationManager,
-      ),
-    );
-  }
-
-  Future<void> push(_Node from, _Node to) async {
-    final changes = await from.sync
-        .collectPendingChanges(
-          from.raw,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
-        )
-        .toList();
-    await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
-  }
-
-  /// One client sync cycle: push local changes up, then merge the server's.
-  Future<void> syncWithServer(_Node client, _Node server) async {
-    await push(client, server);
-    await push(server, client);
-  }
-
   /// Every child with its visibility and name, ordered by name so nodes compare
   /// directly. Hidden rows are included because a hidden row holding the
   /// contested value is exactly what this asserts about.
-  Future<String> render(_Node node) async {
+  Future<String> render(SyncNode node) async {
     final rows = await UniqueCascadeChild.db.find(
       node.crdt,
       where: (t) => t.includeHiddenRows,
@@ -85,18 +52,18 @@ void main() {
     'Given a child hidden by cascade projection rather than by a local delete, '
     'so no replica ever released its unique name,',
     () {
-      late _Node server;
-      late _Node author;
-      late _Node deleter;
-      late _Node claimant;
+      late SyncNode server;
+      late SyncNode author;
+      late SyncNode deleter;
+      late SyncNode claimant;
       late Person parent;
       late UniqueCascadeChild child;
 
       setUp(() async {
-        server = await node(testSession);
-        author = await node(await createAdditionalTestSession());
-        deleter = await node(await createAdditionalTestSession());
-        claimant = await node(await createAdditionalTestSession());
+        server = await syncNode(testSession, syncTables);
+        author = await syncNode(await createAdditionalTestSession(), syncTables);
+        deleter = await syncNode(await createAdditionalTestSession(), syncTables);
+        claimant = await syncNode(await createAdditionalTestSession(), syncTables);
 
         // A person every node knows.
         parent = Person(id: const Uuid().v7obj(), name: 'parent');
@@ -137,9 +104,10 @@ void main() {
       test('then the child is hidden on every node that saw it.', () async {
         await syncWithServer(deleter, server);
 
-        expect(await render(server), 'hidden taken', reason: 'server');
-        expect(await render(author), 'hidden taken', reason: 'author');
-        expect(await render(deleter), 'hidden taken', reason: 'deleter');
+        final expected = 'hidden taken__hidden__${child.id!.uuid}';
+        expect(await render(server), expected, reason: 'server');
+        expect(await render(author), expected, reason: 'author');
+        expect(await render(deleter), expected, reason: 'deleter');
       });
 
       group('when a client that never saw that child claims the name,', () {

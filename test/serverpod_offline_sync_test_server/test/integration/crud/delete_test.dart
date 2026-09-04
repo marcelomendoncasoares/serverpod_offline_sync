@@ -255,7 +255,7 @@ void main() {
 
         expect(row, isNotNull);
         expect(row!.name, startsWith(unique.name));
-        expect(row.name, contains('${unique.name}__deleted__${unique.id!}'));
+        expect(row.name, contains('${unique.name}__hidden__${unique.id!}'));
       },
     );
   });

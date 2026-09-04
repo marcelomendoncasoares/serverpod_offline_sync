@@ -32,7 +32,7 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     this.column,
     required this.nodeId,
     this.node,
-    this.foreignKey,
+    this.attemptedValue,
   });
 
   factory CrdtDataField({
@@ -45,7 +45,7 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     _icw2tu00.CrdtSchemaColumn? column,
     required int nodeId,
     _icw2tu00.CrdtNode? node,
-    _icw2tu00.CrdtDataForeignKey? foreignKey,
+    _icw2tu00.CrdtDataAttemptedValue? attemptedValue,
   }) = _CrdtDataFieldImpl;
 
   factory CrdtDataField.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -73,10 +73,10 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
           : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtNode>(
               jsonSerialization['node'],
             ),
-      foreignKey: jsonSerialization['foreignKey'] == null
+      attemptedValue: jsonSerialization['attemptedValue'] == null
           ? null
-          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataForeignKey>(
-              jsonSerialization['foreignKey'],
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataAttemptedValue>(
+              jsonSerialization['attemptedValue'],
             ),
     );
   }
@@ -103,9 +103,9 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
   /// The node that updated the field.
   _icw2tu00.CrdtNode? node;
 
-  /// The foreign key information for the field, if this field holds a
-  /// reference to another row.
-  _icw2tu00.CrdtDataForeignKey? foreignKey;
+  /// Authored value retained while a projector materializes a different domain
+  /// value for this field.
+  _icw2tu00.CrdtDataAttemptedValue? attemptedValue;
 
   @override
   _isd.Table<int?> get table => t;
@@ -124,7 +124,7 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     _icw2tu00.CrdtSchemaColumn? column,
     int? nodeId,
     _icw2tu00.CrdtNode? node,
-    _icw2tu00.CrdtDataForeignKey? foreignKey,
+    _icw2tu00.CrdtDataAttemptedValue? attemptedValue,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -139,7 +139,7 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
       if (column != null) 'column': column?.toJson(),
       'nodeId': nodeId,
       if (node != null) 'node': node?.toJson(),
-      if (foreignKey != null) 'foreignKey': foreignKey?.toJson(),
+      if (attemptedValue != null) 'attemptedValue': attemptedValue?.toJson(),
     };
   }
 
@@ -156,7 +156,8 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
       if (column != null) 'column': column?.toJsonForProtocol(),
       'nodeId': nodeId,
       if (node != null) 'node': node?.toJsonForProtocol(),
-      if (foreignKey != null) 'foreignKey': foreignKey?.toJsonForProtocol(),
+      if (attemptedValue != null)
+        'attemptedValue': attemptedValue?.toJsonForProtocol(),
     };
   }
 
@@ -164,13 +165,13 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     _icw2tu00.CrdtDataRowInclude? row,
     _icw2tu00.CrdtSchemaColumnInclude? column,
     _icw2tu00.CrdtNodeInclude? node,
-    _icw2tu00.CrdtDataForeignKeyInclude? foreignKey,
+    _icw2tu00.CrdtDataAttemptedValueInclude? attemptedValue,
   }) {
     return CrdtDataFieldInclude._(
       row: row,
       column: column,
       node: node,
-      foreignKey: foreignKey,
+      attemptedValue: attemptedValue,
     );
   }
 
@@ -211,7 +212,7 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     _icw2tu00.CrdtSchemaColumn? column,
     required int nodeId,
     _icw2tu00.CrdtNode? node,
-    _icw2tu00.CrdtDataForeignKey? foreignKey,
+    _icw2tu00.CrdtDataAttemptedValue? attemptedValue,
   }) : super._(
          id: id,
          hlcDatetime: hlcDatetime,
@@ -222,7 +223,7 @@ class _CrdtDataFieldImpl extends CrdtDataField {
          column: column,
          nodeId: nodeId,
          node: node,
-         foreignKey: foreignKey,
+         attemptedValue: attemptedValue,
        );
 
   /// Returns a shallow copy of this [CrdtDataField]
@@ -239,7 +240,7 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     Object? column = _Undefined,
     int? nodeId,
     Object? node = _Undefined,
-    Object? foreignKey = _Undefined,
+    Object? attemptedValue = _Undefined,
   }) {
     return CrdtDataField(
       id: id is int? ? id : this.id,
@@ -253,9 +254,9 @@ class _CrdtDataFieldImpl extends CrdtDataField {
           : this.column?.copyWith(),
       nodeId: nodeId ?? this.nodeId,
       node: node is _icw2tu00.CrdtNode? ? node : this.node?.copyWith(),
-      foreignKey: foreignKey is _icw2tu00.CrdtDataForeignKey?
-          ? foreignKey
-          : this.foreignKey?.copyWith(),
+      attemptedValue: attemptedValue is _icw2tu00.CrdtDataAttemptedValue?
+          ? attemptedValue
+          : this.attemptedValue?.copyWith(),
     );
   }
 }
@@ -339,9 +340,9 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
   /// The node that updated the field.
   _icw2tu00.CrdtNodeTable? _node;
 
-  /// The foreign key information for the field, if this field holds a
-  /// reference to another row.
-  _icw2tu00.CrdtDataForeignKeyTable? _foreignKey;
+  /// Authored value retained while a projector materializes a different domain
+  /// value for this field.
+  _icw2tu00.CrdtDataAttemptedValueTable? _attemptedValue;
 
   _icw2tu00.CrdtDataRowTable get row {
     if (_row != null) return _row!;
@@ -382,18 +383,19 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
     return _node!;
   }
 
-  _icw2tu00.CrdtDataForeignKeyTable get foreignKey {
-    if (_foreignKey != null) return _foreignKey!;
-    _foreignKey = _isd.createRelationTable(
-      relationFieldName: 'foreignKey',
+  _icw2tu00.CrdtDataAttemptedValueTable get attemptedValue {
+    if (_attemptedValue != null) return _attemptedValue!;
+    _attemptedValue = _isd.createRelationTable(
+      relationFieldName: 'attemptedValue',
       field: CrdtDataField.t.id,
-      foreignField: _icw2tu00.CrdtDataForeignKey.t.fieldId,
+      foreignField: _icw2tu00.CrdtDataAttemptedValue.t.fieldId,
       tableRelation: tableRelation,
-      createTable: (foreignTableRelation) => _icw2tu00.CrdtDataForeignKeyTable(
-        tableRelation: foreignTableRelation,
-      ),
+      createTable: (foreignTableRelation) =>
+          _icw2tu00.CrdtDataAttemptedValueTable(
+            tableRelation: foreignTableRelation,
+          ),
     );
-    return _foreignKey!;
+    return _attemptedValue!;
   }
 
   @override
@@ -417,8 +419,8 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
     if (relationField == 'node') {
       return node;
     }
-    if (relationField == 'foreignKey') {
-      return foreignKey;
+    if (relationField == 'attemptedValue') {
+      return attemptedValue;
     }
     return null;
   }
@@ -429,12 +431,12 @@ class CrdtDataFieldInclude extends _isd.IncludeObject {
     _icw2tu00.CrdtDataRowInclude? row,
     _icw2tu00.CrdtSchemaColumnInclude? column,
     _icw2tu00.CrdtNodeInclude? node,
-    _icw2tu00.CrdtDataForeignKeyInclude? foreignKey,
+    _icw2tu00.CrdtDataAttemptedValueInclude? attemptedValue,
   }) {
     _row = row;
     _column = column;
     _node = node;
-    _foreignKey = foreignKey;
+    _attemptedValue = attemptedValue;
   }
 
   _icw2tu00.CrdtDataRowInclude? _row;
@@ -443,14 +445,14 @@ class CrdtDataFieldInclude extends _isd.IncludeObject {
 
   _icw2tu00.CrdtNodeInclude? _node;
 
-  _icw2tu00.CrdtDataForeignKeyInclude? _foreignKey;
+  _icw2tu00.CrdtDataAttemptedValueInclude? _attemptedValue;
 
   @override
   Map<String, _isd.Include?> get includes => {
     'row': _row,
     'column': _column,
     'node': _node,
-    'foreignKey': _foreignKey,
+    'attemptedValue': _attemptedValue,
   };
 
   @override
@@ -480,8 +482,6 @@ class CrdtDataFieldRepository {
   const CrdtDataFieldRepository._();
 
   final attachRow = const CrdtDataFieldAttachRowRepository._();
-
-  final detachRow = const CrdtDataFieldDetachRowRepository._();
 
   /// Returns a list of [CrdtDataField]s matching the given query parameters.
   ///
@@ -953,59 +953,25 @@ class CrdtDataFieldAttachRowRepository {
     );
   }
 
-  /// Creates a relation between the given [CrdtDataField] and [CrdtDataForeignKey]
-  /// by setting the [CrdtDataField]'s foreign key `id` to refer to the [CrdtDataForeignKey].
-  Future<void> foreignKey(
+  /// Creates a relation between the given [CrdtDataField] and [CrdtDataAttemptedValue]
+  /// by setting the [CrdtDataField]'s foreign key `id` to refer to the [CrdtDataAttemptedValue].
+  Future<void> attemptedValue(
     _isd.DatabaseSession session,
     CrdtDataField crdtDataField,
-    _icw2tu00.CrdtDataForeignKey foreignKey, {
+    _icw2tu00.CrdtDataAttemptedValue attemptedValue, {
     _isd.Transaction? transaction,
   }) async {
-    if (foreignKey.id == null) {
-      throw ArgumentError.notNull('foreignKey.id');
+    if (attemptedValue.id == null) {
+      throw ArgumentError.notNull('attemptedValue.id');
     }
     if (crdtDataField.id == null) {
       throw ArgumentError.notNull('crdtDataField.id');
     }
 
-    var $foreignKey = foreignKey.copyWith(fieldId: crdtDataField.id);
-    await session.db.updateRow<_icw2tu00.CrdtDataForeignKey>(
-      $foreignKey,
-      columns: [_icw2tu00.CrdtDataForeignKey.t.fieldId],
-      transaction: transaction,
-    );
-  }
-}
-
-class CrdtDataFieldDetachRowRepository {
-  const CrdtDataFieldDetachRowRepository._();
-
-  /// Detaches the relation between this [CrdtDataField] and the [CrdtDataForeignKey] set in `foreignKey`
-  /// by setting the [CrdtDataField]'s foreign key `id` to `null`.
-  ///
-  /// This removes the association between the two models without deleting
-  /// the related record.
-  Future<void> foreignKey(
-    _isd.DatabaseSession session,
-    CrdtDataField crdtDataField, {
-    _isd.Transaction? transaction,
-  }) async {
-    var $foreignKey = crdtDataField.foreignKey;
-
-    if ($foreignKey == null) {
-      throw ArgumentError.notNull('crdtDataField.foreignKey');
-    }
-    if ($foreignKey.id == null) {
-      throw ArgumentError.notNull('crdtDataField.foreignKey.id');
-    }
-    if (crdtDataField.id == null) {
-      throw ArgumentError.notNull('crdtDataField.id');
-    }
-
-    var $$foreignKey = $foreignKey.copyWith(fieldId: null);
-    await session.db.updateRow<_icw2tu00.CrdtDataForeignKey>(
-      $$foreignKey,
-      columns: [_icw2tu00.CrdtDataForeignKey.t.fieldId],
+    var $attemptedValue = attemptedValue.copyWith(fieldId: crdtDataField.id);
+    await session.db.updateRow<_icw2tu00.CrdtDataAttemptedValue>(
+      $attemptedValue,
+      columns: [_icw2tu00.CrdtDataAttemptedValue.t.fieldId],
       transaction: transaction,
     );
   }

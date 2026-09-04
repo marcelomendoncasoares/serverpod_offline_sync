@@ -5,9 +5,31 @@ import '../generated/protocol.dart';
 import 'merge_utils/database_helpers.dart';
 import 'unique_index_utils.dart';
 
+/// Thrown when CRDT schema reconciliation cannot be applied safely.
+///
+/// The registry and projection state are left unchanged. Each message names
+/// the affected table and column and tells the developer how to convert data
+/// and attest the new type identity on [CrdtSchemaColumn].
+class CrdtSchemaReconciliationException implements Exception {
+  /// Creates a [CrdtSchemaReconciliationException] from one or more failures.
+  CrdtSchemaReconciliationException(this.failures)
+    : assert(failures.isNotEmpty, 'At least one failure is required.');
+
+  /// Actionable failure messages, one per blocked change.
+  final List<String> failures;
+
+  @override
+  String toString() => 'CrdtSchemaReconciliationException: ${failures.join(' ')}';
+}
+
 /// Manages the CRDT schema for a database.
 class CrdtSchemaRegistry {
   /// Creates a new instance of [CrdtSchemaRegistry].
+  ///
+  /// [tableDefinitions] replaces the ambient schema rather than overriding
+  /// parts of it, so it must describe every table in [syncTables]: persisted
+  /// type identity needs a `ColumnDefinition` for every synced column. Passing
+  /// null resolves the definitions from the session's serialization manager.
   CrdtSchemaRegistry(
     this._session, {
     required this.syncTables,
@@ -37,12 +59,24 @@ class CrdtSchemaRegistry {
       );
     }
 
-    final tableDefinitionsByName = {
+    _tableDefinitionsByName = {
       for (final tableDefinition
           in tableDefinitions ??
               _session.db.serializationManager.getTargetTableDefinitions())
         tableDefinition.name: tableDefinition,
     };
+    final tablesMissingDefinitions = [
+      for (final table in syncTables)
+        if (!_tableDefinitionsByName.containsKey(table.tableName)) table.tableName,
+    ];
+    if (tablesMissingDefinitions.isNotEmpty) {
+      throw StateError(
+        'CRDT requires a TableDefinition for every synced table, but '
+        '${tablesMissingDefinitions.length} table(s) have none: '
+        '${tablesMissingDefinitions.map((name) => '"$name"').join(', ')}.',
+      );
+    }
+    final tableDefinitionsByName = _tableDefinitionsByName;
     final globalUniqueIndexes = _globalUniqueIndexViolations(
       syncTables,
       tableDefinitionsByName,
@@ -68,6 +102,19 @@ class CrdtSchemaRegistry {
         'nullable, but the following foreign keys are non-nullable: '
         '"${requiredFKeyUniqueColumns.join("', '")}". '
         'Make the relation optional/nullable.',
+      );
+    }
+
+    final jsonUniqueIndexes = crdtJsonUniqueIndexViolations(
+      syncTables,
+      tableDefinitionsByName,
+    );
+    if (jsonUniqueIndexes.isNotEmpty) {
+      throw StateError(
+        'CRDT cannot synchronize unique indexes that include json or jsonb '
+        'columns, because sync does not define canonical cross-dialect JSON '
+        'equality: ${jsonUniqueIndexes.join(', ')}. Remove those columns from '
+        'the unique index.',
       );
     }
 
@@ -142,6 +189,14 @@ class CrdtSchemaRegistry {
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
 
+  /// Whether the last [syncAndGetSchema] call inserted, updated, or deleted
+  /// registry rows.
+  bool get registryChanged => _registryChanged;
+  var _registryChanged = false;
+
+  /// Serverpod table definitions by table name.
+  late final Map<String, TableDefinition> _tableDefinitionsByName;
+
   late final _columnsPerTableName = {
     for (final table in syncTables)
       table.tableName: [
@@ -150,93 +205,422 @@ class CrdtSchemaRegistry {
       ],
   };
 
+  /// The target column definitions of every synced table, keyed by table and
+  /// column name.
+  late final _columnDefinitionsPerTableName = {
+    for (final table in syncTables)
+      table.tableName: {
+        for (final column
+            in _tableDefinitionsByName[table.tableName]?.columns ??
+                const <ColumnDefinition>[])
+          if (column.name != 'scopeId') column.name: column,
+      },
+  };
+
   /// Ensures that the CRDT schema is created for the database.
+  ///
+  /// Reconciliation plans every addition, drop, possible rename, and type or
+  /// policy change before mutating. Failures throw
+  /// [CrdtSchemaReconciliationException] without writing registry rows.
   Future<(List<CrdtSchemaTable>, List<CrdtSchemaColumn>)> syncAndGetSchema() async {
     return _session.db.transaction((transaction) async {
-      final tableRows = await _syncTableSchemas(transaction);
-      final columnRows = await _syncColumnSchemas(tableRows, transaction);
-      return (tableRows, columnRows);
+      final existingTables = await CrdtSchemaTable.db.find(
+        _session,
+        transaction: transaction,
+      );
+      final existingColumns = await CrdtSchemaColumn.db.find(
+        _session,
+        transaction: transaction,
+      );
+      final plan = await _planReconciliation(
+        existingTables: existingTables,
+        existingColumns: existingColumns,
+        transaction: transaction,
+      );
+      if (plan.failures.isNotEmpty) {
+        throw CrdtSchemaReconciliationException(plan.failures);
+      }
+      return _applyReconciliation(
+        plan,
+        existingTables: existingTables,
+        existingColumns: existingColumns,
+        transaction: transaction,
+      );
     });
   }
 
-  /// Syncs the table schemas to the database.
-  ///
-  /// New tables are inserted and no longer present tables are deleted. Table
-  /// renames are not taken into account. The returned list contains the
-  /// [CrdtSchemaTable]s with their IDs.
-  Future<List<CrdtSchemaTable>> _syncTableSchemas(Transaction transaction) async {
-    await CrdtSchemaTable.db.insert(
-      _session,
-      _columnsPerTableName.keys.map((name) => CrdtSchemaTable(name: name)).toList(),
-      transaction: transaction,
-      ignoreConflicts: true,
-    );
-
-    final foundTableRows = await CrdtSchemaTable.db.find(
-      _session,
-      transaction: transaction,
-    );
-
-    final deletedTableRows = [
-      for (final (ix, table) in foundTableRows.indexed.toList().reversed)
-        if (!_columnsPerTableName.containsKey(table.name)) foundTableRows.removeAt(ix),
+  Future<_SchemaReconciliationPlan> _planReconciliation({
+    required List<CrdtSchemaTable> existingTables,
+    required List<CrdtSchemaColumn> existingColumns,
+    required Transaction transaction,
+  }) async {
+    final existingTablesByName = {
+      for (final table in existingTables) table.name: table,
+    };
+    final targetTableNames = _columnsPerTableName.keys.toSet();
+    final tablesToInsert = [
+      for (final name in targetTableNames)
+        if (!existingTablesByName.containsKey(name)) name,
+    ]..sort();
+    final tablesToDelete = [
+      for (final table in existingTables)
+        if (!targetTableNames.contains(table.name)) table,
     ];
 
-    await CrdtSchemaTable.db.delete(
-      _session,
-      deletedTableRows,
-      transaction: transaction,
-    );
+    final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
+    for (final column in existingColumns) {
+      columnsByTableId.putIfAbsent(column.tblId, () => {})[column.name] = column;
+    }
 
-    return foundTableRows;
+    final columnsToInsert = <_PendingSchemaColumn>[];
+    final columnsToUpdate = <CrdtSchemaColumn>[];
+    final columnsToDelete = <CrdtSchemaColumn>[];
+    final failures = <String>[];
+
+    for (final tableName in targetTableNames) {
+      final existingTable = existingTablesByName[tableName];
+      final existingByName = existingTable == null
+          ? const <String, CrdtSchemaColumn>{}
+          : columnsByTableId[existingTable.id!] ?? const <String, CrdtSchemaColumn>{};
+      final targetColumnNames = _columnsPerTableName[tableName]!;
+      final addedColumnNames = [
+        for (final columnName in targetColumnNames)
+          if (!existingByName.containsKey(columnName)) columnName,
+      ]..sort();
+      final droppedColumns = [
+        for (final column in existingByName.values)
+          if (!targetColumnNames.contains(column.name)) column,
+      ];
+
+      if (addedColumnNames.isNotEmpty && droppedColumns.isNotEmpty) {
+        final failure = await _describeAmbiguousColumnDrop(
+          tableName: tableName,
+          addedColumnNames: addedColumnNames,
+          droppedColumns: droppedColumns,
+          transaction: transaction,
+        );
+        if (failure != null) failures.add(failure);
+      }
+
+      for (final columnName in addedColumnNames) {
+        columnsToInsert.add(
+          (
+            tableName: tableName,
+            tblId: existingTable?.id,
+            columnName: columnName,
+          ),
+        );
+      }
+      columnsToDelete.addAll(droppedColumns);
+
+      for (final columnName in targetColumnNames) {
+        final stored = existingByName[columnName];
+        if (stored == null) continue;
+        final definition = _requiredColumnDefinition(tableName, columnName);
+        if (_typeIdentityMatches(stored, definition)) continue;
+
+        if (stored.id != null &&
+            await _hasAttemptedValueRows(stored.id!, transaction)) {
+          failures.add(
+            _describeUnconvertedTypeChange(tableName, columnName, stored, definition),
+          );
+          continue;
+        }
+
+        columnsToUpdate.add(
+          stored.copyWith(
+            columnType: definition.columnType.name,
+            dartType: definition.dartType ?? '',
+            isNullable: definition.isNullable,
+          ),
+        );
+      }
+    }
+
+    if (tablesToInsert.isNotEmpty && tablesToDelete.isNotEmpty) {
+      final failure = await _describeAmbiguousTableDrop(
+        tablesToInsert: tablesToInsert,
+        tablesToDelete: tablesToDelete,
+        transaction: transaction,
+      );
+      if (failure != null) failures.add(failure);
+    }
+
+    return _SchemaReconciliationPlan(
+      tablesToInsert: tablesToInsert,
+      tablesToDelete: tablesToDelete,
+      columnsToInsert: columnsToInsert,
+      columnsToUpdate: columnsToUpdate,
+      columnsToDelete: columnsToDelete,
+      failures: failures,
+    );
   }
 
-  /// Syncs the column schemas to the database.
+  /// Why an add-and-drop in the same table cannot be told apart from a rename,
+  /// or null when the dropped columns carry no CRDT field metadata.
   ///
-  /// New columns are inserted and no longer present columns are deleted. Column
-  /// renames are not taken into account yet. The returned list contains the
-  /// [CrdtSchemaColumn]s with their IDs.
-  Future<List<CrdtSchemaColumn>> _syncColumnSchemas(
-    List<CrdtSchemaTable> tableRows,
-    Transaction transaction,
-  ) async {
-    await CrdtSchemaColumn.db.insert(
-      _session,
-      [
-        for (final table in tableRows)
-          for (final column in _columnsPerTableName[table.name]!)
-            CrdtSchemaColumn(tblId: table.id!, name: column),
-      ],
-      transaction: transaction,
-      ignoreConflicts: true,
-    );
+  /// A rename reaches reconciliation as one column disappearing and another
+  /// appearing, and adopting the wrong one would silently reassign history.
+  Future<String?> _describeAmbiguousColumnDrop({
+    required String tableName,
+    required List<String> addedColumnNames,
+    required List<CrdtSchemaColumn> droppedColumns,
+    required Transaction transaction,
+  }) async {
+    final droppedWithMetadata = <String>[];
+    for (final column in droppedColumns) {
+      if (column.id != null && await _hasFieldMetadata(column.id!, transaction)) {
+        droppedWithMetadata.add('$tableName.${column.name}');
+      }
+    }
+    if (droppedWithMetadata.isEmpty) return null;
 
-    final columnsPerTableId = {
-      for (final tableRow in tableRows)
-        tableRow.id!: _columnsPerTableName[tableRow.name]!,
+    return 'Cannot reconcile $tableName: columns '
+        '${droppedWithMetadata.join(', ')} would be dropped while '
+        '${addedColumnNames.map((name) => '$tableName.$name').join(', ')} '
+        'would be added, and the dropped columns still have CRDT field '
+        'metadata. Update CrdtSchemaColumn.name in a migration to rename, '
+        'or explicitly delete the old schema column (cascading field '
+        'metadata) for a real drop, then initialize again.';
+  }
+
+  /// The table-level counterpart of [_describeAmbiguousColumnDrop].
+  Future<String?> _describeAmbiguousTableDrop({
+    required List<String> tablesToInsert,
+    required List<CrdtSchemaTable> tablesToDelete,
+    required Transaction transaction,
+  }) async {
+    final droppedTablesWithRows = <String>[];
+    for (final table in tablesToDelete) {
+      if (table.id != null && await _hasDataRows(table.id!, transaction)) {
+        droppedTablesWithRows.add(table.name);
+      }
+    }
+    if (droppedTablesWithRows.isEmpty) return null;
+
+    return 'Cannot reconcile schema: tables ${droppedTablesWithRows.join(', ')} '
+        'would be dropped while ${tablesToInsert.join(', ')} would be added, '
+        'and the dropped tables still have CRDT row metadata. Update '
+        'CrdtSchemaTable.name in a migration to rename, or explicitly delete '
+        'the old schema table (cascading metadata) for a real drop, then '
+        'initialize again.';
+  }
+
+  /// Why a column's type identity cannot move while attempted values still
+  /// hold envelopes written against the old one.
+  String _describeUnconvertedTypeChange(
+    String tableName,
+    String columnName,
+    CrdtSchemaColumn stored,
+    ColumnDefinition definition,
+  ) {
+    final target = _formatTypeIdentityFromDefinition(definition);
+    return 'Cannot change $tableName.$columnName type identity from '
+        '${_formatTypeIdentity(stored)} to $target, because attempted-value '
+        'rows still exist. Convert the domain column and every affected '
+        'attempted-value envelope to the target types, then attest completion '
+        'by updating CrdtSchemaColumn for $tableName.$columnName to $target as '
+        'the final step of the same migration.';
+  }
+
+  Future<(List<CrdtSchemaTable>, List<CrdtSchemaColumn>)> _applyReconciliation(
+    _SchemaReconciliationPlan plan, {
+    required List<CrdtSchemaTable> existingTables,
+    required List<CrdtSchemaColumn> existingColumns,
+    required Transaction transaction,
+  }) async {
+    _registryChanged = plan.hasMutations;
+
+    // The registry is small but this runs on the path into the app, so the
+    // result is folded from the rows already read plus what the writes return
+    // rather than reading both tables a second time.
+    final insertedTables = plan.tablesToInsert.isEmpty
+        ? const <CrdtSchemaTable>[]
+        : await CrdtSchemaTable.db.insert(
+            _session,
+            [for (final name in plan.tablesToInsert) CrdtSchemaTable(name: name)],
+            transaction: transaction,
+          );
+
+    if (plan.columnsToDelete.isNotEmpty) {
+      await CrdtSchemaColumn.db.delete(
+        _session,
+        plan.columnsToDelete,
+        transaction: transaction,
+      );
+    }
+    if (plan.tablesToDelete.isNotEmpty) {
+      await CrdtSchemaTable.db.delete(
+        _session,
+        plan.tablesToDelete,
+        transaction: transaction,
+      );
+    }
+
+    // Deleted ids are only removed from rows read before the delete: the
+    // database can hand a freed id straight back to a row inserted after it.
+    final deletedTableIds = {for (final table in plan.tablesToDelete) table.id};
+    final tableRows = [
+      for (final table in existingTables)
+        if (!deletedTableIds.contains(table.id) &&
+            _columnsPerTableName.containsKey(table.name))
+          table,
+      for (final table in insertedTables)
+        if (_columnsPerTableName.containsKey(table.name)) table,
+    ];
+    final tableIdByName = {for (final table in tableRows) table.name: table.id!};
+    final tableNameById = {for (final table in tableRows) table.id!: table.name};
+
+    final insertedColumns = plan.columnsToInsert.isEmpty
+        ? const <CrdtSchemaColumn>[]
+        : await CrdtSchemaColumn.db.insert(
+            _session,
+            [
+              for (final pending in plan.columnsToInsert)
+                _newSchemaColumn(
+                  tableName: pending.tableName,
+                  tblId: pending.tblId ?? tableIdByName[pending.tableName]!,
+                  columnName: pending.columnName,
+                ),
+            ],
+            transaction: transaction,
+          );
+    if (plan.columnsToUpdate.isNotEmpty) {
+      await CrdtSchemaColumn.db.update(
+        _session,
+        plan.columnsToUpdate,
+        columns: (t) => [t.columnType, t.dartType, t.isNullable],
+        transaction: transaction,
+      );
+    }
+
+    final deletedColumnIds = {for (final column in plan.columnsToDelete) column.id};
+    final updatedColumnsById = {
+      for (final column in plan.columnsToUpdate) column.id: column,
     };
+    bool isTargetColumn(CrdtSchemaColumn column) {
+      final tableName = tableNameById[column.tblId];
+      if (tableName == null) return false;
+      return (_columnsPerTableName[tableName] ?? const <String>[]).contains(
+        column.name,
+      );
+    }
 
-    final foundColumnRows = await CrdtSchemaColumn.db.find(
-      _session,
-      transaction: transaction,
-    );
-
-    final deletedColumnRows = [
-      for (final (ix, column) in foundColumnRows.indexed.toList().reversed)
-        if (!columnsPerTableId.containsKey(column.tblId) ||
-            !columnsPerTableId[column.tblId]!.contains(column.name))
-          foundColumnRows.removeAt(ix),
+    final columnRows = [
+      for (final stored in existingColumns)
+        if (!deletedColumnIds.contains(stored.id))
+          if (updatedColumnsById[stored.id] ?? stored case final column)
+            if (isTargetColumn(column)) column,
+      for (final column in insertedColumns)
+        if (isTargetColumn(column)) column,
     ];
 
-    await CrdtSchemaColumn.db.delete(
+    return (tableRows, columnRows);
+  }
+
+  CrdtSchemaColumn _newSchemaColumn({
+    required String tableName,
+    required int tblId,
+    required String columnName,
+  }) {
+    final definition = _requiredColumnDefinition(tableName, columnName);
+    return CrdtSchemaColumn(
+      tblId: tblId,
+      name: columnName,
+      columnType: definition.columnType.name,
+      dartType: definition.dartType ?? '',
+      isNullable: definition.isNullable,
+    );
+  }
+
+  ColumnDefinition _requiredColumnDefinition(String tableName, String columnName) {
+    final definition = _columnDefinitionsPerTableName[tableName]?[columnName];
+    if (definition == null) {
+      throw StateError(
+        'No column definition found for $tableName.$columnName.',
+      );
+    }
+    return definition;
+  }
+
+  bool _typeIdentityMatches(CrdtSchemaColumn stored, ColumnDefinition target) {
+    return stored.columnType == target.columnType.name &&
+        stored.dartType == (target.dartType ?? '') &&
+        stored.isNullable == target.isNullable;
+  }
+
+  /// The stored and target forms of a type identity are formatted alike so a
+  /// failure message reads as one comparison.
+  String _formatTypeIdentity(CrdtSchemaColumn stored) =>
+      _typeIdentity(stored.columnType, stored.dartType, stored.isNullable);
+
+  String _formatTypeIdentityFromDefinition(ColumnDefinition target) => _typeIdentity(
+    target.columnType.name,
+    target.dartType ?? '',
+    target.isNullable,
+  );
+
+  String _typeIdentity(String columnType, String dartType, bool isNullable) =>
+      'columnType=$columnType dartType=$dartType isNullable=$isNullable';
+
+  Future<bool> _hasAttemptedValueRows(int columnId, Transaction transaction) async {
+    final row = await CrdtDataAttemptedValue.db.findFirstRow(
       _session,
-      deletedColumnRows,
+      where: (t) => t.field.columnId.equals(columnId),
       transaction: transaction,
     );
+    return row != null;
+  }
 
-    return foundColumnRows;
+  Future<bool> _hasFieldMetadata(int columnId, Transaction transaction) async {
+    final row = await CrdtDataField.db.findFirstRow(
+      _session,
+      where: (t) => t.columnId.equals(columnId),
+      transaction: transaction,
+    );
+    return row != null;
+  }
+
+  Future<bool> _hasDataRows(int tableId, Transaction transaction) async {
+    final row = await CrdtDataRow.db.findFirstRow(
+      _session,
+      where: (t) => t.tblId.equals(tableId),
+      transaction: transaction,
+    );
+    return row != null;
   }
 }
+
+class _SchemaReconciliationPlan {
+  _SchemaReconciliationPlan({
+    required this.tablesToInsert,
+    required this.tablesToDelete,
+    required this.columnsToInsert,
+    required this.columnsToUpdate,
+    required this.columnsToDelete,
+    required this.failures,
+  });
+
+  final List<String> tablesToInsert;
+  final List<CrdtSchemaTable> tablesToDelete;
+  final List<_PendingSchemaColumn> columnsToInsert;
+  final List<CrdtSchemaColumn> columnsToUpdate;
+  final List<CrdtSchemaColumn> columnsToDelete;
+  final List<String> failures;
+
+  bool get hasMutations =>
+      tablesToInsert.isNotEmpty ||
+      tablesToDelete.isNotEmpty ||
+      columnsToInsert.isNotEmpty ||
+      columnsToUpdate.isNotEmpty ||
+      columnsToDelete.isNotEmpty;
+}
+
+typedef _PendingSchemaColumn = ({
+  String tableName,
+  int? tblId,
+  String columnName,
+});
 
 List<String> _globalUniqueIndexViolations(
   List<Table> syncTables,

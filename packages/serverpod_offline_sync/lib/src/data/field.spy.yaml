@@ -16,9 +16,9 @@ fields:
   ### The node that updated the field.
   node: CrdtNode?, relation
 
-  ### The foreign key information for the field, if this field holds a
-  ### reference to another row.
-  foreignKey: CrdtDataForeignKey?, relation(optional, name=field_foreign_key)
+  ### Authored value retained while a projector materializes a different domain
+  ### value for this field.
+  attemptedValue: CrdtDataAttemptedValue?, relation(optional, name=field_attempted_value)
 
 indexes:
   crdt_data_fields_row_column_idx:
