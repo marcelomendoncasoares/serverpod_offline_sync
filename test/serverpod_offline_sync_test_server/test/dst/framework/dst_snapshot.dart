@@ -20,7 +20,8 @@ typedef DstForeignKey = ({
 /// The foreign-key edges the simulation exercises.
 ///
 /// Labels match the synced schema: `Restrict` is rejected at initialize, so
-/// the no-action edge is recorded as `noAction`.
+/// the no-action edge is recorded as `noAction`. Every supported `onDelete`
+/// action appears at least once.
 const dstForeignKeys = <DstForeignKey>[
   (
     child: DstTable.town,
@@ -33,6 +34,12 @@ const dstForeignKeys = <DstForeignKey>[
     column: 'mayorId',
     parent: DstTable.person,
     action: 'setNull',
+  ),
+  (
+    child: DstTable.company,
+    column: 'townId',
+    parent: DstTable.town,
+    action: 'setDefault',
   ),
   (
     child: DstTable.address,
@@ -298,6 +305,10 @@ class DstSnapshot {
         includeHidden
             ? Town.db.find(session, where: (t) => t.includeHiddenRows)
             : Town.db.find(session),
+      DstTable.company =>
+        includeHidden
+            ? Company.db.find(session, where: (t) => t.includeHiddenRows)
+            : Company.db.find(session),
       DstTable.address =>
         includeHidden
             ? Address.db.find(session, where: (t) => t.includeHiddenRows)
