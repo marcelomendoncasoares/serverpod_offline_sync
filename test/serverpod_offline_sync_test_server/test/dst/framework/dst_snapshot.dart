@@ -579,6 +579,11 @@ class DstOracle {
   /// rather than by rewriting: a hidden child satisfies `cascade` and
   /// `noAction` on its own, because neither ever touches the column.
   ///
+  /// When a projection *is* recorded, the reason must be possible for that
+  /// edge's `onDelete` action. A plausible domain value with the wrong reason
+  /// is still a defect: the diagnostic is an independent statement of what the
+  /// engine believed it was doing.
+  ///
   /// The rules are the ones stated in `docs/foreign-key-invariants.md`
   /// ("Merge-Time Action Semantics") and `docs/projection-model.md`
   /// ("Storage ownership").
@@ -630,6 +635,15 @@ class DstOracle {
         ? null
         : snapshot.rows[edge.parent.tableName]?[attempted];
 
+    if (!_reasonFitsEdge(reason, edge)) {
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where has reason ${reason.name}, which is impossible on a '
+            '${edge.action} edge',
+      ));
+    }
+
     if (domainValue == attempted) {
       violations.add((
         property: 'projectionPurity',
@@ -643,6 +657,16 @@ class DstOracle {
       violations.add((
         property: 'projectionPurity',
         detail: '$where is set-null but its domain value is $domainValue',
+      ));
+    }
+
+    if (reason == CrdtProjectionReason.foreignKeySetDefault &&
+        domainValue != dstDefaultTownId) {
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where is set-default but its domain value is $domainValue, '
+            'not the column default $dstDefaultTownId',
       ));
     }
 
@@ -686,6 +710,32 @@ class DstOracle {
     CrdtProjectionReason.uniqueConflict ||
     CrdtProjectionReason.hiddenUniqueRelease => false,
   };
+
+  /// Whether [reason] can be the terminal projector on [edge].
+  ///
+  /// Value-rewriting reasons are tied to the matching `onDelete` action.
+  /// `foreignKeyMissingParent` is the unrepairable fallback, so it is legal
+  /// on cascade, no-action, and set-default (when the default target is
+  /// unavailable). Unique reasons may only appear on a unique foreign-key
+  /// column: unique projection can be the terminal stage even after an FK
+  /// repair.
+  static bool _reasonFitsEdge(CrdtProjectionReason reason, DstForeignKey edge) {
+    return switch (reason) {
+      CrdtProjectionReason.foreignKeySetNull => edge.action == 'setNull',
+      CrdtProjectionReason.foreignKeySetDefault => edge.action == 'setDefault',
+      CrdtProjectionReason.foreignKeyMissingParent =>
+        edge.action == 'cascade' ||
+            edge.action == 'noAction' ||
+            edge.action == 'setDefault',
+      CrdtProjectionReason.uniqueConflict ||
+      CrdtProjectionReason.hiddenUniqueRelease => _isUniqueForeignKey(edge),
+    };
+  }
+
+  /// Whether [edge] carries a unique index on the foreign-key column itself.
+  static bool _isUniqueForeignKey(DstForeignKey edge) =>
+      (edge.child == DstTable.address && edge.column == 'inhabitantId') ||
+      (edge.child == DstTable.uniqueSetNullChild && edge.column == 'parentId');
 
   /// The structural invariants that must hold after every merge.
   static List<DstViolation> invariants(DstSnapshot snapshot) => [
