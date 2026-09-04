@@ -24,7 +24,7 @@ implementation.
 
 Candidate construction, hidden-row release, canonical attempted-value lookup,
 and restoration are defined by
-[Rebuildable FK and unique projection strategy](rebuildable-projection-strategy.md#exact-projection-order).
+[Rebuildable FK and unique projection model](projection-model.md#exact-projection-order).
 The `flag` policy operates only on the visible conflict groups supplied by that
 shared planner.
 
@@ -53,7 +53,7 @@ is supported when at least one non-`scopeId` column can be released
 deterministically. Stable discriminator columns may remain unchanged; changing
 the releasable column or columns is enough to make the unique tuple conflict-free.
 Supported candidate types are defined centrally under
-[Dynamic validation](rebuildable-projection-strategy.md#dynamic-validation);
+[Dynamic validation](projection-model.md#dynamic-validation);
 nullability alone does not make a type supported.
 
 For the global foreign-key-only unique indexes that Serverpod emits for synced

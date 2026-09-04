@@ -1,7 +1,4 @@
-# Rebuildable FK and unique projection strategy
-
-Status: **proposed durable design — not yet implemented.** The branch contains
-interim guards and deterministic regression tests that this design replaces.
+# Rebuildable FK and unique projection model
 
 Given the same authored CRDT facts and synchronized schema, every replica must
 rebuild the same domain rows and projection metadata, including hidden rows.
@@ -21,9 +18,9 @@ Related documents:
 - `CrdtDataAttemptedValue` is the single, generic attempted-value authority for
   FK, unique, and fields governed by both. Projectors never keep independent
   attempted values.
-- FK-safe candidates are ephemeral planner output; no separate
-  `CrdtDataForeignKey` record is needed. `CrdtDataAttemptedValue` also carries
-  a generic diagnostic `projectionReason`.
+- FK-safe candidates are ephemeral planner output and are never persisted;
+  `CrdtDataAttemptedValue` also carries a generic diagnostic
+  `projectionReason`.
 - Hidden rows participate in FK and release projection. They may regain an
   FK-safe candidate, but are always released before unique conflict grouping
   and never participate in winner selection.
@@ -34,27 +31,6 @@ Related documents:
 - Outbound sync sends authored values, never projected or temporary values.
 - Persisted schema types are validated eagerly at initialization. A migration
   hook may automate conversion later, but is not required for safety.
-
-## Why the current model fails
-
-The domain column currently doubles as authored and projected storage. Once a
-projector rewrites it, the authored value is lost unless separately retained.
-This creates history-dependent behavior:
-
-- unique resolution considers visible rows while hidden physical rows still
-  occupy unique indexes;
-- `releaseOnDelete` covers only local deletes, not remote tombstones or
-  cascade-hidden rows;
-- a synthetic release recorded as an authored update can be outranked later;
-- the interim FK guard preserves whichever hidden value a replica already has;
-- immediate unique constraints can reject local writes before after-write
-  projection runs; and
-- export reads a projected domain value unless it can substitute the authored
-  one.
-
-The focused tests expose these cases through physical SQLite unique violations:
-`sync_unique_cascade_hidden_claim_test`, `sync_foreign_key_unique_reclaim_test`,
-and `sync_unique_release_overwrite_test`.
 
 ## Storage ownership
 
@@ -199,9 +175,10 @@ Add at least these fields to `CrdtSchemaColumn`:
 ```yaml
 columnType: ColumnType
 dartType: String
+isNullable: bool
 ```
 
-Both are required. Serverpod's stable `ColumnType` enum may be persisted
+All three are required. Serverpod's stable `ColumnType` enum may be persisted
 directly and records database storage; `dartType` records dynamic value
 semantics. For example, `bigint` may represent `int`, `Duration`, or a by-index
 enum, while one Dart value can use different storage such as `json` or `jsonb`.
@@ -274,7 +251,7 @@ trusts the migration and does not rescan attempted values.
 
 This is an intentional trust boundary. Updating `CrdtSchemaColumn` without
 correctly converting the data can cause a later deserialization failure;
-proving otherwise would require the costly startup scan this design rejects.
+proving otherwise would require the costly startup scan this model rejects.
 Manual migrations already carry equivalent responsibility for domain data and
 constraints.
 
@@ -298,7 +275,7 @@ initialization with direct repair instructions.
   exported, and indexed, so freezing them makes projection history-dependent.
   Unique conflict grouping is nevertheless intentionally visible-only after
   hidden rows have been unconditionally released.
-- **The interim unique-FK guard:** it preserves stale materialization and merely
+- **A hidden unique-FK guard:** it preserves stale materialization and merely
   moves failure to a later claim or restoration.
 - **Extending `releaseOnDelete`:** it misses remote/cascade hiding and later
   authored changes.
@@ -347,27 +324,3 @@ Deterministic tests must cover:
 - sync rejection for incompatible type or projection schemas; and
 - rebuild and mutation validation proving canonical-claim substitution and
   unconditional hidden-row release are required.
-
-Run the DST only after these deterministic gates pass.
-
-## Implementation sequence
-
-1. Align this document and the FK/unique invariants.
-2. Persist schema type identity and include it in sync compatibility.
-3. Make schema reconciliation plan-first with eager, actionable failures.
-4. Add `CrdtDataAttemptedValue` with a generic diagnostic reason, retire
-   `CrdtDataForeignKey`, and make outbound collection use the attempted value.
-5. Implement the ordered FK-then-unique planner: compute FK candidates and
-   hidden releases over all affected rows, then resolve conflicts among visible
-   canonical claims only.
-6. Add pre-write planning and safe two-phase materialization.
-7. Remove `releaseOnDelete`, the hidden unique-FK guard, and stale projection
-   paths.
-8. Land deterministic convergence, migration, rebuild, and mutation tests.
-9. Run the DST.
-
-Remaining implementation choices are supported generic/custom releasable types,
-the initialization exception API, and return value semantics when a local
-authored value is immediately projected. None may weaken the rule that authored
-values are durable facts and materialized values are fully rebuildable from
-those facts plus schema.

@@ -88,7 +88,7 @@ restrict edges are evaluated first internally.
 
 The attempted-value schema, hidden-row lifecycle, exact FK-before-unique
 pipeline, atomic materialization rules, and rebuild behavior are defined once in
-[Rebuildable FK and unique projection strategy](rebuildable-projection-strategy.md).
+[Rebuildable FK and unique projection model](projection-model.md).
 This document adds only the FK requirement: compute effective visibility and an
 FK-safe candidate to the affected-closure fixed point without treating derived
 unique output as an FK fact.
@@ -181,7 +181,7 @@ unique output as an FK fact.
 
 The combined FK/unique, hidden-row restoration, batching, and unrelated-update
 cases are centralized under the
-[strategy verification gates](rebuildable-projection-strategy.md#verification-gates).
+[projection model verification gates](projection-model.md#verification-gates).
 
 ## What These Tests Prove
 
