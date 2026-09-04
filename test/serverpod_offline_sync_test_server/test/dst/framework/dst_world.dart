@@ -458,23 +458,39 @@ class DstOperations {
       case DstTable.town:
         final row = await _pickRow(Town.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
-        // Half the updates re-point the cascade edge, so foreign-key
-        // projection has moving targets rather than a static graph.
-        if (random.chance(0.5)) {
-          final city = await _pickRow(City.db.find(session, transaction: tx));
-          await Town.db.updateRow(
-            session,
-            row.copyWith(cityId: city?.id),
-            columns: (t) => [t.cityId],
-            transaction: tx,
-          );
-        } else {
-          await Town.db.updateRow(
-            session,
-            row.copyWith(name: _name('town')),
-            columns: (t) => [t.name],
-            transaction: tx,
-          );
+        // Foreign-key projection needs moving targets on both edges, not a
+        // static graph that only ever retargets cityId.
+        final column = random.weighted({
+          _TownColumn.cityId: 2,
+          _TownColumn.mayorId: 2,
+          _TownColumn.name: 1,
+        });
+        switch (column) {
+          case _TownColumn.cityId:
+            final city = await _pickRow(City.db.find(session, transaction: tx));
+            await Town.db.updateRow(
+              session,
+              row.copyWith(cityId: city?.id),
+              columns: (t) => [t.cityId],
+              transaction: tx,
+            );
+          case _TownColumn.mayorId:
+            final mayor = await _pickRow(
+              Person.db.find(session, transaction: tx),
+            );
+            await Town.db.updateRow(
+              session,
+              row.copyWith(mayorId: mayor?.id),
+              columns: (t) => [t.mayorId],
+              transaction: tx,
+            );
+          case _TownColumn.name:
+            await Town.db.updateRow(
+              session,
+              row.copyWith(name: _name('town')),
+              columns: (t) => [t.name],
+              transaction: tx,
+            );
         }
 
       case DstTable.company:
@@ -502,10 +518,16 @@ class DstOperations {
       case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
+        // Repointing the unique no-action foreign key is what makes two
+        // addresses claim one inhabitant; renaming the street would never
+        // exercise the index or the no-action edge.
+        final inhabitant = await _pickRow(
+          Person.db.find(session, transaction: tx),
+        );
         await Address.db.updateRow(
           session,
-          row.copyWith(street: _name('street')),
-          columns: (t) => [t.street],
+          row.copyWith(inhabitantId: inhabitant?.id),
+          columns: (t) => [t.inhabitantId],
           transaction: tx,
         );
 
@@ -614,3 +636,5 @@ class DstOperations {
 }
 
 enum _Action { insert, update, delete }
+
+enum _TownColumn { cityId, mayorId, name }
