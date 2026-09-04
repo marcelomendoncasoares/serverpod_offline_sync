@@ -63,8 +63,7 @@ void main() {
     rows.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
     return [
       for (final row in rows)
-        '${visible.contains(row.id) ? 'visible' : 'hidden'} ${row.street} '
-            'inhabitantId=${row.inhabitantId}',
+        '${visible.contains(row.id) ? 'visible' : 'hidden'} ${row.street} inhabitantId=${row.inhabitantId}',
     ].join(' | ');
   }
 

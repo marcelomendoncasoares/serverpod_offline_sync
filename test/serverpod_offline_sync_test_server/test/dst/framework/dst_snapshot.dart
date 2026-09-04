@@ -566,8 +566,7 @@ class DstOracle {
   static List<DstViolation> projectionPurity(DstSnapshot snapshot) {
     final violations = <DstViolation>[];
     final edgesByColumn = {
-      for (final edge in dstForeignKeys)
-        '${edge.child.tableName}.${edge.column}': edge,
+      for (final edge in dstForeignKeys) '${edge.child.tableName}.${edge.column}': edge,
     };
 
     for (final projection in snapshot.projections) {
