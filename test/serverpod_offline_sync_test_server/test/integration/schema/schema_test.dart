@@ -161,6 +161,12 @@ void main() {
       final townDefinition = tableDefinitions.firstWhere(
         (definition) => definition.name == Town.t.tableName,
       );
+      final cityDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == City.t.tableName,
+      );
+      final personDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Person.t.tableName,
+      );
       final addressDefinition = tableDefinitions.firstWhere(
         (definition) => definition.name == Address.t.tableName,
       );
@@ -182,7 +188,7 @@ void main() {
       final (tableRows, _) = await CrdtSchemaRegistry(
         session,
         syncTables: [Town.t, City.t, Person.t],
-        tableDefinitions: [fkOnlyDefinition],
+        tableDefinitions: [fkOnlyDefinition, cityDefinition, personDefinition],
       ).syncAndGetSchema();
 
       expect(tableRows.map((table) => table.name).toSet(), {
@@ -290,9 +296,14 @@ void main() {
     'when the registry is created, '
     'then an error is thrown.',
     () async {
-      final addressDefinition = testSession.db.serializationManager
-          .getTargetTableDefinitions()
-          .firstWhere((definition) => definition.name == Address.t.tableName);
+      final tableDefinitions = testSession.db.serializationManager
+          .getTargetTableDefinitions();
+      final addressDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Address.t.tableName,
+      );
+      final personDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Person.t.tableName,
+      );
       final requiredForeignKeyDefinition = addressDefinition.copyWith(
         columns: [
           for (final column in addressDefinition.columns)
@@ -304,7 +315,7 @@ void main() {
         () => CrdtSchemaRegistry(
           session,
           syncTables: [Address.t, Person.t],
-          tableDefinitions: [requiredForeignKeyDefinition],
+          tableDefinitions: [requiredForeignKeyDefinition, personDefinition],
         ),
         throwsA(
           isA<StateError>().having(
@@ -330,6 +341,12 @@ void main() {
           .getTargetTableDefinitions();
       final townDefinition = tableDefinitions.firstWhere(
         (definition) => definition.name == Town.t.tableName,
+      );
+      final cityDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == City.t.tableName,
+      );
+      final personDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Person.t.tableName,
       );
       final addressDefinition = tableDefinitions.firstWhere(
         (definition) => definition.name == Address.t.tableName,
@@ -357,7 +374,11 @@ void main() {
         () => CrdtSchemaRegistry(
           session,
           syncTables: [Town.t, City.t, Person.t],
-          tableDefinitions: [requiredForeignKeyDefinition],
+          tableDefinitions: [
+            requiredForeignKeyDefinition,
+            cityDefinition,
+            personDefinition,
+          ],
         ),
         throwsA(
           isA<StateError>().having(
@@ -379,9 +400,14 @@ void main() {
     'when the registry is created, '
     'then an error is thrown.',
     () async {
-      final addressDefinition = testSession.db.serializationManager
-          .getTargetTableDefinitions()
-          .firstWhere((definition) => definition.name == Address.t.tableName);
+      final tableDefinitions = testSession.db.serializationManager
+          .getTargetTableDefinitions();
+      final addressDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Address.t.tableName,
+      );
+      final personDefinition = tableDefinitions.firstWhere(
+        (definition) => definition.name == Person.t.tableName,
+      );
       final foreignKeyUniqueIndex = addressDefinition.indexes.singleWhere(
         (index) => index.indexName == 'address__inhabitantId__unique_idx',
       );
@@ -402,7 +428,7 @@ void main() {
         () => CrdtSchemaRegistry(
           session,
           syncTables: [Address.t, Person.t],
-          tableDefinitions: [mixedUniqueDefinition],
+          tableDefinitions: [mixedUniqueDefinition, personDefinition],
         ),
         throwsA(
           isA<StateError>().having(

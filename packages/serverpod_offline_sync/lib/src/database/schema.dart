@@ -25,6 +25,11 @@ class CrdtSchemaReconciliationException implements Exception {
 /// Manages the CRDT schema for a database.
 class CrdtSchemaRegistry {
   /// Creates a new instance of [CrdtSchemaRegistry].
+  ///
+  /// [tableDefinitions] replaces the ambient schema rather than overriding
+  /// parts of it, so it must describe every table in [syncTables]: persisted
+  /// type identity needs a `ColumnDefinition` for every synced column. Passing
+  /// null resolves the definitions from the session's serialization manager.
   CrdtSchemaRegistry(
     this._session, {
     required this.syncTables,
@@ -56,9 +61,8 @@ class CrdtSchemaRegistry {
 
     _tableDefinitionsByName = {
       for (final tableDefinition
-          in _session.db.serializationManager.getTargetTableDefinitions())
-        tableDefinition.name: tableDefinition,
-      for (final tableDefinition in tableDefinitions ?? const <TableDefinition>[])
+          in tableDefinitions ??
+              _session.db.serializationManager.getTargetTableDefinitions())
         tableDefinition.name: tableDefinition,
     };
     final tablesMissingDefinitions = [
