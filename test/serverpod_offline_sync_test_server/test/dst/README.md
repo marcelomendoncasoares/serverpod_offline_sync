@@ -140,4 +140,6 @@ Projection purity is the only property that checks a replica against itself
 rather than against its peers, so it fails at the merge that caused a bad
 projection rather than at a later comparison. Its population is derived from
 those edges and the domain rows, not from the projection records, because the
-records are sparse: a repair that never ran leaves nothing behind to walk.
+records are sparse: a repair that never ran leaves nothing behind to walk. A
+recorded reason must also be possible for that edge's action: a plausible
+domain value with `foreignKeySetNull` on a cascade column is still a defect.
