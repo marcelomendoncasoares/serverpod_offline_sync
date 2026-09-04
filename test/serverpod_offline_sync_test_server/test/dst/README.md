@@ -119,15 +119,19 @@ idempotence gets probed.
 | `framework/dst_snapshot.dart` | Canonical snapshots and the property oracle |
 | `framework/dst_runner.dart` | One seeded run, and failure reporting |
 
-The simulated world is six tables chosen to cover every foreign-key action and
-both unique-index shapes in one small graph: `town.cityId` is cascade,
-`town.mayorId` is set-null, `address.inhabitantId` is no-action and carries
-the foreign-key-only global unique index, and `unique.name` is unique per
-scope. Synced tables cannot declare `Restrict`; the registry requires
+The simulated world is seven tables chosen to cover every foreign-key action
+the engine accepts on synced tables, plus both unique-index shapes, in one
+small graph: `town.cityId` is cascade, `town.mayorId` is set-null,
+`company.townId` is set-default, `address.inhabitantId` is no-action and
+carries the foreign-key-only global unique index, and `unique.name` is unique
+per scope. Synced tables cannot declare `Restrict`; the registry requires
 `NoAction`, which has the same effect. `unique_set_null_child.parentId` is the
 one column where a repair and a unique release compete: set-null frees the
 value, and a restored parent makes it claimable again on a row that may
 already be tombstoned.
+
+The set-default target is a well-known town id inserted in a single scope,
+because row ids are globally unique.
 
 Projection purity is the only property that checks a replica against itself
 rather than against its peers, so it fails at the merge that caused a bad

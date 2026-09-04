@@ -116,6 +116,11 @@ Future<DstRunReport> runDstSimulation({
     );
   }
 
+  // company.townId repairs onto this well-known town. Inserted once, in one
+  // scope, because row ids are globally unique; other scopes exercise the
+  // unrepairable set-default path instead.
+  await replicas.first.seedDefaultTown(replicas.first.scopeUuids.first);
+
   final operations = DstOperations(random, ids);
   final adversary = DstAdversary(random, replicas);
   var applied = 0;

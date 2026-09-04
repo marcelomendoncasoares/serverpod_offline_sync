@@ -14,6 +14,13 @@ import 'dst_random.dart';
 /// at `initialize()`, so the two must agree.
 final dstSyncTables = testSyncTables;
 
+/// The well-known `company.townId` default from `company.spy.yaml`.
+///
+/// Set-default repair rewrites a company onto this town. Row ids are globally
+/// unique, so the simulation inserts this town in a single scope; other scopes
+/// exercise the path where the default target is missing.
+const dstDefaultTownId = UuidValue.raw('550e8400-e29b-41d4-a716-446655440000');
+
 /// The tables the simulation authors operations against.
 ///
 /// Chosen to cover every foreign-key action the engine accepts on synced
@@ -21,6 +28,8 @@ final dstSyncTables = testSyncTables;
 ///
 /// - `city` and `person` are roots with no outbound foreign key.
 /// - `town.cityId` is `onDelete=Cascade`; `town.mayorId` is `onDelete=SetNull`.
+/// - `company.townId` is `onDelete=SetDefault` and repairs to
+///   [dstDefaultTownId].
 /// - `address.inhabitantId` is `onDelete=NoAction` and carries the
 ///   foreign-key-only global unique index. Synced tables cannot declare
 ///   `Restrict`; the registry requires `NoAction`, which has the same effect.
@@ -37,6 +46,9 @@ enum DstTable {
 
   /// The `town` table: cascade to `city`, set-null to `person`.
   town('town'),
+
+  /// The `company` table: set-default to `town`.
+  company('company'),
 
   /// The `address` table: no-action to `person`, unique foreign key column.
   address('address'),
@@ -136,6 +148,24 @@ class DstReplica {
     await replica._assertSeededNodeIdentity();
 
     return replica;
+  }
+
+  /// Inserts [dstDefaultTownId] into [scopeUuid] so set-default repair has a
+  /// legal target in that scope.
+  ///
+  /// Call this once, for one replica and one scope. A second insert of the
+  /// same id is an ownership collision, not a second default town.
+  Future<void> seedDefaultTown(UuidValue scopeUuid) {
+    return withReplicaClock(
+      () => session.db.transactionForUser(
+        scopeUuid,
+        (tx) => Town.db.insertRow(
+          session,
+          Town(id: dstDefaultTownId, name: 'default-town'),
+          transaction: tx,
+        ),
+      ),
+    );
   }
 
   /// A short label used in failure messages.
@@ -262,6 +292,7 @@ class DstOperations {
       DstTable.city: 2,
       DstTable.person: 3,
       DstTable.town: 3,
+      DstTable.company: 3,
       DstTable.address: 3,
       DstTable.unique: 2,
       DstTable.uniqueSetNullChild: 3,
@@ -341,6 +372,20 @@ class DstOperations {
             name: _name('town'),
             cityId: city?.id,
             mayorId: mayor?.id,
+          ),
+          transaction: tx,
+        );
+
+      case DstTable.company:
+        final town = await _pickRow(Town.db.find(session, transaction: tx));
+        final townId = town?.id;
+        if (townId == null) return DstOperationOutcome.skipped;
+        await Company.db.insertRow(
+          session,
+          Company(
+            id: _newId(),
+            name: _name('company'),
+            townId: townId,
           ),
           transaction: tx,
         );
@@ -432,6 +477,28 @@ class DstOperations {
           );
         }
 
+      case DstTable.company:
+        final row = await _pickRow(Company.db.find(session, transaction: tx));
+        if (row == null) return DstOperationOutcome.skipped;
+        final townId = (await _pickRow(
+          Town.db.find(session, transaction: tx),
+        ))?.id;
+        if (townId != null && random.chance(0.7)) {
+          await Company.db.updateRow(
+            session,
+            row.copyWith(townId: townId),
+            columns: (t) => [t.townId],
+            transaction: tx,
+          );
+        } else {
+          await Company.db.updateRow(
+            session,
+            row.copyWith(name: _name('company')),
+            columns: (t) => [t.name],
+            transaction: tx,
+          );
+        }
+
       case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
@@ -492,6 +559,11 @@ class DstOperations {
         final row = await _pickRow(Town.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
         await Town.db.deleteRow(session, row, transaction: tx);
+
+      case DstTable.company:
+        final row = await _pickRow(Company.db.find(session, transaction: tx));
+        if (row == null) return DstOperationOutcome.skipped;
+        await Company.db.deleteRow(session, row, transaction: tx);
 
       case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
