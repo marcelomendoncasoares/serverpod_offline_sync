@@ -130,8 +130,11 @@ one column where a repair and a unique release compete: set-null frees the
 value, and a restored parent makes it claimable again on a row that may
 already be tombstoned.
 
-The set-default target is a well-known town id inserted in a single scope,
-because row ids are globally unique.
+Operation generation mutates every foreign-key column the oracle walks, not
+only a subset of them: town updates retarget `cityId` and `mayorId`, address
+updates retarget `inhabitantId`, and company updates retarget `townId`. The
+set-default target is a well-known town id inserted in a single scope, because
+row ids are globally unique.
 
 Projection purity is the only property that checks a replica against itself
 rather than against its peers, so it fails at the merge that caused a bad
