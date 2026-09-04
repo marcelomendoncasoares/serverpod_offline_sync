@@ -1,0 +1,6 @@
+class: UniqueCascadeChild
+table: unique_cascade_child
+database: sync
+fields:
+  name: String, unique(per=scopeId)
+  parent: Person?, relation(fk, optional, onDelete=Cascade, deferred)

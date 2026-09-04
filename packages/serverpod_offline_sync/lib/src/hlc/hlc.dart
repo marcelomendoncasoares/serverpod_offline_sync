@@ -75,7 +75,7 @@ class Hlc implements Comparable<Hlc> {
   factory Hlc.zero(UuidValue nodeId) => Hlc(DateTime.utc(1970), 0, nodeId);
 
   /// Instantiates an Hlc using the wall clock.
-  factory Hlc.now(UuidValue nodeId) => Hlc(DateTime.now(), 0, nodeId);
+  factory Hlc.now(UuidValue nodeId) => Hlc(clock.now(), 0, nodeId);
 
   /// Parses the node segment of an HLC string: a UUID, or legacy `uuid:workerId`.
   static UuidValue parseNodeSegment(String segment) {

@@ -23,6 +23,18 @@ typedef MergeContext = ({
   Map<MergeRowKey, DomainRowOwner> domainOwners,
 });
 
+/// The merge context's field cache, with the node authoring the batch.
+///
+/// The two are one parameter because they are only meaningful together: a
+/// cached field is read back through `CrdtDataField.hlc`, which resolves the
+/// node's uuid and throws without it. Separate optional parameters would allow
+/// a cache with no node, whose entries throw when read.
+@internal
+typedef MergeFieldCache = ({
+  Map<MergeFieldKey, CrdtDataField> fields,
+  CrdtNode node,
+});
+
 /// Remote nodes and scope-node rows loaded for a merge.
 @internal
 typedef MergeNodes = ({

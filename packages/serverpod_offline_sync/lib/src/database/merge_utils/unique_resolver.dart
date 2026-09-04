@@ -378,6 +378,13 @@ class CrdtUniqueConflictResolver {
     );
   }
 
+  /// Whether [columnName] participates in any unique index of [tableName].
+  ///
+  /// Foreign key projection needs this to know when materializing a value onto
+  /// a hidden row would occupy the physical unique index.
+  bool isUniqueIndexedColumn(String tableName, String columnName) =>
+      _isUniqueIndexedColumn(tableName, columnName);
+
   bool _isUniqueIndexedColumn(String tableName, String columnName) {
     final tableDefinition = _context.tableDefinitionsByName[tableName];
     if (tableDefinition == null) return false;

@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 
 import '../generated/protocol.dart';
@@ -20,7 +21,7 @@ Future<CrdtSyncIntegrityViolation> recordCrdtSyncIntegrityViolation(
     transaction: transaction,
   );
 
-  final now = DateTime.now().toUtc();
+  final now = clock.now().toUtc();
   final newViolation = existing != null
       ? existing.copyWith(
           crdtDataRowId: violation.crdtDataRowId ?? existing.crdtDataRowId,

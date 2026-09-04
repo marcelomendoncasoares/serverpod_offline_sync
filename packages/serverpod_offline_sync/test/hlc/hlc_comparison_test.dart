@@ -1,14 +1,12 @@
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:test/test.dart';
-import 'package:uuid/uuid.dart';
 
-final _dateTime = DateTime.parse('2001-09-09T01:46:40.000Z');
-final _nodeId = const Uuid().v4obj();
+import 'hlc_fixtures.dart';
 
 void main() {
   group('Given two Hlcs with same dateTime, counter and nodeId when comparing ', () {
-    final hlc1 = Hlc(_dateTime, 17, _nodeId);
-    final hlc2 = Hlc(_dateTime, 17, _nodeId);
+    final hlc1 = Hlc(hlcTime, 17, hlcNodeId);
+    final hlc2 = Hlc(hlcTime, 17, hlcNodeId);
 
     test('then they are equal.', () {
       expect(hlc1, hlc2);
@@ -34,10 +32,8 @@ void main() {
   group(
     'Given two Hlcs with same dateTime and counter and different nodeId when comparing ',
     () {
-      final node2 = const Uuid().v4obj();
-
-      final hlc1 = Hlc(_dateTime, 17, _nodeId);
-      final hlc2 = Hlc(_dateTime, 17, node2);
+      final hlc1 = Hlc(hlcTime, 17, hlcNodeId);
+      final hlc2 = Hlc(hlcTime, 17, hlcSecondNodeId);
 
       test('then they are not equal.', () {
         expect(hlc1, isNot(hlc2));
@@ -50,19 +46,16 @@ void main() {
         );
       });
 
-      test('then one is greater or less by uuid order.', () {
-        if (_nodeId.uuid.compareTo(node2.uuid) > 0) {
-          expect(hlc1 > hlc2, isTrue);
-        } else {
-          expect(hlc1 < hlc2, isTrue);
-        }
+      test('then the lower node uuid is the lesser Hlc.', () {
+        expect(hlc1 < hlc2, isTrue);
+        expect(hlc2 > hlc1, isTrue);
       });
     },
   );
 
   group('Given two Hlcs with same dateTime and different counter when comparing ', () {
-    final hlc1 = Hlc(_dateTime, 17, _nodeId);
-    final hlc2 = Hlc(_dateTime, 18, _nodeId);
+    final hlc1 = Hlc(hlcTime, 17, hlcNodeId);
+    final hlc2 = Hlc(hlcTime, 18, hlcNodeId);
 
     test('then they are not equal.', () {
       expect(hlc1, isNot(hlc2));
@@ -95,8 +88,8 @@ void main() {
   group(
     'Given two Hlcs with different dateTime when comparing ',
     () {
-      final hlc1 = Hlc(_dateTime, 0, _nodeId);
-      final hlc2 = Hlc(_dateTime.add(const Duration(milliseconds: 1)), 17, _nodeId);
+      final hlc1 = Hlc(hlcTime, 0, hlcNodeId);
+      final hlc2 = Hlc(hlcTime.advance(), 17, hlcNodeId);
 
       test('then they are not equal.', () {
         expect(hlc1, isNot(hlc2));

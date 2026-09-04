@@ -316,6 +316,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
               {insert.uuidRowId},
               savepoint,
               safeInsert.attempts,
+              mergeCache: (fields: context.fields, node: remoteNode),
             );
             return insertedRow;
           },
@@ -897,7 +898,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     CrdtNode? node,
     Hlc? hlc,
   }) async {
-    final now = DateTime.now().toUtc();
+    final now = clock.now().toUtc();
     throw CrdtSyncIntegrityViolationException(
       CrdtSyncIntegrityViolation(
         type: CrdtSyncViolationType.ownershipCollision,

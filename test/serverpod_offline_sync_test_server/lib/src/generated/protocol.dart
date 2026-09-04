@@ -37,6 +37,7 @@ import 'town.dart' as _iytblq2r;
 import 'types.dart' as _iwxwszsz;
 import 'types_enum.dart' as _ire5m5mj;
 import 'unique.dart' as _ivpwn84u;
+import 'unique_cascade_child.dart' as _ixnh46zn;
 import 'unique_composite.dart' as _iv4klbbv;
 import 'unique_discriminator.dart' as _ixfoa5hm;
 import 'unique_no_release.dart' as _i91ey4jd;
@@ -62,6 +63,7 @@ export 'town.dart';
 export 'types.dart';
 export 'types_enum.dart';
 export 'unique.dart';
+export 'unique_cascade_child.dart';
 export 'unique_composite.dart';
 export 'unique_discriminator.dart';
 export 'unique_no_release.dart';
@@ -1267,6 +1269,82 @@ class Protocol extends _is.DatabaseSerializationManager {
       managed: true,
     ),
     _isp.TableDefinition(
+      name: 'unique_cascade_child',
+      dartName: 'UniqueCascadeChild',
+      schema: 'public',
+      module: 'serverpod_offline_sync_test',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue?',
+          columnDefault: 'random_v7',
+        ),
+        _isp.ColumnDefinition(
+          name: 'scopeId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'name',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'parentId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_cascade_child_fk_0',
+          columns: ['scopeId'],
+          referenceTable: 'crdt_scopes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_cascade_child_fk_1',
+          columns: ['parentId'],
+          referenceTable: 'person',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+          deferrable: _isp.DeferrableConstraint.initiallyDeferred,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'unique_cascade_child__scopeId__name__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'scopeId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'name',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
       name: 'unique_composite',
       dartName: 'UniqueComposite',
       schema: 'public',
@@ -1687,6 +1765,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _ivpwn84u.Unique) {
       return _ivpwn84u.Unique.fromJson(data) as T;
     }
+    if (t == _ixnh46zn.UniqueCascadeChild) {
+      return _ixnh46zn.UniqueCascadeChild.fromJson(data) as T;
+    }
     if (t == _iv4klbbv.UniqueComposite) {
       return _iv4klbbv.UniqueComposite.fromJson(data) as T;
     }
@@ -1790,6 +1871,10 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_ivpwn84u.Unique?>()) {
       return (data != null ? _ivpwn84u.Unique.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_ixnh46zn.UniqueCascadeChild?>()) {
+      return (data != null ? _ixnh46zn.UniqueCascadeChild.fromJson(data) : null)
+          as T;
+    }
     if (t == _is.getType<_iv4klbbv.UniqueComposite?>()) {
       return (data != null ? _iv4klbbv.UniqueComposite.fromJson(data) : null)
           as T;
@@ -1879,6 +1964,7 @@ class Protocol extends _is.DatabaseSerializationManager {
       _iwxwszsz.Types => 'Types',
       _ire5m5mj.TypesEnum => 'TypesEnum',
       _ivpwn84u.Unique => 'Unique',
+      _ixnh46zn.UniqueCascadeChild => 'UniqueCascadeChild',
       _iv4klbbv.UniqueComposite => 'UniqueComposite',
       _ixfoa5hm.UniqueDiscriminator => 'UniqueDiscriminator',
       _i91ey4jd.UniqueNoRelease => 'UniqueNoRelease',
@@ -1941,6 +2027,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'TypesEnum';
       case _ivpwn84u.Unique():
         return 'Unique';
+      case _ixnh46zn.UniqueCascadeChild():
+        return 'UniqueCascadeChild';
       case _iv4klbbv.UniqueComposite():
         return 'UniqueComposite';
       case _ixfoa5hm.UniqueDiscriminator():
@@ -2036,6 +2124,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'Unique') {
       return deserialize<_ivpwn84u.Unique>(data['data']);
+    }
+    if (dataClassName == 'UniqueCascadeChild') {
+      return deserialize<_ixnh46zn.UniqueCascadeChild>(data['data']);
     }
     if (dataClassName == 'UniqueComposite') {
       return deserialize<_iv4klbbv.UniqueComposite>(data['data']);
@@ -2134,6 +2225,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _iwxwszsz.Types.t;
       case _ivpwn84u.Unique:
         return _ivpwn84u.Unique.t;
+      case _ixnh46zn.UniqueCascadeChild:
+        return _ixnh46zn.UniqueCascadeChild.t;
       case _iv4klbbv.UniqueComposite:
         return _iv4klbbv.UniqueComposite.t;
       case _ixfoa5hm.UniqueDiscriminator:

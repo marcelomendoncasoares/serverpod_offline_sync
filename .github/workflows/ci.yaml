@@ -98,6 +98,29 @@ jobs:
       #     file-path: coverage-results.txt
       #     comment-tag: coverage-results
 
+  simulation:
+    name: deterministic simulation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Deliberately not on pull requests. The suite seeds from the clock, so it
+    # searches fresh schedules on every run and can fail for a defect unrelated
+    # to the change under review - which is what makes it worth running, and
+    # what makes it a poor merge gate. It runs on pushes to the release
+    # branches and on demand, where a failure is a finding rather than a
+    # blocked review.
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Run the simulation suite
+        run: melos test-dst
+        env:
+          # Wider than a local run, and still inside the job timeout. A failure
+          # prints DST_SEED_BASE, which replays that simulation exactly.
+          DST_SEEDS: 50
+          DST_ROUNDS: 20
+
   benchmarks:
     name: run benchmarks
     runs-on: ubuntu-latest
