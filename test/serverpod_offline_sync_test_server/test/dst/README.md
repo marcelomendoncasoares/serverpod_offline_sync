@@ -121,11 +121,13 @@ idempotence gets probed.
 
 The simulated world is six tables chosen to cover every foreign-key action and
 both unique-index shapes in one small graph: `town.cityId` is cascade,
-`town.mayorId` is set-null, `address.inhabitantId` is restrict and carries the
-foreign-key-only global unique index, and `unique.name` is unique per scope.
-`unique_set_null_child.parentId` is the one column where a repair and a unique
-release compete: set-null frees the value, and a restored parent makes it
-claimable again on a row that may already be tombstoned.
+`town.mayorId` is set-null, `address.inhabitantId` is no-action and carries
+the foreign-key-only global unique index, and `unique.name` is unique per
+scope. Synced tables cannot declare `Restrict`; the registry requires
+`NoAction`, which has the same effect. `unique_set_null_child.parentId` is the
+one column where a repair and a unique release compete: set-null frees the
+value, and a restored parent makes it claimable again on a row that may
+already be tombstoned.
 
 Projection purity is the only property that checks a replica against itself
 rather than against its peers, so it fails at the merge that caused a bad

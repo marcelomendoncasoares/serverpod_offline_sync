@@ -17,7 +17,10 @@ typedef DstForeignKey = ({
   String action,
 });
 
-/// The foreign-key edges the simulation exercises, one per `onDelete` action.
+/// The foreign-key edges the simulation exercises.
+///
+/// Labels match the synced schema: `Restrict` is rejected at initialize, so
+/// the no-action edge is recorded as `noAction`.
 const dstForeignKeys = <DstForeignKey>[
   (
     child: DstTable.town,
@@ -35,7 +38,7 @@ const dstForeignKeys = <DstForeignKey>[
     child: DstTable.address,
     column: 'inhabitantId',
     parent: DstTable.person,
-    action: 'restrict',
+    action: 'noAction',
   ),
   // The only edge where repair and unique resolution act on one column: a
   // set-null action frees the value, and a restored parent makes it eligible
@@ -563,7 +566,7 @@ class DstOracle {
   /// repaired, or replicas that hid it by different routes disagree about its
   /// columns. The exception is the actions that repair by hiding or by blocking
   /// rather than by rewriting: a hidden child satisfies `cascade` and
-  /// `restrict` on its own, because neither ever touches the column.
+  /// `noAction` on its own, because neither ever touches the column.
   ///
   /// The rules are the ones stated in `docs/foreign-key-invariants.md`
   /// ("Merge-Time Action Semantics") and `docs/projection-model.md`
@@ -592,11 +595,11 @@ class DstOracle {
       if (domainValue == null) return violations;
       final target = snapshot.rows[edge.parent.tableName]?[domainValue];
       if (_available(target, child)) return violations;
-      // `cascade` repairs by hiding the child, and `restrict` by keeping the
+      // `cascade` repairs by hiding the child, and `noAction` by keeping the
       // parent alive only while a *visible* child needs it. Neither ever
       // rewrites the column, so a hidden child discharges both on its own.
       final dischargedByHiding = switch (edge.action) {
-        'cascade' || 'restrict' || 'noAction' => !child.visible,
+        'cascade' || 'noAction' => !child.visible,
         _ => false,
       };
       if (dischargedByHiding) return violations;

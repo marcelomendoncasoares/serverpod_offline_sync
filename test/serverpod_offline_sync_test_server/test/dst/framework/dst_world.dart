@@ -16,13 +16,14 @@ final dstSyncTables = testSyncTables;
 
 /// The tables the simulation authors operations against.
 ///
-/// Chosen to cover every foreign-key action plus both unique-index shapes in
-/// one small closed graph:
+/// Chosen to cover every foreign-key action the engine accepts on synced
+/// tables, plus both unique-index shapes, in one small closed graph:
 ///
 /// - `city` and `person` are roots with no outbound foreign key.
 /// - `town.cityId` is `onDelete=Cascade`; `town.mayorId` is `onDelete=SetNull`.
-/// - `address.inhabitantId` is `onDelete=Restrict` and carries the
-///   foreign-key-only global unique index.
+/// - `address.inhabitantId` is `onDelete=NoAction` and carries the
+///   foreign-key-only global unique index. Synced tables cannot declare
+///   `Restrict`; the registry requires `NoAction`, which has the same effect.
 /// - `unique_set_null_child.parentId` is `onDelete=SetNull` and *also* carries
 ///   that global unique index - the one shape where foreign key repair and
 ///   unique resolution act on the same column.
@@ -37,7 +38,7 @@ enum DstTable {
   /// The `town` table: cascade to `city`, set-null to `person`.
   town('town'),
 
-  /// The `address` table: restrict to `person`, unique foreign key column.
+  /// The `address` table: no-action to `person`, unique foreign key column.
   address('address'),
 
   /// The `unique` table: a per-scope unique name and no foreign key.
@@ -229,7 +230,7 @@ enum DstOperationOutcome {
   /// The operation committed.
   applied,
 
-  /// The engine refused the operation by design - a restrict violation, a
+  /// The engine refused the operation by design - a no-action violation, a
   /// unique conflict, or a reference to a row that is not visible in scope.
   rejected,
 
@@ -529,8 +530,8 @@ class DstOperations {
       // `_assertVisibleForeignKeyTargets`: the target is tombstoned, missing,
       // or owned by another scope - the three are one branch by design.
       'Cannot reference deleted row',
-      // A local `onDelete=Restrict` / `NO ACTION` parent delete with a visible
-      // child still referencing it.
+      // A local `onDelete=NoAction` parent delete with a visible child still
+      // referencing it.
       'Cannot delete',
       // Constraint rejections surfaced by the database itself.
       'UNIQUE constraint failed',
