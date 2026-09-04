@@ -239,9 +239,7 @@ void main() {
       uniqueDefinition.copyWith(
         columns: [
           for (final column in uniqueDefinition.columns)
-            column.name == 'name'
-                ? column.copyWith(dartType: 'String?')
-                : column,
+            column.name == 'name' ? column.copyWith(dartType: 'String?') : column,
         ],
       ),
     ];

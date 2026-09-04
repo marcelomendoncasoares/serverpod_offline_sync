@@ -1,5 +1,4 @@
-import 'package:serverpod_database/serverpod_database.dart'
-    show DatabaseSession, Table;
+import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession, Table;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 
 import 'client_session.dart';

@@ -379,8 +379,8 @@ class CrdtMutationRecorder {
   /// cannot violate an immediate unique index. Authored values that differ
   /// from the planned domain are returned so they can be stored as attempted
   /// values after the insert.
-  Future<({List<T> rows, ProjectionAttemptsByField attempts})> planLocalInserts<T
-      extends TableRow>(
+  Future<({List<T> rows, ProjectionAttemptsByField attempts})>
+  planLocalInserts<T extends TableRow>(
     List<T> rows,
     Transaction transaction,
   ) async {
@@ -463,8 +463,10 @@ class CrdtMutationRecorder {
     final authored = {
       for (final row in rows)
         if (row.id is UuidValue)
-          for (final MapEntry(key: columnName, value: value)
-              in _authoredValuesFromRow(row, columns).entries)
+          for (final MapEntry(key: columnName, value: value) in _authoredValuesFromRow(
+            row,
+            columns,
+          ).entries)
             (tableName, row.id as UuidValue, columnName): canonicalDomainValue(
               value,
             ),
@@ -543,9 +545,10 @@ class CrdtMutationRecorder {
       );
     }
     return _session.db.serializationManager.deserializeByClassName({
-      'className': className,
-      'data': data,
-    }) as T;
+          'className': className,
+          'data': data,
+        })
+        as T;
   }
 
   Future<Map<UuidValue, Map<String, Object?>>> _readPlannedDomainValues(

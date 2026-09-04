@@ -7,8 +7,7 @@ part of 'recorder.dart';
 /// as one insert. Rows are grouped by node as well as table because the merge
 /// cache stores each field with the node that authored it.
 class _PendingInsertAttempts {
-  final Map<(String, int), ({Set<UuidValue> rowIds, CrdtNode node})> _byGroup =
-      {};
+  final Map<(String, int), ({Set<UuidValue> rowIds, CrdtNode node})> _byGroup = {};
   final Map<String, ProjectionAttemptsByField> _attemptsByTable = {};
   final Set<MergeRowKey> _rows = {};
 
@@ -54,8 +53,7 @@ class _PendingInsertAttempts {
           rowIds: group.rowIds,
           node: group.node,
           attempts:
-              _attemptsByTable[key.$1] ??
-              const <MergeFieldKey, ProjectionAttempt>{},
+              _attemptsByTable[key.$1] ?? const <MergeFieldKey, ProjectionAttempt>{},
         ),
     ];
     _byGroup.clear();
@@ -92,8 +90,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     // Nothing in this batch touches a foreign key or a unique index, so no
     // projection decision can change: skip both passes instead of loading
     // state for tables that cannot produce a candidate or a conflict.
-    final mayAffectProjection = _foreignKeyProjector
-        .mergeOperationsMayAffectProjection(operations);
+    final mayAffectProjection = _foreignKeyProjector.mergeOperationsMayAffectProjection(
+      operations,
+    );
     final authoredOverlays = <MergeFieldKey, Object?>{};
     final currentUser = _context.effectiveScopeFor(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(

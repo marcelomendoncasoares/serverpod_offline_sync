@@ -1069,9 +1069,9 @@ class CrdtSync {
               for (final column in definition.columns)
                 if (column.name != 'scopeId')
                   _canonicalColumnIdentity(definition, column)
-            else
-              for (final column in table.columns)
-                if (column.columnName != 'scopeId') column.columnName,
+                else
+                  for (final column in table.columns)
+                    if (column.columnName != 'scopeId') column.columnName,
           ]..sort();
           final foreignKeys = _canonicalForeignKeys(definition);
           final uniqueIndexes = _canonicalUniqueIndexes(definition);

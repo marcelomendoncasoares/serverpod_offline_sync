@@ -239,7 +239,6 @@ class CrdtUniqueConflictResolver {
     }
     return crdtRows[rowKey]!.hlc;
   }
-
 }
 
 /// Canonical token for unique-claim grouping and equality.

@@ -51,7 +51,10 @@ void main() {
 
       setUp(() async {
         server = await syncNode(testSession, syncTables);
-        referenceOwner = await syncNode(await createAdditionalTestSession(), syncTables);
+        referenceOwner = await syncNode(
+          await createAdditionalTestSession(),
+          syncTables,
+        );
         townOwner = await syncNode(await createAdditionalTestSession(), syncTables);
 
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');

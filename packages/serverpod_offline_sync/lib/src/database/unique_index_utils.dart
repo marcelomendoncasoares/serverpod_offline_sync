@@ -188,8 +188,7 @@ enum CrdtUniqueConflictReleaseKind {
 /// a synchronized unique claim.
 @internal
 bool isCrdtUnsupportedJsonUniqueColumn(ColumnDefinition column) {
-  return column.columnType == ColumnType.json ||
-      column.columnType == ColumnType.jsonb;
+  return column.columnType == ColumnType.json || column.columnType == ColumnType.jsonb;
 }
 
 @internal

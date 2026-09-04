@@ -185,14 +185,17 @@ void main() {
           final domainLoser = await Unique.db.findById(session, loser.id!);
           expect(domainLoser!.name, 'shared-name__conflict__${loser.id!.uuid}');
 
-          final attempted = await attemptedValue(rowId: loser.id!, columnName: Unique.t.name.columnName);
+          final attempted = await attemptedValue(
+            rowId: loser.id!,
+            columnName: Unique.t.name.columnName,
+          );
           expect(attempted, isNotNull);
           expect(attempted!.value, 'shared-name');
           expect(attempted.projectionReason, CrdtProjectionReason.uniqueConflict);
 
-          final insert = (await _pendingInserts(crdtSync))
-              .where((change) => change.uuidRowId == loser.id)
-              .single;
+          final insert = (await _pendingInserts(
+            crdtSync,
+          )).where((change) => change.uuidRowId == loser.id).single;
           expect((insert.data as Unique).name, 'shared-name');
         },
       );
@@ -277,9 +280,9 @@ void main() {
             CrdtProjectionReason.hiddenUniqueRelease,
           );
 
-          final insert = (await _pendingInserts(crdtSync))
-              .where((change) => change.uuidRowId == child.id)
-              .single;
+          final insert = (await _pendingInserts(
+            crdtSync,
+          )).where((change) => change.uuidRowId == child.id).single;
           expect((insert.data as UniqueCascadeChild).name, 'taken');
         },
       );
@@ -338,9 +341,9 @@ void main() {
           );
           expect(attempted, isNull);
 
-          final insert = (await _pendingInserts(crdtSync))
-              .where((change) => change.uuidRowId == child.id)
-              .single;
+          final insert = (await _pendingInserts(
+            crdtSync,
+          )).where((change) => change.uuidRowId == child.id).single;
           expect((insert.data as UniqueSetNullChild).parentId, isNull);
         },
       );
