@@ -1,0 +1,12 @@
+### A synchronized child owned by a shared package rather than the server.
+###
+### The set-null relation makes an insert that names a missing parent go through
+### foreign key projection, which rebuilds the row from its serialized form.
+class: SharedChild
+table: shared_child
+database: sync
+fields:
+  name: String
+  flavor: SharedFlavor, default=plain
+  parentId: UuidValue?
+  parent: SharedParent?, relation(name=shared_parent_children, field=parentId, optional, onDelete=SetNull, deferred)
