@@ -7,39 +7,45 @@ import 'dst_world.dart';
 
 /// A foreign-key edge in the simulated world.
 ///
-/// `uniqueIndexed` marks a column that also carries a unique index, which
-/// matters because unique-conflict resolution releases such a column by
-/// writing straight to the domain row. See [DstOracle.projectionPurity].
+/// `action` is the `onDelete` action the schema declares, and it decides what
+/// [DstOracle.projectionPurity] may demand of a child whose target is gone:
+/// only the value-rewriting actions leave a trace on the column itself.
 typedef DstForeignKey = ({
   DstTable child,
   String column,
   DstTable parent,
   String action,
-  bool uniqueIndexed,
 });
 
-/// The foreign-key edges the simulation exercises, one per `onDelete` action.
+/// The foreign-key edges the simulation exercises.
+///
+/// Labels match the synced schema: `Restrict` is rejected at initialize, so
+/// the no-action edge is recorded as `noAction`. Every supported `onDelete`
+/// action appears at least once.
 const dstForeignKeys = <DstForeignKey>[
   (
     child: DstTable.town,
     column: 'cityId',
     parent: DstTable.city,
     action: 'cascade',
-    uniqueIndexed: false,
   ),
   (
     child: DstTable.town,
     column: 'mayorId',
     parent: DstTable.person,
     action: 'setNull',
-    uniqueIndexed: false,
+  ),
+  (
+    child: DstTable.company,
+    column: 'townId',
+    parent: DstTable.town,
+    action: 'setDefault',
   ),
   (
     child: DstTable.address,
     column: 'inhabitantId',
     parent: DstTable.person,
-    action: 'restrict',
-    uniqueIndexed: true,
+    action: 'noAction',
   ),
   // The only edge where repair and unique resolution act on one column: a
   // set-null action frees the value, and a restored parent makes it eligible
@@ -49,7 +55,6 @@ const dstForeignKeys = <DstForeignKey>[
     column: 'parentId',
     parent: DstTable.person,
     action: 'setNull',
-    uniqueIndexed: true,
   ),
 ];
 
@@ -64,17 +69,23 @@ typedef DstRow = ({
   bool visible,
 });
 
-/// One foreign-key projection record, resolved to the names it describes.
+/// One field of one row, as the projection records name it.
+typedef DstFieldKey = (String tableName, UuidValue rowId, String columnName);
+
+/// The authored value a field kept while its domain column shows another.
 ///
-/// `attemptedValue` is the authored fact; `projectionReason` is diagnostic.
-/// are derived from it plus the parent's visibility. Keeping all three lets a
-/// single replica be checked against itself.
+/// The record is sparse by design: the engine writes it only while the
+/// materialized domain value differs from the authored one, and deletes it
+/// again the moment the two agree. So its absence is a claim in its own right -
+/// that the domain column *is* what the user wrote - and both halves are what
+/// [DstOracle.projectionPurity] checks.
+///
+/// `projectionReason` names the terminal projector that chose the domain value.
+/// Being diagnostic is what makes it usable here: the engine never reads it
+/// back, so it is an independent statement of what the engine believed it was
+/// doing, rather than the input to the behaviour under test.
 typedef DstProjection = ({
-  String tableName,
-  UuidValue rowId,
-  String columnName,
   Object? attemptedValue,
-  Object? visibleValue,
   CrdtProjectionReason projectionReason,
 });
 
@@ -131,8 +142,11 @@ class DstSnapshot {
   /// Every row by table name and row id, visible or not.
   final Map<String, Map<UuidValue, DstRow>> rows;
 
-  /// Every foreign-key projection record held by this replica.
-  final List<DstProjection> projections;
+  /// The authored value of every field whose domain column differs from it.
+  ///
+  /// Sparse: a field with no entry here holds its authored value. See
+  /// [DstProjection].
+  final Map<DstFieldKey, DstProjection> projections;
 
   /// Causal-length flag per row, keyed `table/rowId`.
   ///
@@ -158,7 +172,7 @@ class DstSnapshot {
     };
   }
 
-  static Future<List<DstProjection>> _captureProjections(
+  static Future<Map<DstFieldKey, DstProjection>> _captureProjections(
     CrdtDatabaseSession session,
   ) async {
     final records = await CrdtDataAttemptedValue.db.find(
@@ -171,19 +185,15 @@ class DstSnapshot {
       ),
     );
 
-    return [
+    return {
       for (final record in records)
         if (record.field?.row?.tbl?.name case final tableName?)
           if (record.field?.column?.name case final columnName?)
-            (
-              tableName: tableName,
-              rowId: record.field!.row!.uuidRowId,
-              columnName: columnName,
+            (tableName, record.field!.row!.uuidRowId, columnName): (
               attemptedValue: record.value,
-              visibleValue: null,
               projectionReason: record.projectionReason,
             ),
-    ];
+    };
   }
 
   /// Visible rows only, by table name and row id.
@@ -295,6 +305,10 @@ class DstSnapshot {
         includeHidden
             ? Town.db.find(session, where: (t) => t.includeHiddenRows)
             : Town.db.find(session),
+      DstTable.company =>
+        includeHidden
+            ? Company.db.find(session, where: (t) => t.includeHiddenRows)
+            : Company.db.find(session),
       DstTable.address =>
         includeHidden
             ? Address.db.find(session, where: (t) => t.includeHiddenRows)
@@ -367,12 +381,16 @@ class DstCausalLength {
 }
 
 /// Reads a foreign-key column out of a snapshot row.
+UuidValue? _foreignKeyValue(Map<String, Object?> columns, String column) =>
+    _reference(columns[column]);
+
+/// Parses a stored reference back into the row id it names.
 ///
 /// Snapshot columns come from `TableRow.toJson()`, which renders a `UuidValue`
-/// as its string form, so the value has to be parsed back before it can be
-/// matched against a row id.
-UuidValue? _foreignKeyValue(Map<String, Object?> columns, String column) {
-  final value = columns[column];
+/// as its string form, while an attempted value decodes back to a `UuidValue`.
+/// Both have to reach the same type before either can be matched against a row
+/// id or compared with the other.
+UuidValue? _reference(Object? value) {
   if (value == null) return null;
   return value is UuidValue ? value : UuidValue.withValidation(value as String);
 }
@@ -537,108 +555,187 @@ class DstOracle {
     return violations;
   }
 
-  /// Every foreign-key projection agrees with the facts it is derived from.
+  /// Every foreign-key column agrees with the facts it is derived from.
   ///
   /// The other properties compare replicas against each other, so they only
   /// fail once two replicas have diverged. This one checks a single replica
   /// against itself: the projection is a deterministic function of the merged
-  /// facts, so a record that disagrees with those facts is already wrong,
+  /// facts, so a column that disagrees with those facts is already wrong,
   /// whatever the peers hold. That makes a stale or missing repair fail at the
   /// merge that caused it rather than at some later comparison.
   ///
+  /// The population is every foreign-key column of every row, taken from
+  /// [dstForeignKeys] and the domain rows rather than from the attempted-value
+  /// records. Those records are sparse, so walking them would only ever reach
+  /// rows the engine already believes it repaired - and "the repair never ran"
+  /// is precisely the state that leaves nothing behind to walk. So both halves
+  /// are checked: the field that kept an authored value, and the field that
+  /// did not.
+  ///
+  /// The rules are not conditioned on the child being visible. The fixed point
+  /// covers the affected closure, and a hidden row's reference still has to be
+  /// repaired, or replicas that hid it by different routes disagree about its
+  /// columns. The exception is the actions that repair by hiding or by blocking
+  /// rather than by rewriting: a hidden child satisfies `cascade` and
+  /// `noAction` on its own, because neither ever touches the column.
+  ///
+  /// When a projection *is* recorded, the reason must be possible for that
+  /// edge's `onDelete` action. A plausible domain value with the wrong reason
+  /// is still a defect: the diagnostic is an independent statement of what the
+  /// engine believed it was doing.
+  ///
   /// The rules are the ones stated in `docs/foreign-key-invariants.md`
-  /// ("Projection Metadata" and "Merge-Time Action Semantics"). Note they are
-  /// not conditioned on the child being visible: the fixed point covers the
-  /// affected closure, and a hidden row's reference still has to be repaired,
-  /// or replicas that hid it by different routes disagree about its columns.
-  ///
-  /// On a column that also carries a unique index, one state is unreadable and
-  /// only that state is skipped. Unique-conflict resolution releases such a
-  /// column by writing null straight into the domain row without recording an
-  /// override, so `domain null / attempted X / no override` is byte-identical
-  /// to a foreign-key repair that never ran. Every other state of that column
-  /// is still checked, so the column does not fall out of coverage wholesale.
-  ///
-  /// That ambiguity is the same gap behind the unique-release defects: the
-  /// resolver overwrites the authored value instead of shadowing it, so nothing
-  /// is left to derive from. Giving unique columns the attempted/visible split
-  /// that foreign keys already have would make even that state checkable.
-  static List<DstViolation> projectionPurity(DstSnapshot snapshot) {
+  /// ("Merge-Time Action Semantics") and `docs/projection-model.md`
+  /// ("Storage ownership").
+  static List<DstViolation> projectionPurity(DstSnapshot snapshot) => [
+    for (final edge in dstForeignKeys)
+      for (final row in (snapshot.rows[edge.child.tableName] ?? const {}).entries)
+        ..._fieldPurity(snapshot, edge, row.key, row.value),
+  ];
+
+  /// Checks the single foreign-key field [edge] declares on [child].
+  static List<DstViolation> _fieldPurity(
+    DstSnapshot snapshot,
+    DstForeignKey edge,
+    UuidValue rowId,
+    DstRow child,
+  ) {
     final violations = <DstViolation>[];
-    final edgesByColumn = {
-      for (final edge in dstForeignKeys) '${edge.child.tableName}.${edge.column}': edge,
-    };
+    final where = '${edge.child.tableName}/$rowId.${edge.column}';
+    final domainValue = _foreignKeyValue(child.columns, edge.column);
+    final projection = snapshot.projections[(edge.child.tableName, rowId, edge.column)];
 
-    for (final projection in snapshot.projections) {
-      final edge = edgesByColumn['${projection.tableName}.${projection.columnName}'];
-      if (edge == null) continue;
+    if (projection == null) {
+      // Nothing was preserved, so the domain column is the authored value and
+      // the edge has to be satisfied by the reference exactly as it stands.
+      if (domainValue == null) return violations;
+      final target = snapshot.rows[edge.parent.tableName]?[domainValue];
+      if (_available(target, child)) return violations;
+      // `cascade` repairs by hiding the child, and `noAction` by keeping the
+      // parent alive only while a *visible* child needs it. Neither ever
+      // rewrites the column, so a hidden child discharges both on its own.
+      final dischargedByHiding = switch (edge.action) {
+        'cascade' || 'noAction' => !child.visible,
+        _ => false,
+      };
+      if (dischargedByHiding) return violations;
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where still holds its authored $domainValue on a ${edge.action} '
+            'edge whose target is ${_targetState(target)}, so the repair never '
+            'ran',
+      ));
+      return violations;
+    }
 
-      final child = snapshot.rows[projection.tableName]?[projection.rowId];
-      if (child == null) continue;
+    final reason = projection.projectionReason;
+    final attempted = _reference(projection.attemptedValue);
+    final target = attempted == null
+        ? null
+        : snapshot.rows[edge.parent.tableName]?[attempted];
 
-      // The one unreadable state; see the class docs.
-      if (edge.uniqueIndexed &&
-          projection.projectionReason == CrdtProjectionReason.hiddenUniqueRelease &&
-          _foreignKeyValue(child.columns, projection.columnName) == null) {
-        continue;
-      }
+    if (!_reasonFitsEdge(reason, edge)) {
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where has reason ${reason.name}, which is impossible on a '
+            '${edge.action} edge',
+      ));
+    }
 
-      final where =
-          '${projection.tableName}/${projection.rowId}.${projection.columnName}';
-      final reason = projection.projectionReason;
-      final domainValue = _foreignKeyValue(child.columns, projection.columnName);
-      final attempted = _foreignKeyValue(
-        {'value': projection.attemptedValue},
-        'value',
-      );
-      final parent = attempted == null
-          ? null
-          : snapshot.rows[edge.parent.tableName]?[attempted];
-      final parentAvailable =
-          parent != null && parent.visible && parent.scopeUuid == child.scopeUuid;
+    if (domainValue == attempted) {
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where holds $domainValue equal to the authored value it is '
+            'preserving (reason: ${reason.name})',
+      ));
+    }
 
-      final expectedDiffers = domainValue != attempted;
-      if (!expectedDiffers) {
-        violations.add((
-          property: 'projectionPurity',
-          detail:
-              '$where holds $domainValue equal to its authored value '
-              '$attempted while an attempted row still exists '
-              '(reason: ${reason.name})',
-        ));
-      }
+    if (reason == CrdtProjectionReason.foreignKeySetNull && domainValue != null) {
+      violations.add((
+        property: 'projectionPurity',
+        detail: '$where is set-null but its domain value is $domainValue',
+      ));
+    }
 
-      if (reason == CrdtProjectionReason.foreignKeySetNull && domainValue != null) {
-        violations.add((
-          property: 'projectionPurity',
-          detail: '$where is set-null but its visible value is $domainValue',
-        ));
-      }
+    if (reason == CrdtProjectionReason.foreignKeySetDefault &&
+        domainValue != dstDefaultTownId) {
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where is set-default but its domain value is $domainValue, '
+            'not the column default $dstDefaultTownId',
+      ));
+    }
 
-      // FK overrides exist only because the target is hidden or missing. Unique
-      // projection may still release a hidden row whose parent is visible.
-      if ((reason == CrdtProjectionReason.foreignKeySetNull ||
-              reason == CrdtProjectionReason.foreignKeySetDefault ||
-              reason == CrdtProjectionReason.foreignKeyMissingParent) &&
-          parentAvailable) {
-        violations.add((
-          property: 'projectionPurity',
-          detail:
-              '$where keeps a ${reason.name} override while its target '
-              '$attempted is visible in the same scope',
-        ));
-      }
+    // A foreign-key override exists only because the target is hidden or
+    // missing. Unique projection may still release a row whose target is fine.
+    if (_isForeignKeyRepair(reason) && _available(target, child)) {
+      violations.add((
+        property: 'projectionPurity',
+        detail:
+            '$where keeps a ${reason.name} override while its target '
+            '$attempted is visible in the same scope',
+      ));
+    }
 
-      if (reason == CrdtProjectionReason.foreignKeyMissingParent && child.visible) {
-        violations.add((
-          property: 'projectionPurity',
-          detail: '$where is unrepairable but the row is still visible',
-        ));
-      }
+    if (reason == CrdtProjectionReason.foreignKeyMissingParent && child.visible) {
+      violations.add((
+        property: 'projectionPurity',
+        detail: '$where is unrepairable but the row is still visible',
+      ));
     }
 
     return violations;
   }
+
+  /// Whether [child] may reference [target]: present, visible, and in the same
+  /// scope, since a foreign key may never cross a scope boundary.
+  static bool _available(DstRow? target, DstRow child) =>
+      target != null && target.visible && target.scopeUuid == child.scopeUuid;
+
+  /// Why [target] is not available, for a violation message.
+  static String _targetState(DstRow? target) {
+    if (target == null) return 'missing';
+    return target.visible ? 'owned by another scope' : 'hidden';
+  }
+
+  /// Whether [reason] names a foreign-key repair rather than a unique release.
+  static bool _isForeignKeyRepair(CrdtProjectionReason reason) => switch (reason) {
+    CrdtProjectionReason.foreignKeySetNull ||
+    CrdtProjectionReason.foreignKeySetDefault ||
+    CrdtProjectionReason.foreignKeyMissingParent => true,
+    CrdtProjectionReason.uniqueConflict ||
+    CrdtProjectionReason.hiddenUniqueRelease => false,
+  };
+
+  /// Whether [reason] can be the terminal projector on [edge].
+  ///
+  /// Value-rewriting reasons are tied to the matching `onDelete` action.
+  /// `foreignKeyMissingParent` is the unrepairable fallback, so it is legal
+  /// on cascade, no-action, and set-default (when the default target is
+  /// unavailable). Unique reasons may only appear on a unique foreign-key
+  /// column: unique projection can be the terminal stage even after an FK
+  /// repair.
+  static bool _reasonFitsEdge(CrdtProjectionReason reason, DstForeignKey edge) {
+    return switch (reason) {
+      CrdtProjectionReason.foreignKeySetNull => edge.action == 'setNull',
+      CrdtProjectionReason.foreignKeySetDefault => edge.action == 'setDefault',
+      CrdtProjectionReason.foreignKeyMissingParent =>
+        edge.action == 'cascade' ||
+            edge.action == 'noAction' ||
+            edge.action == 'setDefault',
+      CrdtProjectionReason.uniqueConflict ||
+      CrdtProjectionReason.hiddenUniqueRelease => _isUniqueForeignKey(edge),
+    };
+  }
+
+  /// Whether [edge] carries a unique index on the foreign-key column itself.
+  static bool _isUniqueForeignKey(DstForeignKey edge) =>
+      (edge.child == DstTable.address && edge.column == 'inhabitantId') ||
+      (edge.child == DstTable.uniqueSetNullChild && edge.column == 'parentId');
 
   /// The structural invariants that must hold after every merge.
   static List<DstViolation> invariants(DstSnapshot snapshot) => [

@@ -55,6 +55,7 @@ the failure and replay it.
 | **No cross-scope link** - no visible foreign key resolves to a row owned by another scope | After every merge |
 | **Foreign-key closure** - every visible foreign key resolves to a visible parent in the same scope | After every merge |
 | **Unique closure** - no visible unique index is violated | After every merge |
+| **Projection purity** - every foreign-key column holds what its authored value and its target's visibility imply, whether or not a projection was recorded against it | After every merge |
 | **Ownership collision is terminal** - a merge claiming another scope's row id fails, records a durable violation, and leaves the owner untouched | `dst_ownership_collision_test.dart` |
 
 Observer independence is the keystone. A synced row may only reference synced
@@ -118,7 +119,27 @@ idempotence gets probed.
 | `framework/dst_snapshot.dart` | Canonical snapshots and the property oracle |
 | `framework/dst_runner.dart` | One seeded run, and failure reporting |
 
-The simulated world is five tables chosen to cover every foreign-key action and
-both unique-index shapes in one small graph: `town.cityId` is cascade,
-`town.mayorId` is set-null, `address.inhabitantId` is restrict and carries the
-foreign-key-only global unique index, and `unique.name` is unique per scope.
+The simulated world is seven tables chosen to cover every foreign-key action
+the engine accepts on synced tables, plus both unique-index shapes, in one
+small graph: `town.cityId` is cascade, `town.mayorId` is set-null,
+`company.townId` is set-default, `address.inhabitantId` is no-action and
+carries the foreign-key-only global unique index, and `unique.name` is unique
+per scope. Synced tables cannot declare `Restrict`; the registry requires
+`NoAction`, which has the same effect. `unique_set_null_child.parentId` is the
+one column where a repair and a unique release compete: set-null frees the
+value, and a restored parent makes it claimable again on a row that may
+already be tombstoned.
+
+Operation generation mutates every foreign-key column the oracle walks, not
+only a subset of them: town updates retarget `cityId` and `mayorId`, address
+updates retarget `inhabitantId`, and company updates retarget `townId`. The
+set-default target is a well-known town id inserted in a single scope, because
+row ids are globally unique.
+
+Projection purity is the only property that checks a replica against itself
+rather than against its peers, so it fails at the merge that caused a bad
+projection rather than at a later comparison. Its population is derived from
+those edges and the domain rows, not from the projection records, because the
+records are sparse: a repair that never ran leaves nothing behind to walk. A
+recorded reason must also be possible for that edge's action: a plausible
+domain value with `foreignKeySetNull` on a cascade column is still a defect.

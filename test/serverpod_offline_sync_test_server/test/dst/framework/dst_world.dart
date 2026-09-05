@@ -14,15 +14,25 @@ import 'dst_random.dart';
 /// at `initialize()`, so the two must agree.
 final dstSyncTables = testSyncTables;
 
+/// The well-known `company.townId` default from `company.spy.yaml`.
+///
+/// Set-default repair rewrites a company onto this town. Row ids are globally
+/// unique, so the simulation inserts this town in a single scope; other scopes
+/// exercise the path where the default target is missing.
+const dstDefaultTownId = UuidValue.raw('550e8400-e29b-41d4-a716-446655440000');
+
 /// The tables the simulation authors operations against.
 ///
-/// Chosen to cover every foreign-key action plus both unique-index shapes in
-/// one small closed graph:
+/// Chosen to cover every foreign-key action the engine accepts on synced
+/// tables, plus both unique-index shapes, in one small closed graph:
 ///
 /// - `city` and `person` are roots with no outbound foreign key.
 /// - `town.cityId` is `onDelete=Cascade`; `town.mayorId` is `onDelete=SetNull`.
-/// - `address.inhabitantId` is `onDelete=Restrict` and carries the
-///   foreign-key-only global unique index.
+/// - `company.townId` is `onDelete=SetDefault` and repairs to
+///   [dstDefaultTownId].
+/// - `address.inhabitantId` is `onDelete=NoAction` and carries the
+///   foreign-key-only global unique index. Synced tables cannot declare
+///   `Restrict`; the registry requires `NoAction`, which has the same effect.
 /// - `unique_set_null_child.parentId` is `onDelete=SetNull` and *also* carries
 ///   that global unique index - the one shape where foreign key repair and
 ///   unique resolution act on the same column.
@@ -37,7 +47,10 @@ enum DstTable {
   /// The `town` table: cascade to `city`, set-null to `person`.
   town('town'),
 
-  /// The `address` table: restrict to `person`, unique foreign key column.
+  /// The `company` table: set-default to `town`.
+  company('company'),
+
+  /// The `address` table: no-action to `person`, unique foreign key column.
   address('address'),
 
   /// The `unique` table: a per-scope unique name and no foreign key.
@@ -137,6 +150,24 @@ class DstReplica {
     return replica;
   }
 
+  /// Inserts [dstDefaultTownId] into [scopeUuid] so set-default repair has a
+  /// legal target in that scope.
+  ///
+  /// Call this once, for one replica and one scope. A second insert of the
+  /// same id is an ownership collision, not a second default town.
+  Future<void> seedDefaultTown(UuidValue scopeUuid) {
+    return withReplicaClock(
+      () => session.db.transactionForUser(
+        scopeUuid,
+        (tx) => Town.db.insertRow(
+          session,
+          Town(id: dstDefaultTownId, name: 'default-town'),
+          transaction: tx,
+        ),
+      ),
+    );
+  }
+
   /// A short label used in failure messages.
   final String name;
 
@@ -229,7 +260,7 @@ enum DstOperationOutcome {
   /// The operation committed.
   applied,
 
-  /// The engine refused the operation by design - a restrict violation, a
+  /// The engine refused the operation by design - a no-action violation, a
   /// unique conflict, or a reference to a row that is not visible in scope.
   rejected,
 
@@ -261,6 +292,7 @@ class DstOperations {
       DstTable.city: 2,
       DstTable.person: 3,
       DstTable.town: 3,
+      DstTable.company: 3,
       DstTable.address: 3,
       DstTable.unique: 2,
       DstTable.uniqueSetNullChild: 3,
@@ -344,6 +376,20 @@ class DstOperations {
           transaction: tx,
         );
 
+      case DstTable.company:
+        final town = await _pickRow(Town.db.find(session, transaction: tx));
+        final townId = town?.id;
+        if (townId == null) return DstOperationOutcome.skipped;
+        await Company.db.insertRow(
+          session,
+          Company(
+            id: _newId(),
+            name: _name('company'),
+            townId: townId,
+          ),
+          transaction: tx,
+        );
+
       case DstTable.address:
         final inhabitant = await _pickRow(
           Person.db.find(session, transaction: tx),
@@ -412,20 +458,58 @@ class DstOperations {
       case DstTable.town:
         final row = await _pickRow(Town.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
-        // Half the updates re-point the cascade edge, so foreign-key
-        // projection has moving targets rather than a static graph.
-        if (random.chance(0.5)) {
-          final city = await _pickRow(City.db.find(session, transaction: tx));
-          await Town.db.updateRow(
+        // Foreign-key projection needs moving targets on both edges, not a
+        // static graph that only ever retargets cityId.
+        final column = random.weighted({
+          _TownColumn.cityId: 2,
+          _TownColumn.mayorId: 2,
+          _TownColumn.name: 1,
+        });
+        switch (column) {
+          case _TownColumn.cityId:
+            final city = await _pickRow(City.db.find(session, transaction: tx));
+            await Town.db.updateRow(
+              session,
+              row.copyWith(cityId: city?.id),
+              columns: (t) => [t.cityId],
+              transaction: tx,
+            );
+          case _TownColumn.mayorId:
+            final mayor = await _pickRow(
+              Person.db.find(session, transaction: tx),
+            );
+            await Town.db.updateRow(
+              session,
+              row.copyWith(mayorId: mayor?.id),
+              columns: (t) => [t.mayorId],
+              transaction: tx,
+            );
+          case _TownColumn.name:
+            await Town.db.updateRow(
+              session,
+              row.copyWith(name: _name('town')),
+              columns: (t) => [t.name],
+              transaction: tx,
+            );
+        }
+
+      case DstTable.company:
+        final row = await _pickRow(Company.db.find(session, transaction: tx));
+        if (row == null) return DstOperationOutcome.skipped;
+        final townId = (await _pickRow(
+          Town.db.find(session, transaction: tx),
+        ))?.id;
+        if (townId != null && random.chance(0.7)) {
+          await Company.db.updateRow(
             session,
-            row.copyWith(cityId: city?.id),
-            columns: (t) => [t.cityId],
+            row.copyWith(townId: townId),
+            columns: (t) => [t.townId],
             transaction: tx,
           );
         } else {
-          await Town.db.updateRow(
+          await Company.db.updateRow(
             session,
-            row.copyWith(name: _name('town')),
+            row.copyWith(name: _name('company')),
             columns: (t) => [t.name],
             transaction: tx,
           );
@@ -434,10 +518,16 @@ class DstOperations {
       case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
+        // Repointing the unique no-action foreign key is what makes two
+        // addresses claim one inhabitant; renaming the street would never
+        // exercise the index or the no-action edge.
+        final inhabitant = await _pickRow(
+          Person.db.find(session, transaction: tx),
+        );
         await Address.db.updateRow(
           session,
-          row.copyWith(street: _name('street')),
-          columns: (t) => [t.street],
+          row.copyWith(inhabitantId: inhabitant?.id),
+          columns: (t) => [t.inhabitantId],
           transaction: tx,
         );
 
@@ -492,6 +582,11 @@ class DstOperations {
         if (row == null) return DstOperationOutcome.skipped;
         await Town.db.deleteRow(session, row, transaction: tx);
 
+      case DstTable.company:
+        final row = await _pickRow(Company.db.find(session, transaction: tx));
+        if (row == null) return DstOperationOutcome.skipped;
+        await Company.db.deleteRow(session, row, transaction: tx);
+
       case DstTable.address:
         final row = await _pickRow(Address.db.find(session, transaction: tx));
         if (row == null) return DstOperationOutcome.skipped;
@@ -529,8 +624,8 @@ class DstOperations {
       // `_assertVisibleForeignKeyTargets`: the target is tombstoned, missing,
       // or owned by another scope - the three are one branch by design.
       'Cannot reference deleted row',
-      // A local `onDelete=Restrict` / `NO ACTION` parent delete with a visible
-      // child still referencing it.
+      // A local `onDelete=NoAction` parent delete with a visible child still
+      // referencing it.
       'Cannot delete',
       // Constraint rejections surfaced by the database itself.
       'UNIQUE constraint failed',
@@ -541,3 +636,5 @@ class DstOperations {
 }
 
 enum _Action { insert, update, delete }
+
+enum _TownColumn { cityId, mayorId, name }
