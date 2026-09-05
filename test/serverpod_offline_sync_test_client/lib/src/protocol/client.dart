@@ -10,7 +10,6 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-
 import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
@@ -20,6 +19,7 @@ import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as _ipulbpi2;
 import 'protocol.dart' as _il2as5qe;
+import 'sync_tables.dart' as _ii3f3u05;
 import 'package:serverpod_offline_sync_test_client/migrations/migration_registry.dart';
 
 /// Passwordless auth endpoint used by the offline-sync demo app.
@@ -185,5 +185,31 @@ class Client extends _isc.ServerpodClientShared {
       runMigrations: runMigrations,
       isDebugMode: isDebugMode,
     );
+  }
+
+  /// Creates a new client-side database session for the given path, wrapped
+  /// with the `serverpod_offline_sync` engine for the tables declared with
+  /// `database: sync`. See [createSession] for the [path], [runMigrations] and
+  /// [isDebugMode] parameters.
+  ///
+  /// The [persistentUserId] is the user all local operations belong to. When
+  /// omitted, the user must be passed through the transaction.
+  _ida.Future<_ipulbpi2.CrdtDatabaseSession> createSyncSession(
+    String path, {
+    bool runMigrations = true,
+    bool isDebugMode = false,
+    _isc.UuidValue? persistentUserId,
+  }) async {
+    final session = _ipulbpi2.CrdtDatabaseSession.wraps(
+      await createSession(
+        path,
+        runMigrations: runMigrations,
+        isDebugMode: isDebugMode,
+      ),
+      syncTables: _ii3f3u05.syncTables,
+      persistentUserId: persistentUserId,
+    );
+    await session.db.initialize();
+    return session;
   }
 }

@@ -1,3 +1,12 @@
+## 0.0.5
+
+- fix: BREAKING. Rebuilds foreign key and unique projection from authored facts.
+- perf: Increases unique-conflict merge throughput by ~40%.
+- perf: Increases foreign-key chain insert merge throughput by ~3.3×.
+- perf: Increases foreign-key chain delete merge throughput by ~44%.
+- perf: Reduces storage used by CRDT metadata on relations.
+- chore: Updated Serverpod to `4.0.0-rc.2`.
+
 ## 0.0.4
 
 - chore: Updated Serverpod to `4.0.0-rc.1`.

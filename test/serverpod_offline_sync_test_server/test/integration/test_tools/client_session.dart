@@ -10,35 +10,10 @@ const _clientUrl = 'http://localhost:8081/';
 
 /// The tables every test registers for synchronization.
 ///
-/// The registry validates the whole set at `initialize()`, and a synced table
-/// may not reference a table outside the set, so this is kept complete rather
-/// than trimmed to the tables any one suite writes to. A second copy would have
-/// to be edited in lockstep or the whole suite fails at setup.
-final testSyncTables = [
-  Address.t,
-  City.t,
-  Company.t,
-  FkChainCascadeMiddle.t,
-  FkChainMiddleCascadeChild.t,
-  FkChainMiddleSetNullChild.t,
-  FkChainRestrictBlocker.t,
-  FkChainRoot.t,
-  FkChainSetNullCascadeChild.t,
-  FkChainSetNullMiddle.t,
-  FkChainSetNullRestrictChild.t,
-  FkChainSetNullSetNullChild.t,
-  Organization.t,
-  Person.t,
-  RequiredSetNullChild.t,
-  RestrictChild.t,
-  Town.t,
-  Unique.t,
-  UniqueCascadeChild.t,
-  UniqueComposite.t,
-  UniqueDiscriminator.t,
-  UniqueSetNullChild.t,
-  UniqueUuid.t,
-];
+/// This is the generated `database: sync` list so it stays complete: the
+/// registry validates the whole set at `initialize()`, and a synced table may
+/// not reference a table outside the set.
+final testSyncTables = syncTables;
 
 late Client _testClient;
 late ClientDatabaseSession _testSession;

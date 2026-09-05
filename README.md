@@ -17,9 +17,8 @@ out-of-the-box with Serverpod's existing APIs.
   - [Getting started](#getting-started)
     - [1. Add the package to the project](#1-add-the-package-to-the-project)
     - [2. Prepare the synced tables](#2-prepare-the-synced-tables)
-    - [3. Configure the sync engine on the server](#3-configure-the-sync-engine-on-the-server)
-    - [4. Configure the sync engine on the client](#4-configure-the-sync-engine-on-the-client)
-    - [5. Wire the sync call on the client](#5-wire-the-sync-call-on-the-client)
+    - [3. Configure the sync engine on the client](#3-configure-the-sync-engine-on-the-client)
+    - [4. Wire the sync call on the client](#4-wire-the-sync-call-on-the-client)
   - [Usage](#usage)
     - [Scopes and sharing](#scopes-and-sharing)
     - [Data modeling limitations](#data-modeling-limitations)
@@ -102,17 +101,17 @@ Add the packages to the server and client `pubspec.yaml` files.
 # your_project_client/pubspec.yaml
 dependencies:
   serverpod_offline_sync_client: 0.0.4
-```
+```0.0.5
 
 ```yaml
 # your_project_server/pubspec.yaml
 dependencies:
   serverpod_offline_sync_server: 0.0.4
-```
+```0.0.5
 
 > [!NOTE]
-> Version `0.0.4` requires Serverpod `4.0.0-rc.1`.
-
+> Version `0.0.4` requires Serverpod `4.0.0-rc.2`.
+0.0.5
 After adding the dependencies, list the `serverpod_offline_sync` module on the
 `generator.yaml` file and enable the experimental `database: sync` option:
 
@@ -145,53 +144,25 @@ fields:
   name: String
 ```
 
-### 3. Configure the sync engine on the server
+The `serverpod generate` command will emit the `syncTables` list on the server
+and the client. It will also wire the sync engine on the generated `Serverpod`
+class, so no extra configuration is needed on the server.
 
-On the server, the `databaseInterceptor` is what ensures that all `session.db`
-objects are database instances that tracks operations for sync.
+### 3. Configure the sync engine on the client
 
-```dart
-final pod = Serverpod(
-  args,
-  Protocol(),
-  Endpoints(),
-  // Add the database interceptor.
-  databaseInterceptor: crdtDatabaseInterceptor,
-);
-
-// Initialize the sync engine before pod.start() is called.
-pod.initializeCrdtSync(
-  syncTables: [Person.t, Book.t, Author.t],
-);
-```
-
-Don't forget to also configure the authentication following the regular
-Serverpod auth setup. Authentication is required because the sync needs a
-logged in user to synchronize data.
-
-### 4. Configure the sync engine on the client
-
-On the client, the regular `DatabaseSession` must be replaced by a wrapped
-version that includes the sync engine.
+The generated client opens a CRDT-wrapped session for the same tables:
 
 ```dart
-final session = CrdtDatabaseSession.wraps(
-  await client.createSession(databasePath, isDebugMode: kDebugMode),
-  syncTables: [Person.t, Book.t, Author.t], // Must be the same as on the server.
+final session = await client.createSyncSession(
+  databasePath,
+  isDebugMode: kDebugMode,
   persistentUserId: persistentUserId,
 );
-
-// Initialize the sync engine.
-await session.db.initialize();
 ```
 
 Then, store the `session` instance in the service locator.
 
-> [!NOTE]
-> The list of synced tables must be the same on the server and the client.
-> Otherwise, all sync attempts will fail with a schema mismatch error.
-
-### 5. Wire the sync call on the client
+### 4. Wire the sync call on the client
 
 Be sure to authenticate the client before calling the sync methods. Otherwise,
 the sync operation will fail with a `Unauthorized` error.

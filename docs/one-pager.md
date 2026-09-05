@@ -15,51 +15,27 @@ The work on this package was inspired by the excellent work on [Synql](https://g
 The main selling point of the package is that there is almost nothing to learn. The app is built
 as a normal offline Serverpod app (generated models, ordinary CRUD) and the plugin handles replication automatically.
 
-The four steps below contain all required changes on a project to use the package:
+The three steps below contain all required changes on a project to use the package:
 
-1. Prepare the synced tables by adding the `scopeId` field to the models.
+1. Prepare the synced tables by using `database: sync` keyword on the models.
     ```yaml
     class: Person
     table: person
-    database: all
+    database: sync
     fields:
-      id: UuidValue?, defaultPersist=random_v7
-      ### Owner scope of this row. Maintained by the CRDT sync layer.
-      ### The user never sets this field nor sees its value on reads.
-      scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
       name: String
     ```
 
-2. Configure the sync engine on the server.
+2. Configure the sync engine on the client.
     ```dart
-    final pod = Serverpod(
-      args,
-      Protocol(),
-      Endpoints(),
-      // Add the database interceptor.
-      databaseInterceptor: crdtDatabaseInterceptor,
-    );
-
-    // Initialize the sync engine before pod.start() is called.
-    pod.initializeCrdtSync(
-      syncTables: [Person.t, Book.t, Author.t],
-    );
-    ```
-
-3. Configure the sync engine on the client.
-    ```dart
-    final session = CrdtDatabaseSession.wraps(
-      await client.createSession(databasePath, isDebugMode: kDebugMode),
-      syncTables: [Person.t, Book.t, Author.t],
+    final session = await client.createSyncSession(
+      databasePath,
+      isDebugMode: kDebugMode,
       persistentUserId: persistentUserId,
     );
-
-    // Initialize the sync engine.
-    // Then store the `session` instance in the service locator.
-    await session.db.initialize();
     ```
 
-4. Wire the sync call on the client.
+3. Wire the sync call on the client.
     ```dart
     // Push local changes and merge remote ones once (i.e. pull-to-refresh).
     await client.crdt.syncOnce(session);

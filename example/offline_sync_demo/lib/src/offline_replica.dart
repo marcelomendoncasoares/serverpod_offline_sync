@@ -7,8 +7,6 @@ import 'package:serverpod_database/serverpod_database.dart'
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
-import 'table_ops.dart' show demoSyncTables;
-
 /// One local replica: a Serverpod client database wrapped with the
 /// `serverpod_offline_sync` CRDT layer, plus the calls that synchronize it.
 ///
@@ -61,7 +59,7 @@ class OfflineReplica {
     );
     final crdtSession = CrdtDatabaseSession.wraps(
       rawSession,
-      syncTables: demoSyncTables,
+      syncTables: syncTables,
       persistentUserId: persistentUserId,
     );
     await crdtSession.db.initialize();
