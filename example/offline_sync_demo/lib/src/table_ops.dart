@@ -261,8 +261,8 @@ final Map<String, TableOps> demoTableOps = {
     ops.name: ops,
 };
 
-/// Tables synchronized by the demo, derived from [demoTableOps]. Mirrors the
-/// server `demoSyncTables`.
+/// Tables shown in the demo UI, derived from [demoTableOps]. The CRDT engine
+/// uses the generated [syncTables] list so it matches the server.
 final List<Table> demoSyncTables = [
   for (final ops in demoTableOps.values) ops.table,
 ];
