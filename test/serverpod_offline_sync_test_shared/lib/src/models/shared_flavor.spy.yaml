@@ -1,0 +1,6 @@
+### An enum owned by the shared package, so a synchronized column carries a type
+### the host protocol resolves by its prefixed name.
+enum: SharedFlavor
+values:
+  - plain
+  - salted

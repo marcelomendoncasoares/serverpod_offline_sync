@@ -11,6 +11,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
+import 'package:serverpod_offline_sync_test_shared/serverpod_offline_sync_test_shared.dart'
+    as _i2ap9bqs;
 import 'address.dart' as _ilb4pipw;
 import 'city.dart' as _ior3absd;
 import 'company.dart' as _i6pnc270;
@@ -56,6 +58,8 @@ final List<_is.Table> syncTables = [
   _iensfz4m.Person.t,
   _i1huw131.RequiredSetNullChild.t,
   _isrf0aof.RestrictChild.t,
+  _i2ap9bqs.SharedChild.t,
+  _i2ap9bqs.SharedParent.t,
   _iytblq2r.Town.t,
   _iwxwszsz.Types.t,
   _ivpwn84u.Unique.t,

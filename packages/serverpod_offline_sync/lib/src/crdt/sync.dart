@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:clock/clock.dart';
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_serialization/serverpod_serialization.dart'
+    show DeserializationClassNameNotFoundException;
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
@@ -853,9 +855,16 @@ class CrdtSync {
       // scopeId is local ownership metadata; it is never emitted on the wire.
       ..remove('scopeId');
 
-    final row = session.db.serializationManager.deserializeByClassName({
-      'className': dartName,
-      'data': columnMap,
+    // A table definition names its class the way its own package spells it, so
+    // a model owned by a shared package reports the unprefixed name while the
+    // host protocol answers only to the package-prefixed one. Carrying the name
+    // in the payload lets the host fall through to the protocol that owns the
+    // model rather than failing on a name it does not know.
+    // `Object` rather than `dynamic`: a dynamic target is read as a wrapped
+    // dynamic field instead of a model payload.
+    final row = session.db.serializationManager.deserialize<Object>({
+      ...columnMap,
+      '__className__': dartName,
     });
     return (exists: true, ownerScopeId: scopeId, row: row);
   }
@@ -1033,21 +1042,57 @@ class CrdtSync {
     final dartType = definition?.dartType;
     if (dartType == null) return value;
 
-    final className = _classNameForDartType(dartType);
+    final (owner, className) = _classNameForDartType(dartType);
     return switch (className) {
       'bool' || 'double' || 'int' || 'String' => value,
-      _ => _serializationManager.deserializeByClassName({
-        'className': className,
-        'data': value,
-      }),
+      _ => _deserializeColumnValue(owner, className, value),
     };
   }
 
-  String _classNameForDartType(String dartType) {
+  /// Deserializes [value] as the class the protocol resolves [className] by.
+  ///
+  /// The host protocol names a type owned by a module or a shared package with
+  /// its [owner] as prefix, and answers to nothing else. The prefixed form is
+  /// tried first so those resolve, and the bare name covers an [owner] the
+  /// protocol does not prefix by.
+  dynamic _deserializeColumnValue(
+    String? owner,
+    String className,
+    Object? value,
+  ) {
+    if (owner != null) {
+      try {
+        return _serializationManager.deserializeByClassName({
+          'className': '$owner.$className',
+          'data': value,
+        });
+      } on DeserializationClassNameNotFoundException catch (_) {
+        // Falls through to the bare name below.
+      }
+    }
+    return _serializationManager.deserializeByClassName({
+      'className': className,
+      'data': value,
+    });
+  }
+
+  /// Splits [dartType] into the package owning the type and its class name.
+  ///
+  /// The owner is null when the type needs no prefix to be resolved: the host
+  /// project's own types, which are qualified with `protocol`, the core library
+  /// ones, and the unqualified primitives.
+  (String?, String) _classNameForDartType(String dartType) {
     final withoutNullable = dartType.endsWith('?')
         ? dartType.substring(0, dartType.length - 1)
         : dartType;
-    return withoutNullable.split(':').last;
+    final separator = withoutNullable.lastIndexOf(':');
+    if (separator < 0) return (null, withoutNullable);
+
+    final owner = withoutNullable.substring(0, separator);
+    final className = withoutNullable.substring(separator + 1);
+    final isHostOwned = owner == 'protocol';
+    final isCoreLibrary = owner == 'dart' || owner.startsWith('dart:');
+    return (isHostOwned || isCoreLibrary ? null : owner, className);
   }
 
   static String _computeCanonicalSyncTablesSignature(

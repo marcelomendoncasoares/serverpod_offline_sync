@@ -17,6 +17,8 @@ import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart'
     as _ipulbpi2;
+import 'package:serverpod_offline_sync_test_shared/serverpod_offline_sync_test_shared.dart'
+    as _i2ap9bqs;
 import 'address.dart' as _ilb4pipw;
 import 'city.dart' as _ior3absd;
 import 'company.dart' as _i6pnc270;
@@ -1683,6 +1685,10 @@ class Protocol extends _isd.DatabaseSerializationManager {
         ? (_ipulbpi2.Protocol() as _isd.DatabaseSerializationManager)
               .getTargetTableDefinitions()
         : [],
+    ..._i2ap9bqs.Protocol() is _isd.DatabaseSerializationManager
+        ? (_i2ap9bqs.Protocol() as _isd.DatabaseSerializationManager)
+              .getTargetTableDefinitions()
+        : [],
   ];
 
   static String? getClassNameFromObjectJson(dynamic data) {
@@ -1943,6 +1949,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
     try {
       return _ipulbpi2.Protocol().deserialize<T>(data, t);
     } on _isc.DeserializationTypeNotFoundException catch (_) {}
+    try {
+      return _i2ap9bqs.Protocol().deserialize<T>(data, t);
+    } on _isc.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
   }
 
@@ -2056,6 +2065,12 @@ class Protocol extends _isd.DatabaseSerializationManager {
           ? className
           : 'serverpod_offline_sync.$className';
     }
+    className = _i2ap9bqs.Protocol().getClassNameForObject(data);
+    if (className != null) {
+      return className.contains('.')
+          ? className
+          : 'serverpod_offline_sync_test_shared.$className';
+    }
     return null;
   }
 
@@ -2151,12 +2166,20 @@ class Protocol extends _isd.DatabaseSerializationManager {
       data['className'] = dataClassName.substring(23);
       return _ipulbpi2.Protocol().deserializeByClassName(data);
     }
+    if (dataClassName.startsWith('serverpod_offline_sync_test_shared.')) {
+      data['className'] = dataClassName.substring(35);
+      return _i2ap9bqs.Protocol().deserializeByClassName(data);
+    }
     return super.deserializeByClassName(data);
   }
 
   void _registerHostProtocols() {
     _iacc.Protocol().registerHostProtocol('serverpod_offline_sync_test', this);
     _ipulbpi2.Protocol().registerHostProtocol(
+      'serverpod_offline_sync_test',
+      this,
+    );
+    _i2ap9bqs.Protocol().registerHostProtocol(
       'serverpod_offline_sync_test',
       this,
     );
@@ -2175,6 +2198,15 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
     {
       var protocol = _ipulbpi2.Protocol();
+      var table = protocol is _isd.DatabaseSerializationManager
+          ? (protocol as _isd.DatabaseSerializationManager).getTableForType(t)
+          : null;
+      if (table != null) {
+        return table;
+      }
+    }
+    {
+      var protocol = _i2ap9bqs.Protocol();
       var table = protocol is _isd.DatabaseSerializationManager
           ? (protocol as _isd.DatabaseSerializationManager).getTableForType(t)
           : null;

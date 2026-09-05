@@ -17,6 +17,8 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
     as _izehhkf5;
+import 'package:serverpod_offline_sync_test_shared/serverpod_offline_sync_test_shared.dart'
+    as _i2ap9bqs;
 import 'address.dart' as _ilb4pipw;
 import 'city.dart' as _ior3absd;
 import 'company.dart' as _i6pnc270;
@@ -1676,6 +1678,10 @@ class Protocol extends _is.DatabaseSerializationManager {
     ),
     ..._iacs.Protocol.targetTableDefinitions,
     ..._izehhkf5.Protocol.targetTableDefinitions,
+    ..._i2ap9bqs.Protocol() is _is.DatabaseSerializationManager
+        ? (_i2ap9bqs.Protocol() as _is.DatabaseSerializationManager)
+              .getTargetTableDefinitions()
+        : [],
     ..._isp.Protocol.targetTableDefinitions,
   ];
 
@@ -1938,6 +1944,9 @@ class Protocol extends _is.DatabaseSerializationManager {
       return _izehhkf5.Protocol().deserialize<T>(data, t);
     } on _is.DeserializationTypeNotFoundException catch (_) {}
     try {
+      return _i2ap9bqs.Protocol().deserialize<T>(data, t);
+    } on _is.DeserializationTypeNotFoundException catch (_) {}
+    try {
       return _isp.Protocol().deserialize<T>(data, t);
     } on _is.DeserializationTypeNotFoundException catch (_) {}
     return super.deserialize<T>(data, t);
@@ -2053,6 +2062,12 @@ class Protocol extends _is.DatabaseSerializationManager {
           ? className
           : 'serverpod_offline_sync.$className';
     }
+    className = _i2ap9bqs.Protocol().getClassNameForObject(data);
+    if (className != null) {
+      return className.contains('.')
+          ? className
+          : 'serverpod_offline_sync_test_shared.$className';
+    }
     className = _isp.Protocol().getClassNameForObject(data);
     if (className != null) {
       return className.contains('.') ? className : 'serverpod.$className';
@@ -2152,6 +2167,10 @@ class Protocol extends _is.DatabaseSerializationManager {
       data['className'] = dataClassName.substring(23);
       return _izehhkf5.Protocol().deserializeByClassName(data);
     }
+    if (dataClassName.startsWith('serverpod_offline_sync_test_shared.')) {
+      data['className'] = dataClassName.substring(35);
+      return _i2ap9bqs.Protocol().deserializeByClassName(data);
+    }
     if (dataClassName.startsWith('serverpod.')) {
       data['className'] = dataClassName.substring(10);
       return _isp.Protocol().deserializeByClassName(data);
@@ -2162,6 +2181,10 @@ class Protocol extends _is.DatabaseSerializationManager {
   void _registerHostProtocols() {
     _iacs.Protocol().registerHostProtocol('serverpod_offline_sync_test', this);
     _izehhkf5.Protocol().registerHostProtocol(
+      'serverpod_offline_sync_test',
+      this,
+    );
+    _i2ap9bqs.Protocol().registerHostProtocol(
       'serverpod_offline_sync_test',
       this,
     );
@@ -2177,6 +2200,15 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     {
       var table = _izehhkf5.Protocol().getTableForType(t);
+      if (table != null) {
+        return table;
+      }
+    }
+    {
+      var protocol = _i2ap9bqs.Protocol();
+      var table = protocol is _is.DatabaseSerializationManager
+          ? (protocol as _is.DatabaseSerializationManager).getTableForType(t)
+          : null;
       if (table != null) {
         return table;
       }

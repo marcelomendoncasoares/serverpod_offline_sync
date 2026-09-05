@@ -13,3 +13,5 @@ dependencies:
   serverpod_database: 4.0.0-rc.2
   serverpod_offline_sync_client:
     path: ../../packages/serverpod_offline_sync_client
+  serverpod_offline_sync_test_shared:
+    path: ../serverpod_offline_sync_test_shared
