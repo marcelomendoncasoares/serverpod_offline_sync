@@ -10,7 +10,6 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Base class for HLC timestamps.
