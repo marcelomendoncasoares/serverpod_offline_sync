@@ -111,7 +111,7 @@ dependencies:
 ```
 
 > [!NOTE]
-> Version `0.0.4` requires Serverpod `4.0.0-rc.1`.
+> Version `0.0.4` requires Serverpod `4.0.0-rc.2`.
 
 After adding the dependencies, list the `serverpod_offline_sync` module on the
 `generator.yaml` file and enable the experimental `database: sync` option:

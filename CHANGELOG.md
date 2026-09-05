@@ -1,3 +1,7 @@
+## Unreleased
+
+- chore: Updated Serverpod to `4.0.0-rc.2`.
+
 ## 0.0.4
 
 - chore: Updated Serverpod to `4.0.0-rc.1`.
