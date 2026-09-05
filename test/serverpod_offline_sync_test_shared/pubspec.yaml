@@ -1,0 +1,17 @@
+name: serverpod_offline_sync_test_shared
+description: Shared models for Serverpod offline sync integration tests.
+publish_to: none
+
+environment:
+  sdk: '^3.12.2'
+
+resolution: workspace
+
+dependencies:
+  serverpod_database: 4.0.0
+  serverpod_offline_sync:
+    path: ../../packages/serverpod_offline_sync
+  serverpod_serialization: 4.0.0
+
+dev_dependencies:
+  lints: '>=3.0.0 <7.0.0'

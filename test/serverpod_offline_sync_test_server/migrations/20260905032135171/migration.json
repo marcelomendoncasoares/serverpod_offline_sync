@@ -1,0 +1,151 @@
+{
+  "__className__": "serverpod.DatabaseMigration",
+  "actions": [
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "createTable",
+      "createTable": {
+        "__className__": "serverpod.TableDefinition",
+        "name": "shared_child",
+        "dartName": "SharedChild",
+        "module": "serverpod_offline_sync_test",
+        "schema": "public",
+        "columns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "id",
+            "fieldName": "id",
+            "columnType": 7,
+            "isNullable": false,
+            "columnDefault": "random_v7",
+            "dartType": "UuidValue?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "scopeId",
+            "fieldName": "scopeId",
+            "columnType": 6,
+            "isNullable": true,
+            "dartType": "int?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "name",
+            "fieldName": "name",
+            "columnType": 0,
+            "isNullable": false,
+            "dartType": "String"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "flavor",
+            "fieldName": "flavor",
+            "columnType": 0,
+            "isNullable": false,
+            "columnDefault": "'plain'",
+            "dartType": "serverpod_offline_sync_test_shared:SharedFlavor"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "parentId",
+            "fieldName": "parentId",
+            "columnType": 7,
+            "isNullable": true,
+            "dartType": "UuidValue?"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "shared_child_fk_0",
+            "columns": [
+              "scopeId"
+            ],
+            "referenceTable": "crdt_scopes",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          },
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "shared_child_fk_1",
+            "columns": [
+              "parentId"
+            ],
+            "referenceTable": "shared_parent",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 0,
+            "deferrable": "initiallyDeferred"
+          }
+        ],
+        "indexes": [],
+        "managed": true
+      }
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "createTable",
+      "createTable": {
+        "__className__": "serverpod.TableDefinition",
+        "name": "shared_parent",
+        "dartName": "SharedParent",
+        "module": "serverpod_offline_sync_test",
+        "schema": "public",
+        "columns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "id",
+            "fieldName": "id",
+            "columnType": 7,
+            "isNullable": false,
+            "columnDefault": "random_v7",
+            "dartType": "UuidValue?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "scopeId",
+            "fieldName": "scopeId",
+            "columnType": 6,
+            "isNullable": true,
+            "dartType": "int?"
+          },
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "name",
+            "fieldName": "name",
+            "columnType": 0,
+            "isNullable": false,
+            "dartType": "String"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "__className__": "serverpod.ForeignKeyDefinition",
+            "constraintName": "shared_parent_fk_0",
+            "columns": [
+              "scopeId"
+            ],
+            "referenceTable": "crdt_scopes",
+            "referenceTableSchema": "public",
+            "referenceColumns": [
+              "id"
+            ],
+            "onUpdate": 3,
+            "onDelete": 4
+          }
+        ],
+        "indexes": [],
+        "managed": true
+      }
+    }
+  ],
+  "warnings": [],
+  "migrationApiVersion": 1
+}
