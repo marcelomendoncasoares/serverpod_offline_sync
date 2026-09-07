@@ -10,6 +10,51 @@ void main() {
   initTestClientSession();
 
   test(
+    'Given a person referenced by a required set-null child, '
+    'when the DST deletes the person in a batch, '
+    'then the operation is rejected and both rows remain unchanged.',
+    () async {
+      final random = DstRandom(114);
+      final ids = DstIds(random);
+      final scope = ids.next();
+      final replica = await _replica(ids, scope);
+      final operations = DstOperations(random, ids);
+      final parent = Person(id: ids.next(), name: 'parent');
+      final child = RequiredSetNullChild(
+        id: ids.next(),
+        name: 'child',
+        parentId: parent.id!,
+      );
+      await replica.withReplicaClock(
+        () => replica.session.db.transactionForUser(scope, (tx) async {
+          await Person.db.insertRow(replica.session, parent, transaction: tx);
+          await RequiredSetNullChild.db.insertRow(
+            replica.session,
+            child,
+            transaction: tx,
+          );
+        }),
+      );
+      final before = (await replica.collect(scope)).map(dstChangeKey).toSet();
+
+      final outcome = await operations.apply(
+        replica,
+        scope,
+        table: DstTable.person,
+        action: DstAction.deleteBatch,
+      );
+
+      expect(outcome, DstOperationOutcome.rejected);
+      expect(await Person.db.findById(replica.session, parent.id!), isNotNull);
+      expect(
+        (await RequiredSetNullChild.db.findById(replica.session, child.id!))!.parentId,
+        parent.id,
+      );
+      expect((await replica.collect(scope)).map(dstChangeKey).toSet(), before);
+    },
+  );
+
+  test(
     'Given a deleted unique claimant and a newer claimant of the same name, '
     'when the DST restores the deleted identity, '
     'then the original identity reclaims its name without deleting its peer.',

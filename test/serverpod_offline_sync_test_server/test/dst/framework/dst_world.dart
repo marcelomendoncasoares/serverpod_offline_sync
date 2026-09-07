@@ -287,7 +287,7 @@ class DstOperations {
       return outcome;
     } on Exception catch (exception) {
       final message = exception.toString();
-      if (_isExpectedRejection(message)) {
+      if (_isExpectedRejection(message, table, action)) {
         rejections.add(message);
         return DstOperationOutcome.rejected;
       }
@@ -515,7 +515,35 @@ class DstOperations {
   /// The list is deliberately narrow. An unrecognized failure is rethrown so a
   /// real defect surfaces as a failing seed instead of being absorbed as an
   /// expected rejection.
-  static bool _isExpectedRejection(String message) {
+  static bool _isExpectedRejection(
+    String message,
+    DstTable table,
+    DstAction action,
+  ) {
+    if (action == DstAction.delete ||
+        action == DstAction.deleteBatch ||
+        action == DstAction.deleteWhere) {
+      final deletedTables = {table};
+      var grew = true;
+      while (grew) {
+        grew = false;
+        for (final edge in dstForeignKeys) {
+          if (edge.action == 'cascade' && deletedTables.contains(edge.parent)) {
+            grew = deletedTables.add(edge.child) || grew;
+          }
+        }
+      }
+      for (final edge in dstForeignKeys) {
+        if (edge.action == 'setNull' &&
+            !edge.nullable &&
+            deletedTables.contains(edge.parent) &&
+            message.contains(
+              'NOT NULL constraint failed: ${edge.child.tableName}.${edge.column},',
+            )) {
+          return true;
+        }
+      }
+    }
     const expected = [
       // `_assertVisibleForeignKeyTargets`: the target is tombstoned, missing,
       // or owned by another scope - the three are one branch by design.
