@@ -63,6 +63,13 @@ soft-deleted instead of removed:
 
 These local side effects are the facts that other replicas merge.
 
+Nullable fields must preserve explicit nulls when models are serialized and read
+back. For a nullable FK with a non-null database default, use Serverpod's
+`defaultPersist` declaration: the combined `default` also supplies a constructor
+fallback that replaces null on model reads. Materialized inserts retain nulls
+chosen by projection instead of applying the database default again. Local
+upserts still apply a fixed UUID FK default when the caller omits that field.
+
 ## Merge-Time Action Semantics
 
 For each child FK whose attempted value points to a hidden or missing parent:

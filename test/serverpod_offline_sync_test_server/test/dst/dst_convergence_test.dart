@@ -29,6 +29,7 @@ void main() {
           final report = await runWithSeedReported(
             index: index,
             seed: seed,
+            rounds: config.rounds,
             run: () => runDstSimulation(
               seed: seed,
               rounds: config.rounds,

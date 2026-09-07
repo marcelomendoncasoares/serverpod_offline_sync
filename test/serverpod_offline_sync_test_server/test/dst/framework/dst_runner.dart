@@ -88,7 +88,7 @@ class DstRunReport {
 
 /// Runs one seeded simulation and checks every property.
 ///
-/// Structural invariants run after each merge, so a violation is reported at
+/// Structural invariants run after each local commit and merge, so a violation is reported at
 /// the moment it appears rather than at the end of the run. Agreement
 /// properties run once, after the adversary has quiesced.
 Future<DstRunReport> runDstSimulation({
@@ -141,6 +141,7 @@ Future<DstRunReport> runDstSimulation({
     if (violations.isEmpty) return;
     throw DstPropertyFailure(
       seed: seed,
+      rounds: rounds,
       replica: replica,
       violations: violations,
     );
@@ -187,7 +188,7 @@ Future<DstRunReport> runDstSimulation({
     );
   }
   if (violations.isNotEmpty) {
-    throw DstPropertyFailure(seed: seed, violations: violations);
+    throw DstPropertyFailure(seed: seed, rounds: rounds, violations: violations);
   }
 
   return DstRunReport(
@@ -218,6 +219,7 @@ Future<DstRunReport> runDstSimulation({
 Future<T> runWithSeedReported<T>({
   required int index,
   required int seed,
+  required int rounds,
   required Future<T> Function() run,
 }) async {
   try {
@@ -228,7 +230,7 @@ Future<T> runWithSeedReported<T>({
     Error.throwWithStackTrace(
       StateError(
         'Simulation $index (seed $seed) failed\n'
-        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 dart test -P dst\n'
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds dart test -P dst\n'
         '$error',
       ),
       stackTrace,
@@ -244,12 +246,16 @@ class DstPropertyFailure implements Exception {
   /// Creates a failure for [seed].
   DstPropertyFailure({
     required this.seed,
+    required this.rounds,
     required this.violations,
     this.replica,
   });
 
   /// The seed that produced the failure.
   final int seed;
+
+  /// The round count that produced the failure.
+  final int rounds;
 
   /// The violated properties.
   final List<DstViolation> violations;
@@ -261,7 +267,9 @@ class DstPropertyFailure implements Exception {
   String toString() {
     final buffer = StringBuffer()
       ..writeln('DST property failure (seed $seed)')
-      ..writeln('Replay: DST_SEED_BASE=$seed DST_SEEDS=1 dart test -P dst');
+      ..writeln(
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds dart test -P dst',
+      );
     if (replica != null) buffer.writeln('Replica: $replica');
     for (final violation in violations) {
       buffer.writeln('- ${violation.property}: ${violation.detail}');
