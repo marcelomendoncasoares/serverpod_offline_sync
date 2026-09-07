@@ -1,0 +1,7 @@
+class: UniqueCascadeReference
+table: unique_cascade_reference
+database: sync
+fields:
+  name: String
+  parentId: UuidValue?, unique
+  parent: Person?, relation(field=parentId, onDelete=Cascade, deferred)

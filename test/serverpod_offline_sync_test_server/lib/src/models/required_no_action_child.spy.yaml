@@ -1,0 +1,6 @@
+class: RequiredNoActionChild
+table: required_no_action_child
+database: sync
+fields:
+  name: String
+  parent: Person?, relation(fk, onDelete=NoAction, deferred)

@@ -241,22 +241,24 @@ class DstOperations {
     DstReplica replica,
     UuidValue scopeUuid,
   ) async {
-    final table = random.weighted({
-      DstTable.city: 2,
-      DstTable.person: 3,
-      DstTable.town: 3,
-      DstTable.company: 3,
-      DstTable.address: 3,
-      DstTable.unique: 2,
-      DstTable.uniqueSetNullChild: 3,
-      for (final table in dstAdditionalUniqueTables) table: 3,
-    });
+    final table = random.pick(DstTable.values);
     final action = random.weighted({
-      _Action.insert: 5,
-      _Action.update: 3,
-      _Action.delete: 2,
+      DstAction.insert: 5,
+      DstAction.update: 3,
+      DstAction.delete: 2,
     });
+    return apply(replica, scopeUuid, table: table, action: action);
+  }
 
+  /// Applies a scripted operation through the same path used by random runs.
+  /// This also lets regressions pin a graph transition independently of the
+  /// scheduling seed.
+  Future<DstOperationOutcome> apply(
+    DstReplica replica,
+    UuidValue scopeUuid, {
+    required DstTable table,
+    required DstAction action,
+  }) async {
     try {
       return await replica.withReplicaClock(
         () => replica.session.db.transactionForUser(
@@ -283,314 +285,22 @@ class DstOperations {
   Future<DstOperationOutcome> _apply(
     DstReplica replica,
     DstTable table,
-    _Action action,
+    DstAction action,
     Transaction tx,
   ) async {
     final session = replica.session;
-    if (dstAdditionalUniqueTables.contains(table)) {
-      return _applyUniqueShape(session, table, action, tx);
-    }
-    return switch (action) {
-      _Action.insert => _applyInsert(session, table, tx),
-      _Action.update => _applyUpdate(session, table, tx),
-      _Action.delete => _applyDelete(session, table, tx),
-    };
-  }
-
-  /// Inserts one new row, pointing its references at rows this replica can
-  /// currently see. A reference with no candidate is left null.
-  Future<DstOperationOutcome> _applyInsert(
-    DatabaseSession session,
-    DstTable table,
-    Transaction tx,
-  ) async {
-    switch (table) {
-      case DstTable.city:
-        await City.db.insertRow(
-          session,
-          City(id: _newId(), name: _name('city')),
-          transaction: tx,
-        );
-
-      case DstTable.person:
-        await Person.db.insertRow(
-          session,
-          Person(id: _newId(), name: _name('person'), surname: _name('sur')),
-          transaction: tx,
-        );
-
-      case DstTable.town:
-        final city = await _pickRow(City.db.find(session, transaction: tx));
-        final mayor = await _pickRow(Person.db.find(session, transaction: tx));
-        await Town.db.insertRow(
-          session,
-          Town(
-            id: _newId(),
-            name: _name('town'),
-            cityId: city?.id,
-            mayorId: mayor?.id,
-          ),
-          transaction: tx,
-        );
-
-      case DstTable.company:
-        final town = await _pickRow(Town.db.find(session, transaction: tx));
-        final townId = town?.id;
-        if (townId == null) return DstOperationOutcome.skipped;
-        await Company.db.insertRow(
-          session,
-          Company(
-            id: _newId(),
-            name: _name('company'),
-            townId: townId,
-          ),
-          transaction: tx,
-        );
-
-      case DstTable.address:
-        final inhabitant = await _pickRow(
-          Person.db.find(session, transaction: tx),
-        );
-        await Address.db.insertRow(
-          session,
-          Address(
-            id: _newId(),
-            street: _name('street'),
-            inhabitantId: inhabitant?.id,
-          ),
-          transaction: tx,
-        );
-
-      case DstTable.unique:
-        await Unique.db.insertRow(
-          session,
-          // A deliberately small alphabet so concurrent replicas collide.
-          Unique(id: _newId(), name: 'name-${random.nextInt(4)}'),
-          transaction: tx,
-        );
-
-      case DstTable.uniqueSetNullChild:
-        final parent = await _pickRow(Person.db.find(session, transaction: tx));
-        await UniqueSetNullChild.db.insertRow(
-          session,
-          UniqueSetNullChild(
-            id: _newId(),
-            name: _name('unique-child'),
-            parentId: parent?.id,
-          ),
-          transaction: tx,
-        );
-      default:
-        throw StateError('Table $table must use the schema-driven operation path.');
-    }
-
-    return DstOperationOutcome.applied;
-  }
-
-  /// Updates one existing row, or skips when the replica has none.
-  Future<DstOperationOutcome> _applyUpdate(
-    DatabaseSession session,
-    DstTable table,
-    Transaction tx,
-  ) async {
-    switch (table) {
-      case DstTable.city:
-        final row = await _pickRow(City.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await City.db.updateRow(
-          session,
-          row.copyWith(name: _name('city')),
-          columns: (t) => [t.name],
-          transaction: tx,
-        );
-
-      case DstTable.person:
-        final row = await _pickRow(Person.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Person.db.updateRow(
-          session,
-          row.copyWith(name: _name('person')),
-          columns: (t) => [t.name],
-          transaction: tx,
-        );
-
-      case DstTable.town:
-        final row = await _pickRow(Town.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        // Foreign-key projection needs moving targets on both edges, not a
-        // static graph that only ever retargets cityId.
-        final column = random.weighted({
-          _TownColumn.cityId: 2,
-          _TownColumn.mayorId: 2,
-          _TownColumn.name: 1,
-        });
-        switch (column) {
-          case _TownColumn.cityId:
-            final city = await _pickRow(City.db.find(session, transaction: tx));
-            await Town.db.updateRow(
-              session,
-              row.copyWith(cityId: city?.id),
-              columns: (t) => [t.cityId],
-              transaction: tx,
-            );
-          case _TownColumn.mayorId:
-            final mayor = await _pickRow(
-              Person.db.find(session, transaction: tx),
-            );
-            await Town.db.updateRow(
-              session,
-              row.copyWith(mayorId: mayor?.id),
-              columns: (t) => [t.mayorId],
-              transaction: tx,
-            );
-          case _TownColumn.name:
-            await Town.db.updateRow(
-              session,
-              row.copyWith(name: _name('town')),
-              columns: (t) => [t.name],
-              transaction: tx,
-            );
-        }
-
-      case DstTable.company:
-        final row = await _pickRow(Company.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        final townId = (await _pickRow(
-          Town.db.find(session, transaction: tx),
-        ))?.id;
-        if (townId != null && random.chance(0.7)) {
-          await Company.db.updateRow(
-            session,
-            row.copyWith(townId: townId),
-            columns: (t) => [t.townId],
-            transaction: tx,
-          );
-        } else {
-          await Company.db.updateRow(
-            session,
-            row.copyWith(name: _name('company')),
-            columns: (t) => [t.name],
-            transaction: tx,
-          );
-        }
-
-      case DstTable.address:
-        final row = await _pickRow(Address.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        // Repointing the unique no-action foreign key is what makes two
-        // addresses claim one inhabitant; renaming the street would never
-        // exercise the index or the no-action edge.
-        final inhabitant = await _pickRow(
-          Person.db.find(session, transaction: tx),
-        );
-        await Address.db.updateRow(
-          session,
-          row.copyWith(inhabitantId: inhabitant?.id),
-          columns: (t) => [t.inhabitantId],
-          transaction: tx,
-        );
-
-      case DstTable.unique:
-        final row = await _pickRow(Unique.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Unique.db.updateRow(
-          session,
-          row.copyWith(name: 'name-${random.nextInt(4)}'),
-          columns: (t) => [t.name],
-          transaction: tx,
-        );
-
-      case DstTable.uniqueSetNullChild:
-        final row = await _pickRow(
-          UniqueSetNullChild.db.find(session, transaction: tx),
-        );
-        if (row == null) return DstOperationOutcome.skipped;
-        // Repointing the unique foreign key is what makes two rows claim one
-        // parent; renaming would never exercise the index.
-        final parent = await _pickRow(Person.db.find(session, transaction: tx));
-        await UniqueSetNullChild.db.updateRow(
-          session,
-          row.copyWith(parentId: parent?.id),
-          columns: (t) => [t.parentId],
-          transaction: tx,
-        );
-      default:
-        throw StateError('Table $table must use the schema-driven operation path.');
-    }
-
-    return DstOperationOutcome.applied;
-  }
-
-  /// Deletes one existing row, or skips when the replica has none.
-  Future<DstOperationOutcome> _applyDelete(
-    DatabaseSession session,
-    DstTable table,
-    Transaction tx,
-  ) async {
-    switch (table) {
-      case DstTable.city:
-        final row = await _pickRow(City.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await City.db.deleteRow(session, row, transaction: tx);
-
-      case DstTable.person:
-        final row = await _pickRow(Person.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Person.db.deleteRow(session, row, transaction: tx);
-
-      case DstTable.town:
-        final row = await _pickRow(Town.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Town.db.deleteRow(session, row, transaction: tx);
-
-      case DstTable.company:
-        final row = await _pickRow(Company.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Company.db.deleteRow(session, row, transaction: tx);
-
-      case DstTable.address:
-        final row = await _pickRow(Address.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Address.db.deleteRow(session, row, transaction: tx);
-
-      case DstTable.unique:
-        final row = await _pickRow(Unique.db.find(session, transaction: tx));
-        if (row == null) return DstOperationOutcome.skipped;
-        await Unique.db.deleteRow(session, row, transaction: tx);
-
-      case DstTable.uniqueSetNullChild:
-        final row = await _pickRow(
-          UniqueSetNullChild.db.find(session, transaction: tx),
-        );
-        if (row == null) return DstOperationOutcome.skipped;
-        await UniqueSetNullChild.db.deleteRow(session, row, transaction: tx);
-      default:
-        throw StateError('Table $table must use the schema-driven operation path.');
-    }
-
-    return DstOperationOutcome.applied;
-  }
-
-  Future<DstOperationOutcome> _applyUniqueShape(
-    DatabaseSession session,
-    DstTable table,
-    _Action action,
-    Transaction tx,
-  ) async {
     final model = table.model;
-    if (action == _Action.delete) {
-      final row = await _pickRow(model.find(session, transaction: tx));
-      if (row == null) return DstOperationOutcome.skipped;
-      await model.delete(session, row, tx);
+    final existing = action == DstAction.insert
+        ? null
+        : await _pickRow(model.find(session, transaction: tx));
+    if (action != DstAction.insert && existing == null) {
+      return DstOperationOutcome.skipped;
+    }
+    if (action == DstAction.delete) {
+      await model.delete(session, existing!, tx);
       return DstOperationOutcome.applied;
     }
 
-    final existing = action == _Action.update
-        ? await _pickRow(model.find(session, transaction: tx))
-        : null;
-    if (action == _Action.update && existing == null) {
-      return DstOperationOutcome.skipped;
-    }
     final data = existing == null
         ? <String, dynamic>{'id': _newId().toJson()}
         : existing.toJson() as Map<String, dynamic>;
@@ -599,14 +309,21 @@ class DstOperations {
         .toList();
     final changed = existing == null ? columns : [random.pick(columns)];
     for (final column in changed) {
-      final foreignKey = table.definition.foreignKeys.where(
-        (edge) => edge.columns.contains(column.name),
+      final edges = dstForeignKeys.where(
+        (edge) => edge.child == table && edge.column == column.name,
       );
-      if (foreignKey.isNotEmpty) {
-        final parent = await _pickRow(Person.db.find(session, transaction: tx));
-        data[column.name] = parent?.id?.toJson();
+      if (edges.isNotEmpty) {
+        final edge = edges.single;
+        final parent = await _pickRow(edge.parent.model.find(session, transaction: tx));
+        if (parent == null && !edge.nullable) return DstOperationOutcome.skipped;
+        data[column.name] = edge.nullable && random.chance(0.25)
+            ? null
+            : (parent?.toJson() as Map<String, dynamic>?)?[edge.parentColumn];
       } else if ((column.dartType ?? '').startsWith('String')) {
-        data[column.name] = 'claim-${random.nextInt(4)}';
+        final unique = dstUniqueIndexes.any(
+          (index) => index.table == table && index.columns.contains(column.name),
+        );
+        data[column.name] = unique ? 'claim-${random.nextInt(4)}' : _name(column.name);
       } else if ((column.dartType ?? '').startsWith('UuidValue')) {
         data[column.name] = dstUniqueValues[random.nextInt(dstUniqueValues.length)]
             .toJson();
@@ -659,6 +376,4 @@ class DstOperations {
   }
 }
 
-enum _Action { insert, update, delete }
-
-enum _TownColumn { cityId, mayorId, name }
+enum DstAction { insert, update, delete }

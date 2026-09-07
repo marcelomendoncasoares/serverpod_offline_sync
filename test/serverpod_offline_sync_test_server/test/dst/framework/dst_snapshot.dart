@@ -7,77 +7,6 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 import 'dst_world.dart';
 
-/// A foreign-key edge in the simulated world.
-///
-/// `action` is the `onDelete` action the schema declares, and it decides what
-/// [DstOracle.projectionPurity] may demand of a child whose target is gone:
-/// only the value-rewriting actions leave a trace on the column itself.
-typedef DstForeignKey = ({
-  DstTable child,
-  String column,
-  DstTable parent,
-  String action,
-});
-
-/// The foreign-key edges the simulation exercises.
-///
-/// Labels match the synced schema: `Restrict` is rejected at initialize, so
-/// the no-action edge is recorded as `noAction`. Every supported `onDelete`
-/// action appears at least once.
-const dstForeignKeys = <DstForeignKey>[
-  (
-    child: DstTable.town,
-    column: 'cityId',
-    parent: DstTable.city,
-    action: 'cascade',
-  ),
-  (
-    child: DstTable.town,
-    column: 'mayorId',
-    parent: DstTable.person,
-    action: 'setNull',
-  ),
-  (
-    child: DstTable.company,
-    column: 'townId',
-    parent: DstTable.town,
-    action: 'setDefault',
-  ),
-  (
-    child: DstTable.address,
-    column: 'inhabitantId',
-    parent: DstTable.person,
-    action: 'noAction',
-  ),
-  // The only edge where repair and unique resolution act on one column: a
-  // set-null action frees the value, and a restored parent makes it eligible
-  // again on a row that may already be tombstoned.
-  (
-    child: DstTable.uniqueSetNullChild,
-    column: 'parentId',
-    parent: DstTable.person,
-    action: 'setNull',
-  ),
-  (
-    child: DstTable.uniqueFkPair,
-    column: 'leftId',
-    parent: DstTable.person,
-    action: 'noAction',
-  ),
-  (
-    child: DstTable.uniqueFkPair,
-    column: 'rightId',
-    parent: DstTable.person,
-    action: 'setNull',
-  ),
-  (
-    child: DstTable.uniqueMixedFk,
-    column: 'parentId',
-    parent: DstTable.person,
-    action: 'cascade',
-  ),
-];
-
 /// One row as the simulation compares it.
 ///
 /// `visible` is carried rather than filtered out because "hidden here, visible
@@ -570,22 +499,14 @@ class DstOracle {
       if (domainValue == null) return violations;
       final target = snapshot.rows[edge.parent.tableName]?[domainValue];
       if (_available(target, child)) return violations;
-      // `cascade` repairs by hiding the child, and `noAction` by keeping the
-      // parent alive only while a *visible* child needs it. Neither ever
-      // rewrites the column, so a hidden child discharges both on its own.
-      final dischargedByHiding = switch (edge.action) {
-        'cascade' || 'noAction' => !child.visible,
-        'setDefault' =>
-          !child.visible &&
-              target != null &&
-              target.scopeUuid == child.scopeUuid &&
-              !_available(
-                snapshot.rows[edge.parent.tableName]?[dstDefaultTownId],
-                child,
-              ),
-        _ => false,
-      };
-      if (dischargedByHiding) return violations;
+      // A deleted child cannot block its parent. If its action has no legal
+      // repair, retain the original physically valid reference as history.
+      if (!child.visible &&
+          target != null &&
+          target.scopeUuid == child.scopeUuid &&
+          !_canRepair(snapshot, edge, child)) {
+        return violations;
+      }
       violations.add((
         property: 'projectionPurity',
         detail:
@@ -628,12 +549,12 @@ class DstOracle {
     }
 
     if (reason == CrdtProjectionReason.foreignKeySetDefault &&
-        domainValue != dstDefaultTownId) {
+        domainValue != edge.defaultValue) {
       violations.add((
         property: 'projectionPurity',
         detail:
             '$where is set-default but its domain value is $domainValue, '
-            'not the column default $dstDefaultTownId',
+            'not the column default ${edge.defaultValue}',
       ));
     }
 
@@ -657,6 +578,19 @@ class DstOracle {
 
     return violations;
   }
+
+  static bool _canRepair(DstSnapshot snapshot, DstForeignKey edge, DstRow child) =>
+      switch (edge.action) {
+        'setNull' => edge.nullable,
+        'setDefault' =>
+          edge.defaultValue == null
+              ? edge.nullable
+              : _available(
+                  snapshot.rows[edge.parent.tableName]?[edge.defaultValue],
+                  child,
+                ),
+        _ => false,
+      };
 
   /// Whether [child] may reference [target]: present, visible, and in the same
   /// scope, since a foreign key may never cross a scope boundary.
@@ -688,12 +622,14 @@ class DstOracle {
   /// repair.
   static bool _reasonFitsEdge(CrdtProjectionReason reason, DstForeignKey edge) {
     return switch (reason) {
-      CrdtProjectionReason.foreignKeySetNull => edge.action == 'setNull',
+      CrdtProjectionReason.foreignKeySetNull =>
+        edge.action == 'setNull' && edge.nullable,
       CrdtProjectionReason.foreignKeySetDefault => edge.action == 'setDefault',
       CrdtProjectionReason.foreignKeyMissingParent =>
         edge.action == 'cascade' ||
             edge.action == 'noAction' ||
-            edge.action == 'setDefault',
+            edge.action == 'setDefault' ||
+            (edge.action == 'setNull' && !edge.nullable),
       CrdtProjectionReason.uniqueConflict ||
       CrdtProjectionReason.hiddenUniqueRelease => _isUniqueForeignKey(edge),
     };

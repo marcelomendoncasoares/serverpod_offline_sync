@@ -1,0 +1,6 @@
+class: RequiredCascadeChild
+table: required_cascade_child
+database: sync
+fields:
+  name: String
+  parent: Person?, relation(fk, onDelete=Cascade, deferred)

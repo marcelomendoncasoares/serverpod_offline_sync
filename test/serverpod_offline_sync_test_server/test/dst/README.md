@@ -120,31 +120,24 @@ idempotence gets probed.
 | `framework/dst_snapshot.dart` | Canonical snapshots and the property oracle |
 | `framework/dst_runner.dart` | One seeded run, and failure reporting |
 
-The simulated FK graph includes every accepted foreign-key action: `town.cityId` is cascade, `town.mayorId` is set-null,
-`company.townId` is set-default, `address.inhabitantId` is no-action and
-carries the foreign-key-only global unique index, and `unique.name` is unique
-per scope. Synced tables cannot declare `Restrict`; the registry requires
-`NoAction`, which has the same effect. `unique_set_null_child.parentId` is the
-one column where a repair and a unique release compete: set-null frees the
-value, and a restored parent makes it claimable again on a row that may
-already be tombstoned.
+The simulated graph includes nullable and required cascade, no-action,
+set-null, and set-default references, the mixed cascade/no-action chains, and
+all outbound references of person and organization. Person, company, and town
+can form a cycle. Foreign-key actions, nullability, and defaults are read from
+the generated schema; every domain FK of a simulated model is included.
 
-Operation generation mutates every foreign-key column the oracle walks, not
-only a subset of them: town updates retarget `cityId` and `mayorId`, address
-updates retarget `inhabitantId`, and company updates retarget `townId`. The
-set-default target is a well-known town id inserted in a single scope, because
-row ids are globally unique.
+The operation generator selects columns from that same schema. Nullable FKs
+can be detached explicitly even when a parent is available. Required FKs are
+only generated when a visible parent exists. The well-known default town is
+inserted in one scope because row IDs are globally unique.
 
-Projection purity is the only property that checks a replica against itself
-rather than against its peers, so it fails at the merge that caused a bad
-projection rather than at a later comparison. Its population is derived from
-those edges and the domain rows, not from the projection records, because the
-records are sparse: a repair that never ran leaves nothing behind to walk. A
-recorded reason must also be possible for that edge's action: a plausible
-domain value with `foreignKeySetNull` on a cascade column is still a defect.
+Projection purity checks every FK field, including fields without a sparse
+attempted-value record. A hidden child retains its old physical reference when
+its action has no legal repair; it does not block its former parent's deletion.
+Visible children must still have a visible parent in the same scope. Recorded
+projection reasons must match the action and nullability of the column.
 
-The unique simulation also authors and captures non-FK UUID claims, nullable
-integer claims, composite tuples, fixed discriminators, overlapping indexes,
-FK-only composite indexes, and scoped mixed FK/text indexes. The unique oracle
-reads every declared unique index of the simulated models, including all tuple
-components and scope. A null component releases the tuple, as in SQL.
+The unique simulation authors and captures text, non-FK UUID, nullable integer,
+composite, fixed-discriminator, overlapping, FK-only composite, and scoped mixed
+FK/text claims. The unique oracle reads all declared tuple components and scope.
+A null component releases the tuple, as in SQL.

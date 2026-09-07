@@ -1,0 +1,6 @@
+class: NullableSetDefaultChild
+table: nullable_set_default_child
+database: sync
+fields:
+  name: String
+  parent: Person?, relation(fk, optional, onDelete=SetDefault, deferred)

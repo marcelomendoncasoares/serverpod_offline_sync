@@ -23,20 +23,25 @@ import 'fk_chain/set_null_cascade_child.dart' as _ideurard;
 import 'fk_chain/set_null_middle.dart' as _icv70ksq;
 import 'fk_chain/set_null_restrict_child.dart' as _ix62gjf0;
 import 'fk_chain/set_null_set_null_child.dart' as _ihkyqxiw;
+import 'nullable_set_default_child.dart' as _i6rvg9xd;
 import 'organization.dart' as _irjtvpke;
 import 'person.dart' as _iensfz4m;
+import 'required_cascade_child.dart' as _ivx9jyda;
+import 'required_no_action_child.dart' as _itlfbi2f;
 import 'required_set_null_child.dart' as _i1huw131;
 import 'restrict_child.dart' as _isrf0aof;
 import 'town.dart' as _iytblq2r;
 import 'types.dart' as _iwxwszsz;
 import 'unique.dart' as _ivpwn84u;
 import 'unique_cascade_child.dart' as _ixnh46zn;
+import 'unique_cascade_reference.dart' as _i0zcsmnb;
 import 'unique_composite.dart' as _iv4klbbv;
 import 'unique_discriminator.dart' as _ixfoa5hm;
 import 'unique_fk_pair.dart' as _i5m48tdh;
 import 'unique_mixed_fk.dart' as _iokqgjqx;
 import 'unique_nullable.dart' as _idc55xas;
 import 'unique_overlapping.dart' as _ippyxdoe;
+import 'unique_set_default_child.dart' as _imetod6b;
 import 'unique_set_null_child.dart' as _iy3qfphx;
 import 'unique_uuid.dart' as _i5jtfsbn;
 
@@ -56,20 +61,25 @@ final List<_isd.Table> syncTables = [
   _icv70ksq.FkChainSetNullMiddle.t,
   _ix62gjf0.FkChainSetNullRestrictChild.t,
   _ihkyqxiw.FkChainSetNullSetNullChild.t,
+  _i6rvg9xd.NullableSetDefaultChild.t,
   _irjtvpke.Organization.t,
   _iensfz4m.Person.t,
+  _ivx9jyda.RequiredCascadeChild.t,
+  _itlfbi2f.RequiredNoActionChild.t,
   _i1huw131.RequiredSetNullChild.t,
   _isrf0aof.RestrictChild.t,
   _iytblq2r.Town.t,
   _iwxwszsz.Types.t,
   _ivpwn84u.Unique.t,
   _ixnh46zn.UniqueCascadeChild.t,
+  _i0zcsmnb.UniqueCascadeReference.t,
   _iv4klbbv.UniqueComposite.t,
   _ixfoa5hm.UniqueDiscriminator.t,
   _i5m48tdh.UniqueFkPair.t,
   _iokqgjqx.UniqueMixedFk.t,
   _idc55xas.UniqueNullable.t,
   _ippyxdoe.UniqueOverlapping.t,
+  _imetod6b.UniqueSetDefaultChild.t,
   _iy3qfphx.UniqueSetNullChild.t,
   _i5jtfsbn.UniqueUuid.t,
 ];
