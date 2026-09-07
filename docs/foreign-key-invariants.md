@@ -53,7 +53,10 @@ soft-deleted instead of removed:
   FK is nullable, and those child FK fields receive ordinary CRDT field updates.
 - `ON DELETE SET DEFAULT`: visible child FK columns are updated to the column
   default when the default is legal, and those child FK fields receive ordinary
-  CRDT field updates.
+  CRDT field updates. A nullable null default is legal; a non-null default must
+  remain visible in the same scope after the delete. A default in the same
+  delete batch is unavailable. An invalid default rejects the transaction,
+  including any earlier repairs or tombstones in that transaction.
 - `ON DELETE CASCADE`: visible cascade descendants receive synced
   user-delete tombstones. Local cascade descendants are not hidden only as
   `foreignKeyCascade` projection rows.

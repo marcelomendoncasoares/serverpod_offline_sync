@@ -194,21 +194,36 @@ class CrdtForeignKeyProjector {
               transaction,
             );
           case ForeignKeyAction.setDefault:
-            final defaultValue = _context.defaultValueForColumn(
-              reference.childTableName,
-              reference.childColumn,
+            final edge = _foreignKeys.edgesByChildTable[reference.childTableName]!
+                .firstWhere((edge) => edge.childColumn == reference.childColumn);
+            final repair = await _defaultProjectionValueFromDatabase(
+              edge,
+              transaction,
             );
-            if (defaultValue == null) {
-              throw StateError(
-                'No default value found for '
-                '${reference.childTableName}.${reference.childColumn}.',
+            // Soft deletion leaves the physical target in place, so the SQL
+            // FK cannot reject a hidden or cross-scope default for us. A target
+            // in this delete batch is still visible now but cannot be a repair.
+            final deletesDefault =
+                repair.value != null &&
+                (reference.parentColumn == 'id'
+                    ? parentIds.contains(repair.value)
+                    : parentValuesById!.values.any(
+                        (values) =>
+                            values[reference.parentColumn].toUuidValue() ==
+                            repair.value,
+                      ));
+            if (!repair.valid || deletesDefault) {
+              throw Exception(
+                'Cannot delete $parentTableName row because '
+                '${reference.childTableName}.${reference.childColumn} '
+                'has no legal set-default target.',
               );
             }
             await _updateChildColumnTo(
               reference.childTableName,
               childIds,
               reference.childColumn,
-              defaultValue,
+              repair.value,
               transaction,
             );
           case ForeignKeyAction.cascade:
