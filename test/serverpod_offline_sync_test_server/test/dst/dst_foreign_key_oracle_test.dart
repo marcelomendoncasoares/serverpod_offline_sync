@@ -11,6 +11,60 @@ void main() {
   initTestClientSession();
 
   test(
+    'Given a unique nullable set-default child referencing its default town, '
+    'when the child is deleted and its released field is read back, '
+    'then the hidden row retains null while the schema retains its non-null default.',
+    () async {
+      final ids = DstIds(DstRandom(118));
+      final scope = ids.next();
+      final replica = await DstReplica.create(
+        name: 'replica',
+        scopeUuids: [scope],
+        nodeUuid: ids.next(),
+        clock: DstClock().clock,
+      );
+      final parent = Town(id: dstDefaultTownId, name: 'default');
+      final child = UniqueSetDefaultChild(
+        id: ids.next(),
+        name: 'child',
+        parentId: parent.id,
+      );
+      await replica.withReplicaClock(
+        () => replica.session.db.transactionForUser(scope, (tx) async {
+          await Town.db.insertRow(replica.session, parent, transaction: tx);
+          await UniqueSetDefaultChild.db.insertRow(
+            replica.session,
+            child,
+            transaction: tx,
+          );
+        }),
+      );
+
+      await replica.withReplicaClock(
+        () => replica.session.db.transactionForUser(scope, (tx) async {
+          await UniqueSetDefaultChild.db.deleteRow(
+            replica.session,
+            child,
+            transaction: tx,
+          );
+        }),
+      );
+      final snapshot = await DstSnapshot.capture(replica);
+
+      final hidden = snapshot.rows['unique_set_default_child']![child.id]!;
+      expect(hidden.visible, isFalse);
+      expect(hidden.columns['parentId'], isNull);
+      expect(
+        dstForeignKeys
+            .singleWhere((edge) => edge.child == DstTable.uniqueSetDefaultChild)
+            .defaultValue,
+        parent.id,
+      );
+      expect(DstOracle.invariants(snapshot), isEmpty);
+    },
+  );
+
+  test(
     'Given a visible person referencing a hidden company, '
     'when its snapshot is checked, '
     'then the oracle rejects the unrepaired reference.',

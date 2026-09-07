@@ -22,11 +22,9 @@ abstract class UniqueSetDefaultChild
     this.id,
     this.scopeId,
     required this.name,
-    _is.UuidValue? parentId,
+    this.parentId,
     this.parent,
-  }) : parentId =
-           parentId ??
-           _is.UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000');
+  });
 
   factory UniqueSetDefaultChild({
     _is.UuidValue? id,

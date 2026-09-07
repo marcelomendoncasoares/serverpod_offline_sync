@@ -3,5 +3,6 @@ table: unique_set_default_child
 database: sync
 fields:
   name: String
-  parentId: UuidValue?, default='550e8400-e29b-41d4-a716-446655440000', unique
+  # Keep the database default without replacing explicit nulls on model reads.
+  parentId: UuidValue?, defaultPersist='550e8400-e29b-41d4-a716-446655440000', unique
   parent: Town?, relation(field=parentId, onDelete=SetDefault, deferred)

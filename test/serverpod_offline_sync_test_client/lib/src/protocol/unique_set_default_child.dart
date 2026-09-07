@@ -23,11 +23,9 @@ abstract class UniqueSetDefaultChild
     this.id,
     this.scopeId,
     required this.name,
-    _isc.UuidValue? parentId,
+    this.parentId,
     this.parent,
-  }) : parentId =
-           parentId ??
-           _isc.UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000');
+  });
 
   factory UniqueSetDefaultChild({
     _isc.UuidValue? id,
