@@ -1,7 +1,7 @@
 import 'package:clock/clock.dart';
 // Imported with `show` because the barrel below re-exports overlapping names.
 import 'package:serverpod_database/serverpod_database.dart'
-    show DatabaseSession, Transaction;
+    show DatabaseSession, TableRow, Transaction;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -236,6 +236,10 @@ class DstOperations {
   /// can assert the simulation actually exercised the constrained paths.
   final List<String> rejections = [];
 
+  /// Committed paths, retaining table and action so a sweep exposes omissions.
+  final Map<String, int> appliedPaths = {};
+  final Map<String, int> attemptedPaths = {};
+
   /// Applies one randomly chosen operation on [replica] in [scopeUuid].
   Future<DstOperationOutcome> step(
     DstReplica replica,
@@ -246,6 +250,15 @@ class DstOperations {
       DstAction.insert: 5,
       DstAction.update: 3,
       DstAction.delete: 2,
+      DstAction.restore: 2,
+      DstAction.fullRowUpdate: 2,
+      DstAction.upsert: 2,
+      DstAction.insertBatch: 2,
+      DstAction.updateBatch: 2,
+      DstAction.deleteBatch: 1,
+      DstAction.swapUnique: 2,
+      DstAction.updateWhere: 1,
+      DstAction.deleteWhere: 1,
     });
     return apply(replica, scopeUuid, table: table, action: action);
   }
@@ -259,13 +272,19 @@ class DstOperations {
     required DstTable table,
     required DstAction action,
   }) async {
+    final path = '${table.tableName}.${action.name}';
+    attemptedPaths.update(path, (count) => count + 1, ifAbsent: () => 1);
     try {
-      return await replica.withReplicaClock(
+      final outcome = await replica.withReplicaClock(
         () => replica.session.db.transactionForUser(
           scopeUuid,
           (tx) => _apply(replica, table, action, tx),
         ),
       );
+      if (outcome == DstOperationOutcome.applied) {
+        appliedPaths.update(path, (count) => count + 1, ifAbsent: () => 1);
+      }
+      return outcome;
     } on Exception catch (exception) {
       final message = exception.toString();
       if (_isExpectedRejection(message)) {
@@ -290,32 +309,179 @@ class DstOperations {
   ) async {
     final session = replica.session;
     final model = table.model;
-    final existing = action == DstAction.insert
-        ? null
-        : await _pickRow(model.find(session, transaction: tx));
-    if (action != DstAction.insert && existing == null) {
-      return DstOperationOutcome.skipped;
-    }
-    if (action == DstAction.delete) {
-      await model.delete(session, existing!, tx);
+    final visible = await model.find(session, transaction: tx);
+
+    if (action == DstAction.restore) {
+      final all = await model.find(session, transaction: tx, includeHidden: true);
+      final visibleIds = visible.map((row) => row.id).toSet();
+      final hidden = all.where((row) => !visibleIds.contains(row.id)).toList();
+      final row = random.pickOrNull(hidden);
+      if (row == null) return DstOperationOutcome.skipped;
+      // Reuse the identity and pass the materialized row through. The engine
+      // must recover any authored unique/FK claim retained behind projection.
+      await model.insert(session, row, tx);
       return DstOperationOutcome.applied;
     }
 
+    if (action == DstAction.insert || action == DstAction.insertBatch) {
+      final rows = <TableRow<UuidValue?>>[];
+      final count = action == DstAction.insertBatch ? 2 : 1;
+      for (var index = 0; index < count; index++) {
+        final row = await _generatedRow(session, table, tx);
+        if (row == null) return DstOperationOutcome.skipped;
+        rows.add(row);
+      }
+      if (action == DstAction.insertBatch) {
+        await model.insertBatch(session, rows, tx);
+      } else {
+        await model.insert(session, rows.single, tx);
+      }
+      return DstOperationOutcome.applied;
+    }
+
+    if (action == DstAction.upsert) {
+      final all = await model.find(session, transaction: tx, includeHidden: true);
+      final existing = random.pickOrNull(all);
+      final row = await _generatedRow(session, table, tx, existing: existing);
+      if (row == null) return DstOperationOutcome.skipped;
+      await model.upsert(session, row, tx);
+      return DstOperationOutcome.applied;
+    }
+
+    if (visible.isEmpty) return DstOperationOutcome.skipped;
+    final first = random.pick(visible);
+    if (action == DstAction.delete) {
+      await model.delete(session, first, tx);
+      return DstOperationOutcome.applied;
+    }
+
+    final rest = visible.where((row) => row.id != first.id).toList();
+    final second = random.pickOrNull(rest);
+    final selected = [first, ?second];
+    if (action == DstAction.deleteBatch) {
+      await model.deleteBatch(session, selected, tx);
+      return DstOperationOutcome.applied;
+    }
+    if (action == DstAction.deleteWhere) {
+      await model.deleteWhere(session, selected.map((row) => row.id!).toSet(), tx);
+      return DstOperationOutcome.applied;
+    }
+
+    if (action == DstAction.swapUnique) {
+      if (second == null) return DstOperationOutcome.skipped;
+      final indexes = dstUniqueIndexes.where((index) => index.table == table).toList();
+      final index = random.pickOrNull(indexes);
+      if (index == null) return DstOperationOutcome.skipped;
+      final columns = index.columns.where((column) => column != 'scopeId').toSet();
+      final left = first.toJson() as Map<String, dynamic>;
+      final right = second.toJson() as Map<String, dynamic>;
+      final swappedLeft = {
+        ...left,
+        for (final column in columns) column: right[column],
+      };
+      final swappedRight = {
+        ...right,
+        for (final column in columns) column: left[column],
+      };
+      await model.updateBatch(
+        session,
+        [model.fromJson(swappedLeft), model.fromJson(swappedRight)],
+        columns,
+        tx,
+      );
+      return DstOperationOutcome.applied;
+    }
+
+    final columns = _columns(table);
+    if (action == DstAction.fullRowUpdate) {
+      // A full model from a read often passes repaired fields back unchanged.
+      // Change an unrelated field where one exists to probe that distinction.
+      final unrelated = columns
+          .where(
+            (column) =>
+                !dstForeignKeys.any(
+                  (edge) => edge.child == table && edge.column == column,
+                ) &&
+                !dstUniqueIndexes.any(
+                  (index) => index.table == table && index.columns.contains(column),
+                ),
+          )
+          .toList();
+      final changed = unrelated.isEmpty ? <String>{} : {random.pick(unrelated)};
+      final row = await _generatedRow(
+        session,
+        table,
+        tx,
+        existing: first,
+        columns: changed,
+      );
+      if (row == null) return DstOperationOutcome.skipped;
+      await model.update(session, row, null, tx);
+      return DstOperationOutcome.applied;
+    }
+
+    final changed = {random.pick(columns)};
+    final updatedFirst = await _generatedRow(
+      session,
+      table,
+      tx,
+      existing: first,
+      columns: changed,
+    );
+    if (updatedFirst == null) return DstOperationOutcome.skipped;
+    if (action == DstAction.updateWhere) {
+      final data = updatedFirst.toJson() as Map<String, dynamic>;
+      await model.updateWhere(session, selected.map((row) => row.id!).toSet(), {
+        for (final column in changed) column: data[column],
+      }, tx);
+    } else if (action == DstAction.updateBatch) {
+      final updated = [updatedFirst];
+      if (second != null) {
+        final row = await _generatedRow(
+          session,
+          table,
+          tx,
+          existing: second,
+          columns: changed,
+        );
+        if (row == null) return DstOperationOutcome.skipped;
+        updated.add(row);
+      }
+      await model.updateBatch(session, updated, changed, tx);
+    } else {
+      await model.update(session, updatedFirst, changed, tx);
+    }
+    return DstOperationOutcome.applied;
+  }
+
+  List<String> _columns(DstTable table) => table.definition.columns
+      .where((column) => column.name != 'id' && column.name != 'scopeId')
+      .map((column) => column.name)
+      .toList();
+
+  Future<TableRow<UuidValue?>?> _generatedRow(
+    DatabaseSession session,
+    DstTable table,
+    Transaction tx, {
+    TableRow<UuidValue?>? existing,
+    Set<String>? columns,
+  }) async {
     final data = existing == null
         ? <String, dynamic>{'id': _newId().toJson()}
         : existing.toJson() as Map<String, dynamic>;
-    final columns = table.definition.columns
-        .where((column) => column.name != 'id' && column.name != 'scopeId')
-        .toList();
-    final changed = existing == null ? columns : [random.pick(columns)];
-    for (final column in changed) {
+    final changed =
+        columns ??
+        (existing == null ? _columns(table).toSet() : {random.pick(_columns(table))});
+    for (final column in table.definition.columns.where(
+      (column) => changed.contains(column.name),
+    )) {
       final edges = dstForeignKeys.where(
         (edge) => edge.child == table && edge.column == column.name,
       );
       if (edges.isNotEmpty) {
         final edge = edges.single;
         final parent = await _pickRow(edge.parent.model.find(session, transaction: tx));
-        if (parent == null && !edge.nullable) return DstOperationOutcome.skipped;
+        if (parent == null && !edge.nullable) return null;
         data[column.name] = edge.nullable && random.chance(0.25)
             ? null
             : (parent?.toJson() as Map<String, dynamic>?)?[edge.parentColumn];
@@ -335,18 +501,7 @@ class DstOperations {
         throw StateError('No generated value for ${table.tableName}.${column.name}');
       }
     }
-    final row = model.fromJson(data);
-    if (existing == null) {
-      await model.insert(session, row, tx);
-    } else {
-      await model.update(
-        session,
-        row,
-        changed.map((column) => column.name).toSet(),
-        tx,
-      );
-    }
-    return DstOperationOutcome.applied;
+    return table.model.fromJson(data);
   }
 
   Future<T?> _pickRow<T>(Future<List<T>> rows) async => random.pickOrNull(await rows);
@@ -376,4 +531,17 @@ class DstOperations {
   }
 }
 
-enum DstAction { insert, update, delete }
+enum DstAction {
+  insert,
+  update,
+  delete,
+  restore,
+  fullRowUpdate,
+  upsert,
+  insertBatch,
+  updateBatch,
+  deleteBatch,
+  swapUnique,
+  updateWhere,
+  deleteWhere,
+}

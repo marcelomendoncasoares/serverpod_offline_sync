@@ -52,10 +52,10 @@ the failure and replay it.
 | Property | When it is checked |
 | --- | --- |
 | **Observer independence** - a scope looks identical to every replica holding it, whatever *other* scopes that replica holds | At quiescence |
-| **No cross-scope link** - no visible foreign key resolves to a row owned by another scope | After every merge |
-| **Foreign-key closure** - every visible foreign key resolves to a visible parent in the same scope | After every merge |
-| **Unique closure** - no visible unique index is violated | After every merge |
-| **Projection purity** - every foreign-key column holds what its authored value and its target's visibility imply, whether or not a projection was recorded against it | After every merge |
+| **No cross-scope link** - no visible foreign key resolves to a row owned by another scope | After every local commit and merge |
+| **Foreign-key closure** - every visible foreign key resolves to a visible parent in the same scope | After every local commit and merge |
+| **Unique closure** - no visible unique index is violated | After every local commit and merge |
+| **Projection purity** - every foreign-key column holds what its authored value and its target's visibility imply, whether or not a projection was recorded against it | After every local commit and merge |
 | **Ownership collision is terminal** - a merge claiming another scope's row id fails, records a durable violation, and leaves the owner untouched | `dst_ownership_collision_test.dart` |
 
 Observer independence is the keystone. A synced row may only reference synced
@@ -141,3 +141,11 @@ The unique simulation authors and captures text, non-FK UUID, nullable integer,
 composite, fixed-discriminator, overlapping, FK-only composite, and scoped mixed
 FK/text claims. The unique oracle reads all declared tuple components and scope.
 A null component releases the tuple, as in SQL.
+
+The scheduler can insert, update, delete, restore a retained identity, upsert,
+pass a full model back through update, insert/update/delete a batch, swap unique
+tuples atomically, and perform predicate updates/deletes. Scripted regressions
+use `DstOperations.apply` to select the same paths directly. Reports retain
+attempted and committed counts by table/action so a passing run does not hide
+which paths it visited. Rejected local transactions remain separate from
+committed operations.

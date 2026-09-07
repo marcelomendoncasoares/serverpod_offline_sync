@@ -55,6 +55,8 @@ class DstRunReport {
     required this.rejected,
     required this.visibleRows,
     required this.hiddenRows,
+    required this.appliedPaths,
+    required this.attemptedPaths,
   });
 
   /// The seed that produced the run.
@@ -75,10 +77,13 @@ class DstRunReport {
   /// Hidden rows at quiescence, summed across replicas.
   final int hiddenRows;
 
+  final Map<String, int> appliedPaths;
+  final Map<String, int> attemptedPaths;
+
   @override
   String toString() =>
       'seed=$seed merges=$merges applied=$applied rejected=$rejected '
-      'visible=$visibleRows hidden=$hiddenRows';
+      'visible=$visibleRows hidden=$hiddenRows paths=$appliedPaths';
 }
 
 /// Runs one seeded simulation and checks every property.
@@ -146,7 +151,10 @@ Future<DstRunReport> runDstSimulation({
       final scopeUuid = random.pickOrNull(replica.scopeUuids);
       if (scopeUuid == null) continue;
       final outcome = await operations.step(replica, scopeUuid);
-      if (outcome == DstOperationOutcome.applied) applied++;
+      if (outcome == DstOperationOutcome.applied) {
+        applied++;
+        await checkInvariants(replica);
+      }
       simulationClock.advance(Duration(milliseconds: random.between(1, 40)));
     }
     await adversary.step(checkInvariants);
@@ -191,6 +199,8 @@ Future<DstRunReport> runDstSimulation({
       0,
       (sum, snapshot) => sum + snapshot.visibleRowCount,
     ),
+    appliedPaths: Map.unmodifiable(operations.appliedPaths),
+    attemptedPaths: Map.unmodifiable(operations.attemptedPaths),
     hiddenRows: snapshots.values.fold(
       0,
       (sum, snapshot) => sum + snapshot.hiddenRowCount,

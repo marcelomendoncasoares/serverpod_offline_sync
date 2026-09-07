@@ -66,18 +66,71 @@ class DstModel<T extends db.TableRow<models.UuidValue?>> {
   Future<T> update(
     db.DatabaseSession session,
     db.TableRow row,
-    Set<String> columns,
+    Set<String>? columns,
     db.Transaction tx,
   ) => session.db.updateRow<T>(
     row as T,
+    columns: columns == null
+        ? null
+        : table.columns.where((column) => columns.contains(column.columnName)).toList(),
+    transaction: tx,
+  );
+
+  Future<T> delete(db.DatabaseSession session, db.TableRow row, db.Transaction tx) =>
+      session.db.deleteRow<T>(row as T, transaction: tx);
+  Future<List<T>> insertBatch(
+    db.DatabaseSession session,
+    List<db.TableRow> rows,
+    db.Transaction tx,
+  ) => session.db.insert<T>(rows.cast<T>(), transaction: tx);
+
+  Future<List<T>> updateBatch(
+    db.DatabaseSession session,
+    List<db.TableRow> rows,
+    Set<String> columns,
+    db.Transaction tx,
+  ) => session.db.update<T>(
+    rows.cast<T>(),
     columns: table.columns
         .where((column) => columns.contains(column.columnName))
         .toList(),
     transaction: tx,
   );
 
-  Future<T> delete(db.DatabaseSession session, db.TableRow row, db.Transaction tx) =>
-      session.db.deleteRow<T>(row as T, transaction: tx);
+  Future<List<T>> deleteBatch(
+    db.DatabaseSession session,
+    List<db.TableRow> rows,
+    db.Transaction tx,
+  ) => session.db.delete<T>(rows.cast<T>(), transaction: tx);
+
+  Future<T?> upsert(db.DatabaseSession session, db.TableRow row, db.Transaction tx) =>
+      session.db.upsertRow<T>(row as T, conflictColumns: [table.id], transaction: tx);
+
+  Future<List<T>> updateWhere(
+    db.DatabaseSession session,
+    Set<models.UuidValue> ids,
+    Map<String, dynamic> values,
+    db.Transaction tx,
+  ) => session.db.updateWhere<T>(
+    where: table.id.inSet(ids),
+    columnValues: [
+      for (final column in table.columns)
+        if (values.containsKey(column.columnName))
+          db.ColumnValue(
+            column,
+            column is db.ColumnUuid && values[column.columnName] != null
+                ? models.UuidValue.withValidation(values[column.columnName] as String)
+                : values[column.columnName],
+          ),
+    ],
+    transaction: tx,
+  );
+
+  Future<List<T>> deleteWhere(
+    db.DatabaseSession session,
+    Set<models.UuidValue> ids,
+    db.Transaction tx,
+  ) => session.db.deleteWhere<T>(where: table.id.inSet(ids), transaction: tx);
 }
 
 final dstModels = <DstTable, DstModel<db.TableRow<models.UuidValue?>>>{
