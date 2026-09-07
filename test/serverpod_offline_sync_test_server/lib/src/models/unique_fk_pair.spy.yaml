@@ -1,0 +1,13 @@
+class: UniqueFkPair
+table: unique_fk_pair
+database: sync
+fields:
+  name: String
+  leftId: UuidValue?
+  left: Person?, relation(field=leftId, onDelete=NoAction, deferred)
+  rightId: UuidValue?
+  right: Person?, relation(field=rightId, onDelete=SetNull, deferred)
+indexes:
+  unique_fk_pair_parents:
+    fields: leftId, rightId
+    unique: true

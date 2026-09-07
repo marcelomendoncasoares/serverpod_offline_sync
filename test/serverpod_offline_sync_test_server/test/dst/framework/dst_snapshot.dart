@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 // Imported with `show` because the barrel below re-exports overlapping names.
 import 'package:serverpod_database/serverpod_database.dart' show TableRow;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
@@ -55,6 +57,24 @@ const dstForeignKeys = <DstForeignKey>[
     column: 'parentId',
     parent: DstTable.person,
     action: 'setNull',
+  ),
+  (
+    child: DstTable.uniqueFkPair,
+    column: 'leftId',
+    parent: DstTable.person,
+    action: 'noAction',
+  ),
+  (
+    child: DstTable.uniqueFkPair,
+    column: 'rightId',
+    parent: DstTable.person,
+    action: 'setNull',
+  ),
+  (
+    child: DstTable.uniqueMixedFk,
+    column: 'parentId',
+    parent: DstTable.person,
+    action: 'cascade',
   ),
 ];
 
@@ -292,39 +312,7 @@ class DstSnapshot {
     DstTable table, {
     required bool includeHidden,
   }) async {
-    return switch (table) {
-      DstTable.city =>
-        includeHidden
-            ? City.db.find(session, where: (t) => t.includeHiddenRows)
-            : City.db.find(session),
-      DstTable.person =>
-        includeHidden
-            ? Person.db.find(session, where: (t) => t.includeHiddenRows)
-            : Person.db.find(session),
-      DstTable.town =>
-        includeHidden
-            ? Town.db.find(session, where: (t) => t.includeHiddenRows)
-            : Town.db.find(session),
-      DstTable.company =>
-        includeHidden
-            ? Company.db.find(session, where: (t) => t.includeHiddenRows)
-            : Company.db.find(session),
-      DstTable.address =>
-        includeHidden
-            ? Address.db.find(session, where: (t) => t.includeHiddenRows)
-            : Address.db.find(session),
-      DstTable.unique =>
-        includeHidden
-            ? Unique.db.find(session, where: (t) => t.includeHiddenRows)
-            : Unique.db.find(session),
-      DstTable.uniqueSetNullChild =>
-        includeHidden
-            ? UniqueSetNullChild.db.find(
-                session,
-                where: (t) => t.includeHiddenRows,
-              )
-            : UniqueSetNullChild.db.find(session),
-    };
+    return table.model.find(session, includeHidden: includeHidden);
   }
 }
 
@@ -456,66 +444,34 @@ class DstOracle {
     return violations;
   }
 
-  /// No visible unique index is violated.
-  ///
-  /// `unique.name` is unique per scope; `address.inhabitantId` and
-  /// `unique_set_null_child.parentId` carry the foreign-key-only global unique
-  /// index.
+  /// No visible unique tuple is claimed twice. NULL in any component releases
+  /// a SQL unique tuple; scope uses its portable UUID instead of local scopeId.
   static List<DstViolation> uniqueClosure(DstSnapshot snapshot) {
     final violations = <DstViolation>[];
-
-    final namesByScope = <String, UuidValue>{};
-    final uniqueRows = snapshot.visible[DstTable.unique.tableName] ?? const {};
-    for (final entry in uniqueRows.entries) {
-      final key = '${entry.value.scopeUuid}|${entry.value.columns['name']}';
-      final existing = namesByScope[key];
-      if (existing != null) {
-        violations.add((
-          property: 'uniqueClosure',
-          detail: 'unique.name "$key" held by both $existing and ${entry.key}',
-        ));
-        continue;
+    for (final index in dstUniqueIndexes) {
+      final claims = <String, UuidValue>{};
+      for (final entry
+          in (snapshot.visible[index.table.tableName] ?? const {}).entries) {
+        final values = [
+          for (final column in index.columns)
+            column == 'scopeId'
+                ? entry.value.scopeUuid.toJson()
+                : entry.value.columns[column],
+        ];
+        if (values.any((value) => value == null)) continue;
+        final key = jsonEncode(values);
+        final previous = claims[key];
+        if (previous != null) {
+          violations.add((
+            property: 'uniqueClosure',
+            detail:
+                '${index.table.tableName}.${index.name} $key held by both $previous and ${entry.key}',
+          ));
+        } else {
+          claims[key] = entry.key;
+        }
       }
-      namesByScope[key] = entry.key;
     }
-
-    final inhabitants = <UuidValue, UuidValue>{};
-    final addresses = snapshot.visible[DstTable.address.tableName] ?? const {};
-    for (final entry in addresses.entries) {
-      final value = _foreignKeyValue(entry.value.columns, 'inhabitantId');
-      if (value == null) continue;
-      final existing = inhabitants[value];
-      if (existing != null) {
-        violations.add((
-          property: 'uniqueClosure',
-          detail:
-              'address.inhabitantId $value held by both $existing and '
-              '${entry.key}',
-        ));
-        continue;
-      }
-      inhabitants[value] = entry.key;
-    }
-
-    final parents = <UuidValue, UuidValue>{};
-    final uniqueChildren =
-        snapshot.visible[DstTable.uniqueSetNullChild.tableName] ?? const {};
-    for (final entry in uniqueChildren.entries) {
-      final value = _foreignKeyValue(entry.value.columns, 'parentId');
-      if (value == null) continue;
-      final existing = parents[value];
-      if (existing != null) {
-        violations.add((
-          property: 'uniqueClosure',
-          detail:
-              'unique_set_null_child.parentId $value held by both $existing '
-              'and ${entry.key}',
-        ));
-        continue;
-      }
-      parents[value] = entry.key;
-    }
-
     return violations;
   }
 
@@ -744,9 +700,9 @@ class DstOracle {
   }
 
   /// Whether [edge] carries a unique index on the foreign-key column itself.
-  static bool _isUniqueForeignKey(DstForeignKey edge) =>
-      (edge.child == DstTable.address && edge.column == 'inhabitantId') ||
-      (edge.child == DstTable.uniqueSetNullChild && edge.column == 'parentId');
+  static bool _isUniqueForeignKey(DstForeignKey edge) => dstUniqueIndexes.any(
+    (index) => index.table == edge.child && index.columns.contains(edge.column),
+  );
 
   /// The structural invariants that must hold after every merge.
   static List<DstViolation> invariants(DstSnapshot snapshot) => [

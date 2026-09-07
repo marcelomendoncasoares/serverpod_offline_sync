@@ -40,7 +40,11 @@ import 'unique.dart' as _ivpwn84u;
 import 'unique_cascade_child.dart' as _ixnh46zn;
 import 'unique_composite.dart' as _iv4klbbv;
 import 'unique_discriminator.dart' as _ixfoa5hm;
+import 'unique_fk_pair.dart' as _i5m48tdh;
+import 'unique_mixed_fk.dart' as _iokqgjqx;
 import 'unique_no_release.dart' as _i91ey4jd;
+import 'unique_nullable.dart' as _idc55xas;
+import 'unique_overlapping.dart' as _ippyxdoe;
 import 'unique_set_null_child.dart' as _iy3qfphx;
 import 'unique_uuid.dart' as _i5jtfsbn;
 export 'address.dart';
@@ -66,7 +70,11 @@ export 'unique.dart';
 export 'unique_cascade_child.dart';
 export 'unique_composite.dart';
 export 'unique_discriminator.dart';
+export 'unique_fk_pair.dart';
+export 'unique_mixed_fk.dart';
 export 'unique_no_release.dart';
+export 'unique_nullable.dart';
+export 'unique_overlapping.dart';
 export 'unique_set_null_child.dart';
 export 'unique_uuid.dart';
 export 'sync_tables.dart';
@@ -1485,6 +1493,179 @@ class Protocol extends _is.DatabaseSerializationManager {
       managed: true,
     ),
     _isp.TableDefinition(
+      name: 'unique_fk_pair',
+      dartName: 'UniqueFkPair',
+      schema: 'public',
+      module: 'serverpod_offline_sync_test',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue?',
+          columnDefault: 'random_v7',
+        ),
+        _isp.ColumnDefinition(
+          name: 'scopeId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'name',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'leftId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'rightId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_fk_pair_fk_0',
+          columns: ['scopeId'],
+          referenceTable: 'crdt_scopes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_fk_pair_fk_1',
+          columns: ['leftId'],
+          referenceTable: 'person',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.noAction,
+          matchType: null,
+          deferrable: _isp.DeferrableConstraint.initiallyDeferred,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_fk_pair_fk_2',
+          columns: ['rightId'],
+          referenceTable: 'person',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.setNull,
+          matchType: null,
+          deferrable: _isp.DeferrableConstraint.initiallyDeferred,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'unique_fk_pair_parents',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'leftId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'rightId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'unique_mixed_fk',
+      dartName: 'UniqueMixedFk',
+      schema: 'public',
+      module: 'serverpod_offline_sync_test',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue?',
+          columnDefault: 'random_v7',
+        ),
+        _isp.ColumnDefinition(
+          name: 'scopeId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'name',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'parentId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_mixed_fk_fk_0',
+          columns: ['scopeId'],
+          referenceTable: 'crdt_scopes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_mixed_fk_fk_1',
+          columns: ['parentId'],
+          referenceTable: 'person',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+          deferrable: _isp.DeferrableConstraint.initiallyDeferred,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'unique_mixed_fk_name_parent',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'scopeId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'name',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'parentId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
       name: 'unique_no_release',
       dartName: 'UniqueNoRelease',
       schema: 'public',
@@ -1534,6 +1715,161 @@ class Protocol extends _is.DatabaseSerializationManager {
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
               definition: 'categoryId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'unique_nullable',
+      dartName: 'UniqueNullable',
+      schema: 'public',
+      module: 'serverpod_offline_sync_test',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue?',
+          columnDefault: 'random_v7',
+        ),
+        _isp.ColumnDefinition(
+          name: 'scopeId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'value',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_nullable_fk_0',
+          columns: ['scopeId'],
+          referenceTable: 'crdt_scopes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'unique_nullable__scopeId__value__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'scopeId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'value',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'unique_overlapping',
+      dartName: 'UniqueOverlapping',
+      schema: 'public',
+      module: 'serverpod_offline_sync_test',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue?',
+          columnDefault: 'random_v7',
+        ),
+        _isp.ColumnDefinition(
+          name: 'scopeId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'first',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'second',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'third',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'unique_overlapping_fk_0',
+          columns: ['scopeId'],
+          referenceTable: 'crdt_scopes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'unique_overlapping_first_second',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'scopeId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'first',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'second',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'unique_overlapping_second_third',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'scopeId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'second',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'third',
             ),
           ],
           type: 'btree',
@@ -1775,8 +2111,20 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _ixfoa5hm.UniqueDiscriminator) {
       return _ixfoa5hm.UniqueDiscriminator.fromJson(data) as T;
     }
+    if (t == _i5m48tdh.UniqueFkPair) {
+      return _i5m48tdh.UniqueFkPair.fromJson(data) as T;
+    }
+    if (t == _iokqgjqx.UniqueMixedFk) {
+      return _iokqgjqx.UniqueMixedFk.fromJson(data) as T;
+    }
     if (t == _i91ey4jd.UniqueNoRelease) {
       return _i91ey4jd.UniqueNoRelease.fromJson(data) as T;
+    }
+    if (t == _idc55xas.UniqueNullable) {
+      return _idc55xas.UniqueNullable.fromJson(data) as T;
+    }
+    if (t == _ippyxdoe.UniqueOverlapping) {
+      return _ippyxdoe.UniqueOverlapping.fromJson(data) as T;
     }
     if (t == _iy3qfphx.UniqueSetNullChild) {
       return _iy3qfphx.UniqueSetNullChild.fromJson(data) as T;
@@ -1886,8 +2234,23 @@ class Protocol extends _is.DatabaseSerializationManager {
               : null)
           as T;
     }
+    if (t == _is.getType<_i5m48tdh.UniqueFkPair?>()) {
+      return (data != null ? _i5m48tdh.UniqueFkPair.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iokqgjqx.UniqueMixedFk?>()) {
+      return (data != null ? _iokqgjqx.UniqueMixedFk.fromJson(data) : null)
+          as T;
+    }
     if (t == _is.getType<_i91ey4jd.UniqueNoRelease?>()) {
       return (data != null ? _i91ey4jd.UniqueNoRelease.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_idc55xas.UniqueNullable?>()) {
+      return (data != null ? _idc55xas.UniqueNullable.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ippyxdoe.UniqueOverlapping?>()) {
+      return (data != null ? _ippyxdoe.UniqueOverlapping.fromJson(data) : null)
           as T;
     }
     if (t == _is.getType<_iy3qfphx.UniqueSetNullChild?>()) {
@@ -1968,7 +2331,11 @@ class Protocol extends _is.DatabaseSerializationManager {
       _ixnh46zn.UniqueCascadeChild => 'UniqueCascadeChild',
       _iv4klbbv.UniqueComposite => 'UniqueComposite',
       _ixfoa5hm.UniqueDiscriminator => 'UniqueDiscriminator',
+      _i5m48tdh.UniqueFkPair => 'UniqueFkPair',
+      _iokqgjqx.UniqueMixedFk => 'UniqueMixedFk',
       _i91ey4jd.UniqueNoRelease => 'UniqueNoRelease',
+      _idc55xas.UniqueNullable => 'UniqueNullable',
+      _ippyxdoe.UniqueOverlapping => 'UniqueOverlapping',
       _iy3qfphx.UniqueSetNullChild => 'UniqueSetNullChild',
       _i5jtfsbn.UniqueUuid => 'UniqueUuid',
       _ => null,
@@ -2034,8 +2401,16 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'UniqueComposite';
       case _ixfoa5hm.UniqueDiscriminator():
         return 'UniqueDiscriminator';
+      case _i5m48tdh.UniqueFkPair():
+        return 'UniqueFkPair';
+      case _iokqgjqx.UniqueMixedFk():
+        return 'UniqueMixedFk';
       case _i91ey4jd.UniqueNoRelease():
         return 'UniqueNoRelease';
+      case _idc55xas.UniqueNullable():
+        return 'UniqueNullable';
+      case _ippyxdoe.UniqueOverlapping():
+        return 'UniqueOverlapping';
       case _iy3qfphx.UniqueSetNullChild():
         return 'UniqueSetNullChild';
       case _i5jtfsbn.UniqueUuid():
@@ -2135,8 +2510,20 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName == 'UniqueDiscriminator') {
       return deserialize<_ixfoa5hm.UniqueDiscriminator>(data['data']);
     }
+    if (dataClassName == 'UniqueFkPair') {
+      return deserialize<_i5m48tdh.UniqueFkPair>(data['data']);
+    }
+    if (dataClassName == 'UniqueMixedFk') {
+      return deserialize<_iokqgjqx.UniqueMixedFk>(data['data']);
+    }
     if (dataClassName == 'UniqueNoRelease') {
       return deserialize<_i91ey4jd.UniqueNoRelease>(data['data']);
+    }
+    if (dataClassName == 'UniqueNullable') {
+      return deserialize<_idc55xas.UniqueNullable>(data['data']);
+    }
+    if (dataClassName == 'UniqueOverlapping') {
+      return deserialize<_ippyxdoe.UniqueOverlapping>(data['data']);
     }
     if (dataClassName == 'UniqueSetNullChild') {
       return deserialize<_iy3qfphx.UniqueSetNullChild>(data['data']);
@@ -2232,8 +2619,16 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _iv4klbbv.UniqueComposite.t;
       case _ixfoa5hm.UniqueDiscriminator:
         return _ixfoa5hm.UniqueDiscriminator.t;
+      case _i5m48tdh.UniqueFkPair:
+        return _i5m48tdh.UniqueFkPair.t;
+      case _iokqgjqx.UniqueMixedFk:
+        return _iokqgjqx.UniqueMixedFk.t;
       case _i91ey4jd.UniqueNoRelease:
         return _i91ey4jd.UniqueNoRelease.t;
+      case _idc55xas.UniqueNullable:
+        return _idc55xas.UniqueNullable.t;
+      case _ippyxdoe.UniqueOverlapping:
+        return _ippyxdoe.UniqueOverlapping.t;
       case _iy3qfphx.UniqueSetNullChild:
         return _iy3qfphx.UniqueSetNullChild.t;
       case _i5jtfsbn.UniqueUuid:

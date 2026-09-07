@@ -7,6 +7,9 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 import '../../integration/test_tools/client_session.dart';
 import 'dst_random.dart';
+import 'dst_schema.dart';
+
+export 'dst_schema.dart';
 
 /// The tables every replica registers for synchronization.
 ///
@@ -20,56 +23,6 @@ final dstSyncTables = testSyncTables;
 /// unique, so the simulation inserts this town in a single scope; other scopes
 /// exercise the path where the default target is missing.
 const dstDefaultTownId = UuidValue.raw('550e8400-e29b-41d4-a716-446655440000');
-
-/// The tables the simulation authors operations against.
-///
-/// Chosen to cover every foreign-key action the engine accepts on synced
-/// tables, plus both unique-index shapes, in one small closed graph:
-///
-/// - `city` and `person` are roots with no outbound foreign key.
-/// - `town.cityId` is `onDelete=Cascade`; `town.mayorId` is `onDelete=SetNull`.
-/// - `company.townId` is `onDelete=SetDefault` and repairs to
-///   [dstDefaultTownId].
-/// - `address.inhabitantId` is `onDelete=NoAction` and carries the
-///   foreign-key-only global unique index. Synced tables cannot declare
-///   `Restrict`; the registry requires `NoAction`, which has the same effect.
-/// - `unique_set_null_child.parentId` is `onDelete=SetNull` and *also* carries
-///   that global unique index - the one shape where foreign key repair and
-///   unique resolution act on the same column.
-/// - `unique.name` is unique per scope.
-enum DstTable {
-  /// The `city` table: a parent with no outbound foreign key.
-  city('city'),
-
-  /// The `person` table: a parent with no outbound foreign key.
-  person('person'),
-
-  /// The `town` table: cascade to `city`, set-null to `person`.
-  town('town'),
-
-  /// The `company` table: set-default to `town`.
-  company('company'),
-
-  /// The `address` table: no-action to `person`, unique foreign key column.
-  address('address'),
-
-  /// The `unique` table: a per-scope unique name and no foreign key.
-  unique('unique'),
-
-  /// The `unique_set_null_child` table: set-null to `person` on a column that
-  /// also carries a global unique index.
-  ///
-  /// Repair frees that value while the parent is hidden, and the parent coming
-  /// back makes the attempted value eligible again - on a row that may by then
-  /// be tombstoned, and so invisible to unique resolution while still holding
-  /// the value in the physical index.
-  uniqueSetNullChild('unique_set_null_child');
-
-  const DstTable(this.tableName);
-
-  /// The physical table name, used to key snapshots and merge changes.
-  final String tableName;
-}
 
 /// One replica in the simulation: an isolated database with its own node
 /// identity, clock skew, and set of scopes the adversary delivers to it.
@@ -296,6 +249,7 @@ class DstOperations {
       DstTable.address: 3,
       DstTable.unique: 2,
       DstTable.uniqueSetNullChild: 3,
+      for (final table in dstAdditionalUniqueTables) table: 3,
     });
     final action = random.weighted({
       _Action.insert: 5,
@@ -333,6 +287,9 @@ class DstOperations {
     Transaction tx,
   ) async {
     final session = replica.session;
+    if (dstAdditionalUniqueTables.contains(table)) {
+      return _applyUniqueShape(session, table, action, tx);
+    }
     return switch (action) {
       _Action.insert => _applyInsert(session, table, tx),
       _Action.update => _applyUpdate(session, table, tx),
@@ -423,6 +380,8 @@ class DstOperations {
           ),
           transaction: tx,
         );
+      default:
+        throw StateError('Table $table must use the schema-driven operation path.');
     }
 
     return DstOperationOutcome.applied;
@@ -555,6 +514,8 @@ class DstOperations {
           columns: (t) => [t.parentId],
           transaction: tx,
         );
+      default:
+        throw StateError('Table $table must use the schema-driven operation path.');
     }
 
     return DstOperationOutcome.applied;
@@ -603,8 +564,71 @@ class DstOperations {
         );
         if (row == null) return DstOperationOutcome.skipped;
         await UniqueSetNullChild.db.deleteRow(session, row, transaction: tx);
+      default:
+        throw StateError('Table $table must use the schema-driven operation path.');
     }
 
+    return DstOperationOutcome.applied;
+  }
+
+  Future<DstOperationOutcome> _applyUniqueShape(
+    DatabaseSession session,
+    DstTable table,
+    _Action action,
+    Transaction tx,
+  ) async {
+    final model = table.model;
+    if (action == _Action.delete) {
+      final row = await _pickRow(model.find(session, transaction: tx));
+      if (row == null) return DstOperationOutcome.skipped;
+      await model.delete(session, row, tx);
+      return DstOperationOutcome.applied;
+    }
+
+    final existing = action == _Action.update
+        ? await _pickRow(model.find(session, transaction: tx))
+        : null;
+    if (action == _Action.update && existing == null) {
+      return DstOperationOutcome.skipped;
+    }
+    final data = existing == null
+        ? <String, dynamic>{'id': _newId().toJson()}
+        : existing.toJson() as Map<String, dynamic>;
+    final columns = table.definition.columns
+        .where((column) => column.name != 'id' && column.name != 'scopeId')
+        .toList();
+    final changed = existing == null ? columns : [random.pick(columns)];
+    for (final column in changed) {
+      final foreignKey = table.definition.foreignKeys.where(
+        (edge) => edge.columns.contains(column.name),
+      );
+      if (foreignKey.isNotEmpty) {
+        final parent = await _pickRow(Person.db.find(session, transaction: tx));
+        data[column.name] = parent?.id?.toJson();
+      } else if ((column.dartType ?? '').startsWith('String')) {
+        data[column.name] = 'claim-${random.nextInt(4)}';
+      } else if ((column.dartType ?? '').startsWith('UuidValue')) {
+        data[column.name] = dstUniqueValues[random.nextInt(dstUniqueValues.length)]
+            .toJson();
+      } else if ((column.dartType ?? '').startsWith('int')) {
+        data[column.name] = column.isNullable && random.chance(0.25)
+            ? null
+            : random.nextInt(4);
+      } else {
+        throw StateError('No generated value for ${table.tableName}.${column.name}');
+      }
+    }
+    final row = model.fromJson(data);
+    if (existing == null) {
+      await model.insert(session, row, tx);
+    } else {
+      await model.update(
+        session,
+        row,
+        changed.map((column) => column.name).toSet(),
+        tx,
+      );
+    }
     return DstOperationOutcome.applied;
   }
 

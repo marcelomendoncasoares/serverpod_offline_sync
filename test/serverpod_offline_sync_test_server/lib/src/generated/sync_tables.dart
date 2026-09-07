@@ -33,6 +33,10 @@ import 'unique.dart' as _ivpwn84u;
 import 'unique_cascade_child.dart' as _ixnh46zn;
 import 'unique_composite.dart' as _iv4klbbv;
 import 'unique_discriminator.dart' as _ixfoa5hm;
+import 'unique_fk_pair.dart' as _i5m48tdh;
+import 'unique_mixed_fk.dart' as _iokqgjqx;
+import 'unique_nullable.dart' as _idc55xas;
+import 'unique_overlapping.dart' as _ippyxdoe;
 import 'unique_set_null_child.dart' as _iy3qfphx;
 import 'unique_uuid.dart' as _i5jtfsbn;
 
@@ -62,6 +66,10 @@ final List<_is.Table> syncTables = [
   _ixnh46zn.UniqueCascadeChild.t,
   _iv4klbbv.UniqueComposite.t,
   _ixfoa5hm.UniqueDiscriminator.t,
+  _i5m48tdh.UniqueFkPair.t,
+  _iokqgjqx.UniqueMixedFk.t,
+  _idc55xas.UniqueNullable.t,
+  _ippyxdoe.UniqueOverlapping.t,
   _iy3qfphx.UniqueSetNullChild.t,
   _i5jtfsbn.UniqueUuid.t,
 ];

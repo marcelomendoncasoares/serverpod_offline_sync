@@ -1,0 +1,11 @@
+class: UniqueMixedFk
+table: unique_mixed_fk
+database: sync
+fields:
+  name: String
+  parentId: UuidValue?
+  parent: Person?, relation(field=parentId, onDelete=Cascade, deferred)
+indexes:
+  unique_mixed_fk_name_parent:
+    fields: scopeId, name, parentId
+    unique: true

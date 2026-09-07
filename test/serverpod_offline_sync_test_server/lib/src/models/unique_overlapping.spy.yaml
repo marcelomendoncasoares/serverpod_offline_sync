@@ -1,0 +1,14 @@
+class: UniqueOverlapping
+table: unique_overlapping
+database: sync
+fields:
+  first: String
+  second: String
+  third: String
+indexes:
+  unique_overlapping_first_second:
+    fields: scopeId, first, second
+    unique: true
+  unique_overlapping_second_third:
+    fields: scopeId, second, third
+    unique: true

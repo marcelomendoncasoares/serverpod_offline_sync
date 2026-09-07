@@ -114,14 +114,13 @@ idempotence gets probed.
 | File | Role |
 | --- | --- |
 | `framework/dst_random.dart` | Seeded randomness, identifiers, clock, sweep config |
-| `framework/dst_world.dart` | Replicas, the simulated table graph, operation generation |
+| `framework/dst_world.dart` | Replicas and operation generation |
+| `framework/dst_schema.dart` | Generated model adapters and declared unique indexes |
 | `framework/dst_adversary.dart` | Delivery scheduling and quiescence |
 | `framework/dst_snapshot.dart` | Canonical snapshots and the property oracle |
 | `framework/dst_runner.dart` | One seeded run, and failure reporting |
 
-The simulated world is seven tables chosen to cover every foreign-key action
-the engine accepts on synced tables, plus both unique-index shapes, in one
-small graph: `town.cityId` is cascade, `town.mayorId` is set-null,
+The simulated FK graph includes every accepted foreign-key action: `town.cityId` is cascade, `town.mayorId` is set-null,
 `company.townId` is set-default, `address.inhabitantId` is no-action and
 carries the foreign-key-only global unique index, and `unique.name` is unique
 per scope. Synced tables cannot declare `Restrict`; the registry requires
@@ -143,3 +142,9 @@ those edges and the domain rows, not from the projection records, because the
 records are sparse: a repair that never ran leaves nothing behind to walk. A
 recorded reason must also be possible for that edge's action: a plausible
 domain value with `foreignKeySetNull` on a cascade column is still a defect.
+
+The unique simulation also authors and captures non-FK UUID claims, nullable
+integer claims, composite tuples, fixed discriminators, overlapping indexes,
+FK-only composite indexes, and scoped mixed FK/text indexes. The unique oracle
+reads every declared unique index of the simulated models, including all tuple
+components and scope. A null component releases the tuple, as in SQL.
