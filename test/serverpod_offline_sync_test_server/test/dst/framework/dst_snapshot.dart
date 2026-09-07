@@ -578,6 +578,9 @@ class DstOracle {
   /// columns. The exception is the actions that repair by hiding or by blocking
   /// rather than by rewriting: a hidden child satisfies `cascade` and
   /// `noAction` on its own, because neither ever touches the column.
+  /// A hidden set-default child may also retain its reference when no legal
+  /// default exists: there is no repair to apply and no visible child to block
+  /// the parent deletion. The referenced physical row must still exist.
   ///
   /// When a projection *is* recorded, the reason must be possible for that
   /// edge's `onDelete` action. A plausible domain value with the wrong reason
@@ -616,6 +619,14 @@ class DstOracle {
       // rewrites the column, so a hidden child discharges both on its own.
       final dischargedByHiding = switch (edge.action) {
         'cascade' || 'noAction' => !child.visible,
+        'setDefault' =>
+          !child.visible &&
+              target != null &&
+              target.scopeUuid == child.scopeUuid &&
+              !_available(
+                snapshot.rows[edge.parent.tableName]?[dstDefaultTownId],
+                child,
+              ),
         _ => false,
       };
       if (dischargedByHiding) return violations;
