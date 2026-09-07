@@ -9,6 +9,201 @@ void main() {
   initTestClientSession();
 
   test(
+    'Given a child holding the unique default-town reference, '
+    'when another child claims it in a local insert, '
+    'then both rows survive and the released claim remains authored in the export.',
+    () async {
+      final node = await syncNode(testSession, testSyncTables);
+      final parent = Town(
+        id: UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000'),
+        name: 'default',
+      );
+      final first = UniqueSetDefaultChild(
+        id: const Uuid().v7obj(),
+        name: 'first',
+        parentId: parent.id,
+      );
+      final second = UniqueSetDefaultChild(
+        id: const Uuid().v7obj(),
+        name: 'second',
+        parentId: parent.id,
+      );
+      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(node.crdt, parent, transaction: tx);
+        await UniqueSetDefaultChild.db.insertRow(node.crdt, first, transaction: tx);
+      });
+
+      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await UniqueSetDefaultChild.db.insertRow(node.crdt, second, transaction: tx);
+      });
+
+      final rows = await UniqueSetDefaultChild.db.find(node.crdt);
+      expect(rows.map((row) => row.id).toSet(), {first.id, second.id});
+      expect(rows.where((row) => row.parentId == parent.id), hasLength(1));
+      expect(rows.where((row) => row.parentId == null), hasLength(1));
+      final changes = await node.sync
+          .collectPendingChanges(
+            node.raw,
+            checkpointsByScopeUuid: {testCrdtUserId: const []},
+          )
+          .toList();
+      final claims = changes.whereType<CrdtMergeInsert>().where(
+        (change) => change.tableName == 'unique_set_default_child',
+      );
+      expect(claims, hasLength(2));
+      expect(
+        claims.map((change) => (change.data as UniqueSetDefaultChild).parentId),
+        everyElement(parent.id),
+      );
+    },
+  );
+
+  test(
+    'Given a visible default town and two new children claiming its unique reference, '
+    'when both children are inserted in one batch, '
+    'then both rows survive and the released claim remains authored in the export.',
+    () async {
+      final node = await syncNode(testSession, testSyncTables);
+      final parent = Town(
+        id: UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000'),
+        name: 'default',
+      );
+      final first = UniqueSetDefaultChild(
+        id: const Uuid().v7obj(),
+        name: 'first',
+        parentId: parent.id,
+      );
+      final second = UniqueSetDefaultChild(
+        id: const Uuid().v7obj(),
+        name: 'second',
+        parentId: parent.id,
+      );
+      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(node.crdt, parent, transaction: tx);
+      });
+
+      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await UniqueSetDefaultChild.db.insert(node.crdt, [
+          first,
+          second,
+        ], transaction: tx);
+      });
+
+      final rows = await UniqueSetDefaultChild.db.find(node.crdt);
+      expect(rows.map((row) => row.id).toSet(), {first.id, second.id});
+      expect(rows.where((row) => row.parentId == parent.id), hasLength(1));
+      expect(rows.where((row) => row.parentId == null), hasLength(1));
+      final changes = await node.sync
+          .collectPendingChanges(
+            node.raw,
+            checkpointsByScopeUuid: {testCrdtUserId: const []},
+          )
+          .toList();
+      final claims = changes.whereType<CrdtMergeInsert>().where(
+        (change) => change.tableName == 'unique_set_default_child',
+      );
+      expect(claims, hasLength(2));
+      expect(
+        claims.map((change) => (change.data as UniqueSetDefaultChild).parentId),
+        everyElement(parent.id),
+      );
+    },
+  );
+
+  test(
+    'Given two offline children claiming the same unique default-town reference, '
+    'when their scopes synchronize, '
+    'then both children survive and exactly one retains the reference.',
+    () async {
+      final server = await syncNode(testSession, testSyncTables);
+      final client = await syncNode(
+        await createAdditionalTestSession(),
+        testSyncTables,
+      );
+      final parent = Town(
+        id: UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000'),
+        name: 'default',
+      );
+      final first = UniqueSetDefaultChild(
+        id: const Uuid().v7obj(),
+        name: 'first',
+        parentId: parent.id,
+      );
+      final second = UniqueSetDefaultChild(
+        id: const Uuid().v7obj(),
+        name: 'second',
+        parentId: parent.id,
+      );
+      await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(server.crdt, parent, transaction: tx);
+      });
+      await syncWithServer(client, server);
+      await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await UniqueSetDefaultChild.db.insertRow(server.crdt, first, transaction: tx);
+      });
+      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await UniqueSetDefaultChild.db.insertRow(client.crdt, second, transaction: tx);
+      });
+
+      await syncWithServer(client, server);
+
+      final serverRows = await UniqueSetDefaultChild.db.find(server.crdt);
+      final clientRows = await UniqueSetDefaultChild.db.find(client.crdt);
+      expect(serverRows.map((row) => row.id).toSet(), {first.id, second.id});
+      expect(serverRows.where((row) => row.parentId == parent.id), hasLength(1));
+      expect(serverRows.where((row) => row.parentId == null), hasLength(1));
+      expect(
+        {for (final row in clientRows) row.id: row.parentId},
+        {for (final row in serverRows) row.id: row.parentId},
+      );
+    },
+  );
+
+  test(
+    'Given a visible default town and a new child whose parent is omitted, '
+    'when the child is upserted locally, '
+    'then its database default is applied and exported as the authored reference.',
+    () async {
+      final node = await syncNode(testSession, testSyncTables);
+      final parent = Town(
+        id: UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000'),
+        name: 'default',
+      );
+      final child = UniqueSetDefaultChild(id: const Uuid().v7obj(), name: 'child');
+      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(node.crdt, parent, transaction: tx);
+      });
+
+      final inserted = await node.crdt.db.transactionForUser(testCrdtUserId, (
+        tx,
+      ) async {
+        return UniqueSetDefaultChild.db.upsertRow(
+          node.crdt,
+          child,
+          conflictColumns: (t) => [t.id],
+          transaction: tx,
+        );
+      });
+
+      expect(inserted!.parentId, parent.id);
+      expect(
+        (await UniqueSetDefaultChild.db.findById(node.crdt, child.id!))!.parentId,
+        parent.id,
+      );
+      final changes = await node.sync
+          .collectPendingChanges(
+            node.raw,
+            checkpointsByScopeUuid: {testCrdtUserId: const []},
+          )
+          .toList();
+      final exported = changes.whereType<CrdtMergeInsert>().singleWhere(
+        (change) => change.uuidRowId == child.id,
+      );
+      expect((exported.data as UniqueSetDefaultChild).parentId, parent.id);
+    },
+  );
+
+  test(
     'Given a visible child with a nullable set-default FK and a null default, '
     'when its parent is deleted locally and synchronized, '
     'then the child remains visible with an authored null reference on both nodes.',

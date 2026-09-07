@@ -112,6 +112,83 @@ extension CrdtTableRowExtension<T extends TableRow> on T {
   T copyWithScopeId(int scopeId) => (this as dynamic).copyWith(scopeId: scopeId) as T;
 }
 
+/// Adapts a materialized domain row for an ORM insert. A null chosen by
+/// projection is a stored value, even when the column has a database default.
+/// Serverpod otherwise treats null insert values as requests for that default.
+@internal
+TableRow<UuidValue?> withExplicitInsertNulls(
+  TableRow row,
+  Set<String> columns,
+) => columns.isEmpty ? row as TableRow<UuidValue?> : _ExplicitNullRow(row, columns);
+
+/// Keeps per-row default semantics when a batch contains projected nulls.
+/// PostgreSQL builds a batch using the first row's table, so rows with different
+/// null overrides must be written separately within the caller's transaction.
+@internal
+Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
+  Database database,
+  List<T> rows, {
+  required Map<UuidValue, Set<String>> explicitNulls,
+  required Transaction transaction,
+  bool ignoreConflicts = false,
+  bool noReturn = false,
+}) async {
+  if (explicitNulls.isEmpty) {
+    return database.insert<T>(
+      rows,
+      transaction: transaction,
+      ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
+    );
+  }
+  return [
+    for (final row in rows)
+      ...(await database.insert<TableRow<UuidValue?>>(
+        [withExplicitInsertNulls(row, explicitNulls[row.id] ?? const {})],
+        transaction: transaction,
+        ignoreConflicts: ignoreConflicts,
+        noReturn: noReturn,
+      )).cast<T>(),
+  ];
+}
+
+class _ExplicitNullRow implements TableRow<UuidValue?> {
+  _ExplicitNullRow(this.row, Set<String> columns)
+    : table = _ExplicitNullTable(row.table, columns);
+
+  final TableRow row;
+
+  @override
+  UuidValue? get id => row.id as UuidValue?;
+
+  @override
+  final Table<UuidValue?> table;
+
+  @override
+  dynamic toJson() => row.toJson();
+}
+
+class _ExplicitNullTable extends Table<UuidValue?> {
+  _ExplicitNullTable(Table source, Set<String> explicitNulls)
+    : super(tableName: source.tableName) {
+    columns = [
+      for (final column in source.columns)
+        if (explicitNulls.contains(column.columnName))
+          _ExplicitNullColumn(column)
+        else
+          column,
+    ];
+  }
+
+  @override
+  late final List<Column> columns;
+}
+
+class _ExplicitNullColumn extends Column<Object?> {
+  _ExplicitNullColumn(Column source)
+    : super(source.columnName, source.table, fieldName: source.fieldName);
+}
+
 /// Helpers over lists of domain [TableRow]s used by the CRDT recorder.
 @internal
 extension TableRowListExtension on List<TableRow> {

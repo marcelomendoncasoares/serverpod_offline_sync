@@ -877,7 +877,14 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       await DatabaseUtil.runInTransactionOrSavepoint(
         _db,
         transaction,
-        (savepoint) => _db.insertRow(scopedRow, transaction: savepoint),
+        (savepoint) => _db.insertRow(
+          withExplicitInsertNulls(scopedRow, {
+            for (final column in scopedRow.table.crdtSyncableColumns)
+              if (column.hasDefault && data[column.columnName] == null)
+                column.columnName,
+          }),
+          transaction: savepoint,
+        ),
       );
     } on DatabaseQueryException {
       final owner = await _readDomainRowOwner(

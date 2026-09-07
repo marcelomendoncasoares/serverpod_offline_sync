@@ -343,8 +343,27 @@ class CrdtDatabase implements Database {
 
         final result = plannedInsert.rows.isEmpty
             ? <T>[]
-            : await _delegate.insert<T>(
+            : await insertWithExplicitNulls<T>(
+                _delegate,
                 plannedInsert.rows,
+                explicitNulls: {
+                  for (final row in plannedInsert.rows)
+                    if ({
+                          for (final column in row.table.crdtSyncableColumns)
+                            if (column.hasDefault &&
+                                row.id != null &&
+                                plannedInsert.attempts.containsKey((
+                                  row.table.tableName,
+                                  row.id as UuidValue,
+                                  column.columnName,
+                                )) &&
+                                (row.toJsonForDatabase() as Map)[column.columnName] ==
+                                    null)
+                              column.columnName,
+                        }
+                        case final columns when columns.isNotEmpty)
+                      row.id as UuidValue: columns,
+                },
                 transaction: tx,
                 ignoreConflicts: ignoreConflicts,
                 noReturn: skipReturn,
@@ -421,7 +440,7 @@ class CrdtDatabase implements Database {
         // CRDT metadata needs the affected rows even when the public call uses
         // noReturn, because inserted rows may have database-generated ids.
         final result = await _delegate.upsert<T>(
-          prepared.rows,
+          _recorder.withForeignKeyInsertDefaults(prepared.rows),
           conflictColumns: conflictColumns,
           updateColumns: updateColumns,
           updateWhere: await _whereVisibleWithTombstone<T>(
