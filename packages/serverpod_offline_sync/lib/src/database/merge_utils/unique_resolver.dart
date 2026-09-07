@@ -45,13 +45,18 @@ class CrdtUniqueConflictResolver {
     return uniqueColumnNamesFor(tableName).contains(columnName);
   }
 
-  /// Releasable unique columns for [tableName], used by two-phase parking.
+  /// Releasable columns of indexes affected by [changedColumns], used by
+  /// two-phase parking even when only a fixed discriminator changes.
   ///
   /// A column can be indexed more than once, and releasing it is one act, so
   /// the columns are deduplicated by name.
-  List<UniqueColumnConflictRelease> uniqueReleaseColumnsFor(String tableName) {
+  List<UniqueColumnConflictRelease> uniqueReleaseColumnsFor(
+    String tableName,
+    Set<String> changedColumns,
+  ) {
     final byName = <String, UniqueColumnConflictRelease>{};
     for (final uniqueIndex in uniqueIndexesFor(tableName)) {
+      if (!uniqueIndex.indexedColumns.any(changedColumns.contains)) continue;
       for (final column in uniqueIndex.releaseColumns) {
         byName[column.columnName] = column;
       }

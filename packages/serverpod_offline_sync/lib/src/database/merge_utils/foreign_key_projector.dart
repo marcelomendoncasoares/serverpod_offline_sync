@@ -1964,8 +1964,10 @@ class CrdtForeignKeyProjector {
     final parkUpdates = <MergeRowKey, Map<String, Object?>>{};
     for (final MapEntry(key: rowKey, value: updates) in changed.entries) {
       final park = <String, Object?>{};
-      for (final column in _uniqueResolver.uniqueReleaseColumnsFor(rowKey.$1)) {
-        if (!updates.containsKey(column.columnName)) continue;
+      for (final column in _uniqueResolver.uniqueReleaseColumnsFor(
+        rowKey.$1,
+        updates.keys.toSet(),
+      )) {
         park[column.columnName] = _context.conflictFreeValue(
           column,
           originalDomain[rowKey]?[column.columnName],
@@ -1973,6 +1975,10 @@ class CrdtForeignKeyProjector {
           rowKey.$2,
           'park',
         );
+        // A discriminator-only change still moves the unique tuple. Restore
+        // its temporarily parked release column even if its final value did
+        // not change.
+        updates[column.columnName] = finalDomain[rowKey]![column.columnName];
       }
       if (park.isNotEmpty) parkUpdates[rowKey] = park;
     }
