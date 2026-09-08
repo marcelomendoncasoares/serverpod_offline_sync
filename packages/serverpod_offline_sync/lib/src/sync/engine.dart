@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:clock/clock.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart'
-    show DeserializationClassNameNotFoundException;
+    show BoolJsonExtension, DeserializationClassNameNotFoundException;
 import 'package:uuid/uuid.dart';
 
 import '../crdt/extensions.dart';
@@ -1049,7 +1049,8 @@ class OfflineSyncEngine {
 
     final (owner, className) = _classNameForDartType(dartType);
     return switch (className) {
-      'bool' || 'double' || 'int' || 'String' => value,
+      'bool' => BoolJsonExtension.fromJson(value),
+      'double' || 'int' || 'String' => value,
       _ => _deserializeColumnValue(owner, className, value),
     };
   }
