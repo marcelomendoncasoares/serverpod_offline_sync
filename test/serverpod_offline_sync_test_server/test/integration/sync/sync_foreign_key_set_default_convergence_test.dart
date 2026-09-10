@@ -90,8 +90,7 @@ void main() {
         setUp(() async {
           defaultTownDelete = client.crdt.db.transactionForUser(
             testCrdtUserId,
-            (tx) =>
-                Town.db.deleteRow(client.crdt, defaultTown, transaction: tx),
+            (tx) => Town.db.deleteRow(client.crdt, defaultTown, transaction: tx),
           );
           // Settle the delete before syncing; its rejection is asserted below.
           await defaultTownDelete.catchError((_) => defaultTown);
