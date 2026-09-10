@@ -168,6 +168,14 @@ Future<void> main(List<String> args) async {
         changeCount: rowCount,
       ),
     UniqueMergeBenchmark('merge (unique conflict)', changeCount: rowCount),
+    for (final defaultWithParent in [false, true])
+      for (final operation in SetDefaultOperation.values)
+        SetDefaultMergeBenchmark(
+          'merge (set default ${operation.name}, parent=$defaultWithParent)',
+          operation: operation,
+          pairCount: rowCount < 2 ? 2 : rowCount,
+          defaultWithParent: defaultWithParent,
+        ),
     for (final operation in FkChainOperation.values)
       FkChainMergeBenchmark(
         'merge (fk chain ${operation.name})',

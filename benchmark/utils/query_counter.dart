@@ -16,6 +16,18 @@ class QueryCountingDatabase implements Database {
   /// Number of database operations delegated so far.
   int queryCount = 0;
 
+  /// Top-level rows returned by read APIs, including CRDT metadata and repeated
+  /// reads. This is result volume, not SQLite page reads or query-plan scans.
+  int rowsRead = 0;
+
+  /// ORM result rows grouped by model type (raw SQL results use `sql`).
+  final Map<String, int> rowsReadByType = {};
+
+  void _recordRows(String type, int count) {
+    rowsRead += count;
+    rowsReadByType.update(type, (value) => value + count, ifAbsent: () => count);
+  }
+
   @override
   DatabaseAnalyzer get analyzer => _delegate.analyzer;
 
@@ -40,7 +52,7 @@ class QueryCountingDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     queryCount++;
-    return _delegate.find<T>(
+    final result = await _delegate.find<T>(
       where: where,
       limit: limit,
       offset: offset,
@@ -51,6 +63,8 @@ class QueryCountingDatabase implements Database {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
+    _recordRows(T.toString(), result.length);
+    return result;
   }
 
   @override
@@ -62,13 +76,15 @@ class QueryCountingDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     queryCount++;
-    return _delegate.findById<T>(
+    final result = await _delegate.findById<T>(
       id,
       transaction: transaction,
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
+    _recordRows(T.toString(), result == null ? 0 : 1);
+    return result;
   }
 
   @override
@@ -84,7 +100,7 @@ class QueryCountingDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     queryCount++;
-    return _delegate.findFirstRow<T>(
+    final result = await _delegate.findFirstRow<T>(
       where: where,
       offset: offset,
       orderBy: orderBy,
@@ -94,6 +110,8 @@ class QueryCountingDatabase implements Database {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
+    _recordRows(T.toString(), result == null ? 0 : 1);
+    return result;
   }
 
   @override
@@ -311,12 +329,14 @@ class QueryCountingDatabase implements Database {
     QueryParameters? parameters,
   }) async {
     queryCount++;
-    return _delegate.unsafeQuery(
+    final result = await _delegate.unsafeQuery(
       query,
       timeoutInSeconds: timeoutInSeconds,
       transaction: transaction,
       parameters: parameters,
     );
+    _recordRows('sql', result.length);
+    return result;
   }
 
   @override
@@ -342,11 +362,13 @@ class QueryCountingDatabase implements Database {
     Transaction? transaction,
   }) async {
     queryCount++;
-    return _delegate.unsafeSimpleQuery(
+    final result = await _delegate.unsafeSimpleQuery(
       query,
       timeoutInSeconds: timeoutInSeconds,
       transaction: transaction,
     );
+    _recordRows('sql', result.length);
+    return result;
   }
 
   @override

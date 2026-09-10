@@ -427,6 +427,49 @@ WHERE r."scopeId" = $scopeId
     return _rowIds(result);
   }
 
+  /// Sparse roots and children that may depend on a changed SET DEFAULT target.
+  ///
+  /// A blocked original-parent deletion has no child override, so include
+  /// authored tombstones even when projection currently keeps the row visible.
+  /// Cascade ancestors find those blocked indirectly; hidden rows and existing
+  /// overrides also cover missing-parent repair and unique FK projection.
+  Future<Set<MergeRowKey>> findSetDefaultDependencyRows({
+    required Set<String> ancestorTableNames,
+    required String childTableName,
+    required String childColumn,
+    required Transaction transaction,
+  }) async {
+    final tablesById = {
+      for (final name in {...ancestorTableNames, childTableName})
+        schema[name]!.$1: name,
+    };
+    final (childTableId, columns) = schema[childTableName]!;
+    final columnId = columns[childColumn]!.id!;
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final result = await database.unsafeQuery(
+      '''SELECT r."tblId", r."uuidRowId"
+FROM "crdt_data_rows" r
+LEFT JOIN "crdt_data_tombstone" d ON d."rowId" = r."id"
+WHERE r."scopeId" = $scopeId
+  AND r."tblId" IN (${tablesById.keys.join(', ')})
+  AND (r."visibility" > $crdtRowLastVisibleVisibilityIndex OR d."clFlag" % 2 = 0)
+UNION
+SELECT r."tblId", r."uuidRowId"
+FROM "crdt_data_attempted_value" a
+JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
+JOIN "crdt_data_rows" r ON r."id" = f."rowId"
+WHERE r."scopeId" = $scopeId
+  AND r."tblId" = $childTableId
+  AND f."columnId" = $columnId
+''',
+      transaction: transaction,
+    );
+    return {
+      for (final row in result)
+        (tablesById[row[0]]!, UuidValueJsonExtension.fromJson(row[1])),
+    };
+  }
+
   /// Row ids in [tableName] whose columns hold one of the listed values.
   ///
   /// A composite unique index is matched column by column, so the result is a

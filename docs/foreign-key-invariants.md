@@ -94,6 +94,45 @@ would cascade-delete `B`, but `B` has a visible `RESTRICT` child `C`, then `A`,
 `B`, and `C` remain visible. The result must not depend on whether cascade or
 restrict edges are evaluated first internally.
 
+Default targets do not have to be permanent. Projection starts from all winning
+authored delete tombstones and computes their candidate cascade closures. It
+evaluates repairs against that candidate visibility, withdraws blocked deletion
+roots together, and repeats until no root is withdrawn. A withdrawn root is not
+reintroduced during that pass. This conservative policy terminates because the
+set of accepted roots only shrinks; it need not accept the largest possible set
+of deletions. Every new pass starts from the authored tombstones again, not the
+previous projection's accepted deletions.
+
+For a child authored as `C -> A` with default `D`, deleting `A` projects `C -> D`
+while `D` survives. If `D` is subsequently deleted and has no other blockers,
+`A` becomes visible again and `C -> A` is restored. Restoring `D` can make `A`'s
+deletion take effect again. These are derived changes: they do not rewrite the
+authored reference or advance its HLC.
+
+A default is a schema dependency even while no child currently references it.
+Projection loads defaults as evaluation context, but does not treat that alone
+as a change to every consumer. It follows authored FK references (including new
+overlays) to determine which defaults are affected, excluding relationships that
+exist only because an earlier projection rewrote a child onto its fallback. A
+live standalone default with no authored delete cannot change visibility merely
+because a child's FK is updated, so that common case skips the dependency walk.
+
+When a default is changed directly, or affected through a possible deletion,
+cascade, or missing parent, the loader queries sparse dependency seeds in the
+current scope: authored tombstones and hidden rows in the original-parent and
+cascade-ancestor tables, hidden children, and children with FK overrides. The
+ordinary reference walk then loads their children, parents, and unique claimants.
+Blocked deletions are included even when the original parent is still visible
+and the child has no override. Default invalidation repeats until no new default
+edge needs expansion, restarting deletion arbitration from authored tombstones.
+
+This keeps ordinary merges on the existing row-closure path; there is no
+component-wide domain-row load. Default-specific invalidation can still visit
+many rows when many deletes, hidden rows, or repair claims depend on that default.
+The sparse metadata lookup itself may scan rows in the relevant scoped metadata
+tables, but it runs only for affected defaults. Full rebuilds still load the
+complete requested components.
+
 ## Combined Projection Boundary
 
 The attempted-value schema, hidden-row lifecycle, exact FK-before-unique

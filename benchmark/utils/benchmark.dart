@@ -485,6 +485,7 @@ Future<double> measurePreparedCycles(
   int minimumMillis, {
   required Future<void> Function() prepare,
   required Future<void> Function() run,
+  Future<void> Function()? validate,
 }) async {
   final minimumMicros = minimumMillis * 1000;
   final watch = Stopwatch()..start();
@@ -495,8 +496,10 @@ Future<double> measurePreparedCycles(
     await prepare();
     final sw = Stopwatch()..start();
     await run();
+    sw.stop();
     totalTimedMicros += sw.elapsedMicroseconds;
     timedIterations++;
+    await validate?.call();
   }
 
   return totalTimedMicros / timedIterations;
