@@ -19,14 +19,7 @@ enum MergeOperation { insert, update, delete, mixed }
 
 enum FkChainOperation { insert, delete }
 
-enum SetDefaultOperation {
-  nameUpdate,
-  fkUpdate,
-  fkUpdateBatch,
-  originalDeleteOrRestore,
-  assignDefault,
-  defaultDeleteOrRestore,
-}
+enum SetDefaultOperation { originalDeleteOrRestore, defaultDeleteOrRestore }
 
 /// Measurement of a merge scenario, averaged over the timed merge batches.
 typedef MergeMeasurement = ({
@@ -552,17 +545,16 @@ typedef _FkChainFamily = ({
 });
 
 /// Measures SET DEFAULT projection with many independent town/company pairs.
-/// Ordinary edits should load only their related rows; changing the default
-/// also discovers earlier blocked deletions and projected references.
+/// Compares deleting/restoring an original parent with changing the shared
+/// default target, which also requires looking up implicit dependencies.
 class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
   SetDefaultMergeBenchmark(
     super.name, {
     required this.operation,
     required this.pairCount,
-    this.defaultWithParent = false,
   }) {
-    if (pairCount < 2) {
-      throw ArgumentError.value(pairCount, 'pairCount', 'Must be >= 2');
+    if (pairCount < 1) {
+      throw ArgumentError.value(pairCount, 'pairCount', 'Must be >= 1');
     }
   }
 
@@ -570,7 +562,6 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
 
   final SetDefaultOperation operation;
   final int pairCount;
-  final bool defaultWithParent;
   late List<Town> _towns;
   late List<Company> _companies;
   late Town _defaultTown;
@@ -580,31 +571,22 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
   @override
   String get resultTitle =>
       'SET DEFAULT ${switch (operation) {
-        SetDefaultOperation.nameUpdate => 'NAME UPDATE',
-        SetDefaultOperation.fkUpdate => 'FK UPDATE',
-        SetDefaultOperation.fkUpdateBatch => 'FK UPDATE BATCH',
         SetDefaultOperation.originalDeleteOrRestore => 'ORIGINAL DELETE / RESTORE',
-        SetDefaultOperation.assignDefault => 'ASSIGN DEFAULT',
         SetDefaultOperation.defaultDeleteOrRestore => 'DEFAULT DELETE / RESTORE',
       }}';
 
   @override
-  int get changesPerBatch =>
-      operation == SetDefaultOperation.fkUpdateBatch ? min(100, pairCount) : 1;
+  int get changesPerBatch => 1;
 
   @override
   String get batchDescription =>
-      '${formatter0.format(pairCount)} town/company pairs; '
-      'default ${defaultWithParent ? 'has a city parent' : 'has no parent'}';
+      '${formatter0.format(pairCount)} town/company pairs sharing one default';
 
   @override
   Future<void> onSetup() async {
     _cycle = 0;
     _visibilityFlag = 1;
-    final city = defaultWithParent
-        ? City(id: const Uuid().v7obj(), name: 'default city')
-        : null;
-    _defaultTown = Town(id: _defaultTownId, name: 'default', cityId: city?.id);
+    _defaultTown = Town(id: _defaultTownId, name: 'default');
     _towns = [
       for (var i = 0; i < pairCount; i++)
         Town(id: const Uuid().v7obj(), name: 'town $i'),
@@ -614,7 +596,6 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
         Company(id: const Uuid().v7obj(), name: 'company $i', townId: _towns[i].id),
     ];
     await mergeSeedRows([
-      ?city,
       _defaultTown,
       ..._towns,
       ..._companies,
@@ -623,35 +604,20 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
 
   bool get _alternate => _cycle.isOdd;
 
-  UuidValue _expectedTownId(int index) => switch (operation) {
-    SetDefaultOperation.nameUpdate ||
-    SetDefaultOperation.defaultDeleteOrRestore => _towns[index].id!,
-    SetDefaultOperation.fkUpdate || SetDefaultOperation.fkUpdateBatch =>
-      _towns[_alternate ? (index + 1) % pairCount : index].id!,
-    SetDefaultOperation.originalDeleteOrRestore || SetDefaultOperation.assignDefault =>
-      _alternate ? _defaultTownId : _towns[index].id!,
+  Town get _changedTown => switch (operation) {
+    SetDefaultOperation.originalDeleteOrRestore => _towns.first,
+    SetDefaultOperation.defaultDeleteOrRestore => _defaultTown,
   };
+
+  UuidValue get _expectedTownId =>
+      operation == SetDefaultOperation.originalDeleteOrRestore && _alternate
+      ? _defaultTownId
+      : _towns.first.id!;
 
   @override
   Future<void> prepareCycle() async {
     _cycle++;
-    _mergeSet = switch (operation) {
-      SetDefaultOperation.nameUpdate => [
-        updateChangeFor(_companies.first, Company.t.name.columnName, 'updated $_cycle'),
-      ],
-      SetDefaultOperation.fkUpdate ||
-      SetDefaultOperation.fkUpdateBatch ||
-      SetDefaultOperation.assignDefault => [
-        for (var i = 0; i < changesPerBatch; i++)
-          updateChangeFor(
-            _companies[i],
-            Company.t.townId.columnName,
-            _expectedTownId(i),
-          ),
-      ],
-      SetDefaultOperation.originalDeleteOrRestore => [_visibilityChange(_towns.first)],
-      SetDefaultOperation.defaultDeleteOrRestore => [_visibilityChange(_defaultTown)],
-    };
+    _mergeSet = [_visibilityChange(_changedTown)];
   }
 
   CrdtMergeDelete _visibilityChange(Town town) {
@@ -674,31 +640,13 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
 
   @override
   Future<void> validateCycle() async {
-    final ids = <UuidValue>{
-      for (final company in _companies.take(changesPerBatch)) company.id!,
-    };
-    final visible = await Company.db.find(_crdtSession, where: (t) => t.id.inSet(ids));
-    final byId = {for (final company in visible) company.id: company};
-    for (var i = 0; i < changesPerBatch; i++) {
-      final company = byId[_companies[i].id];
-      if (company == null || company.townId != _expectedTownId(i)) {
-        throw StateError('$name cycle $_cycle did not project company $i as expected.');
-      }
-      if (operation == SetDefaultOperation.nameUpdate &&
-          company.name != 'updated $_cycle') {
-        throw StateError('$name cycle $_cycle did not apply its name update.');
-      }
+    final company = await Company.db.findById(_crdtSession, _companies.first.id!);
+    if (company == null || company.townId != _expectedTownId) {
+      throw StateError('$name cycle $_cycle did not project the company as expected.');
     }
-    final changedTown = switch (operation) {
-      SetDefaultOperation.originalDeleteOrRestore => _towns.first,
-      SetDefaultOperation.defaultDeleteOrRestore => _defaultTown,
-      _ => null,
-    };
-    if (changedTown != null) {
-      final visibleTown = await Town.db.findById(_crdtSession, changedTown.id!);
-      if ((visibleTown == null) != _alternate) {
-        throw StateError('$name cycle $_cycle did not apply its visibility change.');
-      }
+    final visibleTown = await Town.db.findById(_crdtSession, _changedTown.id!);
+    if ((visibleTown == null) != _alternate) {
+      throw StateError('$name cycle $_cycle did not apply its visibility change.');
     }
   }
 }
