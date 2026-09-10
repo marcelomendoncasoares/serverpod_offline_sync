@@ -129,6 +129,13 @@ void printMergeImpact(
     '  Queries: ${formatter0.format(results.averageQueries)} per batch '
     '(${formatter2.format(queriesPerChange)} per change)',
   );
+  print('  Rows returned: ${formatter2.format(results.averageRowsRead)} per batch');
+  final types = results.averageRowsReadByType.keys.toList()..sort();
+  print(
+    '  Rows by type: ${[
+      for (final type in types) '$type: ${formatter2.format(results.averageRowsReadByType[type])}',
+    ].join(', ')}',
+  );
   if (runningInCI) print('```');
 }
 
@@ -200,6 +207,8 @@ class MergeBenchmarkResults {
     required this.batchDescription,
     required this.average,
     required this.averageQueries,
+    required this.averageRowsRead,
+    required this.averageRowsReadByType,
     required this.changeCount,
   });
 
@@ -211,6 +220,11 @@ class MergeBenchmarkResults {
 
   /// Average number of queries issued while merging one batch.
   final double averageQueries;
+
+  /// Top-level rows returned by reads during one merge batch, including repeats.
+  /// These are result counts, not physical database page reads or scanned rows.
+  final double averageRowsRead;
+  final Map<String, double> averageRowsReadByType;
   final int changeCount;
 }
 

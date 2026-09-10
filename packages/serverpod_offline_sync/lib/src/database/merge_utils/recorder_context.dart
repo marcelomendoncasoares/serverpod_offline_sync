@@ -452,7 +452,7 @@ FROM "crdt_data_rows" r
 LEFT JOIN "crdt_data_tombstone" d ON d."rowId" = r."id"
 WHERE r."scopeId" = $scopeId
   AND r."tblId" IN (${tablesById.keys.join(', ')})
-  AND (r."visibility" > $crdtRowLastVisibleVisibilityIndex OR d."clFlag" % 2 = 0)
+  AND ($_rowHidden OR d."clFlag" % 2 = 0)
 UNION
 SELECT r."tblId", r."uuidRowId"
 FROM "crdt_data_attempted_value" a
@@ -532,6 +532,9 @@ FROM "${tableName.escapeIdentifier()}" d
 LEFT JOIN "crdt_data_rows" r
   ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"''';
   }
+
+  /// Whether tracked row alias `r` is hidden; shared by metadata/domain lookups.
+  static final _rowHidden = 'r."visibility" > $crdtRowLastVisibleVisibilityIndex';
 
   /// Whether the row joined by [_visibilityJoin] is visible in this scope.
   static final _rowVisible =
@@ -796,7 +799,7 @@ WHERE c."id" IN ($whereRowIds)
   AND (
     p."id" IS NULL OR
     p."scopeId" <> $scopeId OR
-    r."visibility" > $crdtRowLastVisibleVisibilityIndex
+    $_rowHidden
   )
 ''';
     });

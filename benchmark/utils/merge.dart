@@ -32,6 +32,8 @@ enum SetDefaultOperation {
 typedef MergeMeasurement = ({
   double averageMicroseconds,
   double averageQueries,
+  double averageRowsRead,
+  Map<String, double> averageRowsReadByType,
 });
 
 /// The number of changes of each kind in a mixed batch of [changeCount].
@@ -78,6 +80,8 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   CrdtMergeSet _mergeSet = [];
 
   int _timedQueries = 0;
+  int _timedRowsRead = 0;
+  final _timedRowsReadByType = <String, int>{};
   int _timedRuns = 0;
 
   /// Scenario title used in the results header, e.g. `INSERT`.
@@ -161,6 +165,8 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
     _valueSeq = 0;
     _mergeSet = [];
     _timedQueries = 0;
+    _timedRowsRead = 0;
+    _timedRowsReadByType.clear();
     _timedRuns = 0;
     final dbPath = p.join(
       Directory.systemTemp.path,
@@ -196,6 +202,8 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
         validate: validateCycle,
       );
       _timedQueries = 0;
+      _timedRowsRead = 0;
+      _timedRowsReadByType.clear();
       _timedRuns = 0;
       final averageMicroseconds = await measurePreparedCycles(
         _measurementMillis,
@@ -206,6 +214,11 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
       return (
         averageMicroseconds: averageMicroseconds,
         averageQueries: _timedQueries / _timedRuns,
+        averageRowsRead: _timedRowsRead / _timedRuns,
+        averageRowsReadByType: {
+          for (final entry in _timedRowsReadByType.entries)
+            entry.key: entry.value / _timedRuns,
+        },
       );
     } finally {
       await teardown();
@@ -215,8 +228,20 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   @override
   Future<void> run() async {
     final queriesBefore = _countingDb.queryCount;
+    final rowsBefore = _countingDb.rowsRead;
+    final rowsByTypeBefore = Map.of(_countingDb.rowsReadByType);
     await _crdtSession.db.mergeChanges(_mergeSet, scopeId: _userId);
     _timedQueries += _countingDb.queryCount - queriesBefore;
+    _timedRowsRead += _countingDb.rowsRead - rowsBefore;
+    for (final entry in _countingDb.rowsReadByType.entries) {
+      final count = entry.value - (rowsByTypeBefore[entry.key] ?? 0);
+      if (count == 0) continue;
+      _timedRowsReadByType.update(
+        entry.key,
+        (total) => total + count,
+        ifAbsent: () => count,
+      );
+    }
     _timedRuns++;
   }
 

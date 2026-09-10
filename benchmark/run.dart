@@ -197,6 +197,8 @@ Future<void> main(List<String> args) async {
         batchDescription: benchmark.batchDescription,
         average: mergeResult.averageMicroseconds,
         averageQueries: mergeResult.averageQueries,
+        averageRowsRead: mergeResult.averageRowsRead,
+        averageRowsReadByType: mergeResult.averageRowsReadByType,
         changeCount: benchmark.changesPerBatch,
       ),
       runningInCI: runningInCI,

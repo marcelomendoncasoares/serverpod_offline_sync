@@ -1128,22 +1128,7 @@ class CrdtForeignKeyProjector {
             tablesToLoad.contains(edge.childTableName))
           edge,
     ];
-    for (final edge in defaultEdges) {
-      final value = edge.defaultValue.toUuidValue()!;
-      if (edge.parentColumn == 'id') {
-        enqueue(edge.parentTableName, [value]);
-      } else {
-        enqueue(
-          edge.parentTableName,
-          await _context.findDomainRowIdsWhereColumnIn(
-            tableName: edge.parentTableName,
-            columnName: edge.parentColumn,
-            values: {value},
-            transaction: transaction,
-          ),
-        );
-      }
-    }
+    await _enqueueSetDefaultTargets(defaultEdges, enqueue, transaction);
 
     final affectedSeeds = {...seedRows, ...unwrittenValues.keys};
     final expandedDefaults = <ForeignKeyEdge>{};
@@ -1197,34 +1182,55 @@ class CrdtForeignKeyProjector {
       if (defaultsToExpand.isEmpty) break;
       for (final edge in defaultsToExpand) {
         expandedDefaults.add(edge);
-        // A fallback only matters to children whose authored parent can be
-        // hidden/missing, or whose FK already has a projection override. Seed
-        // those sparse states and their cascade roots, then use the normal
-        // indexed reference walk. Live children on ordinary parents stay out.
-        final ancestors = <String>{edge.parentTableName};
-        final pendingTables = [edge.parentTableName];
-        while (pendingTables.isNotEmpty) {
-          final table = pendingTables.removeLast();
-          for (final parentEdge
-              in _foreignKeys.edgesByChildTable[table] ?? <ForeignKeyEdge>[]) {
-            if (parentEdge.action == ForeignKeyAction.cascade &&
-                ancestors.add(parentEdge.parentTableName)) {
-              pendingTables.add(parentEdge.parentTableName);
-            }
-          }
-        }
-        final dependents = await _context.findSetDefaultDependencyRows(
-          ancestorTableNames: ancestors,
-          childTableName: edge.childTableName,
-          childColumn: edge.childColumn,
-          transaction: transaction,
-        );
+        final dependents = await _findSetDefaultDependents(edge, transaction);
         affectedSeeds.addAll(dependents);
         for (final key in dependents) {
           enqueue(key.$1, [key.$2]);
         }
       }
     }
+  }
+
+  Future<void> _enqueueSetDefaultTargets(
+    List<ForeignKeyEdge> defaultEdges,
+    void Function(String, Iterable<UuidValue>) enqueue,
+    Transaction transaction,
+  ) async {
+    for (final edge in defaultEdges) {
+      await _enqueueParentRowsByValue(
+        edge,
+        {edge.defaultValue.toUuidValue()!},
+        enqueue,
+        transaction,
+      );
+    }
+  }
+
+  /// A fallback matters to children whose authored parent can be hidden or
+  /// missing, or whose FK already has a projection override. Seed those sparse
+  /// states and their cascade roots, then use the normal indexed reference walk.
+  Future<Set<MergeRowKey>> _findSetDefaultDependents(
+    ForeignKeyEdge edge,
+    Transaction transaction,
+  ) async {
+    final ancestors = <String>{edge.parentTableName};
+    final pendingTables = [edge.parentTableName];
+    while (pendingTables.isNotEmpty) {
+      final table = pendingTables.removeLast();
+      for (final parentEdge
+          in _foreignKeys.edgesByChildTable[table] ?? <ForeignKeyEdge>[]) {
+        if (parentEdge.action == ForeignKeyAction.cascade &&
+            ancestors.add(parentEdge.parentTableName)) {
+          pendingTables.add(parentEdge.parentTableName);
+        }
+      }
+    }
+    return _context.findSetDefaultDependencyRows(
+      ancestorTableNames: ancestors,
+      childTableName: edge.childTableName,
+      childColumn: edge.childColumn,
+      transaction: transaction,
+    );
   }
 
   /// Defaults whose implicit outgoing dependencies may have changed.
@@ -1279,6 +1285,50 @@ class CrdtForeignKeyProjector {
     });
     if (!mayChangeDefault) return {};
 
+    final graph = _buildDefaultDependencyGraph(
+      rows: rows,
+      unwrittenValues: unwrittenValues,
+      pendingInserts: pendingInserts,
+      references: references,
+    );
+
+    // This is deliberately an overapproximation: a restrict or nullable edge
+    // may keep its child visible. The important fast path is a live default
+    // with no possible deletion/missing-parent cause, which cannot change its
+    // visibility merely because an authored child reference changes.
+    final hiddenCandidates = _reachableRows(
+      graph.possiblyHidden,
+      graph.childrenByParent,
+    );
+    final affected = _reachableRows(affectedSeeds, graph.neighbors);
+    return {
+      for (final edge in defaultEdges)
+        if (!expandedDefaults.contains(edge))
+          for (final key in affected)
+            if (key.$1 == edge.parentTableName &&
+                references(
+                  key,
+                  edge.parentColumn,
+                  includeProjected: true,
+                ).contains(edge.defaultValue.toUuidValue()) &&
+                (affectedSeeds.contains(key) || hiddenCandidates.contains(key)))
+              edge,
+    };
+  }
+
+  /// Builds authored dependency edges; projected values only identify parents.
+  /// Keep this distinct from the stored-value walk in [_expandRowClosure].
+  _DefaultDependencyGraph _buildDefaultDependencyGraph({
+    required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
+    required Map<MergeRowKey, Map<String, Object?>> unwrittenValues,
+    required List<PendingProjectionRow> pendingInserts,
+    required Set<UuidValue> Function(
+      MergeRowKey key,
+      String column, {
+      bool includeProjected,
+    })
+    references,
+  }) {
     final keys = {...rows.keys, ...unwrittenValues.keys};
     final keysByTable = <String, List<MergeRowKey>>{};
     for (final key in keys) {
@@ -1327,39 +1377,25 @@ class CrdtForeignKeyProjector {
       }
     }
 
-    Set<MergeRowKey> reachable(
-      Set<MergeRowKey> seeds,
-      Map<MergeRowKey, Set<MergeRowKey>> graph,
-    ) {
-      final reached = {...seeds};
-      final queue = seeds.toList();
-      for (var index = 0; index < queue.length; index++) {
-        for (final key in graph[queue[index]] ?? <MergeRowKey>{}) {
-          if (reached.add(key)) queue.add(key);
-        }
-      }
-      return reached;
-    }
+    return (
+      neighbors: neighbors,
+      childrenByParent: childrenByParent,
+      possiblyHidden: possiblyHidden,
+    );
+  }
 
-    // This is deliberately an overapproximation: a restrict or nullable edge
-    // may keep its child visible. The important fast path is a live default
-    // with no possible deletion/missing-parent cause, which cannot change its
-    // visibility merely because an authored child reference changes.
-    final hiddenCandidates = reachable(possiblyHidden, childrenByParent);
-    final affected = reachable(affectedSeeds, neighbors);
-    return {
-      for (final edge in defaultEdges)
-        if (!expandedDefaults.contains(edge))
-          for (final key in affected)
-            if (key.$1 == edge.parentTableName &&
-                references(
-                  key,
-                  edge.parentColumn,
-                  includeProjected: true,
-                ).contains(edge.defaultValue.toUuidValue()) &&
-                (affectedSeeds.contains(key) || hiddenCandidates.contains(key)))
-              edge,
-    };
+  static Set<MergeRowKey> _reachableRows(
+    Set<MergeRowKey> seeds,
+    Map<MergeRowKey, Set<MergeRowKey>> graph,
+  ) {
+    final reached = {...seeds};
+    final queue = seeds.toList();
+    for (var index = 0; index < queue.length; index++) {
+      for (final key in graph[queue[index]] ?? <MergeRowKey>{}) {
+        if (reached.add(key)) queue.add(key);
+      }
+    }
+    return reached;
   }
 
   /// The values the pass will write but has not written yet, by row.
@@ -1505,6 +1541,15 @@ class CrdtForeignKeyProjector {
     }
     if (references.isEmpty) return;
 
+    await _enqueueParentRowsByValue(edge, references, enqueue, transaction);
+  }
+
+  Future<void> _enqueueParentRowsByValue(
+    ForeignKeyEdge edge,
+    Set<UuidValue> references,
+    void Function(String, Iterable<UuidValue>) enqueue,
+    Transaction transaction,
+  ) async {
     if (edge.parentColumn == 'id') {
       enqueue(edge.parentTableName, references);
       return;
@@ -2544,3 +2589,9 @@ class CrdtForeignKeyProjector {
     }
   }
 }
+
+typedef _DefaultDependencyGraph = ({
+  Map<MergeRowKey, Set<MergeRowKey>> neighbors,
+  Map<MergeRowKey, Set<MergeRowKey>> childrenByParent,
+  Set<MergeRowKey> possiblyHidden,
+});
