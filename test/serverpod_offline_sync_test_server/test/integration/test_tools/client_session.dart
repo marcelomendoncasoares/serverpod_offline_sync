@@ -54,7 +54,15 @@ UuidValue get testCrdtUserId => _testCrdtUserId;
 /// [withPersistentUser] is captured by them rather than stored in a top-level
 /// field, because a runner that separates test registration from test execution
 /// does not carry state written during registration into the run.
-void initTestClientSession({bool withPersistentUser = false}) {
+///
+/// With [createSessionPerTest] disabled, only the migrated template and scope
+/// identity are shared. Each Given/when group must open its own database with
+/// [createAdditionalTestSession] in `setUpAll`; its cleanup then belongs to that
+/// group. This lets several read-only assertions reuse one arranged scenario.
+void initTestClientSession({
+  bool withPersistentUser = false,
+  bool createSessionPerTest = true,
+}) {
   setUpAll(() async {
     _tempDir = await Directory.systemTemp.createTemp('offline_first_');
     _testClient = Client(_clientUrl);
@@ -64,29 +72,32 @@ void initTestClientSession({bool withPersistentUser = false}) {
       isDebugMode: true,
     );
     await template.close();
+    if (!createSessionPerTest) _testCrdtUserId = const Uuid().v7obj();
   });
 
-  late String path;
-  setUp(() async {
-    _testCrdtUserId = const Uuid().v7obj();
-    path = await _nextDatabasePath();
-    _testSession = await _openDatabase(path);
-    _crdtSession = CrdtDatabaseSession.wraps(
-      _testSession,
-      syncTables: testSyncTables,
-      persistentUserId: withPersistentUser ? _testCrdtUserId : null,
-    );
-    await _crdtSession.db.initialize();
-  });
+  if (createSessionPerTest) {
+    late String path;
+    setUp(() async {
+      _testCrdtUserId = const Uuid().v7obj();
+      path = await _nextDatabasePath();
+      _testSession = await _openDatabase(path);
+      _crdtSession = CrdtDatabaseSession.wraps(
+        _testSession,
+        syncTables: testSyncTables,
+        persistentUserId: withPersistentUser ? _testCrdtUserId : null,
+      );
+      await _crdtSession.db.initialize();
+    });
 
-  // Registered here rather than with `addTearDown` in `setUp`, because
-  // `addTearDown` callbacks run before every `tearDown`, including the ones a
-  // test file registers after calling this function - and those still expect
-  // an open session.
-  tearDown(() async {
-    await _testSession.close();
-    await _deleteDatabase(path);
-  });
+    // Registered here rather than with `addTearDown` in `setUp`, because
+    // `addTearDown` callbacks run before every `tearDown`, including the ones a
+    // test file registers after calling this function - and those still expect
+    // an open session.
+    tearDown(() async {
+      await _testSession.close();
+      await _deleteDatabase(path);
+    });
+  }
 
   tearDownAll(() async {
     if (_tempDir.existsSync()) {

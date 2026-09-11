@@ -10,99 +10,283 @@ import '../test_tools/sync_topology.dart';
 const _defaultTownId = UuidValue.raw('550e8400-e29b-41d4-a716-446655440000');
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
-  group(
-    'Given a company insert concurrent with its original town deletion,',
-    () {
-      late SyncNode childWriter;
-      late SyncNode deleteWriter;
-      late SyncNode defaultWriter;
-      late SyncNode defaultFirst;
-      late SyncNode defaultLast;
-      late SyncNode batched;
-      late Town town;
-      late Company company;
-      late CrdtMergeSet childFacts;
-      late CrdtMergeSet deleteFacts;
-      late CrdtMergeSet defaultFacts;
-      late List<_ObserverSnapshot> snapshots;
-      late Town? originalBeforeDefault;
+  group('Given a company insert concurrent with its original town deletion,', () {
+    late SyncNode childWriter;
+    late SyncNode deleteWriter;
+    late SyncNode defaultWriter;
+    late Town town;
+    late Company company;
+    late CrdtMergeSet childFacts;
+    late CrdtMergeSet deleteFacts;
+    late CrdtMergeSet defaultFacts;
 
-      setUp(() async {
-        childWriter = await _node();
-        deleteWriter = await _node();
-        defaultWriter = await _node();
-        defaultFirst = await _node();
-        defaultLast = await _node();
-        batched = await _node();
-        town = Town(id: const Uuid().v7obj(), name: 'original');
-        company = Company(
-          id: const Uuid().v7obj(),
-          name: 'company',
-          townId: town.id,
-        );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
-        });
-        await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
-        });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
-        });
-        childFacts = await _collect(childWriter);
-        deleteFacts = await _collect(deleteWriter);
+    setUpAll(() async {
+      childWriter = await _node();
+      deleteWriter = await _node();
+      defaultWriter = await _node();
 
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(
-            defaultWriter.crdt,
-            Town(id: _defaultTownId, name: 'default'),
-            transaction: tx,
-          );
-        });
-        defaultFacts = await _collect(defaultWriter);
+      town = Town(id: const Uuid().v7obj(), name: 'original');
+      company = Company(
+        id: const Uuid().v7obj(),
+        name: 'company',
+        townId: town.id,
+      );
+      await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
       });
+      await _merge(deleteWriter, await _collect(childWriter));
+      await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+      });
+      await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
+      });
+      childFacts = await _collect(childWriter);
+      deleteFacts = await _collect(deleteWriter);
 
-      group('when a default town insert arrives first, last, or in the same batch,', () {
-        setUp(() async {
-          await _merge(defaultFirst, defaultFacts);
-          await _merge(defaultFirst, childFacts);
-          await _merge(defaultFirst, deleteFacts);
-          await _merge(defaultLast, childFacts);
-          await _merge(defaultLast, deleteFacts);
-          // This observer has already rejected the original town's deletion.
-          originalBeforeDefault = await Town.db.findById(
-            defaultLast.crdt,
-            town.id!,
-          );
-          await _merge(defaultLast, defaultFacts);
-          await _merge(batched, [...childFacts, ...deleteFacts, ...defaultFacts]);
+      await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(
+          defaultWriter.crdt,
+          Town(id: _defaultTownId, name: 'default'),
+          transaction: tx,
+        );
+      });
+      defaultFacts = await _collect(defaultWriter);
+    });
 
-          snapshots = await _captureConvergence(
-            [defaultFirst, defaultLast, batched],
-            town: town,
-            company: company,
-          );
+    group(
+      'when merging the default insert before the company and original deletion,',
+      () {
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
+
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, defaultFacts);
+          await _merge(observer, childFacts);
+          await _merge(observer, deleteFacts);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
+
+        test('then the original town is hidden.', () {
+          expect(visibleOriginal, isNull);
+        });
+
+        test('then the default town is visible.', () {
+          expect(visibleDefault, isNotNull);
+        });
+
+        test('then the company references the default town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, _defaultTownId);
         });
 
         test(
-          'then every observer hides the original town and repairs the same authored reference.',
+          'then town visibility and the company reference match batched delivery.',
           () {
-            _expectConvergence(
-              snapshots,
-              authoredFacts: [...childFacts, ...deleteFacts, ...defaultFacts],
-              originalVisible: false,
-              defaultVisible: true,
-              companyTownId: _defaultTownId,
-            );
-            expect(originalBeforeDefault, isNotNull);
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
           },
         );
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...defaultFacts,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
+      },
+    );
+
+    group(
+      'when merging the default insert after the company and original deletion,',
+      () {
+        late Town? beforeOriginal;
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
+
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, childFacts);
+          await _merge(observer, deleteFacts);
+          beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+          await _merge(observer, defaultFacts);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
+
+        test('then the original town was visible before the default arrived.', () {
+          expect(beforeOriginal, isNotNull);
+        });
+
+        test('then the original town is hidden.', () {
+          expect(visibleOriginal, isNull);
+        });
+
+        test('then the default town is visible.', () {
+          expect(visibleDefault, isNotNull);
+        });
+
+        test('then the company references the default town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, _defaultTownId);
+        });
+
+        test(
+          'then town visibility and the company reference match batched delivery.',
+          () {
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
+          },
+        );
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...defaultFacts,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
+      },
+    );
+
+    group('when merging all three authored histories in one batch,', () {
+      late Town? visibleOriginal;
+      late Town? visibleDefault;
+      late Company? visibleCompany;
+      late CrdtMergeSet exportedFacts;
+      late CrdtMergeSet comparisonFacts;
+      late Town? comparisonOriginal;
+      late Town? comparisonDefault;
+      late Company? comparisonCompany;
+
+      setUpAll(() async {
+        final observer = await _node();
+        await _merge(observer, [...childFacts, ...deleteFacts, ...defaultFacts]);
+        visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+        visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+        visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+        exportedFacts = await _collect(observer);
+        final comparison = await _node();
+        await _merge(comparison, defaultFacts);
+        await _merge(comparison, childFacts);
+        await _merge(comparison, deleteFacts);
+        comparisonFacts = await _collect(comparison);
+        comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+        comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+        comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
       });
-    },
-  );
+
+      test('then the original town is hidden.', () {
+        expect(visibleOriginal, isNull);
+      });
+
+      test('then the default town is visible.', () {
+        expect(visibleDefault, isNotNull);
+      });
+
+      test('then the company references the default town.', () {
+        expect(visibleCompany, isNotNull);
+        expect(visibleCompany!.townId, _defaultTownId);
+      });
+
+      test(
+        'then town visibility and the company reference match separate deliveries.',
+        () {
+          expect(comparisonOriginal?.id, visibleOriginal?.id);
+          expect(comparisonDefault?.id, visibleDefault?.id);
+          expect(comparisonCompany?.id, visibleCompany?.id);
+          expect(comparisonCompany?.townId, visibleCompany?.townId);
+        },
+      );
+
+      test('then exported facts match separate deliveries.', () {
+        expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+      });
+
+      test('then every exported payload and HLC comes from an author.', () {
+        final authoredPayloads = _payloads([
+          ...childFacts,
+          ...deleteFacts,
+          ...defaultFacts,
+        ]);
+        for (final entry in _payloads(exportedFacts).entries) {
+          expect(entry.value, authoredPayloads[entry.key]);
+        }
+      });
+
+      test('then the exported child retains its original authored parent.', () {
+        final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+          (fact) => fact.uuidRowId == company.id,
+        );
+        expect((childInsert.data as Company).townId, town.id);
+      });
+    });
+  });
 
   group(
     'Given a company insert concurrent with deletions of its original town and the existing default town,',
@@ -110,8 +294,6 @@ void main() {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
       late SyncNode defaultWriter;
-      late SyncNode defaultFirst;
-      late SyncNode defaultLast;
       late Town town;
       late Town defaultTown;
       late Company company;
@@ -119,15 +301,12 @@ void main() {
       late CrdtMergeSet childFacts;
       late CrdtMergeSet deleteFacts;
       late List<CrdtMergeDelete> defaultDelete;
-      late List<_ObserverSnapshot> snapshots;
-      late UuidValue? referenceBeforeDefaultDeletion;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
         defaultWriter = await _node();
-        defaultFirst = await _node();
-        defaultLast = await _node();
+
         town = Town(id: const Uuid().v7obj(), name: 'original');
         defaultTown = Town(id: _defaultTownId, name: 'default');
         company = Company(
@@ -158,73 +337,202 @@ void main() {
         )).whereType<CrdtMergeDelete>().toList();
       });
 
-      group(
-        'when the default deletion arrives before or after the original deletion,',
-        () {
-          setUp(() async {
-            await _merge(defaultFirst, childFacts);
-            await _merge(defaultFirst, defaultDelete);
-            await _merge(defaultFirst, deleteFacts);
-            await _merge(defaultLast, childFacts);
-            await _merge(defaultLast, deleteFacts);
-            referenceBeforeDefaultDeletion = (await Company.db.findById(
-              defaultLast.crdt,
-              company.id!,
-            ))!.townId;
-            // Only the default tombstone is delivered: no original town or company
-            // facts are replayed to accidentally trigger their recomputation.
-            await _merge(defaultLast, defaultDelete);
+      group('when merging the default deletion before the original deletion,', () {
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
 
-            snapshots = await _captureConvergence(
-              [defaultFirst, defaultLast],
-              town: town,
-              company: company,
-            );
-          });
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, childFacts);
+          await _merge(observer, defaultDelete);
+          await _merge(observer, deleteFacts);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultDelete]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
 
-          test(
-            'then every observer hides the default and restores the original town and reference.',
-            () {
-              _expectConvergence(
-                snapshots,
-                authoredFacts: [...childFacts, ...deleteFacts, ...defaultDelete],
-                originalVisible: true,
-                defaultVisible: false,
-                companyTownId: town.id!,
-              );
-              expect(defaultDelete, hasLength(1));
-              expect(referenceBeforeDefaultDeletion, _defaultTownId);
-            },
+        test('then the original town is visible.', () {
+          expect(visibleOriginal, isNotNull);
+        });
+
+        test('then the default town is hidden.', () {
+          expect(visibleDefault, isNull);
+        });
+
+        test('then the company references the original town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, town.id);
+        });
+
+        test(
+          'then town visibility and the company reference match batched delivery.',
+          () {
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
+          },
+        );
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then the default town deletion remains authored in the export.', () {
+          expect(
+            exportedFacts.whereType<CrdtMergeDelete>().where(
+              (fact) => fact.uuidRowId == _defaultTownId,
+            ),
+            hasLength(1),
           );
-        },
-      );
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...defaultDelete,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
+      });
+
+      group('when merging only the default tombstone after the original deletion,', () {
+        late UuidValue? beforeReference;
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
+
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, childFacts);
+          await _merge(observer, deleteFacts);
+          beforeReference = (await Company.db.findById(
+            observer.crdt,
+            company.id!,
+          ))!.townId;
+          await _merge(observer, defaultDelete);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultDelete]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
+
+        test(
+          'then the company referenced the default before its deletion arrived.',
+          () {
+            expect(beforeReference, _defaultTownId);
+          },
+        );
+        test('then the original town is visible.', () {
+          expect(visibleOriginal, isNotNull);
+        });
+
+        test('then the default town is hidden.', () {
+          expect(visibleDefault, isNull);
+        });
+
+        test('then the company references the original town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, town.id);
+        });
+
+        test(
+          'then town visibility and the company reference match batched delivery.',
+          () {
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
+          },
+        );
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then the default town deletion remains authored in the export.', () {
+          expect(
+            exportedFacts.whereType<CrdtMergeDelete>().where(
+              (fact) => fact.uuidRowId == _defaultTownId,
+            ),
+            hasLength(1),
+          );
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...defaultDelete,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
+      });
     },
   );
 
   group(
-    'Given a deleted default town and a company insert concurrent with its original town deletion,',
+    'Given an authored restoration of a deleted default town and a company insert concurrent with its original town deletion,',
     () {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
       late SyncNode defaultWriter;
-      late SyncNode defaultFirst;
-      late SyncNode defaultLast;
       late Town town;
       late Town defaultTown;
       late Company company;
       late CrdtMergeSet deletedDefaultFacts;
       late CrdtMergeSet childFacts;
       late CrdtMergeSet deleteFacts;
-      late List<_ObserverSnapshot> snapshots;
-      late Town? originalBeforeDefault;
       late CrdtMergeSet restoredDefaultFacts;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
         defaultWriter = await _node();
-        defaultFirst = await _node();
-        defaultLast = await _node();
+
         town = Town(id: const Uuid().v7obj(), name: 'original');
         defaultTown = Town(id: _defaultTownId, name: 'default');
         company = Company(
@@ -251,54 +559,186 @@ void main() {
         deletedDefaultFacts = await _collect(defaultWriter);
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
-        await _merge(defaultFirst, deletedDefaultFacts);
-        await _merge(defaultLast, deletedDefaultFacts);
+
+        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(defaultWriter.crdt, defaultTown, transaction: tx);
+        });
+        restoredDefaultFacts = await _collect(defaultWriter);
       });
 
       group(
-        'when the default restoration arrives before or after the original deletion,',
+        'when merging the default restoration before the company and original deletion,',
         () {
-          setUp(() async {
-            await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-              await Town.db.insertRow(defaultWriter.crdt, defaultTown, transaction: tx);
-            });
-            restoredDefaultFacts = await _collect(defaultWriter);
-            await _merge(defaultFirst, restoredDefaultFacts);
-            await _merge(defaultFirst, childFacts);
-            await _merge(defaultFirst, deleteFacts);
-            await _merge(defaultLast, childFacts);
-            await _merge(defaultLast, deleteFacts);
-            originalBeforeDefault = await Town.db.findById(
-              defaultLast.crdt,
-              town.id!,
-            );
-            await _merge(defaultLast, restoredDefaultFacts);
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
 
-            snapshots = await _captureConvergence(
-              [defaultFirst, defaultLast],
-              town: town,
-              company: company,
-            );
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, deletedDefaultFacts);
+            await _merge(observer, restoredDefaultFacts);
+            await _merge(observer, childFacts);
+            await _merge(observer, deleteFacts);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, deletedDefaultFacts);
+            await _merge(comparison, [
+              ...childFacts,
+              ...deleteFacts,
+              ...deletedDefaultFacts,
+              ...restoredDefaultFacts,
+            ]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the original town is hidden.', () {
+            expect(visibleOriginal, isNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the default town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, _defaultTownId);
           });
 
           test(
-            'then every observer accepts the original deletion and repairs onto the restored default.',
+            'then town visibility and the company reference match batched delivery.',
             () {
-              _expectConvergence(
-                snapshots,
-                authoredFacts: [
-                  ...childFacts,
-                  ...deleteFacts,
-                  ...deletedDefaultFacts,
-                  ...restoredDefaultFacts,
-                ],
-                originalVisible: false,
-                defaultVisible: true,
-                companyTownId: _defaultTownId,
-              );
-              expect(originalBeforeDefault, isNotNull);
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
             },
           );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...deletedDefaultFacts,
+              ...restoredDefaultFacts,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
+
+      group(
+        'when merging the default restoration after the company and original deletion,',
+        () {
+          late Town? beforeOriginal;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, deletedDefaultFacts);
+            await _merge(observer, childFacts);
+            await _merge(observer, deleteFacts);
+            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            await _merge(observer, restoredDefaultFacts);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, deletedDefaultFacts);
+            await _merge(comparison, [
+              ...childFacts,
+              ...deleteFacts,
+              ...deletedDefaultFacts,
+              ...restoredDefaultFacts,
+            ]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test(
+            'then the original town was visible before the default restoration.',
+            () {
+              expect(beforeOriginal, isNotNull);
+            },
+          );
+          test('then the original town is hidden.', () {
+            expect(visibleOriginal, isNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the default town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, _defaultTownId);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...deletedDefaultFacts,
+              ...restoredDefaultFacts,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
         },
       );
     },
@@ -309,8 +749,6 @@ void main() {
     () {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
-      late SyncNode cityFirst;
-      late SyncNode cityLast;
       late City city;
       late Town town;
       late Company company;
@@ -318,16 +756,11 @@ void main() {
       late List<CrdtMergeDelete> deletions;
       late List<CrdtMergeDelete> cityDelete;
       late List<CrdtMergeDelete> townDelete;
-      late List<_ObserverSnapshot> snapshots;
-      late UuidValue? referenceBeforeCityDeletion;
-      late City? cityFirstFinalCity;
-      late City? cityLastFinalCity;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
-        cityFirst = await _node();
-        cityLast = await _node();
+
         city = City(id: const Uuid().v7obj(), name: 'default city');
         town = Town(id: const Uuid().v7obj(), name: 'original');
         company = Company(
@@ -363,78 +796,224 @@ void main() {
       });
 
       group(
-        'when the city deletion arrives before or after the original town deletion,',
+        'when merging the default city deletion before the original town deletion,',
         () {
-          setUp(() async {
-            await _merge(cityFirst, childFacts);
-            await _merge(cityFirst, cityDelete);
-            await _merge(cityFirst, townDelete);
-            await _merge(cityLast, childFacts);
-            await _merge(cityLast, townDelete);
-            referenceBeforeCityDeletion = (await Company.db.findById(
-              cityLast.crdt,
-              company.id!,
-            ))!.townId;
-            await _merge(cityLast, cityDelete);
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
 
-            snapshots = await _captureConvergence(
-              [cityFirst, cityLast],
-              town: town,
-              company: company,
-            );
-            cityFirstFinalCity = await City.db.findById(
-              cityFirst.crdt,
-              city.id!,
-            );
-            cityLastFinalCity = await City.db.findById(cityLast.crdt, city.id!);
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, cityDelete);
+            await _merge(observer, townDelete);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deletions]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the original town is visible.', () {
+            expect(visibleOriginal, isNotNull);
+          });
+
+          test('then the default town is hidden.', () {
+            expect(visibleDefault, isNull);
+          });
+
+          test('then the company references the original town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, town.id);
+          });
+
+          test('then the default city is hidden.', () {
+            expect(visibleCity, isNull);
           });
 
           test(
-            'then every observer hides the default by cascade and retains the original town and reference.',
+            'then town visibility and the company reference match batched delivery.',
             () {
-              _expectConvergence(
-                snapshots,
-                authoredFacts: [...childFacts, ...deletions],
-                originalVisible: true,
-                defaultVisible: false,
-                companyTownId: town.id!,
-              );
-              expect(cityDelete, hasLength(1));
-              expect(townDelete, hasLength(1));
-              expect(referenceBeforeCityDeletion, _defaultTownId);
-              expect(cityFirstFinalCity, isNull);
-              expect(cityLastFinalCity, isNull);
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
             },
           );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then the default city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == city.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then the original town deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == town.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([...childFacts, ...deletions]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
+
+      group(
+        'when merging only the default city deletion after the original town deletion,',
+        () {
+          late UuidValue? beforeReference;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, townDelete);
+            beforeReference = (await Company.db.findById(
+              observer.crdt,
+              company.id!,
+            ))!.townId;
+            await _merge(observer, cityDelete);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deletions]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the company referenced the default before the city deletion.', () {
+            expect(beforeReference, _defaultTownId);
+          });
+
+          test('then the original town is visible.', () {
+            expect(visibleOriginal, isNotNull);
+          });
+
+          test('then the default town is hidden.', () {
+            expect(visibleDefault, isNull);
+          });
+
+          test('then the company references the original town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, town.id);
+          });
+
+          test('then the default city is hidden.', () {
+            expect(visibleCity, isNull);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then the default city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == city.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then the original town deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == town.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([...childFacts, ...deletions]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
         },
       );
     },
   );
 
   group(
-    'Given a cascade-hidden default town and a company insert concurrent with its original town deletion,',
+    'Given concurrent deletions of the original town and default city followed by an authored city restoration,',
     () {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
-      late SyncNode cityFirst;
-      late SyncNode cityLast;
       late City city;
       late Town town;
       late Company company;
       late CrdtMergeSet childFacts;
       late CrdtMergeSet deleteFacts;
-      late List<_ObserverSnapshot> snapshots;
-      late Town? defaultBeforeCityRestoration;
-      late Town? originalBeforeCityRestoration;
-      late City? cityFirstFinalCity;
-      late City? cityLastFinalCity;
       late CrdtMergeSet cityRestoration;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
-        cityFirst = await _node();
-        cityLast = await _node();
+
         city = City(id: const Uuid().v7obj(), name: 'default city');
         town = Town(id: const Uuid().v7obj(), name: 'original');
         company = Company(
@@ -461,59 +1040,198 @@ void main() {
         });
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
-        await _merge(cityFirst, deleteFacts);
-        await _merge(cityLast, childFacts);
-        await _merge(cityLast, deleteFacts);
-        defaultBeforeCityRestoration = await Town.db.findById(
-          cityLast.crdt,
-          _defaultTownId,
-        );
-        originalBeforeCityRestoration = await Town.db.findById(cityLast.crdt, town.id!);
+
+        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(deleteWriter.crdt, city, transaction: tx);
+        });
+        cityRestoration = (await _collect(
+          deleteWriter,
+        )).where((fact) => fact.tableName == City.t.tableName).toList();
       });
 
       group(
-        'when only the default city restoration arrives before or after those company and town facts,',
+        'when merging the default city restoration before the company and default town,',
         () {
-          setUp(() async {
-            await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-              await City.db.insertRow(deleteWriter.crdt, city, transaction: tx);
-            });
-            cityRestoration = (await _collect(
-              deleteWriter,
-            )).where((fact) => fact.tableName == City.t.tableName).toList();
-            await _merge(cityFirst, cityRestoration);
-            await _merge(cityFirst, childFacts);
-            // The late observer receives no default-town or company facts here.
-            await _merge(cityLast, cityRestoration);
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
 
-            snapshots = await _captureConvergence(
-              [cityFirst, cityLast],
-              town: town,
-              company: company,
-            );
-            cityFirstFinalCity = await City.db.findById(
-              cityFirst.crdt,
-              city.id!,
-            );
-            cityLastFinalCity = await City.db.findById(cityLast.crdt, city.id!);
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, deleteFacts);
+            await _merge(observer, cityRestoration);
+            await _merge(observer, childFacts);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, deleteFacts);
+            await _merge(comparison, [
+              ...childFacts,
+              ...deleteFacts,
+              ...cityRestoration,
+            ]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the original town is hidden.', () {
+            expect(visibleOriginal, isNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the default town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, _defaultTownId);
+          });
+
+          test('then the default city is visible.', () {
+            expect(visibleCity, isNotNull);
           });
 
           test(
-            'then every observer restores the default and accepts the original town deletion.',
+            'then town visibility and the company reference match batched delivery.',
             () {
-              _expectConvergence(
-                snapshots,
-                authoredFacts: [...childFacts, ...deleteFacts, ...cityRestoration],
-                originalVisible: false,
-                defaultVisible: true,
-                companyTownId: _defaultTownId,
-              );
-              expect(defaultBeforeCityRestoration, isNull);
-              expect(originalBeforeCityRestoration, isNotNull);
-              expect(cityFirstFinalCity, isNotNull);
-              expect(cityLastFinalCity, isNotNull);
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
             },
           );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...cityRestoration,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
+
+      group(
+        'when merging only the default city restoration after the company and deletions,',
+        () {
+          late Town? beforeDefault;
+          late Town? beforeOriginal;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, deleteFacts);
+            beforeDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            await _merge(observer, cityRestoration);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, deleteFacts);
+            await _merge(comparison, [
+              ...childFacts,
+              ...deleteFacts,
+              ...cityRestoration,
+            ]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the default town was hidden before the city restoration.', () {
+            expect(beforeDefault, isNull);
+          });
+
+          test('then the original town was visible before the city restoration.', () {
+            expect(beforeOriginal, isNotNull);
+          });
+
+          test('then the original town is hidden.', () {
+            expect(visibleOriginal, isNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the default town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, _defaultTownId);
+          });
+
+          test('then the default city is visible.', () {
+            expect(visibleCity, isNotNull);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...cityRestoration,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
         },
       );
     },
@@ -524,9 +1242,6 @@ void main() {
     () {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
-      late SyncNode originalFirst;
-      late SyncNode defaultFirst;
-      late SyncNode batched;
       late City originalCity;
       late City defaultCity;
       late Town town;
@@ -537,24 +1252,11 @@ void main() {
       late List<CrdtMergeDelete> deletions;
       late List<CrdtMergeDelete> originalDelete;
       late List<CrdtMergeDelete> defaultDelete;
-      late List<
-        ({
-          City? originalCity,
-          City? defaultCity,
-          Organization? organization,
-          Person? blocker,
-        })
-      >
-      relatedRows;
-      late List<_ObserverSnapshot> snapshots;
-      late City? originalCityBeforeDefaultDeletion;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
-        originalFirst = await _node();
-        defaultFirst = await _node();
-        batched = await _node();
+
         originalCity = City(id: const Uuid().v7obj(), name: 'original city');
         defaultCity = City(id: const Uuid().v7obj(), name: 'default city');
         town = Town(
@@ -614,62 +1316,363 @@ void main() {
             .toList();
       });
 
-      group('when observers receive the deletions in opposite orders or together,', () {
-        setUp(() async {
-          await _merge(originalFirst, childFacts);
-          await _merge(originalFirst, originalDelete);
-          originalCityBeforeDefaultDeletion = await City.db.findById(
-            originalFirst.crdt,
-            originalCity.id!,
-          );
-          await _merge(originalFirst, defaultDelete);
-          await _merge(defaultFirst, childFacts);
-          await _merge(defaultFirst, defaultDelete);
-          await _merge(defaultFirst, originalDelete);
-          await _merge(batched, [...childFacts, ...deletions]);
+      group(
+        'when merging the original city deletion before the default city deletion,',
+        () {
+          late City? beforeCity;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleOriginalCity;
+          late City? visibleDefaultCity;
+          late Organization? visibleOrganization;
+          late Person? visibleBlocker;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
 
-          snapshots = await _captureConvergence(
-            [originalFirst, defaultFirst, batched],
-            town: town,
-            company: company,
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, originalDelete);
+            beforeCity = await City.db.findById(observer.crdt, originalCity.id!);
+            await _merge(observer, defaultDelete);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleOriginalCity = await City.db.findById(
+              observer.crdt,
+              originalCity.id!,
+            );
+            visibleDefaultCity = await City.db.findById(observer.crdt, defaultCity.id!);
+            visibleOrganization = await Organization.db.findById(
+              observer.crdt,
+              organization.id!,
+            );
+            visibleBlocker = await Person.db.findById(observer.crdt, blocker.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deletions]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test(
+            'then the original city was hidden before the default city deletion.',
+            () {
+              expect(beforeCity, isNull);
+            },
           );
-          relatedRows = [
-            for (final observer in [originalFirst, defaultFirst, batched])
-              (
-                originalCity: await City.db.findById(observer.crdt, originalCity.id!),
-                defaultCity: await City.db.findById(observer.crdt, defaultCity.id!),
-                organization: await Organization.db.findById(
-                  observer.crdt,
-                  organization.id!,
-                ),
-                blocker: await Person.db.findById(observer.crdt, blocker.id!),
+          test('then the original town is visible.', () {
+            expect(visibleOriginal, isNotNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the original town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, town.id);
+          });
+
+          test('then both city deletions are withdrawn.', () {
+            expect(visibleOriginalCity, isNotNull);
+            expect(visibleDefaultCity, isNotNull);
+          });
+
+          test('then the organization remains visible.', () {
+            expect(visibleOrganization, isNotNull);
+          });
+
+          test('then the blocker retains its authored organization and city.', () {
+            expect(visibleBlocker, isNotNull);
+            expect(visibleBlocker!.organizationId, organization.id);
+            expect(visibleBlocker!.cityId, defaultCity.id);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then the original city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == originalCity.id,
               ),
-          ];
+              hasLength(1),
+            );
+          });
+
+          test('then the default city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == defaultCity.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([...childFacts, ...deletions]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
+
+      group(
+        'when merging the default city deletion before the original city deletion,',
+        () {
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleOriginalCity;
+          late City? visibleDefaultCity;
+          late Organization? visibleOrganization;
+          late Person? visibleBlocker;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, defaultDelete);
+            await _merge(observer, originalDelete);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleOriginalCity = await City.db.findById(
+              observer.crdt,
+              originalCity.id!,
+            );
+            visibleDefaultCity = await City.db.findById(observer.crdt, defaultCity.id!);
+            visibleOrganization = await Organization.db.findById(
+              observer.crdt,
+              organization.id!,
+            );
+            visibleBlocker = await Person.db.findById(observer.crdt, blocker.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deletions]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the original town is visible.', () {
+            expect(visibleOriginal, isNotNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the original town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, town.id);
+          });
+
+          test('then both city deletions are withdrawn.', () {
+            expect(visibleOriginalCity, isNotNull);
+            expect(visibleDefaultCity, isNotNull);
+          });
+
+          test('then the organization remains visible.', () {
+            expect(visibleOrganization, isNotNull);
+          });
+
+          test('then the blocker retains its authored organization and city.', () {
+            expect(visibleBlocker, isNotNull);
+            expect(visibleBlocker!.organizationId, organization.id);
+            expect(visibleBlocker!.cityId, defaultCity.id);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then the original city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == originalCity.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then the default city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == defaultCity.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([...childFacts, ...deletions]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
+
+      group('when merging both city deletions with the child facts in one batch,', () {
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late City? visibleOriginalCity;
+        late City? visibleDefaultCity;
+        late Organization? visibleOrganization;
+        late Person? visibleBlocker;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
+
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, [...childFacts, ...deletions]);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleOriginalCity = await City.db.findById(observer.crdt, originalCity.id!);
+          visibleDefaultCity = await City.db.findById(observer.crdt, defaultCity.id!);
+          visibleOrganization = await Organization.db.findById(
+            observer.crdt,
+            organization.id!,
+          );
+          visibleBlocker = await Person.db.findById(observer.crdt, blocker.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, childFacts);
+          await _merge(comparison, originalDelete);
+          await _merge(comparison, defaultDelete);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
+
+        test('then the original town is visible.', () {
+          expect(visibleOriginal, isNotNull);
+        });
+
+        test('then the default town is visible.', () {
+          expect(visibleDefault, isNotNull);
+        });
+
+        test('then the company references the original town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, town.id);
+        });
+
+        test('then both city deletions are withdrawn.', () {
+          expect(visibleOriginalCity, isNotNull);
+          expect(visibleDefaultCity, isNotNull);
+        });
+
+        test('then the organization remains visible.', () {
+          expect(visibleOrganization, isNotNull);
+        });
+
+        test('then the blocker retains its authored organization and city.', () {
+          expect(visibleBlocker, isNotNull);
+          expect(visibleBlocker!.organizationId, organization.id);
+          expect(visibleBlocker!.cityId, defaultCity.id);
         });
 
         test(
-          'then every observer withdraws both deletions and preserves the authored relationships.',
+          'then town visibility and the company reference match separate deliveries.',
           () {
-            _expectConvergence(
-              snapshots,
-              authoredFacts: [...childFacts, ...deletions],
-              originalVisible: true,
-              defaultVisible: true,
-              companyTownId: town.id!,
-            );
-            for (final rows in relatedRows) {
-              expect(rows.originalCity, isNotNull);
-              expect(rows.defaultCity, isNotNull);
-              expect(rows.organization, isNotNull);
-              expect(rows.blocker, isNotNull);
-              expect(rows.blocker!.organizationId, organization.id);
-              expect(rows.blocker!.cityId, defaultCity.id);
-            }
-            expect(originalDelete, hasLength(1));
-            expect(defaultDelete, hasLength(1));
-            expect(originalCityBeforeDefaultDeletion, isNull);
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
           },
         );
+
+        test('then exported facts match separate deliveries.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then the original city deletion remains authored in the export.', () {
+          expect(
+            exportedFacts.whereType<CrdtMergeDelete>().where(
+              (fact) => fact.uuidRowId == originalCity.id,
+            ),
+            hasLength(1),
+          );
+        });
+
+        test('then the default city deletion remains authored in the export.', () {
+          expect(
+            exportedFacts.whereType<CrdtMergeDelete>().where(
+              (fact) => fact.uuidRowId == defaultCity.id,
+            ),
+            hasLength(1),
+          );
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([...childFacts, ...deletions]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
       });
     },
   );
@@ -678,23 +1681,15 @@ void main() {
     'Given a nullable set-default child whose authored town has never arrived,',
     () {
       late SyncNode defaultWriter;
-      late SyncNode defaultFirst;
-      late SyncNode defaultLast;
       late Town missingTown;
       late UniqueSetDefaultChild child;
       late Hlc childHlc;
       late CrdtMergeSet childFacts;
       late CrdtMergeSet defaultFacts;
-      late List<
-        ({UniqueSetDefaultChild? child, Town? original, Map<String, dynamic> facts})
-      >
-      snapshots;
-      late UniqueSetDefaultChild? childBeforeDefault;
 
-      setUp(() async {
+      setUpAll(() async {
         defaultWriter = await _node();
-        defaultFirst = await _node();
-        defaultLast = await _node();
+
         missingTown = Town(id: const Uuid().v7obj(), name: 'missing');
         child = UniqueSetDefaultChild(
           id: const Uuid().v7obj(),
@@ -723,42 +1718,145 @@ void main() {
         defaultFacts = await _collect(defaultWriter);
       });
 
-      group('when the default town arrives before or after that child,', () {
-        setUp(() async {
-          await _merge(defaultFirst, defaultFacts);
-          await _merge(defaultFirst, childFacts);
-          await _merge(defaultLast, childFacts);
-          childBeforeDefault = await UniqueSetDefaultChild.db.findById(
-            defaultLast.crdt,
+      group('when merging the default town before the child,', () {
+        late UniqueSetDefaultChild? visibleChild;
+        late Town? missingParent;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late UniqueSetDefaultChild? comparisonChild;
+
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, defaultFacts);
+          await _merge(observer, childFacts);
+          visibleChild = await UniqueSetDefaultChild.db.findById(
+            observer.crdt,
             child.id!,
           );
-          await _merge(defaultLast, defaultFacts);
-
-          snapshots = [
-            for (final observer in [defaultFirst, defaultLast])
-              (
-                child: await UniqueSetDefaultChild.db.findById(
-                  observer.crdt,
-                  child.id!,
-                ),
-                original: await Town.db.findById(observer.crdt, missingTown.id!),
-                facts: _payloads(await _collect(observer)),
-              ),
-          ];
+          missingParent = await Town.db.findById(observer.crdt, missingTown.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...defaultFacts]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, missingTown.id!);
+          comparisonChild = await UniqueSetDefaultChild.db.findById(
+            comparison.crdt,
+            child.id!,
+          );
         });
 
-        test(
-          'then both observers show the child on the default and preserve its missing authored parent.',
-          () {
-            for (final snapshot in snapshots) {
-              expect(snapshot.child, isNotNull);
-              expect(snapshot.child!.parentId, _defaultTownId);
-              expect(snapshot.original, isNull);
-              expect(snapshot.facts, _payloads([...childFacts, ...defaultFacts]));
-            }
-            expect(childBeforeDefault, isNull);
-          },
-        );
+        test('then the child is visible on the default town.', () {
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.parentId, _defaultTownId);
+        });
+
+        test('then the authored parent is still missing.', () {
+          expect(missingParent, isNull);
+        });
+
+        test('then the visible child and missing parent match batched delivery.', () {
+          expect(comparisonOriginal?.id, missingParent?.id);
+          expect(comparisonChild?.id, visibleChild?.id);
+          expect(comparisonChild?.parentId, visibleChild?.parentId);
+        });
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([...childFacts, ...defaultFacts]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == child.id,
+          );
+          expect((childInsert.data as UniqueSetDefaultChild).parentId, missingTown.id);
+        });
+
+        test('then both authored inserts are exported intact.', () {
+          expect(_payloads(exportedFacts), _payloads([...childFacts, ...defaultFacts]));
+        });
+      });
+
+      group('when merging only the default town after the child,', () {
+        late UniqueSetDefaultChild? beforeChild;
+        late UniqueSetDefaultChild? visibleChild;
+        late Town? missingParent;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late UniqueSetDefaultChild? comparisonChild;
+
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, childFacts);
+          beforeChild = await UniqueSetDefaultChild.db.findById(
+            observer.crdt,
+            child.id!,
+          );
+          await _merge(observer, defaultFacts);
+          visibleChild = await UniqueSetDefaultChild.db.findById(
+            observer.crdt,
+            child.id!,
+          );
+          missingParent = await Town.db.findById(observer.crdt, missingTown.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...defaultFacts]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, missingTown.id!);
+          comparisonChild = await UniqueSetDefaultChild.db.findById(
+            comparison.crdt,
+            child.id!,
+          );
+        });
+
+        test('then the child was hidden before the default arrived.', () {
+          expect(beforeChild, isNull);
+        });
+
+        test('then the child is visible on the default town.', () {
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.parentId, _defaultTownId);
+        });
+
+        test('then the authored parent is still missing.', () {
+          expect(missingParent, isNull);
+        });
+
+        test('then the visible child and missing parent match batched delivery.', () {
+          expect(comparisonOriginal?.id, missingParent?.id);
+          expect(comparisonChild?.id, visibleChild?.id);
+          expect(comparisonChild?.parentId, visibleChild?.parentId);
+        });
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([...childFacts, ...defaultFacts]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == child.id,
+          );
+          expect((childInsert.data as UniqueSetDefaultChild).parentId, missingTown.id);
+        });
+
+        test('then both authored inserts are exported intact.', () {
+          expect(_payloads(exportedFacts), _payloads([...childFacts, ...defaultFacts]));
+        });
       });
     },
   );
@@ -768,21 +1866,19 @@ void main() {
     () {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
-      late SyncNode localDefault;
-      late SyncNode defaultFirst;
       late Town town;
       late Company company;
       late CrdtMergeSet childFacts;
       late CrdtMergeSet deleteFacts;
-      late List<_ObserverSnapshot> snapshots;
       late Town? originalBeforeLocalDefault;
+      late SyncNode observer;
       late CrdtMergeSet defaultFacts;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
-        localDefault = await _node();
-        defaultFirst = await _node();
+        observer = await _node();
+
         town = Town(id: const Uuid().v7obj(), name: 'original');
         company = Company(
           id: const Uuid().v7obj(),
@@ -801,54 +1897,98 @@ void main() {
         });
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
-        await _merge(localDefault, childFacts);
-        await _merge(localDefault, deleteFacts);
+        await _merge(observer, childFacts);
+        await _merge(observer, deleteFacts);
         originalBeforeLocalDefault = await Town.db.findById(
-          localDefault.crdt,
+          observer.crdt,
           town.id!,
         );
       });
 
-      group(
-        'when that observer inserts the default locally and another receives it before the earlier facts,',
-        () {
-          setUp(() async {
-            await localDefault.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-              await Town.db.insertRow(
-                localDefault.crdt,
-                Town(id: _defaultTownId, name: 'default'),
-                transaction: tx,
-              );
-            });
-            defaultFacts = (await _collect(
-              localDefault,
-            )).where((fact) => fact.uuidRowId == _defaultTownId).toList();
-            await _merge(defaultFirst, defaultFacts);
-            await _merge(defaultFirst, childFacts);
-            await _merge(defaultFirst, deleteFacts);
+      group('when inserting the default town locally on the observer,', () {
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
 
-            snapshots = await _captureConvergence(
-              [localDefault, defaultFirst],
-              town: town,
-              company: company,
+        setUpAll(() async {
+          await observer.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+            await Town.db.insertRow(
+              observer.crdt,
+              Town(id: _defaultTownId, name: 'default'),
+              transaction: tx,
             );
           });
+          defaultFacts = (await _collect(
+            observer,
+          )).where((fact) => fact.uuidRowId == _defaultTownId).toList();
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, defaultFacts);
+          await _merge(comparison, childFacts);
+          await _merge(comparison, deleteFacts);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
 
-          test(
-            'then both accept the original deletion and preserve the authored company reference.',
-            () {
-              _expectConvergence(
-                snapshots,
-                authoredFacts: [...childFacts, ...deleteFacts, ...defaultFacts],
-                originalVisible: false,
-                defaultVisible: true,
-                companyTownId: _defaultTownId,
-              );
-              expect(originalBeforeLocalDefault, isNotNull);
-            },
+        test('then the original town was visible before the local insert.', () {
+          expect(originalBeforeLocalDefault, isNotNull);
+        });
+
+        test('then the original town is hidden.', () {
+          expect(visibleOriginal, isNull);
+        });
+
+        test('then the default town is visible.', () {
+          expect(visibleDefault, isNotNull);
+        });
+
+        test('then the company references the default town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, _defaultTownId);
+        });
+
+        test(
+          'then town visibility and the company reference match default-first delivery.',
+          () {
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
+          },
+        );
+
+        test('then exported facts match default-first delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...defaultFacts,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
           );
-        },
-      );
+          expect((childInsert.data as Company).townId, town.id);
+        });
+      });
     },
   );
 
@@ -858,9 +1998,6 @@ void main() {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
       late SyncNode blockerWriter;
-      late SyncNode blockerFirst;
-      late SyncNode blockerLast;
-      late SyncNode originalFirst;
       late City city;
       late Town town;
       late Company company;
@@ -869,22 +2006,14 @@ void main() {
       late CrdtMergeSet childFacts;
       late CrdtMergeSet deleteFacts;
       late CrdtMergeSet blockerFacts;
-      late List<_ObserverSnapshot> snapshots;
-      late Town? defaultBeforeBlocker;
-      late Town? originalBeforeBlocker;
-      late Town? originalBeforeCityDeletion;
-      late City? blockerFirstFinalCity;
-      late City? blockerLastFinalCity;
       late List<CrdtMergeDelete> cityDelete;
       late List<CrdtMergeDelete> originalDelete;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
         blockerWriter = await _node();
-        blockerFirst = await _node();
-        blockerLast = await _node();
-        originalFirst = await _node();
+
         city = City(id: const Uuid().v7obj(), name: 'default city');
         town = Town(id: const Uuid().v7obj(), name: 'original');
         company = Company(
@@ -924,80 +2053,333 @@ void main() {
         blockerFacts = (await _collect(
           blockerWriter,
         )).where((fact) => fact.uuidRowId == blocker.id).toList();
+        originalDelete = deleteFacts
+            .whereType<CrdtMergeDelete>()
+            .where((fact) => fact.uuidRowId == town.id)
+            .toList();
+        cityDelete = deleteFacts
+            .whereType<CrdtMergeDelete>()
+            .where((fact) => fact.uuidRowId == city.id)
+            .toList();
       });
 
-      group('when observers receive the blocker and deletions in different orders,', () {
-        setUp(() async {
-          await _merge(blockerFirst, initial);
-          await _merge(blockerFirst, blockerFacts);
-          await _merge(blockerFirst, childFacts);
-          await _merge(blockerFirst, deleteFacts);
-          await _merge(blockerLast, childFacts);
-          await _merge(blockerLast, deleteFacts);
-          defaultBeforeBlocker = await Town.db.findById(
-            blockerLast.crdt,
-            _defaultTownId,
-          );
-          originalBeforeBlocker = await Town.db.findById(
-            blockerLast.crdt,
-            town.id!,
-          );
-          await _merge(blockerLast, blockerFacts);
+      group('when merging the restrict blocker before the company and deletions,', () {
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late City? visibleCity;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
 
-          originalDelete = deleteFacts
-              .whereType<CrdtMergeDelete>()
-              .where((fact) => fact.uuidRowId == town.id)
-              .toList();
-          cityDelete = deleteFacts
-              .whereType<CrdtMergeDelete>()
-              .where((fact) => fact.uuidRowId == city.id)
-              .toList();
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, initial);
+          await _merge(observer, blockerFacts);
+          await _merge(observer, childFacts);
+          await _merge(observer, deleteFacts);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleCity = await City.db.findById(observer.crdt, city.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...deleteFacts, ...blockerFacts]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
 
-          await _merge(originalFirst, childFacts);
-          await _merge(originalFirst, originalDelete);
-          originalBeforeCityDeletion = await Town.db.findById(
-            originalFirst.crdt,
-            town.id!,
-          );
-          // The default's final visibility does not change here. Its candidate
-          // cascade deletion must still invalidate the company's earlier repair.
-          await _merge(originalFirst, [...cityDelete, ...blockerFacts]);
+        test('then the original town is visible.', () {
+          expect(visibleOriginal, isNotNull);
+        });
 
-          snapshots = await _captureConvergence(
-            [blockerFirst, blockerLast, originalFirst],
-            town: town,
-            company: company,
-          );
-          blockerFirstFinalCity = await City.db.findById(
-            blockerFirst.crdt,
-            city.id!,
-          );
-          blockerLastFinalCity = await City.db.findById(
-            blockerLast.crdt,
-            city.id!,
-          );
+        test('then the default town is visible.', () {
+          expect(visibleDefault, isNotNull);
+        });
+
+        test('then the company references the original town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, town.id);
+        });
+
+        test('then the default city is visible.', () {
+          expect(visibleCity, isNotNull);
         });
 
         test(
-          'then all observers withdraw both deletions and preserve the original reference.',
+          'then town visibility and the company reference match batched delivery.',
           () {
-            _expectConvergence(
-              snapshots,
-              authoredFacts: [...childFacts, ...deleteFacts, ...blockerFacts],
-              originalVisible: true,
-              defaultVisible: true,
-              companyTownId: town.id!,
-            );
-            expect(defaultBeforeBlocker, isNull);
-            expect(originalBeforeBlocker, isNotNull);
-            expect(originalDelete, hasLength(1));
-            expect(cityDelete, hasLength(1));
-            expect(originalBeforeCityDeletion, isNull);
-            expect(blockerFirstFinalCity, isNotNull);
-            expect(blockerLastFinalCity, isNotNull);
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
           },
         );
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then the original town deletion remains authored in the export.', () {
+          expect(
+            exportedFacts.whereType<CrdtMergeDelete>().where(
+              (fact) => fact.uuidRowId == town.id,
+            ),
+            hasLength(1),
+          );
+        });
+
+        test('then the default city deletion remains authored in the export.', () {
+          expect(
+            exportedFacts.whereType<CrdtMergeDelete>().where(
+              (fact) => fact.uuidRowId == city.id,
+            ),
+            hasLength(1),
+          );
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...blockerFacts,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
       });
+
+      group(
+        'when merging only the restrict blocker after the company and deletions,',
+        () {
+          late Town? beforeDefault;
+          late Town? beforeOriginal;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, deleteFacts);
+            beforeDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            await _merge(observer, blockerFacts);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deleteFacts, ...blockerFacts]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the default town was hidden before the blocker arrived.', () {
+            expect(beforeDefault, isNull);
+          });
+
+          test('then the original town was visible before the blocker arrived.', () {
+            expect(beforeOriginal, isNotNull);
+          });
+
+          test('then the original town is visible.', () {
+            expect(visibleOriginal, isNotNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the original town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, town.id);
+          });
+
+          test('then the default city is visible.', () {
+            expect(visibleCity, isNotNull);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then the original town deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == town.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then the default city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == city.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...blockerFacts,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
+
+      group(
+        'when merging the default city deletion and blocker together after the original deletion,',
+        () {
+          late Town? beforeOriginal;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, originalDelete);
+            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            await _merge(observer, [...cityDelete, ...blockerFacts]);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deleteFacts, ...blockerFacts]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test(
+            'then the original town was hidden before the blocked city deletion.',
+            () {
+              expect(beforeOriginal, isNull);
+            },
+          );
+          test('then the original town is visible.', () {
+            expect(visibleOriginal, isNotNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the original town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, town.id);
+          });
+
+          test('then the default city is visible.', () {
+            expect(visibleCity, isNotNull);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then the original town deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == town.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then the default city deletion remains authored in the export.', () {
+            expect(
+              exportedFacts.whereType<CrdtMergeDelete>().where(
+                (fact) => fact.uuidRowId == city.id,
+              ),
+              hasLength(1),
+            );
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...blockerFacts,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
     },
   );
 
@@ -1007,26 +2389,18 @@ void main() {
       late SyncNode childWriter;
       late SyncNode deleteWriter;
       late SyncNode defaultWriter;
-      late SyncNode defaultFirst;
-      late SyncNode defaultLast;
       late City city;
       late Town town;
       late Company company;
       late CrdtMergeSet childFacts;
       late CrdtMergeSet deleteFacts;
       late CrdtMergeSet defaultFacts;
-      late List<_ObserverSnapshot> snapshots;
-      late City? cityBeforeDefault;
-      late Town? originalBeforeDefault;
-      late City? defaultFirstFinalCity;
-      late City? defaultLastFinalCity;
 
-      setUp(() async {
+      setUpAll(() async {
         childWriter = await _node();
         deleteWriter = await _node();
         defaultWriter = await _node();
-        defaultFirst = await _node();
-        defaultLast = await _node();
+
         city = City(id: const Uuid().v7obj(), name: 'original city');
         town = Town(id: const Uuid().v7obj(), name: 'original', cityId: city.id);
         company = Company(
@@ -1057,61 +2431,186 @@ void main() {
         defaultFacts = await _collect(defaultWriter);
       });
 
-      group('when a default town arrives before or after those facts,', () {
-        setUp(() async {
-          await _merge(defaultFirst, defaultFacts);
-          await _merge(defaultFirst, childFacts);
-          await _merge(defaultFirst, deleteFacts);
-          await _merge(defaultLast, childFacts);
-          await _merge(defaultLast, deleteFacts);
-          cityBeforeDefault = await City.db.findById(
-            defaultLast.crdt,
-            city.id!,
-          );
-          originalBeforeDefault = await Town.db.findById(
-            defaultLast.crdt,
-            town.id!,
-          );
-          await _merge(defaultLast, defaultFacts);
+      group('when merging the default town before the company and city deletion,', () {
+        late Town? visibleOriginal;
+        late Town? visibleDefault;
+        late Company? visibleCompany;
+        late City? visibleCity;
+        late CrdtMergeSet exportedFacts;
+        late CrdtMergeSet comparisonFacts;
+        late Town? comparisonOriginal;
+        late Town? comparisonDefault;
+        late Company? comparisonCompany;
 
-          snapshots = await _captureConvergence(
-            [defaultFirst, defaultLast],
-            town: town,
-            company: company,
-          );
-          defaultFirstFinalCity = await City.db.findById(
-            defaultFirst.crdt,
-            city.id!,
-          );
-          defaultLastFinalCity = await City.db.findById(
-            defaultLast.crdt,
-            city.id!,
-          );
+        setUpAll(() async {
+          final observer = await _node();
+          await _merge(observer, defaultFacts);
+          await _merge(observer, childFacts);
+          await _merge(observer, deleteFacts);
+          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleCity = await City.db.findById(observer.crdt, city.id!);
+          exportedFacts = await _collect(observer);
+          final comparison = await _node();
+          await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
+          comparisonFacts = await _collect(comparison);
+          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        });
+
+        test('then the original town is hidden.', () {
+          expect(visibleOriginal, isNull);
+        });
+
+        test('then the default town is visible.', () {
+          expect(visibleDefault, isNotNull);
+        });
+
+        test('then the company references the default town.', () {
+          expect(visibleCompany, isNotNull);
+          expect(visibleCompany!.townId, _defaultTownId);
+        });
+
+        test('then the original city is hidden.', () {
+          expect(visibleCity, isNull);
         });
 
         test(
-          'then both observers accept the city cascade and repair the company onto the default.',
+          'then town visibility and the company reference match batched delivery.',
           () {
-            _expectConvergence(
-              snapshots,
-              authoredFacts: [...childFacts, ...deleteFacts, ...defaultFacts],
-              originalVisible: false,
-              defaultVisible: true,
-              companyTownId: _defaultTownId,
-            );
-            expect(cityBeforeDefault, isNotNull);
-            expect(originalBeforeDefault, isNotNull);
-            expect(defaultFirstFinalCity, isNull);
-            expect(defaultLastFinalCity, isNull);
+            expect(comparisonOriginal?.id, visibleOriginal?.id);
+            expect(comparisonDefault?.id, visibleDefault?.id);
+            expect(comparisonCompany?.id, visibleCompany?.id);
+            expect(comparisonCompany?.townId, visibleCompany?.townId);
           },
         );
+
+        test('then exported facts match batched delivery.', () {
+          expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+        });
+
+        test('then every exported payload and HLC comes from an author.', () {
+          final authoredPayloads = _payloads([
+            ...childFacts,
+            ...deleteFacts,
+            ...defaultFacts,
+          ]);
+          for (final entry in _payloads(exportedFacts).entries) {
+            expect(entry.value, authoredPayloads[entry.key]);
+          }
+        });
+
+        test('then the exported child retains its original authored parent.', () {
+          final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+            (fact) => fact.uuidRowId == company.id,
+          );
+          expect((childInsert.data as Company).townId, town.id);
+        });
       });
+
+      group(
+        'when merging only the default town after the company and city deletion,',
+        () {
+          late City? beforeCity;
+          late Town? beforeOriginal;
+          late Town? visibleOriginal;
+          late Town? visibleDefault;
+          late Company? visibleCompany;
+          late City? visibleCity;
+          late CrdtMergeSet exportedFacts;
+          late CrdtMergeSet comparisonFacts;
+          late Town? comparisonOriginal;
+          late Town? comparisonDefault;
+          late Company? comparisonCompany;
+
+          setUpAll(() async {
+            final observer = await _node();
+            await _merge(observer, childFacts);
+            await _merge(observer, deleteFacts);
+            beforeCity = await City.db.findById(observer.crdt, city.id!);
+            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            await _merge(observer, defaultFacts);
+            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
+            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
+            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            exportedFacts = await _collect(observer);
+            final comparison = await _node();
+            await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
+            comparisonFacts = await _collect(comparison);
+            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
+            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
+            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          });
+
+          test('then the city was visible before the default arrived.', () {
+            expect(beforeCity, isNotNull);
+          });
+
+          test('then the original town was visible before the default arrived.', () {
+            expect(beforeOriginal, isNotNull);
+          });
+
+          test('then the original town is hidden.', () {
+            expect(visibleOriginal, isNull);
+          });
+
+          test('then the default town is visible.', () {
+            expect(visibleDefault, isNotNull);
+          });
+
+          test('then the company references the default town.', () {
+            expect(visibleCompany, isNotNull);
+            expect(visibleCompany!.townId, _defaultTownId);
+          });
+
+          test('then the original city is hidden.', () {
+            expect(visibleCity, isNull);
+          });
+
+          test(
+            'then town visibility and the company reference match batched delivery.',
+            () {
+              expect(comparisonOriginal?.id, visibleOriginal?.id);
+              expect(comparisonDefault?.id, visibleDefault?.id);
+              expect(comparisonCompany?.id, visibleCompany?.id);
+              expect(comparisonCompany?.townId, visibleCompany?.townId);
+            },
+          );
+
+          test('then exported facts match batched delivery.', () {
+            expect(_payloads(exportedFacts), _payloads(comparisonFacts));
+          });
+
+          test('then every exported payload and HLC comes from an author.', () {
+            final authoredPayloads = _payloads([
+              ...childFacts,
+              ...deleteFacts,
+              ...defaultFacts,
+            ]);
+            for (final entry in _payloads(exportedFacts).entries) {
+              expect(entry.value, authoredPayloads[entry.key]);
+            }
+          });
+
+          test('then the exported child retains its original authored parent.', () {
+            final childInsert = exportedFacts.whereType<CrdtMergeInsert>().singleWhere(
+              (fact) => fact.uuidRowId == company.id,
+            );
+            expect((childInsert.data as Company).townId, town.id);
+          });
+        },
+      );
     },
   );
 }
 
-Future<SyncNode> _node() async =>
-    syncNode(await createAdditionalTestSession(), testSyncTables);
+Future<SyncNode> _node() async => syncNode(
+  await createAdditionalTestSession(),
+  testSyncTables,
+);
 
 Future<CrdtMergeSet> _collect(SyncNode node) => node.sync
     .collectPendingChanges(
@@ -1137,48 +2636,3 @@ Map<String, dynamic> _payloads(CrdtMergeSet facts) => {
       jsonEncode(fact.toJson()),
     ),
 };
-
-typedef _ObserverSnapshot = ({
-  Town? original,
-  Town? defaultTown,
-  Company? company,
-  Map<String, dynamic> facts,
-});
-
-Future<List<_ObserverSnapshot>> _captureConvergence(
-  List<SyncNode> observers, {
-  required Town town,
-  required Company company,
-}) async => [
-  for (final observer in observers)
-    (
-      original: await Town.db.findById(observer.crdt, town.id!),
-      defaultTown: await Town.db.findById(observer.crdt, _defaultTownId),
-      company: await Company.db.findById(observer.crdt, company.id!),
-      facts: _payloads(await _collect(observer)),
-    ),
-];
-
-void _expectConvergence(
-  List<_ObserverSnapshot> snapshots, {
-  required CrdtMergeSet authoredFacts,
-  required bool originalVisible,
-  required bool defaultVisible,
-  required UuidValue companyTownId,
-}) {
-  final authors = _payloads(authoredFacts);
-  for (final snapshot in snapshots) {
-    expect(snapshot.original, originalVisible ? isNotNull : isNull);
-    expect(snapshot.defaultTown, defaultVisible ? isNotNull : isNull);
-    expect(snapshot.company, isNotNull);
-    expect(snapshot.company!.townId, companyTownId);
-    expect(snapshot.facts, snapshots.first.facts);
-    for (final entry in snapshot.facts.entries) {
-      expect(
-        entry.value,
-        authors[entry.key],
-        reason: 'Projection must preserve authored values and HLCs.',
-      );
-    }
-  }
-}
