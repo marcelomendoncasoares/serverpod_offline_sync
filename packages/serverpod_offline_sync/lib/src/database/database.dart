@@ -519,7 +519,7 @@ class CrdtDatabase implements Database {
       transaction,
     );
     final reinsertedRows = await _delegate.update<T>(
-      plannedReinserts,
+      plannedReinserts.rows,
       transaction: transaction,
     );
     await _recorder.afterReinsert(reinsertedRows, transaction);
@@ -623,7 +623,7 @@ class CrdtDatabase implements Database {
       (tx) async {
         final plannedUpdates = await _recorder.planLocalUpdates(rows, columns, tx);
         final updatedRows = [
-          for (final row in plannedUpdates)
+          for (final row in plannedUpdates.rows)
             await _updateRowWithoutRecording(
               row,
               stripScopeId: _shouldStripReturnedScopeId(row, tx),
@@ -632,7 +632,12 @@ class CrdtDatabase implements Database {
             ),
         ];
 
-        await _recorder.afterUpdate(updatedRows, columns, tx);
+        await _recorder.afterUpdate(
+          updatedRows,
+          columns,
+          tx,
+          projectionUnchanged: plannedUpdates.projectionUnchanged,
+        );
         return noReturn ? <T>[] : updatedRows;
       },
     );
@@ -652,13 +657,18 @@ class CrdtDatabase implements Database {
         final plannedUpdates = await _recorder.planLocalUpdates([row], columns, tx);
         final stripScopeId = _shouldStripReturnedScopeId(row, tx);
         final updatedRow = await _updateRowWithoutRecording(
-          plannedUpdates.single,
+          plannedUpdates.rows.single,
           stripScopeId: stripScopeId,
           transaction: tx,
           columns: columns,
         );
 
-        await _recorder.afterUpdate([updatedRow], columns, tx);
+        await _recorder.afterUpdate(
+          [updatedRow],
+          columns,
+          tx,
+          projectionUnchanged: plannedUpdates.projectionUnchanged,
+        );
         return updatedRow;
       },
     );

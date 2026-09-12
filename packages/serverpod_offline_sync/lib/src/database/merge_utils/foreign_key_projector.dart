@@ -636,6 +636,183 @@ class CrdtForeignKeyProjector {
     };
   }
 
+  /// Proves that an ordinary local write leaves the existing projection fixed.
+  ///
+  /// Only new, unreferenced rows and additions to null FKs qualify. All parents
+  /// must already be live, no unique claim may be contested, and no authored
+  /// projection override may be pending on the table. Removing an edge, changing
+  /// a claim, restoring a row or creating a default target needs the full pass.
+  /// The proof is checked again after the write; it is never a transaction cache.
+  Future<bool> canLeaveLocalProjectionUnchanged<T extends TableRow>(
+    List<T> candidates,
+    Transaction transaction, {
+    required bool inserting,
+    bool persisted = true,
+    List<Column>? columns,
+  }) async {
+    if (candidates.isEmpty) return true;
+    final tableName = candidates.first.table.tableName;
+    if (!_context.isCrdtTrackedTableName(tableName)) return true;
+    if (candidates.any((row) => row.id is! UuidValue)) return false;
+    final ids = candidates.uuidRowIds;
+    if (ids.length != candidates.length) return false;
+    final childEdges = _foreignKeys.edgesByChildTable[tableName] ?? <ForeignKeyEdge>[];
+    final parentEdges =
+        _foreignKeys.edgesByParentTable[tableName] ?? <ForeignKeyEdge>[];
+    if (childEdges.any((edge) => edge.parentColumn != 'id')) return false;
+    if (inserting && parentEdges.any((edge) => edge.parentColumn != 'id')) return false;
+
+    final uniqueColumns = _uniqueResolver.uniqueColumnNamesFor(tableName);
+    final relevantColumns = {
+      for (final edge in childEdges) edge.childColumn,
+      for (final edge in parentEdges)
+        if (edge.parentColumn != 'id') edge.parentColumn,
+      ...uniqueColumns,
+    };
+    final storedRows = await _context.findCrdtRows(
+      tableName,
+      ids,
+      transaction,
+      include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
+    );
+    if (persisted) {
+      if (storedRows.length != ids.length ||
+          storedRows.any((row) => row.isHidden || (row.deleted?.isDeleted ?? false))) {
+        return false;
+      }
+    } else if (storedRows.isNotEmpty) {
+      return false;
+    }
+
+    // A unique FK can claim its fallback while remembering a different parent.
+    // Matching attempted values only to the new tuple would miss that claimant.
+    final (tableId, _) = _context.schema[tableName]!;
+    final scopeId = _context.hlcManagerFor(transaction).normalizedScopeId;
+    final attempted = await CrdtDataAttemptedValue.db.findFirstRow(
+      _context.databaseSession,
+      where: (t) =>
+          t.field.row.scopeId.equals(scopeId) & t.field.row.tblId.equals(tableId),
+      transaction: transaction,
+    );
+    if (attempted != null) return false;
+
+    final current = inserting
+        ? <UuidValue, Map<String, Object?>>{}
+        : await _context.readDomainColumnValues(
+            tableName,
+            ids,
+            relevantColumns.toList(),
+            transaction,
+          );
+    final writtenColumns = columns?.map((column) => column.columnName).toSet();
+    final values = <UuidValue, Map<String, Object?>>{};
+    for (final candidate in candidates) {
+      final id = candidate.id as UuidValue;
+      final supplied = candidate.toJsonForDatabase() as Map;
+      final previous = current[id] ?? const <String, Object?>{};
+      final next = {
+        for (final column in relevantColumns)
+          column: canonicalDomainValue(
+            inserting || writtenColumns == null || writtenColumns.contains(column)
+                ? supplied[column]
+                : previous[column],
+          ),
+      };
+      if (!inserting) {
+        if (relevantColumns.isNotEmpty && !current.containsKey(id)) return false;
+        for (final column in relevantColumns) {
+          if (projectionValuesEqual(previous[column], next[column])) continue;
+          if (previous[column] != null ||
+              uniqueColumns.contains(column) ||
+              !childEdges.any((edge) => edge.childColumn == column) ||
+              parentEdges.any((edge) => edge.parentColumn == column)) {
+            return false;
+          }
+        }
+      }
+      values[id] = next;
+    }
+
+    final parentsByTable = <String, Set<UuidValue>>{};
+    for (final edge in childEdges) {
+      for (final row in values.values) {
+        final value = row[edge.childColumn];
+        if (value == null) {
+          if (!edge.childNullable || (!persisted && edge.defaultValue != null)) {
+            return false;
+          }
+          continue;
+        }
+        final id = tryUuidValue(value);
+        if (id == null || (edge.parentTableName == tableName && ids.contains(id))) {
+          return false;
+        }
+        (parentsByTable[edge.parentTableName] ??= {}).add(id);
+      }
+    }
+    for (final MapEntry(key: parentTable, value: parentIds) in parentsByTable.entries) {
+      final parents = await _context.findCrdtRows(
+        parentTable,
+        parentIds,
+        transaction,
+        include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
+      );
+      if (parents.length != parentIds.length ||
+          parents.any((row) => row.isHidden || (row.deleted?.isDeleted ?? false))) {
+        return false;
+      }
+      final presence = await _context.lookupForeignKeyTargetPresences(
+        parentTableName: parentTable,
+        parentColumn: 'id',
+        values: parentIds,
+        transaction: transaction,
+      );
+      if (parentIds.any((id) => presence[id] != ForeignKeyTargetPresence.visible)) {
+        return false;
+      }
+    }
+
+    if (inserting) {
+      for (final edge in parentEdges) {
+        if (edge.action == ForeignKeyAction.setDefault &&
+            ids.contains(tryUuidValue(edge.defaultValue))) {
+          return false;
+        }
+        var referenced = false;
+        await _enqueueRowsClaiming(
+          tableName: edge.childTableName,
+          valuesByColumn: {edge.childColumn: ids},
+          enqueue: (_, found) {
+            if (found.isNotEmpty) referenced = true;
+          },
+          transaction: transaction,
+        );
+        if (referenced) return false;
+      }
+    }
+
+    for (final index in _uniqueResolver.uniqueIndexesFor(tableName)) {
+      final tuples = <String>{};
+      final claims = <String, Set<Object?>>{};
+      for (final row in values.values) {
+        final tuple = [for (final column in index.indexedColumns) row[column]];
+        if (tuple.any((value) => value == null)) continue;
+        if (!tuples.add(tuple.map(canonicalProjectionValue).join('\x1f'))) return false;
+        for (final column in index.indexedColumns) {
+          (claims[column] ??= {}).add(row[column]);
+        }
+      }
+      if (claims.isEmpty) continue;
+      final claimants = await _context.findDomainRowIdsWhereColumnsIn(
+        tableName: tableName,
+        valuesByColumn: claims,
+        transaction: transaction,
+      );
+      if (claimants.any((id) => !ids.contains(id))) return false;
+    }
+    return true;
+  }
+
   /// Whether a mutation of [tableName] may require FK or unique projection.
   bool needsProjection(String tableName, Set<String>? columnNames) {
     if (_foreignKeys.columnsMayAffectForeignKeys(tableName, columnNames)) {
