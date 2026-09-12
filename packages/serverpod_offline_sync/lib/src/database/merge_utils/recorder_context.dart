@@ -148,6 +148,95 @@ class CrdtRecorderContext {
     return crdtDataRows;
   }
 
+  /// Checks local projection dependencies in one database snapshot.
+  Future<bool> localProjectionDependenciesAreStable({
+    required String tableName,
+    required Set<UuidValue> rowIds,
+    required bool persisted,
+    required Map<String, Set<UuidValue>> parentsByTable,
+    required Map<String, Set<String>> referencingColumnsByTable,
+    required List<Map<String, Set<Object?>>> uniqueClaims,
+    required Transaction transaction,
+  }) async {
+    final (tableId, _) = schema[tableName]!;
+    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final ids = rowIds.sqlLiteralList();
+    final rowPredicate =
+        'r."scopeId" = $scopeId AND r."tblId" = $tableId '
+        'AND r."uuidRowId" IN ($ids)';
+    final conditions = <String>[
+      if (persisted)
+        '''(SELECT COUNT(*) FROM "crdt_data_rows" r
+LEFT JOIN "crdt_data_tombstone" d ON d."rowId" = r."id"
+WHERE $rowPredicate AND ($_rowVisible)
+  AND (d."id" IS NULL OR d."clFlag" % 2 = 1)) = ${rowIds.length}'''
+      else
+        'NOT EXISTS (SELECT 1 FROM "crdt_data_rows" r WHERE $rowPredicate)',
+      // An attempted FK may own a unique fallback different from its authored value.
+      '''NOT EXISTS (
+SELECT 1 FROM "crdt_data_attempted_value" a
+JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
+JOIN "crdt_data_rows" r ON r."id" = f."rowId"
+WHERE r."scopeId" = $scopeId AND r."tblId" = $tableId)''',
+    ];
+    for (final MapEntry(key: parentTable, value: parentIds) in parentsByTable.entries) {
+      final (parentTableId, _) = schema[parentTable]!;
+      conditions.add('''(SELECT COUNT(*)
+FROM "${parentTable.escapeIdentifier()}" p
+JOIN "crdt_data_rows" r ON r."uuidRowId" = p."id"
+  AND r."tblId" = $parentTableId AND r."scopeId" = $scopeId
+LEFT JOIN "crdt_data_tombstone" d ON d."rowId" = r."id"
+WHERE p."scopeId" = $scopeId AND p."id" IN (${parentIds.sqlLiteralList()})
+  AND ($_rowVisible) AND (d."id" IS NULL OR d."clFlag" % 2 = 1)
+) = ${parentIds.length}''');
+    }
+    final encodedIds = {
+      for (final id in rowIds)
+        ValueEncoder.instance.encodeColumnValue(
+          CrdtDataAttemptedValue.t.value,
+          Protocol().dynamicFieldToJson(id),
+        ),
+    };
+    for (final MapEntry(key: childTable, value: columnNames)
+        in referencingColumnsByTable.entries) {
+      final predicates = [
+        for (final column in columnNames) '"${column.escapeIdentifier()}" IN ($ids)',
+      ].join(' OR ');
+      conditions.add(
+        'NOT EXISTS (SELECT 1 FROM "${childTable.escapeIdentifier()}" '
+        'WHERE $predicates)',
+      );
+      final (childTableId, columns) = schema[childTable]!;
+      final columnIds = {
+        for (final name in columnNames) ?columns[name]?.id,
+      };
+      if (columnIds.isEmpty) continue;
+      conditions.add('''NOT EXISTS (
+SELECT 1 FROM "crdt_data_attempted_value" a
+JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
+JOIN "crdt_data_rows" r ON r."id" = f."rowId"
+WHERE r."scopeId" = $scopeId AND r."tblId" = $childTableId
+  AND f."columnId" IN (${columnIds.join(', ')})
+  AND a."value" IN (${encodedIds.join(', ')}))''');
+    }
+    for (final claims in uniqueClaims) {
+      final predicates = [
+        for (final MapEntry(key: column, value: values) in claims.entries)
+          '("${column.escapeIdentifier()}" IN (${values.sqlLiteralList()}))',
+      ].join(' AND ');
+      conditions.add(
+        'NOT EXISTS (SELECT 1 FROM "${tableName.escapeIdentifier()}" '
+        'WHERE $predicates AND "id" NOT IN ($ids))',
+      );
+    }
+    final result = await database.unsafeQuery(
+      'SELECT ${conditions.map((condition) => "($condition)").join(" AND ")}',
+      transaction: transaction,
+    );
+    final stable = result.single.first;
+    return stable == true || stable == 1;
+  }
+
   Future<void> upsertCrdtFieldsForRows(
     String tableName,
     List<CrdtDataRow> crdtDataRows,

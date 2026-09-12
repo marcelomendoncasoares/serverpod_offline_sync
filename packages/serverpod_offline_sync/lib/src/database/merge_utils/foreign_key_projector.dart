@@ -669,33 +669,6 @@ class CrdtForeignKeyProjector {
         if (edge.parentColumn != 'id') edge.parentColumn,
       ...uniqueColumns,
     };
-    final storedRows = await _context.findCrdtRows(
-      tableName,
-      ids,
-      transaction,
-      include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
-    );
-    if (persisted) {
-      if (storedRows.length != ids.length ||
-          storedRows.any((row) => row.isHidden || (row.deleted?.isDeleted ?? false))) {
-        return false;
-      }
-    } else if (storedRows.isNotEmpty) {
-      return false;
-    }
-
-    // A unique FK can claim its fallback while remembering a different parent.
-    // Matching attempted values only to the new tuple would miss that claimant.
-    final (tableId, _) = _context.schema[tableName]!;
-    final scopeId = _context.hlcManagerFor(transaction).normalizedScopeId;
-    final attempted = await CrdtDataAttemptedValue.db.findFirstRow(
-      _context.databaseSession,
-      where: (t) =>
-          t.field.row.scopeId.equals(scopeId) & t.field.row.tblId.equals(tableId),
-      transaction: transaction,
-    );
-    if (attempted != null) return false;
-
     final current = inserting
         ? <UuidValue, Map<String, Object?>>{}
         : await _context.readDomainColumnValues(
@@ -750,47 +723,18 @@ class CrdtForeignKeyProjector {
         (parentsByTable[edge.parentTableName] ??= {}).add(id);
       }
     }
-    for (final MapEntry(key: parentTable, value: parentIds) in parentsByTable.entries) {
-      final parents = await _context.findCrdtRows(
-        parentTable,
-        parentIds,
-        transaction,
-        include: CrdtDataRow.include(deleted: CrdtDataDeleted.include()),
-      );
-      if (parents.length != parentIds.length ||
-          parents.any((row) => row.isHidden || (row.deleted?.isDeleted ?? false))) {
-        return false;
-      }
-      final presence = await _context.lookupForeignKeyTargetPresences(
-        parentTableName: parentTable,
-        parentColumn: 'id',
-        values: parentIds,
-        transaction: transaction,
-      );
-      if (parentIds.any((id) => presence[id] != ForeignKeyTargetPresence.visible)) {
-        return false;
-      }
-    }
-
+    final referencingColumnsByTable = <String, Set<String>>{};
     if (inserting) {
       for (final edge in parentEdges) {
         if (edge.action == ForeignKeyAction.setDefault &&
             ids.contains(tryUuidValue(edge.defaultValue))) {
           return false;
         }
-        var referenced = false;
-        await _enqueueRowsClaiming(
-          tableName: edge.childTableName,
-          valuesByColumn: {edge.childColumn: ids},
-          enqueue: (_, found) {
-            if (found.isNotEmpty) referenced = true;
-          },
-          transaction: transaction,
-        );
-        if (referenced) return false;
+        (referencingColumnsByTable[edge.childTableName] ??= {}).add(edge.childColumn);
       }
     }
 
+    final uniqueClaims = <Map<String, Set<Object?>>>[];
     for (final index in _uniqueResolver.uniqueIndexesFor(tableName)) {
       final tuples = <String>{};
       final claims = <String, Set<Object?>>{};
@@ -803,14 +747,17 @@ class CrdtForeignKeyProjector {
         }
       }
       if (claims.isEmpty) continue;
-      final claimants = await _context.findDomainRowIdsWhereColumnsIn(
-        tableName: tableName,
-        valuesByColumn: claims,
-        transaction: transaction,
-      );
-      if (claimants.any((id) => !ids.contains(id))) return false;
+      uniqueClaims.add(claims);
     }
-    return true;
+    return _context.localProjectionDependenciesAreStable(
+      tableName: tableName,
+      rowIds: ids,
+      persisted: persisted,
+      parentsByTable: parentsByTable,
+      referencingColumnsByTable: referencingColumnsByTable,
+      uniqueClaims: uniqueClaims,
+      transaction: transaction,
+    );
   }
 
   /// Whether a mutation of [tableName] may require FK or unique projection.
