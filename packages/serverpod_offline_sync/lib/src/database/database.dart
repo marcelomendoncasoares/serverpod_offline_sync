@@ -201,6 +201,8 @@ class CrdtDatabase implements Database {
     Transaction? transaction, {
     required bool membershipWide,
   }) async {
+    if (include == null && !_recorder.isCrdtTracked<T>()) return where;
+
     final scopeIds = await _scopeIdsForQueries(
       transaction,
       membershipWide: membershipWide,
@@ -995,9 +997,23 @@ class CrdtDatabase implements Database {
 
     // On the server this is authoritative membership; on a persistent client it
     // is the server-projected membership cache.
-    return _scopeIdsForUuids(
-      await CrdtScopeMembership.memberScopes(_delegate.session, userId),
-    );
+    final scopeGroups = await Future.wait<List<CrdtScope>>([
+      CrdtScope.db.find(
+        _delegate.session,
+        where: (t) => t.uuidScopeId.equals(userId),
+      ),
+      CrdtScopeMember.db
+          .find(
+            _delegate.session,
+            where: (t) => t.userUuid.equals(userId),
+            include: CrdtScopeMember.include(scope: CrdtScope.include()),
+          )
+          .then((memberships) => [for (final member in memberships) member.scope!]),
+    ]);
+    return {
+      for (final scopes in scopeGroups)
+        for (final scope in scopes) scope.id!,
+    }.toList();
   }
 
   List<int>? _actingScopeIdsForQueries(Transaction? transaction) {
@@ -1011,18 +1027,6 @@ class CrdtDatabase implements Database {
       if (userId != null) return userId;
     }
     return _recorder.persistentUserId;
-  }
-
-  Future<List<int>> _scopeIdsForUuids(List<UuidValue> scopeUuids) async {
-    if (scopeUuids.isEmpty) return [];
-    final scopes = await CrdtScope.db.find(
-      _delegate.session,
-      where: (t) => t.uuidScopeId.inSet(scopeUuids.toSet()),
-    );
-    return [
-      for (final scope in scopes)
-        if (scope.id != null) scope.id!,
-    ];
   }
 
   Future<UuidValue> _requireUserId(UuidValue? userId) async {

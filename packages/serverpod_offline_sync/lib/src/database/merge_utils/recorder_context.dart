@@ -246,66 +246,34 @@ WHERE r."scopeId" = $scopeId AND r."tblId" = $childTableId
   }) async {
     if (crdtDataRows.isEmpty || schemaColumns.isEmpty) return;
 
-    final rowPks = crdtDataRows.map((r) => r.id!).toSet();
-    final columnPks = schemaColumns.map((c) => c.id!).toSet();
-    final existingFields = await CrdtDataField.db.find(
-      databaseSession,
-      where: (t) => t.rowId.inSet(rowPks) & t.columnId.inSet(columnPks),
-      transaction: transaction,
-    );
-
-    final fieldByRowAndColumn = {
-      for (final f in existingFields) (f.rowId, f.columnId): f,
-    };
-
     final hlcManager = hlcManagerFor(transaction);
-    final toInsert = <CrdtDataField>[];
-    final toUpdate = <CrdtDataField>[];
-
+    final fields = <CrdtDataField>[];
     for (final row in crdtDataRows) {
       for (final schemaCol in schemaColumns) {
         if (skippedFields.contains((tableName, row.uuidRowId, schemaCol.name))) {
           continue;
         }
-
         final hlc = hlcManager.increment();
-        final existing = fieldByRowAndColumn[(row.id!, schemaCol.id!)];
-        if (existing == null) {
-          toInsert.add(
-            CrdtDataField(
-              rowId: row.id!,
-              columnId: schemaCol.id!,
-              nodeId: hlcManager.normalizedNodeId,
-              hlcDatetime: hlc.datetime,
-              hlcCounter: hlc.counter,
-            ),
-          );
-        } else {
-          toUpdate.add(
-            existing.copyWith(
-              nodeId: hlcManager.normalizedNodeId,
-              hlcDatetime: hlc.datetime,
-              hlcCounter: hlc.counter,
-            ),
-          );
-        }
+        fields.add(
+          CrdtDataField(
+            rowId: row.id!,
+            columnId: schemaCol.id!,
+            nodeId: hlcManager.normalizedNodeId,
+            hlcDatetime: hlc.datetime,
+            hlcCounter: hlc.counter,
+          ),
+        );
       }
     }
-
-    if (toInsert.isNotEmpty) {
-      await CrdtDataField.db.insert(
-        databaseSession,
-        toInsert,
-        transaction: transaction,
-      );
-    }
-    if (toUpdate.isNotEmpty) {
-      await CrdtDataField.db.update(
-        databaseSession,
-        toUpdate,
-        transaction: transaction,
-      );
-    }
+    if (fields.isEmpty) return;
+    await CrdtDataField.db.upsert(
+      databaseSession,
+      fields,
+      conflictColumns: (t) => [t.rowId, t.columnId],
+      updateColumns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+      transaction: transaction,
+      noReturn: true,
+    );
   }
 
   Future<void> recordFieldsUpdatedByTable(
