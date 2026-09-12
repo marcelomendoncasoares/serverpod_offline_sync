@@ -10,9 +10,9 @@ generate scenarios nobody wrote down and assert invariants.
 
 ## Running
 
-These suites carry the `dst` tag and are skipped by an ordinary `dart test`,
-because they are slow and because a randomly seeded search makes a poor
-edit-loop signal — a run can fail for a defect unrelated to the change that
+The randomized sweeps carry the `dst` tag and are skipped by an ordinary
+`dart test`, because they are slow and because a randomly seeded search makes
+a poor edit-loop signal — a run can fail for a defect unrelated to the change that
 triggered it. The `dst` preset opts back in:
 
 ```sh
@@ -20,6 +20,9 @@ dart test -P dst                                     # the simulation suite
 DST_SEEDS=200 DST_ROUNDS=40 dart test -P dst         # soak
 DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test -P dst  # replay one seed
 ```
+
+The deterministic oracle, operation-generator, and runner regressions in this
+directory are untagged and run with ordinary `dart test`.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -55,7 +58,7 @@ the failure and replay it.
 | **No cross-scope link** - no visible foreign key resolves to a row owned by another scope | After every local commit and merge |
 | **Foreign-key closure** - every visible foreign key resolves to a visible parent in the same scope | After every local commit and merge |
 | **Unique closure** - no visible unique index is violated | After every local commit and merge |
-| **Projection purity** - every foreign-key column holds what its authored value and its target's visibility imply, whether or not a projection was recorded against it | After every local commit and merge |
+| **Projection purity** - FK fields and recorded overrides satisfy the oracle's repair rules, including permitted terminal unique releases | After every local commit and merge |
 | **Ownership collision is terminal** - a merge claiming another scope's row id fails, records a durable violation, and leaves the owner untouched | `dst_ownership_collision_test.dart` |
 
 Observer independence is the keystone. A synced row may only reference synced
@@ -127,24 +130,33 @@ can form a cycle. Foreign-key actions, nullability, and defaults are read from
 the generated schema; every domain FK of a simulated model is included.
 
 The operation generator selects columns from that same schema. Nullable FKs
-can be detached explicitly even when a parent is available. Required FKs are
-only generated when a visible parent exists. The well-known default town is
-inserted in one scope because row IDs are globally unique.
+can be detached explicitly even when a parent is available. New required FK
+values are only generated when a visible parent exists. The well-known default
+town is inserted in one scope because row IDs are globally unique.
 
 Projection purity checks every FK field, including fields without a sparse
-attempted-value record. A hidden child retains its old physical reference when
-its action has no legal repair; it does not block its former parent's deletion.
-Visible children must still have a visible parent in the same scope. Recorded
-projection reasons must match the action and nullability of the column.
+attempted-value record. A hidden child can retain its authored reference to a
+physically present parent in the same scope when its action has no legal repair;
+it does not block that parent's deletion. Hidden values are recomputed, so an
+earlier projected fallback is not frozen in place. Visible non-null references
+must still resolve to visible parents in the same scope. FK repair reasons must
+match the action and nullability; FK columns in unique indexes may instead carry
+a terminal unique-conflict or hidden-row release reason.
+
+These checks validate the resulting fields and reasons against the observed
+visibility. They do not independently recompute deletion arbitration or unique
+winners. Replica agreement, export round trips, and the integration suites'
+exact expected outcomes provide additional checks; a finite seed sweep is not
+a proof for every possible merged history.
 
 The unique simulation authors and captures text, non-FK UUID, nullable integer,
 composite, fixed-discriminator, overlapping, FK-only composite, and scoped mixed
 FK/text claims. The unique oracle reads all declared tuple components and scope.
 A null component releases the tuple, as in SQL.
 
-The scheduler can insert, update, delete, restore a retained identity, upsert,
-pass a full model back through update, insert/update/delete a batch, swap unique
-tuples atomically, and perform predicate updates/deletes. Scripted regressions
+The operation generator can insert, update, delete, restore a retained identity,
+upsert, pass a full model back through update, insert/update/delete a batch,
+swap unique tuples atomically, and perform predicate updates/deletes. Scripted regressions
 use `DstOperations.apply` to select the same paths directly. Reports retain
 attempted and committed counts by table/action so a passing run does not hide
 which paths it visited. Rejected local transactions remain separate from

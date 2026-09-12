@@ -55,8 +55,9 @@ soft-deleted instead of removed:
   default when the default is legal, and those child FK fields receive ordinary
   CRDT field updates. A nullable null default is legal; a non-null default must
   remain visible in the same scope after the delete. A default in the same
-  delete batch is unavailable. An invalid default rejects the transaction,
-  including any earlier repairs or tombstones in that transaction.
+  delete batch is unavailable. If a visible child needs this repair, an invalid
+  default rejects the transaction, including any earlier repairs or tombstones
+  in that transaction. An unused invalid default does not itself block a delete.
 - `ON DELETE CASCADE`: visible cascade descendants receive synced
   user-delete tombstones. Local cascade descendants are not hidden only as
   `foreignKeyCascade` projection rows.
@@ -68,7 +69,10 @@ back. For a nullable FK with a non-null database default, use Serverpod's
 `defaultPersist` declaration: the combined `default` also supplies a constructor
 fallback that replaces null on model reads. Materialized inserts retain nulls
 chosen by projection instead of applying the database default again. Local
-upserts still apply a fixed UUID FK default when the caller omits that field.
+upserts apply a fixed UUID FK default to null input fields. This path does not
+distinguish an omitted field from an explicitly supplied null; preserving a
+projection-selected null does not imply that an upsert can author null on such
+a column.
 
 ## Merge-Time Action Semantics
 
@@ -94,20 +98,30 @@ would cascade-delete `B`, but `B` has a visible `RESTRICT` child `C`, then `A`,
 `B`, and `C` remain visible. The result must not depend on whether cascade or
 restrict edges are evaluated first internally.
 
-Default targets do not have to be permanent. Projection starts from all winning
-authored delete tombstones and computes their candidate cascade closures. It
-evaluates repairs against that candidate visibility, withdraws blocked deletion
-roots together, and repeats until no root is withdrawn. A withdrawn root is not
-reintroduced during that pass. This conservative policy terminates because the
-set of accepted roots only shrinks; it need not accept the largest possible set
-of deletions. Every new pass starts from the authored tombstones again, not the
-previous projection's accepted deletions.
+Hidden children do not block parent deletions. They still participate in FK
+projection: when no legal repair exists and the authored parent remains
+physically present in the same scope, the FK candidate retains the authored
+reference, even if that parent is hidden. This recomputes from authored values;
+it does not preserve an earlier projected fallback. Unique projection can then
+release that candidate, as described in the combined projection model below.
 
-For a child authored as `C -> A` with default `D`, deleting `A` projects `C -> D`
-while `D` survives. If `D` is subsequently deleted and has no other blockers,
-`A` becomes visible again and `C -> A` is restored. Restoring `D` can make `A`'s
-deletion take effect again. These are derived changes: they do not rewrite the
-authored reference or advance its HLC.
+Default targets do not have to be permanent. Projection starts from all winning
+authored delete tombstones in the affected closure and computes their candidate
+cascade closures. It evaluates repairs against that candidate visibility,
+withdraws blocked deletion roots together, and repeats until no root is
+withdrawn. A withdrawn root is not reintroduced during that pass. This
+conservative policy terminates because the set of accepted roots only shrinks;
+it need not accept the largest possible set of deletions. Every new pass starts
+from the authored tombstones again, not the previous projection's accepted deletions.
+
+For a child authored as `C -> A` with default `D`, merging an independently
+authored deletion of `A` projects `C -> D` while `D` survives. If a deletion of
+`D` is then merged and has no other blockers, `A` becomes visible again and
+`C -> A` is restored. Merging a restoration of `D` can make `A`'s deletion take
+effect again. Throughout this example the winning authored child reference
+remains `C -> A`; the derived repairs do not advance its HLC. A local deletion
+of `A` with this visible child instead authors `C -> D`, so it is a different
+set of facts and does not have this restoration behavior.
 
 A default is a schema dependency even while no child currently references it.
 Projection loads defaults as evaluation context, but does not treat that alone
@@ -115,7 +129,8 @@ as a change to every consumer. It follows authored FK references (including new
 overlays) to determine which defaults are affected, excluding relationships that
 exist only because an earlier projection rewrote a child onto its fallback. A
 live standalone default with no authored delete cannot change visibility merely
-because a child's FK is updated, so that common case skips the dependency walk.
+because a child's FK is updated. For defaults referenced by primary key, that
+common case skips the dependency walk.
 
 When a default is changed directly, or affected through a possible deletion,
 cascade, or missing parent, the loader queries sparse dependency seeds in the
@@ -123,8 +138,9 @@ current scope: authored tombstones and hidden rows in the original-parent and
 cascade-ancestor tables, hidden children, and children with FK overrides. The
 ordinary reference walk then loads their children, parents, and unique claimants.
 Blocked deletions are included even when the original parent is still visible
-and the child has no override. Default invalidation repeats until no new default
-edge needs expansion, restarting deletion arbitration from authored tombstones.
+and the child has no override. Dependency loading repeats until no new default
+edge needs expansion. Deletion arbitration then runs on the loaded closure,
+starting from authored tombstones.
 
 This keeps ordinary merges on the existing row-closure path; there is no
 component-wide domain-row load. Default-specific invalidation can still visit
@@ -232,7 +248,7 @@ The combined FK/unique, hidden-row restoration, batching, and unrelated-update
 cases are centralized under the
 [projection model verification gates](projection-model.md#verification-gates).
 
-## What These Tests Prove
+## What These Tests Check
 
 - Integrity: no surviving visible FK violation.
 - Convergence: same merged facts produce the same projection on every replica.
