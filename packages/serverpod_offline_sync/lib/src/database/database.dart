@@ -429,18 +429,18 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
-        if (rows.isNotEmpty) {
-          final rowIds = {
-            for (final row in rows)
-              if (row.id case final UuidValue rowId) rowId,
-          };
-          await _recorder.projectCurrent(rows.first.table.tableName, rowIds, tx);
-        }
+        final values = _recorder.withForeignKeyInsertDefaults(prepared.rows);
+        final projectionUnchanged = await _recorder.prepareLocalUpsert(
+          values,
+          conflictColumns,
+          updateColumns,
+          tx,
+        );
 
         // CRDT metadata needs the affected rows even when the public call uses
         // noReturn, because inserted rows may have database-generated ids.
         final result = await _delegate.upsert<T>(
-          _recorder.withForeignKeyInsertDefaults(prepared.rows),
+          values,
           conflictColumns: conflictColumns,
           updateColumns: updateColumns,
           updateWhere: await _whereVisibleWithTombstone<T>(
@@ -469,7 +469,12 @@ class CrdtDatabase implements Database {
           for (final row in result)
             if (row.id is! UuidValue || !insertedRowIds.contains(row.id)) row,
         ];
-        await _recorder.afterUpdate(updatedRows, updateColumns, tx);
+        await _recorder.afterUpdate(
+          updatedRows,
+          updateColumns,
+          tx,
+          projectionUnchanged: projectionUnchanged,
+        );
         if (noReturn) return <T>[];
         _stripStampedRows(result, prepared);
         for (final row in reinsertedRows) {

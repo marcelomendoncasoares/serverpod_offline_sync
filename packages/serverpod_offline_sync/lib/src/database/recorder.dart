@@ -372,6 +372,42 @@ class CrdtMutationRecorder {
     );
   }
 
+  /// Returns whether primary-key upserts preserve the existing projection.
+  Future<bool> prepareLocalUpsert<T extends TableRow>(
+    List<T> rows,
+    List<Column> conflictColumns,
+    List<Column>? updateColumns,
+    Transaction transaction,
+  ) async {
+    final tableName = rows.first.table.tableName;
+    final rowIds = {
+      for (final row in rows)
+        if (row.id case final UuidValue rowId) rowId,
+    };
+    if (conflictColumns.length == 1 &&
+        conflictColumns.single.columnName == 'id' &&
+        rowIds.length == rows.length) {
+      final stored = await _context.findCrdtRows(tableName, rowIds, transaction);
+      if (stored.isEmpty &&
+          !_foreignKeys.tablesWithDefaultDependencies.contains(tableName)) {
+        // The full pass has no persisted seed or default to load. Classification
+        // after the physical upsert still reads metadata again.
+        return false;
+      }
+      if (stored.length == rowIds.length &&
+          await _foreignKeyProjector.canLeaveLocalProjectionUnchanged(
+            rows,
+            transaction,
+            inserting: false,
+            columns: updateColumns,
+          )) {
+        return true;
+      }
+    }
+    await projectCurrent(tableName, rowIds, transaction);
+    return false;
+  }
+
   /// Plans FK/unique projection for rows that are about to be inserted.
   ///
   /// Releases hidden unique claims first and returns copies whose unique/FK

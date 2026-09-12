@@ -155,6 +155,13 @@ class CrdtForeignKeyGraph {
     return reached;
   }
 
+  /// Components whose projection can load a default even when every seed is absent.
+  late final Set<String> tablesWithDefaultDependencies = {
+    for (final edge in edges)
+      if (edge.action == ForeignKeyAction.setDefault && edge.defaultValue != null)
+        ...connectedTables([edge.childTableName]),
+  };
+
   /// The child column names of foreign keys outgoing from [tableName].
   ///
   /// When [columnNames] is provided, only edges whose child column is in the set

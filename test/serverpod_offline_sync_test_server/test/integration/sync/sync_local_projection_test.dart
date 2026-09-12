@@ -92,6 +92,100 @@ void main() {
   );
 
   test(
+    'Given two people in the same organization with an address attached to the first, '
+    'when a primary-key upsert changes names only for the person matching its filter, '
+    'then synchronization preserves every relationship and only that person gains an authored name update.',
+    () async {
+      final author = await syncNode(testSession, testSyncTables);
+      final observer = await syncNode(
+        await createAdditionalTestSession(),
+        testSyncTables,
+      );
+      final organization = Organization(id: const Uuid().v7obj(), name: 'organization');
+      final people = [
+        for (final name in ['first', 'second'])
+          Person(id: const Uuid().v7obj(), name: name, organizationId: organization.id),
+      ];
+      final address = Address(
+        id: const Uuid().v7obj(),
+        street: 'street',
+        inhabitantId: people.first.id,
+      );
+      await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Organization.db.insertRow(author.crdt, organization, transaction: tx);
+        await Person.db.insert(author.crdt, people, transaction: tx);
+        await Address.db.insertRow(author.crdt, address, transaction: tx);
+      });
+      final originalClocks = {
+        for (final person in people)
+          person.id: await rowHlc(person.id!, databaseSession: author.crdt),
+      };
+
+      final updated = await author.crdt.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.upsert(
+          author.crdt,
+          [for (final person in people) person.copyWith(name: 'updated')],
+          conflictColumns: (t) => [t.id],
+          updateColumns: (t) => [t.name],
+          updateWhere: (t) => t.name.equals('first'),
+          transaction: tx,
+        ),
+      );
+      await syncWithServer(author, observer);
+
+      expect(updated.map((person) => person.id).toSet(), {people.first.id});
+      for (final node in [author, observer]) {
+        final visible = await Person.db.find(node.crdt);
+        expect(
+          {for (final person in visible) person.id: person.name},
+          {
+            people.first.id: 'updated',
+            people.last.id: 'second',
+          },
+        );
+        expect(
+          visible.map((person) => person.organizationId),
+          everyElement(organization.id),
+        );
+        expect(
+          (await Address.db.findById(node.crdt, address.id!))!.inhabitantId,
+          people.first.id,
+        );
+        for (final person in people) {
+          expect(
+            await rowHlc(person.id!, databaseSession: node.crdt),
+            originalClocks[person.id],
+          );
+        }
+        final fields = await CrdtDataField.db.find(
+          node.crdt,
+          where: (t) =>
+              t.row.uuidRowId.inSet({for (final person in people) person.id!}),
+          include: CrdtDataField.include(
+            row: CrdtDataRow.include(),
+            column: CrdtSchemaColumn.include(),
+            node: CrdtNode.include(),
+          ),
+        );
+        expect(
+          {for (final field in fields) (field.row!.uuidRowId, field.column!.name)},
+          {
+            for (final person in people) (person.id, 'organizationId'),
+            (people.first.id, 'name'),
+          },
+        );
+        for (final field in fields.where(
+          (field) => field.column!.name == 'organizationId',
+        )) {
+          expect(field.hlc, originalClocks[field.row!.uuidRowId]);
+        }
+        expect(await CrdtDataAttemptedValue.db.count(node.crdt), 0);
+      }
+    },
+  );
+
+  test(
     'Given a merged town waiting for a missing mayor, '
     'when that person is inserted locally, '
     'then the town recovers its authored reference without advancing its field clock.',
