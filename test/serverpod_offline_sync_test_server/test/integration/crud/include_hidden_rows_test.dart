@@ -5,13 +5,21 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
   group('Given a person table with a live and a tombstoned row,', () {
+    late CrdtDatabaseSession session;
+
     late Person liveRow;
     late Person deletedRow;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       liveRow = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.insertRow(session, Person(name: 'live'), transaction: tx),
@@ -86,11 +94,19 @@ void main() {
   group(
     'Given a city with a live citizen and a tombstoned citizen,',
     () {
+      late CrdtDatabaseSession session;
+
       late City city;
       late Person liveCitizen;
       late Person deletedCitizen;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         city = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) =>

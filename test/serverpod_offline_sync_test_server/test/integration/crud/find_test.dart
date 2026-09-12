@@ -5,16 +5,24 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
   group('Given rows owned by two different scopes,', () {
+    late CrdtDatabaseSession session;
+
     late Person firstUserPerson;
     late Person otherUserPerson;
     late UuidValue otherUserId;
     late int firstScopeId;
     late int otherScopeId;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       otherUserId = const Uuid().v7obj();
 
       firstUserPerson = await session.db.transactionForUser(
@@ -49,7 +57,7 @@ void main() {
     group('when finding inside the first scope,', () {
       late List<Person> rows;
 
-      setUp(() async {
+      setUpAll(() async {
         rows = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.find(session, transaction: tx),
@@ -113,11 +121,19 @@ void main() {
   });
 
   group('Given a town row with an included mayor owned by the same scope,', () {
+    late CrdtDatabaseSession session;
+
     late Town town;
     late Person mayor;
     late int scopeId;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       town = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Town.db.insertRow(session, Town(name: 'Rio'), transaction: tx),
@@ -180,9 +196,17 @@ void main() {
   });
 
   group('Given a person table with a deleted row,', () {
+    late CrdtDatabaseSession session;
+
     late Person person;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       person = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.insertRow(session, Person(name: 'test'), transaction: tx),
@@ -240,10 +264,18 @@ void main() {
   group(
     'Given a town row that references a manually tombstoned person row,',
     () {
+      late CrdtDatabaseSession session;
+
       late Town town;
       late Person person;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         town = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Town.db.insertRow(session, Town(name: 'Rio'), transaction: tx),

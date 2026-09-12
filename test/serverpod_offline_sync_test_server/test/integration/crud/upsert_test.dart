@@ -5,14 +5,23 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
   group('Given an empty person table,', () {
+    late CrdtDatabaseSession session;
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+    });
+
     group('when upserting a Person with upsertRow,', () {
       late UuidValue personId;
       late Person? person;
 
-      setUp(() async {
+      setUpAll(() async {
         personId = const Uuid().v7obj();
         person = await session.db.transactionForUser(
           testCrdtUserId,
@@ -51,11 +60,22 @@ void main() {
         expect(fieldCount, 0);
       });
     });
+  });
+
+  group('Given an empty person table,', () {
+    late CrdtDatabaseSession session;
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+    });
 
     group('when upserting a Person without an id with upsertRow,', () {
       late Person? created;
 
-      setUp(() async {
+      setUpAll(() async {
         created = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.upsertRow(
@@ -97,10 +117,18 @@ void main() {
   });
 
   group('Given a person table with an existing row,', () {
+    late CrdtDatabaseSession session;
+
     late Person person;
     late CrdtDataRow insertedCrdtRow;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       person = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.insertRow(
@@ -119,7 +147,7 @@ void main() {
     group('when upserting the Person name column with upsertRow,', () {
       late Person? updatedPerson;
 
-      setUp(() async {
+      setUpAll(() async {
         updatedPerson = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.upsertRow(
@@ -164,11 +192,34 @@ void main() {
         expect(field!.column!.name, 'name');
       });
     });
+  });
+
+  group('Given a person table with an existing row,', () {
+    late CrdtDatabaseSession session;
+
+    late Person person;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'original'),
+          transaction: tx,
+        ),
+      );
+    });
 
     group('when upserting the Person with a non-matching updateWhere,', () {
       late Person? updatedPerson;
 
-      setUp(() async {
+      setUpAll(() async {
         updatedPerson = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.upsertRow(
@@ -199,155 +250,231 @@ void main() {
         expect(fieldCount, 0);
       });
     });
+  });
 
-    group('when upserting an existing Person and a new Person without an id,', () {
-      late List<Person> upserted;
+  group('Given a person table with an existing row,', () {
+    late CrdtDatabaseSession session;
 
-      setUp(() async {
-        upserted = await session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.upsert(
-            session,
-            [
-              person.copyWith(name: 'batch updated'),
-              Person(name: 'batch created'),
-            ],
-            conflictColumns: (t) => [t.id],
-            updateColumns: (t) => [t.name],
-            transaction: tx,
-          ),
-        );
-      });
+    late Person person;
 
-      test('then both rows are returned with scopeId null.', () {
-        expect(upserted, hasLength(2));
-        expect(upserted.map((e) => e.scopeId), everyElement(isNull));
-      });
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
 
-      test('then the existing row keeps its id and reflects the new values.', () {
-        final updated = upserted.singleWhere((e) => e.name == 'batch updated');
-        expect(updated.id, person.id);
-      });
-
-      test('then the created row has a generated id and is persisted.', () async {
-        final created = upserted.singleWhere((e) => e.name == 'batch created');
-        expect(created.id, isNotNull);
-
-        final row = await Person.db.findById(session, created.id!);
-        expect(row?.name, 'batch created');
-      });
-
-      test('then CRDT row metadata is recorded for both affected rows.', () async {
-        final created = upserted.singleWhere((e) => e.name == 'batch created');
-        final crdtRows = await CrdtDataRow.db.find(
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
           session,
-          where: (t) => t.uuidRowId.inSet({person.id!, created.id!}),
-        );
-
-        expect(crdtRows.map((e) => e.uuidRowId).toSet(), {
-          person.id,
-          created.id,
-        });
-      });
-
-      test(
-        'then CRDT fields are recorded only for the existing updated row.',
-        () async {
-          final created = upserted.singleWhere((e) => e.name == 'batch created');
-          final fields = await CrdtDataField.db.find(
-            session,
-            where: (t) => t.row.uuidRowId.inSet({person.id!, created.id!}),
-            include: CrdtDataField.include(
-              column: CrdtSchemaColumn.include(),
-              row: CrdtDataRow.include(),
-            ),
-          );
-
-          expect(fields.map((e) => e.row!.uuidRowId).toSet(), {
-            person.id,
-          });
-          expect(fields.map((e) => e.column!.name).toSet(), {'name'});
-        },
+          Person(name: 'original'),
+          transaction: tx,
+        ),
       );
     });
 
-    group('when upserting an existing Person and a new Person with noReturn,', () {
-      late Person? createdPerson;
-      late List<Person> upserted;
+    group(
+      'when upserting an existing Person and a new Person without an id,',
+      () {
+        late List<Person> upserted;
 
-      setUp(() async {
-        upserted = await session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.upsert(
-            session,
-            [
-              person.copyWith(name: 'batch updated'),
-              Person(name: 'batch created'),
-            ],
-            conflictColumns: (t) => [t.id],
-            updateColumns: (t) => [t.name],
-            transaction: tx,
-            noReturn: true,
-          ),
-        );
-        createdPerson = await Person.db.findFirstRow(
-          session,
-          where: (t) => t.name.equals('batch created'),
-        );
-      });
-
-      test('then an empty list is returned.', () async {
-        expect(upserted, isEmpty);
-      });
-
-      test('then the existing person row reflects the new values.', () async {
-        final row = await Person.db.findById(session, person.id!);
-        expect(row?.name, 'batch updated');
-      });
-
-      test('then the new person row exists in the person table.', () async {
-        expect(createdPerson, isNotNull);
-        expect(createdPerson!.id, isNotNull);
-      });
-
-      test('then CRDT row metadata is recorded for both affected rows.', () async {
-        final crdtRows = await CrdtDataRow.db.find(
-          session,
-          where: (t) => t.uuidRowId.inSet({person.id!, createdPerson!.id!}),
-        );
-
-        expect(crdtRows.map((e) => e.uuidRowId).toSet(), {
-          person.id,
-          createdPerson!.id,
-        });
-      });
-
-      test(
-        'then CRDT fields are recorded only for the existing updated row.',
-        () async {
-          final fields = await CrdtDataField.db.find(
-            session,
-            where: (t) => t.row.uuidRowId.inSet({person.id!, createdPerson!.id!}),
-            include: CrdtDataField.include(
-              column: CrdtSchemaColumn.include(),
-              row: CrdtDataRow.include(),
+        setUpAll(() async {
+          upserted = await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.upsert(
+              session,
+              [
+                person.copyWith(name: 'batch updated'),
+                Person(name: 'batch created'),
+              ],
+              conflictColumns: (t) => [t.id],
+              updateColumns: (t) => [t.name],
+              transaction: tx,
             ),
           );
+        });
 
-          expect(fields.map((e) => e.row!.uuidRowId).toSet(), {
-            person.id,
-          });
-          expect(fields.map((e) => e.column!.name).toSet(), {'name'});
-        },
+        test('then both rows are returned with scopeId null.', () {
+          expect(upserted, hasLength(2));
+          expect(upserted.map((e) => e.scopeId), everyElement(isNull));
+        });
+
+        test(
+          'then the existing row keeps its id and reflects the new values.',
+          () {
+            final updated = upserted.singleWhere(
+              (e) => e.name == 'batch updated',
+            );
+            expect(updated.id, person.id);
+          },
+        );
+
+        test(
+          'then the created row has a generated id and is persisted.',
+          () async {
+            final created = upserted.singleWhere(
+              (e) => e.name == 'batch created',
+            );
+            expect(created.id, isNotNull);
+
+            final row = await Person.db.findById(session, created.id!);
+            expect(row?.name, 'batch created');
+          },
+        );
+
+        test(
+          'then CRDT row metadata is recorded for both affected rows.',
+          () async {
+            final created = upserted.singleWhere(
+              (e) => e.name == 'batch created',
+            );
+            final crdtRows = await CrdtDataRow.db.find(
+              session,
+              where: (t) => t.uuidRowId.inSet({person.id!, created.id!}),
+            );
+
+            expect(crdtRows.map((e) => e.uuidRowId).toSet(), {
+              person.id,
+              created.id,
+            });
+          },
+        );
+
+        test(
+          'then CRDT fields are recorded only for the existing updated row.',
+          () async {
+            final created = upserted.singleWhere(
+              (e) => e.name == 'batch created',
+            );
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.inSet({person.id!, created.id!}),
+              include: CrdtDataField.include(
+                column: CrdtSchemaColumn.include(),
+                row: CrdtDataRow.include(),
+              ),
+            );
+
+            expect(fields.map((e) => e.row!.uuidRowId).toSet(), {person.id});
+            expect(fields.map((e) => e.column!.name).toSet(), {'name'});
+          },
+        );
+      },
+    );
+  });
+
+  group('Given a person table with an existing row,', () {
+    late CrdtDatabaseSession session;
+
+    late Person person;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'original'),
+          transaction: tx,
+        ),
       );
     });
+
+    group(
+      'when upserting an existing Person and a new Person with noReturn,',
+      () {
+        late Person? createdPerson;
+        late List<Person> upserted;
+
+        setUpAll(() async {
+          upserted = await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.upsert(
+              session,
+              [
+                person.copyWith(name: 'batch updated'),
+                Person(name: 'batch created'),
+              ],
+              conflictColumns: (t) => [t.id],
+              updateColumns: (t) => [t.name],
+              transaction: tx,
+              noReturn: true,
+            ),
+          );
+          createdPerson = await Person.db.findFirstRow(
+            session,
+            where: (t) => t.name.equals('batch created'),
+          );
+        });
+
+        test('then an empty list is returned.', () async {
+          expect(upserted, isEmpty);
+        });
+
+        test('then the existing person row reflects the new values.', () async {
+          final row = await Person.db.findById(session, person.id!);
+          expect(row?.name, 'batch updated');
+        });
+
+        test('then the new person row exists in the person table.', () async {
+          expect(createdPerson, isNotNull);
+          expect(createdPerson!.id, isNotNull);
+        });
+
+        test(
+          'then CRDT row metadata is recorded for both affected rows.',
+          () async {
+            final crdtRows = await CrdtDataRow.db.find(
+              session,
+              where: (t) => t.uuidRowId.inSet({person.id!, createdPerson!.id!}),
+            );
+
+            expect(crdtRows.map((e) => e.uuidRowId).toSet(), {
+              person.id,
+              createdPerson!.id,
+            });
+          },
+        );
+
+        test(
+          'then CRDT fields are recorded only for the existing updated row.',
+          () async {
+            final fields = await CrdtDataField.db.find(
+              session,
+              where: (t) => t.row.uuidRowId.inSet({person.id!, createdPerson!.id!}),
+              include: CrdtDataField.include(
+                column: CrdtSchemaColumn.include(),
+                row: CrdtDataRow.include(),
+              ),
+            );
+
+            expect(fields.map((e) => e.row!.uuidRowId).toSet(), {person.id});
+            expect(fields.map((e) => e.column!.name).toSet(), {'name'});
+          },
+        );
+      },
+    );
   });
 
   group('Given a person table with a deleted row,', () {
+    late CrdtDatabaseSession session;
+
     late Person person;
     late CrdtDataRow insertedCrdtRow;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       person = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.insertRow(
@@ -370,7 +497,7 @@ void main() {
     group('when upserting the Person with upsertRow,', () {
       late Person? reinserted;
 
-      setUp(() async {
+      setUpAll(() async {
         reinserted = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.upsertRow(
@@ -383,11 +510,14 @@ void main() {
         );
       });
 
-      test('then the row is returned with the new values and null scopeId.', () {
-        expect(reinserted, isNotNull);
-        expect(reinserted!.name, 'reinserted');
-        expect(reinserted!.scopeId, isNull);
-      });
+      test(
+        'then the row is returned with the new values and null scopeId.',
+        () {
+          expect(reinserted, isNotNull);
+          expect(reinserted!.name, 'reinserted');
+          expect(reinserted!.scopeId, isNull);
+        },
+      );
 
       test('then the row is visible again.', () async {
         final row = await Person.db.findById(session, person.id!);
@@ -414,13 +544,40 @@ void main() {
         expect(tombstone.reason, CrdtDataDeletedReason.userReinsert);
       });
     });
+  });
+
+  group('Given a person table with a deleted row,', () {
+    late CrdtDatabaseSession session;
+
+    late Person person;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'original'),
+          transaction: tx,
+        ),
+      );
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.deleteRow(session, person, transaction: tx),
+      );
+    });
 
     group(
       'when upserting the Person with a column outside updateColumns changed,',
       () {
         late Person? reinserted;
 
-        setUp(() async {
+        setUpAll(() async {
           reinserted = await session.db.transactionForUser(
             testCrdtUserId,
             (tx) => Person.db.upsertRow(
@@ -436,26 +593,50 @@ void main() {
           );
         });
 
-        test(
-          'then the full incoming row is persisted, '
-          'including the column outside updateColumns.',
-          () async {
-            expect(reinserted, isNotNull);
-            expect(reinserted!.surname, 'reinserted surname');
+        test('then the full incoming row is persisted, '
+            'including the column outside updateColumns.', () async {
+          expect(reinserted, isNotNull);
+          expect(reinserted!.surname, 'reinserted surname');
 
-            final row = await Person.db.findById(session, person.id!);
-            expect(row, isNotNull);
-            expect(row!.name, 'reinserted');
-            expect(row.surname, 'reinserted surname');
-          },
-        );
+          final row = await Person.db.findById(session, person.id!);
+          expect(row, isNotNull);
+          expect(row!.name, 'reinserted');
+          expect(row.surname, 'reinserted surname');
+        });
       },
     );
+  });
+
+  group('Given a person table with a deleted row,', () {
+    late CrdtDatabaseSession session;
+
+    late Person person;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'original'),
+          transaction: tx,
+        ),
+      );
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.deleteRow(session, person, transaction: tx),
+      );
+    });
 
     group('when upserting the Person with noReturn,', () {
       late List<Person> upserted;
 
-      setUp(() async {
+      setUpAll(() async {
         upserted = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.upsert(
@@ -480,11 +661,38 @@ void main() {
         expect(row!.name, 'reinserted');
       });
     });
+  });
+
+  group('Given a person table with a deleted row,', () {
+    late CrdtDatabaseSession session;
+
+    late Person person;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      person = await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(name: 'original'),
+          transaction: tx,
+        ),
+      );
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.deleteRow(session, person, transaction: tx),
+      );
+    });
 
     group('when upserting the Person with a non-matching updateWhere,', () {
       late Person? reinserted;
 
-      setUp(() async {
+      setUpAll(() async {
         reinserted = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.upsertRow(
@@ -512,10 +720,18 @@ void main() {
   });
 
   group('Given a person table with a live and a deleted row,', () {
+    late CrdtDatabaseSession session;
+
     late Person deletedPerson;
     late Person livePerson;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       deletedPerson = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.insertRow(
@@ -526,11 +742,7 @@ void main() {
       );
       livePerson = await session.db.transactionForUser(
         testCrdtUserId,
-        (tx) => Person.db.insertRow(
-          session,
-          Person(name: 'live'),
-          transaction: tx,
-        ),
+        (tx) => Person.db.insertRow(session, Person(name: 'live'), transaction: tx),
       );
       await session.db.transactionForUser(
         testCrdtUserId,
@@ -538,56 +750,75 @@ void main() {
       );
     });
 
-    group('when upserting the live, the deleted, and a new row in one batch,', () {
-      late List<Person> upserted;
+    group(
+      'when upserting the live, the deleted, and a new row in one batch,',
+      () {
+        late List<Person> upserted;
 
-      setUp(() async {
-        upserted = await session.db.transactionForUser(
-          testCrdtUserId,
-          (tx) => Person.db.upsert(
-            session,
-            [
-              deletedPerson.copyWith(name: 'batch reinserted'),
-              livePerson.copyWith(name: 'batch updated'),
-              Person(name: 'batch created'),
-            ],
-            conflictColumns: (t) => [t.id],
-            updateColumns: (t) => [t.name],
-            transaction: tx,
-          ),
-        );
-      });
-
-      test('then all three rows are returned with scopeId null.', () {
-        expect(upserted, hasLength(3));
-        expect(upserted.map((e) => e.scopeId), everyElement(isNull));
-        expect(upserted.map((e) => e.name).toSet(), {
-          'batch reinserted',
-          'batch updated',
-          'batch created',
+        setUpAll(() async {
+          upserted = await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.upsert(
+              session,
+              [
+                deletedPerson.copyWith(name: 'batch reinserted'),
+                livePerson.copyWith(name: 'batch updated'),
+                Person(name: 'batch created'),
+              ],
+              conflictColumns: (t) => [t.id],
+              updateColumns: (t) => [t.name],
+              transaction: tx,
+            ),
+          );
         });
-      });
 
-      test('then the deleted row is visible again with the new values.', () async {
-        final row = await Person.db.findById(session, deletedPerson.id!);
-        expect(row?.name, 'batch reinserted');
-      });
+        test('then all three rows are returned with scopeId null.', () {
+          expect(upserted, hasLength(3));
+          expect(upserted.map((e) => e.scopeId), everyElement(isNull));
+          expect(upserted.map((e) => e.name).toSet(), {
+            'batch reinserted',
+            'batch updated',
+            'batch created',
+          });
+        });
 
-      test('then the live and new rows are persisted with the new values.', () async {
-        final updated = await Person.db.findById(session, livePerson.id!);
-        expect(updated?.name, 'batch updated');
+        test(
+          'then the deleted row is visible again with the new values.',
+          () async {
+            final row = await Person.db.findById(session, deletedPerson.id!);
+            expect(row?.name, 'batch reinserted');
+          },
+        );
 
-        final created = upserted.singleWhere((e) => e.name == 'batch created');
-        final row = await Person.db.findById(session, created.id!);
-        expect(row, isNotNull);
-      });
-    });
+        test(
+          'then the live and new rows are persisted with the new values.',
+          () async {
+            final updated = await Person.db.findById(session, livePerson.id!);
+            expect(updated?.name, 'batch updated');
+
+            final created = upserted.singleWhere(
+              (e) => e.name == 'batch created',
+            );
+            final row = await Person.db.findById(session, created.id!);
+            expect(row, isNotNull);
+          },
+        );
+      },
+    );
   });
 
   group('Given a unique composite table with an existing row,', () {
+    late CrdtDatabaseSession session;
+
     late UniqueComposite uniqueComposite;
 
-    setUp(() async {
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
       uniqueComposite = await session.db.transactionForUser(
         testCrdtUserId,
         (tx) => UniqueComposite.db.insertRow(
@@ -601,7 +832,7 @@ void main() {
     group('when upserting another row with the same scoped unique key,', () {
       late UniqueComposite? upserted;
 
-      setUp(() async {
+      setUpAll(() async {
         upserted = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) => UniqueComposite.db.upsertRow(
@@ -627,15 +858,18 @@ void main() {
         expect(rows, hasLength(1));
       });
 
-      test('then CRDT fields are tracked for the default updated columns.', () async {
-        final fields = await CrdtDataField.db.find(
-          session,
-          where: (t) => t.row.uuidRowId.equals(uniqueComposite.id),
-          include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
-        );
+      test(
+        'then CRDT fields are tracked for the default updated columns.',
+        () async {
+          final fields = await CrdtDataField.db.find(
+            session,
+            where: (t) => t.row.uuidRowId.equals(uniqueComposite.id),
+            include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
+          );
 
-        expect(fields.map((e) => e.column!.name).toSet(), {'scope', 'value'});
-      });
+          expect(fields.map((e) => e.column!.name).toSet(), {'scope', 'value'});
+        },
+      );
     });
   });
 }

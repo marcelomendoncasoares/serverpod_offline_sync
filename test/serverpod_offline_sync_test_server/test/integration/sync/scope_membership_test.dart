@@ -5,18 +5,26 @@ import 'package:uuid/uuid.dart';
 import '../test_tools/client_session.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
   group(
     'Given a client CRDT session with materialized personal, shared, and stale scopes, '
     'when follower membership is projected from server grants,',
     () {
+      late CrdtDatabaseSession session;
+
       late UuidValue sharedScopeUuid;
       late UuidValue staleScopeUuid;
       late UuidValue notMaterializedScopeUuid;
       late CrdtScope sharedScope;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         sharedScopeUuid = const Uuid().v7obj();
         staleScopeUuid = const Uuid().v7obj();
         notMaterializedScopeUuid = const Uuid().v7obj();

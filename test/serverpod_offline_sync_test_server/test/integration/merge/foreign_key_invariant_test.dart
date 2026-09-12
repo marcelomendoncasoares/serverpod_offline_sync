@@ -7,167 +7,177 @@ import '../test_tools/client_session.dart';
 import '../test_tools/crdt_probes.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
-  group(
-    'Given a parent with a visible restrict child and a child update,',
-    () {
-      late Person parent;
-      late Address child;
-      late CrdtMergeDelete remoteParentDelete;
+  group('Given a parent with a visible restrict child and a child update,', () {
+    late CrdtDatabaseSession session;
 
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          parent = await Person.db.insertRow(
-            session,
-            Person(id: const Uuid().v7obj(), name: 'restricted parent'),
-            transaction: tx,
-          );
-          child = await Address.db.insertRow(
-            session,
-            Address(
-              id: const Uuid().v7obj(),
-              street: 'original street',
-              inhabitantId: parent.id,
-            ),
-            transaction: tx,
-          );
-          child = await Address.db.updateRow(
-            session,
-            child.copyWith(street: 'updated street'),
-            columns: (t) => [t.street],
-            transaction: tx,
-          );
-        });
-      });
+    late Person parent;
+    late Address child;
+    late CrdtMergeDelete remoteParentDelete;
 
-      group('when a concurrent remote parent delete is merged,', () {
-        setUp(() async {
-          remoteParentDelete = _deleteChange(
-            tableName: Person.t.tableName,
-            rowId: parent.id!,
-            after: await rowHlc(parent.id!),
-          );
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
 
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            scopeId: testCrdtUserId,
-          );
-        });
-
-        test(
-          'then the parent remains visible and no visible restrict child references a hidden parent.',
-          () async {
-            final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await Address.db.findById(session, child.id!);
-
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.inhabitantId, parent.id);
-            expect(visibleChild.street, 'updated street');
-          },
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        parent = await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'restricted parent'),
+          transaction: tx,
         );
-
-        test(
-          'then the parent tombstone records the user delete.',
-          () async {
-            final tombstone = await CrdtDataDeleted.db.findFirstRow(
-              session,
-              where: (t) => t.row.uuidRowId.equals(parent.id),
-              include: CrdtDataDeleted.include(node: CrdtNode.include()),
-            );
-
-            expect(tombstone, isNotNull);
-            expect(tombstone!.isDeleted, isTrue);
-            expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
-            expect(tombstone.hlc, remoteParentDelete.hlc);
-          },
+        child = await Address.db.insertRow(
+          session,
+          Address(
+            id: const Uuid().v7obj(),
+            street: 'original street',
+            inhabitantId: parent.id,
+          ),
+          transaction: tx,
+        );
+        child = await Address.db.updateRow(
+          session,
+          child.copyWith(street: 'updated street'),
+          columns: (t) => [t.street],
+          transaction: tx,
         );
       });
-    },
-  );
+    });
 
-  group(
-    'Given a parent with a restrict child insert,',
-    () {
-      late Person parent;
-      late RestrictChild child;
-      late CrdtMergeDelete remoteParentDelete;
-
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          parent = await Person.db.insertRow(
-            session,
-            Person(id: const Uuid().v7obj(), name: 'multi restrict parent'),
-            transaction: tx,
-          );
-          child = await RestrictChild.db.insertRow(
-            session,
-            RestrictChild(
-              id: const Uuid().v7obj(),
-              name: 'first restrict child',
-              parentId: parent.id,
-            ),
-            transaction: tx,
-          );
-        });
-      });
-
-      group('when a concurrent remote parent delete is merged,', () {
-        setUp(() async {
-          remoteParentDelete = _deleteChange(
-            tableName: Person.t.tableName,
-            rowId: parent.id!,
-            after: await rowHlc(parent.id!),
-          );
-
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            scopeId: testCrdtUserId,
-          );
-        });
-
-        test(
-          'then the visible restrict child keeps the parent visible.',
-          () async {
-            final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await RestrictChild.db.findById(
-              session,
-              child.id!,
-            );
-
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.parentId, parent.id);
-          },
+    group('when a concurrent remote parent delete is merged,', () {
+      setUpAll(() async {
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: parent.id!,
+          after: await rowHlc(parent.id!, databaseSession: session),
         );
 
-        test(
-          'then the parent tombstone records the user delete.',
-          () async {
-            final tombstone = await CrdtDataDeleted.db.findFirstRow(
-              session,
-              where: (t) => t.row.uuidRowId.equals(parent.id),
-              include: CrdtDataDeleted.include(node: CrdtNode.include()),
-            );
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+      });
 
-            expect(tombstone, isNotNull);
-            expect(tombstone!.isDeleted, isTrue);
-            expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
-            expect(tombstone.hlc, remoteParentDelete.hlc);
-          },
+      test(
+        'then the parent remains visible and no visible restrict child references a hidden parent.',
+        () async {
+          final visibleParent = await Person.db.findById(session, parent.id!);
+          final visibleChild = await Address.db.findById(session, child.id!);
+
+          expect(visibleParent, isNotNull);
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.inhabitantId, parent.id);
+          expect(visibleChild.street, 'updated street');
+        },
+      );
+
+      test('then the parent tombstone records the user delete.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(parent.id),
+          include: CrdtDataDeleted.include(node: CrdtNode.include()),
+        );
+
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, isTrue);
+        expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
+        expect(tombstone.hlc, remoteParentDelete.hlc);
+      });
+    });
+  });
+
+  group('Given a parent with a restrict child insert,', () {
+    late CrdtDatabaseSession session;
+
+    late Person parent;
+    late RestrictChild child;
+    late CrdtMergeDelete remoteParentDelete;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        parent = await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'multi restrict parent'),
+          transaction: tx,
+        );
+        child = await RestrictChild.db.insertRow(
+          session,
+          RestrictChild(
+            id: const Uuid().v7obj(),
+            name: 'first restrict child',
+            parentId: parent.id,
+          ),
+          transaction: tx,
         );
       });
-    },
-  );
+    });
+
+    group('when a concurrent remote parent delete is merged,', () {
+      setUpAll(() async {
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: parent.id!,
+          after: await rowHlc(parent.id!, databaseSession: session),
+        );
+
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+      });
+
+      test(
+        'then the visible restrict child keeps the parent visible.',
+        () async {
+          final visibleParent = await Person.db.findById(session, parent.id!);
+          final visibleChild = await RestrictChild.db.findById(
+            session,
+            child.id!,
+          );
+
+          expect(visibleParent, isNotNull);
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.parentId, parent.id);
+        },
+      );
+
+      test('then the parent tombstone records the user delete.', () async {
+        final tombstone = await CrdtDataDeleted.db.findFirstRow(
+          session,
+          where: (t) => t.row.uuidRowId.equals(parent.id),
+          include: CrdtDataDeleted.include(node: CrdtNode.include()),
+        );
+
+        expect(tombstone, isNotNull);
+        expect(tombstone!.isDeleted, isTrue);
+        expect(tombstone.reason, CrdtDataDeletedReason.userDelete);
+        expect(tombstone.hlc, remoteParentDelete.hlc);
+      });
+    });
+  });
 
   group(
     'Given a merged parent delete kept visible by a concurrent update to a restrict child,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person parent;
       late Address child;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           parent = await Person.db.insertRow(
             session,
@@ -188,13 +198,12 @@ void main() {
         final remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: parent.id!,
-          after: await rowHlc(parent.id!),
+          after: await rowHlc(parent.id!, databaseSession: session),
         );
 
-        await session.db.mergeChanges(
-          [remoteParentDelete],
-          scopeId: testCrdtUserId,
-        );
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
 
         final visibleParent = await Person.db.findById(session, parent.id!);
         expect(visibleParent, isNotNull);
@@ -202,7 +211,7 @@ void main() {
       });
 
       group('when the restrict child is detached,', () {
-        setUp(() async {
+        setUpAll(() async {
           final visibleChild = await Address.db.findById(session, child.id!);
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
             child = await Address.db.updateRow(
@@ -232,16 +241,27 @@ void main() {
   group(
     'Given a parent with two visible restrict children and a merged parent delete,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person parent;
       late RestrictChild firstChild;
       late RestrictChild secondChild;
       late CrdtMergeDelete remoteParentDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           parent = await Person.db.insertRow(
             session,
-            Person(id: const Uuid().v7obj(), name: 'two restrict children parent'),
+            Person(
+              id: const Uuid().v7obj(),
+              name: 'two restrict children parent',
+            ),
             transaction: tx,
           );
           firstChild = await RestrictChild.db.insertRow(
@@ -267,30 +287,29 @@ void main() {
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: parent.id!,
-          after: await rowHlc(parent.id!),
+          after: await rowHlc(parent.id!, databaseSession: session),
         );
-        await session.db.mergeChanges(
-          [remoteParentDelete],
-          scopeId: testCrdtUserId,
-        );
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
       });
 
       group('when one restrict child is detached by a merged update,', () {
-        setUp(() async {
+        setUpAll(() async {
           final firstChildDetach = _updateChange(
             tableName: RestrictChild.t.tableName,
             rowId: firstChild.id!,
             columnName: RestrictChild.t.parentId.columnName,
             value: null,
-            after: (await rowHlc(firstChild.id!)).maxBetween(
-              remoteParentDelete.hlc,
-            ),
+            after: (await rowHlc(
+              firstChild.id!,
+              databaseSession: session,
+            )).maxBetween(remoteParentDelete.hlc),
           );
 
-          await session.db.mergeChanges(
-            [firstChildDetach],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            firstChildDetach,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -314,32 +333,92 @@ void main() {
           },
         );
       });
+    },
+  );
+
+  group(
+    'Given a parent with two visible restrict children and a merged parent delete,',
+    () {
+      late CrdtDatabaseSession session;
+
+      late Person parent;
+      late RestrictChild firstChild;
+      late RestrictChild secondChild;
+      late CrdtMergeDelete remoteParentDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          parent = await Person.db.insertRow(
+            session,
+            Person(
+              id: const Uuid().v7obj(),
+              name: 'two restrict children parent',
+            ),
+            transaction: tx,
+          );
+          firstChild = await RestrictChild.db.insertRow(
+            session,
+            RestrictChild(
+              id: const Uuid().v7obj(),
+              name: 'first restrict child',
+              parentId: parent.id,
+            ),
+            transaction: tx,
+          );
+          secondChild = await RestrictChild.db.insertRow(
+            session,
+            RestrictChild(
+              id: const Uuid().v7obj(),
+              name: 'second restrict child',
+              parentId: parent.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: parent.id!,
+          after: await rowHlc(parent.id!, databaseSession: session),
+        );
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+      });
 
       group('when both restrict children are detached by merged updates,', () {
-        setUp(() async {
+        setUpAll(() async {
           final firstChildDetach = _updateChange(
             tableName: RestrictChild.t.tableName,
             rowId: firstChild.id!,
             columnName: RestrictChild.t.parentId.columnName,
             value: null,
-            after: (await rowHlc(firstChild.id!)).maxBetween(
-              remoteParentDelete.hlc,
-            ),
+            after: (await rowHlc(
+              firstChild.id!,
+              databaseSession: session,
+            )).maxBetween(remoteParentDelete.hlc),
           );
           final secondChildDetach = _updateChange(
             tableName: RestrictChild.t.tableName,
             rowId: secondChild.id!,
             columnName: RestrictChild.t.parentId.columnName,
             value: null,
-            after: (await rowHlc(secondChild.id!)).maxBetween(
-              remoteParentDelete.hlc,
-            ),
+            after: (await rowHlc(
+              secondChild.id!,
+              databaseSession: session,
+            )).maxBetween(remoteParentDelete.hlc),
           );
 
-          await session.db.mergeChanges(
-            [firstChildDetach, secondChildDetach],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            firstChildDetach,
+            secondChildDetach,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -360,89 +439,101 @@ void main() {
     },
   );
 
-  group(
-    'Given a parent with a visible no-action child,',
-    () {
-      late Town town;
-      late Company company;
-      late Person child;
-      late CrdtMergeDelete remoteCompanyDelete;
+  group('Given a parent with a visible no-action child,', () {
+    late CrdtDatabaseSession session;
 
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          town = await Town.db.insertRow(
-            session,
-            Town(id: const Uuid().v7obj(), name: 'company town'),
-            transaction: tx,
-          );
-          company = await Company.db.insertRow(
-            session,
-            Company(
-              id: const Uuid().v7obj(),
-              name: 'no action company',
-              townId: town.id,
-            ),
-            transaction: tx,
-          );
-          child = await Person.db.insertRow(
-            session,
-            Person(
-              id: const Uuid().v7obj(),
-              name: 'no action child',
-              oldCompanyId: company.id,
-            ),
-            transaction: tx,
-          );
-          child = await Person.db.updateRow(
-            session,
-            child.copyWith(surname: 'updated child'),
-            columns: (t) => [t.surname],
-            transaction: tx,
-          );
-        });
-      });
+    late Town town;
+    late Company company;
+    late Person child;
+    late CrdtMergeDelete remoteCompanyDelete;
 
-      group('when a concurrent remote parent delete is merged,', () {
-        setUp(() async {
-          remoteCompanyDelete = _deleteChange(
-            tableName: Company.t.tableName,
-            rowId: company.id!,
-            after: await rowHlc(company.id!),
-          );
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
 
-          await session.db.mergeChanges(
-            [remoteCompanyDelete],
-            scopeId: testCrdtUserId,
-          );
-        });
-
-        test(
-          'then the visible no-action child keeps the parent visible.',
-          () async {
-            final visibleCompany = await Company.db.findById(
-              session,
-              company.id!,
-            );
-            final visibleChild = await Person.db.findById(session, child.id!);
-
-            expect(visibleCompany, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.oldCompanyId, company.id);
-            expect(visibleChild.surname, 'updated child');
-          },
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        town = await Town.db.insertRow(
+          session,
+          Town(id: const Uuid().v7obj(), name: 'company town'),
+          transaction: tx,
+        );
+        company = await Company.db.insertRow(
+          session,
+          Company(
+            id: const Uuid().v7obj(),
+            name: 'no action company',
+            townId: town.id,
+          ),
+          transaction: tx,
+        );
+        child = await Person.db.insertRow(
+          session,
+          Person(
+            id: const Uuid().v7obj(),
+            name: 'no action child',
+            oldCompanyId: company.id,
+          ),
+          transaction: tx,
+        );
+        child = await Person.db.updateRow(
+          session,
+          child.copyWith(surname: 'updated child'),
+          columns: (t) => [t.surname],
+          transaction: tx,
         );
       });
-    },
-  );
+    });
+
+    group('when a concurrent remote parent delete is merged,', () {
+      setUpAll(() async {
+        remoteCompanyDelete = _deleteChange(
+          tableName: Company.t.tableName,
+          rowId: company.id!,
+          after: await rowHlc(company.id!, databaseSession: session),
+        );
+
+        await session.db.mergeChanges([
+          remoteCompanyDelete,
+        ], scopeId: testCrdtUserId);
+      });
+
+      test(
+        'then the visible no-action child keeps the parent visible.',
+        () async {
+          final visibleCompany = await Company.db.findById(
+            session,
+            company.id!,
+          );
+          final visibleChild = await Person.db.findById(session, child.id!);
+
+          expect(visibleCompany, isNotNull);
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.oldCompanyId, company.id);
+          expect(visibleChild.surname, 'updated child');
+        },
+      );
+    });
+  });
 
   group(
     'Given a parent with a required (non-nullable) set-null child insert,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person parent;
       late RequiredSetNullChild child;
       late CrdtMergeDelete remoteParentDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           parent = await Person.db.insertRow(
             session,
@@ -462,17 +553,16 @@ void main() {
       });
 
       group('when a concurrent remote parent delete is merged,', () {
-        setUp(() async {
+        setUpAll(() async {
           remoteParentDelete = _deleteChange(
             tableName: Person.t.tableName,
             rowId: parent.id!,
-            after: await rowHlc(parent.id!),
+            after: await rowHlc(parent.id!, databaseSession: session),
           );
 
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            remoteParentDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -496,12 +586,20 @@ void main() {
   group(
     'Given a parent with a nullable set-null foreign key whose attempted value was stored on update,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person attemptedParent;
       late Town child;
       late CrdtMergeDelete remoteParentDelete;
       late Hlc childMayorFieldHlc;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           attemptedParent = await Person.db.insertRow(
             session,
@@ -534,7 +632,10 @@ void main() {
         );
         childMayorFieldHlc = childMayorField!.hlc;
 
-        final parentHlc = await rowHlc(attemptedParent.id!);
+        final parentHlc = await rowHlc(
+          attemptedParent.id!,
+          databaseSession: session,
+        );
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
@@ -543,11 +644,10 @@ void main() {
       });
 
       group('when the attempted parent delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteParentDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -566,11 +666,15 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
             expect(attempted!.value, attemptedParent.id);
-            expect(attempted.projectionReason, CrdtProjectionReason.foreignKeySetNull);
+            expect(
+              attempted.projectionReason,
+              CrdtProjectionReason.foreignKeySetNull,
+            );
           },
         );
 
@@ -593,84 +697,97 @@ void main() {
     },
   );
 
-  group(
-    'Given a unique nullable set-null foreign key,',
-    () {
-      late Person parent;
-      late UniqueSetNullChild child;
-      late CrdtMergeDelete remoteParentDelete;
+  group('Given a unique nullable set-null foreign key,', () {
+    late CrdtDatabaseSession session;
 
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          parent = await Person.db.insertRow(
-            session,
-            Person(id: const Uuid().v7obj(), name: 'unique set-null parent'),
-            transaction: tx,
-          );
-          child = await UniqueSetNullChild.db.insertRow(
-            session,
-            UniqueSetNullChild(
-              id: const Uuid().v7obj(),
-              name: 'unique set-null child',
-              parentId: parent.id,
-            ),
-            transaction: tx,
-          );
-        });
+    late Person parent;
+    late UniqueSetNullChild child;
+    late CrdtMergeDelete remoteParentDelete;
 
-        final parentHlc = await rowHlc(parent.id!);
-        remoteParentDelete = _deleteChange(
-          tableName: Person.t.tableName,
-          rowId: parent.id!,
-          after: parentHlc,
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        parent = await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'unique set-null parent'),
+          transaction: tx,
+        );
+        child = await UniqueSetNullChild.db.insertRow(
+          session,
+          UniqueSetNullChild(
+            id: const Uuid().v7obj(),
+            name: 'unique set-null child',
+            parentId: parent.id,
+          ),
+          transaction: tx,
         );
       });
 
-      group('when the remote parent delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            scopeId: testCrdtUserId,
-          );
-        });
+      final parentHlc = await rowHlc(parent.id!, databaseSession: session);
+      remoteParentDelete = _deleteChange(
+        tableName: Person.t.tableName,
+        rowId: parent.id!,
+        after: parentHlc,
+      );
+    });
 
-        test(
-          'then the unique foreign key repair leaves the child visible with null.',
-          () async {
-            final visibleChild = await UniqueSetNullChild.db.findById(
-              session,
-              child.id!,
-            );
-
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.parentId, isNull);
-          },
-        );
-
-        test(
-          'then the attempted unique foreign key value remains recorded in projection metadata.',
-          () async {
-            final attempted = await attemptedValue(
-              rowId: child.id!,
-              columnName: UniqueSetNullChild.t.parentId.columnName,
-            );
-
-            expect(attempted, isNotNull);
-            expect(attempted!.value, parent.id);
-          },
-        );
+    group('when the remote parent delete is merged,', () {
+      setUpAll(() async {
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
       });
-    },
-  );
+
+      test(
+        'then the unique foreign key repair leaves the child visible with null.',
+        () async {
+          final visibleChild = await UniqueSetNullChild.db.findById(
+            session,
+            child.id!,
+          );
+
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.parentId, isNull);
+        },
+      );
+
+      test(
+        'then the attempted unique foreign key value remains recorded in projection metadata.',
+        () async {
+          final attempted = await attemptedValue(
+            rowId: child.id!,
+            columnName: UniqueSetNullChild.t.parentId.columnName,
+            databaseSession: session,
+          );
+
+          expect(attempted, isNotNull);
+          expect(attempted!.value, parent.id);
+        },
+      );
+    });
+  });
 
   group(
     'Given a child with a visible parent foreign key and no active projection override,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person parent;
       late Town child;
       late Hlc mayorFieldHlcBeforeUpdate;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           parent = await Person.db.insertRow(
             session,
@@ -707,7 +824,7 @@ void main() {
       group(
         'when the foreign key is cleared by an update without narrowing columns,',
         () {
-          setUp(() async {
+          setUpAll(() async {
             await session.db.transactionForUser(testCrdtUserId, (tx) async {
               child = await Town.db.updateRow(
                 session,
@@ -732,7 +849,10 @@ void main() {
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, isNull);
               expect(mayorFieldAfterUpdate, isNotNull);
-              expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
+              expect(
+                mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
+                isTrue,
+              );
             },
           );
 
@@ -740,6 +860,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNull);
@@ -752,13 +873,21 @@ void main() {
   group(
     'Given a set-null projection is active after a merged parent delete,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person attemptedParent;
       late Person newParent;
       late Town child;
       late Town projectedChild;
       late CrdtMergeDelete remoteParentDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           attemptedParent = await Person.db.insertRow(
             session,
@@ -790,20 +919,19 @@ void main() {
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
-          after: await rowHlc(attemptedParent.id!),
+          after: await rowHlc(attemptedParent.id!, databaseSession: session),
         );
 
-        await session.db.mergeChanges(
-          [remoteParentDelete],
-          scopeId: testCrdtUserId,
-        );
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
 
         projectedChild = (await Town.db.findById(session, child.id!))!;
         expect(projectedChild.mayorId, isNull);
       });
 
       group('when the user changes the foreign key to a visible parent,', () {
-        setUp(() async {
+        setUpAll(() async {
           await session.db.transactionForUser(testCrdtUserId, (tx) async {
             child = await Town.db.updateRow(
               session,
@@ -814,35 +942,100 @@ void main() {
           });
         });
 
-        test('then the child foreign key uses the new visible parent.', () async {
-          final visibleChild = await Town.db.findById(session, child.id!);
+        test(
+          'then the child foreign key uses the new visible parent.',
+          () async {
+            final visibleChild = await Town.db.findById(session, child.id!);
 
-          expect(visibleChild, isNotNull);
-          expect(visibleChild!.mayorId, newParent.id);
-        });
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.mayorId, newParent.id);
+          },
+        );
 
         test('then no attempted metadata is recorded.', () async {
           final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Town.t.mayorId.columnName,
+            databaseSession: session,
           );
 
           expect(attempted, isNull);
         });
       });
+    },
+  );
+
+  group(
+    'Given a set-null projection is active after a merged parent delete,',
+    () {
+      late CrdtDatabaseSession session;
+
+      late Person attemptedParent;
+
+      late Town child;
+      late Town projectedChild;
+      late CrdtMergeDelete remoteParentDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          attemptedParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'deleted mayor'),
+            transaction: tx,
+          );
+          await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'new mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'set null town',
+              mayorId: attemptedParent.id,
+            ),
+            transaction: tx,
+          );
+          child = await Town.db.updateRow(
+            session,
+            child.copyWith(mayorId: attemptedParent.id),
+            columns: (t) => [t.mayorId],
+            transaction: tx,
+          );
+        });
+
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: attemptedParent.id!,
+          after: await rowHlc(attemptedParent.id!, databaseSession: session),
+        );
+
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+
+        projectedChild = (await Town.db.findById(session, child.id!))!;
+        expect(projectedChild.mayorId, isNull);
+      });
 
       group('when a later merge restores the attempted parent,', () {
-        setUp(() async {
+        setUpAll(() async {
           final remoteParentRestore = _restoreChange(
             tableName: Person.t.tableName,
             rowId: attemptedParent.id!,
             after: remoteParentDelete.hlc,
           );
 
-          await session.db.mergeChanges(
-            [remoteParentRestore],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            remoteParentRestore,
+          ], scopeId: testCrdtUserId);
         });
 
         test('then the child foreign key is restored.', () async {
@@ -861,16 +1054,79 @@ void main() {
           final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Town.t.mayorId.columnName,
+            databaseSession: session,
           );
 
           expect(attempted, isNull);
         });
       });
+    },
+  );
+
+  group(
+    'Given a set-null projection is active after a merged parent delete,',
+    () {
+      late CrdtDatabaseSession session;
+
+      late Person attemptedParent;
+
+      late Town child;
+      late Town projectedChild;
+      late CrdtMergeDelete remoteParentDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          attemptedParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'deleted mayor'),
+            transaction: tx,
+          );
+          await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'new mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'set null town',
+              mayorId: attemptedParent.id,
+            ),
+            transaction: tx,
+          );
+          child = await Town.db.updateRow(
+            session,
+            child.copyWith(mayorId: attemptedParent.id),
+            columns: (t) => [t.mayorId],
+            transaction: tx,
+          );
+        });
+
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: attemptedParent.id!,
+          after: await rowHlc(attemptedParent.id!, databaseSession: session),
+        );
+
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+
+        projectedChild = (await Town.db.findById(session, child.id!))!;
+        expect(projectedChild.mayorId, isNull);
+      });
 
       group('when the row is updated without narrowing columns,', () {
         late Hlc mayorFieldHlcBeforeUpdate;
 
-        setUp(() async {
+        setUpAll(() async {
           final mayorField = await CrdtDataField.db.findFirstRow(
             session,
             where: (t) =>
@@ -909,15 +1165,81 @@ void main() {
           },
         );
 
-        test('then the attempted foreign key is recorded in the metadata.', () async {
-          final attempted = await attemptedValue(
-            rowId: child.id!,
-            columnName: Town.t.mayorId.columnName,
-          );
+        test(
+          'then the attempted foreign key is recorded in the metadata.',
+          () async {
+            final attempted = await attemptedValue(
+              rowId: child.id!,
+              columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
+            );
 
-          expect(attempted, isNotNull);
-          expect(attempted!.value, attemptedParent.id);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, attemptedParent.id);
+          },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a set-null projection is active after a merged parent delete,',
+    () {
+      late CrdtDatabaseSession session;
+
+      late Person attemptedParent;
+      late Person newParent;
+      late Town child;
+      late Town projectedChild;
+      late CrdtMergeDelete remoteParentDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          attemptedParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'deleted mayor'),
+            transaction: tx,
+          );
+          newParent = await Person.db.insertRow(
+            session,
+            Person(id: const Uuid().v7obj(), name: 'new mayor'),
+            transaction: tx,
+          );
+          child = await Town.db.insertRow(
+            session,
+            Town(
+              id: const Uuid().v7obj(),
+              name: 'set null town',
+              mayorId: attemptedParent.id,
+            ),
+            transaction: tx,
+          );
+          child = await Town.db.updateRow(
+            session,
+            child.copyWith(mayorId: attemptedParent.id),
+            columns: (t) => [t.mayorId],
+            transaction: tx,
+          );
         });
+
+        remoteParentDelete = _deleteChange(
+          tableName: Person.t.tableName,
+          rowId: attemptedParent.id!,
+          after: await rowHlc(attemptedParent.id!, databaseSession: session),
+        );
+
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+
+        projectedChild = (await Town.db.findById(session, child.id!))!;
+        expect(projectedChild.mayorId, isNull);
       });
 
       group(
@@ -925,7 +1247,7 @@ void main() {
         () {
           late Hlc mayorFieldHlcBeforeUpdate;
 
-          setUp(() async {
+          setUpAll(() async {
             final mayorField = await CrdtDataField.db.findFirstRow(
               session,
               where: (t) =>
@@ -962,7 +1284,10 @@ void main() {
               expect(visibleChild, isNotNull);
               expect(visibleChild!.mayorId, newParent.id);
               expect(mayorFieldAfterUpdate, isNotNull);
-              expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
+              expect(
+                mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
+                isTrue,
+              );
             },
           );
 
@@ -970,61 +1295,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
-            );
-
-            expect(attempted, isNull);
-          });
-        },
-      );
-
-      group(
-        'when the foreign key is explicitly updated to the projected value with narrowed columns,',
-        () {
-          late Hlc mayorFieldHlcBeforeUpdate;
-
-          setUp(() async {
-            final mayorField = await CrdtDataField.db.findFirstRow(
-              session,
-              where: (t) =>
-                  t.row.uuidRowId.equals(child.id) &
-                  t.column.name.equals(Town.t.mayorId.columnName),
-              include: CrdtDataField.include(node: CrdtNode.include()),
-            );
-            mayorFieldHlcBeforeUpdate = mayorField!.hlc;
-
-            await session.db.transactionForUser(testCrdtUserId, (tx) async {
-              child = await Town.db.updateRow(
-                session,
-                projectedChild.copyWith(mayorId: null),
-                columns: (t) => [t.mayorId],
-                transaction: tx,
-              );
-            });
-          });
-
-          test(
-            'then writing the projected value with narrowed columns is an authored update, not a passthrough.',
-            () async {
-              final visibleChild = await Town.db.findById(session, child.id!);
-              final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
-                session,
-                where: (t) =>
-                    t.row.uuidRowId.equals(child.id) &
-                    t.column.name.equals(Town.t.mayorId.columnName),
-                include: CrdtDataField.include(node: CrdtNode.include()),
-              );
-
-              expect(visibleChild, isNotNull);
-              expect(visibleChild!.mayorId, isNull);
-              expect(mayorFieldAfterUpdate, isNotNull);
-              expect(mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate, isTrue);
-            },
-          );
-
-          test('then no attempted metadata is recorded.', () async {
-            final attempted = await attemptedValue(
-              rowId: child.id!,
-              columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNull);
@@ -1034,16 +1305,142 @@ void main() {
     },
   );
 
+  group('Given a set-null projection is active after a merged parent delete,', () {
+    late CrdtDatabaseSession session;
+
+    late Person attemptedParent;
+
+    late Town child;
+    late Town projectedChild;
+    late CrdtMergeDelete remoteParentDelete;
+
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        attemptedParent = await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'deleted mayor'),
+          transaction: tx,
+        );
+        await Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'new mayor'),
+          transaction: tx,
+        );
+        child = await Town.db.insertRow(
+          session,
+          Town(
+            id: const Uuid().v7obj(),
+            name: 'set null town',
+            mayorId: attemptedParent.id,
+          ),
+          transaction: tx,
+        );
+        child = await Town.db.updateRow(
+          session,
+          child.copyWith(mayorId: attemptedParent.id),
+          columns: (t) => [t.mayorId],
+          transaction: tx,
+        );
+      });
+
+      remoteParentDelete = _deleteChange(
+        tableName: Person.t.tableName,
+        rowId: attemptedParent.id!,
+        after: await rowHlc(attemptedParent.id!, databaseSession: session),
+      );
+
+      await session.db.mergeChanges([
+        remoteParentDelete,
+      ], scopeId: testCrdtUserId);
+
+      projectedChild = (await Town.db.findById(session, child.id!))!;
+      expect(projectedChild.mayorId, isNull);
+    });
+
+    group(
+      'when the foreign key is explicitly updated to the projected value with narrowed columns,',
+      () {
+        late Hlc mayorFieldHlcBeforeUpdate;
+
+        setUpAll(() async {
+          final mayorField = await CrdtDataField.db.findFirstRow(
+            session,
+            where: (t) =>
+                t.row.uuidRowId.equals(child.id) &
+                t.column.name.equals(Town.t.mayorId.columnName),
+            include: CrdtDataField.include(node: CrdtNode.include()),
+          );
+          mayorFieldHlcBeforeUpdate = mayorField!.hlc;
+
+          await session.db.transactionForUser(testCrdtUserId, (tx) async {
+            child = await Town.db.updateRow(
+              session,
+              projectedChild.copyWith(mayorId: null),
+              columns: (t) => [t.mayorId],
+              transaction: tx,
+            );
+          });
+        });
+
+        test(
+          'then writing the projected value with narrowed columns is an authored update, not a passthrough.',
+          () async {
+            final visibleChild = await Town.db.findById(session, child.id!);
+            final mayorFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
+              session,
+              where: (t) =>
+                  t.row.uuidRowId.equals(child.id) &
+                  t.column.name.equals(Town.t.mayorId.columnName),
+              include: CrdtDataField.include(node: CrdtNode.include()),
+            );
+
+            expect(visibleChild, isNotNull);
+            expect(visibleChild!.mayorId, isNull);
+            expect(mayorFieldAfterUpdate, isNotNull);
+            expect(
+              mayorFieldAfterUpdate!.hlc > mayorFieldHlcBeforeUpdate,
+              isTrue,
+            );
+          },
+        );
+
+        test('then no attempted metadata is recorded.', () async {
+          final attempted = await attemptedValue(
+            rowId: child.id!,
+            columnName: Town.t.mayorId.columnName,
+            databaseSession: session,
+          );
+
+          expect(attempted, isNull);
+        });
+      },
+    );
+  });
+
   group(
     'Given a set-null projection is active after a merged parent delete and a '
     'remote update that touches only a non-foreign-key column,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person attemptedParent;
       late Town child;
       late CrdtMergeUpdate remoteNameUpdate;
       late List<String> projectionBeforeUpdate;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           attemptedParent = await Person.db.insertRow(
             session,
@@ -1064,48 +1461,46 @@ void main() {
         final remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
-          after: await rowHlc(attemptedParent.id!),
+          after: await rowHlc(attemptedParent.id!, databaseSession: session),
         );
-        await session.db.mergeChanges(
-          [remoteParentDelete],
-          scopeId: testCrdtUserId,
-        );
-        projectionBeforeUpdate = await _foreignKeyProjectionSnapshot();
+        await session.db.mergeChanges([
+          remoteParentDelete,
+        ], scopeId: testCrdtUserId);
+        projectionBeforeUpdate = await _foreignKeyProjectionSnapshot(session);
 
         remoteNameUpdate = _updateChange(
           tableName: Town.t.tableName,
           rowId: child.id!,
           columnName: Town.t.name.columnName,
           value: 'renamed remotely',
-          after: (await rowHlc(child.id!)).maxBetween(remoteParentDelete.hlc),
+          after: (await rowHlc(
+            child.id!,
+            databaseSession: session,
+          )).maxBetween(remoteParentDelete.hlc),
         );
       });
 
       group('when the remote update is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteNameUpdate],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteNameUpdate,
+          ], scopeId: testCrdtUserId);
         });
 
-        test(
-          'then the non-foreign-key update is applied and the materialized '
-          'repair is preserved.',
-          () async {
-            final visibleChild = await Town.db.findById(session, child.id!);
+        test('then the non-foreign-key update is applied and the materialized '
+            'repair is preserved.', () async {
+          final visibleChild = await Town.db.findById(session, child.id!);
 
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.name, 'renamed remotely');
-            expect(visibleChild.mayorId, isNull);
-          },
-        );
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.name, 'renamed remotely');
+          expect(visibleChild.mayorId, isNull);
+        });
 
         test(
           'then the foreign key projection metadata does not change.',
           () async {
             expect(
-              await _foreignKeyProjectionSnapshot(),
+              await _foreignKeyProjectionSnapshot(session),
               projectionBeforeUpdate,
             );
           },
@@ -1117,11 +1512,19 @@ void main() {
   group(
     'Given a nullable foreign key with set-null whose attempted value only exists on insert,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person attemptedParent;
       late Town child;
       late CrdtMergeDelete remoteParentDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           attemptedParent = await Person.db.insertRow(
             session,
@@ -1139,7 +1542,10 @@ void main() {
           );
         });
 
-        final parentHlc = await rowHlc(attemptedParent.id!);
+        final parentHlc = await rowHlc(
+          attemptedParent.id!,
+          databaseSession: session,
+        );
         remoteParentDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: attemptedParent.id!,
@@ -1148,11 +1554,10 @@ void main() {
       });
 
       group('when the attempted parent delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteParentDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1171,6 +1576,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
@@ -1184,10 +1590,18 @@ void main() {
   group(
     'Given a remote insert with a set-null foreign key that points to a missing parent,',
     () {
+      late CrdtDatabaseSession session;
+
       late UuidValue missingParentId;
       late Town child;
 
-      setUp(() {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         missingParentId = const Uuid().v7obj();
         child = Town(
           id: const Uuid().v7obj(),
@@ -1197,23 +1611,20 @@ void main() {
       });
 
       group('when the remote insert is merged,', () {
-        setUp(() async {
+        setUpAll(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
-          await session.db.mergeChanges(
-            [
-              CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
-                tableName: Town.t.tableName,
-                uuidRowId: child.id!,
-                uuidNodeId: remoteNodeId,
-                hlcDatetime: hlc.datetime,
-                hlcCounter: hlc.counter,
-                data: child,
-              ),
-            ],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            CrdtMergeInsert(
+              uuidScopeId: testCrdtUserId,
+              tableName: Town.t.tableName,
+              uuidRowId: child.id!,
+              uuidNodeId: remoteNodeId,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
+              data: child,
+            ),
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1232,11 +1643,15 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
             expect(attempted!.value, missingParentId);
-            expect(attempted.projectionReason, CrdtProjectionReason.foreignKeySetNull);
+            expect(
+              attempted.projectionReason,
+              CrdtProjectionReason.foreignKeySetNull,
+            );
           },
         );
       });
@@ -1246,11 +1661,19 @@ void main() {
   group(
     'Given a visible child and a remote update with a set-null foreign key that points to a missing parent,',
     () {
+      late CrdtDatabaseSession session;
+
       late UuidValue missingParentId;
       late Town child;
       late CrdtMergeUpdate remoteMissingParentUpdate;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         missingParentId = const Uuid().v7obj();
         child = await session.db.transactionForUser(
           testCrdtUserId,
@@ -1261,7 +1684,7 @@ void main() {
           ),
         );
 
-        final childHlc = await rowHlc(child.id!);
+        final childHlc = await rowHlc(child.id!, databaseSession: session);
         remoteMissingParentUpdate = CrdtMergeUpdate(
           uuidScopeId: testCrdtUserId,
           tableName: Town.t.tableName,
@@ -1275,11 +1698,10 @@ void main() {
       });
 
       group('when the remote update is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteMissingParentUpdate],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteMissingParentUpdate,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1298,11 +1720,15 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Town.t.mayorId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
             expect(attempted!.value, missingParentId);
-            expect(attempted.projectionReason, CrdtProjectionReason.foreignKeySetNull);
+            expect(
+              attempted.projectionReason,
+              CrdtProjectionReason.foreignKeySetNull,
+            );
           },
         );
       });
@@ -1312,16 +1738,21 @@ void main() {
   group(
     'Given a set-default foreign key with a visible default target and a stored attempted parent value,',
     () {
+      late CrdtDatabaseSession session;
+
       late Town defaultTown;
       late Town attemptedTown;
       late Company child;
       late CrdtMergeDelete remoteAttemptedTownDelete;
 
-      setUp(() async {
-        defaultTown = Town(
-          id: _defaultTownId,
-          name: 'default town',
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
         );
+        await session.db.initialize();
+
+        defaultTown = Town(id: _defaultTownId, name: 'default town');
 
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           defaultTown = await Town.db.insertRow(
@@ -1351,7 +1782,10 @@ void main() {
           );
         });
 
-        final attemptedTownHlc = await rowHlc(attemptedTown.id!);
+        final attemptedTownHlc = await rowHlc(
+          attemptedTown.id!,
+          databaseSession: session,
+        );
         remoteAttemptedTownDelete = _deleteChange(
           tableName: Town.t.tableName,
           rowId: attemptedTown.id!,
@@ -1360,11 +1794,10 @@ void main() {
       });
 
       group('when the attempted parent delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteAttemptedTownDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteAttemptedTownDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1383,6 +1816,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
@@ -1394,6 +1828,66 @@ void main() {
           },
         );
       });
+    },
+  );
+
+  group(
+    'Given a set-default foreign key with a visible default target and a stored attempted parent value,',
+    () {
+      late CrdtDatabaseSession session;
+
+      late Town defaultTown;
+      late Town attemptedTown;
+      late Company child;
+      late CrdtMergeDelete remoteAttemptedTownDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        defaultTown = Town(id: _defaultTownId, name: 'default town');
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          defaultTown = await Town.db.insertRow(
+            session,
+            defaultTown,
+            transaction: tx,
+          );
+          attemptedTown = await Town.db.insertRow(
+            session,
+            Town(id: const Uuid().v7obj(), name: 'attempted town'),
+            transaction: tx,
+          );
+          child = await Company.db.insertRow(
+            session,
+            Company(
+              id: const Uuid().v7obj(),
+              name: 'set default company',
+              townId: attemptedTown.id,
+            ),
+            transaction: tx,
+          );
+          child = await Company.db.updateRow(
+            session,
+            child.copyWith(townId: attemptedTown.id),
+            columns: (t) => [t.townId],
+            transaction: tx,
+          );
+        });
+
+        final attemptedTownHlc = await rowHlc(
+          attemptedTown.id!,
+          databaseSession: session,
+        );
+        remoteAttemptedTownDelete = _deleteChange(
+          tableName: Town.t.tableName,
+          rowId: attemptedTown.id!,
+          after: attemptedTownHlc,
+        );
+      });
 
       group(
         'when the attempted parent delete is merged and the row is updated without narrowing columns,',
@@ -1401,11 +1895,10 @@ void main() {
           late Hlc townIdFieldHlcBeforeUpdate;
           late Company projectedChild;
 
-          setUp(() async {
-            await session.db.mergeChanges(
-              [remoteAttemptedTownDelete],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await session.db.mergeChanges([
+              remoteAttemptedTownDelete,
+            ], scopeId: testCrdtUserId);
 
             projectedChild = (await Company.db.findById(session, child.id!))!;
             expect(projectedChild.townId, defaultTown.id);
@@ -1431,7 +1924,10 @@ void main() {
           test(
             'then the set-default foreign key write equal to the projected value is a repair passthrough, not an authored update.',
             () async {
-              final visibleChild = await Company.db.findById(session, child.id!);
+              final visibleChild = await Company.db.findById(
+                session,
+                child.id!,
+              );
               final townIdFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -1454,6 +1950,7 @@ void main() {
               final attempted = await attemptedValue(
                 rowId: child.id!,
                 columnName: Company.t.townId.columnName,
+                databaseSession: session,
               );
 
               expect(attempted, isNotNull);
@@ -1462,6 +1959,66 @@ void main() {
           );
         },
       );
+    },
+  );
+
+  group(
+    'Given a set-default foreign key with a visible default target and a stored attempted parent value,',
+    () {
+      late CrdtDatabaseSession session;
+
+      late Town defaultTown;
+      late Town attemptedTown;
+      late Company child;
+      late CrdtMergeDelete remoteAttemptedTownDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        defaultTown = Town(id: _defaultTownId, name: 'default town');
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          defaultTown = await Town.db.insertRow(
+            session,
+            defaultTown,
+            transaction: tx,
+          );
+          attemptedTown = await Town.db.insertRow(
+            session,
+            Town(id: const Uuid().v7obj(), name: 'attempted town'),
+            transaction: tx,
+          );
+          child = await Company.db.insertRow(
+            session,
+            Company(
+              id: const Uuid().v7obj(),
+              name: 'set default company',
+              townId: attemptedTown.id,
+            ),
+            transaction: tx,
+          );
+          child = await Company.db.updateRow(
+            session,
+            child.copyWith(townId: attemptedTown.id),
+            columns: (t) => [t.townId],
+            transaction: tx,
+          );
+        });
+
+        final attemptedTownHlc = await rowHlc(
+          attemptedTown.id!,
+          databaseSession: session,
+        );
+        remoteAttemptedTownDelete = _deleteChange(
+          tableName: Town.t.tableName,
+          rowId: attemptedTown.id!,
+          after: attemptedTownHlc,
+        );
+      });
 
       group(
         'when the attempted parent delete is merged and the row is updated without narrowing columns with a changed foreign key,',
@@ -1470,11 +2027,10 @@ void main() {
           late Hlc townIdFieldHlcBeforeUpdate;
           late Company projectedChild;
 
-          setUp(() async {
-            await session.db.mergeChanges(
-              [remoteAttemptedTownDelete],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await session.db.mergeChanges([
+              remoteAttemptedTownDelete,
+            ], scopeId: testCrdtUserId);
 
             projectedChild = (await Company.db.findById(session, child.id!))!;
             expect(projectedChild.townId, defaultTown.id);
@@ -1509,7 +2065,10 @@ void main() {
           test(
             'then the new foreign key value is authored as a user change.',
             () async {
-              final visibleChild = await Company.db.findById(session, child.id!);
+              final visibleChild = await Company.db.findById(
+                session,
+                child.id!,
+              );
               final townIdFieldAfterUpdate = await CrdtDataField.db.findFirstRow(
                 session,
                 where: (t) =>
@@ -1521,7 +2080,10 @@ void main() {
               expect(visibleChild, isNotNull);
               expect(visibleChild!.townId, otherTown.id);
               expect(townIdFieldAfterUpdate, isNotNull);
-              expect(townIdFieldAfterUpdate!.hlc > townIdFieldHlcBeforeUpdate, isTrue);
+              expect(
+                townIdFieldAfterUpdate!.hlc > townIdFieldHlcBeforeUpdate,
+                isTrue,
+              );
             },
           );
 
@@ -1529,6 +2091,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNull);
@@ -1541,11 +2104,19 @@ void main() {
   group(
     'Given a remote insert with a set-default foreign key that points to a missing parent and a visible default target,',
     () {
+      late CrdtDatabaseSession session;
+
       late Town defaultTown;
       late UuidValue missingTownId;
       late Company child;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         defaultTown = Town(id: _defaultTownId, name: 'visible default town');
         missingTownId = const Uuid().v7obj();
         child = Company(
@@ -1561,23 +2132,20 @@ void main() {
       });
 
       group('when the remote insert is merged,', () {
-        setUp(() async {
+        setUpAll(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
-          await session.db.mergeChanges(
-            [
-              CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
-                tableName: Company.t.tableName,
-                uuidRowId: child.id!,
-                uuidNodeId: remoteNodeId,
-                hlcDatetime: hlc.datetime,
-                hlcCounter: hlc.counter,
-                data: child,
-              ),
-            ],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            CrdtMergeInsert(
+              uuidScopeId: testCrdtUserId,
+              tableName: Company.t.tableName,
+              uuidRowId: child.id!,
+              uuidNodeId: remoteNodeId,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
+              data: child,
+            ),
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1596,6 +2164,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Company.t.townId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
@@ -1610,90 +2179,106 @@ void main() {
     },
   );
 
-  group(
-    'Given a set-default foreign key whose default target is missing,',
-    () {
-      late Town attemptedTown;
-      late Company child;
-      late CrdtMergeDelete remoteAttemptedTownDelete;
+  group('Given a set-default foreign key whose default target is missing,', () {
+    late CrdtDatabaseSession session;
 
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          attemptedTown = await Town.db.insertRow(
-            session,
-            Town(id: const Uuid().v7obj(), name: 'attempted town'),
-            transaction: tx,
-          );
-          child = await Company.db.insertRow(
-            session,
-            Company(
-              id: const Uuid().v7obj(),
-              name: 'set default company',
-              townId: attemptedTown.id,
-            ),
-            transaction: tx,
-          );
-          child = await Company.db.updateRow(
-            session,
-            child.copyWith(townId: attemptedTown.id),
-            columns: (t) => [t.townId],
-            transaction: tx,
-          );
-        });
+    late Town attemptedTown;
+    late Company child;
+    late CrdtMergeDelete remoteAttemptedTownDelete;
 
-        final attemptedTownHlc = await rowHlc(attemptedTown.id!);
-        remoteAttemptedTownDelete = _deleteChange(
-          tableName: Town.t.tableName,
-          rowId: attemptedTown.id!,
-          after: attemptedTownHlc,
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
+
+      await session.db.transactionForUser(testCrdtUserId, (tx) async {
+        attemptedTown = await Town.db.insertRow(
+          session,
+          Town(id: const Uuid().v7obj(), name: 'attempted town'),
+          transaction: tx,
+        );
+        child = await Company.db.insertRow(
+          session,
+          Company(
+            id: const Uuid().v7obj(),
+            name: 'set default company',
+            townId: attemptedTown.id,
+          ),
+          transaction: tx,
+        );
+        child = await Company.db.updateRow(
+          session,
+          child.copyWith(townId: attemptedTown.id),
+          columns: (t) => [t.townId],
+          transaction: tx,
         );
       });
 
-      group('when the attempted parent delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteAttemptedTownDelete],
-            scopeId: testCrdtUserId,
-          );
-        });
+      final attemptedTownHlc = await rowHlc(
+        attemptedTown.id!,
+        databaseSession: session,
+      );
+      remoteAttemptedTownDelete = _deleteChange(
+        tableName: Town.t.tableName,
+        rowId: attemptedTown.id!,
+        after: attemptedTownHlc,
+      );
+    });
 
-        test(
-          'then the attempted parent remains visible because the default cannot repair the child.',
-          () async {
-            final visibleParent = await Town.db.findById(
-              session,
-              attemptedTown.id!,
-            );
-            final visibleChild = await Company.db.findById(session, child.id!);
-
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.townId, attemptedTown.id);
-          },
-        );
-
-        test(
-          'then no set-default projection override is materialized for the unrepairable delete.',
-          () async {
-            final attempted = await attemptedValue(
-              rowId: child.id!,
-              columnName: Company.t.townId.columnName,
-            );
-
-            expect(attempted, isNull);
-          },
-        );
+    group('when the attempted parent delete is merged,', () {
+      setUpAll(() async {
+        await session.db.mergeChanges([
+          remoteAttemptedTownDelete,
+        ], scopeId: testCrdtUserId);
       });
-    },
-  );
+
+      test(
+        'then the attempted parent remains visible because the default cannot repair the child.',
+        () async {
+          final visibleParent = await Town.db.findById(
+            session,
+            attemptedTown.id!,
+          );
+          final visibleChild = await Company.db.findById(session, child.id!);
+
+          expect(visibleParent, isNotNull);
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.townId, attemptedTown.id);
+        },
+      );
+
+      test(
+        'then no set-default projection override is materialized for the unrepairable delete.',
+        () async {
+          final attempted = await attemptedValue(
+            rowId: child.id!,
+            columnName: Company.t.townId.columnName,
+            databaseSession: session,
+          );
+
+          expect(attempted, isNull);
+        },
+      );
+    });
+  });
 
   group(
     'Given a remote insert with a restrict foreign key that points to a missing parent,',
     () {
+      late CrdtDatabaseSession session;
+
       late UuidValue missingParentId;
       late Address child;
 
-      setUp(() {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         missingParentId = const Uuid().v7obj();
         child = Address(
           id: const Uuid().v7obj(),
@@ -1703,23 +2288,20 @@ void main() {
       });
 
       group('when the remote insert is merged,', () {
-        setUp(() async {
+        setUpAll(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
-          await session.db.mergeChanges(
-            [
-              CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
-                tableName: Address.t.tableName,
-                uuidRowId: child.id!,
-                uuidNodeId: remoteNodeId,
-                hlcDatetime: hlc.datetime,
-                hlcCounter: hlc.counter,
-                data: child,
-              ),
-            ],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            CrdtMergeInsert(
+              uuidScopeId: testCrdtUserId,
+              tableName: Address.t.tableName,
+              uuidRowId: child.id!,
+              uuidNodeId: remoteNodeId,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
+              data: child,
+            ),
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1739,7 +2321,10 @@ void main() {
             expect(hiddenChild, isNotNull);
             expect(hiddenChild!.inhabitantId, isNull);
             expect(crdtRow, isNotNull);
-            expect(crdtRow!.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+            expect(
+              crdtRow!.visibility,
+              CrdtDataRowVisibility.foreignKeyCascade,
+            );
           },
         );
 
@@ -1749,6 +2334,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Address.t.inhabitantId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
@@ -1766,10 +2352,18 @@ void main() {
   group(
     'Given a remote insert with a cascade foreign key that points to a missing parent,',
     () {
+      late CrdtDatabaseSession session;
+
       late UuidValue missingParentId;
       late Organization child;
 
-      setUp(() {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         missingParentId = const Uuid().v7obj();
         child = Organization(
           id: const Uuid().v7obj(),
@@ -1779,23 +2373,20 @@ void main() {
       });
 
       group('when the remote insert is merged,', () {
-        setUp(() async {
+        setUpAll(() async {
           final remoteNodeId = const Uuid().v7obj();
           final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
-          await session.db.mergeChanges(
-            [
-              CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
-                tableName: Organization.t.tableName,
-                uuidRowId: child.id!,
-                uuidNodeId: remoteNodeId,
-                hlcDatetime: hlc.datetime,
-                hlcCounter: hlc.counter,
-                data: child,
-              ),
-            ],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            CrdtMergeInsert(
+              uuidScopeId: testCrdtUserId,
+              tableName: Organization.t.tableName,
+              uuidRowId: child.id!,
+              uuidNodeId: remoteNodeId,
+              hlcDatetime: hlc.datetime,
+              hlcCounter: hlc.counter,
+              data: child,
+            ),
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -1818,7 +2409,10 @@ void main() {
             expect(hiddenChild, isNotNull);
             expect(hiddenChild!.cityId, isNull);
             expect(crdtRow, isNotNull);
-            expect(crdtRow!.visibility, CrdtDataRowVisibility.foreignKeyCascade);
+            expect(
+              crdtRow!.visibility,
+              CrdtDataRowVisibility.foreignKeyCascade,
+            );
           },
         );
 
@@ -1828,6 +2422,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: child.id!,
               columnName: Organization.t.cityId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNotNull);
@@ -1845,21 +2440,36 @@ void main() {
   group(
     'Given a remote insert with a cascade foreign key that points to a hidden parent in scope,',
     () {
+      late CrdtDatabaseSession session;
+
       late Organization organization;
       late Person person;
       late CrdtMergeInsert remotePersonInsert;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           organization = await Organization.db.insertRow(
             session,
-            Organization(id: const Uuid().v7obj(), name: 'cascade organization'),
+            Organization(
+              id: const Uuid().v7obj(),
+              name: 'cascade organization',
+            ),
             transaction: tx,
           );
         });
 
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Organization.db.deleteRow(session, organization, transaction: tx);
+          await Organization.db.deleteRow(
+            session,
+            organization,
+            transaction: tx,
+          );
         });
 
         person = Person(
@@ -1882,17 +2492,19 @@ void main() {
       });
 
       group('when the remote insert is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remotePersonInsert],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remotePersonInsert,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
           'then the child is hidden and preserves the organization foreign key.',
           () async {
-            expect(await Organization.db.findById(session, organization.id!), isNull);
+            expect(
+              await Organization.db.findById(session, organization.id!),
+              isNull,
+            );
             expect(await Person.db.findById(session, person.id!), isNull);
 
             final hiddenPerson = await Person.db.findFirstRow(
@@ -1911,6 +2523,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: person.id!,
               columnName: Person.t.organizationId.columnName,
+              databaseSession: session,
             );
 
             expect(attempted, isNull);
@@ -1920,21 +2533,25 @@ void main() {
     },
   );
 
-  // Merge sets are causally complete by protocol: a sync batch is a full causal
-  // snapshot, so the parent facts needed by its foreign key attempts always
-  // precede or accompany the child fact. A non-nullable set-default attempt
-  // whose parent fact is absent and whose default target is missing is outside
-  // the merge contract, so the database constraint backstop must fail the merge
-  // transaction atomically instead of applying partial state.
   group(
     'Given a causally incomplete remote insert with a set-default foreign key '
     'whose attempted parent and default target are both missing,',
     () {
+      late CrdtDatabaseSession session;
+      late ClientDatabaseSession testSession;
+
       late UuidValue missingTownId;
       late Company child;
       late CrdtMergeInsert remoteInsert;
 
-      setUp(() {
+      setUpAll(() async {
+        testSession = await createAdditionalTestSession();
+        session = CrdtDatabaseSession.wraps(
+          testSession,
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         missingTownId = const Uuid().v7obj();
         child = Company(
           id: const Uuid().v7obj(),
@@ -1958,13 +2575,12 @@ void main() {
       group('when the remote insert is merged,', () {
         late Object? mergeError;
 
-        setUp(() async {
+        setUpAll(() async {
           mergeError = null;
           try {
-            await session.db.mergeChanges(
-              [remoteInsert],
-              scopeId: testCrdtUserId,
-            );
+            await session.db.mergeChanges([
+              remoteInsert,
+            ], scopeId: testCrdtUserId);
           } on Exception catch (error) {
             mergeError = error;
           }
@@ -1983,6 +2599,7 @@ void main() {
           final attempted = await attemptedValue(
             rowId: child.id!,
             columnName: Company.t.townId.columnName,
+            databaseSession: session,
           );
 
           expect(domainRow, isNull);
@@ -1993,114 +2610,116 @@ void main() {
     },
   );
 
-  // The other half of the causal-completeness contract above: the parent fact
-  // accompanies the child fact, but later in the same batch. An insert carries
-  // the row body as it looks when changes are collected while keeping the
-  // original insert HLC (issue #42), so a row inserted with a null foreign key
-  // and later pointed at a parent is ordered before the parent it references.
-  // A nullable column is repaired by projection, which nulls it for the insert
-  // and restores the real value once the parent lands.
-  group(
-    'Given a merge set whose nullable child insert carries a foreign key to a '
-    'parent that is inserted after it,',
-    () {
-      late Person parent;
-      late Address child;
-      late CrdtMergeSet mergeSet;
+  group('Given a merge set whose nullable child insert carries a foreign key to a '
+      'parent that is inserted after it,', () {
+    late CrdtDatabaseSession session;
 
-      setUp(() {
-        final remoteNodeId = const Uuid().v7obj();
-        parent = Person(id: const Uuid().v7obj(), name: 'late parent');
-        child = Address(
-          id: const Uuid().v7obj(),
-          street: 'early child',
-          inhabitantId: parent.id,
-        );
+    late Person parent;
+    late Address child;
+    late CrdtMergeSet mergeSet;
 
-        final childHlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
-        final parentHlc = Hlc(childHlc.datetime.advance(), 0, remoteNodeId);
+    setUpAll(() async {
+      session = CrdtDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+      );
+      await session.db.initialize();
 
-        mergeSet = [
-          CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
-            tableName: Address.t.tableName,
-            uuidRowId: child.id!,
-            uuidNodeId: remoteNodeId,
-            hlcDatetime: childHlc.datetime,
-            hlcCounter: childHlc.counter,
-            data: child,
-          ),
-          CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
-            tableName: Person.t.tableName,
-            uuidRowId: parent.id!,
-            uuidNodeId: remoteNodeId,
-            hlcDatetime: parentHlc.datetime,
-            hlcCounter: parentHlc.counter,
-            data: parent,
-          ),
-        ];
+      final remoteNodeId = const Uuid().v7obj();
+      parent = Person(id: const Uuid().v7obj(), name: 'late parent');
+      child = Address(
+        id: const Uuid().v7obj(),
+        street: 'early child',
+        inhabitantId: parent.id,
+      );
+
+      final childHlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
+      final parentHlc = Hlc(childHlc.datetime.advance(), 0, remoteNodeId);
+
+      mergeSet = [
+        CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
+          tableName: Address.t.tableName,
+          uuidRowId: child.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: childHlc.datetime,
+          hlcCounter: childHlc.counter,
+          data: child,
+        ),
+        CrdtMergeInsert(
+          uuidScopeId: testCrdtUserId,
+          tableName: Person.t.tableName,
+          uuidRowId: parent.id!,
+          uuidNodeId: remoteNodeId,
+          hlcDatetime: parentHlc.datetime,
+          hlcCounter: parentHlc.counter,
+          data: parent,
+        ),
+      ];
+    });
+
+    group('when merging,', () {
+      setUpAll(() async {
+        await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
       });
 
-      group('when merging,', () {
-        setUp(() async {
-          await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
-        });
+      test(
+        'then both rows are visible and the child keeps its foreign key.',
+        () async {
+          final visibleParent = await Person.db.findById(session, parent.id!);
+          final visibleChild = await Address.db.findById(session, child.id!);
 
-        test(
-          'then both rows are visible and the child keeps its foreign key.',
-          () async {
-            final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await Address.db.findById(session, child.id!);
+          expect(visibleParent, isNotNull);
+          expect(visibleChild, isNotNull);
+          expect(visibleChild!.inhabitantId, parent.id);
+        },
+      );
 
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.inhabitantId, parent.id);
-          },
-        );
+      test(
+        'then the child keeps a visible insert state and is not hidden by projection.',
+        () async {
+          final crdtRow = await CrdtDataRow.db.findFirstRow(
+            session,
+            where: (t) => t.uuidRowId.equals(child.id),
+          );
 
-        test(
-          'then the child keeps a visible insert state and is not hidden by projection.',
-          () async {
-            final crdtRow = await CrdtDataRow.db.findFirstRow(
-              session,
-              where: (t) => t.uuidRowId.equals(child.id),
-            );
+          expect(crdtRow, isNotNull);
+          expect(crdtRow!.visibility, CrdtDataRowVisibility.userInsert);
+        },
+      );
 
-            expect(crdtRow, isNotNull);
-            expect(crdtRow!.visibility, CrdtDataRowVisibility.userInsert);
-          },
-        );
+      test(
+        'then the foreign key was authored as-is, with no projection override.',
+        () async {
+          final attempted = await attemptedValue(
+            rowId: child.id!,
+            columnName: Address.t.inhabitantId.columnName,
+            databaseSession: session,
+          );
 
-        test(
-          'then the foreign key was authored as-is, with no projection override.',
-          () async {
-            final attempted = await attemptedValue(
-              rowId: child.id!,
-              columnName: Address.t.inhabitantId.columnName,
-            );
+          expect(attempted, isNull);
+        },
+      );
+    });
+  });
 
-            expect(attempted, isNull);
-          },
-        );
-      });
-    },
-  );
-
-  // A non-nullable foreign key cannot be nulled, so projection leaves the real
-  // parent id on the row and it is written while the parent does not exist yet.
-  // Only the deferred constraint keeps that write legal until the merge
-  // transaction commits: drop `DEFERRABLE INITIALLY DEFERRED` from the schema
-  // and this group fails with a foreign key violation.
   group(
     'Given a merge set whose non-nullable child insert carries a foreign key '
     'to a parent that is inserted after it,',
     () {
+      late CrdtDatabaseSession session;
+
       late Person parent;
       late RequiredSetNullChild child;
       late CrdtMergeSet mergeSet;
 
-      setUp(() {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         final remoteNodeId = const Uuid().v7obj();
         parent = Person(id: const Uuid().v7obj(), name: 'late required parent');
         child = RequiredSetNullChild(
@@ -2135,7 +2754,7 @@ void main() {
       });
 
       group('when merging,', () {
-        setUp(() async {
+        setUpAll(() async {
           await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
         });
 
@@ -2160,6 +2779,8 @@ void main() {
   group(
     'Given a set-default foreign key whose default target is cascade-attached to another parent and a concurrent delete that hides the default target first,',
     () {
+      late CrdtDatabaseSession session;
+
       late City city;
       late Town defaultTown;
       late Town attemptedTown;
@@ -2167,7 +2788,13 @@ void main() {
       late CrdtMergeDelete remoteCityDelete;
       late CrdtMergeDelete remoteAttemptedTownDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         defaultTown = Town(
           id: _defaultTownId,
           name: 'cascade-hidden default town',
@@ -2209,10 +2836,13 @@ void main() {
         remoteCityDelete = _deleteChange(
           tableName: City.t.tableName,
           rowId: city.id!,
-          after: await rowHlc(city.id!),
+          after: await rowHlc(city.id!, databaseSession: session),
         );
 
-        final attemptedTownHlc = await rowHlc(attemptedTown.id!);
+        final attemptedTownHlc = await rowHlc(
+          attemptedTown.id!,
+          databaseSession: session,
+        );
         remoteAttemptedTownDelete = _deleteChange(
           tableName: Town.t.tableName,
           rowId: attemptedTown.id!,
@@ -2221,11 +2851,11 @@ void main() {
       });
 
       group('when both root deletes are merged in the same batch,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteCityDelete, remoteAttemptedTownDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteCityDelete,
+            remoteAttemptedTownDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -2256,6 +2886,8 @@ void main() {
   group(
     'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts,',
     () {
+      late CrdtDatabaseSession session;
+
       // City
       //   │ CASCADE
       //   ▼
@@ -2268,7 +2900,13 @@ void main() {
       late Person person;
       late CrdtMergeDelete remoteCityDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           city = await City.db.insertRow(
             session,
@@ -2298,25 +2936,86 @@ void main() {
         remoteCityDelete = _deleteChange(
           tableName: City.t.tableName,
           rowId: city.id!,
-          after: await rowHlc(city.id!),
+          after: await rowHlc(city.id!, databaseSession: session),
         );
       });
 
       group('when the root delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteCityDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteCityDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
           'then all cascade descendants are hidden and no visible descendant references a hidden ancestor.',
           () async {
             expect(await City.db.findById(session, city.id!), isNull);
-            expect(await Organization.db.findById(session, organization.id!), isNull);
+            expect(
+              await Organization.db.findById(session, organization.id!),
+              isNull,
+            );
             expect(await Person.db.findById(session, person.id!), isNull);
           },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
+
+      // City
+      //   │ CASCADE
+      //   ▼
+      // Organization
+      //   │ CASCADE
+      //   ▼
+      // Person
+      late City city;
+      late Organization organization;
+
+      late CrdtMergeDelete remoteCityDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          city = await City.db.insertRow(
+            session,
+            City(id: const Uuid().v7obj(), name: 'cascade city'),
+            transaction: tx,
+          );
+          organization = await Organization.db.insertRow(
+            session,
+            Organization(
+              id: const Uuid().v7obj(),
+              name: 'cascade organization',
+              cityId: city.id,
+            ),
+            transaction: tx,
+          );
+          await Person.db.insertRow(
+            session,
+            Person(
+              id: const Uuid().v7obj(),
+              name: 'cascade person',
+              organizationId: organization.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteCityDelete = _deleteChange(
+          tableName: City.t.tableName,
+          rowId: city.id!,
+          after: await rowHlc(city.id!, databaseSession: session),
         );
       });
 
@@ -2326,20 +3025,22 @@ void main() {
         late List<String> foreignKeyProjectionAfterMerge;
         late List<String> foreignKeyProjectionAfterReplay;
 
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteCityDelete],
-            scopeId: testCrdtUserId,
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteCityDelete,
+          ], scopeId: testCrdtUserId);
+          visibilityAfterMerge = await _visibilitySnapshot(session);
+          foreignKeyProjectionAfterMerge = await _foreignKeyProjectionSnapshot(
+            session,
           );
-          visibilityAfterMerge = await _visibilitySnapshot();
-          foreignKeyProjectionAfterMerge = await _foreignKeyProjectionSnapshot();
 
-          await session.db.mergeChanges(
-            [remoteCityDelete],
-            scopeId: testCrdtUserId,
+          await session.db.mergeChanges([
+            remoteCityDelete,
+          ], scopeId: testCrdtUserId);
+          visibilityAfterReplay = await _visibilitySnapshot(session);
+          foreignKeyProjectionAfterReplay = await _foreignKeyProjectionSnapshot(
+            session,
           );
-          visibilityAfterReplay = await _visibilitySnapshot();
-          foreignKeyProjectionAfterReplay = await _foreignKeyProjectionSnapshot();
         });
 
         test(
@@ -2353,29 +3054,89 @@ void main() {
         test(
           'then the foreign key projection metadata does not change.',
           () async {
-            expect(foreignKeyProjectionAfterReplay, foreignKeyProjectionAfterMerge);
+            expect(
+              foreignKeyProjectionAfterReplay,
+              foreignKeyProjectionAfterMerge,
+            );
           },
+        );
+      });
+    },
+  );
+
+  group(
+    'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
+
+      // City
+      //   │ CASCADE
+      //   ▼
+      // Organization
+      //   │ CASCADE
+      //   ▼
+      // Person
+      late City city;
+      late Organization organization;
+      late Person person;
+      late CrdtMergeDelete remoteCityDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          city = await City.db.insertRow(
+            session,
+            City(id: const Uuid().v7obj(), name: 'cascade city'),
+            transaction: tx,
+          );
+          organization = await Organization.db.insertRow(
+            session,
+            Organization(
+              id: const Uuid().v7obj(),
+              name: 'cascade organization',
+              cityId: city.id,
+            ),
+            transaction: tx,
+          );
+          person = await Person.db.insertRow(
+            session,
+            Person(
+              id: const Uuid().v7obj(),
+              name: 'cascade person',
+              organizationId: organization.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteCityDelete = _deleteChange(
+          tableName: City.t.tableName,
+          rowId: city.id!,
+          after: await rowHlc(city.id!, databaseSession: session),
         );
       });
 
       group('when a root restore is merged after the root delete,', () {
         late CrdtMergeDelete remoteCityRestore;
 
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteCityDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteCityDelete,
+          ], scopeId: testCrdtUserId);
 
           remoteCityRestore = _restoreChange(
             tableName: City.t.tableName,
             rowId: city.id!,
             after: remoteCityDelete.hlc,
           );
-          await session.db.mergeChanges(
-            [remoteCityRestore],
-            scopeId: testCrdtUserId,
-          );
+          await session.db.mergeChanges([
+            remoteCityRestore,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -2396,6 +3157,65 @@ void main() {
           },
         );
       });
+    },
+  );
+
+  group(
+    'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
+
+      // City
+      //   │ CASCADE
+      //   ▼
+      // Organization
+      //   │ CASCADE
+      //   ▼
+      // Person
+      late City city;
+      late Organization organization;
+      late Person person;
+      late CrdtMergeDelete remoteCityDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          city = await City.db.insertRow(
+            session,
+            City(id: const Uuid().v7obj(), name: 'cascade city'),
+            transaction: tx,
+          );
+          organization = await Organization.db.insertRow(
+            session,
+            Organization(
+              id: const Uuid().v7obj(),
+              name: 'cascade organization',
+              cityId: city.id,
+            ),
+            transaction: tx,
+          );
+          person = await Person.db.insertRow(
+            session,
+            Person(
+              id: const Uuid().v7obj(),
+              name: 'cascade person',
+              organizationId: organization.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteCityDelete = _deleteChange(
+          tableName: City.t.tableName,
+          rowId: city.id!,
+          after: await rowHlc(city.id!, databaseSession: session),
+        );
+      });
 
       group(
         'when a newer remote update for a cascade-hidden descendant is merged '
@@ -2403,25 +3223,24 @@ void main() {
         () {
           late CrdtMergeUpdate remoteOrganizationUpdate;
 
-          setUp(() async {
-            await session.db.mergeChanges(
-              [remoteCityDelete],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await session.db.mergeChanges([
+              remoteCityDelete,
+            ], scopeId: testCrdtUserId);
 
             remoteOrganizationUpdate = _updateChange(
               tableName: Organization.t.tableName,
               rowId: organization.id!,
               columnName: Organization.t.name.columnName,
               value: 'renamed while hidden',
-              after: (await rowHlc(organization.id!)).maxBetween(
-                remoteCityDelete.hlc,
-              ),
+              after: (await rowHlc(
+                organization.id!,
+                databaseSession: session,
+              )).maxBetween(remoteCityDelete.hlc),
             );
-            await session.db.mergeChanges(
-              [remoteOrganizationUpdate],
-              scopeId: testCrdtUserId,
-            );
+            await session.db.mergeChanges([
+              remoteOrganizationUpdate,
+            ], scopeId: testCrdtUserId);
           });
 
           test(
@@ -2434,18 +3253,104 @@ void main() {
               expect(await Person.db.findById(session, person.id!), isNull);
             },
           );
+        },
+      );
+    },
+  );
 
-          group('when the root restore is merged afterwards,', () {
-            setUp(() async {
+  group(
+    'Given a valid cascade closure with three levels and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
+
+      // City
+      //   │ CASCADE
+      //   ▼
+      // Organization
+      //   │ CASCADE
+      //   ▼
+      // Person
+      late City city;
+      late Organization organization;
+
+      late CrdtMergeDelete remoteCityDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          city = await City.db.insertRow(
+            session,
+            City(id: const Uuid().v7obj(), name: 'cascade city'),
+            transaction: tx,
+          );
+          organization = await Organization.db.insertRow(
+            session,
+            Organization(
+              id: const Uuid().v7obj(),
+              name: 'cascade organization',
+              cityId: city.id,
+            ),
+            transaction: tx,
+          );
+          await Person.db.insertRow(
+            session,
+            Person(
+              id: const Uuid().v7obj(),
+              name: 'cascade person',
+              organizationId: organization.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteCityDelete = _deleteChange(
+          tableName: City.t.tableName,
+          rowId: city.id!,
+          after: await rowHlc(city.id!, databaseSession: session),
+        );
+      });
+
+      group(
+        'when a newer remote update for a cascade-hidden descendant is merged '
+        'after the root delete,',
+        () {
+          late CrdtMergeUpdate remoteOrganizationUpdate;
+
+          setUpAll(() async {
+            await session.db.mergeChanges([
+              remoteCityDelete,
+            ], scopeId: testCrdtUserId);
+
+            remoteOrganizationUpdate = _updateChange(
+              tableName: Organization.t.tableName,
+              rowId: organization.id!,
+              columnName: Organization.t.name.columnName,
+              value: 'renamed while hidden',
+              after: (await rowHlc(
+                organization.id!,
+                databaseSession: session,
+              )).maxBetween(remoteCityDelete.hlc),
+            );
+            await session.db.mergeChanges([
+              remoteOrganizationUpdate,
+            ], scopeId: testCrdtUserId);
+          });
+
+          group('and the root restore is merged afterwards,', () {
+            setUpAll(() async {
               final remoteCityRestore = _restoreChange(
                 tableName: City.t.tableName,
                 rowId: city.id!,
                 after: remoteOrganizationUpdate.hlc,
               );
-              await session.db.mergeChanges(
-                [remoteCityRestore],
-                scopeId: testCrdtUserId,
-              );
+              await session.db.mergeChanges([
+                remoteCityRestore,
+              ], scopeId: testCrdtUserId);
             });
 
             test(
@@ -2470,6 +3375,8 @@ void main() {
   group(
     'Given a cascade to restrict chain whose restrict row has set-null and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
     () {
+      late CrdtDatabaseSession session;
+
       // Root
       //   │ CASCADE
       //   ▼
@@ -2486,11 +3393,20 @@ void main() {
       late FkChainMiddleCascadeChild cascadeGrandchild;
       late CrdtMergeDelete remoteRootDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           root = await FkChainRoot.db.insertRow(
             session,
-            FkChainRoot(id: const Uuid().v7obj(), name: 'cascade restrict root'),
+            FkChainRoot(
+              id: const Uuid().v7obj(),
+              name: 'cascade restrict root',
+            ),
             transaction: tx,
           );
           cascadeMiddle = await FkChainCascadeMiddle.db.insertRow(
@@ -2534,16 +3450,15 @@ void main() {
         remoteRootDelete = _deleteChange(
           tableName: FkChainRoot.t.tableName,
           rowId: root.id!,
-          after: await rowHlc(root.id!),
+          after: await rowHlc(root.id!, databaseSession: session),
         );
       });
 
       group('when the root delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteRootDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteRootDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -2574,10 +3489,14 @@ void main() {
             final attempted = await attemptedValue(
               rowId: setNullGrandchild.id!,
               columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
+              databaseSession: session,
             );
 
             expect(visibleSetNullGrandchild, isNotNull);
-            expect(visibleSetNullGrandchild!.restrictBlockerId, restrictBlocker.id);
+            expect(
+              visibleSetNullGrandchild!.restrictBlockerId,
+              restrictBlocker.id,
+            );
             expect(attempted, isNull);
           },
         );
@@ -2589,140 +3508,319 @@ void main() {
                 .findById(session, cascadeGrandchild.id!);
 
             expect(visibleCascadeGrandchild, isNotNull);
-            expect(visibleCascadeGrandchild!.restrictBlockerId, restrictBlocker.id);
+            expect(
+              visibleCascadeGrandchild!.restrictBlockerId,
+              restrictBlocker.id,
+            );
           },
         );
       });
+    },
+  );
 
-      group(
-        'when a restrict blocker delete is merged after the root delete,',
-        () {
-          late CrdtMergeDelete remoteRestrictBlockerDelete;
+  group(
+    'Given a cascade to restrict chain whose restrict row has set-null and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
 
-          setUp(() async {
-            await session.db.mergeChanges(
-              [remoteRootDelete],
-              scopeId: testCrdtUserId,
+      // Root
+      //   │ CASCADE
+      //   ▼
+      // CascadeMiddle
+      //   │ RESTRICT
+      //   ▼
+      // RestrictBlocker
+      //   ├─ SET NULL  → MiddleSetNullChild
+      //   └─ CASCADE   → MiddleCascadeChild
+      late FkChainRoot root;
+      late FkChainCascadeMiddle cascadeMiddle;
+      late FkChainRestrictBlocker restrictBlocker;
+      late FkChainMiddleSetNullChild setNullGrandchild;
+      late FkChainMiddleCascadeChild cascadeGrandchild;
+      late CrdtMergeDelete remoteRootDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          root = await FkChainRoot.db.insertRow(
+            session,
+            FkChainRoot(
+              id: const Uuid().v7obj(),
+              name: 'cascade restrict root',
+            ),
+            transaction: tx,
+          );
+          cascadeMiddle = await FkChainCascadeMiddle.db.insertRow(
+            session,
+            FkChainCascadeMiddle(
+              id: const Uuid().v7obj(),
+              name: 'cascade middle',
+              rootId: root.id,
+            ),
+            transaction: tx,
+          );
+          restrictBlocker = await FkChainRestrictBlocker.db.insertRow(
+            session,
+            FkChainRestrictBlocker(
+              id: const Uuid().v7obj(),
+              name: 'restrict blocker',
+              cascadeMiddleId: cascadeMiddle.id,
+            ),
+            transaction: tx,
+          );
+          setNullGrandchild = await FkChainMiddleSetNullChild.db.insertRow(
+            session,
+            FkChainMiddleSetNullChild(
+              id: const Uuid().v7obj(),
+              name: 'set-null grandchild',
+              restrictBlockerId: restrictBlocker.id,
+            ),
+            transaction: tx,
+          );
+          cascadeGrandchild = await FkChainMiddleCascadeChild.db.insertRow(
+            session,
+            FkChainMiddleCascadeChild(
+              id: const Uuid().v7obj(),
+              name: 'cascade grandchild',
+              restrictBlockerId: restrictBlocker.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteRootDelete = _deleteChange(
+          tableName: FkChainRoot.t.tableName,
+          rowId: root.id!,
+          after: await rowHlc(root.id!, databaseSession: session),
+        );
+      });
+
+      group('when a restrict blocker delete is merged after the root delete,', () {
+        late CrdtMergeDelete remoteRestrictBlockerDelete;
+
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteRootDelete,
+          ], scopeId: testCrdtUserId);
+
+          final restrictBlockerHlc = await rowHlc(
+            restrictBlocker.id!,
+            databaseSession: session,
+          );
+          remoteRestrictBlockerDelete = _deleteChange(
+            tableName: FkChainRestrictBlocker.t.tableName,
+            rowId: restrictBlocker.id!,
+            after: restrictBlockerHlc.maxBetween(remoteRootDelete.hlc),
+          );
+          await session.db.mergeChanges([
+            remoteRestrictBlockerDelete,
+          ], scopeId: testCrdtUserId);
+        });
+
+        test(
+          'then the root, cascade middle, restrict grandchild, and cascade grandchild are hidden.',
+          () async {
+            expect(await FkChainRoot.db.findById(session, root.id!), isNull);
+            expect(
+              await FkChainCascadeMiddle.db.findById(
+                session,
+                cascadeMiddle.id!,
+              ),
+              isNull,
+            );
+            expect(
+              await FkChainRestrictBlocker.db.findById(
+                session,
+                restrictBlocker.id!,
+              ),
+              isNull,
+            );
+            expect(
+              await FkChainMiddleCascadeChild.db.findById(
+                session,
+                cascadeGrandchild.id!,
+              ),
+              isNull,
+            );
+          },
+        );
+
+        test(
+          'then the set-null grandchild remains visible with a materialized null foreign key.',
+          () async {
+            final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
+                .findById(session, setNullGrandchild.id!);
+            final attempted = await attemptedValue(
+              rowId: setNullGrandchild.id!,
+              columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
+              databaseSession: session,
             );
 
-            final restrictBlockerHlc = await rowHlc(restrictBlocker.id!);
-            remoteRestrictBlockerDelete = _deleteChange(
-              tableName: FkChainRestrictBlocker.t.tableName,
-              rowId: restrictBlocker.id!,
-              after: restrictBlockerHlc.maxBetween(remoteRootDelete.hlc),
-            );
-            await session.db.mergeChanges(
-              [remoteRestrictBlockerDelete],
-              scopeId: testCrdtUserId,
-            );
-          });
+            expect(visibleSetNullGrandchild, isNotNull);
+            expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, restrictBlocker.id);
+          },
+        );
+      });
+    },
+  );
 
-          test(
-            'then the root, cascade middle, restrict grandchild, and cascade grandchild are hidden.',
-            () async {
-              expect(await FkChainRoot.db.findById(session, root.id!), isNull);
-              expect(
-                await FkChainCascadeMiddle.db.findById(session, cascadeMiddle.id!),
-                isNull,
-              );
-              expect(
-                await FkChainRestrictBlocker.db.findById(session, restrictBlocker.id!),
-                isNull,
-              );
-              expect(
-                await FkChainMiddleCascadeChild.db.findById(
-                  session,
-                  cascadeGrandchild.id!,
-                ),
-                isNull,
-              );
-            },
+  group(
+    'Given a cascade to restrict chain whose restrict row has set-null and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
+
+      // Root
+      //   │ CASCADE
+      //   ▼
+      // CascadeMiddle
+      //   │ RESTRICT
+      //   ▼
+      // RestrictBlocker
+      //   ├─ SET NULL  → MiddleSetNullChild
+      //   └─ CASCADE   → MiddleCascadeChild
+      late FkChainRoot root;
+      late FkChainCascadeMiddle cascadeMiddle;
+      late FkChainRestrictBlocker restrictBlocker;
+      late FkChainMiddleSetNullChild setNullGrandchild;
+      late FkChainMiddleCascadeChild cascadeGrandchild;
+      late CrdtMergeDelete remoteRootDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          root = await FkChainRoot.db.insertRow(
+            session,
+            FkChainRoot(
+              id: const Uuid().v7obj(),
+              name: 'cascade restrict root',
+            ),
+            transaction: tx,
+          );
+          cascadeMiddle = await FkChainCascadeMiddle.db.insertRow(
+            session,
+            FkChainCascadeMiddle(
+              id: const Uuid().v7obj(),
+              name: 'cascade middle',
+              rootId: root.id,
+            ),
+            transaction: tx,
+          );
+          restrictBlocker = await FkChainRestrictBlocker.db.insertRow(
+            session,
+            FkChainRestrictBlocker(
+              id: const Uuid().v7obj(),
+              name: 'restrict blocker',
+              cascadeMiddleId: cascadeMiddle.id,
+            ),
+            transaction: tx,
+          );
+          setNullGrandchild = await FkChainMiddleSetNullChild.db.insertRow(
+            session,
+            FkChainMiddleSetNullChild(
+              id: const Uuid().v7obj(),
+              name: 'set-null grandchild',
+              restrictBlockerId: restrictBlocker.id,
+            ),
+            transaction: tx,
+          );
+          cascadeGrandchild = await FkChainMiddleCascadeChild.db.insertRow(
+            session,
+            FkChainMiddleCascadeChild(
+              id: const Uuid().v7obj(),
+              name: 'cascade grandchild',
+              restrictBlockerId: restrictBlocker.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteRootDelete = _deleteChange(
+          tableName: FkChainRoot.t.tableName,
+          rowId: root.id!,
+          after: await rowHlc(root.id!, databaseSession: session),
+        );
+      });
+
+      group('when the root delete and the restrict blocker delete are merged in '
+          'the same batch,', () {
+        setUpAll(() async {
+          final restrictBlockerHlc = await rowHlc(
+            restrictBlocker.id!,
+            databaseSession: session,
+          );
+          final remoteRestrictBlockerDelete = _deleteChange(
+            tableName: FkChainRestrictBlocker.t.tableName,
+            rowId: restrictBlocker.id!,
+            after: restrictBlockerHlc.maxBetween(remoteRootDelete.hlc),
           );
 
-          test(
-            'then the set-null grandchild remains visible with a materialized null foreign key.',
-            () async {
-              final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
-                  .findById(session, setNullGrandchild.id!);
-              final attempted = await attemptedValue(
-                rowId: setNullGrandchild.id!,
-                columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
-              );
+          await session.db.mergeChanges([
+            remoteRestrictBlockerDelete,
+            remoteRootDelete,
+          ], scopeId: testCrdtUserId);
+        });
 
-              expect(visibleSetNullGrandchild, isNotNull);
-              expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
-              expect(attempted, isNotNull);
-              expect(attempted!.value, restrictBlocker.id);
-            },
+        test('then the single batch converges to the same hidden closure as '
+            'the sequential merges.', () async {
+          expect(await FkChainRoot.db.findById(session, root.id!), isNull);
+          expect(
+            await FkChainCascadeMiddle.db.findById(session, cascadeMiddle.id!),
+            isNull,
           );
-        },
-      );
+          expect(
+            await FkChainRestrictBlocker.db.findById(
+              session,
+              restrictBlocker.id!,
+            ),
+            isNull,
+          );
+          expect(
+            await FkChainMiddleCascadeChild.db.findById(
+              session,
+              cascadeGrandchild.id!,
+            ),
+            isNull,
+          );
+        });
 
-      group(
-        'when the root delete and the restrict blocker delete are merged in '
-        'the same batch,',
-        () {
-          setUp(() async {
-            final restrictBlockerHlc = await rowHlc(restrictBlocker.id!);
-            final remoteRestrictBlockerDelete = _deleteChange(
-              tableName: FkChainRestrictBlocker.t.tableName,
-              rowId: restrictBlocker.id!,
-              after: restrictBlockerHlc.maxBetween(remoteRootDelete.hlc),
+        test(
+          'then the set-null grandchild remains visible with the same materialized repair.',
+          () async {
+            final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
+                .findById(session, setNullGrandchild.id!);
+            final attempted = await attemptedValue(
+              rowId: setNullGrandchild.id!,
+              columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
+              databaseSession: session,
             );
 
-            await session.db.mergeChanges(
-              [remoteRestrictBlockerDelete, remoteRootDelete],
-              scopeId: testCrdtUserId,
-            );
-          });
-
-          test(
-            'then the single batch converges to the same hidden closure as '
-            'the sequential merges.',
-            () async {
-              expect(await FkChainRoot.db.findById(session, root.id!), isNull);
-              expect(
-                await FkChainCascadeMiddle.db.findById(session, cascadeMiddle.id!),
-                isNull,
-              );
-              expect(
-                await FkChainRestrictBlocker.db.findById(session, restrictBlocker.id!),
-                isNull,
-              );
-              expect(
-                await FkChainMiddleCascadeChild.db.findById(
-                  session,
-                  cascadeGrandchild.id!,
-                ),
-                isNull,
-              );
-            },
-          );
-
-          test(
-            'then the set-null grandchild remains visible with the same materialized repair.',
-            () async {
-              final visibleSetNullGrandchild = await FkChainMiddleSetNullChild.db
-                  .findById(session, setNullGrandchild.id!);
-              final attempted = await attemptedValue(
-                rowId: setNullGrandchild.id!,
-                columnName: FkChainMiddleSetNullChild.t.restrictBlockerId.columnName,
-              );
-
-              expect(visibleSetNullGrandchild, isNotNull);
-              expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
-              expect(attempted, isNotNull);
-              expect(attempted!.value, restrictBlocker.id);
-            },
-          );
-        },
-      );
+            expect(visibleSetNullGrandchild, isNotNull);
+            expect(visibleSetNullGrandchild!.restrictBlockerId, isNull);
+            expect(attempted, isNotNull);
+            expect(attempted!.value, restrictBlocker.id);
+          },
+        );
+      });
     },
   );
 
   group(
     'Given a cascade to set-null chain whose middle row has restrict, set-null, and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
     () {
+      late CrdtDatabaseSession session;
+
       // Root
       //   │ CASCADE
       //   ▼
@@ -2741,11 +3839,20 @@ void main() {
       late FkChainSetNullCascadeChild cascadeGrandchild;
       late CrdtMergeDelete remoteRootDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
           root = await FkChainRoot.db.insertRow(
             session,
-            FkChainRoot(id: const Uuid().v7obj(), name: 'cascade set-null root'),
+            FkChainRoot(
+              id: const Uuid().v7obj(),
+              name: 'cascade set-null root',
+            ),
             transaction: tx,
           );
           cascadeMiddle = await FkChainCascadeMiddle.db.insertRow(
@@ -2798,16 +3905,15 @@ void main() {
         remoteRootDelete = _deleteChange(
           tableName: FkChainRoot.t.tableName,
           rowId: root.id!,
-          after: await rowHlc(root.id!),
+          after: await rowHlc(root.id!, databaseSession: session),
         );
       });
 
       group('when the root delete is merged,', () {
-        setUp(() async {
-          await session.db.mergeChanges(
-            [remoteRootDelete],
-            scopeId: testCrdtUserId,
-          );
+        setUpAll(() async {
+          await session.db.mergeChanges([
+            remoteRootDelete,
+          ], scopeId: testCrdtUserId);
         });
 
         test(
@@ -2815,7 +3921,10 @@ void main() {
           () async {
             expect(await FkChainRoot.db.findById(session, root.id!), isNull);
             expect(
-              await FkChainCascadeMiddle.db.findById(session, cascadeMiddle.id!),
+              await FkChainCascadeMiddle.db.findById(
+                session,
+                cascadeMiddle.id!,
+              ),
               isNull,
             );
             final visibleSetNullMiddle = await FkChainSetNullMiddle.db.findById(
@@ -2825,6 +3934,7 @@ void main() {
             final middleAttempted = await attemptedValue(
               rowId: setNullMiddle.id!,
               columnName: FkChainSetNullMiddle.t.cascadeMiddleId.columnName,
+              databaseSession: session,
             );
 
             expect(visibleSetNullMiddle, isNotNull);
@@ -2841,7 +3951,10 @@ void main() {
                 .findById(session, restrictGrandchild.id!);
 
             expect(visibleRestrictGrandchild, isNotNull);
-            expect(visibleRestrictGrandchild!.setNullMiddleId, setNullMiddle.id);
+            expect(
+              visibleRestrictGrandchild!.setNullMiddleId,
+              setNullMiddle.id,
+            );
           },
         );
 
@@ -2853,6 +3966,7 @@ void main() {
             final attempted = await attemptedValue(
               rowId: setNullGrandchild.id!,
               columnName: FkChainSetNullSetNullChild.t.setNullMiddleId.columnName,
+              databaseSession: session,
             );
 
             expect(visibleSetNullGrandchild, isNotNull);
@@ -2872,28 +3986,124 @@ void main() {
           },
         );
       });
+    },
+  );
+
+  group(
+    'Given a cascade to set-null chain whose middle row has restrict, set-null, and cascade grandchildren and a concurrent delete that hides the root before the children inserts,',
+    () {
+      late CrdtDatabaseSession session;
+
+      // Root
+      //   │ CASCADE
+      //   ▼
+      // CascadeMiddle
+      //   │ SET NULL
+      //   ▼
+      // SetNullMiddle
+      //   ├─ RESTRICT  → SetNullRestrictChild
+      //   ├─ SET NULL  → SetNullSetNullChild
+      //   └─ CASCADE   → SetNullCascadeChild
+      late FkChainRoot root;
+      late FkChainCascadeMiddle cascadeMiddle;
+      late FkChainSetNullMiddle setNullMiddle;
+      late FkChainSetNullRestrictChild restrictGrandchild;
+      late FkChainSetNullSetNullChild setNullGrandchild;
+      late FkChainSetNullCascadeChild cascadeGrandchild;
+      late CrdtMergeDelete remoteRootDelete;
+
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
+        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+          root = await FkChainRoot.db.insertRow(
+            session,
+            FkChainRoot(
+              id: const Uuid().v7obj(),
+              name: 'cascade set-null root',
+            ),
+            transaction: tx,
+          );
+          cascadeMiddle = await FkChainCascadeMiddle.db.insertRow(
+            session,
+            FkChainCascadeMiddle(
+              id: const Uuid().v7obj(),
+              name: 'cascade middle',
+              rootId: root.id,
+            ),
+            transaction: tx,
+          );
+          setNullMiddle = await FkChainSetNullMiddle.db.insertRow(
+            session,
+            FkChainSetNullMiddle(
+              id: const Uuid().v7obj(),
+              name: 'set-null middle',
+              cascadeMiddleId: cascadeMiddle.id,
+            ),
+            transaction: tx,
+          );
+          restrictGrandchild = await FkChainSetNullRestrictChild.db.insertRow(
+            session,
+            FkChainSetNullRestrictChild(
+              id: const Uuid().v7obj(),
+              name: 'restrict grandchild',
+              setNullMiddleId: setNullMiddle.id,
+            ),
+            transaction: tx,
+          );
+          setNullGrandchild = await FkChainSetNullSetNullChild.db.insertRow(
+            session,
+            FkChainSetNullSetNullChild(
+              id: const Uuid().v7obj(),
+              name: 'set-null grandchild',
+              setNullMiddleId: setNullMiddle.id,
+            ),
+            transaction: tx,
+          );
+          cascadeGrandchild = await FkChainSetNullCascadeChild.db.insertRow(
+            session,
+            FkChainSetNullCascadeChild(
+              id: const Uuid().v7obj(),
+              name: 'cascade grandchild',
+              setNullMiddleId: setNullMiddle.id,
+            ),
+            transaction: tx,
+          );
+        });
+
+        remoteRootDelete = _deleteChange(
+          tableName: FkChainRoot.t.tableName,
+          rowId: root.id!,
+          after: await rowHlc(root.id!, databaseSession: session),
+        );
+      });
 
       group(
         'when a restrict grandchild delete is merged after the root delete,',
         () {
           late CrdtMergeDelete remoteRestrictGrandchildDelete;
 
-          setUp(() async {
-            await session.db.mergeChanges(
-              [remoteRootDelete],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await session.db.mergeChanges([
+              remoteRootDelete,
+            ], scopeId: testCrdtUserId);
 
-            final restrictGrandchildHlc = await rowHlc(restrictGrandchild.id!);
+            final restrictGrandchildHlc = await rowHlc(
+              restrictGrandchild.id!,
+              databaseSession: session,
+            );
             remoteRestrictGrandchildDelete = _deleteChange(
               tableName: FkChainSetNullRestrictChild.t.tableName,
               rowId: restrictGrandchild.id!,
               after: restrictGrandchildHlc.maxBetween(remoteRootDelete.hlc),
             );
-            await session.db.mergeChanges(
-              [remoteRestrictGrandchildDelete],
-              scopeId: testCrdtUserId,
-            );
+            await session.db.mergeChanges([
+              remoteRestrictGrandchildDelete,
+            ], scopeId: testCrdtUserId);
           });
 
           test(
@@ -2901,7 +4111,10 @@ void main() {
             () async {
               expect(await FkChainRoot.db.findById(session, root.id!), isNull);
               expect(
-                await FkChainCascadeMiddle.db.findById(session, cascadeMiddle.id!),
+                await FkChainCascadeMiddle.db.findById(
+                  session,
+                  cascadeMiddle.id!,
+                ),
                 isNull,
               );
               expect(
@@ -2929,9 +4142,15 @@ void main() {
               expect(visibleSetNullMiddle, isNotNull);
               expect(visibleSetNullMiddle!.cascadeMiddleId, isNull);
               expect(visibleSetNullGrandchild, isNotNull);
-              expect(visibleSetNullGrandchild!.setNullMiddleId, setNullMiddle.id);
+              expect(
+                visibleSetNullGrandchild!.setNullMiddleId,
+                setNullMiddle.id,
+              );
               expect(visibleCascadeGrandchild, isNotNull);
-              expect(visibleCascadeGrandchild!.setNullMiddleId, setNullMiddle.id);
+              expect(
+                visibleCascadeGrandchild!.setNullMiddleId,
+                setNullMiddle.id,
+              );
             },
           );
         },
@@ -2942,6 +4161,8 @@ void main() {
   group(
     'Given a foreign-key cycle person -> company -> town -> person and a concurrent delete that hides the person first and then the company before the town inserts,',
     () {
+      late CrdtDatabaseSession session;
+
       // Person
       //   │ CASCADE
       //   ▼
@@ -2959,7 +4180,13 @@ void main() {
       late CrdtMergeDelete remotePersonDelete;
       late CrdtMergeDelete remoteCompanyDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         defaultTown = Town(id: _defaultTownId, name: 'cycle default town');
 
         await session.db.transactionForUser(testCrdtUserId, (tx) async {
@@ -3002,9 +4229,9 @@ void main() {
         remotePersonDelete = _deleteChange(
           tableName: Person.t.tableName,
           rowId: person.id!,
-          after: await rowHlc(person.id!),
+          after: await rowHlc(person.id!, databaseSession: session),
         );
-        final companyHlc = await rowHlc(company.id!);
+        final companyHlc = await rowHlc(company.id!, databaseSession: session);
         remoteCompanyDelete = _deleteChange(
           tableName: Company.t.tableName,
           rowId: company.id!,
@@ -3015,23 +4242,30 @@ void main() {
       group(
         'when the person and company concurrent deletes are merged in the same batch,',
         () {
-          setUp(() async {
-            await session.db.mergeChanges(
-              [remotePersonDelete, remoteCompanyDelete],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await session.db.mergeChanges([
+              remotePersonDelete,
+              remoteCompanyDelete,
+            ], scopeId: testCrdtUserId);
           });
 
           test(
             'then fixed-point projection terminates and converges to visible rows without foreign-key violations.',
             () async {
-              final hiddenPerson = await Person.db.findById(session, person.id!);
-              final hiddenCompany = await Company.db.findById(session, company.id!);
+              final hiddenPerson = await Person.db.findById(
+                session,
+                person.id!,
+              );
+              final hiddenCompany = await Company.db.findById(
+                session,
+                company.id!,
+              );
               final visibleTown = await Town.db.findById(session, town.id!);
 
               final attempted = await attemptedValue(
                 rowId: town.id!,
                 columnName: Town.t.mayorId.columnName,
+                databaseSession: session,
               );
 
               expect(hiddenPerson, isNull);
@@ -3050,6 +4284,8 @@ void main() {
   group(
     'Given two databases with the same set-null graph and the same remote operations,',
     () {
+      late CrdtDatabaseSession session;
+
       late CrdtDatabaseSession singleBatchSession;
       late CrdtDatabaseSession splitBatchSession;
       late Person attemptedParent;
@@ -3057,14 +4293,17 @@ void main() {
       late CrdtMergeDelete remoteParentDelete;
       late CrdtMergeUpdate remoteChildUpdate;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         singleBatchSession = session;
         splitBatchSession = CrdtDatabaseSession.wraps(
           await createAdditionalTestSession(),
-          syncTables: [
-            Person.t,
-            Town.t,
-          ],
+          syncTables: [Person.t, Town.t],
         );
         await splitBatchSession.db.initialize();
 
@@ -3079,17 +4318,15 @@ void main() {
         );
 
         for (final databaseSession in [singleBatchSession, splitBatchSession]) {
-          await databaseSession.db.transactionForUser(testCrdtUserId, (tx) async {
+          await databaseSession.db.transactionForUser(testCrdtUserId, (
+            tx,
+          ) async {
             await Person.db.insertRow(
               databaseSession,
               attemptedParent,
               transaction: tx,
             );
-            await Town.db.insertRow(
-              databaseSession,
-              child,
-              transaction: tx,
-            );
+            await Town.db.insertRow(databaseSession, child, transaction: tx);
             await Town.db.updateRow(
               databaseSession,
               child,
@@ -3138,19 +4375,17 @@ void main() {
       group(
         'when one database merges one batch and the other merges split batches,',
         () {
-          setUp(() async {
-            await singleBatchSession.db.mergeChanges(
-              [remoteParentDelete, remoteChildUpdate],
-              scopeId: testCrdtUserId,
-            );
-            await splitBatchSession.db.mergeChanges(
-              [remoteParentDelete],
-              scopeId: testCrdtUserId,
-            );
-            await splitBatchSession.db.mergeChanges(
-              [remoteChildUpdate],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await singleBatchSession.db.mergeChanges([
+              remoteParentDelete,
+              remoteChildUpdate,
+            ], scopeId: testCrdtUserId);
+            await splitBatchSession.db.mergeChanges([
+              remoteParentDelete,
+            ], scopeId: testCrdtUserId);
+            await splitBatchSession.db.mergeChanges([
+              remoteChildUpdate,
+            ], scopeId: testCrdtUserId);
           });
 
           test(
@@ -3177,9 +4412,15 @@ void main() {
               );
 
               expect(singleBatchChild?.name, splitBatchChild?.name);
-              expect(singleBatchChild?.mayorId?.uuid, splitBatchChild?.mayorId?.uuid);
+              expect(
+                singleBatchChild?.mayorId?.uuid,
+                splitBatchChild?.mayorId?.uuid,
+              );
               expect(singleBatch?.value, splitBatch?.value);
-              expect(singleBatch?.projectionReason, splitBatch?.projectionReason);
+              expect(
+                singleBatch?.projectionReason,
+                splitBatch?.projectionReason,
+              );
               expect(singleBatchChild?.name, 'updated batching town');
               expect(singleBatchChild?.mayorId, isNull);
               expect(singleBatch, isNotNull);
@@ -3195,6 +4436,8 @@ void main() {
     'Given two databases with the same visible parent and a remote restrict '
     'child insert concurrent with the parent delete,',
     () {
+      late CrdtDatabaseSession session;
+
       late CrdtDatabaseSession singleBatchSession;
       late CrdtDatabaseSession splitBatchSession;
       late Person parent;
@@ -3202,25 +4445,26 @@ void main() {
       late CrdtMergeInsert remoteChildInsert;
       late CrdtMergeDelete remoteParentDelete;
 
-      setUp(() async {
+      setUpAll(() async {
+        session = CrdtDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await session.db.initialize();
+
         singleBatchSession = session;
         splitBatchSession = CrdtDatabaseSession.wraps(
           await createAdditionalTestSession(),
-          syncTables: [
-            Person.t,
-            RestrictChild.t,
-          ],
+          syncTables: [Person.t, RestrictChild.t],
         );
         await splitBatchSession.db.initialize();
 
         parent = Person(id: const Uuid().v7obj(), name: 'concurrent parent');
         for (final databaseSession in [singleBatchSession, splitBatchSession]) {
-          await databaseSession.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Person.db.insertRow(
-              databaseSession,
-              parent,
-              transaction: tx,
-            );
+          await databaseSession.db.transactionForUser(testCrdtUserId, (
+            tx,
+          ) async {
+            await Person.db.insertRow(databaseSession, parent, transaction: tx);
           });
         }
 
@@ -3259,19 +4503,17 @@ void main() {
         'when one database merges one batch and the other merges the delete '
         'before the child insert,',
         () {
-          setUp(() async {
-            await singleBatchSession.db.mergeChanges(
-              [remoteChildInsert, remoteParentDelete],
-              scopeId: testCrdtUserId,
-            );
-            await splitBatchSession.db.mergeChanges(
-              [remoteParentDelete],
-              scopeId: testCrdtUserId,
-            );
-            await splitBatchSession.db.mergeChanges(
-              [remoteChildInsert],
-              scopeId: testCrdtUserId,
-            );
+          setUpAll(() async {
+            await singleBatchSession.db.mergeChanges([
+              remoteChildInsert,
+              remoteParentDelete,
+            ], scopeId: testCrdtUserId);
+            await splitBatchSession.db.mergeChanges([
+              remoteParentDelete,
+            ], scopeId: testCrdtUserId);
+            await splitBatchSession.db.mergeChanges([
+              remoteChildInsert,
+            ], scopeId: testCrdtUserId);
           });
 
           test(
@@ -3360,7 +4602,7 @@ CrdtMergeDelete _restoreChange({
   );
 }
 
-Future<List<String>> _visibilitySnapshot() async {
+Future<List<String>> _visibilitySnapshot(CrdtDatabaseSession session) async {
   final rows = await CrdtDataRow.db.find(
     session,
     where: (t) => t.visibility.inSet({
@@ -3371,15 +4613,13 @@ Future<List<String>> _visibilitySnapshot() async {
   );
 
   return [
-    for (final row in rows)
-      [
-        row.uuidRowId.uuid,
-        row.visibility.toJson(),
-      ].join('|'),
+    for (final row in rows) [row.uuidRowId.uuid, row.visibility.toJson()].join('|'),
   ];
 }
 
-Future<List<String>> _foreignKeyProjectionSnapshot() async {
+Future<List<String>> _foreignKeyProjectionSnapshot(
+  CrdtDatabaseSession session,
+) async {
   final projections = await CrdtDataAttemptedValue.db.find(
     session,
     include: CrdtDataAttemptedValue.include(
