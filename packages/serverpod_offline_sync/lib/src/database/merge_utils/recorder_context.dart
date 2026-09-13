@@ -659,8 +659,18 @@ WHERE (${domainColumnPredicate('spaceId', spaceId)})
   ) async {
     if (rowIds.isEmpty || updates.isEmpty) return;
 
+    final columns = {
+      for (final column in syncTableByName[tableName]!.columns)
+        column.columnName: column,
+    };
     final assignments = updates.entries
-        .map((e) => '"${e.key.escapeIdentifier()}" = ${e.value.sqlLiteral()}')
+        .map((entry) {
+          final value = ValueEncoder.instance.encodeColumnValue(
+            columns[entry.key]!,
+            entry.value,
+          );
+          return '"${entry.key.escapeIdentifier()}" = $value';
+        })
         .join(', ');
 
     await database.unsafeExecute(

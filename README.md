@@ -65,6 +65,8 @@ never leave their tables — they are transparently hidden from the user.
   Serverpod CRUD against a local database; the plugin replicates for you.
 - **Same code on both ends.** Identical logic runs on the client's SQLite and
   the server's Postgres, so there are no asymmetric merge results to reconcile.
+- **Structured fields.** Generated JSON and JSONB model fields and collections
+  retain their Dart types through inserts, edits, and explicit null updates.
 - **Automatic conflict resolution.** Field-level merges ordered by hybrid
   logical clocks, with a monotone causal-length tombstone governing row
   existence so add/delete/restore can never oscillate.

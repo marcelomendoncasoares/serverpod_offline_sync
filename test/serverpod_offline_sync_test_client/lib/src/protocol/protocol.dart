@@ -38,6 +38,7 @@ import 'required_cascade_child.dart' as _ivx9jyda;
 import 'required_no_action_child.dart' as _itlfbi2f;
 import 'required_set_null_child.dart' as _i1huw131;
 import 'restrict_child.dart' as _isrf0aof;
+import 'sync_document.dart' as _ix6xayzv;
 import 'town.dart' as _iytblq2r;
 import 'types.dart' as _iwxwszsz;
 import 'types_enum.dart' as _ire5m5mj;
@@ -73,6 +74,7 @@ export 'required_cascade_child.dart';
 export 'required_no_action_child.dart';
 export 'required_set_null_child.dart';
 export 'restrict_child.dart';
+export 'sync_document.dart';
 export 'town.dart';
 export 'types.dart';
 export 'types_enum.dart';
@@ -1375,6 +1377,24 @@ class Protocol extends _isd.DatabaseSerializationManager {
           isNullable: true,
           dartType: 'UuidValue?',
         ),
+        _isd.ColumnDefinition(
+          name: 'jsonDocument',
+          columnType: _isd.ColumnType.json,
+          isNullable: true,
+          dartType: 'protocol:SyncDocument?',
+        ),
+        _isd.ColumnDefinition(
+          name: 'jsonbDocument',
+          columnType: _isd.ColumnType.jsonb,
+          isNullable: true,
+          dartType: 'protocol:SyncDocument?',
+        ),
+        _isd.ColumnDefinition(
+          name: 'jsonbNumbers',
+          columnType: _isd.ColumnType.jsonb,
+          isNullable: true,
+          dartType: 'List<int>?',
+        ),
       ],
       foreignKeys: [
         _isd.ForeignKeyDefinition(
@@ -2440,6 +2460,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _isrf0aof.RestrictChild) {
       return _isrf0aof.RestrictChild.fromJson(data) as T;
     }
+    if (t == _ix6xayzv.SyncDocument) {
+      return _ix6xayzv.SyncDocument.fromJson(data) as T;
+    }
     if (t == _iytblq2r.Town) {
       return _iytblq2r.Town.fromJson(data) as T;
     }
@@ -2582,6 +2605,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
       return (data != null ? _isrf0aof.RestrictChild.fromJson(data) : null)
           as T;
     }
+    if (t == _isc.getType<_ix6xayzv.SyncDocument?>()) {
+      return (data != null ? _ix6xayzv.SyncDocument.fromJson(data) : null) as T;
+    }
     if (t == _isc.getType<_iytblq2r.Town?>()) {
       return (data != null ? _iytblq2r.Town.fromJson(data) : null) as T;
     }
@@ -2674,6 +2700,15 @@ class Protocol extends _isd.DatabaseSerializationManager {
               : null)
           as T;
     }
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
+    }
+    if (t == _isc.getType<List<int>?>()) {
+      return (data != null
+              ? (data as List).map((e) => deserialize<int>(e)).toList()
+              : null)
+          as T;
+    }
     if (t == List<dynamic>) {
       return (data as List).map((e) => deserialize<dynamic>(e)).toList() as T;
     }
@@ -2713,6 +2748,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
       _itlfbi2f.RequiredNoActionChild => 'RequiredNoActionChild',
       _i1huw131.RequiredSetNullChild => 'RequiredSetNullChild',
       _isrf0aof.RestrictChild => 'RestrictChild',
+      _ix6xayzv.SyncDocument => 'SyncDocument',
       _iytblq2r.Town => 'Town',
       _iwxwszsz.Types => 'Types',
       _ire5m5mj.TypesEnum => 'TypesEnum',
@@ -2784,6 +2820,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return 'RequiredSetNullChild';
       case _isrf0aof.RestrictChild():
         return 'RestrictChild';
+      case _ix6xayzv.SyncDocument():
+        return 'SyncDocument';
       case _iytblq2r.Town():
         return 'Town';
       case _iwxwszsz.Types():
@@ -2900,6 +2938,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
     if (dataClassName == 'RestrictChild') {
       return deserialize<_isrf0aof.RestrictChild>(data['data']);
+    }
+    if (dataClassName == 'SyncDocument') {
+      return deserialize<_ix6xayzv.SyncDocument>(data['data']);
     }
     if (dataClassName == 'Town') {
       return deserialize<_iytblq2r.Town>(data['data']);

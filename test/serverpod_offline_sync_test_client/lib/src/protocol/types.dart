@@ -13,6 +13,9 @@
 import 'dart:typed_data' as _idt;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
+import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
+    as _imkb9kra;
+import 'sync_document.dart' as _ix6xayzv;
 import 'types_enum.dart' as _ire5m5mj;
 
 abstract class Types
@@ -30,6 +33,9 @@ abstract class Types
     this.anEnum,
     this.optionalText,
     this.optionalUuid,
+    this.jsonDocument,
+    this.jsonbDocument,
+    this.jsonbNumbers,
   });
 
   factory Types({
@@ -45,6 +51,9 @@ abstract class Types
     _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
     _isc.UuidValue? optionalUuid,
+    _ix6xayzv.SyncDocument? jsonDocument,
+    _ix6xayzv.SyncDocument? jsonbDocument,
+    List<int>? jsonbNumbers,
   }) = _TypesImpl;
 
   factory Types.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -70,6 +79,21 @@ abstract class Types
           ? null
           : _isc.UuidValueJsonExtension.fromJson(
               jsonSerialization['optionalUuid'],
+            ),
+      jsonDocument: jsonSerialization['jsonDocument'] == null
+          ? null
+          : _imkb9kra.Protocol().deserialize<_ix6xayzv.SyncDocument>(
+              jsonSerialization['jsonDocument'],
+            ),
+      jsonbDocument: jsonSerialization['jsonbDocument'] == null
+          ? null
+          : _imkb9kra.Protocol().deserialize<_ix6xayzv.SyncDocument>(
+              jsonSerialization['jsonbDocument'],
+            ),
+      jsonbNumbers: jsonSerialization['jsonbNumbers'] == null
+          ? null
+          : _imkb9kra.Protocol().deserialize<List<int>>(
+              jsonSerialization['jsonbNumbers'],
             ),
     );
   }
@@ -104,6 +128,12 @@ abstract class Types
 
   _isc.UuidValue? optionalUuid;
 
+  _ix6xayzv.SyncDocument? jsonDocument;
+
+  _ix6xayzv.SyncDocument? jsonbDocument;
+
+  List<int>? jsonbNumbers;
+
   @override
   _isd.Table<_isc.UuidValue?> get table => t;
 
@@ -123,6 +153,9 @@ abstract class Types
     _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
     _isc.UuidValue? optionalUuid,
+    _ix6xayzv.SyncDocument? jsonDocument,
+    _ix6xayzv.SyncDocument? jsonbDocument,
+    List<int>? jsonbNumbers,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -140,6 +173,9 @@ abstract class Types
       if (anEnum != null) 'anEnum': anEnum?.toJson(),
       if (optionalText != null) 'optionalText': optionalText,
       if (optionalUuid != null) 'optionalUuid': optionalUuid?.toJson(),
+      if (jsonDocument != null) 'jsonDocument': jsonDocument?.toJson(),
+      if (jsonbDocument != null) 'jsonbDocument': jsonbDocument?.toJson(),
+      if (jsonbNumbers != null) 'jsonbNumbers': jsonbNumbers?.toJson(),
     };
   }
 
@@ -159,6 +195,11 @@ abstract class Types
       if (anEnum != null) 'anEnum': anEnum?.toJson(),
       if (optionalText != null) 'optionalText': optionalText,
       if (optionalUuid != null) 'optionalUuid': optionalUuid?.toJson(),
+      if (jsonDocument != null)
+        'jsonDocument': jsonDocument?.toJsonForProtocol(),
+      if (jsonbDocument != null)
+        'jsonbDocument': jsonbDocument?.toJsonForProtocol(),
+      if (jsonbNumbers != null) 'jsonbNumbers': jsonbNumbers?.toJson(),
     };
   }
 
@@ -206,6 +247,9 @@ class _TypesImpl extends Types {
     _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
     _isc.UuidValue? optionalUuid,
+    _ix6xayzv.SyncDocument? jsonDocument,
+    _ix6xayzv.SyncDocument? jsonbDocument,
+    List<int>? jsonbNumbers,
   }) : super._(
          id: id,
          spaceId: spaceId,
@@ -219,6 +263,9 @@ class _TypesImpl extends Types {
          anEnum: anEnum,
          optionalText: optionalText,
          optionalUuid: optionalUuid,
+         jsonDocument: jsonDocument,
+         jsonbDocument: jsonbDocument,
+         jsonbNumbers: jsonbNumbers,
        );
 
   /// Returns a shallow copy of this [Types]
@@ -238,6 +285,9 @@ class _TypesImpl extends Types {
     Object? anEnum = _Undefined,
     Object? optionalText = _Undefined,
     Object? optionalUuid = _Undefined,
+    Object? jsonDocument = _Undefined,
+    Object? jsonbDocument = _Undefined,
+    Object? jsonbNumbers = _Undefined,
   }) {
     return Types(
       id: id is _isc.UuidValue? ? id : this.id,
@@ -254,6 +304,15 @@ class _TypesImpl extends Types {
       optionalUuid: optionalUuid is _isc.UuidValue?
           ? optionalUuid
           : this.optionalUuid,
+      jsonDocument: jsonDocument is _ix6xayzv.SyncDocument?
+          ? jsonDocument
+          : this.jsonDocument?.copyWith(),
+      jsonbDocument: jsonbDocument is _ix6xayzv.SyncDocument?
+          ? jsonbDocument
+          : this.jsonbDocument?.copyWith(),
+      jsonbNumbers: jsonbNumbers is List<int>?
+          ? jsonbNumbers
+          : this.jsonbNumbers?.map((e0) => e0).toList(),
     );
   }
 }
@@ -322,6 +381,25 @@ class TypesUpdateTable extends _isd.UpdateTable<TypesTable> {
     table.optionalUuid,
     value,
   );
+
+  _isd.ColumnValue<_ix6xayzv.SyncDocument, _ix6xayzv.SyncDocument> jsonDocument(
+    _ix6xayzv.SyncDocument? value,
+  ) => _isd.ColumnValue(
+    table.jsonDocument,
+    value,
+  );
+
+  _isd.ColumnValue<_ix6xayzv.SyncDocument, _ix6xayzv.SyncDocument>
+  jsonbDocument(_ix6xayzv.SyncDocument? value) => _isd.ColumnValue(
+    table.jsonbDocument,
+    value,
+  );
+
+  _isd.ColumnValue<List<int>, List<int>> jsonbNumbers(List<int>? value) =>
+      _isd.ColumnValue(
+        table.jsonbNumbers,
+        value,
+      );
 }
 
 class TypesTable extends _isd.Table<_isc.UuidValue?> {
@@ -372,6 +450,18 @@ class TypesTable extends _isd.Table<_isc.UuidValue?> {
       'optionalUuid',
       this,
     );
+    jsonDocument = _isd.ColumnSerializable<_ix6xayzv.SyncDocument>(
+      'jsonDocument',
+      this,
+    );
+    jsonbDocument = _isd.ColumnStructured<_ix6xayzv.SyncDocument>(
+      'jsonbDocument',
+      this,
+    );
+    jsonbNumbers = _isd.ColumnStructured<List<int>>(
+      'jsonbNumbers',
+      this,
+    );
   }
 
   late final TypesUpdateTable updateTable;
@@ -399,6 +489,12 @@ class TypesTable extends _isd.Table<_isc.UuidValue?> {
 
   late final _isd.ColumnUuid optionalUuid;
 
+  late final _isd.ColumnSerializable<_ix6xayzv.SyncDocument> jsonDocument;
+
+  late final _isd.ColumnStructured<_ix6xayzv.SyncDocument> jsonbDocument;
+
+  late final _isd.ColumnStructured<List<int>> jsonbNumbers;
+
   @override
   List<_isd.Column> get columns => [
     id,
@@ -413,6 +509,9 @@ class TypesTable extends _isd.Table<_isc.UuidValue?> {
     anEnum,
     optionalText,
     optionalUuid,
+    jsonDocument,
+    jsonbDocument,
+    jsonbNumbers,
   ];
 }
 

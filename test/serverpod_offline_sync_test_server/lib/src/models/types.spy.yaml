@@ -13,6 +13,9 @@ fields:
   anEnum: TypesEnum?
   optionalText: String?
   optionalUuid: UuidValue?
+  jsonDocument: SyncDocument?, serializationDataType=json
+  jsonbDocument: SyncDocument?, serializationDataType=jsonb
+  jsonbNumbers: List<int>?, serializationDataType=jsonb
 
 indexes:
   types_a_text_idx:
