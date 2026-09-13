@@ -24,7 +24,7 @@ abstract class SharedChild
     implements _isd.TableRow<_iss.UuidValue?>, _iss.ProtocolSerialization {
   SharedChild._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     _i2ap9bqs.SharedFlavor? flavor,
     this.parentId,
@@ -33,7 +33,7 @@ abstract class SharedChild
 
   factory SharedChild({
     _iss.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _i2ap9bqs.SharedFlavor? flavor,
     _iss.UuidValue? parentId,
@@ -45,7 +45,7 @@ abstract class SharedChild
       id: jsonSerialization['id'] == null
           ? null
           : _iss.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       flavor: jsonSerialization['flavor'] == null
           ? null
@@ -70,8 +70,8 @@ abstract class SharedChild
   @override
   _iss.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -89,7 +89,7 @@ abstract class SharedChild
   @_iss.useResult
   SharedChild copyWith({
     _iss.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _i2ap9bqs.SharedFlavor? flavor,
     _iss.UuidValue? parentId,
@@ -100,7 +100,7 @@ abstract class SharedChild
     return {
       '__className__': 'SharedChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       'flavor': flavor.toJson(),
       if (parentId != null) 'parentId': parentId?.toJson(),
@@ -113,7 +113,7 @@ abstract class SharedChild
     return {
       '__className__': 'SharedChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       'flavor': flavor.toJson(),
       if (parentId != null) 'parentId': parentId?.toJson(),
@@ -154,14 +154,14 @@ class _Undefined {}
 class _SharedChildImpl extends SharedChild {
   _SharedChildImpl({
     _iss.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _i2ap9bqs.SharedFlavor? flavor,
     _iss.UuidValue? parentId,
     _i2ap9bqs.SharedParent? parent,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          flavor: flavor,
          parentId: parentId,
@@ -174,7 +174,7 @@ class _SharedChildImpl extends SharedChild {
   @override
   SharedChild copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     _i2ap9bqs.SharedFlavor? flavor,
     Object? parentId = _Undefined,
@@ -182,7 +182,7 @@ class _SharedChildImpl extends SharedChild {
   }) {
     return SharedChild(
       id: id is _iss.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       flavor: flavor ?? this.flavor,
       parentId: parentId is _iss.UuidValue? ? parentId : this.parentId,
@@ -196,8 +196,8 @@ class _SharedChildImpl extends SharedChild {
 class SharedChildUpdateTable extends _isd.UpdateTable<SharedChildTable> {
   SharedChildUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -224,8 +224,8 @@ class SharedChildUpdateTable extends _isd.UpdateTable<SharedChildTable> {
 class SharedChildTable extends _isd.Table<_iss.UuidValue?> {
   SharedChildTable({super.tableRelation}) : super(tableName: 'shared_child') {
     updateTable = SharedChildUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -246,8 +246,8 @@ class SharedChildTable extends _isd.Table<_iss.UuidValue?> {
 
   late final SharedChildUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
@@ -272,7 +272,8 @@ class SharedChildTable extends _isd.Table<_iss.UuidValue?> {
 
   @override
   List<_isd.Column> get columns => [
-    id, scopeId,
+    id,
+    spaceId,
     name,
     flavor,
     parentId,

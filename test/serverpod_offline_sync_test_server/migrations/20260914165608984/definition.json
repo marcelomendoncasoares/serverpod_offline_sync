@@ -21,8 +21,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -49,9 +49,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "address_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -110,8 +110,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -130,9 +130,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "city_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -162,8 +162,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -191,9 +191,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "company_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -238,8 +238,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -266,9 +266,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_cascade_middle_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -313,8 +313,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -341,9 +341,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_middle_cascade_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -388,8 +388,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -416,9 +416,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_middle_set_null_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -463,8 +463,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -491,9 +491,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_restrict_blocker_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -538,8 +538,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -558,9 +558,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_root_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -590,8 +590,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -618,9 +618,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_set_null_cascade_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -665,8 +665,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -693,9 +693,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_set_null_middle_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -740,8 +740,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -768,9 +768,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_set_null_restrict_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -815,8 +815,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -843,9 +843,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "fk_chain_set_null_set_null_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -874,6 +874,81 @@
     },
     {
       "__className__": "serverpod.TableDefinition",
+      "name": "nullable_set_default_child",
+      "dartName": "NullableSetDefaultChild",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "nullable_set_default_child_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "nullable_set_default_child_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 1,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
       "name": "organization",
       "dartName": "Organization",
       "module": "serverpod_offline_sync_test",
@@ -890,8 +965,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -918,9 +993,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "organization_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -965,8 +1040,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1017,9 +1092,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "person_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1077,6 +1152,156 @@
     },
     {
       "__className__": "serverpod.TableDefinition",
+      "name": "required_cascade_child",
+      "dartName": "RequiredCascadeChild",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "required_cascade_child_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "required_cascade_child_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "required_no_action_child",
+      "dartName": "RequiredNoActionChild",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "required_no_action_child_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "required_no_action_child_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 3,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
       "name": "required_set_null_child",
       "dartName": "RequiredSetNullChild",
       "module": "serverpod_offline_sync_test",
@@ -1093,8 +1318,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1121,9 +1346,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "required_set_null_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1168,8 +1393,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1196,9 +1421,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "restrict_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1243,8 +1468,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1280,9 +1505,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "shared_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1327,8 +1552,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1347,9 +1572,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "shared_parent_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1379,8 +1604,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1415,9 +1640,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "town_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1477,8 +1702,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1562,6 +1787,38 @@
           "columnType": 7,
           "isNullable": true,
           "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "jsonDocument",
+          "fieldName": "jsonDocument",
+          "columnType": 8,
+          "isNullable": true,
+          "dartType": "protocol:SyncDocument?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "jsonbDocument",
+          "fieldName": "jsonbDocument",
+          "columnType": 14,
+          "isNullable": true,
+          "dartType": "protocol:SyncDocument?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "jsonbNumbers",
+          "fieldName": "jsonbNumbers",
+          "columnType": 14,
+          "isNullable": true,
+          "dartType": "List<int>?"
         }
       ],
       "foreignKeys": [
@@ -1569,15 +1826,29 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "types_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
           ],
           "onUpdate": 3,
           "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "types_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "types",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 3
         }
       ],
       "indexes": [
@@ -1616,8 +1887,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1636,9 +1907,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1650,12 +1921,12 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "unique__scopeId__name__unique_idx",
+          "indexName": "unique__spaceId__name__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -1688,8 +1959,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1716,9 +1987,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_cascade_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1745,17 +2016,107 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "unique_cascade_child__scopeId__name__unique_idx",
+          "indexName": "unique_cascade_child__spaceId__name__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
               "definition": "name"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "unique_cascade_reference",
+      "dartName": "UniqueCascadeReference",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_cascade_reference_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_cascade_reference_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_cascade_reference__parentId__unique_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "parentId"
             }
           ],
           "type": "btree",
@@ -1783,8 +2144,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1811,9 +2172,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_composite_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1825,12 +2186,12 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "unique_composite__scopeId__scope__value__unique_idx",
+          "indexName": "unique_composite__spaceId__scope__value__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -1868,8 +2229,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1896,9 +2257,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_discriminator_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1910,12 +2271,12 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "unique_discriminator__scopeId__categoryId__name__unique_idx",
+          "indexName": "unique_discriminator__spaceId__categoryId__name__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -1926,6 +2287,224 @@
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
               "definition": "name"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "unique_fk_pair",
+      "dartName": "UniqueFkPair",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "leftId",
+          "fieldName": "leftId",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "rightId",
+          "fieldName": "rightId",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_fk_pair_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_fk_pair_fk_1",
+          "columns": [
+            "leftId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 3,
+          "deferrable": "initiallyDeferred"
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_fk_pair_fk_2",
+          "columns": [
+            "rightId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 0,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_fk_pair_parents",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "leftId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "rightId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "unique_mixed_fk",
+      "dartName": "UniqueMixedFk",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": true,
+          "dartType": "UuidValue?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_mixed_fk_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_mixed_fk_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "person",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_mixed_fk_name_parent",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "spaceId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "name"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "parentId"
             }
           ],
           "type": "btree",
@@ -1953,8 +2532,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -1973,9 +2552,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_no_release_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -1987,17 +2566,297 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "unique_no_release__scopeId__categoryId__unique_idx",
+          "indexName": "unique_no_release__spaceId__categoryId__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
               "definition": "categoryId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "unique_nullable",
+      "dartName": "UniqueNullable",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "value",
+          "fieldName": "value",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_nullable_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_nullable__spaceId__value__unique_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "spaceId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "value"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "unique_overlapping",
+      "dartName": "UniqueOverlapping",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "first",
+          "fieldName": "first",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "second",
+          "fieldName": "second",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "third",
+          "fieldName": "third",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_overlapping_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_overlapping_first_second",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "spaceId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "first"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "second"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        },
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_overlapping_second_third",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "spaceId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "second"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "third"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "unique_set_default_child",
+      "dartName": "UniqueSetDefaultChild",
+      "module": "serverpod_offline_sync_test",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "name",
+          "fieldName": "name",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "String"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "parentId",
+          "fieldName": "parentId",
+          "columnType": 7,
+          "isNullable": true,
+          "columnDefault": "'550e8400-e29b-41d4-a716-446655440000'",
+          "dartType": "UuidValue?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_set_default_child_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "unique_set_default_child_fk_1",
+          "columns": [
+            "parentId"
+          ],
+          "referenceTable": "town",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 1,
+          "deferrable": "initiallyDeferred"
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "unique_set_default_child__parentId__unique_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "parentId"
             }
           ],
           "type": "btree",
@@ -2025,8 +2884,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -2053,9 +2912,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_set_null_child_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -2115,8 +2974,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": true,
           "dartType": "int?"
@@ -2135,9 +2994,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "unique_uuid_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -2149,12 +3008,12 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "unique_uuid__scopeId__value__unique_idx",
+          "indexName": "unique_uuid__spaceId__value__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -4414,8 +5273,8 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
+          "name": "spaceId",
+          "fieldName": "spaceId",
           "columnType": 6,
           "isNullable": false,
           "dartType": "int"
@@ -4459,9 +5318,9 @@
           "__className__": "serverpod.ForeignKeyDefinition",
           "constraintName": "crdt_data_rows_fk_0",
           "columns": [
-            "scopeId"
+            "spaceId"
           ],
-          "referenceTable": "crdt_scopes",
+          "referenceTable": "offline_sync_spaces",
           "referenceTableSchema": "public",
           "referenceColumns": [
             "id"
@@ -4501,12 +5360,12 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_data_rows_scope_tbl_row_idx",
+          "indexName": "crdt_data_rows_space_tbl_row_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "scopeId"
+              "definition": "spaceId"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -4834,250 +5693,8 @@
     },
     {
       "__className__": "serverpod.TableDefinition",
-      "name": "crdt_scope_members",
-      "dartName": "CrdtScopeMember",
-      "module": "serverpod_offline_sync",
-      "schema": "public",
-      "columns": [
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "id",
-          "fieldName": "id",
-          "columnType": 6,
-          "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
-          "columnType": 6,
-          "isNullable": false,
-          "dartType": "int"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "userUuid",
-          "fieldName": "userUuid",
-          "columnType": 7,
-          "isNullable": false,
-          "dartType": "UuidValue"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "role",
-          "fieldName": "role",
-          "columnType": 0,
-          "isNullable": false,
-          "dartType": "serverpod_offline_sync:CrdtScopeRole"
-        }
-      ],
-      "foreignKeys": [
-        {
-          "__className__": "serverpod.ForeignKeyDefinition",
-          "constraintName": "crdt_scope_members_fk_0",
-          "columns": [
-            "scopeId"
-          ],
-          "referenceTable": "crdt_scopes",
-          "referenceTableSchema": "public",
-          "referenceColumns": [
-            "id"
-          ],
-          "onUpdate": 3,
-          "onDelete": 4
-        }
-      ],
-      "indexes": [
-        {
-          "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_scope_member_unique_idx",
-          "elements": [
-            {
-              "__className__": "serverpod.IndexElementDefinition",
-              "type": 0,
-              "definition": "userUuid"
-            },
-            {
-              "__className__": "serverpod.IndexElementDefinition",
-              "type": 0,
-              "definition": "scopeId"
-            }
-          ],
-          "type": "btree",
-          "isUnique": true,
-          "isPrimary": false
-        }
-      ],
-      "managed": true
-    },
-    {
-      "__className__": "serverpod.TableDefinition",
-      "name": "crdt_scope_nodes",
-      "dartName": "CrdtScopeNode",
-      "module": "serverpod_offline_sync",
-      "schema": "public",
-      "columns": [
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "id",
-          "fieldName": "id",
-          "columnType": 6,
-          "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "scopeId",
-          "fieldName": "scopeId",
-          "columnType": 6,
-          "isNullable": false,
-          "dartType": "int"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "nodeId",
-          "fieldName": "nodeId",
-          "columnType": 6,
-          "isNullable": false,
-          "dartType": "int"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "lastReceivedHlc",
-          "fieldName": "lastReceivedHlc",
-          "columnType": 14,
-          "isNullable": true,
-          "dartType": "package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?"
-        }
-      ],
-      "foreignKeys": [
-        {
-          "__className__": "serverpod.ForeignKeyDefinition",
-          "constraintName": "crdt_scope_nodes_fk_0",
-          "columns": [
-            "scopeId"
-          ],
-          "referenceTable": "crdt_scopes",
-          "referenceTableSchema": "public",
-          "referenceColumns": [
-            "id"
-          ],
-          "onUpdate": 3,
-          "onDelete": 4
-        },
-        {
-          "__className__": "serverpod.ForeignKeyDefinition",
-          "constraintName": "crdt_scope_nodes_fk_1",
-          "columns": [
-            "nodeId"
-          ],
-          "referenceTable": "crdt_nodes",
-          "referenceTableSchema": "public",
-          "referenceColumns": [
-            "id"
-          ],
-          "onUpdate": 3,
-          "onDelete": 4
-        }
-      ],
-      "indexes": [
-        {
-          "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_scope_node_unique_idx",
-          "elements": [
-            {
-              "__className__": "serverpod.IndexElementDefinition",
-              "type": 0,
-              "definition": "scopeId"
-            },
-            {
-              "__className__": "serverpod.IndexElementDefinition",
-              "type": 0,
-              "definition": "nodeId"
-            }
-          ],
-          "type": "btree",
-          "isUnique": true,
-          "isPrimary": false
-        }
-      ],
-      "managed": true
-    },
-    {
-      "__className__": "serverpod.TableDefinition",
-      "name": "crdt_scopes",
-      "dartName": "CrdtScope",
-      "module": "serverpod_offline_sync",
-      "schema": "public",
-      "columns": [
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "id",
-          "fieldName": "id",
-          "columnType": 6,
-          "isNullable": false,
-          "columnDefault": "serial",
-          "dartType": "int?"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "uuidScopeId",
-          "fieldName": "uuidScopeId",
-          "columnType": 7,
-          "isNullable": false,
-          "columnDefault": "random_v7",
-          "dartType": "UuidValue"
-        },
-        {
-          "__className__": "serverpod.ColumnDefinition",
-          "name": "currentNodeId",
-          "fieldName": "currentNodeId",
-          "columnType": 6,
-          "isNullable": true,
-          "dartType": "int?"
-        }
-      ],
-      "foreignKeys": [
-        {
-          "__className__": "serverpod.ForeignKeyDefinition",
-          "constraintName": "crdt_scopes_fk_0",
-          "columns": [
-            "currentNodeId"
-          ],
-          "referenceTable": "crdt_nodes",
-          "referenceTableSchema": "public",
-          "referenceColumns": [
-            "id"
-          ],
-          "onUpdate": 3,
-          "onDelete": 3
-        }
-      ],
-      "indexes": [
-        {
-          "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_scopes__uuidScopeId__unique_idx",
-          "elements": [
-            {
-              "__className__": "serverpod.IndexElementDefinition",
-              "type": 0,
-              "definition": "uuidScopeId"
-            }
-          ],
-          "type": "btree",
-          "isUnique": true,
-          "isPrimary": false
-        }
-      ],
-      "managed": true
-    },
-    {
-      "__className__": "serverpod.TableDefinition",
-      "name": "crdt_sync_integrity_violations",
-      "dartName": "CrdtSyncIntegrityViolation",
+      "name": "offline_sync_integrity_violations",
+      "dartName": "OfflineSyncIntegrityViolation",
       "module": "serverpod_offline_sync",
       "schema": "public",
       "columns": [
@@ -5096,7 +5713,7 @@
           "fieldName": "type",
           "columnType": 0,
           "isNullable": false,
-          "dartType": "serverpod_offline_sync:CrdtSyncViolationType"
+          "dartType": "serverpod_offline_sync:OfflineSyncViolationType"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -5116,16 +5733,16 @@
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "ownerScopeUuid",
-          "fieldName": "ownerScopeUuid",
+          "name": "ownerSpaceUuid",
+          "fieldName": "ownerSpaceUuid",
           "columnType": 7,
           "isNullable": true,
           "dartType": "UuidValue?"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
-          "name": "incomingScopeUuid",
-          "fieldName": "incomingScopeUuid",
+          "name": "incomingSpaceUuid",
+          "fieldName": "incomingSpaceUuid",
           "columnType": 7,
           "isNullable": false,
           "dartType": "UuidValue"
@@ -5136,7 +5753,7 @@
           "fieldName": "operation",
           "columnType": 0,
           "isNullable": false,
-          "dartType": "serverpod_offline_sync:CrdtSyncViolationOperation"
+          "dartType": "serverpod_offline_sync:OfflineSyncViolationOperation"
         },
         {
           "__className__": "serverpod.ColumnDefinition",
@@ -5199,7 +5816,7 @@
       "indexes": [
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_sync_integrity_violations_key_idx",
+          "indexName": "offline_sync_integrity_violations_key_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",
@@ -5224,12 +5841,254 @@
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "ownerScopeUuid"
+              "definition": "ownerSpaceUuid"
             },
             {
               "__className__": "serverpod.IndexElementDefinition",
               "type": 0,
-              "definition": "incomingScopeUuid"
+              "definition": "incomingSpaceUuid"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "offline_sync_space_members",
+      "dartName": "OfflineSyncSpaceMember",
+      "module": "serverpod_offline_sync",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 6,
+          "isNullable": false,
+          "columnDefault": "serial",
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": false,
+          "dartType": "int"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "userUuid",
+          "fieldName": "userUuid",
+          "columnType": 7,
+          "isNullable": false,
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "role",
+          "fieldName": "role",
+          "columnType": 0,
+          "isNullable": false,
+          "dartType": "serverpod_offline_sync:OfflineSyncSpaceRole"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "offline_sync_space_members_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "offline_sync_space_member_unique_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "userUuid"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "spaceId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "offline_sync_space_nodes",
+      "dartName": "OfflineSyncSpaceNode",
+      "module": "serverpod_offline_sync",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 6,
+          "isNullable": false,
+          "columnDefault": "serial",
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "spaceId",
+          "fieldName": "spaceId",
+          "columnType": 6,
+          "isNullable": false,
+          "dartType": "int"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "nodeId",
+          "fieldName": "nodeId",
+          "columnType": 6,
+          "isNullable": false,
+          "dartType": "int"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "lastReceivedHlc",
+          "fieldName": "lastReceivedHlc",
+          "columnType": 14,
+          "isNullable": true,
+          "dartType": "package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "offline_sync_space_nodes_fk_0",
+          "columns": [
+            "spaceId"
+          ],
+          "referenceTable": "offline_sync_spaces",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        },
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "offline_sync_space_nodes_fk_1",
+          "columns": [
+            "nodeId"
+          ],
+          "referenceTable": "crdt_nodes",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 4
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "offline_sync_space_node_unique_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "spaceId"
+            },
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "nodeId"
+            }
+          ],
+          "type": "btree",
+          "isUnique": true,
+          "isPrimary": false
+        }
+      ],
+      "managed": true
+    },
+    {
+      "__className__": "serverpod.TableDefinition",
+      "name": "offline_sync_spaces",
+      "dartName": "OfflineSyncSpace",
+      "module": "serverpod_offline_sync",
+      "schema": "public",
+      "columns": [
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "id",
+          "fieldName": "id",
+          "columnType": 6,
+          "isNullable": false,
+          "columnDefault": "serial",
+          "dartType": "int?"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "uuidSpaceId",
+          "fieldName": "uuidSpaceId",
+          "columnType": 7,
+          "isNullable": false,
+          "columnDefault": "random_v7",
+          "dartType": "UuidValue"
+        },
+        {
+          "__className__": "serverpod.ColumnDefinition",
+          "name": "currentNodeId",
+          "fieldName": "currentNodeId",
+          "columnType": 6,
+          "isNullable": true,
+          "dartType": "int?"
+        }
+      ],
+      "foreignKeys": [
+        {
+          "__className__": "serverpod.ForeignKeyDefinition",
+          "constraintName": "offline_sync_spaces_fk_0",
+          "columns": [
+            "currentNodeId"
+          ],
+          "referenceTable": "crdt_nodes",
+          "referenceTableSchema": "public",
+          "referenceColumns": [
+            "id"
+          ],
+          "onUpdate": 3,
+          "onDelete": 3
+        }
+      ],
+      "indexes": [
+        {
+          "__className__": "serverpod.IndexDefinition",
+          "indexName": "offline_sync_spaces__uuidSpaceId__unique_idx",
+          "elements": [
+            {
+              "__className__": "serverpod.IndexElementDefinition",
+              "type": 0,
+              "definition": "uuidSpaceId"
             }
           ],
           "type": "btree",
@@ -5244,7 +6103,7 @@
     {
       "__className__": "serverpod.DatabaseMigrationVersionModel",
       "module": "serverpod_offline_sync_test",
-      "version": "20260905032135171"
+      "version": "20260914165608984"
     },
     {
       "__className__": "serverpod.DatabaseMigrationVersion",
@@ -5259,7 +6118,7 @@
     {
       "__className__": "serverpod.DatabaseMigrationVersion",
       "module": "serverpod_offline_sync",
-      "version": "20260902195732182"
+      "version": "20260914143806119"
     }
   ],
   "migrationApiVersion": 1

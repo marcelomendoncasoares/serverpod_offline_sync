@@ -1,0 +1,5 @@
+class: SyncDocument
+fields:
+  title: String
+  enabled: bool
+  numbers: List<int>

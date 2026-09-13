@@ -46,7 +46,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isd.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -74,8 +74,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
       foreignKeys: [
         _isd.ForeignKeyDefinition(
           constraintName: 'shared_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isd.ForeignKeyAction.noAction,
@@ -111,7 +111,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isd.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isd.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -126,8 +126,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
       foreignKeys: [
         _isd.ForeignKeyDefinition(
           constraintName: 'shared_parent_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isd.ForeignKeyAction.noAction,
