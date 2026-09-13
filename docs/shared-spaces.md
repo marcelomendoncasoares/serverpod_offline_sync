@@ -111,6 +111,14 @@ indexes:
   explicit role: `readWrite` allows writes, while `readOnly` denies
   shared-space writes.
 
+### Read transaction visibility
+
+Scoped ORM reads resolve the personal scope and shared memberships using the
+supplied database transaction. A transaction sees its own grants and revocations;
+other sessions see them after commit. Rolling back a transaction or savepoint
+also rolls back its membership visibility. PostgreSQL read-committed reads can
+observe later commits, while repeatable-read reads keep their database snapshot.
+
 ### Members vs. nodes
 
 `offline_sync_space_members` and the `nodes` list on a space are orthogonal layers and
