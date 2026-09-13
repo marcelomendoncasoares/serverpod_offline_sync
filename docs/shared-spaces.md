@@ -113,11 +113,34 @@ indexes:
 
 ### Read transaction visibility
 
-Scoped ORM reads resolve the personal scope and shared memberships using the
-supplied database transaction. A transaction sees its own grants and revocations;
-other sessions see them after commit. Rolling back a transaction or savepoint
-also rolls back its membership visibility. PostgreSQL read-committed reads can
-observe later commits, while repeatable-read reads keep their database snapshot.
+Space-scoped ORM reads cache personal and shared space IDs in the database context.
+Before reusing an entry, a transaction reads and share-locks the singleton
+`offline_sync_space_cache_versions` row. Its database UUID and revision identify the
+committed membership state across sessions and server processes. Subsequent
+reads in that transaction reuse the resolved IDs without another membership
+query. Standalone space-scoped reads open a transaction for the complete query.
+
+Space and membership mutations through the CRDT database wrapper take an
+exclusive lock on that row and advance its revision atomically. Each transaction
+keeps private cache entries after a mutation and publishes them only after the
+database commits. Cancellation, failures and savepoint rollback discard private
+changes; savepoint release retains them until the enclosing transaction commits.
+Transactions created outside the wrapper resolve memberships without caching.
+
+Readers can share the lock and ordinary domain writes remain concurrent. A
+membership writer waits for active readers; new readers wait for a writer.
+PostgreSQL domain reads still follow the caller's isolation setting. Transactions
+that read before changing membership can encounter a lock-upgrade deadlock;
+PostgreSQL aborts a participant and the caller can retry the whole transaction.
+The wrapper does not replay application callbacks. Prefer changing membership
+before space-scoped reads within a transaction and keep membership transactions short.
+
+Every process that changes spaces or memberships must use the wrapper's ORM
+operations, including generated insert, update, upsert and delete variants.
+Direct SQL or a database connection that bypasses the wrapper does not advance
+the cache revision. The coordination row is internal, local database state and
+is not replicated through CRDT. Shared-space write-role checks and sync-cycle
+membership resolution continue to read authoritative membership rows.
 
 ### Members vs. nodes
 

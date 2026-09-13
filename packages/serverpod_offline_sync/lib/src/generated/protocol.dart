@@ -26,6 +26,7 @@ import 'hlc/base.dart' as _ipogc60q;
 import 'merge/change.dart' as _i0vvt7eq;
 import 'node/node.dart' as _iyfv8jet;
 import 'node/space.dart' as _ifj6lhq8;
+import 'node/space_cache_version.dart' as _itc06hj6;
 import 'node/space_member.dart' as _i75umry7;
 import 'node/space_node.dart' as _it7grqg6;
 import 'node/space_role.dart' as _ivdq6jvj;
@@ -47,6 +48,7 @@ export 'merge/change.dart';
 export 'hlc/base.dart';
 export 'node/node.dart';
 export 'node/space.dart';
+export 'node/space_cache_version.dart';
 export 'node/space_member.dart';
 export 'node/space_node.dart';
 export 'node/space_role.dart';
@@ -721,6 +723,38 @@ class Protocol extends _isd.DatabaseSerializationManager {
       managed: true,
     ),
     _isd.TableDefinition(
+      name: 'offline_sync_space_cache_versions',
+      dartName: 'OfflineSyncSpaceCacheVersion',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'databaseUuid',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+          columnDefault: 'random_v7',
+        ),
+        _isd.ColumnDefinition(
+          name: 'revision',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [],
+      managed: true,
+    ),
+    _isd.TableDefinition(
       name: 'offline_sync_space_members',
       dartName: 'OfflineSyncSpaceMember',
       schema: 'public',
@@ -994,6 +1028,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _ifj6lhq8.OfflineSyncSpace) {
       return _ifj6lhq8.OfflineSyncSpace.fromJson(data) as T;
     }
+    if (t == _itc06hj6.OfflineSyncSpaceCacheVersion) {
+      return _itc06hj6.OfflineSyncSpaceCacheVersion.fromJson(data) as T;
+    }
     if (t == _i75umry7.OfflineSyncSpaceMember) {
       return _i75umry7.OfflineSyncSpaceMember.fromJson(data) as T;
     }
@@ -1097,6 +1134,12 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
     if (t == _iss.getType<_ifj6lhq8.OfflineSyncSpace?>()) {
       return (data != null ? _ifj6lhq8.OfflineSyncSpace.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_itc06hj6.OfflineSyncSpaceCacheVersion?>()) {
+      return (data != null
+              ? _itc06hj6.OfflineSyncSpaceCacheVersion.fromJson(data)
+              : null)
           as T;
     }
     if (t == _iss.getType<_i75umry7.OfflineSyncSpaceMember?>()) {
@@ -1258,6 +1301,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
       _ipogc60q.BaseHlc => 'BaseHlc',
       _iyfv8jet.CrdtNode => 'CrdtNode',
       _ifj6lhq8.OfflineSyncSpace => 'OfflineSyncSpace',
+      _itc06hj6.OfflineSyncSpaceCacheVersion => 'OfflineSyncSpaceCacheVersion',
       _i75umry7.OfflineSyncSpaceMember => 'OfflineSyncSpaceMember',
       _it7grqg6.OfflineSyncSpaceNode => 'OfflineSyncSpaceNode',
       _ivdq6jvj.OfflineSyncSpaceRole => 'OfflineSyncSpaceRole',
@@ -1319,6 +1363,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return 'CrdtNode';
       case _ifj6lhq8.OfflineSyncSpace():
         return 'OfflineSyncSpace';
+      case _itc06hj6.OfflineSyncSpaceCacheVersion():
+        return 'OfflineSyncSpaceCacheVersion';
       case _i75umry7.OfflineSyncSpaceMember():
         return 'OfflineSyncSpaceMember';
       case _it7grqg6.OfflineSyncSpaceNode():
@@ -1399,6 +1445,9 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
     if (dataClassName == 'OfflineSyncSpace') {
       return deserialize<_ifj6lhq8.OfflineSyncSpace>(data['data']);
+    }
+    if (dataClassName == 'OfflineSyncSpaceCacheVersion') {
+      return deserialize<_itc06hj6.OfflineSyncSpaceCacheVersion>(data['data']);
     }
     if (dataClassName == 'OfflineSyncSpaceMember') {
       return deserialize<_i75umry7.OfflineSyncSpaceMember>(data['data']);
@@ -1525,6 +1574,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return _iyfv8jet.CrdtNode.t;
       case _ifj6lhq8.OfflineSyncSpace:
         return _ifj6lhq8.OfflineSyncSpace.t;
+      case _itc06hj6.OfflineSyncSpaceCacheVersion:
+        return _itc06hj6.OfflineSyncSpaceCacheVersion.t;
       case _i75umry7.OfflineSyncSpaceMember:
         return _i75umry7.OfflineSyncSpaceMember.t;
       case _it7grqg6.OfflineSyncSpaceNode:
