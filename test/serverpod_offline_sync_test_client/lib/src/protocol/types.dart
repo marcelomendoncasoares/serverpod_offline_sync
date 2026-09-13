@@ -8,6 +8,7 @@
 // ignore_for_file: type_literal_in_constant_pattern
 // ignore_for_file: use_super_parameters
 // ignore_for_file: invalid_use_of_internal_member
+// ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:typed_data' as _idt;
@@ -16,6 +17,7 @@ import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
     as _imkb9kra;
 import 'sync_document.dart' as _ix6xayzv;
+import 'types.dart' as _iwxwszsz;
 import 'types_enum.dart' as _ire5m5mj;
 
 abstract class Types
@@ -33,6 +35,8 @@ abstract class Types
     this.anEnum,
     this.optionalText,
     this.optionalUuid,
+    this.parentId,
+    this.parent,
     this.jsonDocument,
     this.jsonbDocument,
     this.jsonbNumbers,
@@ -51,6 +55,8 @@ abstract class Types
     _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
     _isc.UuidValue? optionalUuid,
+    _isc.UuidValue? parentId,
+    _iwxwszsz.Types? parent,
     _ix6xayzv.SyncDocument? jsonDocument,
     _ix6xayzv.SyncDocument? jsonbDocument,
     List<int>? jsonbNumbers,
@@ -79,6 +85,14 @@ abstract class Types
           ? null
           : _isc.UuidValueJsonExtension.fromJson(
               jsonSerialization['optionalUuid'],
+            ),
+      parentId: jsonSerialization['parentId'] == null
+          ? null
+          : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['parentId']),
+      parent: jsonSerialization['parent'] == null
+          ? null
+          : _imkb9kra.Protocol().deserialize<_iwxwszsz.Types>(
+              jsonSerialization['parent'],
             ),
       jsonDocument: jsonSerialization['jsonDocument'] == null
           ? null
@@ -128,6 +142,10 @@ abstract class Types
 
   _isc.UuidValue? optionalUuid;
 
+  _isc.UuidValue? parentId;
+
+  _iwxwszsz.Types? parent;
+
   _ix6xayzv.SyncDocument? jsonDocument;
 
   _ix6xayzv.SyncDocument? jsonbDocument;
@@ -153,6 +171,8 @@ abstract class Types
     _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
     _isc.UuidValue? optionalUuid,
+    _isc.UuidValue? parentId,
+    _iwxwszsz.Types? parent,
     _ix6xayzv.SyncDocument? jsonDocument,
     _ix6xayzv.SyncDocument? jsonbDocument,
     List<int>? jsonbNumbers,
@@ -173,6 +193,8 @@ abstract class Types
       if (anEnum != null) 'anEnum': anEnum?.toJson(),
       if (optionalText != null) 'optionalText': optionalText,
       if (optionalUuid != null) 'optionalUuid': optionalUuid?.toJson(),
+      if (parentId != null) 'parentId': parentId?.toJson(),
+      if (parent != null) 'parent': parent?.toJson(),
       if (jsonDocument != null) 'jsonDocument': jsonDocument?.toJson(),
       if (jsonbDocument != null) 'jsonbDocument': jsonbDocument?.toJson(),
       if (jsonbNumbers != null) 'jsonbNumbers': jsonbNumbers?.toJson(),
@@ -195,6 +217,8 @@ abstract class Types
       if (anEnum != null) 'anEnum': anEnum?.toJson(),
       if (optionalText != null) 'optionalText': optionalText,
       if (optionalUuid != null) 'optionalUuid': optionalUuid?.toJson(),
+      if (parentId != null) 'parentId': parentId?.toJson(),
+      if (parent != null) 'parent': parent?.toJsonForProtocol(),
       if (jsonDocument != null)
         'jsonDocument': jsonDocument?.toJsonForProtocol(),
       if (jsonbDocument != null)
@@ -203,8 +227,8 @@ abstract class Types
     };
   }
 
-  static TypesInclude include() {
-    return TypesInclude._();
+  static TypesInclude include({_iwxwszsz.TypesInclude? parent}) {
+    return TypesInclude._(parent: parent);
   }
 
   static TypesIncludeList includeList({
@@ -247,6 +271,8 @@ class _TypesImpl extends Types {
     _ire5m5mj.TypesEnum? anEnum,
     String? optionalText,
     _isc.UuidValue? optionalUuid,
+    _isc.UuidValue? parentId,
+    _iwxwszsz.Types? parent,
     _ix6xayzv.SyncDocument? jsonDocument,
     _ix6xayzv.SyncDocument? jsonbDocument,
     List<int>? jsonbNumbers,
@@ -263,6 +289,8 @@ class _TypesImpl extends Types {
          anEnum: anEnum,
          optionalText: optionalText,
          optionalUuid: optionalUuid,
+         parentId: parentId,
+         parent: parent,
          jsonDocument: jsonDocument,
          jsonbDocument: jsonbDocument,
          jsonbNumbers: jsonbNumbers,
@@ -285,6 +313,8 @@ class _TypesImpl extends Types {
     Object? anEnum = _Undefined,
     Object? optionalText = _Undefined,
     Object? optionalUuid = _Undefined,
+    Object? parentId = _Undefined,
+    Object? parent = _Undefined,
     Object? jsonDocument = _Undefined,
     Object? jsonbDocument = _Undefined,
     Object? jsonbNumbers = _Undefined,
@@ -304,6 +334,8 @@ class _TypesImpl extends Types {
       optionalUuid: optionalUuid is _isc.UuidValue?
           ? optionalUuid
           : this.optionalUuid,
+      parentId: parentId is _isc.UuidValue? ? parentId : this.parentId,
+      parent: parent is _iwxwszsz.Types? ? parent : this.parent?.copyWith(),
       jsonDocument: jsonDocument is _ix6xayzv.SyncDocument?
           ? jsonDocument
           : this.jsonDocument?.copyWith(),
@@ -382,6 +414,13 @@ class TypesUpdateTable extends _isd.UpdateTable<TypesTable> {
     value,
   );
 
+  _isd.ColumnValue<_isc.UuidValue, _isc.UuidValue> parentId(
+    _isc.UuidValue? value,
+  ) => _isd.ColumnValue(
+    table.parentId,
+    value,
+  );
+
   _isd.ColumnValue<_ix6xayzv.SyncDocument, _ix6xayzv.SyncDocument> jsonDocument(
     _ix6xayzv.SyncDocument? value,
   ) => _isd.ColumnValue(
@@ -450,6 +489,10 @@ class TypesTable extends _isd.Table<_isc.UuidValue?> {
       'optionalUuid',
       this,
     );
+    parentId = _isd.ColumnUuid(
+      'parentId',
+      this,
+    );
     jsonDocument = _isd.ColumnSerializable<_ix6xayzv.SyncDocument>(
       'jsonDocument',
       this,
@@ -489,11 +532,28 @@ class TypesTable extends _isd.Table<_isc.UuidValue?> {
 
   late final _isd.ColumnUuid optionalUuid;
 
+  late final _isd.ColumnUuid parentId;
+
+  _iwxwszsz.TypesTable? _parent;
+
   late final _isd.ColumnSerializable<_ix6xayzv.SyncDocument> jsonDocument;
 
   late final _isd.ColumnStructured<_ix6xayzv.SyncDocument> jsonbDocument;
 
   late final _isd.ColumnStructured<List<int>> jsonbNumbers;
+
+  _iwxwszsz.TypesTable get parent {
+    if (_parent != null) return _parent!;
+    _parent = _isd.createRelationTable(
+      relationFieldName: 'parent',
+      field: Types.t.parentId,
+      foreignField: _iwxwszsz.Types.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          _iwxwszsz.TypesTable(tableRelation: foreignTableRelation),
+    );
+    return _parent!;
+  }
 
   @override
   List<_isd.Column> get columns => [
@@ -509,17 +569,30 @@ class TypesTable extends _isd.Table<_isc.UuidValue?> {
     anEnum,
     optionalText,
     optionalUuid,
+    parentId,
     jsonDocument,
     jsonbDocument,
     jsonbNumbers,
   ];
+
+  @override
+  _isd.Table? getRelationTable(String relationField) {
+    if (relationField == 'parent') {
+      return parent;
+    }
+    return null;
+  }
 }
 
 class TypesInclude extends _isd.IncludeObject {
-  TypesInclude._();
+  TypesInclude._({_iwxwszsz.TypesInclude? parent}) {
+    _parent = parent;
+  }
+
+  _iwxwszsz.TypesInclude? _parent;
 
   @override
-  Map<String, _isd.Include?> get includes => {};
+  Map<String, _isd.Include?> get includes => {'parent': _parent};
 
   @override
   _isd.Table<_isc.UuidValue?> get table => Types.t;
@@ -546,6 +619,10 @@ class TypesIncludeList extends _isd.IncludeList {
 
 class TypesRepository {
   const TypesRepository._();
+
+  final attachRow = const TypesAttachRowRepository._();
+
+  final detachRow = const TypesDetachRowRepository._();
 
   /// Returns a list of [Types]s matching the given query parameters.
   ///
@@ -577,6 +654,7 @@ class TypesRepository {
     _isd.OrderByBuilder<TypesTable>? orderBy,
     _isd.OrderByListBuilder<TypesTable>? orderByList,
     _isd.Transaction? transaction,
+    TypesInclude? include,
     _isd.LockMode? lockMode,
     _isd.LockBehavior? lockBehavior,
   }) async {
@@ -587,6 +665,7 @@ class TypesRepository {
       limit: limit,
       offset: offset,
       transaction: transaction,
+      include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
@@ -616,6 +695,7 @@ class TypesRepository {
     _isd.OrderByBuilder<TypesTable>? orderBy,
     _isd.OrderByListBuilder<TypesTable>? orderByList,
     _isd.Transaction? transaction,
+    TypesInclude? include,
     _isd.LockMode? lockMode,
     _isd.LockBehavior? lockBehavior,
   }) async {
@@ -625,6 +705,7 @@ class TypesRepository {
       orderByList: orderByList?.call(Types.t),
       offset: offset,
       transaction: transaction,
+      include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
@@ -635,12 +716,14 @@ class TypesRepository {
     _isd.DatabaseSession session,
     _isc.UuidValue id, {
     _isd.Transaction? transaction,
+    TypesInclude? include,
     _isd.LockMode? lockMode,
     _isd.LockBehavior? lockBehavior,
   }) async {
     return session.db.findById<Types>(
       id,
       transaction: transaction,
+      include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
@@ -934,6 +1017,59 @@ class TypesRepository {
       where: where(Types.t),
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+      transaction: transaction,
+    );
+  }
+}
+
+class TypesAttachRowRepository {
+  const TypesAttachRowRepository._();
+
+  /// Creates a relation between the given [Types] and [Types]
+  /// by setting the [Types]'s foreign key `parentId` to refer to the [Types].
+  Future<void> parent(
+    _isd.DatabaseSession session,
+    Types types,
+    _iwxwszsz.Types parent, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (types.id == null) {
+      throw ArgumentError.notNull('types.id');
+    }
+    if (parent.id == null) {
+      throw ArgumentError.notNull('parent.id');
+    }
+
+    var $types = types.copyWith(parentId: parent.id);
+    await session.db.updateRow<Types>(
+      $types,
+      columns: [Types.t.parentId],
+      transaction: transaction,
+    );
+  }
+}
+
+class TypesDetachRowRepository {
+  const TypesDetachRowRepository._();
+
+  /// Detaches the relation between this [Types] and the [Types] set in `parent`
+  /// by setting the [Types]'s foreign key `parentId` to `null`.
+  ///
+  /// This removes the association between the two models without deleting
+  /// the related record.
+  Future<void> parent(
+    _isd.DatabaseSession session,
+    Types types, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (types.id == null) {
+      throw ArgumentError.notNull('types.id');
+    }
+
+    var $types = types.copyWith(parentId: null);
+    await session.db.updateRow<Types>(
+      $types,
+      columns: [Types.t.parentId],
       transaction: transaction,
     );
   }

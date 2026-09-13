@@ -5,11 +5,11 @@ BEGIN;
 --
 CREATE TABLE "shared_child" (
     "id" BLOB PRIMARY KEY DEFAULT (unhex(printf('%012x', CAST(unixepoch('now', 'subsecond') * 1000 AS INTEGER)) || '7' || substr(hex(randomblob(2)), 2, 3) || substr('89AB', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(8)), 2, 15))),
-    "scopeId" INTEGER,
+    "spaceId" INTEGER,
     "name" TEXT NOT NULL,
     "flavor" TEXT NOT NULL DEFAULT ('plain'),
     "parentId" BLOB,
-    CONSTRAINT "shared_child_fk_0" FOREIGN KEY ("scopeId") REFERENCES "crdt_scopes" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
+    CONSTRAINT "shared_child_fk_0" FOREIGN KEY ("spaceId") REFERENCES "offline_sync_spaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT "shared_child_fk_1" FOREIGN KEY ("parentId") REFERENCES "shared_parent" ("id") ON DELETE SET NULL ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED
 ) STRICT;
 
@@ -18,10 +18,41 @@ CREATE TABLE "shared_child" (
 --
 CREATE TABLE "shared_parent" (
     "id" BLOB PRIMARY KEY DEFAULT (unhex(printf('%012x', CAST(unixepoch('now', 'subsecond') * 1000 AS INTEGER)) || '7' || substr(hex(randomblob(2)), 2, 3) || substr('89AB', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(8)), 2, 15))),
-    "scopeId" INTEGER,
+    "spaceId" INTEGER,
     "name" TEXT NOT NULL,
-    CONSTRAINT "shared_parent_fk_0" FOREIGN KEY ("scopeId") REFERENCES "crdt_scopes" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
+    CONSTRAINT "shared_parent_fk_0" FOREIGN KEY ("spaceId") REFERENCES "offline_sync_spaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
 ) STRICT;
+
+--
+-- ACTION ALTER TABLE
+--
+CREATE TABLE "new_types" (
+    "id" BLOB PRIMARY KEY DEFAULT (unhex(printf('%012x', CAST(unixepoch('now', 'subsecond') * 1000 AS INTEGER)) || '7' || substr(hex(randomblob(2)), 2, 3) || substr('89AB', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(8)), 2, 15))),
+    "spaceId" INTEGER,
+    "aBool" INTEGER NOT NULL,
+    "aDateTime" INTEGER NOT NULL,
+    "aText" TEXT NOT NULL,
+    "anInt" INTEGER NOT NULL,
+    "anInt64" TEXT NOT NULL,
+    "aReal" REAL NOT NULL,
+    "aBlob" BLOB NOT NULL,
+    "anEnum" INTEGER,
+    "optionalText" TEXT,
+    "optionalUuid" BLOB,
+    "parentId" BLOB,
+    "jsonDocument" TEXT,
+    "jsonbDocument" BLOB,
+    "jsonbNumbers" BLOB,
+    CONSTRAINT "types_fk_0" FOREIGN KEY ("spaceId") REFERENCES "offline_sync_spaces" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
+    CONSTRAINT "types_fk_1" FOREIGN KEY ("parentId") REFERENCES "types" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
+) STRICT;
+
+INSERT INTO "new_types" ("id", "spaceId", "aBool", "aDateTime", "aText", "anInt", "anInt64", "aReal", "aBlob", "anEnum", "optionalText", "optionalUuid") SELECT "id", "spaceId", "aBool", "aDateTime", "aText", "anInt", "anInt64", "aReal", "aBlob", "anEnum", "optionalText", "optionalUuid" FROM "types";
+DROP TABLE "types";
+ALTER TABLE "new_types" RENAME TO "types";
+
+-- Indexes
+CREATE INDEX "types_a_text_idx" ON "types" ("aText");
 
 --
 -- STORE COLUMN TYPES FOR MIGRATIONS
@@ -59,12 +90,18 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
     ('fk_chain_set_null_restrict_child', 'setNullMiddleId', 'uuid', NULL),
     ('fk_chain_set_null_set_null_child', 'id', 'uuid', NULL),
     ('fk_chain_set_null_set_null_child', 'setNullMiddleId', 'uuid', NULL),
+    ('nullable_set_default_child', 'id', 'uuid', NULL),
+    ('nullable_set_default_child', 'parentId', 'uuid', NULL),
     ('organization', 'id', 'uuid', NULL),
     ('organization', 'cityId', 'uuid', NULL),
     ('person', 'id', 'uuid', NULL),
     ('person', 'organizationId', 'uuid', NULL),
     ('person', 'oldCompanyId', 'uuid', NULL),
     ('person', 'cityId', 'uuid', NULL),
+    ('required_cascade_child', 'id', 'uuid', NULL),
+    ('required_cascade_child', 'parentId', 'uuid', NULL),
+    ('required_no_action_child', 'id', 'uuid', NULL),
+    ('required_no_action_child', 'parentId', 'uuid', NULL),
     ('required_set_null_child', 'id', 'uuid', NULL),
     ('required_set_null_child', 'parentId', 'uuid', NULL),
     ('restrict_child', 'id', 'uuid', NULL),
@@ -79,12 +116,27 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
     ('types', 'aBool', 'boolean', NULL),
     ('types', 'aDateTime', 'timestampWithoutTimeZone', NULL),
     ('types', 'optionalUuid', 'uuid', NULL),
+    ('types', 'parentId', 'uuid', NULL),
+    ('types', 'jsonDocument', 'json', NULL),
+    ('types', 'jsonbDocument', 'jsonb', NULL),
+    ('types', 'jsonbNumbers', 'jsonb', NULL),
     ('unique', 'id', 'uuid', NULL),
     ('unique_cascade_child', 'id', 'uuid', NULL),
     ('unique_cascade_child', 'parentId', 'uuid', NULL),
+    ('unique_cascade_reference', 'id', 'uuid', NULL),
+    ('unique_cascade_reference', 'parentId', 'uuid', NULL),
     ('unique_composite', 'id', 'uuid', NULL),
     ('unique_discriminator', 'id', 'uuid', NULL),
+    ('unique_fk_pair', 'id', 'uuid', NULL),
+    ('unique_fk_pair', 'leftId', 'uuid', NULL),
+    ('unique_fk_pair', 'rightId', 'uuid', NULL),
+    ('unique_mixed_fk', 'id', 'uuid', NULL),
+    ('unique_mixed_fk', 'parentId', 'uuid', NULL),
     ('unique_no_release', 'id', 'uuid', NULL),
+    ('unique_nullable', 'id', 'uuid', NULL),
+    ('unique_overlapping', 'id', 'uuid', NULL),
+    ('unique_set_default_child', 'id', 'uuid', NULL),
+    ('unique_set_default_child', 'parentId', 'uuid', NULL),
     ('unique_set_null_child', 'id', 'uuid', NULL),
     ('unique_set_null_child', 'parentId', 'uuid', NULL),
     ('unique_uuid', 'id', 'uuid', NULL),
@@ -143,24 +195,24 @@ INSERT INTO "serverpod_sqlite_schema" VALUES
     ('crdt_nodes', 'uuidNodeId', 'uuid', NULL),
     ('crdt_nodes', 'lastHlc', 'jsonb', NULL),
     ('crdt_schema_columns', 'isNullable', 'boolean', NULL),
-    ('crdt_scope_members', 'userUuid', 'uuid', NULL),
-    ('crdt_scope_nodes', 'lastReceivedHlc', 'jsonb', NULL),
-    ('crdt_scopes', 'uuidScopeId', 'uuid', NULL),
-    ('crdt_sync_integrity_violations', 'uuidRowId', 'uuid', NULL),
-    ('crdt_sync_integrity_violations', 'ownerScopeUuid', 'uuid', NULL),
-    ('crdt_sync_integrity_violations', 'incomingScopeUuid', 'uuid', NULL),
-    ('crdt_sync_integrity_violations', 'uuidNodeId', 'uuid', NULL),
-    ('crdt_sync_integrity_violations', 'hlcDatetime', 'timestampWithoutTimeZone', NULL),
-    ('crdt_sync_integrity_violations', 'firstSeenAt', 'timestampWithoutTimeZone', NULL),
-    ('crdt_sync_integrity_violations', 'lastSeenAt', 'timestampWithoutTimeZone', NULL);
+    ('offline_sync_integrity_violations', 'uuidRowId', 'uuid', NULL),
+    ('offline_sync_integrity_violations', 'ownerSpaceUuid', 'uuid', NULL),
+    ('offline_sync_integrity_violations', 'incomingSpaceUuid', 'uuid', NULL),
+    ('offline_sync_integrity_violations', 'uuidNodeId', 'uuid', NULL),
+    ('offline_sync_integrity_violations', 'hlcDatetime', 'timestampWithoutTimeZone', NULL),
+    ('offline_sync_integrity_violations', 'firstSeenAt', 'timestampWithoutTimeZone', NULL),
+    ('offline_sync_integrity_violations', 'lastSeenAt', 'timestampWithoutTimeZone', NULL),
+    ('offline_sync_space_members', 'userUuid', 'uuid', NULL),
+    ('offline_sync_space_nodes', 'lastReceivedHlc', 'jsonb', NULL),
+    ('offline_sync_spaces', 'uuidSpaceId', 'uuid', NULL);
 
 --
 -- MIGRATION VERSION FOR serverpod_offline_sync_test
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('serverpod_offline_sync_test', '20260905032135171', (unixepoch('now', 'subsecond') * 1000))
+    VALUES ('serverpod_offline_sync_test', '20260914165608984', (unixepoch('now', 'subsecond') * 1000))
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20260905032135171', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
+    DO UPDATE SET "version" = '20260914165608984', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
 
 --
 -- MIGRATION VERSION FOR serverpod
@@ -182,9 +234,9 @@ INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
 -- MIGRATION VERSION FOR serverpod_offline_sync
 --
 INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
-    VALUES ('serverpod_offline_sync', '20260902195732182', (unixepoch('now', 'subsecond') * 1000))
+    VALUES ('serverpod_offline_sync', '20260914143806119', (unixepoch('now', 'subsecond') * 1000))
     ON CONFLICT ("module")
-    DO UPDATE SET "version" = '20260902195732182', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
+    DO UPDATE SET "version" = '20260914143806119', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
 
 
 COMMIT;

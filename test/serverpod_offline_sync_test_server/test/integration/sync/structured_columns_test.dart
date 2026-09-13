@@ -17,16 +17,22 @@ void main() {
     await directory.delete(recursive: true);
   });
 
-  Future<({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync})>
+  Future<
+    ({
+      ClientDatabaseSession raw,
+      OfflineSyncDatabaseSession offlineSync,
+      OfflineSyncEngine sync,
+    })
+  >
   node() async {
     final raw = await client.createSession('${directory.path}/${const Uuid().v7()}.db');
     addTearDown(raw.close);
-    final crdt = CrdtDatabaseSession.wraps(raw, syncTables: [Types.t]);
-    await crdt.db.initialize();
+    final offlineSync = OfflineSyncDatabaseSession.wraps(raw, syncTables: [Types.t]);
+    await offlineSync.db.initialize();
     return (
       raw: raw,
-      crdt: crdt,
-      sync: CrdtSync(
+      offlineSync: offlineSync,
+      sync: OfflineSyncEngine(
         syncTables: [Types.t],
         serializationManager: raw.db.serializationManager,
       ),
@@ -37,6 +43,7 @@ void main() {
     required SyncDocument? json,
     required SyncDocument? jsonb,
     required List<int>? numbers,
+    UuidValue? parentId,
   }) => Types(
     aBool: true,
     aDateTime: DateTime.utc(2026, 9, 13),
@@ -48,6 +55,7 @@ void main() {
     jsonDocument: json,
     jsonbDocument: jsonb,
     jsonbNumbers: numbers,
+    parentId: parentId,
   );
 
   List<CrdtMergeChange> throughWire(
@@ -60,12 +68,20 @@ void main() {
   ];
 
   group(
-    'Given a SQLite row with JSON and JSONB documents, a JSONB list, and binary data,',
+    'Given a SQLite child row with JSON and JSONB documents, a JSONB list, and binary data,',
     () {
       late UuidValue actor;
-      late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync})
+      late ({
+        ClientDatabaseSession raw,
+        OfflineSyncDatabaseSession offlineSync,
+        OfflineSyncEngine sync,
+      })
       source;
-      late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync})
+      late ({
+        ClientDatabaseSession raw,
+        OfflineSyncDatabaseSession offlineSync,
+        OfflineSyncEngine sync,
+      })
       target;
       late Types inserted;
       setUpAll(() async {
@@ -77,8 +93,17 @@ void main() {
           jsonb: SyncDocument(title: 'JSONB ☕', enabled: false, numbers: [-3, 4]),
           numbers: [0, 5, 100],
         );
-        await source.crdt.db.transactionForUser(actor, (tx) async {
-          inserted = await Types.db.insertRow(source.crdt, inserted, transaction: tx);
+        await source.offlineSync.db.transactionForUser(actor, (tx) async {
+          final parent = await Types.db.insertRow(
+            source.offlineSync,
+            row(json: null, jsonb: null, numbers: null),
+            transaction: tx,
+          );
+          inserted = await Types.db.insertRow(
+            source.offlineSync,
+            inserted.copyWith(parentId: parent.id),
+            transaction: tx,
+          );
         });
       });
       group(
@@ -90,15 +115,19 @@ void main() {
             final changes = await source.sync
                 .collectPendingChanges(
                   source.raw,
-                  checkpointsByScopeUuid: {actor: const []},
+                  checkpointsBySpaceUuid: {actor: const []},
                 )
                 .toList();
-            collected = changes.inserts.single.data as Types;
-            await target.crdt.db.mergeChanges(
+            collected =
+                changes.inserts
+                        .singleWhere((change) => change.uuidRowId == inserted.id)
+                        .data
+                    as Types;
+            await target.offlineSync.db.mergeChanges(
               throughWire(changes, client.serializationManager),
-              scopeId: actor,
+              spaceId: actor,
             );
-            merged = (await Types.db.findById(target.crdt, inserted.id!))!;
+            merged = (await Types.db.findById(target.offlineSync, inserted.id!))!;
           });
           test('then both document encodings retain their typed fields.', () {
             expect(collected.jsonDocument!.toJson(), inserted.jsonDocument!.toJson());
@@ -131,10 +160,20 @@ void main() {
     },
   );
 
-  group('Given a previously synchronized row with JSON and JSONB documents,', () {
+  group('Given a previously synchronized child row with JSON and JSONB documents,', () {
     late UuidValue actor;
-    late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync}) source;
-    late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync}) target;
+    late ({
+      ClientDatabaseSession raw,
+      OfflineSyncDatabaseSession offlineSync,
+      OfflineSyncEngine sync,
+    })
+    source;
+    late ({
+      ClientDatabaseSession raw,
+      OfflineSyncDatabaseSession offlineSync,
+      OfflineSyncEngine sync,
+    })
+    target;
     late Types inserted;
     setUpAll(() async {
       actor = const Uuid().v7obj();
@@ -145,24 +184,33 @@ void main() {
         jsonb: SyncDocument(title: 'Original JSONB', enabled: false, numbers: [2]),
         numbers: [3],
       );
-      await source.crdt.db.transactionForUser(actor, (tx) async {
-        inserted = await Types.db.insertRow(source.crdt, inserted, transaction: tx);
+      await source.offlineSync.db.transactionForUser(actor, (tx) async {
+        final parent = await Types.db.insertRow(
+          source.offlineSync,
+          row(json: null, jsonb: null, numbers: null),
+          transaction: tx,
+        );
+        inserted = await Types.db.insertRow(
+          source.offlineSync,
+          inserted.copyWith(parentId: parent.id),
+          transaction: tx,
+        );
       });
       final changes = await source.sync
-          .collectPendingChanges(source.raw, checkpointsByScopeUuid: {actor: const []})
+          .collectPendingChanges(source.raw, checkpointsBySpaceUuid: {actor: const []})
           .toList();
-      await target.crdt.db.mergeChanges(
+      await target.offlineSync.db.mergeChanges(
         throughWire(changes, client.serializationManager),
-        scopeId: actor,
+        spaceId: actor,
       );
     });
     group('when the documents and list are edited and synchronized,', () {
       late Types merged;
       late Map<String, dynamic> updates;
       setUpAll(() async {
-        await source.crdt.db.transactionForUser(actor, (tx) async {
+        await source.offlineSync.db.transactionForUser(actor, (tx) async {
           await Types.db.updateRow(
-            source.crdt,
+            source.offlineSync,
             inserted.copyWith(
               jsonDocument: SyncDocument(
                 title: 'Edited JSON',
@@ -183,17 +231,17 @@ void main() {
         final changes = await source.sync
             .collectPendingChanges(
               source.raw,
-              checkpointsByScopeUuid: {actor: const []},
+              checkpointsBySpaceUuid: {actor: const []},
             )
             .toList();
         updates = {
           for (final change in changes.updates) change.columnName: change.value,
         };
-        await target.crdt.db.mergeChanges(
+        await target.offlineSync.db.mergeChanges(
           throughWire(changes, client.serializationManager),
-          scopeId: actor,
+          spaceId: actor,
         );
-        merged = (await Types.db.findById(target.crdt, inserted.id!))!;
+        merged = (await Types.db.findById(target.offlineSync, inserted.id!))!;
       });
       test('then document updates use their generated model type.', () {
         expect(updates['jsonDocument'], isA<SyncDocument>());
@@ -214,92 +262,116 @@ void main() {
     });
   });
 
-  group('Given synchronized JSON and JSONB documents and a structured list,', () {
-    late UuidValue actor;
-    late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync}) source;
-    late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync}) target;
-    late Types inserted;
-    setUpAll(() async {
-      actor = const Uuid().v7obj();
-      source = await node();
-      target = await node();
-      await source.crdt.db.transactionForUser(actor, (tx) async {
-        inserted = await Types.db.insertRow(
-          source.crdt,
-          row(
-            json: SyncDocument(title: 'JSON', enabled: true, numbers: [1]),
-            jsonb: SyncDocument(title: 'JSONB', enabled: false, numbers: [2]),
-            numbers: [3],
-          ),
-          transaction: tx,
-        );
-      });
-      final changes = await source.sync
-          .collectPendingChanges(
-            source.raw,
-            checkpointsByScopeUuid: {actor: const []},
-          )
-          .toList();
-      await target.crdt.db.mergeChanges(
-        throughWire(changes, client.serializationManager),
-        scopeId: actor,
-      );
-    });
-    group('when all structured values are cleared and synchronized,', () {
-      late Types merged;
-      late Map<String, dynamic> updates;
+  group(
+    'Given a synchronized child row with JSON and JSONB documents and a structured list,',
+    () {
+      late UuidValue actor;
+      late ({
+        ClientDatabaseSession raw,
+        OfflineSyncDatabaseSession offlineSync,
+        OfflineSyncEngine sync,
+      })
+      source;
+      late ({
+        ClientDatabaseSession raw,
+        OfflineSyncDatabaseSession offlineSync,
+        OfflineSyncEngine sync,
+      })
+      target;
+      late Types inserted;
       setUpAll(() async {
-        await source.crdt.db.transactionForUser(actor, (tx) async {
-          await Types.db.updateRow(
-            source.crdt,
-            inserted.copyWith(
-              jsonDocument: null,
-              jsonbDocument: null,
-              jsonbNumbers: null,
+        actor = const Uuid().v7obj();
+        source = await node();
+        target = await node();
+        await source.offlineSync.db.transactionForUser(actor, (tx) async {
+          final parent = await Types.db.insertRow(
+            source.offlineSync,
+            row(json: null, jsonb: null, numbers: null),
+            transaction: tx,
+          );
+          inserted = await Types.db.insertRow(
+            source.offlineSync,
+            row(
+              json: SyncDocument(title: 'JSON', enabled: true, numbers: [1]),
+              jsonb: SyncDocument(title: 'JSONB', enabled: false, numbers: [2]),
+              numbers: [3],
+              parentId: parent.id,
             ),
-            columns: (t) => [t.jsonDocument, t.jsonbDocument, t.jsonbNumbers],
             transaction: tx,
           );
         });
         final changes = await source.sync
             .collectPendingChanges(
               source.raw,
-              checkpointsByScopeUuid: {actor: const []},
+              checkpointsBySpaceUuid: {actor: const []},
             )
             .toList();
-        updates = {
-          for (final update in changes.updates) update.columnName: update.value,
-        };
-        await target.crdt.db.mergeChanges(
+        await target.offlineSync.db.mergeChanges(
           throughWire(changes, client.serializationManager),
-          scopeId: actor,
+          spaceId: actor,
         );
-        merged = (await Types.db.findById(target.crdt, inserted.id!))!;
       });
-      test('then each clear is transmitted as an explicit null.', () {
-        expect(updates, {
-          'jsonDocument': null,
-          'jsonbDocument': null,
-          'jsonbNumbers': null,
+      group('when all structured values are cleared and synchronized,', () {
+        late Types merged;
+        late Map<String, dynamic> updates;
+        setUpAll(() async {
+          await source.offlineSync.db.transactionForUser(actor, (tx) async {
+            await Types.db.updateRow(
+              source.offlineSync,
+              inserted.copyWith(
+                jsonDocument: null,
+                jsonbDocument: null,
+                jsonbNumbers: null,
+              ),
+              columns: (t) => [t.jsonDocument, t.jsonbDocument, t.jsonbNumbers],
+              transaction: tx,
+            );
+          });
+          final changes = await source.sync
+              .collectPendingChanges(
+                source.raw,
+                checkpointsBySpaceUuid: {actor: const []},
+              )
+              .toList();
+          updates = {
+            for (final update in changes.updates) update.columnName: update.value,
+          };
+          await target.offlineSync.db.mergeChanges(
+            throughWire(changes, client.serializationManager),
+            spaceId: actor,
+          );
+          merged = (await Types.db.findById(target.offlineSync, inserted.id!))!;
+        });
+        test('then each clear is transmitted as an explicit null.', () {
+          expect(updates, {
+            'jsonDocument': null,
+            'jsonbDocument': null,
+            'jsonbNumbers': null,
+          });
+        });
+        test('then the receiving row no longer contains any structured value.', () {
+          expect(merged.jsonDocument, isNull);
+          expect(merged.jsonbDocument, isNull);
+          expect(merged.jsonbNumbers, isNull);
         });
       });
-      test('then the receiving row no longer contains any structured value.', () {
-        expect(merged.jsonDocument, isNull);
-        expect(merged.jsonbDocument, isNull);
-        expect(merged.jsonbNumbers, isNull);
-      });
-    });
-  });
+    },
+  );
 
   group('Given a SQLite row with absent structured values,', () {
     late UuidValue actor;
-    late ({ClientDatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync}) source;
+    late ({
+      ClientDatabaseSession raw,
+      OfflineSyncDatabaseSession offlineSync,
+      OfflineSyncEngine sync,
+    })
+    source;
     setUpAll(() async {
       actor = const Uuid().v7obj();
       source = await node();
-      await source.crdt.db.transactionForUser(actor, (tx) async {
+      await source.offlineSync.db.transactionForUser(actor, (tx) async {
         await Types.db.insertRow(
-          source.crdt,
+          source.offlineSync,
           row(json: null, jsonb: null, numbers: null),
           transaction: tx,
         );
@@ -311,7 +383,7 @@ void main() {
         final changes = await source.sync
             .collectPendingChanges(
               source.raw,
-              checkpointsByScopeUuid: {actor: const []},
+              checkpointsBySpaceUuid: {actor: const []},
             )
             .toList();
         collected = changes.inserts.single.data as Types;

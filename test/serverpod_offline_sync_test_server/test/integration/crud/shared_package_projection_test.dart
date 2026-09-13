@@ -65,7 +65,7 @@ void main() {
 
         await session.db.mergeChanges([
           CrdtMergeDelete(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: SharedParent.t.tableName,
             uuidRowId: parent.id!,
             uuidNodeId: const Uuid().v7obj(),
@@ -76,7 +76,7 @@ void main() {
             clFlag: 2,
             reason: CrdtDataDeletedReason.userDelete,
           ),
-        ], scopeId: testCrdtUserId);
+        ], spaceId: testCrdtUserId);
       });
 
       test('then the reference is projected away.', () async {
@@ -104,14 +104,14 @@ void main() {
           syncTables,
         );
 
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           parent = await SharedParent.db.insertRow(
-            author.crdt,
+            author.offlineSync,
             SharedParent(id: const Uuid().v7obj(), name: 'parent'),
             transaction: tx,
           );
           child = await SharedChild.db.insertRow(
-            author.crdt,
+            author.offlineSync,
             SharedChild(
               id: const Uuid().v7obj(),
               name: 'child',
@@ -124,10 +124,10 @@ void main() {
       });
 
       test('then a later column update reaches the receiver.', () async {
-        await author.crdt.db.transactionForUser(
+        await author.offlineSync.db.transactionForUser(
           testCrdtUserId,
           (tx) => SharedChild.db.updateRow(
-            author.crdt,
+            author.offlineSync,
             child.copyWith(flavor: SharedFlavor.salted),
             columns: (t) => [t.flavor],
             transaction: tx,
@@ -135,7 +135,7 @@ void main() {
         );
         await pushChanges(author, receiver);
 
-        final stored = await SharedChild.db.findById(receiver.crdt, child.id!);
+        final stored = await SharedChild.db.findById(receiver.offlineSync, child.id!);
 
         expect(stored, isNotNull);
         expect(stored!.flavor, SharedFlavor.salted);
@@ -143,11 +143,11 @@ void main() {
 
       test('then the receiver holds both rows with their values.', () async {
         final storedParent = await SharedParent.db.findById(
-          receiver.crdt,
+          receiver.offlineSync,
           parent.id!,
         );
         final storedChild = await SharedChild.db.findById(
-          receiver.crdt,
+          receiver.offlineSync,
           child.id!,
         );
 

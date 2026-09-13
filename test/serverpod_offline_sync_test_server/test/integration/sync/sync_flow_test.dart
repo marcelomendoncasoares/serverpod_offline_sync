@@ -649,14 +649,14 @@ void main() {
                   optionalUuid: updatedUuid,
                 ),
               );
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
               merged = (await server.Types.db.findById(
                 serverSession,
                 clientTypes.id!,
               ))!;
             });
 
-            test('then PostgreSQL stores the edited values with their types.', () {
+            test('then the server stores the edited values with their types.', () {
               expect(merged.aBool, isFalse);
               expect(merged.aDateTime, updatedDate);
               expect(merged.aText, 'edited offline');
@@ -728,7 +728,7 @@ void main() {
               anEnum: client.TypesEnum.gamma,
             ),
           );
-          await testClient.crdt.syncOnce(clientSession);
+          await testClient.offlineSync.syncOnce(clientSession);
         });
         group('when the client changes it to true and synchronizes,', () {
           late server.Types merged;
@@ -738,10 +738,10 @@ void main() {
               row.copyWith(aBool: true),
               columns: (t) => [t.aBool],
             );
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
             merged = (await server.Types.db.findById(serverSession, row.id!))!;
           });
-          test('then PostgreSQL stores true.', () {
+          test('then the server stores true.', () {
             expect(merged.aBool, isTrue);
           });
         });
