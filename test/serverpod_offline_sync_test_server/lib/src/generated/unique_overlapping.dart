@@ -16,7 +16,7 @@ abstract class UniqueOverlapping
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueOverlapping._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.first,
     required this.second,
     required this.third,
@@ -24,7 +24,7 @@ abstract class UniqueOverlapping
 
   factory UniqueOverlapping({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String first,
     required String second,
     required String third,
@@ -35,7 +35,7 @@ abstract class UniqueOverlapping
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       first: jsonSerialization['first'] as String,
       second: jsonSerialization['second'] as String,
       third: jsonSerialization['third'] as String,
@@ -49,8 +49,8 @@ abstract class UniqueOverlapping
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String first;
 
@@ -66,7 +66,7 @@ abstract class UniqueOverlapping
   @_is.useResult
   UniqueOverlapping copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? first,
     String? second,
     String? third,
@@ -76,7 +76,7 @@ abstract class UniqueOverlapping
     return {
       '__className__': 'UniqueOverlapping',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'first': first,
       'second': second,
       'third': third,
@@ -88,7 +88,7 @@ abstract class UniqueOverlapping
     return {
       '__className__': 'UniqueOverlapping',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'first': first,
       'second': second,
       'third': third,
@@ -128,13 +128,13 @@ class _Undefined {}
 class _UniqueOverlappingImpl extends UniqueOverlapping {
   _UniqueOverlappingImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String first,
     required String second,
     required String third,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          first: first,
          second: second,
          third: third,
@@ -146,14 +146,14 @@ class _UniqueOverlappingImpl extends UniqueOverlapping {
   @override
   UniqueOverlapping copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? first,
     String? second,
     String? third,
   }) {
     return UniqueOverlapping(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       first: first ?? this.first,
       second: second ?? this.second,
       third: third ?? this.third,
@@ -165,8 +165,8 @@ class UniqueOverlappingUpdateTable
     extends _is.UpdateTable<UniqueOverlappingTable> {
   UniqueOverlappingUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -190,8 +190,8 @@ class UniqueOverlappingTable extends _is.Table<_is.UuidValue?> {
   UniqueOverlappingTable({super.tableRelation})
     : super(tableName: 'unique_overlapping') {
     updateTable = UniqueOverlappingUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     first = _is.ColumnString(
@@ -210,8 +210,8 @@ class UniqueOverlappingTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueOverlappingUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString first;
 
@@ -222,7 +222,7 @@ class UniqueOverlappingTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     first,
     second,
     third,

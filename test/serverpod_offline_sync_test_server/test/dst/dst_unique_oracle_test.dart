@@ -17,13 +17,13 @@ void main() {
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final claimId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_uuid': _visibleRows(scope, [
+          'unique_uuid': _visibleRows(space, [
             UniqueUuid(id: firstId, value: claimId),
             UniqueUuid(id: secondId, value: claimId),
           ]),
@@ -44,12 +44,12 @@ void main() {
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_composite': _visibleRows(scope, [
+          'unique_composite': _visibleRows(space, [
             UniqueComposite(id: firstId, scope: 'partition', value: 'claim'),
             UniqueComposite(id: secondId, scope: 'partition', value: 'claim'),
           ]),
@@ -70,12 +70,12 @@ void main() {
     'then the unique oracle accepts the distinct claims.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_composite': _visibleRows(scope, [
+          'unique_composite': _visibleRows(space, [
             UniqueComposite(id: firstId, scope: 'first', value: 'claim'),
             UniqueComposite(id: secondId, scope: 'second', value: 'claim'),
           ]),
@@ -96,12 +96,12 @@ void main() {
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_discriminator': _visibleRows(scope, [
+          'unique_discriminator': _visibleRows(space, [
             UniqueDiscriminator(id: firstId, categoryId: 7, name: 'claim'),
             UniqueDiscriminator(id: secondId, categoryId: 7, name: 'claim'),
           ]),
@@ -122,12 +122,12 @@ void main() {
     'then the unique oracle accepts the distinct claims.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_discriminator': _visibleRows(scope, [
+          'unique_discriminator': _visibleRows(space, [
             UniqueDiscriminator(id: firstId, categoryId: 7, name: 'claim'),
             UniqueDiscriminator(id: secondId, categoryId: 8, name: 'claim'),
           ]),
@@ -148,12 +148,12 @@ void main() {
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_nullable': _visibleRows(scope, [
+          'unique_nullable': _visibleRows(space, [
             UniqueNullable(id: firstId, value: 7),
             UniqueNullable(id: secondId, value: 7),
           ]),
@@ -174,12 +174,12 @@ void main() {
     'then the unique oracle accepts the distinct claims.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_nullable': _visibleRows(scope, [
+          'unique_nullable': _visibleRows(space, [
             UniqueNullable(id: firstId),
             UniqueNullable(id: secondId),
           ]),
@@ -200,12 +200,12 @@ void main() {
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_overlapping': _visibleRows(scope, [
+          'unique_overlapping': _visibleRows(space, [
             UniqueOverlapping(
               id: firstId,
               first: 'one',
@@ -236,15 +236,15 @@ void main() {
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final claimId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_fk_pair': _visibleRows(scope, [
-            UniqueFkPair(id: firstId, name: 'one', leftId: claimId, rightId: scope),
-            UniqueFkPair(id: secondId, name: 'two', leftId: claimId, rightId: scope),
+          'unique_fk_pair': _visibleRows(space, [
+            UniqueFkPair(id: firstId, name: 'one', leftId: claimId, rightId: space),
+            UniqueFkPair(id: secondId, name: 'two', leftId: claimId, rightId: space),
           ]),
         },
         projections: {},
@@ -263,13 +263,13 @@ void main() {
     'then the unique oracle accepts the distinct claims.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final claimId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_fk_pair': _visibleRows(scope, [
+          'unique_fk_pair': _visibleRows(space, [
             UniqueFkPair(id: firstId, name: 'one', leftId: claimId),
             UniqueFkPair(id: secondId, name: 'two', leftId: claimId),
           ]),
@@ -285,18 +285,18 @@ void main() {
   );
 
   test(
-    'Given two visible scoped mixed FK and text claims sharing a tuple, '
+    'Given two visible space-scoped mixed FK and text claims sharing a tuple, '
     'when their snapshot is checked, '
     'then the unique oracle rejects the collision.',
     () {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final firstId = ids.next();
       final secondId = ids.next();
       final claimId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'unique_mixed_fk': _visibleRows(scope, [
+          'unique_mixed_fk': _visibleRows(space, [
             UniqueMixedFk(id: firstId, name: 'shared', parentId: claimId),
             UniqueMixedFk(id: secondId, name: 'shared', parentId: claimId),
           ]),
@@ -317,16 +317,16 @@ void main() {
     'then the authored UUID is available to the convergence oracle.',
     () async {
       final ids = DstIds(DstRandom(2));
-      final scope = ids.next();
+      final space = ids.next();
       final replica = await DstReplica.create(
         name: 'replica',
-        scopeUuids: [scope],
+        spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
       final row = UniqueUuid(id: ids.next(), value: ids.next());
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await UniqueUuid.db.insertRow(replica.session, row, transaction: tx);
         }),
       );
@@ -346,17 +346,17 @@ void main() {
     () async {
       final random = DstRandom(2026);
       final ids = DstIds(random);
-      final scope = ids.next();
+      final space = ids.next();
       final replica = await DstReplica.create(
         name: 'replica',
-        scopeUuids: [scope],
+        spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
       final operations = DstOperations(random, ids);
 
       for (var index = 0; index < 400; index++) {
-        await operations.step(replica, scope);
+        await operations.step(replica, space);
       }
 
       expect(
@@ -404,8 +404,8 @@ void main() {
 }
 
 // Only converts the explicitly supplied rows to the oracle's serialized input.
-Map<UuidValue, DstRow> _visibleRows(UuidValue scope, List<TableRow<UuidValue?>> rows) =>
+Map<UuidValue, DstRow> _visibleRows(UuidValue space, List<TableRow<UuidValue?>> rows) =>
     {
       for (final row in rows)
-        row.id!: (scopeUuid: scope, columns: row.toJson(), visible: true),
+        row.id!: (spaceUuid: space, columns: row.toJson(), visible: true),
     };

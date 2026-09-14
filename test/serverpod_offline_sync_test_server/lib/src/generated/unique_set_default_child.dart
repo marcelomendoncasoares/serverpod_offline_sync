@@ -20,7 +20,7 @@ abstract class UniqueSetDefaultChild
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueSetDefaultChild._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.parentId,
     this.parent,
@@ -28,7 +28,7 @@ abstract class UniqueSetDefaultChild
 
   factory UniqueSetDefaultChild({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? parentId,
     _iytblq2r.Town? parent,
@@ -41,7 +41,7 @@ abstract class UniqueSetDefaultChild
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       parentId: jsonSerialization['parentId'] == null
           ? null
@@ -61,8 +61,8 @@ abstract class UniqueSetDefaultChild
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -78,7 +78,7 @@ abstract class UniqueSetDefaultChild
   @_is.useResult
   UniqueSetDefaultChild copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? parentId,
     _iytblq2r.Town? parent,
@@ -88,7 +88,7 @@ abstract class UniqueSetDefaultChild
     return {
       '__className__': 'UniqueSetDefaultChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (parentId != null) 'parentId': parentId?.toJson(),
       if (parent != null) 'parent': parent?.toJson(),
@@ -100,7 +100,7 @@ abstract class UniqueSetDefaultChild
     return {
       '__className__': 'UniqueSetDefaultChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (parentId != null) 'parentId': parentId?.toJson(),
       if (parent != null) 'parent': parent?.toJsonForProtocol(),
@@ -140,13 +140,13 @@ class _Undefined {}
 class _UniqueSetDefaultChildImpl extends UniqueSetDefaultChild {
   _UniqueSetDefaultChildImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? parentId,
     _iytblq2r.Town? parent,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          parentId: parentId,
          parent: parent,
@@ -158,14 +158,14 @@ class _UniqueSetDefaultChildImpl extends UniqueSetDefaultChild {
   @override
   UniqueSetDefaultChild copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? parentId = _Undefined,
     Object? parent = _Undefined,
   }) {
     return UniqueSetDefaultChild(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       parentId: parentId is _is.UuidValue? ? parentId : this.parentId,
       parent: parent is _iytblq2r.Town? ? parent : this.parent?.copyWith(),
@@ -177,8 +177,8 @@ class UniqueSetDefaultChildUpdateTable
     extends _is.UpdateTable<UniqueSetDefaultChildTable> {
   UniqueSetDefaultChildUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -199,8 +199,8 @@ class UniqueSetDefaultChildTable extends _is.Table<_is.UuidValue?> {
   UniqueSetDefaultChildTable({super.tableRelation})
     : super(tableName: 'unique_set_default_child') {
     updateTable = UniqueSetDefaultChildUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -216,8 +216,8 @@ class UniqueSetDefaultChildTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueSetDefaultChildUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -241,7 +241,7 @@ class UniqueSetDefaultChildTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     parentId,
   ];

@@ -1,0 +1,11 @@
+### Authoritative or informational space set exchanged at the start of a cycle.
+###
+### The server sends the authoritative membership set (with roles). The client
+### sends an empty set; the server never widens access from follower-reported
+### state.
+class: OfflineSyncSpaceSet
+extends: OfflineSyncStreamEvent
+fields:
+  ### Spaces this peer reports for the next sync cycle, each with the receiving
+  ### user's authoritative role.
+  spaces: List<OfflineSyncSpaceGrant>

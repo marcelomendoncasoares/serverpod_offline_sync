@@ -125,7 +125,7 @@ class DemoSnapshot {
   /// classifies each row's visibility.
   static Future<DemoSnapshot> load(
     RelationshipCatalog catalog,
-    offline.CrdtDatabaseSession crdt,
+    offline.OfflineSyncDatabaseSession crdt,
   ) async {
     final rows = <RowView>[];
     for (final table in catalog.tables) {
@@ -153,7 +153,7 @@ class DemoSnapshot {
   }
 
   /// Builds a snapshot from the server's merged truth. [serverRows] is the flat
-  /// `List<dynamic>` returned by `fetchScopeSnapshot`: each element is a typed
+  /// `List<dynamic>` returned by `fetchSpaceSnapshot`: each element is a typed
   /// domain model, deserialized by Serverpod from its `__className__` tag, so
   /// the table name and JSON come straight off the model. Rows whose id is in
   /// [hiddenIds] are flagged hidden; there is no local CRDT metadata to show.

@@ -40,7 +40,7 @@ class EndpointDemoAuth extends _isc.EndpointRef {
 }
 
 /// Read-only inspection endpoint used by the offline-sync demo app to show the
-/// server's merged truth for the authenticated user's scope.
+/// server's merged truth for the authenticated user's space.
 /// {@category Endpoint}
 class EndpointDemoDebug extends _isc.EndpointRef {
   EndpointDemoDebug(_isc.EndpointCaller caller) : super(caller);
@@ -48,7 +48,7 @@ class EndpointDemoDebug extends _isc.EndpointRef {
   @override
   String get name => 'demoDebug';
 
-  /// Returns every synced domain row in the caller's scope on the server as a
+  /// Returns every synced domain row in the caller's space on the server as a
   /// flat list of models. When [includeHidden] is true, the list also includes
   /// CRDT-hidden rows (conflict losers, soft-deleted rows) via the
   /// `t.includeHiddenRows` expression; otherwise only visible rows are returned.
@@ -58,40 +58,40 @@ class EndpointDemoDebug extends _isc.EndpointRef {
   /// deserializes them straight back into typed models with no per-table
   /// plumbing on either side. The client flags hidden rows by diffing a
   /// visible-only fetch against an include-hidden one.
-  _ida.Future<List<dynamic>> fetchScopeSnapshot({
+  _ida.Future<List<dynamic>> fetchSpaceSnapshot({
     required bool includeHidden,
   }) => caller.callServerEndpoint<List<dynamic>>(
     'demoDebug',
-    'fetchScopeSnapshot',
+    'fetchSpaceSnapshot',
     {'includeHidden': includeHidden},
   );
 
-  /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
-  /// table cascades on `scopeId` → `crdt_scopes`, so all domain rows and CRDT
+  /// Clears the caller's space by deleting its `offline_sync_spaces` row. Every synced
+  /// table cascades on `spaceId` → `offline_sync_spaces`, so all domain rows and CRDT
   /// metadata are removed with it — no manual per-table cleanup needed.
   ///
-  /// The delete runs with `defer_foreign_keys` on: the scopeId cascade fans out
+  /// The delete runs with `defer_foreign_keys` on: the spaceId cascade fans out
   /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
   /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
-  /// cascade off `crdt_scopes`), and SQLite's cascade order can transiently
+  /// cascade off `offline_sync_spaces`), and SQLite's cascade order can transiently
   /// violate those immediate checks. Deferring them to commit lets the whole
   /// cascade complete first.
-  _ida.Future<void> resetScope() => caller.callServerEndpoint<void>(
+  _ida.Future<void> resetSpace() => caller.callServerEndpoint<void>(
     'demoDebug',
-    'resetScope',
+    'resetSpace',
     {},
   );
 
-  /// Inserts demo rows of [kind] directly into the caller's scope on the server,
+  /// Inserts demo rows of [kind] directly into the caller's space on the server,
   /// without going through a replica. Lets the "Server" seed target exercise the
   /// fetch-from-scratch flow: seed here, reset a replica, then sync to pull it
   /// down. [text] carries an optional name/value for the single-row kinds.
-  _ida.Future<void> seedScope(
+  _ida.Future<void> seedSpace(
     String kind,
     String? text,
   ) => caller.callServerEndpoint<void>(
     'demoDebug',
-    'seedScope',
+    'seedSpace',
     {
       'kind': kind,
       'text': text,
@@ -194,13 +194,13 @@ class Client extends _isc.ServerpodClientShared {
   ///
   /// The [persistentUserId] is the user all local operations belong to. When
   /// omitted, the user must be passed through the transaction.
-  _ida.Future<_ipulbpi2.CrdtDatabaseSession> createSyncSession(
+  _ida.Future<_ipulbpi2.OfflineSyncDatabaseSession> createSyncSession(
     String path, {
     bool runMigrations = true,
     bool isDebugMode = false,
     _isc.UuidValue? persistentUserId,
   }) async {
-    final session = _ipulbpi2.CrdtDatabaseSession.wraps(
+    final session = _ipulbpi2.OfflineSyncDatabaseSession.wraps(
       await createSession(
         path,
         runMigrations: runMigrations,

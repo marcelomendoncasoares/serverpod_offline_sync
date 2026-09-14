@@ -3,8 +3,8 @@ class: CrdtMergeChange
 sealed: true
 extends: BaseHlc
 fields:
-  ### The scope this change belongs to.
-  uuidScopeId: UuidValue
+  ### The space this change belongs to.
+  uuidSpaceId: UuidValue
 
   ### The table receiving the change.
   tableName: String

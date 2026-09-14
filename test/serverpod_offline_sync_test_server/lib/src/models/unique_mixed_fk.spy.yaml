@@ -7,5 +7,5 @@ fields:
   parent: Person?, relation(field=parentId, onDelete=Cascade, deferred)
 indexes:
   unique_mixed_fk_name_parent:
-    fields: scopeId, name, parentId
+    fields: spaceId, name, parentId
     unique: true

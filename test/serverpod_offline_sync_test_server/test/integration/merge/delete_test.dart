@@ -34,7 +34,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteDelete = CrdtMergeDelete(
-        uuidScopeId: testCrdtUserId,
+        uuidSpaceId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -51,7 +51,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -109,7 +109,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteDelete = CrdtMergeDelete(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -125,7 +125,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -180,7 +180,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteDelete = CrdtMergeDelete(
-        uuidScopeId: testCrdtUserId,
+        uuidSpaceId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -196,7 +196,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -246,7 +246,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteRestore = CrdtMergeDelete(
-        uuidScopeId: testCrdtUserId,
+        uuidSpaceId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -263,7 +263,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -324,7 +324,7 @@ void main() {
       remoteNodeId = const Uuid().v7obj();
 
       remoteRestore = CrdtMergeDelete(
-        uuidScopeId: testCrdtUserId,
+        uuidSpaceId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: person.id!,
         uuidNodeId: remoteNodeId,
@@ -341,7 +341,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -402,7 +402,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteDelete = CrdtMergeDelete(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -418,7 +418,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -467,7 +467,7 @@ void main() {
         );
 
         remoteDelete = CrdtMergeDelete(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -484,7 +484,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -520,7 +520,7 @@ void main() {
         remoteNodeId = const Uuid().v7obj();
 
         remoteDelete = CrdtMergeDelete(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: const Uuid().v7obj(),
           uuidNodeId: remoteNodeId,
@@ -537,7 +537,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 

@@ -31,19 +31,19 @@ void main() {
         expect(row!.name, 'test');
       });
 
-      test('then the returned row keeps scopeId null.', () async {
-        expect(person.scopeId, isNull);
+      test('then the returned row keeps spaceId null.', () async {
+        expect(person.spaceId, isNull);
       });
 
-      test('then the stored row is stamped with the effective scope.', () async {
+      test('then the stored row is stamped with the effective space.', () async {
         final row = await Person.db.findById(testSession, person.id!);
-        final scope = await CrdtScope.db.findFirstRow(
+        final space = await OfflineSyncSpace.db.findFirstRow(
           session,
-          where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
         );
 
         expect(row, isNotNull);
-        expect(row!.scopeId, scope!.id);
+        expect(row!.spaceId, space!.id);
       });
 
       group('then CRDT metadata row', () {
@@ -87,30 +87,30 @@ void main() {
       });
     });
 
-    group('when inserting a Person with an explicit matching scopeId,', () {
+    group('when inserting a Person with an explicit matching spaceId,', () {
       late Person person;
-      late int scopeId;
+      late int spaceId;
 
       setUp(() async {
         person = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) async {
-            final scope = await CrdtScope.db.findFirstRow(
+            final space = await OfflineSyncSpace.db.findFirstRow(
               session,
-              where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+              where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
             );
-            scopeId = scope!.id!;
+            spaceId = space!.id!;
             return Person.db.insertRow(
               session,
-              Person(name: 'explicit', scopeId: scopeId),
+              Person(name: 'explicit', spaceId: spaceId),
               transaction: tx,
             );
           },
         );
       });
 
-      test('then the returned row keeps the explicit scopeId.', () async {
-        expect(person.scopeId, scopeId);
+      test('then the returned row keeps the explicit spaceId.', () async {
+        expect(person.spaceId, spaceId);
       });
     });
 
@@ -217,14 +217,14 @@ void main() {
     });
 
     test(
-      'when inserting a Person with another scopeId, '
+      'when inserting a Person with another spaceId, '
       'then the insert throws.',
       () async {
         final insertFuture = session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.insertRow(
             session,
-            Person(name: 'wrong scope', scopeId: -1),
+            Person(name: 'wrong space', spaceId: -1),
             transaction: tx,
           ),
         );
@@ -237,7 +237,7 @@ void main() {
               'message',
               allOf([
                 contains('Cannot write person row'),
-                contains('with scopeId -1 while acting in scope 1'),
+                contains('with spaceId -1 while acting in space 1'),
               ]),
             ),
           ),

@@ -11,11 +11,11 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 import '../test_tools/serverpod_test_tools.dart';
 
-/// Proves the authoritative server rejects inbound merge writes for scopes the
+/// Proves the authoritative server rejects inbound merge writes for spaces the
 /// user cannot write to, independently of the client-side prevention that
 /// normally keeps such writes off the wire (`sync_flow_test.dart` covers that
 /// side). A real follower session completes the whole protocol handshake; the
-/// tests only splice one adversarial [CrdtSyncMergeChunk] into the
+/// tests only splice one adversarial [OfflineSyncMergeChunk] into the
 /// client-to-server stream, as a stale or malicious client would.
 void main() {
   initTestClientSession(withPersistentUser: true);
@@ -34,9 +34,9 @@ void main() {
     server.Unique.t,
   ];
 
-  late CrdtDatabaseSession serverSession;
-  late CrdtDatabaseSession clientSession;
-  late CrdtSync clientSync;
+  late OfflineSyncDatabaseSession serverSession;
+  late OfflineSyncDatabaseSession clientSession;
+  late OfflineSyncEngine clientSync;
 
   withServerpod(
     '[CRDT Sync Inbound Authorization]',
@@ -44,21 +44,21 @@ void main() {
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
 
-      rawServerSession.serverpod.initializeCrdtSync(syncTables: serverSyncTables);
+      rawServerSession.serverpod.initializeOfflineSync(syncTables: serverSyncTables);
 
       setUp(() async {
-        clientSession = CrdtDatabaseSession.wraps(
+        clientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await clientSession.db.initialize();
-        clientSync = CrdtSync(
+        clientSync = OfflineSyncEngine(
           syncTables: clientSyncTables,
           serializationManager: clientSession.db.serializationManager,
         );
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
@@ -70,43 +70,43 @@ void main() {
       });
 
       group(
-        'Given a stale client session with a readWrite projection for a scope the server never granted, with a pending write, '
+        'Given a stale client session with a readWrite projection for a space the server never granted, with a pending write, '
         'when the crafted batch is spliced into a real sync session,',
         () {
-          late UuidValue ungrantedScopeId;
-          late UuidValue scopedPersonId;
+          late UuidValue ungrantedSpaceId;
+          late UuidValue spaceScopedPersonId;
           late Object? sessionError;
 
           setUp(() async {
-            ungrantedScopeId = const Uuid().v7obj();
-            await _upsertScopeMembership(
+            ungrantedSpaceId = const Uuid().v7obj();
+            await _upsertSpaceMembership(
               clientSession,
               userUuid: testCrdtUserId,
-              scopeUuid: ungrantedScopeId,
-              role: CrdtScopeRole.readWrite,
+              spaceUuid: ungrantedSpaceId,
+              role: OfflineSyncSpaceRole.readWrite,
             );
 
-            final scopedPerson = await clientSession.db.transactionForUser(
+            final spaceScopedPerson = await clientSession.db.transactionForUser(
               testCrdtUserId,
               (tx) => client.Person.db.insertRow(
                 clientSession,
                 client.Person(name: 'never-granted-write'),
                 transaction: tx,
               ),
-              scopeId: ungrantedScopeId,
+              spaceId: ungrantedSpaceId,
             );
-            scopedPersonId = scopedPerson.id!;
+            spaceScopedPersonId = spaceScopedPerson.id!;
 
             final changes = await clientSync
                 .collectPendingChanges(
                   clientSession,
-                  checkpointsByScopeUuid: {ungrantedScopeId: const []},
+                  checkpointsBySpaceUuid: {ungrantedSpaceId: const []},
                 )
                 .toList();
             expect(changes, isNotEmpty);
 
             sessionError = await _syncOnceWithSplicedMergeChunk(
-              serverSync: rawServerSession.crdt,
+              serverSync: rawServerSession.offlineSync,
               clientSync: clientSync,
               clientSession: clientSession,
               userUuid: testCrdtUserId,
@@ -122,13 +122,13 @@ void main() {
             'then the non-member write is skipped without recording a violation.',
             () async {
               expect(
-                await server.Person.db.findById(serverSession, scopedPersonId),
+                await server.Person.db.findById(serverSession, spaceScopedPersonId),
                 isNull,
               );
               expect(
-                await CrdtSyncIntegrityViolation.db.find(
+                await OfflineSyncIntegrityViolation.db.find(
                   rawServerSession,
-                  where: (t) => t.uuidRowId.equals(scopedPersonId),
+                  where: (t) => t.uuidRowId.equals(spaceScopedPersonId),
                 ),
                 isEmpty,
               );
@@ -138,23 +138,23 @@ void main() {
       );
 
       group(
-        'Given a stale client session with a readWrite projection for a shared scope the server grants as readOnly, with pending personal and shared writes, '
+        'Given a stale client session with a readWrite projection for a shared space the server grants as readOnly, with pending personal and shared writes, '
         'when the combined batch is spliced into a real sync session,',
         () {
-          late UuidValue sharedScopeId;
+          late UuidValue sharedSpaceId;
           late UuidValue personalPersonId;
           late UuidValue sharedPersonId;
           late Object? sessionError;
 
           setUp(() async {
-            sharedScopeId = await rawServerSession.crdt.scopes.create(
-              grants: {testCrdtUserId: CrdtScopeRole.readOnly},
+            sharedSpaceId = await rawServerSession.offlineSync.spaces.create(
+              grants: {testCrdtUserId: OfflineSyncSpaceRole.readOnly},
             );
-            await _upsertScopeMembership(
+            await _upsertSpaceMembership(
               clientSession,
               userUuid: testCrdtUserId,
-              scopeUuid: sharedScopeId,
-              role: CrdtScopeRole.readWrite,
+              spaceUuid: sharedSpaceId,
+              role: OfflineSyncSpaceRole.readWrite,
             );
 
             final personalPerson = await clientSession.db.transactionForUser(
@@ -173,33 +173,33 @@ void main() {
                 client.Person(name: 'stale-shared-write'),
                 transaction: tx,
               ),
-              scopeId: sharedScopeId,
+              spaceId: sharedSpaceId,
             );
             sharedPersonId = sharedPerson.id!;
 
             final changes = await clientSync
                 .collectPendingChanges(
                   clientSession,
-                  checkpointsByScopeUuid: {
+                  checkpointsBySpaceUuid: {
                     testCrdtUserId: const [],
-                    sharedScopeId: const [],
+                    sharedSpaceId: const [],
                   },
                 )
                 .toList();
             // Personal changes first, so the server merges the authorized
-            // scope group before it reaches the unauthorized one.
+            // space group before it reaches the unauthorized one.
             final orderedChanges = [
-              ...changes.where((change) => change.uuidScopeId == testCrdtUserId),
-              ...changes.where((change) => change.uuidScopeId == sharedScopeId),
+              ...changes.where((change) => change.uuidSpaceId == testCrdtUserId),
+              ...changes.where((change) => change.uuidSpaceId == sharedSpaceId),
             ];
             expect(orderedChanges, hasLength(changes.length));
             expect(
-              orderedChanges.map((change) => change.uuidScopeId).toSet(),
+              orderedChanges.map((change) => change.uuidSpaceId).toSet(),
               hasLength(2),
             );
 
             sessionError = await _syncOnceWithSplicedMergeChunk(
-              serverSync: rawServerSession.crdt,
+              serverSync: rawServerSession.offlineSync,
               clientSync: clientSync,
               clientSession: clientSession,
               userUuid: testCrdtUserId,
@@ -208,10 +208,10 @@ void main() {
           });
 
           test('then the sync session fails with an integrity violation.', () {
-            expect(sessionError, isA<CrdtSyncIntegrityViolationException>());
+            expect(sessionError, isA<OfflineSyncIntegrityViolationException>());
           });
 
-          test('then the authorized personal-scope write is merged.', () async {
+          test('then the authorized personal-space write is merged.', () async {
             final serverPerson = await server.Person.db.findById(
               serverSession,
               personalPersonId,
@@ -222,22 +222,22 @@ void main() {
           });
 
           test(
-            'then the unauthorized shared-scope write is not applied and records an unauthorizedWrite violation.',
+            'then the unauthorized shared-space write is not applied and records an unauthorizedWrite violation.',
             () async {
               expect(
                 await server.Person.db.findById(serverSession, sharedPersonId),
                 isNull,
               );
 
-              final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
+              final violation = await OfflineSyncIntegrityViolation.db.findFirstRow(
                 rawServerSession,
                 where: (t) =>
-                    t.type.equals(CrdtSyncViolationType.unauthorizedWrite) &
+                    t.type.equals(OfflineSyncViolationType.unauthorizedWrite) &
                     t.uuidRowId.equals(sharedPersonId),
               );
               expect(violation, isNotNull);
-              expect(violation!.operation, CrdtSyncViolationOperation.mergeInsert);
-              expect(violation.incomingScopeUuid, sharedScopeId);
+              expect(violation!.operation, OfflineSyncViolationOperation.mergeInsert);
+              expect(violation.incomingSpaceUuid, sharedSpaceId);
             },
           );
         },
@@ -248,30 +248,30 @@ void main() {
 
 /// Runs a real follower and a real authoritative `once` sync pair over
 /// in-memory streams, splicing [splicedChanges] into the client-to-server
-/// stream as an extra [CrdtSyncMergeChunk] right before the follower's first
-/// [CrdtSyncEndOfBatch], so the chunk lands inside a well-formed batch.
+/// stream as an extra [OfflineSyncMergeChunk] right before the follower's first
+/// [OfflineSyncEndOfBatch], so the chunk lands inside a well-formed batch.
 ///
-/// Both peers run the production [CrdtSync.sync] state machine end to end;
+/// Both peers run the production [OfflineSyncEngine.sync] state machine end to end;
 /// the spliced chunk is the only frame the production client would not send.
 ///
 /// Returns the error that ended the authoritative session, or null when it
 /// closed cleanly.
 Future<Object?> _syncOnceWithSplicedMergeChunk({
-  required CrdtSession serverSync,
-  required CrdtSync clientSync,
+  required OfflineSyncSession serverSync,
+  required OfflineSyncEngine clientSync,
   required DatabaseSession clientSession,
   required UuidValue userUuid,
   required List<CrdtMergeChange> splicedChanges,
 }) async {
-  final clientToServer = StreamController<CrdtSyncStreamEvent>();
-  final serverToClient = StreamController<CrdtSyncStreamEvent>();
+  final clientToServer = StreamController<OfflineSyncStreamEvent>();
+  final serverToClient = StreamController<OfflineSyncStreamEvent>();
   final serverCompletion = Completer<Object?>();
   final clientCompletion = Completer<void>();
   var spliced = false;
 
   void addIfOpen(
-    StreamController<CrdtSyncStreamEvent> controller,
-    CrdtSyncStreamEvent event,
+    StreamController<OfflineSyncStreamEvent> controller,
+    OfflineSyncStreamEvent event,
   ) {
     if (!controller.isClosed) {
       controller.add(event);
@@ -284,13 +284,13 @@ Future<Object?> _syncOnceWithSplicedMergeChunk({
         userId: userUuid,
         inbound: serverToClient.stream,
         once: true,
-        mode: CrdtSyncPeerMode.follower,
+        mode: OfflineSyncPeerMode.follower,
       )
       .listen(
         (event) {
-          if (!spliced && event is CrdtSyncEndOfBatch) {
+          if (!spliced && event is OfflineSyncEndOfBatch) {
             spliced = true;
-            addIfOpen(clientToServer, CrdtSyncMergeChunk(changes: splicedChanges));
+            addIfOpen(clientToServer, OfflineSyncMergeChunk(changes: splicedChanges));
           }
           addIfOpen(clientToServer, event);
         },
@@ -311,7 +311,7 @@ Future<Object?> _syncOnceWithSplicedMergeChunk({
         userId: userUuid,
         inbound: clientToServer.stream,
         once: true,
-        mode: CrdtSyncPeerMode.authoritative,
+        mode: OfflineSyncPeerMode.authoritative,
       )
       .listen(
         (event) => addIfOpen(serverToClient, event),
@@ -338,23 +338,23 @@ Future<Object?> _syncOnceWithSplicedMergeChunk({
   }
 }
 
-/// Upserts a projected `crdt_scope_members` row for stale or adversarial client
+/// Upserts a projected `offline_sync_space_members` row for stale or adversarial client
 /// state.
-Future<void> _upsertScopeMembership(
+Future<void> _upsertSpaceMembership(
   DatabaseSession session, {
   required UuidValue userUuid,
-  required UuidValue scopeUuid,
-  CrdtScopeRole role = CrdtScopeRole.readWrite,
+  required UuidValue spaceUuid,
+  OfflineSyncSpaceRole role = OfflineSyncSpaceRole.readWrite,
 }) async {
-  final scope = await CrdtScopeManager(session).getOrCreate(scopeUuid);
-  await CrdtScopeMember.db.upsertRow(
+  final space = await OfflineSyncSpaceManager(session).getOrCreate(spaceUuid);
+  await OfflineSyncSpaceMember.db.upsertRow(
     session,
-    CrdtScopeMember(
-      scopeId: scope.id!,
+    OfflineSyncSpaceMember(
+      spaceId: space.id!,
       userUuid: userUuid,
       role: role,
     ),
-    conflictColumns: (t) => [t.scopeId, t.userUuid],
+    conflictColumns: (t) => [t.spaceId, t.userUuid],
     updateColumns: (t) => [t.role],
   );
 }

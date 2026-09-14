@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 import '../test_tools/sync_topology.dart';
 
-/// Deleting a row releases its per-scope unique value by rewriting the column,
+/// Deleting a row releases its per-space unique value by rewriting the column,
 /// so a later row may claim that value again. Deleted rows stay in their table,
 /// so the release is what keeps the physical unique index free.
 ///
@@ -26,10 +26,10 @@ void main() {
   /// Every row with its visibility, ordered by id so nodes compare directly.
   Future<String> render(SyncNode node) async {
     final rows = await Unique.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
-    final visible = {for (final row in await Unique.db.find(node.crdt)) row.id};
+    final visible = {for (final row in await Unique.db.find(node.offlineSync)) row.id};
     rows.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
     return rows
         .map((row) {
@@ -54,22 +54,22 @@ void main() {
         newcomer = await syncNode(await createAdditionalTestSession(), syncTables);
 
         final row = Unique(id: const Uuid().v7obj(), name: 'original');
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Unique.db.insertRow(deleter.crdt, row, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Unique.db.insertRow(deleter.offlineSync, row, transaction: tx);
         });
         await syncWithServer(deleter, server);
         await syncWithServer(renamer, server);
 
         // Offline, one client deletes the row, releasing its unique value.
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Unique.db.deleteRow(deleter.crdt, row, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Unique.db.deleteRow(deleter.offlineSync, row, transaction: tx);
         });
 
         // Offline and unaware of the delete, another client renames the same
         // column. Its update carries the later timestamp, so it wins.
-        await renamer.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await renamer.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Unique.db.updateRow(
-            renamer.crdt,
+            renamer.offlineSync,
             row.copyWith(name: 'target'),
             columns: (t) => [t.name],
             transaction: tx,
@@ -84,8 +84,8 @@ void main() {
       group('when a client that never saw the row claims that value and syncs,', () {
         setUp(() async {
           final claim = Unique(id: const Uuid().v7obj(), name: 'target');
-          await newcomer.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Unique.db.insertRow(newcomer.crdt, claim, transaction: tx);
+          await newcomer.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+            await Unique.db.insertRow(newcomer.offlineSync, claim, transaction: tx);
           });
 
           await syncWithServer(newcomer, server);

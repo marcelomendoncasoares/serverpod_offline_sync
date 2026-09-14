@@ -2,17 +2,17 @@ import 'dart:typed_data';
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
-    show CrdtDatabase, CrdtScope, IncludeTombstonedRows;
+    show IncludeTombstonedRows, OfflineSyncDatabase, OfflineSyncSpace;
 
 import '../generated/protocol.dart';
 
 /// Read-only inspection endpoint used by the offline-sync demo app to show the
-/// server's merged truth for the authenticated user's scope.
+/// server's merged truth for the authenticated user's space.
 class DemoDebugEndpoint extends Endpoint {
   @override
   bool get requireLogin => true;
 
-  /// Returns every synced domain row in the caller's scope on the server as a
+  /// Returns every synced domain row in the caller's space on the server as a
   /// flat list of models. When [includeHidden] is true, the list also includes
   /// CRDT-hidden rows (conflict losers, soft-deleted rows) via the
   /// `t.includeHiddenRows` expression; otherwise only visible rows are returned.
@@ -22,7 +22,7 @@ class DemoDebugEndpoint extends Endpoint {
   /// deserializes them straight back into typed models with no per-table
   /// plumbing on either side. The client flags hidden rows by diffing a
   /// visible-only fetch against an include-hidden one.
-  Future<List<dynamic>> fetchScopeSnapshot(
+  Future<List<dynamic>> fetchSpaceSnapshot(
     Session session, {
     bool includeHidden = false,
   }) async {
@@ -31,52 +31,52 @@ class DemoDebugEndpoint extends Endpoint {
     );
 
     final db = session.db;
-    if (db is! CrdtDatabase) {
-      return _loadRows(session, null, includeHidden: false, scopeId: null);
+    if (db is! OfflineSyncDatabase) {
+      return _loadRows(session, null, includeHidden: false, spaceId: null);
     }
 
-    // Run the reads in the caller's scope so the snapshot reflects what this
-    // user sees, not an unscoped admin view across every scope.
+    // Run the reads in the caller's space so the snapshot reflects what this
+    // user sees, not an unscoped admin view across every space.
     return db.transactionForUser(userId, (transaction) async {
-      final scope = await CrdtScope.db.findFirstRow(
+      final space = await OfflineSyncSpace.db.findFirstRow(
         session,
-        where: (t) => t.uuidScopeId.equals(userId),
+        where: (t) => t.uuidSpaceId.equals(userId),
         transaction: transaction,
       );
       return _loadRows(
         session,
         transaction,
         includeHidden: includeHidden,
-        scopeId: scope?.id,
+        spaceId: space?.id,
       );
     });
   }
 
-  /// Clears the caller's scope by deleting its `crdt_scopes` row. Every synced
-  /// table cascades on `scopeId` → `crdt_scopes`, so all domain rows and CRDT
+  /// Clears the caller's space by deleting its `offline_sync_spaces` row. Every synced
+  /// table cascades on `spaceId` → `offline_sync_spaces`, so all domain rows and CRDT
   /// metadata are removed with it — no manual per-table cleanup needed.
   ///
-  /// The delete runs with `defer_foreign_keys` on: the scopeId cascade fans out
+  /// The delete runs with `defer_foreign_keys` on: the spaceId cascade fans out
   /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
   /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
-  /// cascade off `crdt_scopes`), and SQLite's cascade order can transiently
+  /// cascade off `offline_sync_spaces`), and SQLite's cascade order can transiently
   /// violate those immediate checks. Deferring them to commit lets the whole
   /// cascade complete first.
-  Future<void> resetScope(Session session) async {
+  Future<void> resetSpace(Session session) async {
     final userId = UuidValue.withValidation(
       session.authenticated!.userIdentifier,
     );
 
     final db = session.db;
-    if (db is CrdtDatabase) {
+    if (db is OfflineSyncDatabase) {
       await db.initialize();
     }
-    final scope = await CrdtScope.db.findFirstRow(
+    final space = await OfflineSyncSpace.db.findFirstRow(
       session,
-      where: (t) => t.uuidScopeId.equals(userId),
+      where: (t) => t.uuidSpaceId.equals(userId),
     );
-    final scopeId = scope?.id;
-    if (scopeId != null) {
+    final spaceId = space?.id;
+    if (spaceId != null) {
       await db.transaction((transaction) async {
         // TODO: Remove this explicit call to defer foreign keys once foreign
         // keys are deferrable by default on the Serverpod package.
@@ -84,29 +84,29 @@ class DemoDebugEndpoint extends Endpoint {
           'PRAGMA defer_foreign_keys = ON',
           transaction: transaction,
         );
-        await CrdtScope.db.deleteWhere(
+        await OfflineSyncSpace.db.deleteWhere(
           session,
-          where: (t) => t.id.equals(scopeId),
+          where: (t) => t.id.equals(spaceId),
           transaction: transaction,
         );
       });
     }
-    if (db is CrdtDatabase) {
+    if (db is OfflineSyncDatabase) {
       await db.initialize();
     }
   }
 
-  /// Inserts demo rows of [kind] directly into the caller's scope on the server,
+  /// Inserts demo rows of [kind] directly into the caller's space on the server,
   /// without going through a replica. Lets the "Server" seed target exercise the
   /// fetch-from-scratch flow: seed here, reset a replica, then sync to pull it
   /// down. [text] carries an optional name/value for the single-row kinds.
-  Future<void> seedScope(Session session, String kind, String? text) async {
+  Future<void> seedSpace(Session session, String kind, String? text) async {
     final userId = UuidValue.withValidation(
       session.authenticated!.userIdentifier,
     );
 
     final db = session.db;
-    if (db is! CrdtDatabase) {
+    if (db is! OfflineSyncDatabase) {
       throw StateError('This endpoint only works with a CRDT database.');
     }
 
@@ -260,7 +260,7 @@ class DemoDebugEndpoint extends Endpoint {
     });
   }
 
-  /// Loads every synced domain row in the caller's scope as a flat list of
+  /// Loads every synced domain row in the caller's space as a flat list of
   /// models. When [includeHidden] is true, CRDT-hidden rows are returned too
   /// via the `t.includeHiddenRows` expression.
   ///
@@ -272,13 +272,13 @@ class DemoDebugEndpoint extends Endpoint {
     Session session,
     Transaction? transaction, {
     required bool includeHidden,
-    required int? scopeId,
+    required int? spaceId,
   }) async {
     final rows = <dynamic>[];
     Future<void> add<T extends TableRow>() async {
       rows.addAll(
         await session.db.find<T>(
-          where: includeHidden ? _includeHiddenRowsInScope<T>(session, scopeId) : null,
+          where: includeHidden ? _includeHiddenRowsInSpace<T>(session, spaceId) : null,
           transaction: transaction,
         ),
       );
@@ -310,26 +310,26 @@ class DemoDebugEndpoint extends Endpoint {
     return rows;
   }
 
-  Expression _includeHiddenRowsInScope<T extends TableRow>(
+  Expression _includeHiddenRowsInSpace<T extends TableRow>(
     Session session,
-    int? scopeId,
+    int? spaceId,
   ) {
-    if (scopeId == null) {
-      throw StateError('Cannot include hidden rows without a CRDT scope.');
+    if (spaceId == null) {
+      throw StateError('Cannot include hidden rows without a CRDT space.');
     }
 
     final table =
         session.db.serializationManager.getTableForType(T) ??
         (throw StateError('No table is registered for type $T.'));
-    return _scopeIdColumn(table).equals(scopeId) & table.includeHiddenRows;
+    return _spaceIdColumn(table).equals(spaceId) & table.includeHiddenRows;
   }
 
-  ColumnInt _scopeIdColumn(Table table) {
+  ColumnInt _spaceIdColumn(Table table) {
     for (final column in table.columns) {
-      if (column.columnName == 'scopeId' && column is ColumnInt) {
+      if (column.columnName == 'spaceId' && column is ColumnInt) {
         return column;
       }
     }
-    throw StateError('Synced table "${table.tableName}" has no scopeId column.');
+    throw StateError('Synced table "${table.tableName}" has no spaceId column.');
   }
 }

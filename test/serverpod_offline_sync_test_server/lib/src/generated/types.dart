@@ -18,7 +18,7 @@ abstract class Types
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Types._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.aBool,
     required this.aDateTime,
     required this.aText,
@@ -33,7 +33,7 @@ abstract class Types
 
   factory Types({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required bool aBool,
     required DateTime aDateTime,
     required String aText,
@@ -51,7 +51,7 @@ abstract class Types
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       aBool: _is.BoolJsonExtension.fromJson(jsonSerialization['aBool']),
       aDateTime: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['aDateTime'],
@@ -80,8 +80,8 @@ abstract class Types
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   bool aBool;
 
@@ -111,7 +111,7 @@ abstract class Types
   @_is.useResult
   Types copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     bool? aBool,
     DateTime? aDateTime,
     String? aText,
@@ -128,7 +128,7 @@ abstract class Types
     return {
       '__className__': 'Types',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'aBool': aBool,
       'aDateTime': aDateTime.toJson(),
       'aText': aText,
@@ -147,7 +147,7 @@ abstract class Types
     return {
       '__className__': 'Types',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'aBool': aBool,
       'aDateTime': aDateTime.toJson(),
       'aText': aText,
@@ -194,7 +194,7 @@ class _Undefined {}
 class _TypesImpl extends Types {
   _TypesImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required bool aBool,
     required DateTime aDateTime,
     required String aText,
@@ -207,7 +207,7 @@ class _TypesImpl extends Types {
     _is.UuidValue? optionalUuid,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          aBool: aBool,
          aDateTime: aDateTime,
          aText: aText,
@@ -226,7 +226,7 @@ class _TypesImpl extends Types {
   @override
   Types copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     bool? aBool,
     DateTime? aDateTime,
     String? aText,
@@ -240,7 +240,7 @@ class _TypesImpl extends Types {
   }) {
     return Types(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       aBool: aBool ?? this.aBool,
       aDateTime: aDateTime ?? this.aDateTime,
       aText: aText ?? this.aText,
@@ -260,8 +260,8 @@ class _TypesImpl extends Types {
 class TypesUpdateTable extends _is.UpdateTable<TypesTable> {
   TypesUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -326,8 +326,8 @@ class TypesUpdateTable extends _is.UpdateTable<TypesTable> {
 class TypesTable extends _is.Table<_is.UuidValue?> {
   TypesTable({super.tableRelation}) : super(tableName: 'types') {
     updateTable = TypesUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     aBool = _is.ColumnBool(
@@ -375,8 +375,8 @@ class TypesTable extends _is.Table<_is.UuidValue?> {
 
   late final TypesUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnBool aBool;
 
@@ -401,7 +401,7 @@ class TypesTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     aBool,
     aDateTime,
     aText,

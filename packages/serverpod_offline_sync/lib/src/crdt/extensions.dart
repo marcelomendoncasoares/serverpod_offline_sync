@@ -76,11 +76,11 @@ extension CrdtDataDeletedReasonExtension on CrdtDataDeletedReason {
   }
 }
 
-/// CRDT write capability for a scope role.
+/// CRDT write capability for a space role.
 ///
-/// The implicit personal scope resolves to [CrdtScopeRole.readWrite]. A missing
+/// The implicit personal space resolves to [OfflineSyncSpaceRole.readWrite]. A missing
 /// role means no shared membership row was found and does not grant writes.
-extension CrdtScopeRoleWriteAccess on CrdtScopeRole? {
-  /// Whether this role may write CRDT rows in the scope.
-  bool get canWrite => this == CrdtScopeRole.readWrite;
+extension OfflineSyncSpaceRoleWriteAccess on OfflineSyncSpaceRole? {
+  /// Whether this role may write CRDT rows in the space.
+  bool get canWrite => this == OfflineSyncSpaceRole.readWrite;
 }

@@ -16,29 +16,31 @@ part of 'stream_event.dart';
 /// This is a synthetic event that will be injected in the inbound stream
 /// being awaited if it does not emit any events for a given timeout. It is
 /// what allows both sides to stay silent if they have nothing to send.
-abstract class CrdtSyncIdleTimeout extends _icw2tu00.CrdtSyncStreamEvent
+abstract class OfflineSyncIdleTimeout extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncIdleTimeout._();
+  OfflineSyncIdleTimeout._();
 
-  factory CrdtSyncIdleTimeout() = _CrdtSyncIdleTimeoutImpl;
+  factory OfflineSyncIdleTimeout() = _OfflineSyncIdleTimeoutImpl;
 
-  factory CrdtSyncIdleTimeout.fromJson(Map<String, dynamic> jsonSerialization) {
-    return CrdtSyncIdleTimeout();
+  factory OfflineSyncIdleTimeout.fromJson(
+    Map<String, dynamic> jsonSerialization,
+  ) {
+    return OfflineSyncIdleTimeout();
   }
 
-  /// Returns a shallow copy of this [CrdtSyncIdleTimeout]
+  /// Returns a shallow copy of this [OfflineSyncIdleTimeout]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  CrdtSyncIdleTimeout copyWith();
+  OfflineSyncIdleTimeout copyWith();
   @override
   Map<String, dynamic> toJson() {
-    return {'__className__': 'serverpod_offline_sync.CrdtSyncIdleTimeout'};
+    return {'__className__': 'serverpod_offline_sync.OfflineSyncIdleTimeout'};
   }
 
   @override
   Map<String, dynamic> toJsonForProtocol() {
-    return {'__className__': 'serverpod_offline_sync.CrdtSyncIdleTimeout'};
+    return {'__className__': 'serverpod_offline_sync.OfflineSyncIdleTimeout'};
   }
 
   @override
@@ -47,14 +49,14 @@ abstract class CrdtSyncIdleTimeout extends _icw2tu00.CrdtSyncStreamEvent
   }
 }
 
-class _CrdtSyncIdleTimeoutImpl extends CrdtSyncIdleTimeout {
-  _CrdtSyncIdleTimeoutImpl() : super._();
+class _OfflineSyncIdleTimeoutImpl extends OfflineSyncIdleTimeout {
+  _OfflineSyncIdleTimeoutImpl() : super._();
 
-  /// Returns a shallow copy of this [CrdtSyncIdleTimeout]
+  /// Returns a shallow copy of this [OfflineSyncIdleTimeout]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  CrdtSyncIdleTimeout copyWith() {
-    return CrdtSyncIdleTimeout();
+  OfflineSyncIdleTimeout copyWith() {
+    return OfflineSyncIdleTimeout();
   }
 }

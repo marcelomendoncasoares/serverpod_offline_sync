@@ -33,22 +33,22 @@ void main() {
         name: 'company',
         townId: town.id,
       );
-      await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+      await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
       });
       await _merge(deleteWriter, await _collect(childWriter));
-      await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+      await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
       });
-      await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
+      await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
       });
       childFacts = await _collect(childWriter);
       deleteFacts = await _collect(deleteWriter);
 
-      await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+      await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
         await Town.db.insertRow(
-          defaultWriter.crdt,
+          defaultWriter.offlineSync,
           Town(id: _defaultTownId, name: 'default'),
           transaction: tx,
         );
@@ -73,16 +73,22 @@ void main() {
           await _merge(observer, defaultFacts);
           await _merge(observer, childFacts);
           await _merge(observer, deleteFacts);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town is hidden.', () {
@@ -149,18 +155,24 @@ void main() {
           final observer = await _node();
           await _merge(observer, childFacts);
           await _merge(observer, deleteFacts);
-          beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+          beforeOriginal = await Town.db.findById(observer.offlineSync, town.id!);
           await _merge(observer, defaultFacts);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town was visible before the default arrived.', () {
@@ -227,18 +239,24 @@ void main() {
       setUpAll(() async {
         final observer = await _node();
         await _merge(observer, [...childFacts, ...deleteFacts, ...defaultFacts]);
-        visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-        visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-        visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+        visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+        visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+        visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
         exportedFacts = await _collect(observer);
         final comparison = await _node();
         await _merge(comparison, defaultFacts);
         await _merge(comparison, childFacts);
         await _merge(comparison, deleteFacts);
         comparisonFacts = await _collect(comparison);
-        comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-        comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-        comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+        comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+        comparisonDefault = await Town.db.findById(
+          comparison.offlineSync,
+          _defaultTownId,
+        );
+        comparisonCompany = await Company.db.findById(
+          comparison.offlineSync,
+          company.id!,
+        );
       });
 
       test('then the original town is hidden.', () {
@@ -314,21 +332,33 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
-          await Town.db.insertRow(childWriter.crdt, defaultTown, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
+          await Town.db.insertRow(
+            childWriter.offlineSync,
+            defaultTown,
+            transaction: tx,
+          );
         });
         initial = await _collect(childWriter);
         await _merge(deleteWriter, initial);
         await _merge(defaultWriter, initial);
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
         });
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(defaultWriter.crdt, defaultTown, transaction: tx);
+        await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(
+            defaultWriter.offlineSync,
+            defaultTown,
+            transaction: tx,
+          );
         });
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
@@ -352,16 +382,22 @@ void main() {
           await _merge(observer, childFacts);
           await _merge(observer, defaultDelete);
           await _merge(observer, deleteFacts);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultDelete]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town is visible.', () {
@@ -435,20 +471,26 @@ void main() {
           await _merge(observer, childFacts);
           await _merge(observer, deleteFacts);
           beforeReference = (await Company.db.findById(
-            observer.crdt,
+            observer.offlineSync,
             company.id!,
           ))!.townId;
           await _merge(observer, defaultDelete);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultDelete]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test(
@@ -540,28 +582,48 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
         });
         await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
         });
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(defaultWriter.crdt, defaultTown, transaction: tx);
+        await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.insertRow(
+            defaultWriter.offlineSync,
+            defaultTown,
+            transaction: tx,
+          );
         });
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(defaultWriter.crdt, defaultTown, transaction: tx);
+        await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(
+            defaultWriter.offlineSync,
+            defaultTown,
+            transaction: tx,
+          );
         });
         deletedDefaultFacts = await _collect(defaultWriter);
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
 
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(defaultWriter.crdt, defaultTown, transaction: tx);
+        await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.insertRow(
+            defaultWriter.offlineSync,
+            defaultTown,
+            transaction: tx,
+          );
         });
         restoredDefaultFacts = await _collect(defaultWriter);
       });
@@ -584,9 +646,15 @@ void main() {
             await _merge(observer, restoredDefaultFacts);
             await _merge(observer, childFacts);
             await _merge(observer, deleteFacts);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, deletedDefaultFacts);
@@ -597,9 +665,18 @@ void main() {
               ...restoredDefaultFacts,
             ]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the original town is hidden.', () {
@@ -668,11 +745,17 @@ void main() {
             await _merge(observer, deletedDefaultFacts);
             await _merge(observer, childFacts);
             await _merge(observer, deleteFacts);
-            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            beforeOriginal = await Town.db.findById(observer.offlineSync, town.id!);
             await _merge(observer, restoredDefaultFacts);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, deletedDefaultFacts);
@@ -683,9 +766,18 @@ void main() {
               ...restoredDefaultFacts,
             ]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test(
@@ -768,24 +860,26 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.insertRow(childWriter.crdt, city, transaction: tx);
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(childWriter.offlineSync, city, transaction: tx);
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
         });
         await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insertRow(
-            childWriter.crdt,
+            childWriter.offlineSync,
             Town(id: _defaultTownId, name: 'default', cityId: city.id),
             transaction: tx,
           );
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
         // Neither the default town nor the company exists on this author, so
         // these deletes author no child tombstones or FK rewrites.
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
-          await City.db.deleteRow(deleteWriter.crdt, city, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
+          await City.db.deleteRow(deleteWriter.offlineSync, city, transaction: tx);
         });
         childFacts = await _collect(childWriter);
         deletions = (await _collect(
@@ -813,17 +907,32 @@ void main() {
             await _merge(observer, childFacts);
             await _merge(observer, cityDelete);
             await _merge(observer, townDelete);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deletions]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the original town is visible.', () {
@@ -910,21 +1019,36 @@ void main() {
             await _merge(observer, childFacts);
             await _merge(observer, townDelete);
             beforeReference = (await Company.db.findById(
-              observer.crdt,
+              observer.offlineSync,
               company.id!,
             ))!.townId;
             await _merge(observer, cityDelete);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deletions]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the company referenced the default before the city deletion.', () {
@@ -1021,28 +1145,32 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.insertRow(childWriter.crdt, city, transaction: tx);
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(childWriter.offlineSync, city, transaction: tx);
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
         });
         await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insertRow(
-            childWriter.crdt,
+            childWriter.offlineSync,
             Town(id: _defaultTownId, name: 'default', cityId: city.id),
             transaction: tx,
           );
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
-          await City.db.deleteRow(deleteWriter.crdt, city, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
+          await City.db.deleteRow(deleteWriter.offlineSync, city, transaction: tx);
         });
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
 
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.insertRow(deleteWriter.crdt, city, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await City.db.insertRow(deleteWriter.offlineSync, city, transaction: tx);
         });
         cityRestoration = (await _collect(
           deleteWriter,
@@ -1067,10 +1195,16 @@ void main() {
             await _merge(observer, deleteFacts);
             await _merge(observer, cityRestoration);
             await _merge(observer, childFacts);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, deleteFacts);
@@ -1080,9 +1214,18 @@ void main() {
               ...cityRestoration,
             ]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the original town is hidden.', () {
@@ -1155,13 +1298,22 @@ void main() {
             final observer = await _node();
             await _merge(observer, childFacts);
             await _merge(observer, deleteFacts);
-            beforeDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            beforeDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            beforeOriginal = await Town.db.findById(observer.offlineSync, town.id!);
             await _merge(observer, cityRestoration);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, deleteFacts);
@@ -1171,9 +1323,18 @@ void main() {
               ...cityRestoration,
             ]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the default town was hidden before the city restoration.', () {
@@ -1280,29 +1441,47 @@ void main() {
           organizationId: organization.id,
           cityId: defaultCity.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.insertRow(childWriter.crdt, originalCity, transaction: tx);
-          await City.db.insertRow(childWriter.crdt, defaultCity, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(
+            childWriter.offlineSync,
+            originalCity,
+            transaction: tx,
+          );
+          await City.db.insertRow(
+            childWriter.offlineSync,
+            defaultCity,
+            transaction: tx,
+          );
         });
         await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
           await Town.db.insertRow(
-            childWriter.crdt,
+            childWriter.offlineSync,
             Town(id: _defaultTownId, name: 'default', cityId: defaultCity.id),
             transaction: tx,
           );
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
           await Organization.db.insertRow(
-            childWriter.crdt,
+            childWriter.offlineSync,
             organization,
             transaction: tx,
           );
-          await Person.db.insertRow(childWriter.crdt, blocker, transaction: tx);
+          await Person.db.insertRow(childWriter.offlineSync, blocker, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.deleteRow(deleteWriter.crdt, originalCity, transaction: tx);
-          await City.db.deleteRow(deleteWriter.crdt, defaultCity, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await City.db.deleteRow(
+            deleteWriter.offlineSync,
+            originalCity,
+            transaction: tx,
+          );
+          await City.db.deleteRow(
+            deleteWriter.offlineSync,
+            defaultCity,
+            transaction: tx,
+          );
         });
         childFacts = await _collect(childWriter);
         deletions = (await _collect(
@@ -1337,28 +1516,49 @@ void main() {
             final observer = await _node();
             await _merge(observer, childFacts);
             await _merge(observer, originalDelete);
-            beforeCity = await City.db.findById(observer.crdt, originalCity.id!);
+            beforeCity = await City.db.findById(observer.offlineSync, originalCity.id!);
             await _merge(observer, defaultDelete);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
             visibleOriginalCity = await City.db.findById(
-              observer.crdt,
+              observer.offlineSync,
               originalCity.id!,
             );
-            visibleDefaultCity = await City.db.findById(observer.crdt, defaultCity.id!);
+            visibleDefaultCity = await City.db.findById(
+              observer.offlineSync,
+              defaultCity.id!,
+            );
             visibleOrganization = await Organization.db.findById(
-              observer.crdt,
+              observer.offlineSync,
               organization.id!,
             );
-            visibleBlocker = await Person.db.findById(observer.crdt, blocker.id!);
+            visibleBlocker = await Person.db.findById(
+              observer.offlineSync,
+              blocker.id!,
+            );
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deletions]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test(
@@ -1464,26 +1664,47 @@ void main() {
             await _merge(observer, childFacts);
             await _merge(observer, defaultDelete);
             await _merge(observer, originalDelete);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
             visibleOriginalCity = await City.db.findById(
-              observer.crdt,
+              observer.offlineSync,
               originalCity.id!,
             );
-            visibleDefaultCity = await City.db.findById(observer.crdt, defaultCity.id!);
+            visibleDefaultCity = await City.db.findById(
+              observer.offlineSync,
+              defaultCity.id!,
+            );
             visibleOrganization = await Organization.db.findById(
-              observer.crdt,
+              observer.offlineSync,
               organization.id!,
             );
-            visibleBlocker = await Person.db.findById(observer.crdt, blocker.id!);
+            visibleBlocker = await Person.db.findById(
+              observer.offlineSync,
+              blocker.id!,
+            );
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deletions]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the original town is visible.', () {
@@ -1579,25 +1800,37 @@ void main() {
         setUpAll(() async {
           final observer = await _node();
           await _merge(observer, [...childFacts, ...deletions]);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-          visibleOriginalCity = await City.db.findById(observer.crdt, originalCity.id!);
-          visibleDefaultCity = await City.db.findById(observer.crdt, defaultCity.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
+          visibleOriginalCity = await City.db.findById(
+            observer.offlineSync,
+            originalCity.id!,
+          );
+          visibleDefaultCity = await City.db.findById(
+            observer.offlineSync,
+            defaultCity.id!,
+          );
           visibleOrganization = await Organization.db.findById(
-            observer.crdt,
+            observer.offlineSync,
             organization.id!,
           );
-          visibleBlocker = await Person.db.findById(observer.crdt, blocker.id!);
+          visibleBlocker = await Person.db.findById(observer.offlineSync, blocker.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, childFacts);
           await _merge(comparison, originalDelete);
           await _merge(comparison, defaultDelete);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town is visible.', () {
@@ -1699,7 +1932,7 @@ void main() {
         childHlc = Hlc.now(const Uuid().v7obj());
         childFacts = <CrdtMergeChange>[
           CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: UniqueSetDefaultChild.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: childHlc.nodeId,
@@ -1708,9 +1941,11 @@ void main() {
             data: child,
           ),
         ];
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
           await Town.db.insertRow(
-            defaultWriter.crdt,
+            defaultWriter.offlineSync,
             Town(id: _defaultTownId, name: 'default'),
             transaction: tx,
           );
@@ -1731,17 +1966,20 @@ void main() {
           await _merge(observer, defaultFacts);
           await _merge(observer, childFacts);
           visibleChild = await UniqueSetDefaultChild.db.findById(
-            observer.crdt,
+            observer.offlineSync,
             child.id!,
           );
-          missingParent = await Town.db.findById(observer.crdt, missingTown.id!);
+          missingParent = await Town.db.findById(observer.offlineSync, missingTown.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...defaultFacts]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, missingTown.id!);
+          comparisonOriginal = await Town.db.findById(
+            comparison.offlineSync,
+            missingTown.id!,
+          );
           comparisonChild = await UniqueSetDefaultChild.db.findById(
-            comparison.crdt,
+            comparison.offlineSync,
             child.id!,
           );
         });
@@ -1797,22 +2035,25 @@ void main() {
           final observer = await _node();
           await _merge(observer, childFacts);
           beforeChild = await UniqueSetDefaultChild.db.findById(
-            observer.crdt,
+            observer.offlineSync,
             child.id!,
           );
           await _merge(observer, defaultFacts);
           visibleChild = await UniqueSetDefaultChild.db.findById(
-            observer.crdt,
+            observer.offlineSync,
             child.id!,
           );
-          missingParent = await Town.db.findById(observer.crdt, missingTown.id!);
+          missingParent = await Town.db.findById(observer.offlineSync, missingTown.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...defaultFacts]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, missingTown.id!);
+          comparisonOriginal = await Town.db.findById(
+            comparison.offlineSync,
+            missingTown.id!,
+          );
           comparisonChild = await UniqueSetDefaultChild.db.findById(
-            comparison.crdt,
+            comparison.offlineSync,
             child.id!,
           );
         });
@@ -1885,22 +2126,24 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
         });
         await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
         });
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
         await _merge(observer, childFacts);
         await _merge(observer, deleteFacts);
         originalBeforeLocalDefault = await Town.db.findById(
-          observer.crdt,
+          observer.offlineSync,
           town.id!,
         );
       });
@@ -1916,9 +2159,9 @@ void main() {
         late Company? comparisonCompany;
 
         setUpAll(() async {
-          await observer.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await observer.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
             await Town.db.insertRow(
-              observer.crdt,
+              observer.offlineSync,
               Town(id: _defaultTownId, name: 'default'),
               transaction: tx,
             );
@@ -1926,18 +2169,24 @@ void main() {
           defaultFacts = (await _collect(
             observer,
           )).where((fact) => fact.uuidRowId == _defaultTownId).toList();
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, defaultFacts);
           await _merge(comparison, childFacts);
           await _merge(comparison, deleteFacts);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town was visible before the local insert.', () {
@@ -2026,27 +2275,35 @@ void main() {
           name: 'blocker',
           cityId: city.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.insertRow(childWriter.crdt, city, transaction: tx);
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(childWriter.offlineSync, city, transaction: tx);
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
         });
         initial = await _collect(childWriter);
         await _merge(deleteWriter, initial);
         await _merge(blockerWriter, initial);
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insertRow(
-            childWriter.crdt,
+            childWriter.offlineSync,
             Town(id: _defaultTownId, name: 'default', cityId: city.id),
             transaction: tx,
           );
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.deleteRow(deleteWriter.crdt, city, transaction: tx);
-          await Town.db.deleteRow(deleteWriter.crdt, town, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await City.db.deleteRow(deleteWriter.offlineSync, city, transaction: tx);
+          await Town.db.deleteRow(deleteWriter.offlineSync, town, transaction: tx);
         });
-        await blockerWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.insertRow(blockerWriter.crdt, blocker, transaction: tx);
+        await blockerWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await Person.db.insertRow(
+            blockerWriter.offlineSync,
+            blocker,
+            transaction: tx,
+          );
         });
         childFacts = await _collect(childWriter);
         deleteFacts = await _collect(deleteWriter);
@@ -2080,17 +2337,23 @@ void main() {
           await _merge(observer, blockerFacts);
           await _merge(observer, childFacts);
           await _merge(observer, deleteFacts);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-          visibleCity = await City.db.findById(observer.crdt, city.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
+          visibleCity = await City.db.findById(observer.offlineSync, city.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...deleteFacts, ...blockerFacts]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town is visible.', () {
@@ -2180,20 +2443,38 @@ void main() {
             final observer = await _node();
             await _merge(observer, childFacts);
             await _merge(observer, deleteFacts);
-            beforeDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            beforeDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            beforeOriginal = await Town.db.findById(observer.offlineSync, town.id!);
             await _merge(observer, blockerFacts);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deleteFacts, ...blockerFacts]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the default town was hidden before the blocker arrived.', () {
@@ -2291,19 +2572,34 @@ void main() {
             final observer = await _node();
             await _merge(observer, childFacts);
             await _merge(observer, originalDelete);
-            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            beforeOriginal = await Town.db.findById(observer.offlineSync, town.id!);
             await _merge(observer, [...cityDelete, ...blockerFacts]);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deleteFacts, ...blockerFacts]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test(
@@ -2408,20 +2704,24 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.insertRow(childWriter.crdt, city, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await City.db.insertRow(childWriter.offlineSync, city, transaction: tx);
         });
         await _merge(deleteWriter, await _collect(childWriter));
-        await childWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(childWriter.crdt, town, transaction: tx);
-          await Company.db.insertRow(childWriter.crdt, company, transaction: tx);
+        await childWriter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(childWriter.offlineSync, town, transaction: tx);
+          await Company.db.insertRow(childWriter.offlineSync, company, transaction: tx);
         });
-        await deleteWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await City.db.deleteRow(deleteWriter.crdt, city, transaction: tx);
+        await deleteWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
+          await City.db.deleteRow(deleteWriter.offlineSync, city, transaction: tx);
         });
-        await defaultWriter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await defaultWriter.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
           await Town.db.insertRow(
-            defaultWriter.crdt,
+            defaultWriter.offlineSync,
             Town(id: _defaultTownId, name: 'default'),
             transaction: tx,
           );
@@ -2447,17 +2747,23 @@ void main() {
           await _merge(observer, defaultFacts);
           await _merge(observer, childFacts);
           await _merge(observer, deleteFacts);
-          visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-          visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-          visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-          visibleCity = await City.db.findById(observer.crdt, city.id!);
+          visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+          visibleDefault = await Town.db.findById(observer.offlineSync, _defaultTownId);
+          visibleCompany = await Company.db.findById(observer.offlineSync, company.id!);
+          visibleCity = await City.db.findById(observer.offlineSync, city.id!);
           exportedFacts = await _collect(observer);
           final comparison = await _node();
           await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
           comparisonFacts = await _collect(comparison);
-          comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-          comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-          comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+          comparisonOriginal = await Town.db.findById(comparison.offlineSync, town.id!);
+          comparisonDefault = await Town.db.findById(
+            comparison.offlineSync,
+            _defaultTownId,
+          );
+          comparisonCompany = await Company.db.findById(
+            comparison.offlineSync,
+            company.id!,
+          );
         });
 
         test('then the original town is hidden.', () {
@@ -2529,20 +2835,35 @@ void main() {
             final observer = await _node();
             await _merge(observer, childFacts);
             await _merge(observer, deleteFacts);
-            beforeCity = await City.db.findById(observer.crdt, city.id!);
-            beforeOriginal = await Town.db.findById(observer.crdt, town.id!);
+            beforeCity = await City.db.findById(observer.offlineSync, city.id!);
+            beforeOriginal = await Town.db.findById(observer.offlineSync, town.id!);
             await _merge(observer, defaultFacts);
-            visibleOriginal = await Town.db.findById(observer.crdt, town.id!);
-            visibleDefault = await Town.db.findById(observer.crdt, _defaultTownId);
-            visibleCompany = await Company.db.findById(observer.crdt, company.id!);
-            visibleCity = await City.db.findById(observer.crdt, city.id!);
+            visibleOriginal = await Town.db.findById(observer.offlineSync, town.id!);
+            visibleDefault = await Town.db.findById(
+              observer.offlineSync,
+              _defaultTownId,
+            );
+            visibleCompany = await Company.db.findById(
+              observer.offlineSync,
+              company.id!,
+            );
+            visibleCity = await City.db.findById(observer.offlineSync, city.id!);
             exportedFacts = await _collect(observer);
             final comparison = await _node();
             await _merge(comparison, [...childFacts, ...deleteFacts, ...defaultFacts]);
             comparisonFacts = await _collect(comparison);
-            comparisonOriginal = await Town.db.findById(comparison.crdt, town.id!);
-            comparisonDefault = await Town.db.findById(comparison.crdt, _defaultTownId);
-            comparisonCompany = await Company.db.findById(comparison.crdt, company.id!);
+            comparisonOriginal = await Town.db.findById(
+              comparison.offlineSync,
+              town.id!,
+            );
+            comparisonDefault = await Town.db.findById(
+              comparison.offlineSync,
+              _defaultTownId,
+            );
+            comparisonCompany = await Company.db.findById(
+              comparison.offlineSync,
+              company.id!,
+            );
           });
 
           test('then the city was visible before the default arrived.', () {
@@ -2615,12 +2936,12 @@ Future<SyncNode> _node() async => syncNode(
 Future<CrdtMergeSet> _collect(SyncNode node) => node.sync
     .collectPendingChanges(
       node.raw,
-      checkpointsByScopeUuid: {testCrdtUserId: const []},
+      checkpointsBySpaceUuid: {testCrdtUserId: const []},
     )
     .toList();
 
 Future<void> _merge(SyncNode node, CrdtMergeSet facts) =>
-    node.crdt.db.mergeChanges(facts, scopeId: testCrdtUserId);
+    node.offlineSync.db.mergeChanges(facts, spaceId: testCrdtUserId);
 
 // Compare full payloads, including HLCs, independently of collection order.
 // A row/column can appear at several HLCs in the supplied author histories;

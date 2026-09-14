@@ -17,14 +17,14 @@ abstract class UniqueDiscriminator
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   UniqueDiscriminator._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.categoryId,
     required this.name,
   });
 
   factory UniqueDiscriminator({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required int categoryId,
     required String name,
   }) = _UniqueDiscriminatorImpl;
@@ -34,7 +34,7 @@ abstract class UniqueDiscriminator
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       categoryId: jsonSerialization['categoryId'] as int,
       name: jsonSerialization['name'] as String,
     );
@@ -47,8 +47,8 @@ abstract class UniqueDiscriminator
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   int categoryId;
 
@@ -62,7 +62,7 @@ abstract class UniqueDiscriminator
   @_isc.useResult
   UniqueDiscriminator copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     int? categoryId,
     String? name,
   });
@@ -71,7 +71,7 @@ abstract class UniqueDiscriminator
     return {
       '__className__': 'UniqueDiscriminator',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'categoryId': categoryId,
       'name': name,
     };
@@ -82,7 +82,7 @@ abstract class UniqueDiscriminator
     return {
       '__className__': 'UniqueDiscriminator',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'categoryId': categoryId,
       'name': name,
     };
@@ -121,12 +121,12 @@ class _Undefined {}
 class _UniqueDiscriminatorImpl extends UniqueDiscriminator {
   _UniqueDiscriminatorImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required int categoryId,
     required String name,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          categoryId: categoryId,
          name: name,
        );
@@ -137,13 +137,13 @@ class _UniqueDiscriminatorImpl extends UniqueDiscriminator {
   @override
   UniqueDiscriminator copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     int? categoryId,
     String? name,
   }) {
     return UniqueDiscriminator(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       categoryId: categoryId ?? this.categoryId,
       name: name ?? this.name,
     );
@@ -154,8 +154,8 @@ class UniqueDiscriminatorUpdateTable
     extends _isd.UpdateTable<UniqueDiscriminatorTable> {
   UniqueDiscriminatorUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -174,8 +174,8 @@ class UniqueDiscriminatorTable extends _isd.Table<_isc.UuidValue?> {
   UniqueDiscriminatorTable({super.tableRelation})
     : super(tableName: 'unique_discriminator') {
     updateTable = UniqueDiscriminatorUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     categoryId = _isd.ColumnInt(
@@ -190,8 +190,8 @@ class UniqueDiscriminatorTable extends _isd.Table<_isc.UuidValue?> {
 
   late final UniqueDiscriminatorUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnInt categoryId;
 
@@ -200,7 +200,7 @@ class UniqueDiscriminatorTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     categoryId,
     name,
   ];

@@ -24,7 +24,7 @@ abstract class Person
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   Person._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.surname,
     this.address,
@@ -38,7 +38,7 @@ abstract class Person
 
   factory Person({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     String? surname,
     _ilb4pipw.Address? address,
@@ -55,7 +55,7 @@ abstract class Person
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       surname: jsonSerialization['surname'] as String?,
       address: jsonSerialization['address'] == null
@@ -101,8 +101,8 @@ abstract class Person
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -130,7 +130,7 @@ abstract class Person
   @_isc.useResult
   Person copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     String? surname,
     _ilb4pipw.Address? address,
@@ -146,7 +146,7 @@ abstract class Person
     return {
       '__className__': 'Person',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (surname != null) 'surname': surname,
       if (address != null) 'address': address?.toJson(),
@@ -164,7 +164,7 @@ abstract class Person
     return {
       '__className__': 'Person',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (surname != null) 'surname': surname,
       if (address != null) 'address': address?.toJsonForProtocol(),
@@ -221,7 +221,7 @@ class _Undefined {}
 class _PersonImpl extends Person {
   _PersonImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     String? surname,
     _ilb4pipw.Address? address,
@@ -233,7 +233,7 @@ class _PersonImpl extends Person {
     _ior3absd.City? city,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          surname: surname,
          address: address,
@@ -251,7 +251,7 @@ class _PersonImpl extends Person {
   @override
   Person copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? surname = _Undefined,
     Object? address = _Undefined,
@@ -264,7 +264,7 @@ class _PersonImpl extends Person {
   }) {
     return Person(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       surname: surname is String? ? surname : this.surname,
       address: address is _ilb4pipw.Address?
@@ -291,8 +291,8 @@ class _PersonImpl extends Person {
 class PersonUpdateTable extends _isd.UpdateTable<PersonTable> {
   PersonUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -331,8 +331,8 @@ class PersonUpdateTable extends _isd.UpdateTable<PersonTable> {
 class PersonTable extends _isd.Table<_isc.UuidValue?> {
   PersonTable({super.tableRelation}) : super(tableName: 'person') {
     updateTable = PersonUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -359,8 +359,8 @@ class PersonTable extends _isd.Table<_isc.UuidValue?> {
 
   late final PersonUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
@@ -435,7 +435,7 @@ class PersonTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     surname,
     organizationId,

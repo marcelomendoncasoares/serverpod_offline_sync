@@ -13,22 +13,22 @@
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// High-level category of a durable CRDT sync integrity violation.
-enum CrdtSyncViolationType implements _iss.SerializableModel {
+enum OfflineSyncViolationType implements _iss.SerializableModel {
   ownershipCollision,
   missingDomainRow,
   unauthorizedWrite;
 
-  static CrdtSyncViolationType fromJson(String name) {
+  static OfflineSyncViolationType fromJson(String name) {
     switch (name) {
       case 'ownershipCollision':
-        return CrdtSyncViolationType.ownershipCollision;
+        return OfflineSyncViolationType.ownershipCollision;
       case 'missingDomainRow':
-        return CrdtSyncViolationType.missingDomainRow;
+        return OfflineSyncViolationType.missingDomainRow;
       case 'unauthorizedWrite':
-        return CrdtSyncViolationType.unauthorizedWrite;
+        return OfflineSyncViolationType.unauthorizedWrite;
       default:
         throw ArgumentError(
-          'Value "$name" cannot be converted to "CrdtSyncViolationType"',
+          'Value "$name" cannot be converted to "OfflineSyncViolationType"',
         );
     }
   }

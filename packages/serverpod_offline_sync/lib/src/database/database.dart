@@ -7,45 +7,45 @@ import 'dart:async';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
-import '../crdt/exceptions.dart';
 import '../crdt/extensions.dart';
-import '../crdt/integrity_violation.dart';
 import '../crdt/merge.dart';
-import '../crdt/scope_membership.dart';
-import '../crdt/sync.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
+import '../spaces/membership.dart';
+import '../sync/engine.dart';
+import '../sync/exceptions.dart';
+import '../sync/integrity_violation.dart';
 import 'merge_utils/database_helpers.dart';
 import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
 
-part 'scope.dart';
+part 'space.dart';
 
-/// Map of transaction hashes to the scope they are associated with.
-final scopeForTransaction = <Transaction, CrdtScope>{};
+/// Map of transaction hashes to the space they are associated with.
+final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
 
 /// Map of transaction hashes to the authenticated user associated with them.
 final userForTransaction = <Transaction, UuidValue>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
-class CrdtDatabase implements Database {
+class OfflineSyncDatabase implements Database {
   /// Creates a CRDT-aware database wrapper around the inner database.
-  CrdtDatabase(
+  OfflineSyncDatabase(
     Database delegate, {
 
     /// The list of tables to sync with CRDT.
     required List<Table> syncTables,
 
     /// Shared CRDT database metadata.
-    CrdtDatabaseContext? context,
+    OfflineSyncDatabaseContext? context,
 
     /// Maximum number of merge changes sent in one sync stream message.
-    int syncBatchSize = CrdtSync.defaultSyncBatchSize,
+    int syncBatchSize = OfflineSyncEngine.defaultSyncBatchSize,
 
     /// Delay between continuous sync rounds.
-    Duration continuousSyncInterval = CrdtSync.defaultContinuousSyncInterval,
+    Duration continuousSyncInterval = OfflineSyncEngine.defaultContinuousSyncInterval,
 
     /// The user ID to use for all CRDT operations. This should only be used for
     /// databases operating on the client side, where all data is for the same user.
@@ -54,7 +54,7 @@ class CrdtDatabase implements Database {
   }) : this._(
          delegate,
          context ??
-             CrdtDatabaseContext(
+             OfflineSyncDatabaseContext(
                syncTables: syncTables,
                serializationManager: delegate.serializationManager,
              ),
@@ -64,7 +64,7 @@ class CrdtDatabase implements Database {
          persistentUserId: persistentUserId,
        );
 
-  CrdtDatabase._(
+  OfflineSyncDatabase._(
     this._delegate,
     this._context, {
     required this._syncTables,
@@ -78,14 +78,14 @@ class CrdtDatabase implements Database {
        );
 
   final Database _delegate;
-  final CrdtDatabaseContext _context;
+  final OfflineSyncDatabaseContext _context;
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
 
   final CrdtMutationRecorder _recorder;
 
-  late final _sync = CrdtSync(
+  late final _sync = OfflineSyncEngine(
     syncTables: _syncTables,
     serializationManager: serializationManager,
     syncBatchSize: _syncBatchSize,
@@ -109,17 +109,17 @@ class CrdtDatabase implements Database {
   Future<UuidValue> currentNodeId({UuidValue? userId}) async {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
-    final user = await _recorder.getOrCreateScope(effectiveUserId);
+    final user = await _recorder.getOrCreateSpace(effectiveUserId);
     return user.currentNode!.uuidNodeId;
   }
 
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
-  Stream<CrdtSyncStreamEvent> sync({
-    required Stream<CrdtSyncStreamEvent> inbound,
-    required CrdtSyncPeerMode mode,
+  Stream<OfflineSyncStreamEvent> sync({
+    required Stream<OfflineSyncStreamEvent> inbound,
+    required OfflineSyncPeerMode mode,
     UuidValue? userId,
     bool once = false,
-    CrdtSyncOnMergeSuccess? onMergeSuccess,
+    OfflineSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
@@ -148,35 +148,35 @@ class CrdtDatabase implements Database {
     );
   }
 
-  /// Merges remote CRDT changes into the local database for the given scope.
+  /// Merges remote CRDT changes into the local database for the given space.
   ///
-  /// When [scopeId] is omitted, this uses the recorder's persistent user id.
-  /// The merge locks the current scope's CRDT tables and executes atomically
+  /// When [spaceId] is omitted, this uses the recorder's persistent user id.
+  /// The merge locks the current space's CRDT tables and executes atomically
   /// inside [transactionForUser].
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
-    UuidValue? scopeId,
+    UuidValue? spaceId,
   }) async {
     if (mergeSet.isEmpty) return;
     await _ensureInitialized();
 
-    final effectiveScopeId =
-        scopeId ??
+    final effectiveSpaceId =
+        spaceId ??
         _recorder.persistentUserId ??
         (throw StateError(
-          'A scope ID is required when merging changes without a persistent user.',
+          'A space ID is required when merging changes without a persistent user.',
         ));
     try {
-      await transactionForUser<void>(effectiveScopeId, (tx) async {
+      await transactionForUser<void>(effectiveSpaceId, (tx) async {
         await _recorder.lockCurrentUser(tx);
         await _recorder.mergeChanges(mergeSet, tx);
       });
-    } on CrdtSyncIntegrityViolationException catch (exception) {
-      final persistedViolation = await recordCrdtSyncIntegrityViolation(
+    } on OfflineSyncIntegrityViolationException catch (exception) {
+      final persistedViolation = await recordOfflineSyncIntegrityViolation(
         _delegate.session,
         violation: exception.violation,
       );
-      throw CrdtSyncIntegrityViolationException(persistedViolation);
+      throw OfflineSyncIntegrityViolationException(persistedViolation);
     }
   }
 
@@ -194,7 +194,7 @@ class CrdtDatabase implements Database {
   /// tables and the user associated with [transaction] (or the persistent user).
   ///
   /// Read filters are membership-wide. Write filters stay pinned to the acting
-  /// scope so mutations cannot cross scope boundaries.
+  /// space so mutations cannot cross space boundaries.
   Future<Expression?> _whereVisibleWithTombstone<T extends TableRow>(
     Expression? where,
     Include? include,
@@ -203,7 +203,7 @@ class CrdtDatabase implements Database {
   }) async {
     if (include == null && !_recorder.isCrdtTracked<T>()) return where;
 
-    final scopeIds = await _scopeIdsForQueries(
+    final spaceIds = await _spaceIdsForQueries(
       transaction,
       membershipWide: membershipWide,
     );
@@ -212,7 +212,7 @@ class CrdtDatabase implements Database {
       where,
       include,
       tableIdForName: _recorder.tableIdForName,
-      scopeIds: () => scopeIds,
+      spaceIds: () => spaceIds,
     );
   }
 
@@ -246,7 +246,7 @@ class CrdtDatabase implements Database {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
-    return _stripScopeIdFromScopedRead(result, include, transaction);
+    return _stripSpaceIdFromSpaceScopedRead(result, include, transaction);
   }
 
   @override
@@ -273,7 +273,7 @@ class CrdtDatabase implements Database {
       lockBehavior: lockBehavior,
     );
     if (result == null) return null;
-    return _stripScopeIdFromScopedRead([result], include, transaction).single;
+    return _stripSpaceIdFromSpaceScopedRead([result], include, transaction).single;
   }
 
   @override
@@ -305,7 +305,7 @@ class CrdtDatabase implements Database {
       lockBehavior: lockBehavior,
     );
     if (result == null) return null;
-    return _stripScopeIdFromScopedRead([result], include, transaction).single;
+    return _stripSpaceIdFromSpaceScopedRead([result], include, transaction).single;
   }
 
   @override
@@ -482,7 +482,7 @@ class CrdtDatabase implements Database {
         for (final row in reinsertedRows) {
           final rowId = row.id;
           if (rowId == null || !prepared.explicitRowIds.contains(rowId)) {
-            _stripScopeId(row);
+            _stripSpaceId(row);
           }
         }
         return [...result, ...reinsertedRows];
@@ -566,11 +566,11 @@ class CrdtDatabase implements Database {
     if (rowIds.isEmpty) return [];
 
     final tableId = _recorder.tableIdForName(rows.first.table.tableName)!;
-    final scopeId = _requireEffectiveScope(transaction).id!;
+    final spaceId = _requireEffectiveSpace(transaction).id!;
     final crdtRows = await CrdtDataRow.db.find(
       _delegate.session,
       where: (t) =>
-          t.scopeId.equals(scopeId) &
+          t.spaceId.equals(spaceId) &
           t.tblId.equals(tableId) &
           t.uuidRowId.inSet(rowIds),
       transaction: transaction,
@@ -633,7 +633,7 @@ class CrdtDatabase implements Database {
           for (final row in plannedUpdates.rows)
             await _updateRowWithoutRecording(
               row,
-              stripScopeId: _shouldStripReturnedScopeId(row, tx),
+              stripSpaceId: _shouldStripReturnedSpaceId(row, tx),
               transaction: tx,
               columns: columns,
             ),
@@ -662,10 +662,10 @@ class CrdtDatabase implements Database {
       transaction,
       (tx) async {
         final plannedUpdates = await _recorder.planLocalUpdates([row], columns, tx);
-        final stripScopeId = _shouldStripReturnedScopeId(row, tx);
+        final stripSpaceId = _shouldStripReturnedSpaceId(row, tx);
         final updatedRow = await _updateRowWithoutRecording(
           plannedUpdates.rows.single,
-          stripScopeId: stripScopeId,
+          stripSpaceId: stripSpaceId,
           transaction: tx,
           columns: columns,
         );
@@ -684,7 +684,7 @@ class CrdtDatabase implements Database {
   Future<T> _updateRowWithoutRecording<T extends TableRow>(
     T row, {
     required Transaction transaction,
-    required bool stripScopeId,
+    required bool stripSpaceId,
     List<Column>? columns,
   }) async {
     final values = row.toJsonForDatabase() as Map<String, dynamic>;
@@ -711,7 +711,7 @@ class CrdtDatabase implements Database {
     }
 
     final updatedRow = updatedRows.single;
-    if (stripScopeId) _stripScopeId(updatedRow);
+    if (stripSpaceId) _stripSpaceId(updatedRow);
     return updatedRow;
   }
 
@@ -761,7 +761,7 @@ class CrdtDatabase implements Database {
       );
     }
 
-    _assertNoScopeIdColumnValues<T>(columnValues);
+    _assertNoSpaceIdColumnValues<T>(columnValues);
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
@@ -784,7 +784,7 @@ class CrdtDatabase implements Database {
         final columns = columnValues.map((e) => e.column).toList();
         await _recorder.afterUpdate(result, columns, tx);
         if (noReturn) return <T>[];
-        result.forEach(_stripScopeId);
+        result.forEach(_stripSpaceId);
         return result;
       },
     );
@@ -870,7 +870,7 @@ class CrdtDatabase implements Database {
 
         await _recorder.insteadOfDelete<T>(rows, tx);
         if (noReturn) return <T>[];
-        return _stripScopeIdFromScopedRead(rows, null, tx);
+        return _stripSpaceIdFromSpaceScopedRead(rows, null, tx);
       },
     );
   }
@@ -933,30 +933,30 @@ class CrdtDatabase implements Database {
 
   /// Executes the [transactionFunction] in a transaction with the provided [userId].
   ///
-  /// Without [scopeId], writes act in the user's personal scope. With [scopeId],
-  /// [userId] stays the authenticated identity and [scopeId] is the scope being
+  /// Without [spaceId], writes act in the user's personal space. With [spaceId],
+  /// [userId] stays the authenticated identity and [spaceId] is the space being
   /// acted in; the pair is checked before the transaction starts.
   Future<R> transactionForUser<R>(
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
-    UuidValue? scopeId,
+    UuidValue? spaceId,
     TransactionSettings? settings,
   }) async {
     await _ensureInitialized();
-    final effectiveScopeId = scopeId ?? userId;
-    await _assertCanActInScope(userId, effectiveScopeId);
+    final effectiveSpaceId = spaceId ?? userId;
+    await _assertCanActInSpace(userId, effectiveSpaceId);
 
-    // Ensure that the scope exists with a node before starting the transaction.
-    final scope = await _recorder.getOrCreateScope(effectiveScopeId);
+    // Ensure that the space exists with a node before starting the transaction.
+    final space = await _recorder.getOrCreateSpace(effectiveSpaceId);
 
     return transaction<R>(
       (tx) async {
         try {
-          scopeForTransaction[tx] = scope;
+          spaceForTransaction[tx] = space;
           userForTransaction[tx] = userId;
           return await transactionFunction(tx);
         } finally {
-          scopeForTransaction.remove(tx);
+          spaceForTransaction.remove(tx);
           userForTransaction.remove(tx);
         }
       },
@@ -964,32 +964,32 @@ class CrdtDatabase implements Database {
     );
   }
 
-  Future<void> _assertCanActInScope(UuidValue userId, UuidValue scopeId) async {
-    if (userId == scopeId) return;
+  Future<void> _assertCanActInSpace(UuidValue userId, UuidValue spaceId) async {
+    if (userId == spaceId) return;
 
     // Authoritative membership: the source of truth on the server, the
     // read-only cache on a follower (empty until populated). A null role means
     // no membership row at all; a non-writable role means membership without
     // write access.
-    final role = await CrdtScopeMembership.roleOf(
+    final role = await OfflineSyncSpaceMembership.roleOf(
       _delegate.session,
       userUuid: userId,
-      scopeUuid: scopeId,
+      spaceUuid: spaceId,
     );
     if (role == null) {
-      throw CrdtScopeMembershipException(userId: userId, scopeId: scopeId);
+      throw OfflineSyncSpaceMembershipException(userId: userId, spaceId: spaceId);
     }
     if (!role.canWrite) {
-      throw CrdtScopeRoleException(userId: userId, scopeId: scopeId, role: role);
+      throw OfflineSyncSpaceRoleException(userId: userId, spaceId: spaceId, role: role);
     }
   }
 
-  Future<List<int>?> _scopeIdsForQueries(
+  Future<List<int>?> _spaceIdsForQueries(
     Transaction? transaction, {
     required bool membershipWide,
   }) async {
     if (!membershipWide) {
-      return _actingScopeIdsForQueries(transaction);
+      return _actingSpaceIdsForQueries(transaction);
     }
 
     final userId = _userIdForQueries(transaction);
@@ -997,28 +997,28 @@ class CrdtDatabase implements Database {
 
     // On the server this is authoritative membership; on a persistent client it
     // is the server-projected membership cache.
-    final scopeGroups = await Future.wait<List<CrdtScope>>([
-      CrdtScope.db.find(
+    final spaceGroups = await Future.wait<List<OfflineSyncSpace>>([
+      OfflineSyncSpace.db.find(
         _delegate.session,
-        where: (t) => t.uuidScopeId.equals(userId),
+        where: (t) => t.uuidSpaceId.equals(userId),
       ),
-      CrdtScopeMember.db
+      OfflineSyncSpaceMember.db
           .find(
             _delegate.session,
             where: (t) => t.userUuid.equals(userId),
-            include: CrdtScopeMember.include(scope: CrdtScope.include()),
+            include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
           )
-          .then((memberships) => [for (final member in memberships) member.scope!]),
+          .then((memberships) => [for (final member in memberships) member.space!]),
     ]);
     return {
-      for (final scopes in scopeGroups)
-        for (final scope in scopes) scope.id!,
+      for (final spaces in spaceGroups)
+        for (final space in spaces) space.id!,
     }.toList();
   }
 
-  List<int>? _actingScopeIdsForQueries(Transaction? transaction) {
-    final scopeId = _recorder.scopeForQueries(transaction)?.id;
-    return scopeId == null ? null : [scopeId];
+  List<int>? _actingSpaceIdsForQueries(Transaction? transaction) {
+    final spaceId = _recorder.spaceForQueries(transaction)?.id;
+    return spaceId == null ? null : [spaceId];
   }
 
   UuidValue? _userIdForQueries(Transaction? transaction) {

@@ -11,26 +11,26 @@
 
 part of 'stream_event.dart';
 
-/// Session handshake sent once by each peer before any scope work.
+/// Session handshake sent once by each peer before any space work.
 ///
 /// [localNodeId] is this peer's persistent CRDT replica identity, shared
-/// across all scopes. It is announced once on connect rather than per scope.
+/// across all spaces. It is announced once on connect rather than per space.
 /// [syncTablesHash] is the deterministic schema hash both sides must agree on
 /// before merging data.
-abstract class CrdtSyncConnect extends _icw2tu00.CrdtSyncStreamEvent
+abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncConnect._({
+  OfflineSyncConnect._({
     required this.localNodeId,
     required this.syncTablesHash,
   });
 
-  factory CrdtSyncConnect({
+  factory OfflineSyncConnect({
     required _iss.UuidValue localNodeId,
     required String syncTablesHash,
-  }) = _CrdtSyncConnectImpl;
+  }) = _OfflineSyncConnectImpl;
 
-  factory CrdtSyncConnect.fromJson(Map<String, dynamic> jsonSerialization) {
-    return CrdtSyncConnect(
+  factory OfflineSyncConnect.fromJson(Map<String, dynamic> jsonSerialization) {
+    return OfflineSyncConnect(
       localNodeId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['localNodeId'],
       ),
@@ -44,18 +44,18 @@ abstract class CrdtSyncConnect extends _icw2tu00.CrdtSyncStreamEvent
   /// The hash of the synchronized schema configured on this peer.
   String syncTablesHash;
 
-  /// Returns a shallow copy of this [CrdtSyncConnect]
+  /// Returns a shallow copy of this [OfflineSyncConnect]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  CrdtSyncConnect copyWith({
+  OfflineSyncConnect copyWith({
     _iss.UuidValue? localNodeId,
     String? syncTablesHash,
   });
   @override
   Map<String, dynamic> toJson() {
     return {
-      '__className__': 'serverpod_offline_sync.CrdtSyncConnect',
+      '__className__': 'serverpod_offline_sync.OfflineSyncConnect',
       'localNodeId': localNodeId.toJson(),
       'syncTablesHash': syncTablesHash,
     };
@@ -64,7 +64,7 @@ abstract class CrdtSyncConnect extends _icw2tu00.CrdtSyncStreamEvent
   @override
   Map<String, dynamic> toJsonForProtocol() {
     return {
-      '__className__': 'serverpod_offline_sync.CrdtSyncConnect',
+      '__className__': 'serverpod_offline_sync.OfflineSyncConnect',
       'localNodeId': localNodeId.toJson(),
       'syncTablesHash': syncTablesHash,
     };
@@ -76,8 +76,8 @@ abstract class CrdtSyncConnect extends _icw2tu00.CrdtSyncStreamEvent
   }
 }
 
-class _CrdtSyncConnectImpl extends CrdtSyncConnect {
-  _CrdtSyncConnectImpl({
+class _OfflineSyncConnectImpl extends OfflineSyncConnect {
+  _OfflineSyncConnectImpl({
     required _iss.UuidValue localNodeId,
     required String syncTablesHash,
   }) : super._(
@@ -85,15 +85,15 @@ class _CrdtSyncConnectImpl extends CrdtSyncConnect {
          syncTablesHash: syncTablesHash,
        );
 
-  /// Returns a shallow copy of this [CrdtSyncConnect]
+  /// Returns a shallow copy of this [OfflineSyncConnect]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  CrdtSyncConnect copyWith({
+  OfflineSyncConnect copyWith({
     _iss.UuidValue? localNodeId,
     String? syncTablesHash,
   }) {
-    return CrdtSyncConnect(
+    return OfflineSyncConnect(
       localNodeId: localNodeId ?? this.localNodeId,
       syncTablesHash: syncTablesHash ?? this.syncTablesHash,
     );

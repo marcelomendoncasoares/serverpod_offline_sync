@@ -38,10 +38,10 @@ The three steps below contain all required changes on a project to use the packa
 3. Wire the sync call on the client.
     ```dart
     // Push local changes and merge remote ones once (i.e. pull-to-refresh).
-    await client.crdt.syncOnce(session);
+    await client.offlineSync.syncOnce(session);
 
     // Or stream changes both ways until cancelled for a near-real-time sync.
-    final syncSession = client.crdt.syncContinuously(session);
+    final syncSession = client.offlineSync.syncContinuously(session);
     ```
 
 After this setup, the app can be developed using normal repository calls against the `session` instance.
@@ -50,7 +50,7 @@ The sync engine is a **black box that "just works"**: changes are tracked atomic
 
 Understanding the behavior is also straightforward: conflict resolution respects unique and relational constraints, mirroring what would be expected if the merged data existed in a single database at the time of each operation.
 
-Finally, the data is isolated per scope: each user has their own implicit personal scope, and can be a member of any number of shared scopes - with read-only or read-write access. On the server, database operations need to be wrapped in a special `session.db.transactionForUser` method to target the correct scope. On the client, it is possible to set a `persistentUserId` to target the personal scope by default, or use the `transactionForUser` to target a shared scope.
+Finally, the data is isolated per space: each user has their own implicit personal space, and can be a member of any number of shared spaces - with read-only or read-write access. On the server, database operations need to be wrapped in a special `session.db.transactionForUser` method to target the correct space. On the client, it is possible to set a `persistentUserId` to target the personal space by default, or use the `transactionForUser` to target a shared space.
 
 #### Data modeling limitations
 
@@ -58,12 +58,12 @@ Due to the nature of merge conflicts, the package imposes some limitations on th
 
 - Every synced table must:
   - Have a UUID primary key.
-  - Declare the field `scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)`.
-- Unique indexes must include `scopeId` together with the target columns.
+  - Declare the field `spaceId: int?, relation(parent=offline_sync_spaces, onDelete=Cascade)`.
+- Unique indexes must include `spaceId` together with the target columns.
 - Global unique indexes are unsupported, except for FK-only indexes.
 - Unique indexes are only supported with at least one `String`/`UuidValue`/nullable column.
 - All 1:1 relations must have the foreign-key column nullable (`optional` relation).
-- The only allowed non-synced-to-synced relation is `scopeId -> crdt_scopes.id`.
+- The only allowed non-synced-to-synced relation is `spaceId -> offline_sync_spaces.id`.
 - Foreign-key relations that foreign-key projection cannot repair — non-nullable columns and composite relations — must be `deferred`.
 - `onDelete=Restrict` is unsupported on synced tables; use `onDelete=NoAction`.
 
@@ -103,9 +103,9 @@ Below is one of the last performance reports of the package (available at each p
   Delay per delete: 408.75 μs
 ```
 ```
-🔭 SELECT scope impact (100 extra users, 100,000 CRDT noise rows):
-  find all (1,000 rows): 9.91 ms --> 10.91 ms scoped (+10.07%) / 11.19 ms unscoped (+12.96%)
-  findById (per lookup): 295.04 μs --> 375.24 μs scoped (+27.19%) / 348.88 μs unscoped (+18.25%)
+🔭 SELECT space impact (100 extra users, 100,000 CRDT noise rows):
+  find all (1,000 rows): 9.91 ms --> 10.91 ms space-scoped (+10.07%) / 11.19 ms unscoped (+12.96%)
+  findById (per lookup): 295.04 μs --> 375.24 μs space-scoped (+27.19%) / 348.88 μs unscoped (+18.25%)
 ```
 ```
 💽 Storage impact (base footprint removed):
@@ -139,9 +139,9 @@ A report similar to the one above is generated per pull request as a comment on 
 
 **Visibility as a pure function.** Replicas never coordinate. Each merge applies remote facts monotonically, then derives the visible database — tombstone state, unique-conflict winners, and foreign-key repair — as a deterministic projection computed to a fixed point. This is the architecture introduced by *Synql* (Ignat et al., DAIS 2024), extended here to the full set of `ON DELETE` actions and to unique constraints over deeply relational schemas.
 
-**Ownership & scopes.** A *scope* is the unit of replication and ownership; a *user* is an authentication identity. Each row is globally identified by `(table, rowId)` and owned by exactly one scope (`scopeId`), so merging is always one chain per row. Sharing is a membership layer in front of scopes, not a change to row ownership. Scopes can be purged for GDPR / account erasure via a database-enforced cascade. Ownership collisions (the same `(table, rowId)` claimed by two scopes, which is mostly a malicious attack vector) fail the sync and are recorded in a durable `crdt_sync_integrity_violations` table.
+**Ownership & spaces.** A *space* is the unit of replication and ownership; a *user* is an authentication identity. Each row is globally identified by `(table, rowId)` and owned by exactly one space (`spaceId`), so merging is always one chain per row. Sharing is a membership layer in front of spaces, not a change to row ownership. Spaces can be purged for GDPR / account erasure via a database-enforced cascade. Ownership collisions (the same `(table, rowId)` claimed by two spaces, which is mostly a malicious attack vector) fail the sync and are recorded in a durable `offline_sync_integrity_violations` table.
 
-**Sync protocol.** A session handshakes once to validate both ends have the same table schema and ensure that a merge will reach the same result. Then, per cycle the server sends the authoritative scope set and all scopes that the user has access to are synced (data is transferred all at once, but merged one at a time). The data is transferred in chunks to avoid pressuring the bandwidth with too many small messages. This same stream-based implementation is used for both "one-shot" and "continuous" sync modes, so a one-shot sync with large amounts of data will be as performant as a continuous sync. It also means that all tests hold for both sync modes with minimal duplication.
+**Sync protocol.** A session handshakes once to validate both ends have the same table schema and ensure that a merge will reach the same result. Then, per cycle the server sends the authoritative space set and all spaces that the user has access to are synced (data is transferred all at once, but merged one at a time). The data is transferred in chunks to avoid pressuring the bandwidth with too many small messages. This same stream-based implementation is used for both "one-shot" and "continuous" sync modes, so a one-shot sync with large amounts of data will be as performant as a continuous sync. It also means that all tests hold for both sync modes with minimal duplication.
 
 ## Testing
 
@@ -153,13 +153,13 @@ The package is functionally in a production-ready state, but some APIs need to i
 
 ### Technical debts
 
-- **Rename the `scope` name for data isolation to `space`**. This is a small refactor to avoid confusion with the `scope` keyword used in the Serverpod Auth modules. Using `space` is also clearer for usage on an application level.
+- **Rename the `space` name for data isolation to `space`**. This is a small refactor to avoid confusion with the `space` keyword used in the Serverpod Auth modules. Using `space` is also clearer for usage on an application level.
 
 ### Post-integration UX improvements
 
 The package already requires minimal configuration from the developer, but it can be even smoother if the `serverpod_cli` is made aware of the offline sync capabilities.
 
-- **Add a fourth `sync` option for the `database` keyword to be used on models**. Models that use it will automatically receive the `scopeId` relation and be included in a generated list of synced tables on the server and client. This feature will enable all improvements below.
+- **Add a fourth `sync` option for the `database` keyword to be used on models**. Models that use it will automatically receive the `spaceId` relation and be included in a generated list of synced tables on the server and client. This feature will enable all improvements below.
 - **Simplify the `Serverpod` initialization by generating the class**. This is mapped on Serverpod's issue #4544 and will allow the CRDT database interceptor to be injected on the `Serverpod` constructor without the user having to call it manually whenever a `sync` model exists.
 - **Move the restrictions that are runtime-enforced to a static analysis step**. The package enforces the limitations of the CRDT layer at runtime (during the initialization), but a better UX would be to apply the restrictions to `sync` models during static analysis of `generate`.
 - **Inject the `serverpod_offline_sync` packages on the `pubspec.yaml` file**. This would remove the last manual step from the developer to make the solution work. Otherwise, the user will have to manually add the dependencies to their `pubspec.yaml` to generate the project.

@@ -21,7 +21,7 @@ abstract class Town
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Town._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.cityId,
     this.city,
@@ -31,7 +31,7 @@ abstract class Town
 
   factory Town({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? cityId,
     _ior3absd.City? city,
@@ -44,7 +44,7 @@ abstract class Town
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       cityId: jsonSerialization['cityId'] == null
           ? null
@@ -72,8 +72,8 @@ abstract class Town
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -93,7 +93,7 @@ abstract class Town
   @_is.useResult
   Town copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? cityId,
     _ior3absd.City? city,
@@ -105,7 +105,7 @@ abstract class Town
     return {
       '__className__': 'Town',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (cityId != null) 'cityId': cityId?.toJson(),
       if (city != null) 'city': city?.toJson(),
@@ -119,7 +119,7 @@ abstract class Town
     return {
       '__className__': 'Town',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (cityId != null) 'cityId': cityId?.toJson(),
       if (city != null) 'city': city?.toJsonForProtocol(),
@@ -167,7 +167,7 @@ class _Undefined {}
 class _TownImpl extends Town {
   _TownImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? cityId,
     _ior3absd.City? city,
@@ -175,7 +175,7 @@ class _TownImpl extends Town {
     _iensfz4m.Person? mayor,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          cityId: cityId,
          city: city,
@@ -189,7 +189,7 @@ class _TownImpl extends Town {
   @override
   Town copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? cityId = _Undefined,
     Object? city = _Undefined,
@@ -198,7 +198,7 @@ class _TownImpl extends Town {
   }) {
     return Town(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       cityId: cityId is _is.UuidValue? ? cityId : this.cityId,
       city: city is _ior3absd.City? ? city : this.city?.copyWith(),
@@ -211,8 +211,8 @@ class _TownImpl extends Town {
 class TownUpdateTable extends _is.UpdateTable<TownTable> {
   TownUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -237,8 +237,8 @@ class TownUpdateTable extends _is.UpdateTable<TownTable> {
 class TownTable extends _is.Table<_is.UuidValue?> {
   TownTable({super.tableRelation}) : super(tableName: 'town') {
     updateTable = TownUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -257,8 +257,8 @@ class TownTable extends _is.Table<_is.UuidValue?> {
 
   late final TownUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -299,7 +299,7 @@ class TownTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     cityId,
     mayorId,

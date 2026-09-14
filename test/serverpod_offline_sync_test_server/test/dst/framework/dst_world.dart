@@ -20,61 +20,61 @@ final dstSyncTables = testSyncTables;
 /// The well-known `company.townId` default from `company.spy.yaml`.
 ///
 /// Set-default repair rewrites a company onto this town. Row ids are globally
-/// unique, so the simulation inserts this town in a single scope; other scopes
+/// unique, so the simulation inserts this town in a single space; other spaces
 /// exercise the path where the default target is missing.
 const dstDefaultTownId = UuidValue.raw('550e8400-e29b-41d4-a716-446655440000');
 
 /// One replica in the simulation: an isolated database with its own node
-/// identity, clock skew, and set of scopes the adversary delivers to it.
+/// identity, clock skew, and set of spaces the adversary delivers to it.
 class DstReplica {
   DstReplica._({
     required this.name,
     required this.rawSession,
     required this.session,
     required this.sync,
-    required this.scopeUuids,
+    required this.spaceUuids,
     required this.nodeUuid,
     required this.clock,
   });
 
   /// Builds a replica on its own SQLite file.
   ///
-  /// [scopeUuids] is the set of scopes this replica participates in. At this
-  /// tier "participates in" is a harness concept - it decides which scopes the
+  /// [spaceUuids] is the set of spaces this replica participates in. At this
+  /// tier "participates in" is a harness concept - it decides which spaces the
   /// adversary collects from and delivers to - which is exactly the subscription
   /// set the observer-independence property varies.
   ///
-  /// [nodeUuid] is seeded rather than left to the engine. `CrdtScopeManager`
+  /// [nodeUuid] is seeded rather than left to the engine. `OfflineSyncSpaceManager`
   /// mints `CrdtNode()` without an explicit id, which falls back to a
   /// wall-clock v7 UUID, and `Hlc.compareTo` breaks ties on the node UUID - so
   /// leaving it to the engine would make concurrent merge winners
   /// nondeterministic and seeds would not replay.
   static Future<DstReplica> create({
     required String name,
-    required List<UuidValue> scopeUuids,
+    required List<UuidValue> spaceUuids,
     required UuidValue nodeUuid,
     required Clock clock,
   }) async {
     final rawSession = await createAdditionalTestSession();
-    final session = CrdtDatabaseSession.wraps(
+    final session = OfflineSyncDatabaseSession.wraps(
       rawSession,
       syncTables: dstSyncTables,
     );
     await session.db.initialize();
 
     // Seed the replica identity before the engine can mint one. The manager
-    // adopts the current node of the first scope that already has one
-    // (`CrdtScopeManager._getOrCreateCurrentNode`), so pre-creating the node
-    // and attaching it to every scope keeps one stable identity per replica -
+    // adopts the current node of the first space that already has one
+    // (`OfflineSyncSpaceManager._getOrCreateCurrentNode`), so pre-creating the node
+    // and attaching it to every space keeps one stable identity per replica -
     // which is the engine's own model of a node.
     final node = await CrdtNode.db.insertRow(
       rawSession,
       CrdtNode(uuidNodeId: nodeUuid),
     );
-    for (final scopeUuid in scopeUuids) {
-      await CrdtScope.db.insertRow(
+    for (final spaceUuid in spaceUuids) {
+      await OfflineSyncSpace.db.insertRow(
         rawSession,
-        CrdtScope(uuidScopeId: scopeUuid, currentNodeId: node.id),
+        OfflineSyncSpace(uuidSpaceId: spaceUuid, currentNodeId: node.id),
       );
     }
 
@@ -82,20 +82,20 @@ class DstReplica {
       name: name,
       rawSession: rawSession,
       session: session,
-      sync: CrdtSync(
+      sync: OfflineSyncEngine(
         syncTables: dstSyncTables,
         serializationManager: rawSession.db.serializationManager,
       ),
-      scopeUuids: scopeUuids,
+      spaceUuids: spaceUuids,
       nodeUuid: nodeUuid,
       clock: clock,
     );
 
-    // Materialize scope state through the engine so collection has a scope to
+    // Materialize space state through the engine so collection has a space to
     // key by before the replica has authored anything into it.
     await withClock(clock, () async {
-      for (final scopeUuid in scopeUuids) {
-        await session.db.transactionForUser(scopeUuid, (_) async {});
+      for (final spaceUuid in spaceUuids) {
+        await session.db.transactionForUser(spaceUuid, (_) async {});
       }
     });
     await replica._assertSeededNodeIdentity();
@@ -103,15 +103,15 @@ class DstReplica {
     return replica;
   }
 
-  /// Inserts [dstDefaultTownId] into [scopeUuid] so set-default repair has a
-  /// legal target in that scope.
+  /// Inserts [dstDefaultTownId] into [spaceUuid] so set-default repair has a
+  /// legal target in that space.
   ///
-  /// Call this once, for one replica and one scope. A second insert of the
+  /// Call this once, for one replica and one space. A second insert of the
   /// same id is an ownership collision, not a second default town.
-  Future<void> seedDefaultTown(UuidValue scopeUuid) {
+  Future<void> seedDefaultTown(UuidValue spaceUuid) {
     return withReplicaClock(
       () => session.db.transactionForUser(
-        scopeUuid,
+        spaceUuid,
         (tx) => Town.db.insertRow(
           session,
           Town(id: dstDefaultTownId, name: 'default-town'),
@@ -128,13 +128,13 @@ class DstReplica {
   final DatabaseSession rawSession;
 
   /// The CRDT-wrapped session the simulation writes and reads through.
-  final CrdtDatabaseSession session;
+  final OfflineSyncDatabaseSession session;
 
   /// This replica's sync engine, used to collect outbound changes.
-  final CrdtSync sync;
+  final OfflineSyncEngine sync;
 
-  /// The scopes the adversary exchanges for this replica.
-  final List<UuidValue> scopeUuids;
+  /// The spaces the adversary exchanges for this replica.
+  final List<UuidValue> spaceUuids;
 
   /// This replica's seeded node identity. Breaks HLC ties, so it is pinned.
   final UuidValue nodeUuid;
@@ -147,7 +147,7 @@ class DstReplica {
 
   /// Fails loudly if the engine did not adopt the seeded node identity.
   ///
-  /// Seeding relies on how `CrdtScopeManager` resolves a current node, which is
+  /// Seeding relies on how `OfflineSyncSpaceManager` resolves a current node, which is
   /// an internal detail. If that strategy changes, the simulation would
   /// silently lose determinism and seeds would stop replaying; this turns that
   /// into an immediate, explanatory failure instead.
@@ -157,34 +157,34 @@ class DstReplica {
     if (adopted.length == 1 && adopted.single == nodeUuid) return;
     throw StateError(
       'Replica $name did not adopt its seeded node identity $nodeUuid '
-      '(found $adopted). CrdtScopeManager likely changed how it resolves the '
+      '(found $adopted). OfflineSyncSpaceManager likely changed how it resolves the '
       'current node, so the simulation can no longer pin node identity and '
       'seeds will not replay. Give the engine an injectable node id instead.',
     );
   }
 
-  /// Collects every change this replica holds for [scopeUuid].
+  /// Collects every change this replica holds for [spaceUuid].
   ///
   /// The harness deliberately collects the full history rather than tracking
   /// per-peer checkpoints. Redelivery is a merge the engine must absorb
   /// idempotently, so letting the adversary resend is a property under test
   /// rather than a defect in the harness.
-  Future<CrdtMergeSet> collect(UuidValue scopeUuid) async {
+  Future<CrdtMergeSet> collect(UuidValue spaceUuid) async {
     return withReplicaClock(
       () => sync
           .collectPendingChanges(
             rawSession,
-            checkpointsByScopeUuid: {scopeUuid: const []},
+            checkpointsBySpaceUuid: {spaceUuid: const []},
           )
           .toList(),
     );
   }
 
-  /// Merges [changes] for [scopeUuid] into this replica.
-  Future<void> merge(CrdtMergeSet changes, UuidValue scopeUuid) async {
+  /// Merges [changes] for [spaceUuid] into this replica.
+  Future<void> merge(CrdtMergeSet changes, UuidValue spaceUuid) async {
     if (changes.isEmpty) return;
     await withReplicaClock(
-      () => session.db.mergeChanges(changes, scopeId: scopeUuid),
+      () => session.db.mergeChanges(changes, spaceId: spaceUuid),
     );
   }
 
@@ -199,7 +199,7 @@ class DstReplica {
 /// event can produce for the same row.
 String dstChangeKey(CrdtMergeChange change) {
   final base =
-      '${change.uuidScopeId}|${change.tableName}|${change.uuidRowId}'
+      '${change.uuidSpaceId}|${change.tableName}|${change.uuidRowId}'
       '|${change.hlc}';
   return switch (change) {
     CrdtMergeUpdate(:final columnName) => 'U|$base|$columnName',
@@ -214,7 +214,7 @@ enum DstOperationOutcome {
   applied,
 
   /// The engine refused the operation by design - a no-action violation, a
-  /// unique conflict, or a reference to a row that is not visible in scope.
+  /// unique conflict, or a reference to a row that is not visible in space.
   rejected,
 
   /// There was nothing to act on (for example a delete with no rows yet).
@@ -240,10 +240,10 @@ class DstOperations {
   final Map<String, int> appliedPaths = {};
   final Map<String, int> attemptedPaths = {};
 
-  /// Applies one randomly chosen operation on [replica] in [scopeUuid].
+  /// Applies one randomly chosen operation on [replica] in [spaceUuid].
   Future<DstOperationOutcome> step(
     DstReplica replica,
-    UuidValue scopeUuid,
+    UuidValue spaceUuid,
   ) async {
     final table = random.pick(DstTable.values);
     final action = random.weighted({
@@ -260,7 +260,7 @@ class DstOperations {
       DstAction.updateWhere: 1,
       DstAction.deleteWhere: 1,
     });
-    return apply(replica, scopeUuid, table: table, action: action);
+    return apply(replica, spaceUuid, table: table, action: action);
   }
 
   /// Applies a scripted operation through the same path used by random runs.
@@ -268,7 +268,7 @@ class DstOperations {
   /// scheduling seed.
   Future<DstOperationOutcome> apply(
     DstReplica replica,
-    UuidValue scopeUuid, {
+    UuidValue spaceUuid, {
     required DstTable table,
     required DstAction action,
   }) async {
@@ -277,7 +277,7 @@ class DstOperations {
     try {
       final outcome = await replica.withReplicaClock(
         () => replica.session.db.transactionForUser(
-          scopeUuid,
+          spaceUuid,
           (tx) => _apply(replica, table, action, tx),
         ),
       );
@@ -372,7 +372,7 @@ class DstOperations {
       final indexes = dstUniqueIndexes.where((index) => index.table == table).toList();
       final index = random.pickOrNull(indexes);
       if (index == null) return DstOperationOutcome.skipped;
-      final columns = index.columns.where((column) => column != 'scopeId').toSet();
+      final columns = index.columns.where((column) => column != 'spaceId').toSet();
       final left = first.toJson() as Map<String, dynamic>;
       final right = second.toJson() as Map<String, dynamic>;
       final swappedLeft = {
@@ -455,7 +455,7 @@ class DstOperations {
   }
 
   List<String> _columns(DstTable table) => table.definition.columns
-      .where((column) => column.name != 'id' && column.name != 'scopeId')
+      .where((column) => column.name != 'id' && column.name != 'spaceId')
       .map((column) => column.name)
       .toList();
 
@@ -546,7 +546,7 @@ class DstOperations {
     }
     const expected = [
       // `_assertVisibleForeignKeyTargets`: the target is tombstoned, missing,
-      // or owned by another scope - the three are one branch by design.
+      // or owned by another space - the three are one branch by design.
       'Cannot reference deleted row',
       // A local `onDelete=NoAction` parent delete with a visible child still
       // referencing it.

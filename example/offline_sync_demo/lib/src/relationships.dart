@@ -184,5 +184,5 @@ class RelationshipCatalog {
   }
 
   static bool _isSystemColumn(String name) =>
-      name == 'id' || name == 'scopeId' || name.startsWith('_');
+      name == 'id' || name == 'spaceId' || name.startsWith('_');
 }

@@ -107,9 +107,9 @@ extension UuidValueComparisonExtension on UuidValue? {
 /// Extensions on domain [TableRow]s used by the CRDT recorder.
 @internal
 extension CrdtTableRowExtension<T extends TableRow> on T {
-  /// Returns a copy of this row with [scopeId] set.
+  /// Returns a copy of this row with [spaceId] set.
   /// Must use dynamic cast because the copyWith method is generated only.
-  T copyWithScopeId(int scopeId) => (this as dynamic).copyWith(scopeId: scopeId) as T;
+  T copyWithSpaceId(int spaceId) => (this as dynamic).copyWith(spaceId: spaceId) as T;
 }
 
 /// Adapts a materialized domain row for an ORM insert. A null chosen by
@@ -204,10 +204,10 @@ extension TableRowListExtension on List<TableRow> {
 /// Extensions on [Table] used by the CRDT recorder.
 @internal
 extension CrdtTableExtension on Table {
-  /// The scope ownership column managed by the CRDT layer, if present.
-  ColumnInt? get crdtScopeIdColumn {
+  /// The space ownership column managed by the CRDT layer, if present.
+  ColumnInt? get offlineSyncSpaceIdColumn {
     for (final column in columns) {
-      if (column.columnName == 'scopeId' && column is ColumnInt) {
+      if (column.columnName == 'spaceId' && column is ColumnInt) {
         return column;
       }
     }
@@ -215,7 +215,7 @@ extension CrdtTableExtension on Table {
   }
 
   /// The columns that are part of CRDT sync, excluding the primary key and the
-  /// CRDT-managed scopeId column.
+  /// CRDT-managed spaceId column.
   Iterable<Column> get crdtSyncableColumns => managedColumns.crdtSyncableColumns;
 }
 
@@ -223,8 +223,8 @@ extension CrdtTableExtension on Table {
 @internal
 extension CrdtColumnIterableExtension on Iterable<Column> {
   /// The columns that are part of CRDT sync, excluding the primary key and the
-  /// CRDT-managed scopeId column.
+  /// CRDT-managed spaceId column.
   Iterable<Column> get crdtSyncableColumns => where(
-    (column) => column.columnName != 'id' && column.columnName != 'scopeId',
+    (column) => column.columnName != 'id' && column.columnName != 'spaceId',
   );
 }

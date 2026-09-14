@@ -7,7 +7,7 @@ import '../integration/test_tools/client_session.dart';
 import 'framework/dst_random.dart';
 import 'framework/dst_runner.dart';
 
-/// Deterministic simulation of replicas sharing one scope.
+/// Deterministic simulation of replicas sharing one space.
 ///
 /// This is the classic convergence shape: the same facts reach every replica
 /// in a different order, in different batches, sometimes twice, and the visible
@@ -19,8 +19,8 @@ void main() {
 
   final config = DstConfig.fromEnvironment();
 
-  group('Given replicas sharing a single scope,', () {
-    // Named by position rather than by seed; see dst_cross_scope_test.dart.
+  group('Given replicas sharing a single space,', () {
+    // Named by position rather than by seed; see dst_cross_space_test.dart.
     for (final (index, seed) in config.seeds.indexed) {
       test(
         'when simulation $index reorders, delays, and repeats delivery, '
@@ -33,7 +33,7 @@ void main() {
             run: () => runDstSimulation(
               seed: seed,
               rounds: config.rounds,
-              topology: DstTopology.singleScope,
+              topology: DstTopology.singleSpace,
             ),
           );
 

@@ -1,9 +1,9 @@
-// Keeps CRDT scope aligned with integration tests plus the benchmark table.
+// Keeps CRDT space aligned with integration tests plus the benchmark table.
 
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
-/// [Types] is benchmark-only; the rest mirrors `client_session.dart` sync scope.
+/// [Types] is benchmark-only; the rest mirrors `client_session.dart` sync space.
 List<Table> get benchmarkSyncTables => [
   Address.t,
   City.t,

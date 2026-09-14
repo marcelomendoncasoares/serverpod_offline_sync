@@ -10,10 +10,10 @@ void main() {
     final nodeId = const Uuid().v7obj();
     final lastHlc = Hlc(DateTime.utc(2026, 5, 10, 12), 7, nodeId);
 
-    final manager = HlcManager.forScope(
-      CrdtScope(
+    final manager = HlcManager.forSpace(
+      OfflineSyncSpace(
         id: 42,
-        uuidScopeId: userId,
+        uuidSpaceId: userId,
         currentNodeId: 9,
         currentNode: CrdtNode(
           id: 9,
@@ -37,16 +37,16 @@ void main() {
   });
 
   group('Given a sync stream with complete framed sync batches,', () {
-    final uuidScopeId = const Uuid().v7obj();
+    final uuidSpaceId = const Uuid().v7obj();
     final rowId = const Uuid().v7obj();
     final requesterNodeId = const Uuid().v7obj();
     final row = CrdtNode(uuidNodeId: rowId);
 
-    final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-      CrdtSyncMergeChunk(
+    final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+      OfflineSyncMergeChunk(
         changes: [
           CrdtMergeInsert(
-            uuidScopeId: uuidScopeId,
+            uuidSpaceId: uuidSpaceId,
             hlcDatetime: DateTime.utc(2026, 5, 10, 12),
             hlcCounter: 1,
             tableName: 'person',
@@ -56,11 +56,11 @@ void main() {
           ),
         ],
       ),
-      CrdtSyncEndOfBatch(),
-      CrdtSyncMergeChunk(
+      OfflineSyncEndOfBatch(),
+      OfflineSyncMergeChunk(
         changes: [
           CrdtMergeDelete(
-            uuidScopeId: uuidScopeId,
+            uuidSpaceId: uuidSpaceId,
             hlcDatetime: DateTime.utc(2026, 5, 10, 13),
             hlcCounter: 2,
             tableName: 'person',
@@ -71,7 +71,7 @@ void main() {
           ),
         ],
       ),
-      CrdtSyncEndOfBatch(),
+      OfflineSyncEndOfBatch(),
     ]);
 
     test(
@@ -90,7 +90,7 @@ void main() {
         expect(secondBatch.changes.deletes, hasLength(1));
         expect(
           iterator.collectNextBatch,
-          throwsA(isA<CrdtSyncStreamClosedException>()),
+          throwsA(isA<OfflineSyncStreamClosedException>()),
         );
       },
     );
@@ -99,11 +99,11 @@ void main() {
       'when collecting the next batch, '
       'then batched merge changes are preserved.',
       () async {
-        final singleBatchStream = Stream<CrdtSyncStreamEvent>.fromIterable([
-          CrdtSyncMergeChunk(
+        final singleBatchStream = Stream<OfflineSyncStreamEvent>.fromIterable([
+          OfflineSyncMergeChunk(
             changes: [
               CrdtMergeInsert(
-                uuidScopeId: uuidScopeId,
+                uuidSpaceId: uuidSpaceId,
                 hlcDatetime: DateTime.utc(2026, 5, 10, 16),
                 hlcCounter: 1,
                 tableName: 'person',
@@ -112,7 +112,7 @@ void main() {
                 data: row,
               ),
               CrdtMergeDelete(
-                uuidScopeId: uuidScopeId,
+                uuidSpaceId: uuidSpaceId,
                 hlcDatetime: DateTime.utc(2026, 5, 10, 17),
                 hlcCounter: 2,
                 tableName: 'person',
@@ -123,7 +123,7 @@ void main() {
               ),
             ],
           ),
-          CrdtSyncEndOfBatch(),
+          OfflineSyncEndOfBatch(),
         ]);
 
         final batch = await StreamIterator(singleBatchStream).collectNextBatch();
@@ -135,12 +135,12 @@ void main() {
   });
 
   test(
-    'Given a stream that starts with CrdtSyncEndOfBatch, '
+    'Given a stream that starts with OfflineSyncEndOfBatch, '
     'when collecting the next batch, '
     'then an empty merge set is returned.',
     () async {
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncEndOfBatch(),
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncEndOfBatch(),
       ]);
       final iterator = StreamIterator(stream);
 
@@ -157,8 +157,8 @@ void main() {
     'when collecting the next batch, '
     'then an empty merge set is returned.',
     () async {
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncIdleTimeout(),
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncIdleTimeout(),
       ]);
       final iterator = StreamIterator(stream);
 
@@ -175,14 +175,14 @@ void main() {
     'when collecting the next batch, '
     'then the idle event does not end the batch.',
     () async {
-      final uuidScopeId = const Uuid().v7obj();
+      final uuidSpaceId = const Uuid().v7obj();
       final rowId = const Uuid().v7obj();
       final requesterNodeId = const Uuid().v7obj();
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChunk(
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: uuidScopeId,
+              uuidSpaceId: uuidSpaceId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -193,8 +193,8 @@ void main() {
             ),
           ],
         ),
-        CrdtSyncIdleTimeout(),
-        CrdtSyncEndOfBatch(),
+        OfflineSyncIdleTimeout(),
+        OfflineSyncEndOfBatch(),
       ]);
       final iterator = StreamIterator(stream);
 
@@ -206,16 +206,16 @@ void main() {
   );
 
   test(
-    'Given a stream with CrdtSyncClose before CrdtSyncEndOfBatch, '
+    'Given a stream with OfflineSyncClose before OfflineSyncEndOfBatch, '
     'when collecting the next batch, '
     'then changes are discarded and null is returned.',
     () async {
-      final uuidScopeId = const Uuid().v7obj();
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChunk(
+      final uuidSpaceId = const Uuid().v7obj();
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: uuidScopeId,
+              uuidSpaceId: uuidSpaceId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -226,7 +226,7 @@ void main() {
             ),
           ],
         ),
-        CrdtSyncClose(),
+        OfflineSyncClose(),
       ]);
       final iterator = StreamIterator(stream);
 
@@ -241,7 +241,7 @@ void main() {
     'when collecting the next batch allowing close before batch, '
     'then null is returned.',
     () async {
-      const stream = Stream<CrdtSyncStreamEvent>.empty();
+      const stream = Stream<OfflineSyncStreamEvent>.empty();
       final iterator = StreamIterator(stream);
 
       final batch = await iterator.collectNextBatch(allowCloseBeforeBatch: true);
@@ -255,27 +255,27 @@ void main() {
     'when collecting the next batch, '
     'then collection fails.',
     () async {
-      const stream = Stream<CrdtSyncStreamEvent>.empty();
+      const stream = Stream<OfflineSyncStreamEvent>.empty();
       final iterator = StreamIterator(stream);
 
       expect(
         iterator.collectNextBatch,
-        throwsA(isA<CrdtSyncStreamClosedException>()),
+        throwsA(isA<OfflineSyncStreamClosedException>()),
       );
     },
   );
 
   test(
-    'Given a stream that ends without CrdtSyncEndOfBatch, '
+    'Given a stream that ends without OfflineSyncEndOfBatch, '
     'when collecting the next batch, '
     'then collection fails.',
     () async {
-      final uuidScopeId = const Uuid().v7obj();
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChunk(
+      final uuidSpaceId = const Uuid().v7obj();
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: uuidScopeId,
+              uuidSpaceId: uuidSpaceId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -291,22 +291,22 @@ void main() {
 
       expect(
         iterator.collectNextBatch,
-        throwsA(isA<CrdtSyncStreamClosedException>()),
+        throwsA(isA<OfflineSyncStreamClosedException>()),
       );
     },
   );
 
   test(
-    'Given a stream that ends after a merge batch without CrdtSyncEndOfBatch, '
+    'Given a stream that ends after a merge batch without OfflineSyncEndOfBatch, '
     'when collecting the next batch allowing close before batch, '
     'then collection fails.',
     () async {
-      final uuidScopeId = const Uuid().v7obj();
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncMergeChunk(
+      final uuidSpaceId = const Uuid().v7obj();
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncMergeChunk(
           changes: [
             CrdtMergeDelete(
-              uuidScopeId: uuidScopeId,
+              uuidSpaceId: uuidSpaceId,
               hlcDatetime: DateTime.utc(2026, 5, 10, 14),
               hlcCounter: 3,
               tableName: 'person',
@@ -322,27 +322,27 @@ void main() {
 
       expect(
         () => iterator.collectNextBatch(allowCloseBeforeBatch: true),
-        throwsA(isA<CrdtSyncStreamClosedException>()),
+        throwsA(isA<OfflineSyncStreamClosedException>()),
       );
     },
   );
 
   test(
     'Given an empty stream, '
-    'when expecting CrdtSyncConnect, '
-    'then it throws a CrdtSyncStreamClosedException.',
+    'when expecting OfflineSyncConnect, '
+    'then it throws a OfflineSyncStreamClosedException.',
     () async {
-      const stream = Stream<CrdtSyncStreamEvent>.empty();
+      const stream = Stream<OfflineSyncStreamEvent>.empty();
       final iterator = StreamIterator(stream);
 
       expect(
-        () => iterator.moveAndThrowIfNot<CrdtSyncConnect>(),
+        () => iterator.moveAndThrowIfNot<OfflineSyncConnect>(),
         throwsA(
-          isA<CrdtSyncStreamClosedException>().having(
+          isA<OfflineSyncStreamClosedException>().having(
             (exception) => exception.toString(),
             'toString',
-            'CrdtSyncStreamClosedException: sync stream closed before '
-                '"CrdtSyncConnect" event.',
+            'OfflineSyncStreamClosedException: sync stream closed before '
+                '"OfflineSyncConnect" event.',
           ),
         ),
       );
@@ -350,29 +350,29 @@ void main() {
   );
 
   test(
-    'Given a stream starting with CrdtSyncEndOfBatch, '
-    'when expecting CrdtSyncConnect, '
-    'then it throws a CrdtSyncUnexpectedEventException.',
+    'Given a stream starting with OfflineSyncEndOfBatch, '
+    'when expecting OfflineSyncConnect, '
+    'then it throws a OfflineSyncUnexpectedEventException.',
     () async {
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncEndOfBatch(),
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncEndOfBatch(),
       ]);
       final iterator = StreamIterator(stream);
 
       expect(
-        () => iterator.moveAndThrowIfNot<CrdtSyncConnect>(),
+        () => iterator.moveAndThrowIfNot<OfflineSyncConnect>(),
         throwsA(
-          isA<CrdtSyncUnexpectedEventException>()
+          isA<OfflineSyncUnexpectedEventException>()
               .having(
                 (exception) => exception.received,
                 'received',
-                isA<CrdtSyncEndOfBatch>(),
+                isA<OfflineSyncEndOfBatch>(),
               )
               .having(
                 (exception) => exception.toString(),
                 'toString',
-                'CrdtSyncUnexpectedEventException: expected "CrdtSyncConnect", but '
-                    'received "CrdtSyncEndOfBatch" instead.',
+                'OfflineSyncUnexpectedEventException: expected "OfflineSyncConnect", but '
+                    'received "OfflineSyncEndOfBatch" instead.',
               ),
         ),
       );
@@ -380,12 +380,12 @@ void main() {
   );
 
   test(
-    'Given a stream starting with CrdtSyncConnect, '
-    'when expecting CrdtSyncClose, '
-    'then it throws a CrdtSyncUnexpectedEventException.',
+    'Given a stream starting with OfflineSyncConnect, '
+    'when expecting OfflineSyncClose, '
+    'then it throws a OfflineSyncUnexpectedEventException.',
     () async {
-      final stream = Stream<CrdtSyncStreamEvent>.fromIterable([
-        CrdtSyncConnect(
+      final stream = Stream<OfflineSyncStreamEvent>.fromIterable([
+        OfflineSyncConnect(
           localNodeId: const Uuid().v7obj(),
           syncTablesHash: 'hash',
         ),
@@ -393,19 +393,19 @@ void main() {
       final iterator = StreamIterator(stream);
 
       expect(
-        () => iterator.moveAndThrowIfNot<CrdtSyncClose>(),
+        () => iterator.moveAndThrowIfNot<OfflineSyncClose>(),
         throwsA(
-          isA<CrdtSyncUnexpectedEventException>()
+          isA<OfflineSyncUnexpectedEventException>()
               .having(
                 (exception) => exception.received,
                 'received',
-                isA<CrdtSyncConnect>(),
+                isA<OfflineSyncConnect>(),
               )
               .having(
                 (exception) => exception.toString(),
                 'toString',
-                'CrdtSyncUnexpectedEventException: expected "CrdtSyncClose", but '
-                    'received "CrdtSyncConnect" instead.',
+                'OfflineSyncUnexpectedEventException: expected "OfflineSyncClose", but '
+                    'received "OfflineSyncConnect" instead.',
               ),
         ),
       );

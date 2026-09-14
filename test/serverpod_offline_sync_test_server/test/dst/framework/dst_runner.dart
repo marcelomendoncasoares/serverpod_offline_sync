@@ -7,16 +7,16 @@ import 'dst_world.dart';
 /// The shape of one simulated deployment.
 class DstTopology {
   /// Creates a topology.
-  const DstTopology({required this.scopeCount, required this.subscriptions});
+  const DstTopology({required this.spaceCount, required this.subscriptions});
 
-  /// Two scopes, and three replicas whose subscription sets deliberately
-  /// differ: two hold only one scope each, one holds both.
+  /// Two spaces, and three replicas whose subscription sets deliberately
+  /// differ: two hold only one space each, one holds both.
   ///
   /// The overlap is the point. Observer independence is only falsifiable when
   /// some replica holds strictly more than another, because the claim is that
-  /// the extra scope changes nothing about the shared one.
-  static const overlappingScopes = DstTopology(
-    scopeCount: 2,
+  /// the extra space changes nothing about the shared one.
+  static const overlappingSpaces = DstTopology(
+    spaceCount: 2,
     subscriptions: [
       [0],
       [1],
@@ -24,9 +24,9 @@ class DstTopology {
     ],
   );
 
-  /// One scope shared by every replica - the classic convergence shape.
-  static const singleScope = DstTopology(
-    scopeCount: 1,
+  /// One space shared by every replica - the classic convergence shape.
+  static const singleSpace = DstTopology(
+    spaceCount: 1,
     subscriptions: [
       [0],
       [0],
@@ -34,10 +34,10 @@ class DstTopology {
     ],
   );
 
-  /// How many scopes exist.
-  final int scopeCount;
+  /// How many spaces exist.
+  final int spaceCount;
 
-  /// Which scope indexes each replica holds.
+  /// Which space indexes each replica holds.
   final List<List<int>> subscriptions;
 
   /// How many replicas the topology has.
@@ -94,14 +94,14 @@ class DstRunReport {
 Future<DstRunReport> runDstSimulation({
   required int seed,
   required int rounds,
-  DstTopology topology = DstTopology.overlappingScopes,
+  DstTopology topology = DstTopology.overlappingSpaces,
 }) async {
   final random = DstRandom(seed);
   final ids = DstIds(random);
   final simulationClock = DstClock();
 
-  final scopeUuids = [
-    for (var index = 0; index < topology.scopeCount; index++) ids.next(),
+  final spaceUuids = [
+    for (var index = 0; index < topology.spaceCount; index++) ids.next(),
   ];
 
   final replicas = <DstReplica>[];
@@ -109,9 +109,9 @@ Future<DstRunReport> runDstSimulation({
     replicas.add(
       await DstReplica.create(
         name: 'r$index',
-        scopeUuids: [
-          for (final scopeIndex in topology.subscriptions[index])
-            scopeUuids[scopeIndex],
+        spaceUuids: [
+          for (final spaceIndex in topology.subscriptions[index])
+            spaceUuids[spaceIndex],
         ],
         nodeUuid: ids.next(),
         // Skew stays far below Hlc's one-minute drift limit so the simulation
@@ -122,9 +122,9 @@ Future<DstRunReport> runDstSimulation({
   }
 
   // company.townId repairs onto this well-known town. Inserted once, in one
-  // scope, because row ids are globally unique; other scopes exercise the
+  // space, because row ids are globally unique; other spaces exercise the
   // unrepairable set-default path instead.
-  await replicas.first.seedDefaultTown(replicas.first.scopeUuids.first);
+  await replicas.first.seedDefaultTown(replicas.first.spaceUuids.first);
 
   final operations = DstOperations(random, ids);
   final adversary = DstAdversary(random, replicas);
@@ -149,9 +149,9 @@ Future<DstRunReport> runDstSimulation({
 
   for (var round = 0; round < rounds; round++) {
     for (final replica in replicas) {
-      final scopeUuid = random.pickOrNull(replica.scopeUuids);
-      if (scopeUuid == null) continue;
-      final outcome = await operations.step(replica, scopeUuid);
+      final spaceUuid = random.pickOrNull(replica.spaceUuids);
+      if (spaceUuid == null) continue;
+      final outcome = await operations.step(replica, spaceUuid);
       if (outcome == DstOperationOutcome.applied) {
         applied++;
         await checkInvariants(replica);
@@ -168,15 +168,15 @@ Future<DstRunReport> runDstSimulation({
   };
 
   final violations = <DstViolation>[];
-  for (final scopeUuid in scopeUuids) {
-    violations.addAll(DstOracle.observerIndependence(snapshots, scopeUuid));
+  for (final spaceUuid in spaceUuids) {
+    violations.addAll(DstOracle.observerIndependence(snapshots, spaceUuid));
   }
   for (final entry in snapshots.entries) {
     violations.addAll(DstOracle.invariants(entry.value));
   }
 
   // Round trips run once the network is quiet, because each one builds a
-  // replica and replays a whole scope into it.
+  // replica and replays a whole space into it.
   for (final entry in snapshots.entries) {
     violations.addAll(
       await exportRoundTrip(

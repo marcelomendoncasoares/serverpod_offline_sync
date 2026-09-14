@@ -12,20 +12,20 @@ void main() {
 
   Future<String> render(SyncNode node) async {
     final persons = await Person.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visiblePersons = {
-      for (final person in await Person.db.find(node.crdt)) person.id,
+      for (final person in await Person.db.find(node.offlineSync)) person.id,
     };
     persons.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
 
     final towns = await Town.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visibleTowns = {
-      for (final town in await Town.db.find(node.crdt)) town.id,
+      for (final town in await Town.db.find(node.offlineSync)) town.id,
     };
     towns.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
 
@@ -54,15 +54,15 @@ void main() {
 
         // A person every node knows.
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.insertRow(author.crdt, mayor, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(author.offlineSync, mayor, transaction: tx);
         });
         await syncWithServer(author, server);
         await syncWithServer(deleter, server);
 
         // One client deletes the person - the server and that client hide it.
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.deleteRow(deleter.crdt, mayor, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(deleter.offlineSync, mayor, transaction: tx);
         });
         await syncWithServer(deleter, server);
 
@@ -75,16 +75,16 @@ void main() {
           name: 'town',
           mayorId: mayor.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(author.crdt, town, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(author.offlineSync, town, transaction: tx);
         });
         await pushChanges(author, server);
         await syncWithServer(deleter, server);
 
         // The town is deleted before the restore below arrives, freezing its
         // repaired reference in a hidden row.
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(deleter.crdt, town, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.deleteRow(deleter.offlineSync, town, transaction: tx);
         });
         await syncWithServer(deleter, server);
 
@@ -96,8 +96,8 @@ void main() {
           street: 'street',
           inhabitantId: mayor.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Address.db.insertRow(author.crdt, address, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Address.db.insertRow(author.offlineSync, address, transaction: tx);
         });
         await pushChanges(author, server);
       });

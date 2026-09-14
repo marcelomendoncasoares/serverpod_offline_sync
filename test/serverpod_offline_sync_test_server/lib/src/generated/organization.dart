@@ -21,7 +21,7 @@ abstract class Organization
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Organization._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.people,
     this.cityId,
@@ -30,7 +30,7 @@ abstract class Organization
 
   factory Organization({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     List<_iensfz4m.Person>? people,
     _is.UuidValue? cityId,
@@ -42,7 +42,7 @@ abstract class Organization
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       people: jsonSerialization['people'] == null
           ? null
@@ -67,8 +67,8 @@ abstract class Organization
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -86,7 +86,7 @@ abstract class Organization
   @_is.useResult
   Organization copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     List<_iensfz4m.Person>? people,
     _is.UuidValue? cityId,
@@ -97,7 +97,7 @@ abstract class Organization
     return {
       '__className__': 'Organization',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (people != null)
         'people': people?.toJson(valueToJson: (v) => v.toJson()),
@@ -111,7 +111,7 @@ abstract class Organization
     return {
       '__className__': 'Organization',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (people != null)
         'people': people?.toJson(valueToJson: (v) => v.toJsonForProtocol()),
@@ -159,14 +159,14 @@ class _Undefined {}
 class _OrganizationImpl extends Organization {
   _OrganizationImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     List<_iensfz4m.Person>? people,
     _is.UuidValue? cityId,
     _ior3absd.City? city,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          people: people,
          cityId: cityId,
@@ -179,7 +179,7 @@ class _OrganizationImpl extends Organization {
   @override
   Organization copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? people = _Undefined,
     Object? cityId = _Undefined,
@@ -187,7 +187,7 @@ class _OrganizationImpl extends Organization {
   }) {
     return Organization(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       people: people is List<_iensfz4m.Person>?
           ? people
@@ -201,8 +201,8 @@ class _OrganizationImpl extends Organization {
 class OrganizationUpdateTable extends _is.UpdateTable<OrganizationTable> {
   OrganizationUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -221,8 +221,8 @@ class OrganizationUpdateTable extends _is.UpdateTable<OrganizationTable> {
 class OrganizationTable extends _is.Table<_is.UuidValue?> {
   OrganizationTable({super.tableRelation}) : super(tableName: 'organization') {
     updateTable = OrganizationUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -237,8 +237,8 @@ class OrganizationTable extends _is.Table<_is.UuidValue?> {
 
   late final OrganizationUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -298,7 +298,7 @@ class OrganizationTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     cityId,
   ];

@@ -20,7 +20,7 @@ abstract class Company
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Company._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.town,
     _is.UuidValue? townId,
@@ -30,7 +30,7 @@ abstract class Company
 
   factory Company({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _iytblq2r.Town? town,
     _is.UuidValue? townId,
@@ -41,7 +41,7 @@ abstract class Company
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       town: jsonSerialization['town'] == null
           ? null
@@ -61,8 +61,8 @@ abstract class Company
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -78,7 +78,7 @@ abstract class Company
   @_is.useResult
   Company copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _iytblq2r.Town? town,
     _is.UuidValue? townId,
@@ -88,7 +88,7 @@ abstract class Company
     return {
       '__className__': 'Company',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (town != null) 'town': town?.toJson(),
       'townId': townId.toJson(),
@@ -100,7 +100,7 @@ abstract class Company
     return {
       '__className__': 'Company',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (town != null) 'town': town?.toJsonForProtocol(),
       'townId': townId.toJson(),
@@ -140,13 +140,13 @@ class _Undefined {}
 class _CompanyImpl extends Company {
   _CompanyImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _iytblq2r.Town? town,
     _is.UuidValue? townId,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          town: town,
          townId: townId,
@@ -158,14 +158,14 @@ class _CompanyImpl extends Company {
   @override
   Company copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? town = _Undefined,
     _is.UuidValue? townId,
   }) {
     return Company(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       town: town is _iytblq2r.Town? ? town : this.town?.copyWith(),
       townId: townId ?? this.townId,
@@ -176,8 +176,8 @@ class _CompanyImpl extends Company {
 class CompanyUpdateTable extends _is.UpdateTable<CompanyTable> {
   CompanyUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -196,8 +196,8 @@ class CompanyUpdateTable extends _is.UpdateTable<CompanyTable> {
 class CompanyTable extends _is.Table<_is.UuidValue?> {
   CompanyTable({super.tableRelation}) : super(tableName: 'company') {
     updateTable = CompanyUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -213,8 +213,8 @@ class CompanyTable extends _is.Table<_is.UuidValue?> {
 
   late final CompanyUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -238,7 +238,7 @@ class CompanyTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     townId,
   ];

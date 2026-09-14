@@ -1,9 +1,9 @@
-### Per-scope checkpoint sent by each peer before the first visit to a scope.
-class: CrdtSyncSinceHlc
-extends: CrdtSyncStreamEvent
+### Per-space checkpoint sent by each peer before the first visit to a space.
+class: OfflineSyncSinceHlc
+extends: OfflineSyncStreamEvent
 fields:
-  ### Scope this checkpoint belongs to.
-  uuidScopeId: UuidValue
+  ### Space this checkpoint belongs to.
+  uuidSpaceId: UuidValue
 
   ### Per-node checkpoints that describe which changes the sender already has.
   ###

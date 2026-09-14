@@ -13,22 +13,22 @@
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
-import '../endpoints/crdt_sync_endpoint.dart' as _i87mlr2k;
+import '../endpoints/offline_sync_endpoint.dart' as _i3x2h4cf;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
   void initializeEndpoints(_is.Server server) {
     var endpoints = <String, _is.Endpoint>{
-      'crdtSync': _i87mlr2k.CrdtSyncEndpoint()
+      'offlineSync': _i3x2h4cf.OfflineSyncEndpoint()
         ..initialize(
           server,
-          'crdtSync',
+          'offlineSync',
           'serverpod_offline_sync',
         ),
     };
-    connectors['crdtSync'] = _is.EndpointConnector(
-      name: 'crdtSync',
-      endpoint: endpoints['crdtSync']!,
+    connectors['offlineSync'] = _is.EndpointConnector(
+      name: 'offlineSync',
+      endpoint: endpoints['offlineSync']!,
       methodConnectors: {
         'sync': _is.MethodStreamConnector(
           name: 'sync',
@@ -41,7 +41,9 @@ class Endpoints extends _is.EndpointDispatch {
           },
           streamParams: {
             'changes':
-                _is.StreamParameterDescription<_icw2tu00.CrdtSyncStreamEvent>(
+                _is.StreamParameterDescription<
+                  _icw2tu00.OfflineSyncStreamEvent
+                >(
                   name: 'changes',
                   nullable: false,
                 ),
@@ -52,12 +54,13 @@ class Endpoints extends _is.EndpointDispatch {
                 _is.Session session,
                 Map<String, dynamic> params,
                 Map<String, Stream> streamParams,
-              ) => (endpoints['crdtSync'] as _i87mlr2k.CrdtSyncEndpoint).sync(
-                session,
-                changes: streamParams['changes']!
-                    .cast<_icw2tu00.CrdtSyncStreamEvent>(),
-                once: params['once'],
-              ),
+              ) => (endpoints['offlineSync'] as _i3x2h4cf.OfflineSyncEndpoint)
+                  .sync(
+                    session,
+                    changes: streamParams['changes']!
+                        .cast<_icw2tu00.OfflineSyncStreamEvent>(),
+                    once: params['once'],
+                  ),
         ),
       },
     );

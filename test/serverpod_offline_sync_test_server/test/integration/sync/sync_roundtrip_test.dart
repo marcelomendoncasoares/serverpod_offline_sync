@@ -17,14 +17,17 @@ void main() {
     Unique.t,
   ];
 
-  late CrdtDatabaseSession crdtSession;
-  late CrdtSync crdtSync;
+  late OfflineSyncDatabaseSession offlineSyncSession;
+  late OfflineSyncEngine offlineSync;
 
   setUp(() async {
-    crdtSession = CrdtDatabaseSession.wraps(testSession, syncTables: syncTables);
-    await crdtSession.db.initialize();
+    offlineSyncSession = OfflineSyncDatabaseSession.wraps(
+      testSession,
+      syncTables: syncTables,
+    );
+    await offlineSyncSession.db.initialize();
 
-    crdtSync = CrdtSync(
+    offlineSync = OfflineSyncEngine(
       syncTables: syncTables,
       serializationManager: testSession.db.serializationManager,
     );
@@ -34,11 +37,11 @@ void main() {
     late Types insertedRow;
 
     setUp(() async {
-      insertedRow = await crdtSession.db.transactionForUser(
+      insertedRow = await offlineSyncSession.db.transactionForUser(
         testCrdtUserId,
         (tx) async {
           return Types.db.insertRow(
-            crdtSession,
+            offlineSyncSession,
             Types(
               id: const Uuid().v7obj(),
               aBool: true,
@@ -62,10 +65,10 @@ void main() {
       'when pending changes are collected, '
       'then the row payload roundtrips with its original Dart type.',
       () async {
-        final mergeSet = await crdtSync
+        final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -88,11 +91,11 @@ void main() {
     late Types updatedRow;
 
     setUp(() async {
-      row = await crdtSession.db.transactionForUser(testCrdtUserId, (
+      row = await offlineSyncSession.db.transactionForUser(testCrdtUserId, (
         tx,
       ) async {
         return Types.db.insertRow(
-          crdtSession,
+          offlineSyncSession,
           Types(
             id: const Uuid().v7obj(),
             aBool: true,
@@ -117,11 +120,11 @@ void main() {
         anEnum: TypesEnum.beta,
       );
 
-      await crdtSession.db.transactionForUser(
+      await offlineSyncSession.db.transactionForUser(
         testCrdtUserId,
         (tx) async {
           await Types.db.updateRow(
-            crdtSession,
+            offlineSyncSession,
             updatedRow,
             transaction: tx,
           );
@@ -133,10 +136,10 @@ void main() {
       'when pending changes are collected, '
       'then the field values roundtrip with their original Dart types.',
       () async {
-        final mergeSet = await crdtSync
+        final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -162,11 +165,11 @@ void main() {
   group('Given multiple inserted CRDT rows,', () {
     setUp(() async {
       for (var i = 0; i < 3; i++) {
-        await crdtSession.db.transactionForUser(
+        await offlineSyncSession.db.transactionForUser(
           testCrdtUserId,
           (tx) async {
             await Person.db.insertRow(
-              crdtSession,
+              offlineSyncSession,
               Person(id: const Uuid().v7obj(), name: 'person-$i'),
               transaction: tx,
             );
@@ -179,10 +182,10 @@ void main() {
       'when collected pending changes are chunked, '
       'then each chunk is no larger than the batch size.',
       () async {
-        final chunks = await crdtSync
+        final chunks = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .chunked(2)
             .toList();
@@ -200,14 +203,14 @@ void main() {
     late Town child;
 
     setUp(() async {
-      await crdtSession.db.transactionForUser(testCrdtUserId, (tx) async {
+      await offlineSyncSession.db.transactionForUser(testCrdtUserId, (tx) async {
         attemptedParent = await Person.db.insertRow(
-          crdtSession,
+          offlineSyncSession,
           Person(id: const Uuid().v7obj(), name: 'sync attempted mayor'),
           transaction: tx,
         );
         child = await Town.db.insertRow(
-          crdtSession,
+          offlineSyncSession,
           Town(
             id: const Uuid().v7obj(),
             name: 'sync projected town',
@@ -217,10 +220,10 @@ void main() {
         );
       });
 
-      await crdtSession.db.mergeChanges(
+      await offlineSyncSession.db.mergeChanges(
         [
           CrdtMergeDelete(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: Person.t.tableName,
             uuidRowId: attemptedParent.id!,
             uuidNodeId: const Uuid().v7obj(),
@@ -230,10 +233,10 @@ void main() {
             reason: CrdtDataDeletedReason.userDelete,
           ),
         ],
-        scopeId: testCrdtUserId,
+        spaceId: testCrdtUserId,
       );
 
-      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      final visibleChild = await Town.db.findById(offlineSyncSession, child.id!);
       expect(visibleChild, isNotNull);
       expect(visibleChild!.mayorId, isNull);
     });
@@ -242,10 +245,10 @@ void main() {
       'when pending changes are collected, '
       'then the insert payload carries the attempted foreign key value.',
       () async {
-        final mergeSet = await crdtSync
+        final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -265,19 +268,19 @@ void main() {
 
     setUp(() async {
       missingParentId = const Uuid().v7obj();
-      child = await crdtSession.db.transactionForUser(
+      child = await offlineSyncSession.db.transactionForUser(
         testCrdtUserId,
         (tx) => Town.db.insertRow(
-          crdtSession,
+          offlineSyncSession,
           Town(id: const Uuid().v7obj(), name: 'sync projected update town'),
           transaction: tx,
         ),
       );
 
-      await crdtSession.db.mergeChanges(
+      await offlineSyncSession.db.mergeChanges(
         [
           CrdtMergeUpdate(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: Town.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: const Uuid().v7obj(),
@@ -287,10 +290,10 @@ void main() {
             value: missingParentId,
           ),
         ],
-        scopeId: testCrdtUserId,
+        spaceId: testCrdtUserId,
       );
 
-      final visibleChild = await Town.db.findById(crdtSession, child.id!);
+      final visibleChild = await Town.db.findById(offlineSyncSession, child.id!);
       expect(visibleChild, isNotNull);
       expect(visibleChild!.mayorId, isNull);
     });
@@ -299,10 +302,10 @@ void main() {
       'when pending changes are collected, '
       'then the update payload carries the attempted foreign key value.',
       () async {
-        final mergeSet = await crdtSync
+        final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
 
@@ -320,40 +323,40 @@ void main() {
     );
   });
 
-  group('Given personal and shared scope rows authored by the same local node,', () {
-    late UuidValue sharedScopeId;
+  group('Given personal and shared space rows authored by the same local node,', () {
+    late UuidValue sharedSpaceId;
     late Person sharedPerson;
     late Person personalPerson;
 
     setUp(() async {
-      sharedScopeId = const Uuid().v7obj();
-      final sharedScope = await CrdtScopeManager(testSession).getOrCreate(
-        sharedScopeId,
+      sharedSpaceId = const Uuid().v7obj();
+      final sharedSpace = await OfflineSyncSpaceManager(testSession).getOrCreate(
+        sharedSpaceId,
       );
 
-      await CrdtScopeMember.db.insertRow(
+      await OfflineSyncSpaceMember.db.insertRow(
         testSession,
-        CrdtScopeMember(
-          scopeId: sharedScope.id!,
+        OfflineSyncSpaceMember(
+          spaceId: sharedSpace.id!,
           userUuid: testCrdtUserId,
-          role: CrdtScopeRole.readWrite,
+          role: OfflineSyncSpaceRole.readWrite,
         ),
       );
 
-      sharedPerson = await crdtSession.db.transactionForUser(
+      sharedPerson = await offlineSyncSession.db.transactionForUser(
         testCrdtUserId,
-        scopeId: sharedScopeId,
+        spaceId: sharedSpaceId,
         (tx) => Person.db.insertRow(
-          crdtSession,
+          offlineSyncSession,
           Person(id: const Uuid().v7obj(), name: 'shared-person'),
           transaction: tx,
         ),
       );
 
-      personalPerson = await crdtSession.db.transactionForUser(
+      personalPerson = await offlineSyncSession.db.transactionForUser(
         testCrdtUserId,
         (tx) => Person.db.insertRow(
-          crdtSession,
+          offlineSyncSession,
           Person(id: const Uuid().v7obj(), name: 'personal-person'),
           transaction: tx,
         ),
@@ -361,18 +364,18 @@ void main() {
     });
 
     test(
-      'when only the personal scope checkpoint has advanced, '
-      'then only the shared scope row is collected.',
+      'when only the personal space checkpoint has advanced, '
+      'then only the shared space row is collected.',
       () async {
-        final personalScope = await CrdtScope.db.findFirstRow(
+        final personalSpace = await OfflineSyncSpace.db.findFirstRow(
           testSession,
-          where: (t) => t.uuidScopeId.equals(testCrdtUserId),
-          include: CrdtScope.include(currentNode: CrdtNode.include()),
+          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
+          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
         );
-        final sharedScope = await CrdtScope.db.findFirstRow(
+        final sharedSpace = await OfflineSyncSpace.db.findFirstRow(
           testSession,
-          where: (t) => t.uuidScopeId.equals(sharedScopeId),
-          include: CrdtScope.include(currentNode: CrdtNode.include()),
+          where: (t) => t.uuidSpaceId.equals(sharedSpaceId),
+          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
         );
         final personalTracker = await CrdtDataRow.db.findFirstRow(
           testSession,
@@ -381,18 +384,18 @@ void main() {
         );
 
         expect(
-          personalScope!.currentNode!.uuidNodeId,
-          sharedScope!.currentNode!.uuidNodeId,
+          personalSpace!.currentNode!.uuidNodeId,
+          sharedSpace!.currentNode!.uuidNodeId,
         );
 
-        final changes = await crdtSync
+        final changes = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsByScopeUuid: {
-                // Simulate the personal scope checkpoint advancing by passing
-                // the personal tracker's HLC and not the shared scope's HLC.
+              checkpointsBySpaceUuid: {
+                // Simulate the personal space checkpoint advancing by passing
+                // the personal tracker's HLC and not the shared space's HLC.
                 testCrdtUserId: [personalTracker!.hlc],
-                sharedScopeId: const [],
+                sharedSpaceId: const [],
               },
             )
             .toList();
@@ -404,18 +407,18 @@ void main() {
     );
   });
 
-  group('Given existing scopes with different current CRDT nodes,', () {
-    late UuidValue firstScopeId;
-    late UuidValue secondScopeId;
+  group('Given existing spaces with different current CRDT nodes,', () {
+    late UuidValue firstSpaceId;
+    late UuidValue secondSpaceId;
     late CrdtNode firstNode;
     late Hlc newerSecondNodeHlc;
-    late CrdtScope secondScope;
+    late OfflineSyncSpace secondSpace;
 
     setUp(() async {
-      firstScopeId = const Uuid().v7obj();
-      secondScopeId = const Uuid().v7obj();
+      firstSpaceId = const Uuid().v7obj();
+      secondSpaceId = const Uuid().v7obj();
 
-      // First scope: already on this replica's stable current node (older clock).
+      // First space: already on this replica's stable current node (older clock).
       final firstNodeId = const Uuid().v7obj();
       firstNode = await CrdtNode.db.insertRow(
         testSession,
@@ -424,52 +427,52 @@ void main() {
           lastHlc: Hlc(DateTime.utc(2026, 5, 8), 1, firstNodeId),
         ),
       );
-      await CrdtScope.db.insertRow(
+      await OfflineSyncSpace.db.insertRow(
         testSession,
-        CrdtScope(uuidScopeId: firstScopeId, currentNodeId: firstNode.id),
+        OfflineSyncSpace(uuidSpaceId: firstSpaceId, currentNodeId: firstNode.id),
       );
 
-      // Second scope: opened on a different node with a newer clock.
+      // Second space: opened on a different node with a newer clock.
       final secondNodeId = const Uuid().v7obj();
       newerSecondNodeHlc = Hlc(DateTime.utc(2026, 5, 9), 1, secondNodeId);
       final secondNode = await CrdtNode.db.insertRow(
         testSession,
         CrdtNode(uuidNodeId: secondNodeId, lastHlc: newerSecondNodeHlc),
       );
-      secondScope = await CrdtScope.db.insertRow(
+      secondSpace = await OfflineSyncSpace.db.insertRow(
         testSession,
-        CrdtScope(uuidScopeId: secondScopeId, currentNodeId: secondNode.id),
+        OfflineSyncSpace(uuidSpaceId: secondSpaceId, currentNodeId: secondNode.id),
       );
     });
 
     test(
-      'when getOrCreate reopens the second scope, '
-      'then it reuses the first scope node with the second scope HLC instead of creating a new node.',
+      'when getOrCreate reopens the second space, '
+      'then it reuses the first space node with the second space HLC instead of creating a new node.',
       () async {
-        final adoptedScope = await CrdtScopeManager(
+        final adoptedSpace = await OfflineSyncSpaceManager(
           testSession,
-        ).getOrCreate(secondScopeId);
+        ).getOrCreate(secondSpaceId);
         final expectedHlc = newerSecondNodeHlc.copyWith(
           nodeId: firstNode.uuidNodeId,
         );
 
-        expect(adoptedScope.currentNodeId, firstNode.id);
-        expect(adoptedScope.currentNode!.lastHlc, expectedHlc);
+        expect(adoptedSpace.currentNodeId, firstNode.id);
+        expect(adoptedSpace.currentNode!.lastHlc, expectedHlc);
 
-        final persistedSecondScope = await CrdtScope.db.findById(
+        final persistedSecondSpace = await OfflineSyncSpace.db.findById(
           testSession,
-          secondScope.id!,
-          include: CrdtScope.include(currentNode: CrdtNode.include()),
+          secondSpace.id!,
+          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
         );
-        final scopeNode = await CrdtScopeNode.db.findFirstRow(
+        final spaceNode = await OfflineSyncSpaceNode.db.findFirstRow(
           testSession,
           where: (t) =>
-              t.scopeId.equals(secondScope.id) & t.nodeId.equals(firstNode.id),
+              t.spaceId.equals(secondSpace.id) & t.nodeId.equals(firstNode.id),
         );
 
-        expect(persistedSecondScope!.currentNodeId, firstNode.id);
-        expect(persistedSecondScope.currentNode!.lastHlc, expectedHlc);
-        expect(scopeNode, isNotNull);
+        expect(persistedSecondSpace!.currentNodeId, firstNode.id);
+        expect(persistedSecondSpace.currentNode!.lastHlc, expectedHlc);
+        expect(spaceNode, isNotNull);
       },
     );
   });
@@ -479,15 +482,17 @@ void main() {
     'when synchronization checkpoints are created, '
     'then one fresh checkpoint for the local node is included.',
     () async {
-      final scope = await CrdtScopeManager(testSession).getOrCreate(testCrdtUserId);
-      final sinceHlc = await crdtSync.createSyncSinceHlc(
+      final space = await OfflineSyncSpaceManager(
         testSession,
-        scopeId: testCrdtUserId,
+      ).getOrCreate(testCrdtUserId);
+      final sinceHlc = await offlineSync.createSyncSinceHlc(
+        testSession,
+        spaceId: testCrdtUserId,
       );
 
-      expect(sinceHlc.uuidScopeId, testCrdtUserId);
+      expect(sinceHlc.uuidSpaceId, testCrdtUserId);
       expect(sinceHlc.nodeCheckpoints, hasLength(1));
-      expect(sinceHlc.nodeCheckpoints.single.nodeId, scope.currentNode!.uuidNodeId);
+      expect(sinceHlc.nodeCheckpoints.single.nodeId, space.currentNode!.uuidNodeId);
       expect(
         sinceHlc.nodeCheckpoints.single,
         greaterThan(Hlc.zero(sinceHlc.nodeCheckpoints.single.nodeId)),

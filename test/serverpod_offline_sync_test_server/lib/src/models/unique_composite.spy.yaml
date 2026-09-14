@@ -4,4 +4,4 @@ database: sync
 fields:
   ### This scope field has no relation with the CRDT sync layer.
   scope: String
-  value: String, unique(per=[scopeId, scope])
+  value: String, unique(per=[spaceId, scope])

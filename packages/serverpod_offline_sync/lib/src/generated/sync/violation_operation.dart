@@ -13,7 +13,7 @@
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
 /// Merge or sync operation that observed an integrity violation.
-enum CrdtSyncViolationOperation implements _iss.SerializableModel {
+enum OfflineSyncViolationOperation implements _iss.SerializableModel {
   mergeInsert,
   mergeUpdate,
   mergeDelete,
@@ -21,23 +21,23 @@ enum CrdtSyncViolationOperation implements _iss.SerializableModel {
   outboundUpdate,
   outboundDelete;
 
-  static CrdtSyncViolationOperation fromJson(String name) {
+  static OfflineSyncViolationOperation fromJson(String name) {
     switch (name) {
       case 'mergeInsert':
-        return CrdtSyncViolationOperation.mergeInsert;
+        return OfflineSyncViolationOperation.mergeInsert;
       case 'mergeUpdate':
-        return CrdtSyncViolationOperation.mergeUpdate;
+        return OfflineSyncViolationOperation.mergeUpdate;
       case 'mergeDelete':
-        return CrdtSyncViolationOperation.mergeDelete;
+        return OfflineSyncViolationOperation.mergeDelete;
       case 'outboundInsert':
-        return CrdtSyncViolationOperation.outboundInsert;
+        return OfflineSyncViolationOperation.outboundInsert;
       case 'outboundUpdate':
-        return CrdtSyncViolationOperation.outboundUpdate;
+        return OfflineSyncViolationOperation.outboundUpdate;
       case 'outboundDelete':
-        return CrdtSyncViolationOperation.outboundDelete;
+        return OfflineSyncViolationOperation.outboundDelete;
       default:
         throw ArgumentError(
-          'Value "$name" cannot be converted to "CrdtSyncViolationOperation"',
+          'Value "$name" cannot be converted to "OfflineSyncViolationOperation"',
         );
     }
   }

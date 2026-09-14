@@ -111,7 +111,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -132,8 +132,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'address_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -182,7 +182,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -197,8 +197,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'city_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -223,7 +223,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -245,8 +245,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'company_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -282,7 +282,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -303,8 +303,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_cascade_middle_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -340,7 +340,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -361,8 +361,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_middle_cascade_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -398,7 +398,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -419,8 +419,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_middle_set_null_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -456,7 +456,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -477,8 +477,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_restrict_blocker_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -514,7 +514,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -529,8 +529,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_root_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -555,7 +555,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -576,8 +576,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_cascade_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -613,7 +613,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -634,8 +634,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_middle_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -671,7 +671,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -692,8 +692,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_restrict_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -729,7 +729,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -750,8 +750,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'fk_chain_set_null_set_null_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -787,7 +787,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -808,8 +808,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'nullable_set_default_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -845,7 +845,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -866,8 +866,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'organization_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -903,7 +903,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -942,8 +942,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'person_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1000,7 +1000,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1021,8 +1021,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'required_cascade_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1058,7 +1058,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1079,8 +1079,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'required_no_action_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1116,7 +1116,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1137,8 +1137,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'required_set_null_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1174,7 +1174,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1195,8 +1195,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'restrict_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1232,7 +1232,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1259,8 +1259,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'town_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1307,7 +1307,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1376,8 +1376,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'types_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1416,7 +1416,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1431,8 +1431,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1442,12 +1442,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'unique__scopeId__name__unique_idx',
+          indexName: 'unique__spaceId__name__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1475,7 +1475,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1496,8 +1496,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_cascade_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1518,12 +1518,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'unique_cascade_child__scopeId__name__unique_idx',
+          indexName: 'unique_cascade_child__spaceId__name__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1551,7 +1551,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1572,8 +1572,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_cascade_reference_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1623,7 +1623,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1644,8 +1644,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_composite_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1655,12 +1655,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'unique_composite__scopeId__scope__value__unique_idx',
+          indexName: 'unique_composite__spaceId__scope__value__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1692,7 +1692,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1713,8 +1713,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_discriminator_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1725,12 +1725,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       indexes: [
         _isp.IndexDefinition(
           indexName:
-              'unique_discriminator__scopeId__categoryId__name__unique_idx',
+              'unique_discriminator__spaceId__categoryId__name__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1762,7 +1762,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1789,8 +1789,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_fk_pair_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1855,7 +1855,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1876,8 +1876,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_mixed_fk_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1903,7 +1903,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1935,7 +1935,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -1950,8 +1950,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_no_release_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -1961,12 +1961,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'unique_no_release__scopeId__categoryId__unique_idx',
+          indexName: 'unique_no_release__spaceId__categoryId__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -1994,7 +1994,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -2009,8 +2009,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_nullable_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -2020,12 +2020,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'unique_nullable__scopeId__value__unique_idx',
+          indexName: 'unique_nullable__spaceId__value__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -2053,7 +2053,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -2080,8 +2080,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_overlapping_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -2096,7 +2096,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -2117,7 +2117,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
@@ -2149,7 +2149,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -2171,8 +2171,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_set_default_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -2222,7 +2222,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -2243,8 +2243,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_set_null_child_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -2294,7 +2294,7 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnDefault: 'random_v7',
         ),
         _isp.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isp.ColumnType.bigint,
           isNullable: true,
           dartType: 'int?',
@@ -2309,8 +2309,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       foreignKeys: [
         _isp.ForeignKeyDefinition(
           constraintName: 'unique_uuid_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isp.ForeignKeyAction.noAction,
@@ -2320,12 +2320,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       indexes: [
         _isp.IndexDefinition(
-          indexName: 'unique_uuid__scopeId__value__unique_idx',
+          indexName: 'unique_uuid__spaceId__value__unique_idx',
           tableSpace: null,
           elements: [
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,

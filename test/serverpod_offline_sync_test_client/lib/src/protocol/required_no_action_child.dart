@@ -21,7 +21,7 @@ abstract class RequiredNoActionChild
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   RequiredNoActionChild._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     required this.parentId,
     this.parent,
@@ -29,7 +29,7 @@ abstract class RequiredNoActionChild
 
   factory RequiredNoActionChild({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     required _isc.UuidValue parentId,
     _iensfz4m.Person? parent,
@@ -42,7 +42,7 @@ abstract class RequiredNoActionChild
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       parentId: _isc.UuidValueJsonExtension.fromJson(
         jsonSerialization['parentId'],
@@ -62,8 +62,8 @@ abstract class RequiredNoActionChild
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -79,7 +79,7 @@ abstract class RequiredNoActionChild
   @_isc.useResult
   RequiredNoActionChild copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _isc.UuidValue? parentId,
     _iensfz4m.Person? parent,
@@ -89,7 +89,7 @@ abstract class RequiredNoActionChild
     return {
       '__className__': 'RequiredNoActionChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       'parentId': parentId.toJson(),
       if (parent != null) 'parent': parent?.toJson(),
@@ -101,7 +101,7 @@ abstract class RequiredNoActionChild
     return {
       '__className__': 'RequiredNoActionChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       'parentId': parentId.toJson(),
       if (parent != null) 'parent': parent?.toJsonForProtocol(),
@@ -143,13 +143,13 @@ class _Undefined {}
 class _RequiredNoActionChildImpl extends RequiredNoActionChild {
   _RequiredNoActionChildImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     required _isc.UuidValue parentId,
     _iensfz4m.Person? parent,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          parentId: parentId,
          parent: parent,
@@ -161,14 +161,14 @@ class _RequiredNoActionChildImpl extends RequiredNoActionChild {
   @override
   RequiredNoActionChild copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     _isc.UuidValue? parentId,
     Object? parent = _Undefined,
   }) {
     return RequiredNoActionChild(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       parentId: parentId ?? this.parentId,
       parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
@@ -180,8 +180,8 @@ class RequiredNoActionChildUpdateTable
     extends _isd.UpdateTable<RequiredNoActionChildTable> {
   RequiredNoActionChildUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -202,8 +202,8 @@ class RequiredNoActionChildTable extends _isd.Table<_isc.UuidValue?> {
   RequiredNoActionChildTable({super.tableRelation})
     : super(tableName: 'required_no_action_child') {
     updateTable = RequiredNoActionChildUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -218,8 +218,8 @@ class RequiredNoActionChildTable extends _isd.Table<_isc.UuidValue?> {
 
   late final RequiredNoActionChildUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
@@ -243,7 +243,7 @@ class RequiredNoActionChildTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     parentId,
   ];

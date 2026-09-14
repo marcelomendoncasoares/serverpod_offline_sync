@@ -36,8 +36,8 @@ void main() {
         );
       });
 
-      test('then the returned row keeps scopeId null.', () async {
-        expect(updatedPerson.scopeId, isNull);
+      test('then the returned row keeps spaceId null.', () async {
+        expect(updatedPerson.spaceId, isNull);
       });
 
       test('then the person row reflects the new values.', () async {
@@ -155,10 +155,10 @@ void main() {
         );
       });
 
-      test('then the updated row is returned with scopeId null.', () async {
+      test('then the updated row is returned with spaceId null.', () async {
         expect(updatedPerson, isNotNull);
         expect(updatedPerson!.name, 'updated by id');
-        expect(updatedPerson!.scopeId, isNull);
+        expect(updatedPerson!.spaceId, isNull);
       });
 
       test('then the person row reflects the new values.', () async {
@@ -258,13 +258,13 @@ void main() {
     );
 
     test(
-      'when updating a Person with another scopeId, then it throws.',
+      'when updating a Person with another spaceId, then it throws.',
       () async {
         final updateFuture = session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.updateRow(
             session,
-            person.copyWith(name: 'wrong scope', scopeId: -1),
+            person.copyWith(name: 'wrong space', spaceId: -1),
             columns: (t) => [t.name],
             transaction: tx,
           ),
@@ -278,7 +278,7 @@ void main() {
               'message',
               allOf([
                 contains('Cannot write person row'),
-                contains('with scopeId -1 while acting in scope 1'),
+                contains('with spaceId -1 while acting in space 1'),
               ]),
             ),
           ),
@@ -287,13 +287,13 @@ void main() {
     );
 
     test(
-      'when updateWhere sets scopeId, then it throws.',
+      'when updateWhere sets spaceId, then it throws.',
       () async {
         final updateFuture = session.db.transactionForUser(
           testCrdtUserId,
           (tx) => Person.db.updateWhere(
             session,
-            columnValues: (t) => [t.scopeId(-1)],
+            columnValues: (t) => [t.spaceId(-1)],
             where: (t) => t.id.equals(person.id),
             transaction: tx,
           ),
@@ -305,7 +305,7 @@ void main() {
             isA<StateError>().having(
               (e) => e.message,
               'message',
-              contains('scopeId is immutable and owned by the CRDT sync layer'),
+              contains('spaceId is immutable and owned by the CRDT sync layer'),
             ),
           ),
         );
@@ -485,15 +485,15 @@ void main() {
           ),
         );
 
-        final scope = await CrdtScope.db.findFirstRow(session);
+        final space = await OfflineSyncSpace.db.findFirstRow(session);
 
         otherNode = await CrdtNode.db.insertRow(
           session,
           CrdtNode(),
         );
-        await CrdtScopeNode.db.insertRow(
+        await OfflineSyncSpaceNode.db.insertRow(
           session,
-          CrdtScopeNode(scopeId: scope!.id!, nodeId: otherNode.id!),
+          OfflineSyncSpaceNode(spaceId: space!.id!, nodeId: otherNode.id!),
         );
 
         final crdtDataRow = await CrdtDataRow.db
@@ -662,17 +662,17 @@ void main() {
   });
 
   group('Given a row on a table not tracked by CRDT,', () {
-    late CrdtSyncIntegrityViolation violation;
+    late OfflineSyncIntegrityViolation violation;
 
     setUp(() async {
-      violation = await CrdtSyncIntegrityViolation.db.insertRow(
+      violation = await OfflineSyncIntegrityViolation.db.insertRow(
         session,
-        CrdtSyncIntegrityViolation(
-          type: CrdtSyncViolationType.ownershipCollision,
+        OfflineSyncIntegrityViolation(
+          type: OfflineSyncViolationType.ownershipCollision,
           domainTableName: Person.t.tableName,
           uuidRowId: const Uuid().v7obj(),
-          incomingScopeUuid: testCrdtUserId,
-          operation: CrdtSyncViolationOperation.mergeInsert,
+          incomingSpaceUuid: testCrdtUserId,
+          operation: OfflineSyncViolationOperation.mergeInsert,
           firstSeenAt: DateTime.now(),
           lastSeenAt: DateTime.now(),
           occurrences: 1,
@@ -681,10 +681,10 @@ void main() {
     });
 
     group('when updating the row with update and noReturn,', () {
-      late List<CrdtSyncIntegrityViolation> updated;
+      late List<OfflineSyncIntegrityViolation> updated;
 
       setUp(() async {
-        updated = await CrdtSyncIntegrityViolation.db.update(
+        updated = await OfflineSyncIntegrityViolation.db.update(
           session,
           [violation.copyWith(occurrences: 2)],
           noReturn: true,
@@ -696,7 +696,7 @@ void main() {
       });
 
       test('then the row reflects the new values.', () async {
-        final row = await CrdtSyncIntegrityViolation.db.findById(
+        final row = await OfflineSyncIntegrityViolation.db.findById(
           session,
           violation.id!,
         );
@@ -705,10 +705,10 @@ void main() {
     });
 
     group('when updating the row with updateWhere and noReturn,', () {
-      late List<CrdtSyncIntegrityViolation> updated;
+      late List<OfflineSyncIntegrityViolation> updated;
 
       setUp(() async {
-        updated = await CrdtSyncIntegrityViolation.db.updateWhere(
+        updated = await OfflineSyncIntegrityViolation.db.updateWhere(
           session,
           columnValues: (t) => [t.occurrences(3)],
           where: (t) => t.id.equals(violation.id),
@@ -721,7 +721,7 @@ void main() {
       });
 
       test('then the row reflects the new values.', () async {
-        final row = await CrdtSyncIntegrityViolation.db.findById(
+        final row = await OfflineSyncIntegrityViolation.db.findById(
           session,
           violation.id!,
         );

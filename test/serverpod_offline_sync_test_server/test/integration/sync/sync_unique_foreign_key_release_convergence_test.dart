@@ -16,19 +16,19 @@ void main() {
       street: street,
       inhabitantId: inhabitant.id,
     );
-    await owner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-      await Address.db.insertRow(owner.crdt, row, transaction: tx);
+    await owner.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+      await Address.db.insertRow(owner.offlineSync, row, transaction: tx);
     });
     return row;
   }
 
   Future<String> render(SyncNode node) async {
     final rows = await Address.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visible = {
-      for (final row in await Address.db.find(node.crdt)) row.id,
+      for (final row in await Address.db.find(node.offlineSync)) row.id,
     };
     rows.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
     return [
@@ -58,8 +58,8 @@ void main() {
           name: 'inhabitant',
           surname: 'inhabitant',
         );
-        await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.insertRow(server.crdt, inhabitant, transaction: tx);
+        await server.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(server.offlineSync, inhabitant, transaction: tx);
         });
         await pushChanges(server, winnerClient);
         await pushChanges(server, loserClient);
@@ -81,11 +81,11 @@ void main() {
 
       group('when the winning claim is deleted and every client syncs again,', () {
         setUp(() async {
-          await winnerClient.crdt.db.transactionForUser(testCrdtUserId, (
+          await winnerClient.offlineSync.db.transactionForUser(testCrdtUserId, (
             tx,
           ) async {
             await Address.db.deleteRow(
-              winnerClient.crdt,
+              winnerClient.offlineSync,
               winner,
               transaction: tx,
             );

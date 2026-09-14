@@ -34,12 +34,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are equal.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -71,12 +71,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are equal.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -104,12 +104,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -127,7 +127,7 @@ void main() {
       addressDefinition.copyWith(
         foreignKeys: [
           for (final fk in addressDefinition.foreignKeys)
-            // Only mutate the inhabitantId FK; the scopeId->crdt_scopes FK
+            // Only mutate the inhabitantId FK; the spaceId->offline_sync_spaces FK
             // must remain unchanged so it does not interfere with this test.
             if (fk.columns.contains('inhabitantId'))
               fk.copyWith(onDelete: ForeignKeyAction.cascade)
@@ -141,12 +141,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -182,12 +182,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -216,12 +216,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -248,12 +248,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );
@@ -280,12 +280,12 @@ void main() {
       'when comparing the definition hashes, '
       'then their hash values are different.',
       () {
-        final baseHash = CrdtSync.computeSyncTablesHash(
+        final baseHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: baseDefinitions,
         );
 
-        final changedHash = CrdtSync.computeSyncTablesHash(
+        final changedHash = OfflineSyncEngine.computeSyncTablesHash(
           syncTables,
           tableDefinitions: changedDefinitions,
         );

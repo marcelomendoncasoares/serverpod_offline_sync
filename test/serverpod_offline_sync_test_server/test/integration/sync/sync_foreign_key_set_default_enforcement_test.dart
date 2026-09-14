@@ -30,9 +30,13 @@ void main() {
         name: 'second',
         parentId: parent.id,
       );
-      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insertRow(node.crdt, parent, transaction: tx);
-        await UniqueSetDefaultChild.db.insertRow(node.crdt, first, transaction: tx);
+      await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(node.offlineSync, parent, transaction: tx);
+        await UniqueSetDefaultChild.db.insertRow(
+          node.offlineSync,
+          first,
+          transaction: tx,
+        );
       });
     });
 
@@ -41,15 +45,19 @@ void main() {
       late CrdtMergeSet changes;
 
       setUpAll(() async {
-        await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await UniqueSetDefaultChild.db.insertRow(node.crdt, second, transaction: tx);
+        await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueSetDefaultChild.db.insertRow(
+            node.offlineSync,
+            second,
+            transaction: tx,
+          );
         });
 
-        nodeRows = await UniqueSetDefaultChild.db.find(node.crdt);
+        nodeRows = await UniqueSetDefaultChild.db.find(node.offlineSync);
         changes = await node.sync
             .collectPendingChanges(
               node.raw,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
       });
@@ -100,8 +108,8 @@ void main() {
           name: 'second',
           parentId: parent.id,
         );
-        await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(node.crdt, parent, transaction: tx);
+        await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(node.offlineSync, parent, transaction: tx);
         });
       });
 
@@ -110,18 +118,18 @@ void main() {
         late CrdtMergeSet changes;
 
         setUpAll(() async {
-          await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await UniqueSetDefaultChild.db.insert(node.crdt, [
+          await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+            await UniqueSetDefaultChild.db.insert(node.offlineSync, [
               first,
               second,
             ], transaction: tx);
           });
 
-          nodeRows = await UniqueSetDefaultChild.db.find(node.crdt);
+          nodeRows = await UniqueSetDefaultChild.db.find(node.offlineSync);
           changes = await node.sync
               .collectPendingChanges(
                 node.raw,
-                checkpointsByScopeUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: const []},
               )
               .toList();
         });
@@ -174,31 +182,35 @@ void main() {
           name: 'second',
           parentId: parent.id,
         );
-        await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(server.crdt, parent, transaction: tx);
+        await server.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(server.offlineSync, parent, transaction: tx);
         });
         await syncWithServer(client, server);
-        await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await UniqueSetDefaultChild.db.insertRow(server.crdt, first, transaction: tx);
-        });
-        await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await server.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueSetDefaultChild.db.insertRow(
-            client.crdt,
+            server.offlineSync,
+            first,
+            transaction: tx,
+          );
+        });
+        await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueSetDefaultChild.db.insertRow(
+            client.offlineSync,
             second,
             transaction: tx,
           );
         });
       });
 
-      group('when synchronizing their scopes,', () {
+      group('when synchronizing their spaces,', () {
         late List<UniqueSetDefaultChild> serverRows;
         late List<UniqueSetDefaultChild> clientRows;
 
         setUpAll(() async {
           await syncWithServer(client, server);
 
-          serverRows = await UniqueSetDefaultChild.db.find(server.crdt);
-          clientRows = await UniqueSetDefaultChild.db.find(client.crdt);
+          serverRows = await UniqueSetDefaultChild.db.find(server.offlineSync);
+          clientRows = await UniqueSetDefaultChild.db.find(client.offlineSync);
         });
 
         test('then both child rows remain visible.', () {
@@ -231,8 +243,8 @@ void main() {
         name: 'default',
       );
       child = UniqueSetDefaultChild(id: const Uuid().v7obj(), name: 'child');
-      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insertRow(node.crdt, parent, transaction: tx);
+      await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(node.offlineSync, parent, transaction: tx);
       });
     });
 
@@ -242,22 +254,22 @@ void main() {
       late CrdtMergeSet changes;
 
       setUpAll(() async {
-        inserted = await node.crdt.db.transactionForUser(testCrdtUserId, (
+        inserted = await node.offlineSync.db.transactionForUser(testCrdtUserId, (
           tx,
         ) async {
           return UniqueSetDefaultChild.db.upsertRow(
-            node.crdt,
+            node.offlineSync,
             child,
             conflictColumns: (t) => [t.id],
             transaction: tx,
           );
         });
 
-        stored = await UniqueSetDefaultChild.db.findById(node.crdt, child.id!);
+        stored = await UniqueSetDefaultChild.db.findById(node.offlineSync, child.id!);
         changes = await node.sync
             .collectPendingChanges(
               node.raw,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
       });
@@ -296,9 +308,13 @@ void main() {
         name: 'child',
         parentId: parent.id,
       );
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Person.db.insertRow(client.crdt, parent, transaction: tx);
-        await NullableSetDefaultChild.db.insertRow(client.crdt, child, transaction: tx);
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Person.db.insertRow(client.offlineSync, parent, transaction: tx);
+        await NullableSetDefaultChild.db.insertRow(
+          client.offlineSync,
+          child,
+          transaction: tx,
+        );
       });
       await syncWithServer(client, server);
     });
@@ -311,19 +327,25 @@ void main() {
       late CrdtMergeSet changes;
 
       setUpAll(() async {
-        await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.deleteRow(client.crdt, parent, transaction: tx);
+        await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(client.offlineSync, parent, transaction: tx);
         });
         await syncWithServer(client, server);
 
-        clientParent = await Person.db.findById(client.crdt, parent.id!);
-        clientChild = await NullableSetDefaultChild.db.findById(client.crdt, child.id!);
-        serverParent = await Person.db.findById(server.crdt, parent.id!);
-        serverChild = await NullableSetDefaultChild.db.findById(server.crdt, child.id!);
+        clientParent = await Person.db.findById(client.offlineSync, parent.id!);
+        clientChild = await NullableSetDefaultChild.db.findById(
+          client.offlineSync,
+          child.id!,
+        );
+        serverParent = await Person.db.findById(server.offlineSync, parent.id!);
+        serverChild = await NullableSetDefaultChild.db.findById(
+          server.offlineSync,
+          child.id!,
+        );
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
       });
@@ -356,7 +378,7 @@ void main() {
   });
 
   group(
-    'Given a company referencing another town and a visible default town in its scope,',
+    'Given a company referencing another town and a visible default town in its space,',
     () {
       late SyncNode server;
       late SyncNode client;
@@ -374,9 +396,12 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insert(client.crdt, [defaultTown, town], transaction: tx);
-          await Company.db.insertRow(client.crdt, company, transaction: tx);
+        await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insert(client.offlineSync, [
+            defaultTown,
+            town,
+          ], transaction: tx);
+          await Company.db.insertRow(client.offlineSync, company, transaction: tx);
         });
         await syncWithServer(client, server);
       });
@@ -390,17 +415,17 @@ void main() {
         late Town? serverDefault;
 
         setUpAll(() async {
-          await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-            await Town.db.deleteRow(client.crdt, town, transaction: tx);
+          await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+            await Town.db.deleteRow(client.offlineSync, town, transaction: tx);
           });
           await syncWithServer(client, server);
 
-          clientTown = await Town.db.findById(client.crdt, town.id!);
-          clientCompany = await Company.db.findById(client.crdt, company.id!);
-          clientDefault = await Town.db.findById(client.crdt, _defaultTownId);
-          serverTown = await Town.db.findById(server.crdt, town.id!);
-          serverCompany = await Company.db.findById(server.crdt, company.id!);
-          serverDefault = await Town.db.findById(server.crdt, _defaultTownId);
+          clientTown = await Town.db.findById(client.offlineSync, town.id!);
+          clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+          clientDefault = await Town.db.findById(client.offlineSync, _defaultTownId);
+          serverTown = await Town.db.findById(server.offlineSync, town.id!);
+          serverCompany = await Company.db.findById(server.offlineSync, company.id!);
+          serverDefault = await Town.db.findById(server.offlineSync, _defaultTownId);
         });
 
         test('then the original town is hidden on the client.', () {
@@ -446,9 +471,9 @@ void main() {
         name: 'company',
         townId: town.id,
       );
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insertRow(client.crdt, town, transaction: tx);
-        await Company.db.insertRow(client.crdt, company, transaction: tx);
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(client.offlineSync, town, transaction: tx);
+        await Company.db.insertRow(client.offlineSync, company, transaction: tx);
       });
       await syncWithServer(client, server);
     });
@@ -463,23 +488,23 @@ void main() {
 
       setUpAll(() async {
         try {
-          await client.crdt.db.transactionForUser(
+          await client.offlineSync.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Town.db.deleteRow(client.crdt, town, transaction: tx),
+            (tx) => Town.db.deleteRow(client.offlineSync, town, transaction: tx),
           );
         } on Exception catch (error) {
           deletionError = error;
         }
         await syncWithServer(client, server);
 
-        clientTown = await Town.db.findById(client.crdt, town.id!);
-        clientCompany = await Company.db.findById(client.crdt, company.id!);
-        serverTown = await Town.db.findById(server.crdt, town.id!);
-        serverCompany = await Company.db.findById(server.crdt, company.id!);
+        clientTown = await Town.db.findById(client.offlineSync, town.id!);
+        clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+        serverTown = await Town.db.findById(server.offlineSync, town.id!);
+        serverCompany = await Company.db.findById(server.offlineSync, company.id!);
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
       });
@@ -532,19 +557,19 @@ void main() {
         name: 'company',
         townId: town.id,
       );
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
         await Town.db.insertRow(
-          client.crdt,
+          client.offlineSync,
           Town(id: _defaultTownId, name: 'default'),
           transaction: tx,
         );
         await Town.db.deleteRow(
-          client.crdt,
+          client.offlineSync,
           Town(id: _defaultTownId, name: 'default'),
           transaction: tx,
         );
-        await Town.db.insertRow(client.crdt, town, transaction: tx);
-        await Company.db.insertRow(client.crdt, company, transaction: tx);
+        await Town.db.insertRow(client.offlineSync, town, transaction: tx);
+        await Company.db.insertRow(client.offlineSync, company, transaction: tx);
       });
       await syncWithServer(client, server);
     });
@@ -559,23 +584,23 @@ void main() {
 
       setUpAll(() async {
         try {
-          await client.crdt.db.transactionForUser(
+          await client.offlineSync.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Town.db.deleteRow(client.crdt, town, transaction: tx),
+            (tx) => Town.db.deleteRow(client.offlineSync, town, transaction: tx),
           );
         } on Exception catch (error) {
           deletionError = error;
         }
         await syncWithServer(client, server);
 
-        clientTown = await Town.db.findById(client.crdt, town.id!);
-        clientCompany = await Company.db.findById(client.crdt, company.id!);
-        serverTown = await Town.db.findById(server.crdt, town.id!);
-        serverCompany = await Company.db.findById(server.crdt, company.id!);
+        clientTown = await Town.db.findById(client.offlineSync, town.id!);
+        clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+        serverTown = await Town.db.findById(server.offlineSync, town.id!);
+        serverCompany = await Company.db.findById(server.offlineSync, company.id!);
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
       });
@@ -630,9 +655,9 @@ void main() {
         name: 'company',
         townId: town.id,
       );
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insert(client.crdt, [town, defaultTown], transaction: tx);
-        await Company.db.insertRow(client.crdt, company, transaction: tx);
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insert(client.offlineSync, [town, defaultTown], transaction: tx);
+        await Company.db.insertRow(client.offlineSync, company, transaction: tx);
       });
       await syncWithServer(client, server);
     });
@@ -651,27 +676,30 @@ void main() {
 
       setUpAll(() async {
         try {
-          await client.crdt.db.transactionForUser(
+          await client.offlineSync.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Town.db.delete(client.crdt, [town, defaultTown], transaction: tx),
+            (tx) => Town.db.delete(client.offlineSync, [
+              town,
+              defaultTown,
+            ], transaction: tx),
           );
         } on Exception catch (error) {
           deletionError = error;
         }
         await syncWithServer(client, server);
 
-        clientTown = await Town.db.findById(client.crdt, town.id!);
-        clientCompany = await Company.db.findById(client.crdt, company.id!);
-        clientDefault = await Town.db.findById(client.crdt, _defaultTownId);
-        clientTowns = await Town.db.find(client.crdt);
-        serverTown = await Town.db.findById(server.crdt, town.id!);
-        serverCompany = await Company.db.findById(server.crdt, company.id!);
-        serverDefault = await Town.db.findById(server.crdt, _defaultTownId);
-        serverTowns = await Town.db.find(server.crdt);
+        clientTown = await Town.db.findById(client.offlineSync, town.id!);
+        clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+        clientDefault = await Town.db.findById(client.offlineSync, _defaultTownId);
+        clientTowns = await Town.db.find(client.offlineSync);
+        serverTown = await Town.db.findById(server.offlineSync, town.id!);
+        serverCompany = await Company.db.findById(server.offlineSync, company.id!);
+        serverDefault = await Town.db.findById(server.offlineSync, _defaultTownId);
+        serverTowns = await Town.db.find(server.offlineSync);
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsByScopeUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: const []},
             )
             .toList();
       });
@@ -745,17 +773,17 @@ void main() {
         name: 'company',
         townId: town.id,
       );
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insertRow(client.crdt, town, transaction: tx);
-        await Company.db.insertRow(client.crdt, company, transaction: tx);
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(client.offlineSync, town, transaction: tx);
+        await Company.db.insertRow(client.offlineSync, company, transaction: tx);
       });
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Company.db.deleteRow(client.crdt, company, transaction: tx);
-        await Town.db.deleteRow(client.crdt, town, transaction: tx);
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Company.db.deleteRow(client.offlineSync, company, transaction: tx);
+        await Town.db.deleteRow(client.offlineSync, town, transaction: tx);
       });
       await syncWithServer(client, server);
       hidden = (await Company.db.findFirstRow(
-        client.crdt,
+        client.offlineSync,
         where: (t) => t.id.equals(company.id) & t.includeHiddenRows,
       ))!;
     });
@@ -767,16 +795,16 @@ void main() {
       late Company? serverCompany;
 
       setUpAll(() async {
-        await client.crdt.db.transactionForUser(
+        await client.offlineSync.db.transactionForUser(
           testCrdtUserId,
-          (tx) => Company.db.insertRow(client.crdt, hidden, transaction: tx),
+          (tx) => Company.db.insertRow(client.offlineSync, hidden, transaction: tx),
         );
         await syncWithServer(client, server);
 
-        clientTown = await Town.db.findById(client.crdt, town.id!);
-        clientCompany = await Company.db.findById(client.crdt, company.id!);
-        serverTown = await Town.db.findById(server.crdt, town.id!);
-        serverCompany = await Company.db.findById(server.crdt, company.id!);
+        clientTown = await Town.db.findById(client.offlineSync, town.id!);
+        clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+        serverTown = await Town.db.findById(server.offlineSync, town.id!);
+        serverCompany = await Company.db.findById(server.offlineSync, company.id!);
       });
 
       test('then the original town is visible on the client.', () {
@@ -817,22 +845,22 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insertRow(
-            client.crdt,
+            client.offlineSync,
             Town(id: _defaultTownId, name: 'default'),
             transaction: tx,
           );
-          await Town.db.insertRow(client.crdt, town, transaction: tx);
-          await Company.db.insertRow(client.crdt, company, transaction: tx);
+          await Town.db.insertRow(client.offlineSync, town, transaction: tx);
+          await Company.db.insertRow(client.offlineSync, company, transaction: tx);
         });
-        await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Company.db.deleteRow(client.crdt, company, transaction: tx);
-          await Town.db.deleteRow(client.crdt, town, transaction: tx);
+        await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Company.db.deleteRow(client.offlineSync, company, transaction: tx);
+          await Town.db.deleteRow(client.offlineSync, town, transaction: tx);
         });
         await syncWithServer(client, server);
         hidden = (await Company.db.findFirstRow(
-          client.crdt,
+          client.offlineSync,
           where: (t) => t.id.equals(company.id) & t.includeHiddenRows,
         ))!;
       });
@@ -846,18 +874,18 @@ void main() {
         late Town? serverDefault;
 
         setUpAll(() async {
-          await client.crdt.db.transactionForUser(
+          await client.offlineSync.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Company.db.insertRow(client.crdt, hidden, transaction: tx),
+            (tx) => Company.db.insertRow(client.offlineSync, hidden, transaction: tx),
           );
           await syncWithServer(client, server);
 
-          clientTown = await Town.db.findById(client.crdt, town.id!);
-          clientCompany = await Company.db.findById(client.crdt, company.id!);
-          clientDefault = await Town.db.findById(client.crdt, _defaultTownId);
-          serverTown = await Town.db.findById(server.crdt, town.id!);
-          serverCompany = await Company.db.findById(server.crdt, company.id!);
-          serverDefault = await Town.db.findById(server.crdt, _defaultTownId);
+          clientTown = await Town.db.findById(client.offlineSync, town.id!);
+          clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+          clientDefault = await Town.db.findById(client.offlineSync, _defaultTownId);
+          serverTown = await Town.db.findById(server.offlineSync, town.id!);
+          serverCompany = await Company.db.findById(server.offlineSync, company.id!);
+          serverDefault = await Town.db.findById(server.offlineSync, _defaultTownId);
         });
 
         test('then the original town is hidden on the client.', () {
@@ -905,18 +933,18 @@ void main() {
           name: 'company',
           townId: town.id,
         );
-        await server.crdt.db.transactionForUser(
+        await server.offlineSync.db.transactionForUser(
           testCrdtUserId,
-          (tx) => Town.db.insertRow(server.crdt, town, transaction: tx),
+          (tx) => Town.db.insertRow(server.offlineSync, town, transaction: tx),
         );
         await syncWithServer(client, server);
-        await server.crdt.db.transactionForUser(
+        await server.offlineSync.db.transactionForUser(
           testCrdtUserId,
-          (tx) => Town.db.deleteRow(server.crdt, town, transaction: tx),
+          (tx) => Town.db.deleteRow(server.offlineSync, town, transaction: tx),
         );
-        await client.crdt.db.transactionForUser(
+        await client.offlineSync.db.transactionForUser(
           testCrdtUserId,
-          (tx) => Company.db.insertRow(client.crdt, company, transaction: tx),
+          (tx) => Company.db.insertRow(client.offlineSync, company, transaction: tx),
         );
       });
 
@@ -929,10 +957,10 @@ void main() {
         setUpAll(() async {
           await syncWithServer(client, server);
 
-          clientTown = await Town.db.findById(client.crdt, town.id!);
-          clientCompany = await Company.db.findById(client.crdt, company.id!);
-          serverTown = await Town.db.findById(server.crdt, town.id!);
-          serverCompany = await Company.db.findById(server.crdt, company.id!);
+          clientTown = await Town.db.findById(client.offlineSync, town.id!);
+          clientCompany = await Company.db.findById(client.offlineSync, company.id!);
+          serverTown = await Town.db.findById(server.offlineSync, town.id!);
+          serverCompany = await Company.db.findById(server.offlineSync, company.id!);
         });
 
         test('then the original town is visible on the client.', () {

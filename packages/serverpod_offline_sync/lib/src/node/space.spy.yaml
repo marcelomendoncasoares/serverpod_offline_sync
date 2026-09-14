@@ -1,0 +1,16 @@
+### CRDT spaces table.
+###
+### Normalized storage for space IDs. The normalized data table references this
+### by integer id instead of storing the space id string.
+class: OfflineSyncSpace
+table: offline_sync_spaces
+database: all
+fields:
+  ### Space identifier string.
+  uuidSpaceId: UuidValue, default=random_v7, unique
+
+  ### The current node id of the space.
+  currentNode: CrdtNode?, relation(optional)
+
+  ### The nodes associated with the space and their per-space checkpoints.
+  nodes: List<OfflineSyncSpaceNode>?, relation(name=space_nodes)

@@ -17,7 +17,7 @@ This is the `flag` policy. It is intentionally simple:
 - no business conflict object is synced;
 - no foreign key retargeting is needed for unique conflicts.
 
-This policy is the only unique-conflict policy in scope for the current
+This policy is the only unique-conflict policy in space for the current
 implementation.
 
 ## Current Policy: Flag
@@ -47,9 +47,9 @@ For each conflict group among visible rows:
 5. Keep every conflict-group row visible. Application code can decide whether
    and how to surface the changed visible value as a business conflict.
 
-For a composite unique index, fixed partition columns such as `scopeId` are not
+For a composite unique index, fixed partition columns such as `spaceId` are not
 released, and not every remaining indexed column has to be releasable. The index
-is supported when at least one non-`scopeId` column can be released
+is supported when at least one non-`spaceId` column can be released
 deterministically. Stable discriminator columns may remain unchanged; changing
 the releasable column or columns is enough to make the unique tuple conflict-free.
 Supported candidate types are defined centrally under
@@ -206,7 +206,7 @@ resolution.
    when the loser is released, then the materialized UUID is deterministic from
    the table, column, original value, and loser row id.
 
-7. Given a scoped composite unique index contains a stable non-releasable
+7. Given a space-scoped composite unique index contains a stable non-releasable
    discriminator and a releasable text column, when a loser is released, then the
    discriminator remains unchanged and the text column receives the deterministic
    conflict suffix.
@@ -239,6 +239,6 @@ projection model exists.
   row hiding or FK retargeting.
 - Convergence: same CRDT facts produce the same visible unique values.
 - Idempotence: repeated merges do not keep rewriting the same conflict.
-- Scope control: future `merge` and `overwrite` behavior is documented but not
+- Space control: future `merge` and `overwrite` behavior is documented but not
   treated as supported until the projection algorithm can handle second-order FK
   effects.

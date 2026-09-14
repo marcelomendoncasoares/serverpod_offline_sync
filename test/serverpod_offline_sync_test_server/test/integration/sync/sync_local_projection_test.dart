@@ -41,15 +41,19 @@ void main() {
           street: 'street',
           inhabitantId: newcomer.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Organization.db.insertRow(author.crdt, organization, transaction: tx);
-          await Person.db.insert(author.crdt, siblings, transaction: tx);
-          await Person.db.insertRow(author.crdt, newcomer, transaction: tx);
-          await Address.db.insertRow(author.crdt, address, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Organization.db.insertRow(
+            author.offlineSync,
+            organization,
+            transaction: tx,
+          );
+          await Person.db.insert(author.offlineSync, siblings, transaction: tx);
+          await Person.db.insertRow(author.offlineSync, newcomer, transaction: tx);
+          await Address.db.insertRow(author.offlineSync, address, transaction: tx);
         });
         siblingHlcs = {
           for (final person in siblings)
-            person.id!: await rowHlc(person.id!, databaseSession: author.crdt),
+            person.id!: await rowHlc(person.id!, databaseSession: author.offlineSync),
         };
       });
 
@@ -76,15 +80,15 @@ void main() {
                 ),
             ];
 
-            await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+            await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
               await Person.db.insert(
-                author.crdt,
+                author.offlineSync,
                 added,
                 transaction: tx,
                 noReturn: true,
               );
               await Person.db.updateRow(
-                author.crdt,
+                author.offlineSync,
                 newcomer.copyWith(organizationId: organization.id),
                 columns: (t) => [t.organizationId],
                 transaction: tx,
@@ -92,21 +96,32 @@ void main() {
             });
             await syncWithServer(author, observer);
 
-            authorPeople = await Person.db.find(author.crdt);
-            observerPeople = await Person.db.find(observer.crdt);
-            authorAddress = await Address.db.findById(author.crdt, address.id!);
-            observerAddress = await Address.db.findById(observer.crdt, address.id!);
-            authorAttemptedCount = await CrdtDataAttemptedValue.db.count(author.crdt);
+            authorPeople = await Person.db.find(author.offlineSync);
+            observerPeople = await Person.db.find(observer.offlineSync);
+            authorAddress = await Address.db.findById(author.offlineSync, address.id!);
+            observerAddress = await Address.db.findById(
+              observer.offlineSync,
+              address.id!,
+            );
+            authorAttemptedCount = await CrdtDataAttemptedValue.db.count(
+              author.offlineSync,
+            );
             observerAttemptedCount = await CrdtDataAttemptedValue.db.count(
-              observer.crdt,
+              observer.offlineSync,
             );
             authorSiblingHlcs = {
               for (final person in siblings)
-                person.id!: await rowHlc(person.id!, databaseSession: author.crdt),
+                person.id!: await rowHlc(
+                  person.id!,
+                  databaseSession: author.offlineSync,
+                ),
             };
             observerSiblingHlcs = {
               for (final person in siblings)
-                person.id!: await rowHlc(person.id!, databaseSession: observer.crdt),
+                person.id!: await rowHlc(
+                  person.id!,
+                  databaseSession: observer.offlineSync,
+                ),
             };
           });
 
@@ -184,14 +199,18 @@ void main() {
           street: 'street',
           inhabitantId: people.first.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Organization.db.insertRow(author.crdt, organization, transaction: tx);
-          await Person.db.insert(author.crdt, people, transaction: tx);
-          await Address.db.insertRow(author.crdt, address, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Organization.db.insertRow(
+            author.offlineSync,
+            organization,
+            transaction: tx,
+          );
+          await Person.db.insert(author.offlineSync, people, transaction: tx);
+          await Address.db.insertRow(author.offlineSync, address, transaction: tx);
         });
         originalClocks = {
           for (final person in people)
-            person.id!: await rowHlc(person.id!, databaseSession: author.crdt),
+            person.id!: await rowHlc(person.id!, databaseSession: author.offlineSync),
         };
       });
 
@@ -211,10 +230,10 @@ void main() {
           late int observerAttemptedCount;
 
           setUpAll(() async {
-            updated = await author.crdt.db.transactionForUser(
+            updated = await author.offlineSync.db.transactionForUser(
               testCrdtUserId,
               (tx) => Person.db.upsert(
-                author.crdt,
+                author.offlineSync,
                 [for (final person in people) person.copyWith(name: 'updated')],
                 conflictColumns: (t) => [t.id],
                 updateColumns: (t) => [t.name],
@@ -224,20 +243,29 @@ void main() {
             );
             await syncWithServer(author, observer);
 
-            authorPeople = await Person.db.find(author.crdt);
-            observerPeople = await Person.db.find(observer.crdt);
-            authorAddress = await Address.db.findById(author.crdt, address.id!);
-            observerAddress = await Address.db.findById(observer.crdt, address.id!);
+            authorPeople = await Person.db.find(author.offlineSync);
+            observerPeople = await Person.db.find(observer.offlineSync);
+            authorAddress = await Address.db.findById(author.offlineSync, address.id!);
+            observerAddress = await Address.db.findById(
+              observer.offlineSync,
+              address.id!,
+            );
             authorClocks = {
               for (final person in people)
-                person.id!: await rowHlc(person.id!, databaseSession: author.crdt),
+                person.id!: await rowHlc(
+                  person.id!,
+                  databaseSession: author.offlineSync,
+                ),
             };
             observerClocks = {
               for (final person in people)
-                person.id!: await rowHlc(person.id!, databaseSession: observer.crdt),
+                person.id!: await rowHlc(
+                  person.id!,
+                  databaseSession: observer.offlineSync,
+                ),
             };
             authorFields = await CrdtDataField.db.find(
-              author.crdt,
+              author.offlineSync,
               where: (t) =>
                   t.row.uuidRowId.inSet({for (final person in people) person.id!}),
               include: CrdtDataField.include(
@@ -247,7 +275,7 @@ void main() {
               ),
             );
             observerFields = await CrdtDataField.db.find(
-              observer.crdt,
+              observer.offlineSync,
               where: (t) =>
                   t.row.uuidRowId.inSet({for (final person in people) person.id!}),
               include: CrdtDataField.include(
@@ -256,9 +284,11 @@ void main() {
                 node: CrdtNode.include(),
               ),
             );
-            authorAttemptedCount = await CrdtDataAttemptedValue.db.count(author.crdt);
+            authorAttemptedCount = await CrdtDataAttemptedValue.db.count(
+              author.offlineSync,
+            );
             observerAttemptedCount = await CrdtDataAttemptedValue.db.count(
-              observer.crdt,
+              observer.offlineSync,
             );
           });
 
@@ -368,9 +398,9 @@ void main() {
       mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
       town = Town(id: const Uuid().v7obj(), name: 'town', mayorId: mayor.id);
       final hlc = Hlc(DateTime.now().toUtc(), 0, const Uuid().v7obj());
-      await node.crdt.db.mergeChanges([
+      await node.offlineSync.db.mergeChanges([
         CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Town.t.tableName,
           uuidRowId: town.id!,
           uuidNodeId: hlc.nodeId,
@@ -378,20 +408,20 @@ void main() {
           hlcCounter: hlc.counter,
           data: town,
         ),
-      ], scopeId: testCrdtUserId);
-      expect((await Town.db.findById(node.crdt, town.id!))!.mayorId, isNull);
+      ], spaceId: testCrdtUserId);
+      expect((await Town.db.findById(node.offlineSync, town.id!))!.mayorId, isNull);
       expect(
         (await attemptedValue(
           rowId: town.id!,
           columnName: 'mayorId',
-          databaseSession: node.crdt,
+          databaseSession: node.offlineSync,
         ))!.value,
         mayor.id,
       );
       mayorFieldHlc = await _fieldHlc(
         town.id!,
         'mayorId',
-        databaseSession: node.crdt,
+        databaseSession: node.offlineSync,
       );
     });
 
@@ -401,21 +431,21 @@ void main() {
       late Hlc recoveredMayorFieldHlc;
 
       setUpAll(() async {
-        await node.crdt.db.transactionForUser(
+        await node.offlineSync.db.transactionForUser(
           testCrdtUserId,
-          (tx) => Person.db.insertRow(node.crdt, mayor, transaction: tx),
+          (tx) => Person.db.insertRow(node.offlineSync, mayor, transaction: tx),
         );
 
-        recoveredTown = await Town.db.findById(node.crdt, town.id!);
+        recoveredTown = await Town.db.findById(node.offlineSync, town.id!);
         withheldMayor = await attemptedValue(
           rowId: town.id!,
           columnName: 'mayorId',
-          databaseSession: node.crdt,
+          databaseSession: node.offlineSync,
         );
         recoveredMayorFieldHlc = await _fieldHlc(
           town.id!,
           'mayorId',
-          databaseSession: node.crdt,
+          databaseSession: node.offlineSync,
         );
       });
 
@@ -451,10 +481,10 @@ void main() {
             ),
         ];
         final hlc = Hlc(DateTime.now().toUtc(), 0, const Uuid().v7obj());
-        await node.crdt.db.mergeChanges([
+        await node.offlineSync.db.mergeChanges([
           for (final child in children)
             CrdtMergeInsert(
-              uuidScopeId: testCrdtUserId,
+              uuidSpaceId: testCrdtUserId,
               tableName: child.table.tableName,
               uuidRowId: child.id!,
               uuidNodeId: hlc.nodeId,
@@ -462,9 +492,11 @@ void main() {
               hlcCounter: hlc.counter,
               data: child,
             ),
-        ], scopeId: testCrdtUserId);
+        ], spaceId: testCrdtUserId);
         expect(
-          (await UniqueSetDefaultChild.db.find(node.crdt)).map((row) => row.parentId),
+          (await UniqueSetDefaultChild.db.find(
+            node.offlineSync,
+          )).map((row) => row.parentId),
           everyElement(isNull),
         );
       });
@@ -480,24 +512,24 @@ void main() {
             name: 'claimant',
             parentId: fallbackId,
           );
-          await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
             await Town.db.insertRow(
-              node.crdt,
+              node.offlineSync,
               Town(id: fallbackId, name: 'fallback'),
               transaction: tx,
             );
             await UniqueSetDefaultChild.db.insertRow(
-              node.crdt,
+              node.offlineSync,
               claimant,
               transaction: tx,
             );
           });
 
-          rows = await UniqueSetDefaultChild.db.find(node.crdt);
+          rows = await UniqueSetDefaultChild.db.find(node.offlineSync);
           final facts = await node.sync
               .collectPendingChanges(
                 node.raw,
-                checkpointsByScopeUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: const []},
               )
               .toList();
           authoredParents = {
@@ -531,7 +563,7 @@ void main() {
 Future<Hlc> _fieldHlc(
   UuidValue rowId,
   String column, {
-  required CrdtDatabaseSession databaseSession,
+  required OfflineSyncDatabaseSession databaseSession,
 }) async {
   final field = await CrdtDataField.db.findFirstRow(
     databaseSession,

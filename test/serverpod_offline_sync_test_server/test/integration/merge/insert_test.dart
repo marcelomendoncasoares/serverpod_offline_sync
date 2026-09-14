@@ -20,7 +20,7 @@ void main() {
 
       final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
       remoteInsert = CrdtMergeInsert(
-        uuidScopeId: testCrdtUserId,
+        uuidSpaceId: testCrdtUserId,
         tableName: Person.t.tableName,
         uuidRowId: remotePerson.id!,
         uuidNodeId: hlc.nodeId,
@@ -36,7 +36,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -75,7 +75,7 @@ void main() {
 
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: hlc.nodeId,
@@ -85,7 +85,7 @@ void main() {
         );
 
         remoteUpdate = CrdtMergeUpdate(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: remoteNodeId,
@@ -102,7 +102,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -181,7 +181,7 @@ void main() {
 
         remotePerson = person.copyWith(name: 'remote');
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -197,7 +197,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -233,7 +233,7 @@ void main() {
               include: CrdtDataField.include(node: CrdtNode.include()),
             );
 
-            expect(fields.length, Person.t.columns.length - 2); // -2 for id and scopeId
+            expect(fields.length, Person.t.columns.length - 2); // -2 for id and spaceId
             expect(
               fields.map((f) => f.hlc),
               everyElement(remoteInsert.hlc),
@@ -298,7 +298,7 @@ void main() {
 
         remotePerson = person.copyWith(name: 'remote', surname: 'remote');
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -335,7 +335,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
 
           final row = await Person.db.findById(session, person.id!);
@@ -397,7 +397,7 @@ void main() {
         localRowHlc = row!.hlc;
 
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -412,7 +412,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -463,7 +463,7 @@ void main() {
 
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: hlc.nodeId,
@@ -472,7 +472,7 @@ void main() {
           data: remotePerson,
         );
         remoteUpdate = CrdtMergeUpdate(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: remoteNodeId,
@@ -489,7 +489,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -537,7 +537,7 @@ void main() {
 
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         final remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: hlc.nodeId,
@@ -546,7 +546,7 @@ void main() {
           data: remotePerson,
         );
         remoteUpdate = CrdtMergeUpdate(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: remotePerson.id!,
           uuidNodeId: remoteNodeId,
@@ -559,7 +559,7 @@ void main() {
 
         await session.db.mergeChanges(
           mergeSet,
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
 
         final row = await CrdtDataRow.db.findFirstRow(
@@ -582,7 +582,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -657,7 +657,7 @@ void main() {
         );
 
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -672,7 +672,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -695,7 +695,7 @@ void main() {
   );
 
   group(
-    'Given an existing same-scope row whose CRDT tracker was lost, '
+    'Given an existing same-space row whose CRDT tracker was lost, '
     'when merging a remote insert for the same row id,',
     () {
       late Person person;
@@ -723,7 +723,7 @@ void main() {
         await session.db.mergeChanges(
           [
             CrdtMergeInsert(
-              uuidScopeId: testCrdtUserId,
+              uuidSpaceId: testCrdtUserId,
               tableName: Person.t.tableName,
               uuidRowId: person.id!,
               uuidNodeId: remoteNodeId,
@@ -732,7 +732,7 @@ void main() {
               data: Person(id: person.id, name: 'after recovery'),
             ),
           ],
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -743,7 +743,7 @@ void main() {
         expect(row!.name, 'after recovery');
       });
 
-      test('then a single CRDT tracker is recreated for the scope.', () async {
+      test('then a single CRDT tracker is recreated for the space.', () async {
         final crdtRows = await CrdtDataRow.db.find(
           session,
           where: (t) => t.uuidRowId.equals(person.id),

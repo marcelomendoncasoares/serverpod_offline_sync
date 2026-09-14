@@ -21,7 +21,7 @@ abstract class UniqueFkPair
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   UniqueFkPair._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.leftId,
     this.left,
@@ -31,7 +31,7 @@ abstract class UniqueFkPair
 
   factory UniqueFkPair({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _isc.UuidValue? leftId,
     _iensfz4m.Person? left,
@@ -44,7 +44,7 @@ abstract class UniqueFkPair
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       leftId: jsonSerialization['leftId'] == null
           ? null
@@ -72,8 +72,8 @@ abstract class UniqueFkPair
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -93,7 +93,7 @@ abstract class UniqueFkPair
   @_isc.useResult
   UniqueFkPair copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _isc.UuidValue? leftId,
     _iensfz4m.Person? left,
@@ -105,7 +105,7 @@ abstract class UniqueFkPair
     return {
       '__className__': 'UniqueFkPair',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (leftId != null) 'leftId': leftId?.toJson(),
       if (left != null) 'left': left?.toJson(),
@@ -119,7 +119,7 @@ abstract class UniqueFkPair
     return {
       '__className__': 'UniqueFkPair',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (leftId != null) 'leftId': leftId?.toJson(),
       if (left != null) 'left': left?.toJsonForProtocol(),
@@ -167,7 +167,7 @@ class _Undefined {}
 class _UniqueFkPairImpl extends UniqueFkPair {
   _UniqueFkPairImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _isc.UuidValue? leftId,
     _iensfz4m.Person? left,
@@ -175,7 +175,7 @@ class _UniqueFkPairImpl extends UniqueFkPair {
     _iensfz4m.Person? right,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          leftId: leftId,
          left: left,
@@ -189,7 +189,7 @@ class _UniqueFkPairImpl extends UniqueFkPair {
   @override
   UniqueFkPair copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? leftId = _Undefined,
     Object? left = _Undefined,
@@ -198,7 +198,7 @@ class _UniqueFkPairImpl extends UniqueFkPair {
   }) {
     return UniqueFkPair(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       leftId: leftId is _isc.UuidValue? ? leftId : this.leftId,
       left: left is _iensfz4m.Person? ? left : this.left?.copyWith(),
@@ -211,8 +211,8 @@ class _UniqueFkPairImpl extends UniqueFkPair {
 class UniqueFkPairUpdateTable extends _isd.UpdateTable<UniqueFkPairTable> {
   UniqueFkPairUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -240,8 +240,8 @@ class UniqueFkPairTable extends _isd.Table<_isc.UuidValue?> {
   UniqueFkPairTable({super.tableRelation})
     : super(tableName: 'unique_fk_pair') {
     updateTable = UniqueFkPairUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -260,8 +260,8 @@ class UniqueFkPairTable extends _isd.Table<_isc.UuidValue?> {
 
   late final UniqueFkPairUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
@@ -302,7 +302,7 @@ class UniqueFkPairTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     leftId,
     rightId,

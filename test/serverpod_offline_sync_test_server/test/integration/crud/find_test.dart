@@ -7,12 +7,12 @@ import '../test_tools/client_session.dart';
 void main() {
   initTestClientSession();
 
-  group('Given rows owned by two different scopes,', () {
+  group('Given rows owned by two different spaces,', () {
     late Person firstUserPerson;
     late Person otherUserPerson;
     late UuidValue otherUserId;
-    late int firstScopeId;
-    late int otherScopeId;
+    late int firstSpaceId;
+    late int otherSpaceId;
 
     setUp(() async {
       otherUserId = const Uuid().v7obj();
@@ -25,11 +25,11 @@ void main() {
           transaction: tx,
         ),
       );
-      final firstScope = await CrdtScope.db.findFirstRow(
+      final firstSpace = await OfflineSyncSpace.db.findFirstRow(
         session,
-        where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+        where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
       );
-      firstScopeId = firstScope!.id!;
+      firstSpaceId = firstSpace!.id!;
 
       otherUserPerson = await session.db.transactionForUser(
         otherUserId,
@@ -39,14 +39,14 @@ void main() {
           transaction: tx,
         ),
       );
-      final otherScope = await CrdtScope.db.findFirstRow(
+      final otherSpace = await OfflineSyncSpace.db.findFirstRow(
         session,
-        where: (t) => t.uuidScopeId.equals(otherUserId),
+        where: (t) => t.uuidSpaceId.equals(otherUserId),
       );
-      otherScopeId = otherScope!.id!;
+      otherSpaceId = otherSpace!.id!;
     });
 
-    group('when finding inside the first scope,', () {
+    group('when finding inside the first space,', () {
       late List<Person> rows;
 
       setUp(() async {
@@ -56,17 +56,17 @@ void main() {
         );
       });
 
-      test('then only the first scope row is returned.', () async {
+      test('then only the first space row is returned.', () async {
         expect(rows.map((row) => row.id).toSet(), {firstUserPerson.id});
       });
 
-      test('then scopeId is null.', () async {
-        expect(rows.single.scopeId, isNull);
+      test('then spaceId is null.', () async {
+        expect(rows.single.spaceId, isNull);
       });
     });
 
     test(
-      'when finding the other scope row by id inside the first scope, '
+      'when finding the other space row by id inside the first space, '
       'then it returns null.',
       () async {
         final row = await session.db.transactionForUser(
@@ -79,8 +79,8 @@ void main() {
     );
 
     test(
-      'when counting inside the first scope, '
-      'then only the first scope row is counted.',
+      'when counting inside the first space, '
+      'then only the first space row is counted.',
       () async {
         final count = await session.db.transactionForUser(
           testCrdtUserId,
@@ -92,8 +92,8 @@ void main() {
     );
 
     test(
-      'when finding without a scope, '
-      'then both rows keep their stored scopeId.',
+      'when finding without a space, '
+      'then both rows keep their stored spaceId.',
       () async {
         final rows = await Person.db.find(session);
 
@@ -102,20 +102,20 @@ void main() {
           otherUserPerson.id,
         });
         expect(
-          {for (final row in rows) row.id: row.scopeId},
+          {for (final row in rows) row.id: row.spaceId},
           {
-            firstUserPerson.id: firstScopeId,
-            otherUserPerson.id: otherScopeId,
+            firstUserPerson.id: firstSpaceId,
+            otherUserPerson.id: otherSpaceId,
           },
         );
       },
     );
   });
 
-  group('Given a town row with an included mayor owned by the same scope,', () {
+  group('Given a town row with an included mayor owned by the same space,', () {
     late Town town;
     late Person mayor;
-    late int scopeId;
+    late int spaceId;
 
     setUp(() async {
       town = await session.db.transactionForUser(
@@ -133,16 +133,16 @@ void main() {
         (tx) => Town.db.attachRow.mayor(session, town, mayor, transaction: tx),
       );
 
-      final scope = await CrdtScope.db.findFirstRow(
+      final space = await OfflineSyncSpace.db.findFirstRow(
         session,
-        where: (t) => t.uuidScopeId.equals(testCrdtUserId),
+        where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
       );
-      scopeId = scope!.id!;
+      spaceId = space!.id!;
     });
 
     test(
-      'when finding with includes inside the owner scope, '
-      'then the returned town and mayor hide scopeId.',
+      'when finding with includes inside the owner space, '
+      'then the returned town and mayor hide spaceId.',
       () async {
         final found = await session.db.transactionForUser(
           testCrdtUserId,
@@ -155,15 +155,15 @@ void main() {
         );
 
         expect(found, isNotNull);
-        expect(found!.scopeId, isNull);
+        expect(found!.spaceId, isNull);
         expect(found.mayor, isNotNull);
-        expect(found.mayor!.scopeId, isNull);
+        expect(found.mayor!.spaceId, isNull);
       },
     );
 
     test(
-      'when finding with includes without a scope, '
-      'then the returned town and mayor keep their stored scopeId.',
+      'when finding with includes without a space, '
+      'then the returned town and mayor keep their stored spaceId.',
       () async {
         final found = await Town.db.findById(
           session,
@@ -172,9 +172,9 @@ void main() {
         );
 
         expect(found, isNotNull);
-        expect(found!.scopeId, scopeId);
+        expect(found!.spaceId, spaceId);
         expect(found.mayor, isNotNull);
-        expect(found.mayor!.scopeId, scopeId);
+        expect(found.mayor!.spaceId, spaceId);
       },
     );
   });

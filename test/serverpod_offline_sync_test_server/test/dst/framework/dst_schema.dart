@@ -272,7 +272,7 @@ const dstUniqueValues = [
   models.UuidValue.raw('660e8400-e29b-41d4-a716-446655440003'),
 ];
 
-/// Every declared unique index, retaining tuple components and scope semantics.
+/// Every declared unique index, retaining tuple components and space semantics.
 final dstUniqueIndexes = [
   for (final table in DstTable.values)
     for (final index in table.definition.indexes)
@@ -289,12 +289,12 @@ final dstTableDefinitions = {
     definition.name: definition,
 };
 
-/// The complete outbound FK population of the simulated schema. Scope metadata
+/// The complete outbound FK population of the simulated schema. Space metadata
 /// belongs to the engine and is not an authored domain relation.
 final dstForeignKeys = [
   for (final child in DstTable.values)
     for (final key in child.definition.foreignKeys)
-      if (!key.columns.contains('scopeId'))
+      if (!key.columns.contains('spaceId'))
         (
           child: child,
           column: key.columns.single,

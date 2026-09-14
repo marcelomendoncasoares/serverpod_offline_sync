@@ -7,9 +7,9 @@ import '../test_tools/sync_topology.dart';
 
 /// Deleting a row referenced by an `onDelete=SetDefault` edge rewrites the
 /// referencing column to the column default. That rewrite is only legal while
-/// the default target is a visible parent in the child's own scope
+/// the default target is a visible parent in the child's own space
 /// (`docs/foreign-key-invariants.md`, "Merge-Time Action Semantics"): when the
-/// default target is the row being deleted, or lives in another scope, the
+/// default target is the row being deleted, or lives in another space, the
 /// action cannot repair the child and the delete must lose.
 ///
 /// These scenarios keep the rejected local delete and subsequent sync in one
@@ -35,8 +35,8 @@ void main() {
       client = await syncNode(await createAdditionalTestSession(), syncTables);
 
       defaultTown = Town(id: defaultTownId, name: 'default town');
-      await server.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Town.db.insertRow(server.crdt, defaultTown, transaction: tx);
+      await server.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Town.db.insertRow(server.offlineSync, defaultTown, transaction: tx);
       });
       await syncWithServer(client, server);
 
@@ -45,8 +45,8 @@ void main() {
         name: 'company on the default town',
         townId: defaultTownId,
       );
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await Company.db.insertRow(client.crdt, company, transaction: tx);
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await Company.db.insertRow(client.offlineSync, company, transaction: tx);
       });
       await syncWithServer(client, server);
     });
@@ -64,9 +64,9 @@ void main() {
 
       setUpAll(() async {
         try {
-          await client.crdt.db.transactionForUser(
+          await client.offlineSync.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Town.db.deleteRow(client.crdt, defaultTown, transaction: tx),
+            (tx) => Town.db.deleteRow(client.offlineSync, defaultTown, transaction: tx),
           );
         } on Exception catch (error) {
           deletionError = error;
@@ -75,25 +75,25 @@ void main() {
           await syncWithServer(client, server);
         }
         serverTowns = await Town.db.find(
-          server.crdt,
+          server.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        serverVisibleTowns = await Town.db.find(server.crdt);
+        serverVisibleTowns = await Town.db.find(server.offlineSync);
         serverCompanies = await Company.db.find(
-          server.crdt,
+          server.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        serverVisibleCompanies = await Company.db.find(server.crdt);
+        serverVisibleCompanies = await Company.db.find(server.offlineSync);
         clientTowns = await Town.db.find(
-          client.crdt,
+          client.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        clientVisibleTowns = await Town.db.find(client.crdt);
+        clientVisibleTowns = await Town.db.find(client.offlineSync);
         clientCompanies = await Company.db.find(
-          client.crdt,
+          client.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        clientVisibleCompanies = await Company.db.find(client.crdt);
+        clientVisibleCompanies = await Company.db.find(client.offlineSync);
       });
 
       test('then the delete is rejected because the fallback is the deleted row.', () {
@@ -144,26 +144,26 @@ void main() {
     });
   });
 
-  group('Given a company in a scope that does not hold the default town,', () {
+  group('Given a company in a space that does not hold the default town,', () {
     late SyncNode server;
     late SyncNode client;
-    late UuidValue defaultTownScope;
+    late UuidValue defaultTownSpace;
     late Town town;
 
-    Future<void> pushScope(SyncNode from, SyncNode to, UuidValue scope) async {
+    Future<void> pushSpace(SyncNode from, SyncNode to, UuidValue space) async {
       final changes = await from.sync
           .collectPendingChanges(
             from.raw,
-            checkpointsByScopeUuid: {scope: const []},
+            checkpointsBySpaceUuid: {space: const []},
           )
           .toList();
-      await to.crdt.db.mergeChanges(changes, scopeId: scope);
+      await to.offlineSync.db.mergeChanges(changes, spaceId: space);
     }
 
-    Future<void> syncBothScopes() async {
-      for (final scope in [testCrdtUserId, defaultTownScope]) {
-        await pushScope(client, server, scope);
-        await pushScope(server, client, scope);
+    Future<void> syncBothSpaces() async {
+      for (final space in [testCrdtUserId, defaultTownSpace]) {
+        await pushSpace(client, server, space);
+        await pushSpace(server, client, space);
       }
     }
 
@@ -171,36 +171,36 @@ void main() {
       server = await syncNode(await createAdditionalTestSession(), syncTables);
       client = await syncNode(await createAdditionalTestSession(), syncTables);
 
-      // The default town exists only in this second scope, which both nodes
+      // The default town exists only in this second space, which both nodes
       // hold, so the client's database physically contains the row a
       // set-default repair would rewrite to.
-      defaultTownScope = const Uuid().v7obj();
-      await server.crdt.db.transactionForUser(defaultTownScope, (tx) async {
+      defaultTownSpace = const Uuid().v7obj();
+      await server.offlineSync.db.transactionForUser(defaultTownSpace, (tx) async {
         await Town.db.insertRow(
-          server.crdt,
+          server.offlineSync,
           Town(id: defaultTownId, name: 'default town'),
           transaction: tx,
         );
       });
-      await pushScope(server, client, defaultTownScope);
+      await pushSpace(server, client, defaultTownSpace);
 
-      await client.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+      await client.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
         town = await Town.db.insertRow(
-          client.crdt,
-          Town(id: const Uuid().v7obj(), name: 'scope town'),
+          client.offlineSync,
+          Town(id: const Uuid().v7obj(), name: 'space town'),
           transaction: tx,
         );
         await Company.db.insertRow(
-          client.crdt,
+          client.offlineSync,
           Company(
             id: const Uuid().v7obj(),
-            name: 'company in its own scope',
+            name: 'company in its own space',
             townId: town.id,
           ),
           transaction: tx,
         );
       });
-      await syncBothScopes();
+      await syncBothSpaces();
     });
 
     group('when trying to delete the referenced town and syncing again,', () {
@@ -216,46 +216,46 @@ void main() {
 
       setUpAll(() async {
         try {
-          await client.crdt.db.transactionForUser(
+          await client.offlineSync.db.transactionForUser(
             testCrdtUserId,
-            (tx) => Town.db.deleteRow(client.crdt, town, transaction: tx),
+            (tx) => Town.db.deleteRow(client.offlineSync, town, transaction: tx),
           );
         } on Exception catch (error) {
           deletionError = error;
         }
         for (var round = 0; round < 3; round++) {
-          await syncBothScopes();
+          await syncBothSpaces();
         }
         serverTowns = await Town.db.find(
-          server.crdt,
+          server.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        serverVisibleTowns = await Town.db.find(server.crdt);
+        serverVisibleTowns = await Town.db.find(server.offlineSync);
         serverCompanies = await Company.db.find(
-          server.crdt,
+          server.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        serverVisibleCompanies = await Company.db.find(server.crdt);
+        serverVisibleCompanies = await Company.db.find(server.offlineSync);
         clientTowns = await Town.db.find(
-          client.crdt,
+          client.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        clientVisibleTowns = await Town.db.find(client.crdt);
+        clientVisibleTowns = await Town.db.find(client.offlineSync);
         clientCompanies = await Company.db.find(
-          client.crdt,
+          client.offlineSync,
           where: (t) => t.includeHiddenRows,
         );
-        clientVisibleCompanies = await Company.db.find(client.crdt);
+        clientVisibleCompanies = await Company.db.find(client.offlineSync);
       });
 
       test(
-        'then the delete is rejected because the fallback belongs to another scope.',
+        'then the delete is rejected because the fallback belongs to another space.',
         () {
           expect(deletionError, isA<Exception>());
         },
       );
       test(
-        'then the company still references the town from its own scope on the server.',
+        'then the company still references the town from its own space on the server.',
         () {
           expect(serverCompanies, hasLength(1));
           expect(serverCompanies.single.townId, town.id);
@@ -267,7 +267,7 @@ void main() {
         },
       );
       test(
-        'then the company still references the town from its own scope on the client.',
+        'then the company still references the town from its own space on the client.',
         () {
           expect(clientCompanies, hasLength(1));
           expect(clientCompanies.single.townId, town.id);

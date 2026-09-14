@@ -20,7 +20,7 @@ abstract class Address
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   Address._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.street,
     this.inhabitantId,
     this.inhabitant,
@@ -28,7 +28,7 @@ abstract class Address
 
   factory Address({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String street,
     _is.UuidValue? inhabitantId,
     _iensfz4m.Person? inhabitant,
@@ -39,7 +39,7 @@ abstract class Address
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       street: jsonSerialization['street'] as String,
       inhabitantId: jsonSerialization['inhabitantId'] == null
           ? null
@@ -61,8 +61,8 @@ abstract class Address
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String street;
 
@@ -78,7 +78,7 @@ abstract class Address
   @_is.useResult
   Address copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? street,
     _is.UuidValue? inhabitantId,
     _iensfz4m.Person? inhabitant,
@@ -88,7 +88,7 @@ abstract class Address
     return {
       '__className__': 'Address',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'street': street,
       if (inhabitantId != null) 'inhabitantId': inhabitantId?.toJson(),
       if (inhabitant != null) 'inhabitant': inhabitant?.toJson(),
@@ -100,7 +100,7 @@ abstract class Address
     return {
       '__className__': 'Address',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'street': street,
       if (inhabitantId != null) 'inhabitantId': inhabitantId?.toJson(),
       if (inhabitant != null) 'inhabitant': inhabitant?.toJsonForProtocol(),
@@ -140,13 +140,13 @@ class _Undefined {}
 class _AddressImpl extends Address {
   _AddressImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String street,
     _is.UuidValue? inhabitantId,
     _iensfz4m.Person? inhabitant,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          street: street,
          inhabitantId: inhabitantId,
          inhabitant: inhabitant,
@@ -158,14 +158,14 @@ class _AddressImpl extends Address {
   @override
   Address copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? street,
     Object? inhabitantId = _Undefined,
     Object? inhabitant = _Undefined,
   }) {
     return Address(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       street: street ?? this.street,
       inhabitantId: inhabitantId is _is.UuidValue?
           ? inhabitantId
@@ -180,8 +180,8 @@ class _AddressImpl extends Address {
 class AddressUpdateTable extends _is.UpdateTable<AddressTable> {
   AddressUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -201,8 +201,8 @@ class AddressUpdateTable extends _is.UpdateTable<AddressTable> {
 class AddressTable extends _is.Table<_is.UuidValue?> {
   AddressTable({super.tableRelation}) : super(tableName: 'address') {
     updateTable = AddressUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     street = _is.ColumnString(
@@ -217,8 +217,8 @@ class AddressTable extends _is.Table<_is.UuidValue?> {
 
   late final AddressUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString street;
 
@@ -242,7 +242,7 @@ class AddressTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     street,
     inhabitantId,
   ];

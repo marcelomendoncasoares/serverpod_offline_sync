@@ -9,7 +9,7 @@ import '../integration/test_tools/client_session.dart';
 import 'framework/dst_random.dart';
 import 'framework/dst_world.dart';
 
-/// Cross-scope UUID reuse is a terminal ownership collision, not a recoverable
+/// Cross-space UUID reuse is a terminal ownership collision, not a recoverable
 /// conflict (`docs/row-ownership.md`). The merge must fail, record a durable
 /// violation, and leave the existing owner's row untouched.
 ///
@@ -20,29 +20,29 @@ import 'framework/dst_world.dart';
 void main() {
   initTestClientSession();
 
-  group('Given a row owned by one scope on a replica holding two scopes,', () {
+  group('Given a row owned by one space on a replica holding two spaces,', () {
     late DstReplica replica;
-    late UuidValue ownerScopeUuid;
-    late UuidValue intruderScopeUuid;
+    late UuidValue ownerSpaceUuid;
+    late UuidValue intruderSpaceUuid;
     late UuidValue rowId;
 
     setUp(() async {
       final ids = DstIds(DstRandom(1));
       final simulationClock = DstClock();
 
-      ownerScopeUuid = ids.next();
-      intruderScopeUuid = ids.next();
+      ownerSpaceUuid = ids.next();
+      intruderSpaceUuid = ids.next();
       rowId = ids.next();
 
       replica = await DstReplica.create(
         name: 'owner',
-        scopeUuids: [ownerScopeUuid, intruderScopeUuid],
+        spaceUuids: [ownerSpaceUuid, intruderSpaceUuid],
         nodeUuid: ids.next(),
         clock: simulationClock.clock,
       );
 
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(ownerScopeUuid, (tx) async {
+        () => replica.session.db.transactionForUser(ownerSpaceUuid, (tx) async {
           await Person.db.insertRow(
             replica.session,
             Person(id: rowId, name: 'original owner'),
@@ -52,12 +52,12 @@ void main() {
       );
     });
 
-    group('when another scope merges an insert claiming the same row id,', () {
+    group('when another space merges an insert claiming the same row id,', () {
       late Object? mergeError;
 
       setUp(() async {
         final intrusion = CrdtMergeInsert(
-          uuidScopeId: intruderScopeUuid,
+          uuidSpaceId: intruderSpaceUuid,
           tableName: Person.t.tableName,
           uuidRowId: rowId,
           uuidNodeId: DstIds(DstRandom(2)).next(),
@@ -67,27 +67,27 @@ void main() {
         );
 
         try {
-          await replica.merge([intrusion], intruderScopeUuid);
+          await replica.merge([intrusion], intruderSpaceUuid);
           mergeError = null;
         } on Exception catch (error) {
           mergeError = error;
         }
       });
 
-      test('then the merge fails with a CrdtSyncIntegrityViolationException.', () {
-        expect(mergeError, isA<CrdtSyncIntegrityViolationException>());
+      test('then the merge fails with a OfflineSyncIntegrityViolationException.', () {
+        expect(mergeError, isA<OfflineSyncIntegrityViolationException>());
       });
 
       test('then a durable ownership-collision violation is recorded.', () async {
-        final violation = await CrdtSyncIntegrityViolation.db.findFirstRow(
+        final violation = await OfflineSyncIntegrityViolation.db.findFirstRow(
           replica.session,
           where: (t) => t.uuidRowId.equals(rowId),
         );
 
         expect(violation, isNotNull);
-        expect(violation!.type, CrdtSyncViolationType.ownershipCollision);
-        expect(violation.ownerScopeUuid, ownerScopeUuid);
-        expect(violation.incomingScopeUuid, intruderScopeUuid);
+        expect(violation!.type, OfflineSyncViolationType.ownershipCollision);
+        expect(violation.ownerSpaceUuid, ownerSpaceUuid);
+        expect(violation.incomingSpaceUuid, intruderSpaceUuid);
       });
 
       test("then the owner's row is unchanged.", () async {

@@ -144,7 +144,7 @@ void withServerpod(
 }
 
 class TestEndpoints {
-  late final _CrdtSyncEndpoint crdtSync;
+  late final _OfflineSyncEndpoint offlineSync;
 }
 
 class _InternalTestEndpoints extends TestEndpoints
@@ -154,15 +154,15 @@ class _InternalTestEndpoints extends TestEndpoints
     _is.SerializationManager serializationManager,
     _is.EndpointDispatch endpoints,
   ) {
-    crdtSync = _CrdtSyncEndpoint(
+    offlineSync = _OfflineSyncEndpoint(
       endpoints,
       serializationManager,
     );
   }
 }
 
-class _CrdtSyncEndpoint {
-  _CrdtSyncEndpoint(
+class _OfflineSyncEndpoint {
+  _OfflineSyncEndpoint(
     this._endpointDispatch,
     this._serializationManager,
   );
@@ -171,23 +171,23 @@ class _CrdtSyncEndpoint {
 
   final _is.SerializationManager _serializationManager;
 
-  _ida.Stream<_icw2tu00.CrdtSyncStreamEvent> sync(
+  _ida.Stream<_icw2tu00.OfflineSyncStreamEvent> sync(
     _ist.TestSessionBuilder sessionBuilder, {
-    required _ida.Stream<_icw2tu00.CrdtSyncStreamEvent> changes,
+    required _ida.Stream<_icw2tu00.OfflineSyncStreamEvent> changes,
     required bool once,
   }) {
     var _localTestStreamManager =
-        _ist.TestStreamManager<_icw2tu00.CrdtSyncStreamEvent>();
+        _ist.TestStreamManager<_icw2tu00.OfflineSyncStreamEvent>();
     _ist.callStreamFunctionAndHandleExceptions(
       () async {
         var _localUniqueSession = (sessionBuilder as _ist.InternalTestSessionBuilder)
             .internalBuild(
-              endpoint: 'crdtSync',
+              endpoint: 'offlineSync',
               method: 'sync',
             );
         var _localCallContext = await _endpointDispatch.getMethodStreamCallContext(
           createSessionCallback: (_) => _localUniqueSession,
-          endpointPath: 'crdtSync',
+          endpointPath: 'offlineSync',
           methodName: 'sync',
           arguments: {'once': once},
           requestedInputStreams: ['changes'],

@@ -8,10 +8,10 @@ import '../test_tools/crdt_probes.dart';
 void main() {
   initTestClientSession();
 
-  late CrdtSync crdtSync;
+  late OfflineSyncEngine offlineSync;
 
   setUp(() {
-    crdtSync = CrdtSync(
+    offlineSync = OfflineSyncEngine(
       syncTables: testSyncTables,
       serializationManager: testSession.db.serializationManager,
     );
@@ -126,7 +126,7 @@ void main() {
         await session.db.mergeChanges(
           [
             CrdtMergeInsert(
-              uuidScopeId: testCrdtUserId,
+              uuidSpaceId: testCrdtUserId,
               tableName: UniqueDiscriminator.t.tableName,
               uuidRowId: loser.id!,
               uuidNodeId: const Uuid().v7obj(),
@@ -135,7 +135,7 @@ void main() {
               data: loser,
             ),
           ],
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -194,7 +194,7 @@ void main() {
           expect(attempted.projectionReason, CrdtProjectionReason.uniqueConflict);
 
           final insert = (await _pendingInserts(
-            crdtSync,
+            offlineSync,
           )).where((change) => change.uuidRowId == loser.id).single;
           expect((insert.data as Unique).name, 'shared-name');
         },
@@ -204,7 +204,7 @@ void main() {
         'when pending changes are collected, '
         'then projection does not emit an authored name update.',
         () async {
-          final nameUpdates = (await _pendingUpdates(crdtSync)).where(
+          final nameUpdates = (await _pendingUpdates(offlineSync)).where(
             (change) =>
                 change.uuidRowId == loser.id &&
                 change.columnName == Unique.t.name.columnName,
@@ -281,7 +281,7 @@ void main() {
           );
 
           final insert = (await _pendingInserts(
-            crdtSync,
+            offlineSync,
           )).where((change) => change.uuidRowId == child.id).single;
           expect((insert.data as UniqueCascadeChild).name, 'taken');
         },
@@ -342,7 +342,7 @@ void main() {
           expect(attempted, isNull);
 
           final insert = (await _pendingInserts(
-            crdtSync,
+            offlineSync,
           )).where((change) => change.uuidRowId == child.id).single;
           expect((insert.data as UniqueSetNullChild).parentId, isNull);
         },
@@ -351,15 +351,16 @@ void main() {
   );
 }
 
-Future<List<CrdtMergeChange>> _pendingChanges(CrdtSync crdtSync) => crdtSync
-    .collectPendingChanges(
-      testSession,
-      checkpointsByScopeUuid: {testCrdtUserId: const []},
-    )
-    .toList();
+Future<List<CrdtMergeChange>> _pendingChanges(OfflineSyncEngine offlineSync) =>
+    offlineSync
+        .collectPendingChanges(
+          testSession,
+          checkpointsBySpaceUuid: {testCrdtUserId: const []},
+        )
+        .toList();
 
-Future<List<CrdtMergeInsert>> _pendingInserts(CrdtSync crdtSync) async =>
-    (await _pendingChanges(crdtSync)).inserts.toList();
+Future<List<CrdtMergeInsert>> _pendingInserts(OfflineSyncEngine offlineSync) async =>
+    (await _pendingChanges(offlineSync)).inserts.toList();
 
-Future<List<CrdtMergeUpdate>> _pendingUpdates(CrdtSync crdtSync) async =>
-    (await _pendingChanges(crdtSync)).updates.toList();
+Future<List<CrdtMergeUpdate>> _pendingUpdates(OfflineSyncEngine offlineSync) async =>
+    (await _pendingChanges(offlineSync)).updates.toList();

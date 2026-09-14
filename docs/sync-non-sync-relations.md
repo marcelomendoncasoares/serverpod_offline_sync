@@ -13,7 +13,7 @@ the CRDT layer recording the corresponding facts.
 There are only two allowed sync/non-sync relation shapes:
 
 1. the package-owned ownership link from each synced domain row to
-   `crdt_scopes`;
+   `offline_sync_spaces`;
 2. a synced row referencing a non-synced, server-authoritative reference table,
    but only after the sync protocol can provision that reference data before
    CRDT merge.
@@ -23,15 +23,15 @@ The ownership link is:
 ```yaml
 fields:
   id: UuidValue?, defaultPersist=random_v7
-  ### Owner scope of this row. Maintained by the CRDT sync layer.
-  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)
+  ### Owner space of this row. Maintained by the CRDT sync layer.
+  spaceId: int?, relation(parent=offline_sync_spaces, onDelete=Cascade)
 ```
 
-`scopeId == null` remains valid persisted state, but it means the row is
+`spaceId == null` remains valid persisted state, but it means the row is
 orphaned from CRDT ownership: it is never synced, never collected for outbound
-sync, and not removed by deleting a scope. `scopeId != null` means the row is
-owned by that scope, participates in CRDT, and is physically purged when the
-scope is deleted.
+sync, and not removed by deleting a space. `spaceId != null` means the row is
+owned by that space, participates in CRDT, and is physically purged when the
+space is deleted.
 
 All other foreign keys between synced and non-synced tables must fail
 `initialize()`. Until the reference-data sync phase exists, `initialize()` must
@@ -49,10 +49,10 @@ also reject server-authoritative reference-table relations even when they use
   protocol, applied before CRDT merge, and not removed while synced rows
   reference them.
 - **Package metadata table:** CRDT infrastructure tables owned by this package,
-  especially `crdt_scopes`, `crdt_nodes`, `crdt_data_rows`,
+  especially `offline_sync_spaces`, `crdt_nodes`, `crdt_data_rows`,
   `crdt_data_fields`, `crdt_data_tombstone`, and `crdt_data_attempted_value`.
 
-`crdt_scopes` is not a synced domain table. The `scopeId -> crdt_scopes.id`
+`offline_sync_spaces` is not a synced domain table. The `spaceId -> offline_sync_spaces.id`
 relation is a special package-owned purge boundary, not an application-level
 foreign key.
 
@@ -65,27 +65,27 @@ Allowed under the normal FK invariant rules:
 - the child and parent are both in `syncTables`;
 - supported FK shapes are single-column child references to single-column
   parent references;
-- local writes assert same-scope visibility;
-- merge-time FK projection repairs hidden, missing, or foreign-scope targets.
+- local writes assert same-space visibility;
+- merge-time FK projection repairs hidden, missing, or foreign-space targets.
 
 ### Non-synced -> non-synced
 
 Ignored by CRDT. These relations are normal application/database relations.
 
-### Synced -> `crdt_scopes` through `scopeId`
+### Synced -> `offline_sync_spaces` through `spaceId`
 
 Allowed, and required once this proposal is implemented. The relation must be
 exactly:
 
 - child table is a synced domain table;
-- child column is the reserved `scopeId` column;
+- child column is the reserved `spaceId` column;
 - child column type is nullable `int`;
-- parent table is `crdt_scopes`;
+- parent table is `offline_sync_spaces`;
 - parent column is `id`;
 - `onDelete` is `Cascade`;
 - `onUpdate` is `NoAction` or unspecified database default.
 
-This relation exists only to make terminal scope purge database-enforced. It
+This relation exists only to make terminal space purge database-enforced. It
 does not change normal CRDT deletes, which remain soft deletes recorded in
 CRDT metadata.
 
@@ -126,7 +126,7 @@ delta before CRDT merge.
 
 This exception also does not expand the global unique-index exception. A unique
 index involving a FK to a protocol-provisioned reference table is
-application-level uniqueness and must include `scopeId` unless another explicit
+application-level uniqueness and must include `spaceId` unless another explicit
 policy is added.
 
 ## Reference-data sync phase
@@ -153,7 +153,7 @@ through HLCs, unique conflict projection, or FK projection.
 
 Always forbidden.
 
-A non-synced child has no CRDT row, no scope ownership, and no merge history.
+A non-synced child has no CRDT row, no space ownership, and no merge history.
 If it references a synced parent, then a CRDT soft delete can hide the parent
 while the database FK still sees the physical parent row. Delete actions and
 visibility checks become incoherent, and the current recorder can also reach
@@ -163,7 +163,7 @@ paths that assume the child table has CRDT schema metadata.
 
 Forbidden, except for:
 
-- the special `scopeId -> crdt_scopes.id` relation;
+- the special `spaceId -> offline_sync_spaces.id` relation;
 - the protocol-provisioned reference-table relation above.
 
 The apparent safe use case is an app user/auth table, because that table is
@@ -184,10 +184,10 @@ non-synced table is unsafe:
   deferrable.
 
 The app-user relation should be modeled outside synced domain rows. Account
-deletion should revoke the user and purge the user's `CrdtScope`, not rely on
+deletion should revoke the user and purge the user's `OfflineSyncSpace`, not rely on
 arbitrary application FKs into synced data.
 
-### Synced -> package metadata table other than `crdt_scopes`
+### Synced -> package metadata table other than `offline_sync_spaces`
 
 Forbidden. Domain rows must not reference CRDT metadata internals such as nodes,
 schema rows, field rows, tombstones, or ownership violations.
@@ -196,36 +196,36 @@ schema rows, field rows, tombstones, or ownership violations.
 
 Forbidden unless the relation is part of a future explicit package API. An
 application table must not depend on metadata rows whose lifecycle is controlled
-by sync, merge, or scope purge.
+by sync, merge, or space purge.
 
-## Scope purge semantics
+## Space purge semantics
 
-Deleting a scope is a terminal GDPR/account-erasure operation, not a CRDT
+Deleting a space is a terminal GDPR/account-erasure operation, not a CRDT
 operation.
 
 A safe purge workflow is:
 
-1. Revoke the account or scope so no new sync session can start.
-2. Mark the scope UUID as deleted, or otherwise make auth reject future
-   `getOrCreate(uuidScopeId)` attempts for that UUID.
-3. Delete `crdt_scopes.id`.
+1. Revoke the account or space so no new sync session can start.
+2. Mark the space UUID as deleted, or otherwise make auth reject future
+   `getOrCreate(uuidSpaceId)` attempts for that UUID.
+3. Delete `offline_sync_spaces.id`.
 4. Let database cascades remove:
-   - synced domain rows with `scopeId = deletedScope.id`;
-   - `crdt_nodes` for that scope;
-   - `crdt_data_rows` for that scope;
+   - synced domain rows with `spaceId = deletedSpace.id`;
+   - `crdt_nodes` for that space;
+   - `crdt_data_rows` for that space;
    - row fields, tombstones, and FK projection rows through their existing
      metadata cascades.
 5. Delete or anonymize diagnostics that intentionally outlive metadata
    cascades, such as durable ownership violation rows. Those rows store
-   denormalized table names and scope UUIDs only; they do not reference
+   denormalized table names and space UUIDs only; they do not reference
    purged metadata through foreign keys.
 
-If an old offline client later reconnects with data for a purged scope, sync
-must fail with a terminal "scope deleted/reset required" response. The server
-must not recreate the scope and must not accept the old CRDT chain, or erased
+If an old offline client later reconnects with data for a purged space, sync
+must fail with a terminal "space deleted/reset required" response. The server
+must not recreate the space and must not accept the old CRDT chain, or erased
 data can be resurrected.
 
-Rows with `scopeId == null` are not affected by scope purge. They are
+Rows with `spaceId == null` are not affected by space purge. They are
 application-owned orphan/admin rows and remain outside CRDT.
 
 ## Initialize validation
@@ -238,7 +238,7 @@ Validation rules:
 - `synced -> synced`: allowed only when the existing FK invariant support can
   handle the FK shape.
 - `non-synced -> non-synced`: ignored.
-- `synced -> crdt_scopes` through reserved `scopeId`: allowed only when it
+- `synced -> offline_sync_spaces` through reserved `spaceId`: allowed only when it
   matches the exact allowed shape above.
 - `synced -> protocol-provisioned reference table`: allowed only when the
   reference-data sync phase is implemented, the parent table is declared as
@@ -255,14 +255,14 @@ The error message should explain the allowed alternatives:
 - remove the relation;
 - use the future reference-data sync phase with `onDelete=Restrict` for
   immutable server-authoritative reference data;
-- for account deletion, use the package-owned scope purge relation instead of
+- for account deletion, use the package-owned space purge relation instead of
   an application FK.
 
 ## Tests
 
 The implementation issue should add schema/initialize tests for:
 
-- accepting `scopeId: int?, relation(parent=crdt_scopes,
+- accepting `spaceId: int?, relation(parent=offline_sync_spaces,
   onDelete=Cascade)` on every synced table;
 - rejecting `sync -> non-sync` restricted reference-table FKs with
   `onDelete=Restrict` while the reference-data sync phase is absent;
@@ -276,9 +276,9 @@ The implementation issue should add schema/initialize tests for:
 - rejecting `sync -> non-sync` application FKs with `NoAction`, `SetNull`,
   `SetDefault`, and `Cascade`;
 - rejecting global unique indexes over protocol-provisioned reference FK
-  columns unless the index includes `scopeId`;
+  columns unless the index includes `spaceId`;
 - rejecting synced domain relations to package metadata tables other than
-  `crdt_scopes`;
-- preserving orphan rows with `scopeId == null` across scope purge;
-- deleting a scope removes owned domain rows and CRDT metadata for that scope;
-- stale clients for a purged scope cannot recreate the scope or sync old data.
+  `offline_sync_spaces`;
+- preserving orphan rows with `spaceId == null` across space purge;
+- deleting a space removes owned domain rows and CRDT metadata for that space;
+- stale clients for a purged space cannot recreate the space or sync old data.

@@ -24,8 +24,8 @@ void main() {
         categoryId: 2,
         name: 'shared',
       );
-      await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-        await UniqueDiscriminator.db.insert(node.crdt, [
+      await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await UniqueDiscriminator.db.insert(node.offlineSync, [
           first,
           second,
         ], transaction: tx);
@@ -36,16 +36,16 @@ void main() {
       late List<UniqueDiscriminator> nodeRows;
 
       setUpAll(() async {
-        await node.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueDiscriminator.db.update(
-            node.crdt,
+            node.offlineSync,
             [first.copyWith(categoryId: 2), second.copyWith(categoryId: 1)],
             columns: (t) => [t.categoryId],
             transaction: tx,
           );
         });
 
-        nodeRows = await UniqueDiscriminator.db.find(node.crdt);
+        nodeRows = await UniqueDiscriminator.db.find(node.offlineSync);
       });
 
       test('then the local rows retain their names with swapped categories.', () {
@@ -78,32 +78,32 @@ void main() {
           categoryId: 2,
           name: 'shared',
         );
-        await source.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await UniqueDiscriminator.db.insert(source.crdt, [
+        await source.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await UniqueDiscriminator.db.insert(source.offlineSync, [
             first,
             second,
           ], transaction: tx);
         });
         await syncWithServer(source, target);
-        await source.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await source.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueDiscriminator.db.updateRow(
-            source.crdt,
+            source.offlineSync,
             first.copyWith(categoryId: 3),
             columns: (t) => [t.categoryId],
             transaction: tx,
           );
         });
-        await source.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await source.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueDiscriminator.db.updateRow(
-            source.crdt,
+            source.offlineSync,
             second.copyWith(categoryId: 1),
             columns: (t) => [t.categoryId],
             transaction: tx,
           );
         });
-        await source.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await source.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueDiscriminator.db.updateRow(
-            source.crdt,
+            source.offlineSync,
             first.copyWith(categoryId: 2),
             columns: (t) => [t.categoryId],
             transaction: tx,
@@ -118,8 +118,8 @@ void main() {
         setUpAll(() async {
           await syncWithServer(source, target);
 
-          sourceRows = await UniqueDiscriminator.db.find(source.crdt);
-          targetRows = await UniqueDiscriminator.db.find(target.crdt);
+          sourceRows = await UniqueDiscriminator.db.find(source.offlineSync);
+          targetRows = await UniqueDiscriminator.db.find(target.offlineSync);
         });
 
         test('then the source rows retain their names with swapped categories.', () {

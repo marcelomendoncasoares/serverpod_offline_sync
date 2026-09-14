@@ -1,0 +1,31 @@
+### Authorization membership for shared CRDT spaces.
+###
+### `database: all`, so the table exists on every node and membership resolves
+### with the same code on both ends. The server is the authoritative writer; a
+### client copy (once populated) is a read-only cache for UI and offline role
+### checks.
+###
+### Personal-space membership is implicit: a user always belongs to the space
+### whose UUID equals their auth user UUID. Rows in this table represent shared
+### spaces only.
+class: OfflineSyncSpaceMember
+table: offline_sync_space_members
+database: all
+fields:
+  ### Shared space this membership grants access to.
+  space: OfflineSyncSpace?, relation(onDelete=Cascade)
+
+  ### Auth user UUID that may access the space.
+  userUuid: UuidValue
+
+  ### CRDT access role for this shared-space membership.
+  role: OfflineSyncSpaceRole
+
+indexes:
+  ### Leads with userUuid so the per-cycle membership resolution
+  ### (`WHERE userUuid = ?`) is index-covered, while still enforcing one row
+  ### per (space, user). `isMember` (`WHERE userUuid AND spaceId`) is covered
+  ### too.
+  offline_sync_space_member_unique_idx:
+    fields: userUuid, spaceId
+    unique: true

@@ -5,7 +5,7 @@ import 'package:serverpod_database/serverpod_database.dart';
 typedef UniqueIndexConflictRelease = ({
   List<String> indexedColumns,
   List<UniqueColumnConflictRelease> releaseColumns,
-  bool scoped,
+  bool spaceScoped,
 });
 
 @internal
@@ -35,7 +35,7 @@ UniqueIndexConflictRelease uniqueIndexConflictReleaseForIndex(
   final columnNames = index.elements.map((element) => element.definition).toList();
   final indexedColumns = [
     for (final columnName in columnNames)
-      if (columnName != 'scopeId') columnName,
+      if (columnName != 'spaceId') columnName,
   ];
   final releaseColumns = <UniqueColumnConflictRelease>[];
   for (final columnName in indexedColumns) {
@@ -50,7 +50,7 @@ UniqueIndexConflictRelease uniqueIndexConflictReleaseForIndex(
   }
 
   return (
-    scoped: columnNames.contains('scopeId'),
+    spaceScoped: columnNames.contains('spaceId'),
     indexedColumns: indexedColumns,
     releaseColumns: releaseColumns,
   );
@@ -112,7 +112,7 @@ List<String> crdtRequiredForeignKeyOnlyUniqueColumnViolations(
 
     final columnsByName = {for (final column in table.columns) column.name: column};
     for (final index in table.indexes) {
-      if (!index.isUnique || index.isPrimary || isCrdtScopedUniqueIndex(index)) {
+      if (!index.isUnique || index.isPrimary || isCrdtSpaceUniqueIndex(index)) {
         continue;
       }
 
@@ -139,11 +139,11 @@ List<String> crdtRequiredForeignKeyOnlyUniqueColumnViolations(
 }
 
 @internal
-bool isCrdtScopedUniqueIndex(IndexDefinition index) {
+bool isCrdtSpaceUniqueIndex(IndexDefinition index) {
   return index.elements.any(
     (element) =>
         element.type == IndexElementDefinitionType.column &&
-        element.definition == 'scopeId',
+        element.definition == 'spaceId',
   );
 }
 
@@ -159,7 +159,7 @@ Iterable<IndexDefinition> crdtSyncableUniqueIndexesForTable(
         index.elements.every(
           (element) => element.type == IndexElementDefinitionType.column,
         ) &&
-        (isCrdtScopedUniqueIndex(index) ||
+        (isCrdtSpaceUniqueIndex(index) ||
             isCrdtAllowedForeignKeyOnlyUniqueIndex(
               table,
               index,
@@ -237,7 +237,7 @@ bool _hasJsonUniqueColumn(TableDefinition table, IndexDefinition index) {
   return index.elements.any(
     (element) =>
         element.type == IndexElementDefinitionType.column &&
-        element.definition != 'scopeId' &&
+        element.definition != 'spaceId' &&
         switch (columnsByName[element.definition]) {
           final column? => isCrdtUnsupportedJsonUniqueColumn(column),
           null => false,
@@ -258,7 +258,7 @@ List<String> crdtNonReleasableUniqueIndexViolations(
           tableDefinitionsByName[tableName]!,
           syncTableNames,
         ))
-          if (!_hasReleasableNonScopeUniqueColumn(
+          if (!_hasReleasableNonSpaceUniqueColumn(
             tableDefinitionsByName[tableName]!,
             index,
           ))
@@ -266,7 +266,7 @@ List<String> crdtNonReleasableUniqueIndexViolations(
   ];
 }
 
-bool _hasReleasableNonScopeUniqueColumn(
+bool _hasReleasableNonSpaceUniqueColumn(
   TableDefinition table,
   IndexDefinition index,
 ) {
@@ -275,7 +275,7 @@ bool _hasReleasableNonScopeUniqueColumn(
   };
   for (final element in index.elements) {
     if (element.type != IndexElementDefinitionType.column) continue;
-    if (element.definition == 'scopeId') continue;
+    if (element.definition == 'spaceId') continue;
     final column = columnsByName[element.definition];
     if (column == null) {
       throw StateError(

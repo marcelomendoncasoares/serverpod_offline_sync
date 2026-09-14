@@ -25,13 +25,13 @@ import 'data/row_visibility.dart' as _ibzh2k8m;
 import 'hlc/base.dart' as _ipogc60q;
 import 'merge/change.dart' as _i0vvt7eq;
 import 'node/node.dart' as _iyfv8jet;
-import 'node/scope.dart' as _irlcm4ej;
-import 'node/scope_member.dart' as _iqsssh9c;
-import 'node/scope_node.dart' as _ig47m65z;
-import 'node/scope_role.dart' as _ib0fag6l;
+import 'node/space.dart' as _ifj6lhq8;
+import 'node/space_member.dart' as _i75umry7;
+import 'node/space_node.dart' as _it7grqg6;
+import 'node/space_role.dart' as _ivdq6jvj;
 import 'schema/column.dart' as _iy534gq7;
 import 'schema/table.dart' as _ik8xyqdv;
-import 'sync/scope_grant.dart' as _io782kbc;
+import 'sync/space_grant.dart' as _ijw89gb9;
 import 'sync/stream_event.dart' as _iimdylh8;
 import 'sync/violation.dart' as _iucor0s6;
 import 'sync/violation_operation.dart' as _ijw2vw1z;
@@ -46,13 +46,13 @@ export 'data/row_visibility.dart';
 export 'merge/change.dart';
 export 'hlc/base.dart';
 export 'node/node.dart';
-export 'node/scope.dart';
-export 'node/scope_member.dart';
-export 'node/scope_node.dart';
-export 'node/scope_role.dart';
+export 'node/space.dart';
+export 'node/space_member.dart';
+export 'node/space_node.dart';
+export 'node/space_role.dart';
 export 'schema/column.dart';
 export 'schema/table.dart';
-export 'sync/scope_grant.dart';
+export 'sync/space_grant.dart';
 export 'sync/stream_event.dart';
 export 'sync/violation.dart';
 export 'sync/violation_operation.dart';
@@ -252,7 +252,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
           dartType: 'int',
         ),
         _isd.ColumnDefinition(
-          name: 'scopeId',
+          name: 'spaceId',
           columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
@@ -286,8 +286,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
       foreignKeys: [
         _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_rows_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: ['id'],
           onUpdate: _isd.ForeignKeyAction.noAction,
@@ -317,12 +317,12 @@ class Protocol extends _isd.DatabaseSerializationManager {
       ],
       indexes: [
         _isd.IndexDefinition(
-          indexName: 'crdt_data_rows_scope_tbl_row_idx',
+          indexName: 'crdt_data_rows_space_tbl_row_idx',
           tableSpace: null,
           elements: [
             _isd.IndexElementDefinition(
               type: _isd.IndexElementDefinitionType.column,
-              definition: 'scopeId',
+              definition: 'spaceId',
             ),
             _isd.IndexElementDefinition(
               type: _isd.IndexElementDefinitionType.column,
@@ -591,205 +591,8 @@ class Protocol extends _isd.DatabaseSerializationManager {
       managed: true,
     ),
     _isd.TableDefinition(
-      name: 'crdt_scope_members',
-      dartName: 'CrdtScopeMember',
-      schema: 'public',
-      module: 'serverpod_offline_sync',
-      columns: [
-        _isd.ColumnDefinition(
-          name: 'id',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int?',
-          columnDefault: 'serial',
-        ),
-        _isd.ColumnDefinition(
-          name: 'scopeId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int',
-        ),
-        _isd.ColumnDefinition(
-          name: 'userUuid',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: false,
-          dartType: 'UuidValue',
-        ),
-        _isd.ColumnDefinition(
-          name: 'role',
-          columnType: _isd.ColumnType.text,
-          isNullable: false,
-          dartType: 'serverpod_offline_sync:CrdtScopeRole',
-        ),
-      ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_scope_members_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.cascade,
-          matchType: null,
-        ),
-      ],
-      indexes: [
-        _isd.IndexDefinition(
-          indexName: 'crdt_scope_member_unique_idx',
-          tableSpace: null,
-          elements: [
-            _isd.IndexElementDefinition(
-              type: _isd.IndexElementDefinitionType.column,
-              definition: 'userUuid',
-            ),
-            _isd.IndexElementDefinition(
-              type: _isd.IndexElementDefinitionType.column,
-              definition: 'scopeId',
-            ),
-          ],
-          type: 'btree',
-          isUnique: true,
-          isPrimary: false,
-        ),
-      ],
-      managed: true,
-    ),
-    _isd.TableDefinition(
-      name: 'crdt_scope_nodes',
-      dartName: 'CrdtScopeNode',
-      schema: 'public',
-      module: 'serverpod_offline_sync',
-      columns: [
-        _isd.ColumnDefinition(
-          name: 'id',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int?',
-          columnDefault: 'serial',
-        ),
-        _isd.ColumnDefinition(
-          name: 'scopeId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int',
-        ),
-        _isd.ColumnDefinition(
-          name: 'nodeId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int',
-        ),
-        _isd.ColumnDefinition(
-          name: 'lastReceivedHlc',
-          columnType: _isd.ColumnType.jsonb,
-          isNullable: true,
-          dartType:
-              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
-        ),
-      ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_scope_nodes_fk_0',
-          columns: ['scopeId'],
-          referenceTable: 'crdt_scopes',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.cascade,
-          matchType: null,
-        ),
-        _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_scope_nodes_fk_1',
-          columns: ['nodeId'],
-          referenceTable: 'crdt_nodes',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.cascade,
-          matchType: null,
-        ),
-      ],
-      indexes: [
-        _isd.IndexDefinition(
-          indexName: 'crdt_scope_node_unique_idx',
-          tableSpace: null,
-          elements: [
-            _isd.IndexElementDefinition(
-              type: _isd.IndexElementDefinitionType.column,
-              definition: 'scopeId',
-            ),
-            _isd.IndexElementDefinition(
-              type: _isd.IndexElementDefinitionType.column,
-              definition: 'nodeId',
-            ),
-          ],
-          type: 'btree',
-          isUnique: true,
-          isPrimary: false,
-        ),
-      ],
-      managed: true,
-    ),
-    _isd.TableDefinition(
-      name: 'crdt_scopes',
-      dartName: 'CrdtScope',
-      schema: 'public',
-      module: 'serverpod_offline_sync',
-      columns: [
-        _isd.ColumnDefinition(
-          name: 'id',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: false,
-          dartType: 'int?',
-          columnDefault: 'serial',
-        ),
-        _isd.ColumnDefinition(
-          name: 'uuidScopeId',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: false,
-          dartType: 'UuidValue',
-          columnDefault: 'random_v7',
-        ),
-        _isd.ColumnDefinition(
-          name: 'currentNodeId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: true,
-          dartType: 'int?',
-        ),
-      ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_scopes_fk_0',
-          columns: ['currentNodeId'],
-          referenceTable: 'crdt_nodes',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.noAction,
-          matchType: null,
-        ),
-      ],
-      indexes: [
-        _isd.IndexDefinition(
-          indexName: 'crdt_scopes__uuidScopeId__unique_idx',
-          tableSpace: null,
-          elements: [
-            _isd.IndexElementDefinition(
-              type: _isd.IndexElementDefinitionType.column,
-              definition: 'uuidScopeId',
-            ),
-          ],
-          type: 'btree',
-          isUnique: true,
-          isPrimary: false,
-        ),
-      ],
-      managed: true,
-    ),
-    _isd.TableDefinition(
-      name: 'crdt_sync_integrity_violations',
-      dartName: 'CrdtSyncIntegrityViolation',
+      name: 'offline_sync_integrity_violations',
+      dartName: 'OfflineSyncIntegrityViolation',
       schema: 'public',
       module: 'serverpod_offline_sync',
       columns: [
@@ -804,7 +607,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
           name: 'type',
           columnType: _isd.ColumnType.text,
           isNullable: false,
-          dartType: 'serverpod_offline_sync:CrdtSyncViolationType',
+          dartType: 'serverpod_offline_sync:OfflineSyncViolationType',
         ),
         _isd.ColumnDefinition(
           name: 'domainTableName',
@@ -819,13 +622,13 @@ class Protocol extends _isd.DatabaseSerializationManager {
           dartType: 'UuidValue',
         ),
         _isd.ColumnDefinition(
-          name: 'ownerScopeUuid',
+          name: 'ownerSpaceUuid',
           columnType: _isd.ColumnType.uuid,
           isNullable: true,
           dartType: 'UuidValue?',
         ),
         _isd.ColumnDefinition(
-          name: 'incomingScopeUuid',
+          name: 'incomingSpaceUuid',
           columnType: _isd.ColumnType.uuid,
           isNullable: false,
           dartType: 'UuidValue',
@@ -834,7 +637,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
           name: 'operation',
           columnType: _isd.ColumnType.text,
           isNullable: false,
-          dartType: 'serverpod_offline_sync:CrdtSyncViolationOperation',
+          dartType: 'serverpod_offline_sync:OfflineSyncViolationOperation',
         ),
         _isd.ColumnDefinition(
           name: 'uuidNodeId',
@@ -882,7 +685,7 @@ class Protocol extends _isd.DatabaseSerializationManager {
       foreignKeys: [],
       indexes: [
         _isd.IndexDefinition(
-          indexName: 'crdt_sync_integrity_violations_key_idx',
+          indexName: 'offline_sync_integrity_violations_key_idx',
           tableSpace: null,
           elements: [
             _isd.IndexElementDefinition(
@@ -903,11 +706,208 @@ class Protocol extends _isd.DatabaseSerializationManager {
             ),
             _isd.IndexElementDefinition(
               type: _isd.IndexElementDefinitionType.column,
-              definition: 'ownerScopeUuid',
+              definition: 'ownerSpaceUuid',
             ),
             _isd.IndexElementDefinition(
               type: _isd.IndexElementDefinitionType.column,
-              definition: 'incomingScopeUuid',
+              definition: 'incomingSpaceUuid',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isd.TableDefinition(
+      name: 'offline_sync_space_members',
+      dartName: 'OfflineSyncSpaceMember',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'spaceId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'userUuid',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isd.ColumnDefinition(
+          name: 'role',
+          columnType: _isd.ColumnType.text,
+          isNullable: false,
+          dartType: 'serverpod_offline_sync:OfflineSyncSpaceRole',
+        ),
+      ],
+      foreignKeys: [
+        _isd.ForeignKeyDefinition(
+          constraintName: 'offline_sync_space_members_fk_0',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isd.IndexDefinition(
+          indexName: 'offline_sync_space_member_unique_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'userUuid',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isd.TableDefinition(
+      name: 'offline_sync_space_nodes',
+      dartName: 'OfflineSyncSpaceNode',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'spaceId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'nodeId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'lastReceivedHlc',
+          columnType: _isd.ColumnType.jsonb,
+          isNullable: true,
+          dartType:
+              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
+        ),
+      ],
+      foreignKeys: [
+        _isd.ForeignKeyDefinition(
+          constraintName: 'offline_sync_space_nodes_fk_0',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isd.ForeignKeyDefinition(
+          constraintName: 'offline_sync_space_nodes_fk_1',
+          columns: ['nodeId'],
+          referenceTable: 'crdt_nodes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isd.IndexDefinition(
+          indexName: 'offline_sync_space_node_unique_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'nodeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isd.TableDefinition(
+      name: 'offline_sync_spaces',
+      dartName: 'OfflineSyncSpace',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'uuidSpaceId',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+          columnDefault: 'random_v7',
+        ),
+        _isd.ColumnDefinition(
+          name: 'currentNodeId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+      ],
+      foreignKeys: [
+        _isd.ForeignKeyDefinition(
+          constraintName: 'offline_sync_spaces_fk_0',
+          columns: ['currentNodeId'],
+          referenceTable: 'crdt_nodes',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isd.IndexDefinition(
+          indexName: 'offline_sync_spaces__uuidSpaceId__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'uuidSpaceId',
             ),
           ],
           type: 'btree',
@@ -991,17 +991,17 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _iyfv8jet.CrdtNode) {
       return _iyfv8jet.CrdtNode.fromJson(data) as T;
     }
-    if (t == _irlcm4ej.CrdtScope) {
-      return _irlcm4ej.CrdtScope.fromJson(data) as T;
+    if (t == _ifj6lhq8.OfflineSyncSpace) {
+      return _ifj6lhq8.OfflineSyncSpace.fromJson(data) as T;
     }
-    if (t == _iqsssh9c.CrdtScopeMember) {
-      return _iqsssh9c.CrdtScopeMember.fromJson(data) as T;
+    if (t == _i75umry7.OfflineSyncSpaceMember) {
+      return _i75umry7.OfflineSyncSpaceMember.fromJson(data) as T;
     }
-    if (t == _ig47m65z.CrdtScopeNode) {
-      return _ig47m65z.CrdtScopeNode.fromJson(data) as T;
+    if (t == _it7grqg6.OfflineSyncSpaceNode) {
+      return _it7grqg6.OfflineSyncSpaceNode.fromJson(data) as T;
     }
-    if (t == _ib0fag6l.CrdtScopeRole) {
-      return _ib0fag6l.CrdtScopeRole.fromJson(data) as T;
+    if (t == _ivdq6jvj.OfflineSyncSpaceRole) {
+      return _ivdq6jvj.OfflineSyncSpaceRole.fromJson(data) as T;
     }
     if (t == _iy534gq7.CrdtSchemaColumn) {
       return _iy534gq7.CrdtSchemaColumn.fromJson(data) as T;
@@ -1009,38 +1009,38 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _ik8xyqdv.CrdtSchemaTable) {
       return _ik8xyqdv.CrdtSchemaTable.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncClose) {
-      return _iimdylh8.CrdtSyncClose.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncClose) {
+      return _iimdylh8.OfflineSyncClose.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncConnect) {
-      return _iimdylh8.CrdtSyncConnect.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncConnect) {
+      return _iimdylh8.OfflineSyncConnect.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncEndOfBatch) {
-      return _iimdylh8.CrdtSyncEndOfBatch.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncEndOfBatch) {
+      return _iimdylh8.OfflineSyncEndOfBatch.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncMergeChunk) {
-      return _iimdylh8.CrdtSyncMergeChunk.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncMergeChunk) {
+      return _iimdylh8.OfflineSyncMergeChunk.fromJson(data) as T;
     }
-    if (t == _io782kbc.CrdtScopeGrant) {
-      return _io782kbc.CrdtScopeGrant.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncSinceHlc) {
+      return _iimdylh8.OfflineSyncSinceHlc.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncScopeSet) {
-      return _iimdylh8.CrdtSyncScopeSet.fromJson(data) as T;
+    if (t == _ijw89gb9.OfflineSyncSpaceGrant) {
+      return _ijw89gb9.OfflineSyncSpaceGrant.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncSinceHlc) {
-      return _iimdylh8.CrdtSyncSinceHlc.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncSpaceSet) {
+      return _iimdylh8.OfflineSyncSpaceSet.fromJson(data) as T;
     }
-    if (t == _iimdylh8.CrdtSyncIdleTimeout) {
-      return _iimdylh8.CrdtSyncIdleTimeout.fromJson(data) as T;
+    if (t == _iimdylh8.OfflineSyncIdleTimeout) {
+      return _iimdylh8.OfflineSyncIdleTimeout.fromJson(data) as T;
     }
-    if (t == _iucor0s6.CrdtSyncIntegrityViolation) {
-      return _iucor0s6.CrdtSyncIntegrityViolation.fromJson(data) as T;
+    if (t == _iucor0s6.OfflineSyncIntegrityViolation) {
+      return _iucor0s6.OfflineSyncIntegrityViolation.fromJson(data) as T;
     }
-    if (t == _ijw2vw1z.CrdtSyncViolationOperation) {
-      return _ijw2vw1z.CrdtSyncViolationOperation.fromJson(data) as T;
+    if (t == _ijw2vw1z.OfflineSyncViolationOperation) {
+      return _ijw2vw1z.OfflineSyncViolationOperation.fromJson(data) as T;
     }
-    if (t == _itf31ci3.CrdtSyncViolationType) {
-      return _itf31ci3.CrdtSyncViolationType.fromJson(data) as T;
+    if (t == _itf31ci3.OfflineSyncViolationType) {
+      return _itf31ci3.OfflineSyncViolationType.fromJson(data) as T;
     }
     if (t == _iss.getType<_ikikkl0e.CrdtDataAttemptedValue?>()) {
       return (data != null
@@ -1095,19 +1095,26 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _iss.getType<_iyfv8jet.CrdtNode?>()) {
       return (data != null ? _iyfv8jet.CrdtNode.fromJson(data) : null) as T;
     }
-    if (t == _iss.getType<_irlcm4ej.CrdtScope?>()) {
-      return (data != null ? _irlcm4ej.CrdtScope.fromJson(data) : null) as T;
-    }
-    if (t == _iss.getType<_iqsssh9c.CrdtScopeMember?>()) {
-      return (data != null ? _iqsssh9c.CrdtScopeMember.fromJson(data) : null)
+    if (t == _iss.getType<_ifj6lhq8.OfflineSyncSpace?>()) {
+      return (data != null ? _ifj6lhq8.OfflineSyncSpace.fromJson(data) : null)
           as T;
     }
-    if (t == _iss.getType<_ig47m65z.CrdtScopeNode?>()) {
-      return (data != null ? _ig47m65z.CrdtScopeNode.fromJson(data) : null)
+    if (t == _iss.getType<_i75umry7.OfflineSyncSpaceMember?>()) {
+      return (data != null
+              ? _i75umry7.OfflineSyncSpaceMember.fromJson(data)
+              : null)
           as T;
     }
-    if (t == _iss.getType<_ib0fag6l.CrdtScopeRole?>()) {
-      return (data != null ? _ib0fag6l.CrdtScopeRole.fromJson(data) : null)
+    if (t == _iss.getType<_it7grqg6.OfflineSyncSpaceNode?>()) {
+      return (data != null
+              ? _it7grqg6.OfflineSyncSpaceNode.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_ivdq6jvj.OfflineSyncSpaceRole?>()) {
+      return (data != null
+              ? _ivdq6jvj.OfflineSyncSpaceRole.fromJson(data)
+              : null)
           as T;
     }
     if (t == _iss.getType<_iy534gq7.CrdtSchemaColumn?>()) {
@@ -1118,55 +1125,65 @@ class Protocol extends _isd.DatabaseSerializationManager {
       return (data != null ? _ik8xyqdv.CrdtSchemaTable.fromJson(data) : null)
           as T;
     }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncClose?>()) {
-      return (data != null ? _iimdylh8.CrdtSyncClose.fromJson(data) : null)
+    if (t == _iss.getType<_iimdylh8.OfflineSyncClose?>()) {
+      return (data != null ? _iimdylh8.OfflineSyncClose.fromJson(data) : null)
           as T;
     }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncConnect?>()) {
-      return (data != null ? _iimdylh8.CrdtSyncConnect.fromJson(data) : null)
+    if (t == _iss.getType<_iimdylh8.OfflineSyncConnect?>()) {
+      return (data != null ? _iimdylh8.OfflineSyncConnect.fromJson(data) : null)
           as T;
     }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncEndOfBatch?>()) {
-      return (data != null ? _iimdylh8.CrdtSyncEndOfBatch.fromJson(data) : null)
-          as T;
-    }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncMergeChunk?>()) {
-      return (data != null ? _iimdylh8.CrdtSyncMergeChunk.fromJson(data) : null)
-          as T;
-    }
-    if (t == _iss.getType<_io782kbc.CrdtScopeGrant?>()) {
-      return (data != null ? _io782kbc.CrdtScopeGrant.fromJson(data) : null)
-          as T;
-    }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncScopeSet?>()) {
-      return (data != null ? _iimdylh8.CrdtSyncScopeSet.fromJson(data) : null)
-          as T;
-    }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncSinceHlc?>()) {
-      return (data != null ? _iimdylh8.CrdtSyncSinceHlc.fromJson(data) : null)
-          as T;
-    }
-    if (t == _iss.getType<_iimdylh8.CrdtSyncIdleTimeout?>()) {
+    if (t == _iss.getType<_iimdylh8.OfflineSyncEndOfBatch?>()) {
       return (data != null
-              ? _iimdylh8.CrdtSyncIdleTimeout.fromJson(data)
+              ? _iimdylh8.OfflineSyncEndOfBatch.fromJson(data)
               : null)
           as T;
     }
-    if (t == _iss.getType<_iucor0s6.CrdtSyncIntegrityViolation?>()) {
+    if (t == _iss.getType<_iimdylh8.OfflineSyncMergeChunk?>()) {
       return (data != null
-              ? _iucor0s6.CrdtSyncIntegrityViolation.fromJson(data)
+              ? _iimdylh8.OfflineSyncMergeChunk.fromJson(data)
               : null)
           as T;
     }
-    if (t == _iss.getType<_ijw2vw1z.CrdtSyncViolationOperation?>()) {
+    if (t == _iss.getType<_iimdylh8.OfflineSyncSinceHlc?>()) {
       return (data != null
-              ? _ijw2vw1z.CrdtSyncViolationOperation.fromJson(data)
+              ? _iimdylh8.OfflineSyncSinceHlc.fromJson(data)
               : null)
           as T;
     }
-    if (t == _iss.getType<_itf31ci3.CrdtSyncViolationType?>()) {
+    if (t == _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant?>()) {
       return (data != null
-              ? _itf31ci3.CrdtSyncViolationType.fromJson(data)
+              ? _ijw89gb9.OfflineSyncSpaceGrant.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncSpaceSet?>()) {
+      return (data != null
+              ? _iimdylh8.OfflineSyncSpaceSet.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncIdleTimeout?>()) {
+      return (data != null
+              ? _iimdylh8.OfflineSyncIdleTimeout.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation?>()) {
+      return (data != null
+              ? _iucor0s6.OfflineSyncIntegrityViolation.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation?>()) {
+      return (data != null
+              ? _ijw2vw1z.OfflineSyncViolationOperation.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_itf31ci3.OfflineSyncViolationType?>()) {
+      return (data != null
+              ? _itf31ci3.OfflineSyncViolationType.fromJson(data)
               : null)
           as T;
     }
@@ -1190,16 +1207,16 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _iss.getType<_icw2tu00.Hlc?>()) {
       return (data != null ? _icw2tu00.Hlc.fromJson(data) : null) as T;
     }
-    if (t == List<_icw2tu00.CrdtScopeNode>) {
+    if (t == List<_icw2tu00.OfflineSyncSpaceNode>) {
       return (data as List)
-              .map((e) => deserialize<_icw2tu00.CrdtScopeNode>(e))
+              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceNode>(e))
               .toList()
           as T;
     }
-    if (t == _iss.getType<List<_icw2tu00.CrdtScopeNode>?>()) {
+    if (t == _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>?>()) {
       return (data != null
               ? (data as List)
-                    .map((e) => deserialize<_icw2tu00.CrdtScopeNode>(e))
+                    .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceNode>(e))
                     .toList()
               : null)
           as T;
@@ -1210,18 +1227,18 @@ class Protocol extends _isd.DatabaseSerializationManager {
               .toList()
           as T;
     }
-    if (t == List<_icw2tu00.CrdtScopeGrant>) {
-      return (data as List)
-              .map((e) => deserialize<_icw2tu00.CrdtScopeGrant>(e))
-              .toList()
-          as T;
-    }
     if (t == List<_icw2tu00.Hlc>) {
       return (data as List).map((e) => deserialize<_icw2tu00.Hlc>(e)).toList()
           as T;
     }
     if (t == _icw2tu00.Hlc) {
       return _icw2tu00.Hlc.fromJson(data) as T;
+    }
+    if (t == List<_icw2tu00.OfflineSyncSpaceGrant>) {
+      return (data as List)
+              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceGrant>(e))
+              .toList()
+          as T;
     }
     return super.deserialize<T>(data, t);
   }
@@ -1240,23 +1257,25 @@ class Protocol extends _isd.DatabaseSerializationManager {
       _i0vvt7eq.CrdtMergeUpdate => 'CrdtMergeUpdate',
       _ipogc60q.BaseHlc => 'BaseHlc',
       _iyfv8jet.CrdtNode => 'CrdtNode',
-      _irlcm4ej.CrdtScope => 'CrdtScope',
-      _iqsssh9c.CrdtScopeMember => 'CrdtScopeMember',
-      _ig47m65z.CrdtScopeNode => 'CrdtScopeNode',
-      _ib0fag6l.CrdtScopeRole => 'CrdtScopeRole',
+      _ifj6lhq8.OfflineSyncSpace => 'OfflineSyncSpace',
+      _i75umry7.OfflineSyncSpaceMember => 'OfflineSyncSpaceMember',
+      _it7grqg6.OfflineSyncSpaceNode => 'OfflineSyncSpaceNode',
+      _ivdq6jvj.OfflineSyncSpaceRole => 'OfflineSyncSpaceRole',
       _iy534gq7.CrdtSchemaColumn => 'CrdtSchemaColumn',
       _ik8xyqdv.CrdtSchemaTable => 'CrdtSchemaTable',
-      _iimdylh8.CrdtSyncClose => 'CrdtSyncClose',
-      _iimdylh8.CrdtSyncConnect => 'CrdtSyncConnect',
-      _iimdylh8.CrdtSyncEndOfBatch => 'CrdtSyncEndOfBatch',
-      _iimdylh8.CrdtSyncMergeChunk => 'CrdtSyncMergeChunk',
-      _io782kbc.CrdtScopeGrant => 'CrdtScopeGrant',
-      _iimdylh8.CrdtSyncScopeSet => 'CrdtSyncScopeSet',
-      _iimdylh8.CrdtSyncSinceHlc => 'CrdtSyncSinceHlc',
-      _iimdylh8.CrdtSyncIdleTimeout => 'CrdtSyncIdleTimeout',
-      _iucor0s6.CrdtSyncIntegrityViolation => 'CrdtSyncIntegrityViolation',
-      _ijw2vw1z.CrdtSyncViolationOperation => 'CrdtSyncViolationOperation',
-      _itf31ci3.CrdtSyncViolationType => 'CrdtSyncViolationType',
+      _iimdylh8.OfflineSyncClose => 'OfflineSyncClose',
+      _iimdylh8.OfflineSyncConnect => 'OfflineSyncConnect',
+      _iimdylh8.OfflineSyncEndOfBatch => 'OfflineSyncEndOfBatch',
+      _iimdylh8.OfflineSyncMergeChunk => 'OfflineSyncMergeChunk',
+      _iimdylh8.OfflineSyncSinceHlc => 'OfflineSyncSinceHlc',
+      _ijw89gb9.OfflineSyncSpaceGrant => 'OfflineSyncSpaceGrant',
+      _iimdylh8.OfflineSyncSpaceSet => 'OfflineSyncSpaceSet',
+      _iimdylh8.OfflineSyncIdleTimeout => 'OfflineSyncIdleTimeout',
+      _iucor0s6.OfflineSyncIntegrityViolation =>
+        'OfflineSyncIntegrityViolation',
+      _ijw2vw1z.OfflineSyncViolationOperation =>
+        'OfflineSyncViolationOperation',
+      _itf31ci3.OfflineSyncViolationType => 'OfflineSyncViolationType',
       _ => null,
     };
   }
@@ -1298,40 +1317,40 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return 'BaseHlc';
       case _iyfv8jet.CrdtNode():
         return 'CrdtNode';
-      case _irlcm4ej.CrdtScope():
-        return 'CrdtScope';
-      case _iqsssh9c.CrdtScopeMember():
-        return 'CrdtScopeMember';
-      case _ig47m65z.CrdtScopeNode():
-        return 'CrdtScopeNode';
-      case _ib0fag6l.CrdtScopeRole():
-        return 'CrdtScopeRole';
+      case _ifj6lhq8.OfflineSyncSpace():
+        return 'OfflineSyncSpace';
+      case _i75umry7.OfflineSyncSpaceMember():
+        return 'OfflineSyncSpaceMember';
+      case _it7grqg6.OfflineSyncSpaceNode():
+        return 'OfflineSyncSpaceNode';
+      case _ivdq6jvj.OfflineSyncSpaceRole():
+        return 'OfflineSyncSpaceRole';
       case _iy534gq7.CrdtSchemaColumn():
         return 'CrdtSchemaColumn';
       case _ik8xyqdv.CrdtSchemaTable():
         return 'CrdtSchemaTable';
-      case _iimdylh8.CrdtSyncClose():
-        return 'CrdtSyncClose';
-      case _iimdylh8.CrdtSyncConnect():
-        return 'CrdtSyncConnect';
-      case _iimdylh8.CrdtSyncEndOfBatch():
-        return 'CrdtSyncEndOfBatch';
-      case _iimdylh8.CrdtSyncMergeChunk():
-        return 'CrdtSyncMergeChunk';
-      case _io782kbc.CrdtScopeGrant():
-        return 'CrdtScopeGrant';
-      case _iimdylh8.CrdtSyncScopeSet():
-        return 'CrdtSyncScopeSet';
-      case _iimdylh8.CrdtSyncSinceHlc():
-        return 'CrdtSyncSinceHlc';
-      case _iimdylh8.CrdtSyncIdleTimeout():
-        return 'CrdtSyncIdleTimeout';
-      case _iucor0s6.CrdtSyncIntegrityViolation():
-        return 'CrdtSyncIntegrityViolation';
-      case _ijw2vw1z.CrdtSyncViolationOperation():
-        return 'CrdtSyncViolationOperation';
-      case _itf31ci3.CrdtSyncViolationType():
-        return 'CrdtSyncViolationType';
+      case _iimdylh8.OfflineSyncClose():
+        return 'OfflineSyncClose';
+      case _iimdylh8.OfflineSyncConnect():
+        return 'OfflineSyncConnect';
+      case _iimdylh8.OfflineSyncEndOfBatch():
+        return 'OfflineSyncEndOfBatch';
+      case _iimdylh8.OfflineSyncMergeChunk():
+        return 'OfflineSyncMergeChunk';
+      case _iimdylh8.OfflineSyncSinceHlc():
+        return 'OfflineSyncSinceHlc';
+      case _ijw89gb9.OfflineSyncSpaceGrant():
+        return 'OfflineSyncSpaceGrant';
+      case _iimdylh8.OfflineSyncSpaceSet():
+        return 'OfflineSyncSpaceSet';
+      case _iimdylh8.OfflineSyncIdleTimeout():
+        return 'OfflineSyncIdleTimeout';
+      case _iucor0s6.OfflineSyncIntegrityViolation():
+        return 'OfflineSyncIntegrityViolation';
+      case _ijw2vw1z.OfflineSyncViolationOperation():
+        return 'OfflineSyncViolationOperation';
+      case _itf31ci3.OfflineSyncViolationType():
+        return 'OfflineSyncViolationType';
     }
     return null;
   }
@@ -1378,17 +1397,17 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (dataClassName == 'CrdtNode') {
       return deserialize<_iyfv8jet.CrdtNode>(data['data']);
     }
-    if (dataClassName == 'CrdtScope') {
-      return deserialize<_irlcm4ej.CrdtScope>(data['data']);
+    if (dataClassName == 'OfflineSyncSpace') {
+      return deserialize<_ifj6lhq8.OfflineSyncSpace>(data['data']);
     }
-    if (dataClassName == 'CrdtScopeMember') {
-      return deserialize<_iqsssh9c.CrdtScopeMember>(data['data']);
+    if (dataClassName == 'OfflineSyncSpaceMember') {
+      return deserialize<_i75umry7.OfflineSyncSpaceMember>(data['data']);
     }
-    if (dataClassName == 'CrdtScopeNode') {
-      return deserialize<_ig47m65z.CrdtScopeNode>(data['data']);
+    if (dataClassName == 'OfflineSyncSpaceNode') {
+      return deserialize<_it7grqg6.OfflineSyncSpaceNode>(data['data']);
     }
-    if (dataClassName == 'CrdtScopeRole') {
-      return deserialize<_ib0fag6l.CrdtScopeRole>(data['data']);
+    if (dataClassName == 'OfflineSyncSpaceRole') {
+      return deserialize<_ivdq6jvj.OfflineSyncSpaceRole>(data['data']);
     }
     if (dataClassName == 'CrdtSchemaColumn') {
       return deserialize<_iy534gq7.CrdtSchemaColumn>(data['data']);
@@ -1396,38 +1415,38 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (dataClassName == 'CrdtSchemaTable') {
       return deserialize<_ik8xyqdv.CrdtSchemaTable>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncClose') {
-      return deserialize<_iimdylh8.CrdtSyncClose>(data['data']);
+    if (dataClassName == 'OfflineSyncClose') {
+      return deserialize<_iimdylh8.OfflineSyncClose>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncConnect') {
-      return deserialize<_iimdylh8.CrdtSyncConnect>(data['data']);
+    if (dataClassName == 'OfflineSyncConnect') {
+      return deserialize<_iimdylh8.OfflineSyncConnect>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncEndOfBatch') {
-      return deserialize<_iimdylh8.CrdtSyncEndOfBatch>(data['data']);
+    if (dataClassName == 'OfflineSyncEndOfBatch') {
+      return deserialize<_iimdylh8.OfflineSyncEndOfBatch>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncMergeChunk') {
-      return deserialize<_iimdylh8.CrdtSyncMergeChunk>(data['data']);
+    if (dataClassName == 'OfflineSyncMergeChunk') {
+      return deserialize<_iimdylh8.OfflineSyncMergeChunk>(data['data']);
     }
-    if (dataClassName == 'CrdtScopeGrant') {
-      return deserialize<_io782kbc.CrdtScopeGrant>(data['data']);
+    if (dataClassName == 'OfflineSyncSinceHlc') {
+      return deserialize<_iimdylh8.OfflineSyncSinceHlc>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncScopeSet') {
-      return deserialize<_iimdylh8.CrdtSyncScopeSet>(data['data']);
+    if (dataClassName == 'OfflineSyncSpaceGrant') {
+      return deserialize<_ijw89gb9.OfflineSyncSpaceGrant>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncSinceHlc') {
-      return deserialize<_iimdylh8.CrdtSyncSinceHlc>(data['data']);
+    if (dataClassName == 'OfflineSyncSpaceSet') {
+      return deserialize<_iimdylh8.OfflineSyncSpaceSet>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncIdleTimeout') {
-      return deserialize<_iimdylh8.CrdtSyncIdleTimeout>(data['data']);
+    if (dataClassName == 'OfflineSyncIdleTimeout') {
+      return deserialize<_iimdylh8.OfflineSyncIdleTimeout>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncIntegrityViolation') {
-      return deserialize<_iucor0s6.CrdtSyncIntegrityViolation>(data['data']);
+    if (dataClassName == 'OfflineSyncIntegrityViolation') {
+      return deserialize<_iucor0s6.OfflineSyncIntegrityViolation>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncViolationOperation') {
-      return deserialize<_ijw2vw1z.CrdtSyncViolationOperation>(data['data']);
+    if (dataClassName == 'OfflineSyncViolationOperation') {
+      return deserialize<_ijw2vw1z.OfflineSyncViolationOperation>(data['data']);
     }
-    if (dataClassName == 'CrdtSyncViolationType') {
-      return deserialize<_itf31ci3.CrdtSyncViolationType>(data['data']);
+    if (dataClassName == 'OfflineSyncViolationType') {
+      return deserialize<_itf31ci3.OfflineSyncViolationType>(data['data']);
     }
     return super.deserializeByClassName(data);
   }
@@ -1504,18 +1523,18 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return _iokmrb1h.CrdtDataRow.t;
       case _iyfv8jet.CrdtNode:
         return _iyfv8jet.CrdtNode.t;
-      case _irlcm4ej.CrdtScope:
-        return _irlcm4ej.CrdtScope.t;
-      case _iqsssh9c.CrdtScopeMember:
-        return _iqsssh9c.CrdtScopeMember.t;
-      case _ig47m65z.CrdtScopeNode:
-        return _ig47m65z.CrdtScopeNode.t;
+      case _ifj6lhq8.OfflineSyncSpace:
+        return _ifj6lhq8.OfflineSyncSpace.t;
+      case _i75umry7.OfflineSyncSpaceMember:
+        return _i75umry7.OfflineSyncSpaceMember.t;
+      case _it7grqg6.OfflineSyncSpaceNode:
+        return _it7grqg6.OfflineSyncSpaceNode.t;
       case _iy534gq7.CrdtSchemaColumn:
         return _iy534gq7.CrdtSchemaColumn.t;
       case _ik8xyqdv.CrdtSchemaTable:
         return _ik8xyqdv.CrdtSchemaTable.t;
-      case _iucor0s6.CrdtSyncIntegrityViolation:
-        return _iucor0s6.CrdtSyncIntegrityViolation.t;
+      case _iucor0s6.OfflineSyncIntegrityViolation:
+        return _iucor0s6.OfflineSyncIntegrityViolation.t;
     }
     return null;
   }

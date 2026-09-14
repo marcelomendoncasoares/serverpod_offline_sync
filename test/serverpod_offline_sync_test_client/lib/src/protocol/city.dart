@@ -22,7 +22,7 @@ abstract class City
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   City._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.citizens,
     this.organizations,
@@ -30,7 +30,7 @@ abstract class City
 
   factory City({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     List<_iensfz4m.Person>? citizens,
     List<_irjtvpke.Organization>? organizations,
@@ -41,7 +41,7 @@ abstract class City
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       citizens: jsonSerialization['citizens'] == null
           ? null
@@ -63,8 +63,8 @@ abstract class City
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -80,7 +80,7 @@ abstract class City
   @_isc.useResult
   City copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     List<_iensfz4m.Person>? citizens,
     List<_irjtvpke.Organization>? organizations,
@@ -90,7 +90,7 @@ abstract class City
     return {
       '__className__': 'City',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (citizens != null)
         'citizens': citizens?.toJson(valueToJson: (v) => v.toJson()),
@@ -104,7 +104,7 @@ abstract class City
     return {
       '__className__': 'City',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (citizens != null)
         'citizens': citizens?.toJson(valueToJson: (v) => v.toJsonForProtocol()),
@@ -154,13 +154,13 @@ class _Undefined {}
 class _CityImpl extends City {
   _CityImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     List<_iensfz4m.Person>? citizens,
     List<_irjtvpke.Organization>? organizations,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          citizens: citizens,
          organizations: organizations,
@@ -172,14 +172,14 @@ class _CityImpl extends City {
   @override
   City copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? citizens = _Undefined,
     Object? organizations = _Undefined,
   }) {
     return City(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       citizens: citizens is List<_iensfz4m.Person>?
           ? citizens
@@ -194,8 +194,8 @@ class _CityImpl extends City {
 class CityUpdateTable extends _isd.UpdateTable<CityTable> {
   CityUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -208,8 +208,8 @@ class CityUpdateTable extends _isd.UpdateTable<CityTable> {
 class CityTable extends _isd.Table<_isc.UuidValue?> {
   CityTable({super.tableRelation}) : super(tableName: 'city') {
     updateTable = CityUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -220,8 +220,8 @@ class CityTable extends _isd.Table<_isc.UuidValue?> {
 
   late final CityUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
@@ -300,7 +300,7 @@ class CityTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
   ];
 

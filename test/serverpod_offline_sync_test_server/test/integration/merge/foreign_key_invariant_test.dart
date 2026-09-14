@@ -51,7 +51,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteParentDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -123,7 +123,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteParentDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -193,7 +193,7 @@ void main() {
 
         await session.db.mergeChanges(
           [remoteParentDelete],
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
 
         final visibleParent = await Person.db.findById(session, parent.id!);
@@ -271,7 +271,7 @@ void main() {
         );
         await session.db.mergeChanges(
           [remoteParentDelete],
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
       });
 
@@ -289,7 +289,7 @@ void main() {
 
           await session.db.mergeChanges(
             [firstChildDetach],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -338,7 +338,7 @@ void main() {
 
           await session.db.mergeChanges(
             [firstChildDetach, secondChildDetach],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -412,7 +412,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteCompanyDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -471,7 +471,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteParentDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -546,7 +546,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteParentDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -630,7 +630,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteParentDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -795,7 +795,7 @@ void main() {
 
         await session.db.mergeChanges(
           [remoteParentDelete],
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
 
         projectedChild = (await Town.db.findById(session, child.id!))!;
@@ -841,7 +841,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteParentRestore],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1068,7 +1068,7 @@ void main() {
         );
         await session.db.mergeChanges(
           [remoteParentDelete],
-          scopeId: testCrdtUserId,
+          spaceId: testCrdtUserId,
         );
         projectionBeforeUpdate = await _foreignKeyProjectionSnapshot();
 
@@ -1085,7 +1085,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteNameUpdate],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1151,7 +1151,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteParentDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1203,7 +1203,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
+                uuidSpaceId: testCrdtUserId,
                 tableName: Town.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1212,7 +1212,7 @@ void main() {
                 data: child,
               ),
             ],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1263,7 +1263,7 @@ void main() {
 
         final childHlc = await rowHlc(child.id!);
         remoteMissingParentUpdate = CrdtMergeUpdate(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Town.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -1278,7 +1278,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteMissingParentUpdate],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1363,7 +1363,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteAttemptedTownDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1404,7 +1404,7 @@ void main() {
           setUp(() async {
             await session.db.mergeChanges(
               [remoteAttemptedTownDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
 
             projectedChild = (await Company.db.findById(session, child.id!))!;
@@ -1473,7 +1473,7 @@ void main() {
           setUp(() async {
             await session.db.mergeChanges(
               [remoteAttemptedTownDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
 
             projectedChild = (await Company.db.findById(session, child.id!))!;
@@ -1567,7 +1567,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
+                uuidSpaceId: testCrdtUserId,
                 tableName: Company.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1576,7 +1576,7 @@ void main() {
                 data: child,
               ),
             ],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1653,7 +1653,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteAttemptedTownDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1709,7 +1709,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
+                uuidSpaceId: testCrdtUserId,
                 tableName: Address.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1718,7 +1718,7 @@ void main() {
                 data: child,
               ),
             ],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1785,7 +1785,7 @@ void main() {
           await session.db.mergeChanges(
             [
               CrdtMergeInsert(
-                uuidScopeId: testCrdtUserId,
+                uuidSpaceId: testCrdtUserId,
                 tableName: Organization.t.tableName,
                 uuidRowId: child.id!,
                 uuidNodeId: remoteNodeId,
@@ -1794,7 +1794,7 @@ void main() {
                 data: child,
               ),
             ],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1843,7 +1843,7 @@ void main() {
   );
 
   group(
-    'Given a remote insert with a cascade foreign key that points to a hidden parent in scope,',
+    'Given a remote insert with a cascade foreign key that points to a hidden parent in space,',
     () {
       late Organization organization;
       late Person person;
@@ -1871,7 +1871,7 @@ void main() {
         final remoteNodeId = const Uuid().v7obj();
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remotePersonInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Person.t.tableName,
           uuidRowId: person.id!,
           uuidNodeId: remoteNodeId,
@@ -1885,7 +1885,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remotePersonInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -1945,7 +1945,7 @@ void main() {
         final remoteNodeId = const Uuid().v7obj();
         final hlc = Hlc(DateTime.now().toUtc(), 0, remoteNodeId);
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Company.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: remoteNodeId,
@@ -1963,7 +1963,7 @@ void main() {
           try {
             await session.db.mergeChanges(
               [remoteInsert],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           } on Exception catch (error) {
             mergeError = error;
@@ -2022,7 +2022,7 @@ void main() {
 
         mergeSet = [
           CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: Address.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: remoteNodeId,
@@ -2031,7 +2031,7 @@ void main() {
             data: child,
           ),
           CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: Person.t.tableName,
             uuidRowId: parent.id!,
             uuidNodeId: remoteNodeId,
@@ -2044,7 +2044,7 @@ void main() {
 
       group('when merging,', () {
         setUp(() async {
-          await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
+          await session.db.mergeChanges(mergeSet, spaceId: testCrdtUserId);
         });
 
         test(
@@ -2114,7 +2114,7 @@ void main() {
 
         mergeSet = [
           CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: RequiredSetNullChild.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: remoteNodeId,
@@ -2123,7 +2123,7 @@ void main() {
             data: child,
           ),
           CrdtMergeInsert(
-            uuidScopeId: testCrdtUserId,
+            uuidSpaceId: testCrdtUserId,
             tableName: Person.t.tableName,
             uuidRowId: parent.id!,
             uuidNodeId: remoteNodeId,
@@ -2136,7 +2136,7 @@ void main() {
 
       group('when merging,', () {
         setUp(() async {
-          await session.db.mergeChanges(mergeSet, scopeId: testCrdtUserId);
+          await session.db.mergeChanges(mergeSet, spaceId: testCrdtUserId);
         });
 
         test(
@@ -2224,7 +2224,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteCityDelete, remoteAttemptedTownDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -2306,7 +2306,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteCityDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -2329,14 +2329,14 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteCityDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
           visibilityAfterMerge = await _visibilitySnapshot();
           foreignKeyProjectionAfterMerge = await _foreignKeyProjectionSnapshot();
 
           await session.db.mergeChanges(
             [remoteCityDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
           visibilityAfterReplay = await _visibilitySnapshot();
           foreignKeyProjectionAfterReplay = await _foreignKeyProjectionSnapshot();
@@ -2364,7 +2364,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteCityDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
 
           remoteCityRestore = _restoreChange(
@@ -2374,7 +2374,7 @@ void main() {
           );
           await session.db.mergeChanges(
             [remoteCityRestore],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -2406,7 +2406,7 @@ void main() {
           setUp(() async {
             await session.db.mergeChanges(
               [remoteCityDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
 
             remoteOrganizationUpdate = _updateChange(
@@ -2420,7 +2420,7 @@ void main() {
             );
             await session.db.mergeChanges(
               [remoteOrganizationUpdate],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -2444,7 +2444,7 @@ void main() {
               );
               await session.db.mergeChanges(
                 [remoteCityRestore],
-                scopeId: testCrdtUserId,
+                spaceId: testCrdtUserId,
               );
             });
 
@@ -2542,7 +2542,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteRootDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -2602,7 +2602,7 @@ void main() {
           setUp(() async {
             await session.db.mergeChanges(
               [remoteRootDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
 
             final restrictBlockerHlc = await rowHlc(restrictBlocker.id!);
@@ -2613,7 +2613,7 @@ void main() {
             );
             await session.db.mergeChanges(
               [remoteRestrictBlockerDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -2672,7 +2672,7 @@ void main() {
 
             await session.db.mergeChanges(
               [remoteRestrictBlockerDelete, remoteRootDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -2806,7 +2806,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteRootDelete],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -2881,7 +2881,7 @@ void main() {
           setUp(() async {
             await session.db.mergeChanges(
               [remoteRootDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
 
             final restrictGrandchildHlc = await rowHlc(restrictGrandchild.id!);
@@ -2892,7 +2892,7 @@ void main() {
             );
             await session.db.mergeChanges(
               [remoteRestrictGrandchildDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -3018,7 +3018,7 @@ void main() {
           setUp(() async {
             await session.db.mergeChanges(
               [remotePersonDelete, remoteCompanyDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -3050,8 +3050,8 @@ void main() {
   group(
     'Given two databases with the same set-null graph and the same remote operations,',
     () {
-      late CrdtDatabaseSession singleBatchSession;
-      late CrdtDatabaseSession splitBatchSession;
+      late OfflineSyncDatabaseSession singleBatchSession;
+      late OfflineSyncDatabaseSession splitBatchSession;
       late Person attemptedParent;
       late Town child;
       late CrdtMergeDelete remoteParentDelete;
@@ -3059,7 +3059,7 @@ void main() {
 
       setUp(() async {
         singleBatchSession = session;
-        splitBatchSession = CrdtDatabaseSession.wraps(
+        splitBatchSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: [
             Person.t,
@@ -3124,7 +3124,7 @@ void main() {
             .maxBetween(singleBatchChildHlc)
             .maxBetween(splitBatchChildHlc);
         remoteChildUpdate = CrdtMergeUpdate(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Town.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -3141,15 +3141,15 @@ void main() {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
               [remoteParentDelete, remoteChildUpdate],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [remoteParentDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [remoteChildUpdate],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -3195,8 +3195,8 @@ void main() {
     'Given two databases with the same visible parent and a remote restrict '
     'child insert concurrent with the parent delete,',
     () {
-      late CrdtDatabaseSession singleBatchSession;
-      late CrdtDatabaseSession splitBatchSession;
+      late OfflineSyncDatabaseSession singleBatchSession;
+      late OfflineSyncDatabaseSession splitBatchSession;
       late Person parent;
       late RestrictChild child;
       late CrdtMergeInsert remoteChildInsert;
@@ -3204,7 +3204,7 @@ void main() {
 
       setUp(() async {
         singleBatchSession = session;
-        splitBatchSession = CrdtDatabaseSession.wraps(
+        splitBatchSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: [
             Person.t,
@@ -3240,7 +3240,7 @@ void main() {
           parentId: parent.id,
         );
         remoteChildInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: RestrictChild.t.tableName,
           uuidRowId: child.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -3262,15 +3262,15 @@ void main() {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
               [remoteChildInsert, remoteParentDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [remoteParentDelete],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [remoteChildInsert],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -3313,7 +3313,7 @@ CrdtMergeDelete _deleteChange({
   required Hlc after,
 }) {
   return CrdtMergeDelete(
-    uuidScopeId: testCrdtUserId,
+    uuidSpaceId: testCrdtUserId,
     tableName: tableName,
     uuidRowId: rowId,
     uuidNodeId: const Uuid().v7obj(),
@@ -3332,7 +3332,7 @@ CrdtMergeUpdate _updateChange({
   required Hlc after,
 }) {
   return CrdtMergeUpdate(
-    uuidScopeId: testCrdtUserId,
+    uuidSpaceId: testCrdtUserId,
     tableName: tableName,
     uuidRowId: rowId,
     uuidNodeId: const Uuid().v7obj(),
@@ -3349,7 +3349,7 @@ CrdtMergeDelete _restoreChange({
   required Hlc after,
 }) {
   return CrdtMergeDelete(
-    uuidScopeId: testCrdtUserId,
+    uuidSpaceId: testCrdtUserId,
     tableName: tableName,
     uuidRowId: rowId,
     uuidNodeId: const Uuid().v7obj(),

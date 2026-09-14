@@ -32,7 +32,7 @@ class CrdtUniqueConflictResolver {
     return _context.uniqueIndexesForTable(tableDefinition);
   }
 
-  /// Unique-indexed column names for [tableName], excluding `scopeId`.
+  /// Unique-indexed column names for [tableName], excluding `spaceId`.
   Set<String> uniqueColumnNamesFor(String tableName) {
     return {
       for (final uniqueIndex in uniqueIndexesFor(tableName))

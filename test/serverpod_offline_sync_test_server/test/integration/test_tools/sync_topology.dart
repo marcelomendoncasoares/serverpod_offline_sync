@@ -5,7 +5,11 @@ import 'client_session.dart';
 
 /// One node in a sync topology: the raw session collection reads from, the
 /// CRDT session used for reads and merges, and its own sync engine.
-typedef SyncNode = ({DatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync sync});
+typedef SyncNode = ({
+  DatabaseSession raw,
+  OfflineSyncDatabaseSession offlineSync,
+  OfflineSyncEngine sync,
+});
 
 /// Wraps [raw] as a node synchronizing [syncTables].
 ///
@@ -13,12 +17,12 @@ typedef SyncNode = ({DatabaseSession raw, CrdtDatabaseSession crdt, CrdtSync syn
 /// [testSyncTables]: a table the engine is not tracking is the case an
 /// all-tables configuration can never reach.
 Future<SyncNode> syncNode(DatabaseSession raw, List<Table> syncTables) async {
-  final crdt = CrdtDatabaseSession.wraps(raw, syncTables: syncTables);
-  await crdt.db.initialize();
+  final offlineSync = OfflineSyncDatabaseSession.wraps(raw, syncTables: syncTables);
+  await offlineSync.db.initialize();
   return (
     raw: raw,
-    crdt: crdt,
-    sync: CrdtSync(
+    offlineSync: offlineSync,
+    sync: OfflineSyncEngine(
       syncTables: syncTables,
       serializationManager: raw.db.serializationManager,
     ),
@@ -30,10 +34,10 @@ Future<void> pushChanges(SyncNode from, SyncNode to) async {
   final changes = await from.sync
       .collectPendingChanges(
         from.raw,
-        checkpointsByScopeUuid: {testCrdtUserId: const []},
+        checkpointsBySpaceUuid: {testCrdtUserId: const []},
       )
       .toList();
-  await to.crdt.db.mergeChanges(changes, scopeId: testCrdtUserId);
+  await to.offlineSync.db.mergeChanges(changes, spaceId: testCrdtUserId);
 }
 
 /// One client sync cycle: push local changes up, then merge the server's.

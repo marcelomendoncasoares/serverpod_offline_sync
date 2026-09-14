@@ -2,4 +2,4 @@ class: Unique
 table: unique
 database: sync
 fields:
-  name: String, unique(per=scopeId)
+  name: String, unique(per=spaceId)

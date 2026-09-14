@@ -3,13 +3,13 @@ import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
-import '../crdt/exceptions.dart';
 import '../crdt/extensions.dart';
 import '../crdt/merge.dart';
-import '../crdt/sync.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/hlc.dart';
+import '../sync/engine.dart';
+import '../sync/exceptions.dart';
 import 'database.dart';
 import 'merge_utils/database_helpers.dart';
 import 'merge_utils/foreign_key_graph.dart';
@@ -26,8 +26,8 @@ typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 
 /// Process-level CRDT database metadata shared by ephemeral database wrappers.
 ///
-/// A single context is created per `CrdtSync` (i.e. once per Serverpod
-/// instance) and shared by every ephemeral [CrdtDatabase], so the schema is
+/// A single context is created per `OfflineSyncEngine` (i.e. once per Serverpod
+/// instance) and shared by every ephemeral [OfflineSyncDatabase], so the schema is
 /// synchronized once per process rather than once per `Session`.
 ///
 /// The cached schema holds database-assigned identifiers and is never
@@ -36,9 +36,9 @@ typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 /// whose database is not reset underneath it. If the schema rows are dropped and
 /// re-created with different identifiers while the process lives, a new context
 /// must be created.
-class CrdtDatabaseContext {
-  /// Creates a [CrdtDatabaseContext] for the configured synchronized tables.
-  CrdtDatabaseContext({
+class OfflineSyncDatabaseContext {
+  /// Creates a [OfflineSyncDatabaseContext] for the configured synchronized tables.
+  OfflineSyncDatabaseContext({
     required this.syncTables,
     required DatabaseSerializationManager serializationManager,
   }) : _tableDefinitions = serializationManager.getTargetTableDefinitions();
@@ -97,7 +97,7 @@ class CrdtDatabaseContext {
       _schema ??
       (throw StateError(
         'The CRDT database has not been initialized. Call '
-        'CrdtDatabase.initialize() before using CRDT database operations.',
+        'OfflineSyncDatabase.initialize() before using CRDT database operations.',
       ));
 
   /// Returns the local [CrdtSchemaTable] id for [tableName], or null when the
@@ -124,12 +124,12 @@ class CrdtDatabaseContext {
       table.name: {for (final column in table.columns) column.name: column},
   };
 
-  /// Column names of every synced table, used to scope merge metadata lookups.
+  /// Column names of every synced table, used to space merge metadata lookups.
   @internal
   late final Map<String, Set<String>> syncedTableColumnNamesForMerge = {
     for (final MapEntry(key: k, value: cols) in columnsByTableAndName.entries)
       if (syncTableByName.containsKey(k))
-        k: cols.keys.where((columnName) => columnName != 'scopeId').toSet(),
+        k: cols.keys.where((columnName) => columnName != 'spaceId').toSet(),
   };
 
   final _uniqueIndexesByTableName = <String, List<UniqueIndexConflictRelease>>{};
@@ -201,10 +201,10 @@ class CrdtMutationRecorder {
   /// Creates a [CrdtMutationRecorder] instance.
   CrdtMutationRecorder(
     Database db, {
-    required CrdtDatabaseContext context,
+    required OfflineSyncDatabaseContext context,
     required UuidValue? persistentUserId,
   }) : assert(
-         db is! CrdtDatabase,
+         db is! OfflineSyncDatabase,
          'The database must be the user database, not the CRDT database. '
          'Passing a CRDT database would cause an infinite recursion.',
        ),
@@ -217,7 +217,7 @@ class CrdtMutationRecorder {
        );
 
   final Database _db;
-  final CrdtDatabaseContext _databaseContext;
+  final OfflineSyncDatabaseContext _databaseContext;
   final CrdtRecorderContext _context;
   late final _foreignKeys = _databaseContext.foreignKeys;
   late final _uniqueResolver = CrdtUniqueConflictResolver(_context);
@@ -234,12 +234,12 @@ class CrdtMutationRecorder {
 
   /// Initializes the CRDT recorder.
   ///
-  /// Clears this recorder's live scope/HLC caches, then ensures the shared
-  /// [CrdtDatabaseContext] metadata is loaded. The shared schema is loaded only
-  /// once per process and is not reloaded here; see [CrdtDatabaseContext] for
+  /// Clears this recorder's live space/HLC caches, then ensures the shared
+  /// [OfflineSyncDatabaseContext] metadata is loaded. The shared schema is loaded only
+  /// once per process and is not reloaded here; see [OfflineSyncDatabaseContext] for
   /// the cache lifetime assumptions.
   Future<void> initialize() async {
-    _context.scopeManager.clearCache();
+    _context.spaceManager.clearCache();
     _context.clearHlcManagers();
     _ensureInitializedFuture = null;
     _isInitialized = false;
@@ -265,27 +265,27 @@ class CrdtMutationRecorder {
   Future<void> _initializeOnce() async {
     await _databaseContext.initialize(_session);
     if (_databaseContext.registryChanged) {
-      await _rebuildProjectionsForAllScopes();
+      await _rebuildProjectionsForAllSpaces();
     }
     if (persistentUserId != null) {
-      await _context.scopeManager.getOrCreate(persistentUserId!);
+      await _context.spaceManager.getOrCreate(persistentUserId!);
     }
     _isInitialized = true;
   }
 
-  Future<void> _rebuildProjectionsForAllScopes() async {
-    final scopes = await CrdtScope.db.find(
+  Future<void> _rebuildProjectionsForAllSpaces() async {
+    final spaces = await OfflineSyncSpace.db.find(
       _session,
-      include: CrdtScope.include(currentNode: CrdtNode.include()),
+      include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
     );
-    for (final scope in scopes) {
-      if (scope.currentNode == null || scope.currentNodeId == null) continue;
+    for (final space in spaces) {
+      if (space.currentNode == null || space.currentNodeId == null) continue;
       await _db.transaction((tx) async {
-        scopeForTransaction[tx] = scope;
+        spaceForTransaction[tx] = space;
         try {
           await _foreignKeyProjector.project(tx);
         } finally {
-          scopeForTransaction.remove(tx);
+          spaceForTransaction.remove(tx);
         }
       });
     }
@@ -312,19 +312,19 @@ class CrdtMutationRecorder {
 
   /// Returns the user scoping CRDT visibility for queries, or null when no
   /// user is associated with [transaction] and no persistent user exists.
-  CrdtScope? scopeForQueries(Transaction? transaction) {
+  OfflineSyncSpace? spaceForQueries(Transaction? transaction) {
     if (transaction != null) {
-      final user = scopeForTransaction[transaction];
+      final user = spaceForTransaction[transaction];
       if (user != null) return user;
     }
     final userId = persistentUserId;
     if (userId == null) return null;
-    return _context.scopeManager.getCached(userId);
+    return _context.spaceManager.getCached(userId);
   }
 
-  /// Returns the [CrdtScope] for the given user ID, creating it when needed.
-  Future<CrdtScope> getOrCreateScope(UuidValue userId) {
-    return _context.scopeManager.getOrCreate(userId);
+  /// Returns the [OfflineSyncSpace] for the given user ID, creating it when needed.
+  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue userId) {
+    return _context.spaceManager.getOrCreate(userId);
   }
 
   /// Records the latest acknowledged sync checkpoint for [otherNodeId].
@@ -333,23 +333,23 @@ class CrdtMutationRecorder {
     UuidValue otherNodeId,
     Hlc syncedHlc,
   ) async {
-    final scope = await _context.scopeManager.getOrCreate(userId);
+    final space = await _context.spaceManager.getOrCreate(userId);
     await _db.transaction((transaction) async {
       final node = await _context.findOrCreateNode(otherNodeId, transaction);
-      final scopeNode = await _context.findOrCreateScopeNode(
-        scope.id!,
+      final spaceNode = await _context.findOrCreateSpaceNode(
+        space.id!,
         node.id!,
         transaction,
       );
 
-      final currentSyncHlc = scopeNode.lastReceivedHlc;
+      final currentSyncHlc = spaceNode.lastReceivedHlc;
       if (currentSyncHlc != null && currentSyncHlc >= syncedHlc) {
         return;
       }
 
-      await CrdtScopeNode.db.updateRow(
+      await OfflineSyncSpaceNode.db.updateRow(
         _session,
-        scopeNode.copyWith(lastReceivedHlc: syncedHlc),
+        spaceNode.copyWith(lastReceivedHlc: syncedHlc),
         columns: (t) => [t.lastReceivedHlc],
         transaction: transaction,
       );
@@ -576,7 +576,7 @@ class CrdtMutationRecorder {
     final json = row.toJsonForDatabase() as Map<String, dynamic>;
     final columnNames = [
       for (final column in (columns ?? row.table.managedColumns))
-        if (column.columnName != 'id' && column.columnName != 'scopeId')
+        if (column.columnName != 'id' && column.columnName != 'spaceId')
           column.columnName,
     ];
     return {
@@ -831,7 +831,7 @@ class CrdtMutationRecorder {
     final hlc = hlcManager.increment();
 
     return CrdtDataRow(
-      scopeId: hlcManager.normalizedScopeId,
+      spaceId: hlcManager.normalizedSpaceId,
       tblId: tableId,
       uuidRowId: rowId,
       nodeId: hlcManager.normalizedNodeId,

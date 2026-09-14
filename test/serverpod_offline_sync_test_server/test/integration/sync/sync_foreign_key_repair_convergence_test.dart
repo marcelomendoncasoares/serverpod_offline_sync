@@ -29,10 +29,10 @@ void main() {
   /// tombstoned row is exactly what this asserts.
   Future<String> render(SyncNode node) async {
     final towns = await Town.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
-    final visible = {for (final town in await Town.db.find(node.crdt)) town.id};
+    final visible = {for (final town in await Town.db.find(node.offlineSync)) town.id};
     towns.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
     return towns
         .map((town) {
@@ -58,9 +58,11 @@ void main() {
         townOwner = await syncNode(await createAdditionalTestSession(), syncTables);
 
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
-        await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await referenceOwner.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
           await Person.db.insertRow(
-            referenceOwner.crdt,
+            referenceOwner.offlineSync,
             mayor,
             transaction: tx,
           );
@@ -69,9 +71,11 @@ void main() {
         await syncWithServer(townOwner, server);
 
         // Offline, one client deletes the referenced row.
-        await referenceOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await referenceOwner.offlineSync.db.transactionForUser(testCrdtUserId, (
+          tx,
+        ) async {
           await Person.db.deleteRow(
-            referenceOwner.crdt,
+            referenceOwner.offlineSync,
             mayor,
             transaction: tx,
           );
@@ -84,11 +88,11 @@ void main() {
           name: 'town',
           mayorId: mayor.id,
         );
-        await townOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(townOwner.crdt, town, transaction: tx);
+        await townOwner.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(townOwner.offlineSync, town, transaction: tx);
         });
-        await townOwner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(townOwner.crdt, town, transaction: tx);
+        await townOwner.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.deleteRow(townOwner.offlineSync, town, transaction: tx);
         });
       });
 

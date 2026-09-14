@@ -30,11 +30,11 @@ void main() {
   /// the contested value is exactly what this asserts about.
   Future<String> render(SyncNode node) async {
     final rows = await UniqueSetNullChild.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visible = {
-      for (final row in await UniqueSetNullChild.db.find(node.crdt)) row.id,
+      for (final row in await UniqueSetNullChild.db.find(node.offlineSync)) row.id,
     };
     rows.sort((left, right) => left.name.compareTo(right.name));
     return rows
@@ -66,8 +66,8 @@ void main() {
 
         // A person every node knows.
         parent = Person(id: const Uuid().v7obj(), name: 'parent');
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.insertRow(author.crdt, parent, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(author.offlineSync, parent, transaction: tx);
         });
         await syncWithServer(author, server);
         for (final peer in [deleter, restorer, claimant]) {
@@ -75,8 +75,8 @@ void main() {
         }
 
         // The person is deleted while the author is offline.
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.deleteRow(deleter.crdt, parent, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(deleter.offlineSync, parent, transaction: tx);
         });
         await syncWithServer(deleter, server);
 
@@ -88,9 +88,9 @@ void main() {
           name: 'child',
           parentId: parent.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueSetNullChild.db.insertRow(
-            author.crdt,
+            author.offlineSync,
             child,
             transaction: tx,
           );
@@ -101,9 +101,9 @@ void main() {
         // a unique value skips a column that is null, so this delete carries a
         // tombstone and no release fact.
         await syncWithServer(deleter, server);
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueSetNullChild.db.deleteRow(
-            deleter.crdt,
+            deleter.offlineSync,
             child,
             transaction: tx,
           );
@@ -118,8 +118,8 @@ void main() {
           street: 'street',
           inhabitantId: parent.id,
         );
-        await restorer.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Address.db.insertRow(restorer.crdt, address, transaction: tx);
+        await restorer.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Address.db.insertRow(restorer.offlineSync, address, transaction: tx);
         });
         await syncWithServer(restorer, server);
         await syncWithServer(author, server);
@@ -135,9 +135,9 @@ void main() {
             name: 'reclaim',
             parentId: parent.id,
           );
-          await claimant.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await claimant.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
             await UniqueSetNullChild.db.insertRow(
-              claimant.crdt,
+              claimant.offlineSync,
               reclaim,
               transaction: tx,
             );
@@ -167,11 +167,11 @@ void main() {
             // is still the parent, which another row now holds on a column
             // that is unique across the table.
             try {
-              await author.crdt.db.transactionForUser(testCrdtUserId, (
+              await author.offlineSync.db.transactionForUser(testCrdtUserId, (
                 tx,
               ) async {
                 await UniqueSetNullChild.db.insertRow(
-                  author.crdt,
+                  author.offlineSync,
                   child,
                   transaction: tx,
                 );

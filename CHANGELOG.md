@@ -1,3 +1,12 @@
+## Unreleased
+
+- refactor: BREAKING. Rename integration and synchronization APIs to `OfflineSync*`
+  and ownership scopes to spaces, including `spaceId`, `session.offlineSync`,
+  `client.offlineSync`, and `session.offlineSync.spaces`.
+- refactor: Rename the synchronization endpoint, serialized events, and space
+  metadata tables. Regenerate server/client code with the matching Serverpod CLI
+  and apply the corresponding database migrations.
+
 ## 0.0.5
 
 - fix: BREAKING. Rebuilds foreign key and unique projection from authored facts.

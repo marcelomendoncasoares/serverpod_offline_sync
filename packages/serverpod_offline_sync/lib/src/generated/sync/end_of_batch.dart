@@ -12,29 +12,31 @@
 part of 'stream_event.dart';
 
 /// Marks the end of a framed sync batch.
-abstract class CrdtSyncEndOfBatch extends _icw2tu00.CrdtSyncStreamEvent
+abstract class OfflineSyncEndOfBatch extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncEndOfBatch._();
+  OfflineSyncEndOfBatch._();
 
-  factory CrdtSyncEndOfBatch() = _CrdtSyncEndOfBatchImpl;
+  factory OfflineSyncEndOfBatch() = _OfflineSyncEndOfBatchImpl;
 
-  factory CrdtSyncEndOfBatch.fromJson(Map<String, dynamic> jsonSerialization) {
-    return CrdtSyncEndOfBatch();
+  factory OfflineSyncEndOfBatch.fromJson(
+    Map<String, dynamic> jsonSerialization,
+  ) {
+    return OfflineSyncEndOfBatch();
   }
 
-  /// Returns a shallow copy of this [CrdtSyncEndOfBatch]
+  /// Returns a shallow copy of this [OfflineSyncEndOfBatch]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  CrdtSyncEndOfBatch copyWith();
+  OfflineSyncEndOfBatch copyWith();
   @override
   Map<String, dynamic> toJson() {
-    return {'__className__': 'serverpod_offline_sync.CrdtSyncEndOfBatch'};
+    return {'__className__': 'serverpod_offline_sync.OfflineSyncEndOfBatch'};
   }
 
   @override
   Map<String, dynamic> toJsonForProtocol() {
-    return {'__className__': 'serverpod_offline_sync.CrdtSyncEndOfBatch'};
+    return {'__className__': 'serverpod_offline_sync.OfflineSyncEndOfBatch'};
   }
 
   @override
@@ -43,14 +45,14 @@ abstract class CrdtSyncEndOfBatch extends _icw2tu00.CrdtSyncStreamEvent
   }
 }
 
-class _CrdtSyncEndOfBatchImpl extends CrdtSyncEndOfBatch {
-  _CrdtSyncEndOfBatchImpl() : super._();
+class _OfflineSyncEndOfBatchImpl extends OfflineSyncEndOfBatch {
+  _OfflineSyncEndOfBatchImpl() : super._();
 
-  /// Returns a shallow copy of this [CrdtSyncEndOfBatch]
+  /// Returns a shallow copy of this [OfflineSyncEndOfBatch]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  CrdtSyncEndOfBatch copyWith() {
-    return CrdtSyncEndOfBatch();
+  OfflineSyncEndOfBatch copyWith() {
+    return OfflineSyncEndOfBatch();
   }
 }

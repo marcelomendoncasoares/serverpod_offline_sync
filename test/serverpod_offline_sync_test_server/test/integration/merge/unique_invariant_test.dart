@@ -28,7 +28,7 @@ void main() {
 
         loser = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -42,7 +42,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -71,13 +71,13 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
           loserRowHlcAfterFirstMerge = await rowHlc(loser.id!);
 
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -105,7 +105,7 @@ void main() {
   );
 
   group(
-    'Given a row owned by one scope and a remote insert for another scope '
+    'Given a row owned by one space and a remote insert for another space '
     'that claims the same unique value,',
     () {
       late Unique owner;
@@ -127,7 +127,7 @@ void main() {
         await session.db.mergeChanges(
           [
             CrdtMergeInsert(
-              uuidScopeId: testCrdtUserId,
+              uuidSpaceId: testCrdtUserId,
               tableName: Unique.t.tableName,
               uuidRowId: incoming.id!,
               uuidNodeId: const Uuid().v7obj(),
@@ -136,12 +136,12 @@ void main() {
               data: incoming,
             ),
           ],
-          scopeId: otherUserId,
+          spaceId: otherUserId,
         );
       });
 
       test(
-        'when merging, then both rows keep the per-scope unique value.',
+        'when merging, then both rows keep the per-space unique value.',
         () async {
           final rows = await Unique.db.find(testSession);
 
@@ -173,7 +173,7 @@ void main() {
 
         incomingWinner = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: incomingWinner.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -187,7 +187,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -260,7 +260,7 @@ void main() {
         );
 
         remoteUpdate = CrdtMergeUpdate(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: updatedWinner.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -275,7 +275,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -337,7 +337,7 @@ void main() {
         final parentHlc = await rowHlc(parent.id!);
         final winnerClaimHlc = winnerHlc.maxBetween(parentHlc);
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: UniqueSetNullChild.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -351,7 +351,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -380,8 +380,8 @@ void main() {
     'Given two databases and two remote inserts that claim the same unique '
     'value with identical HLCs from different nodes,',
     () {
-      late CrdtDatabaseSession singleBatchSession;
-      late CrdtDatabaseSession splitBatchSession;
+      late OfflineSyncDatabaseSession singleBatchSession;
+      late OfflineSyncDatabaseSession splitBatchSession;
       late Unique olderClaimRow;
       late Unique newerClaimRow;
       late CrdtMergeInsert olderClaimInsert;
@@ -389,7 +389,7 @@ void main() {
 
       setUp(() async {
         singleBatchSession = session;
-        splitBatchSession = CrdtDatabaseSession.wraps(
+        splitBatchSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: [Unique.t],
         );
@@ -403,7 +403,7 @@ void main() {
         olderClaimRow = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         newerClaimRow = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         olderClaimInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: olderClaimRow.id!,
           uuidNodeId: nodeIds.first,
@@ -412,7 +412,7 @@ void main() {
           data: olderClaimRow,
         );
         newerClaimInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: newerClaimRow.id!,
           uuidNodeId: nodeIds.last,
@@ -429,15 +429,15 @@ void main() {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
               [newerClaimInsert, olderClaimInsert],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [newerClaimInsert],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [olderClaimInsert],
-              scopeId: testCrdtUserId,
+              spaceId: testCrdtUserId,
             );
           });
 
@@ -489,7 +489,7 @@ void main() {
 
         loser = UniqueUuid(id: const Uuid().v7obj(), value: sharedValue);
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: UniqueUuid.t.tableName,
           uuidRowId: loser.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -503,7 +503,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -557,7 +557,7 @@ void main() {
 
         incomingRow = Unique(id: const Uuid().v7obj(), name: 'shared-name');
         remoteInsert = CrdtMergeInsert(
-          uuidScopeId: testCrdtUserId,
+          uuidSpaceId: testCrdtUserId,
           tableName: Unique.t.tableName,
           uuidRowId: incomingRow.id!,
           uuidNodeId: const Uuid().v7obj(),
@@ -571,7 +571,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 

@@ -35,11 +35,11 @@ void main() {
   /// contested value is exactly what this asserts about.
   Future<String> render(SyncNode node) async {
     final rows = await UniqueCascadeChild.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visible = {
-      for (final row in await UniqueCascadeChild.db.find(node.crdt)) row.id,
+      for (final row in await UniqueCascadeChild.db.find(node.offlineSync)) row.id,
     };
     rows.sort((left, right) => left.name.compareTo(right.name));
     return [
@@ -67,8 +67,8 @@ void main() {
 
         // A person every node knows.
         parent = Person(id: const Uuid().v7obj(), name: 'parent');
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.insertRow(author.crdt, parent, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(author.offlineSync, parent, transaction: tx);
         });
         await syncWithServer(author, server);
         for (final peer in [deleter, claimant]) {
@@ -77,8 +77,8 @@ void main() {
 
         // The person is deleted while the author is offline. It has no children
         // yet, so this delete releases nothing on any node.
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.deleteRow(deleter.crdt, parent, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(deleter.offlineSync, parent, transaction: tx);
         });
         await syncWithServer(deleter, server);
 
@@ -91,9 +91,9 @@ void main() {
           name: 'taken',
           parentId: parent.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await UniqueCascadeChild.db.insertRow(
-            author.crdt,
+            author.offlineSync,
             child,
             transaction: tx,
           );
@@ -121,9 +121,9 @@ void main() {
             id: const Uuid().v7obj(),
             name: 'taken',
           );
-          await claimant.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await claimant.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
             await UniqueCascadeChild.db.insertRow(
-              claimant.crdt,
+              claimant.offlineSync,
               reclaim,
               transaction: tx,
             );
@@ -164,11 +164,11 @@ void main() {
             name: 'taken',
           );
           try {
-            await claimant.crdt.db.transactionForUser(testCrdtUserId, (
+            await claimant.offlineSync.db.transactionForUser(testCrdtUserId, (
               tx,
             ) async {
               await UniqueCascadeChild.db.insertRow(
-                claimant.crdt,
+                claimant.offlineSync,
                 reclaim,
                 transaction: tx,
               );

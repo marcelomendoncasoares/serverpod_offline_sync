@@ -1,0 +1,8 @@
+### CRDT access role for a member of a shared space.
+###
+### The role gates CRDT writes only. Reads remain membership-wide.
+enum: OfflineSyncSpaceRole
+serialized: byName
+values:
+  - readOnly
+  - readWrite

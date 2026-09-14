@@ -5,7 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
-import 'exceptions.dart';
+import '../sync/exceptions.dart';
 
 /// A group of CRDT merge changes collected for one sync batch.
 typedef CrdtMergeSet = List<CrdtMergeChange>;
@@ -16,50 +16,51 @@ typedef CrdtMergeMetadataLookup = ({
   Map<String, Set<String>> columnNamesByTable,
 });
 
-/// Extensions for stream iterators of [CrdtSyncStreamEvent].
-extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEvent> {
+/// Extensions for stream iterators of [OfflineSyncStreamEvent].
+extension OfflineSyncStreamEventStreamExtension
+    on StreamIterator<OfflineSyncStreamEvent> {
   /// Collects the next framed sync batch from this iterator.
   ///
-  /// Each batch is zero or more scope, handshake, and/or merge frames followed
-  /// by [CrdtSyncEndOfBatch]. If the stream is idle before a batch starts, an
+  /// Each batch is zero or more space, handshake, and/or merge frames followed
+  /// by [OfflineSyncEndOfBatch]. If the stream is idle before a batch starts, an
   /// empty batch is returned.
   ///
   /// When [allowCloseBeforeBatch] is true, returns `null` if the transport
-  /// stream closes before the next batch starts. [CrdtSyncClose] is an
+  /// stream closes before the next batch starts. [OfflineSyncClose] is an
   /// intentional peer request to end the streaming session and returns `null`
   /// even after frames for a partial batch have already arrived. The caller
   /// must not persist checkpoint progress for such a discarded partial batch.
   /// Otherwise, closing before a batch starts is treated as a
-  /// [CrdtSyncStreamClosedException].
+  /// [OfflineSyncStreamClosedException].
   ///
   /// If the transport stream closes after a frame was already received without
-  /// a [CrdtSyncClose] control frame, the partial batch is still treated as an
+  /// a [OfflineSyncClose] control frame, the partial batch is still treated as an
   /// error.
   ///
   /// An idle timeout only ends an *empty* batch: once any frame has been
   /// collected the timeout is ignored and collection waits for the explicit
   /// terminator.
-  Future<CrdtSyncCycleBatch?> collectNextBatch({
+  Future<OfflineSyncCycleBatch?> collectNextBatch({
     bool allowCloseBeforeBatch = false,
   }) async {
-    final batch = CrdtSyncCycleBatch();
+    final batch = OfflineSyncCycleBatch();
 
     while (await moveNext()) {
       switch (current) {
-        case final CrdtSyncScopeSet event:
-          batch.scopeSet = event;
-        case final CrdtSyncSinceHlc event:
-          batch.sinceHlcs[event.uuidScopeId] = event;
-        case CrdtSyncMergeChunk(:final changes):
+        case final OfflineSyncSpaceSet event:
+          batch.spaceSet = event;
+        case final OfflineSyncSinceHlc event:
+          batch.sinceHlcs[event.uuidSpaceId] = event;
+        case OfflineSyncMergeChunk(:final changes):
           batch.changes.addAll(changes);
-        case CrdtSyncIdleTimeout():
+        case OfflineSyncIdleTimeout():
           if (batch.isEmpty) return batch;
-        case CrdtSyncEndOfBatch():
+        case OfflineSyncEndOfBatch():
           return batch;
-        case CrdtSyncClose():
+        case OfflineSyncClose():
           return null;
         default:
-          throw CrdtSyncUnexpectedEventException(
+          throw OfflineSyncUnexpectedEventException(
             expected: 'a sync cycle frame',
             received: current,
           );
@@ -67,37 +68,37 @@ extension CrdtSyncStreamEventStreamExtension on StreamIterator<CrdtSyncStreamEve
     }
 
     if (batch.isEmpty && allowCloseBeforeBatch) return null;
-    throw const CrdtSyncStreamClosedException(phase: 'end-of-batch');
+    throw const OfflineSyncStreamClosedException(phase: 'end-of-batch');
   }
 
   /// Moves the iterator to the next event and throws if the stream is closed or
   /// the next event is not of type [T].
-  Future<T> moveAndThrowIfNot<T extends CrdtSyncStreamEvent>() async {
+  Future<T> moveAndThrowIfNot<T extends OfflineSyncStreamEvent>() async {
     while (await moveNext()) {
-      if (current is CrdtSyncIdleTimeout) continue;
+      if (current is OfflineSyncIdleTimeout) continue;
       if (current is T) return current as T;
-      throw CrdtSyncUnexpectedEventException(
+      throw OfflineSyncUnexpectedEventException(
         expected: '"$T"',
         received: current,
       );
     }
-    throw CrdtSyncStreamClosedException(phase: '"$T"');
+    throw OfflineSyncStreamClosedException(phase: '"$T"');
   }
 }
 
 /// One sync cycle's inbound frames.
-class CrdtSyncCycleBatch {
-  /// The peer's scope announcement for this cycle, if it sent one.
-  CrdtSyncScopeSet? scopeSet;
+class OfflineSyncCycleBatch {
+  /// The peer's space announcement for this cycle, if it sent one.
+  OfflineSyncSpaceSet? spaceSet;
 
-  /// The peer's resume vectors, keyed by scope.
-  final Map<UuidValue, CrdtSyncSinceHlc> sinceHlcs = {};
+  /// The peer's resume vectors, keyed by space.
+  final Map<UuidValue, OfflineSyncSinceHlc> sinceHlcs = {};
 
   /// The peer's merge changes for this cycle.
   final List<CrdtMergeChange> changes = [];
 
   /// Whether the peer sent nothing this cycle (it was idle).
-  bool get isEmpty => scopeSet == null && sinceHlcs.isEmpty && changes.isEmpty;
+  bool get isEmpty => spaceSet == null && sinceHlcs.isEmpty && changes.isEmpty;
 }
 
 /// Helpers for grouping merge changes into stream payload batches.

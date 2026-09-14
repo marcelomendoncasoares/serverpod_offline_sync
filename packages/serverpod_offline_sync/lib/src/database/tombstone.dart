@@ -9,11 +9,11 @@ import 'merge_utils/database_helpers.dart';
 /// null when the table is not registered for CRDT synchronization.
 typedef CrdtTableIdResolver = int? Function(String tableName);
 
-/// Resolves the [CrdtScope] ids scoping the current query. Returns null when no
-/// scope is available (e.g. server-side reads outside `transactionForUser`
+/// Resolves the [OfflineSyncSpace] ids scoping the current query. Returns null when no
+/// space is available (e.g. server-side reads outside `transactionForUser`
 /// without a persistent user), in which case the query is an admin read: rows
-/// are not isolated and a row is hidden only when its owning scope hides it.
-typedef CrdtScopeIdsResolver = List<int>? Function();
+/// are not isolated and a row is hidden only when its owning space hides it.
+typedef OfflineSyncSpaceIdsResolver = List<int>? Function();
 
 /// Private sentinel class used to signal that the CRDT visibility filter
 /// should be bypassed. Detected via `is` type check instead of string
@@ -58,11 +58,11 @@ extension IncludeTombstonedRows on Table {
 /// is null, only the root table and [where] are merged.
 ///
 /// Each predicate only considers [CrdtDataRow]s recorded for the queried table
-/// ([tableIdForName]) and, when scopes are available ([scopeIds]), isolates the
-/// query to those scopes' rows. This prevents a tombstone recorded for another
-/// table or scope from masking an unrelated row that reuses the same UUID.
-/// Without a scope (admin reads), rows are not isolated and a row stays
-/// visible as long as its owning scope still sees it.
+/// ([tableIdForName]) and, when spaces are available ([spaceIds]), isolates the
+/// query to those spaces' rows. This prevents a tombstone recorded for another
+/// table or space from masking an unrelated row that reuses the same UUID.
+/// Without a space (admin reads), rows are not isolated and a row stays
+/// visible as long as its owning space still sees it.
 ///
 /// Both resolvers are only invoked when a predicate is actually built (i.e.
 /// for synced tables with UUID primary keys), so queries on CRDT-internal
@@ -83,13 +83,13 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   Expression? where,
   Include? include, {
   required CrdtTableIdResolver tableIdForName,
-  required CrdtScopeIdsResolver scopeIds,
+  required OfflineSyncSpaceIdsResolver spaceIds,
 }) {
   final includeObjectPredicates = _walkIncludeGraphForTombstone(
     include,
     null,
     tableIdForName: tableIdForName,
-    scopeIds: scopeIds,
+    spaceIds: spaceIds,
   );
 
   final rootTable = serializationManager.getTableForType(T);
@@ -97,7 +97,7 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
       ? where
       : _mergeWhereOptional(
           where,
-          rootTable?.whereVisibleOnCrdtRow(tableIdForName, scopeIds),
+          rootTable?.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
         );
   merged = _mergeWhereOptional(merged, includeObjectPredicates);
   return merged;
@@ -109,7 +109,7 @@ Expression? _walkIncludeGraphForTombstone(
   Include? inc,
   Expression? includeObjectPredicates, {
   required CrdtTableIdResolver tableIdForName,
-  required CrdtScopeIdsResolver scopeIds,
+  required OfflineSyncSpaceIdsResolver spaceIds,
 }) {
   if (inc == null) return includeObjectPredicates;
   if (inc is IncludeList) {
@@ -117,14 +117,14 @@ Expression? _walkIncludeGraphForTombstone(
     if (!_includesHiddenSentinel(inc.where)) {
       inc.where = _mergeWhereOptional(
         inc.where,
-        inc.table.whereVisibleOnCrdtRow(tableIdForName, scopeIds),
+        inc.table.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
       );
     }
     return _walkIncludeGraphForTombstone(
       inc.include,
       includeObjectPredicates,
       tableIdForName: tableIdForName,
-      scopeIds: scopeIds,
+      spaceIds: spaceIds,
     );
   }
   var acc = includeObjectPredicates;
@@ -138,7 +138,7 @@ Expression? _walkIncludeGraphForTombstone(
         nested,
         acc,
         tableIdForName: tableIdForName,
-        scopeIds: scopeIds,
+        spaceIds: spaceIds,
       );
       continue;
     }
@@ -148,14 +148,14 @@ Expression? _walkIncludeGraphForTombstone(
       if (childTable != null) {
         acc = _mergeWhereOptional(
           acc,
-          childTable.whereVisibleOnCrdtRow(tableIdForName, scopeIds),
+          childTable.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
         );
       }
       acc = _walkIncludeGraphForTombstone(
         nested,
         acc,
         tableIdForName: tableIdForName,
-        scopeIds: scopeIds,
+        spaceIds: spaceIds,
       );
     }
   }
@@ -188,15 +188,15 @@ extension on Table {
   /// registered for CRDT synchronization. Keeps rows when the id is null
   /// (unmatched [IncludeObject] joins) or no hidden CRDT row matches.
   ///
-  /// With scopes, rows are isolated to them (`scopeId IN (<scopes>)`) and
-  /// checked against those scopes' tombstones with a correlated `NOT EXISTS`
-  /// probe covered by the (scopeId, tblId, uuidRowId) unique index. Without a
-  /// scope (admin reads), there is no isolation filter and the probe is
-  /// keyed by the row's own `scopeId` column instead — covered by the same
-  /// index — so a row stays visible while its owning scope sees it.
+  /// With spaces, rows are isolated to them (`spaceId IN (<spaces>)`) and
+  /// checked against those spaces' tombstones with a correlated `NOT EXISTS`
+  /// probe covered by the (spaceId, tblId, uuidRowId) unique index. Without a
+  /// space (admin reads), there is no isolation filter and the probe is
+  /// keyed by the row's own `spaceId` column instead — covered by the same
+  /// index — so a row stays visible while its owning space sees it.
   Expression? whereVisibleOnCrdtRow(
     CrdtTableIdResolver tableIdForName,
-    CrdtScopeIdsResolver scopeIds,
+    OfflineSyncSpaceIdsResolver spaceIds,
   ) {
     if (id is! ColumnUuid) return null;
     final tableId = tableIdForName(tableName);
@@ -204,34 +204,34 @@ extension on Table {
 
     // Synced tables are validated to carry the column at initialize(); a
     // missing column here must fail closed, never skip the predicate.
-    final scopeColumn =
-        crdtScopeIdColumn ??
+    final spaceColumn =
+        offlineSyncSpaceIdColumn ??
         (throw StateError(
-          'Synced table "$tableName" has no int scopeId column; '
+          'Synced table "$tableName" has no int spaceId column; '
           'CrdtSchemaRegistry validation should have rejected it.',
         ));
 
     final crdtRow = CrdtDataRow.t;
-    final effectiveScopeIds = scopeIds();
-    if (effectiveScopeIds != null && effectiveScopeIds.isEmpty) {
+    final effectiveSpaceIds = spaceIds();
+    if (effectiveSpaceIds != null && effectiveSpaceIds.isEmpty) {
       return id.equals(null) | const Expression('FALSE');
     }
 
-    final scopeFilter = effectiveScopeIds == null
-        ? '${crdtRow.scopeId} = $scopeColumn'
-        : '${crdtRow.scopeId} IN (${effectiveScopeIds.sqlLiteralList()})';
+    final spaceFilter = effectiveSpaceIds == null
+        ? '${crdtRow.spaceId} = $spaceColumn'
+        : '${crdtRow.spaceId} IN (${effectiveSpaceIds.sqlLiteralList()})';
     final notExistsExpr = Expression(
       'NOT EXISTS '
       '(SELECT 1 FROM "${crdtRow.tableName}" '
-      'WHERE $scopeFilter '
+      'WHERE $spaceFilter '
       'AND ${crdtRow.tblId} = $tableId '
       'AND ${crdtRow.uuidRowId} = $id '
       'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
     );
 
     return id.equals(null) |
-        ((effectiveScopeIds != null)
-            ? (scopeColumn.inSet(effectiveScopeIds.toSet()) & notExistsExpr)
+        ((effectiveSpaceIds != null)
+            ? (spaceColumn.inSet(effectiveSpaceIds.toSet()) & notExistsExpr)
             : notExistsExpr);
   }
 }

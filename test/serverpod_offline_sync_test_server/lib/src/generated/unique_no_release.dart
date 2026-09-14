@@ -16,13 +16,13 @@ abstract class UniqueNoRelease
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueNoRelease._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.categoryId,
   });
 
   factory UniqueNoRelease({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required int categoryId,
   }) = _UniqueNoReleaseImpl;
 
@@ -31,7 +31,7 @@ abstract class UniqueNoRelease
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       categoryId: jsonSerialization['categoryId'] as int,
     );
   }
@@ -43,8 +43,8 @@ abstract class UniqueNoRelease
   @override
   _is.UuidValue? id;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
-  int? scopeId;
+  /// Owner space of this row. Maintained by the CRDT sync layer.
+  int? spaceId;
 
   int categoryId;
 
@@ -56,7 +56,7 @@ abstract class UniqueNoRelease
   @_is.useResult
   UniqueNoRelease copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     int? categoryId,
   });
   @override
@@ -64,7 +64,7 @@ abstract class UniqueNoRelease
     return {
       '__className__': 'UniqueNoRelease',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'categoryId': categoryId,
     };
   }
@@ -74,7 +74,7 @@ abstract class UniqueNoRelease
     return {
       '__className__': 'UniqueNoRelease',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'categoryId': categoryId,
     };
   }
@@ -112,11 +112,11 @@ class _Undefined {}
 class _UniqueNoReleaseImpl extends UniqueNoRelease {
   _UniqueNoReleaseImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required int categoryId,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          categoryId: categoryId,
        );
 
@@ -126,12 +126,12 @@ class _UniqueNoReleaseImpl extends UniqueNoRelease {
   @override
   UniqueNoRelease copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     int? categoryId,
   }) {
     return UniqueNoRelease(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       categoryId: categoryId ?? this.categoryId,
     );
   }
@@ -140,8 +140,8 @@ class _UniqueNoReleaseImpl extends UniqueNoRelease {
 class UniqueNoReleaseUpdateTable extends _is.UpdateTable<UniqueNoReleaseTable> {
   UniqueNoReleaseUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -155,8 +155,8 @@ class UniqueNoReleaseTable extends _is.Table<_is.UuidValue?> {
   UniqueNoReleaseTable({super.tableRelation})
     : super(tableName: 'unique_no_release') {
     updateTable = UniqueNoReleaseUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     categoryId = _is.ColumnInt(
@@ -167,15 +167,15 @@ class UniqueNoReleaseTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueNoReleaseUpdateTable updateTable;
 
-  /// Owner scope of this row. Maintained by the CRDT sync layer.
-  late final _is.ColumnInt scopeId;
+  /// Owner space of this row. Maintained by the CRDT sync layer.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnInt categoryId;
 
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     categoryId,
   ];
 }

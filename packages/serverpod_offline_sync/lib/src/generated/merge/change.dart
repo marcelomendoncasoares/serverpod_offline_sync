@@ -23,14 +23,14 @@ sealed class CrdtMergeChange extends _icw2tu00.BaseHlc
   CrdtMergeChange({
     required super.hlcDatetime,
     required super.hlcCounter,
-    required this.uuidScopeId,
+    required this.uuidSpaceId,
     required this.tableName,
     required this.uuidRowId,
     required this.uuidNodeId,
   });
 
-  /// The scope this change belongs to.
-  _iss.UuidValue uuidScopeId;
+  /// The space this change belongs to.
+  _iss.UuidValue uuidSpaceId;
 
   /// The table receiving the change.
   String tableName;
@@ -47,7 +47,7 @@ sealed class CrdtMergeChange extends _icw2tu00.BaseHlc
   CrdtMergeChange copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _iss.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidSpaceId,
     String? tableName,
     _iss.UuidValue? uuidRowId,
     _iss.UuidValue? uuidNodeId,

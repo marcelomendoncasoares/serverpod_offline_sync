@@ -1,0 +1,11 @@
+### A single space a peer announces in a [OfflineSyncSpaceSet].
+###
+### Carries the space UUID and the authoritative [role] the receiving user
+### holds in it. The personal space is announced with [OfflineSyncSpaceRole.readWrite].
+class: OfflineSyncSpaceGrant
+fields:
+  ### Space UUID being announced.
+  uuidSpaceId: UuidValue
+
+  ### Authoritative CRDT access role of the receiving user in this space.
+  role: OfflineSyncSpaceRole

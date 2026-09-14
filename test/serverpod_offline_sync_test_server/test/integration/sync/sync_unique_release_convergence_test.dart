@@ -5,7 +5,7 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 import '../test_tools/sync_topology.dart';
 
-/// When two rows claim the same per-scope unique value, the later claim is
+/// When two rows claim the same per-space unique value, the later claim is
 /// released by rewriting its own column so the visible unique index holds and
 /// the conflict surfaces to the user.
 ///
@@ -25,8 +25,8 @@ void main() {
 
   Future<Unique> claim(SyncNode owner, String name) async {
     final row = Unique(id: const Uuid().v7obj(), name: name);
-    await owner.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-      await Unique.db.insertRow(owner.crdt, row, transaction: tx);
+    await owner.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+      await Unique.db.insertRow(owner.offlineSync, row, transaction: tx);
     });
     return row;
   }
@@ -34,10 +34,10 @@ void main() {
   /// Every row with its visibility, ordered by id so nodes compare directly.
   Future<String> render(SyncNode node) async {
     final rows = await Unique.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
-    final visible = {for (final row in await Unique.db.find(node.crdt)) row.id};
+    final visible = {for (final row in await Unique.db.find(node.offlineSync)) row.id};
     rows.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
     return [
       for (final row in rows)
@@ -75,9 +75,11 @@ void main() {
 
       group('when the competing claim is deleted and every client syncs again,', () {
         setUp(() async {
-          await winnerClient.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
+          await winnerClient.offlineSync.db.transactionForUser(testCrdtUserId, (
+            tx,
+          ) async {
             await Unique.db.deleteRow(
-              winnerClient.crdt,
+              winnerClient.offlineSync,
               winner,
               transaction: tx,
             );

@@ -2,7 +2,7 @@
 
 import 'benchmark.dart';
 import 'conversion.dart';
-import 'scope.dart';
+import 'space.dart';
 
 void printPerformanceImpact(
   BenchmarkResults results, {
@@ -14,7 +14,7 @@ void printPerformanceImpact(
     '\n📊 ${results.operation.label.toUpperCase()} performance impact:',
   );
   final baselineTime = results.baseline;
-  final crdtTime = results.crdt;
+  final crdtTime = results.offlineSync;
 
   final runDelayUs = crdtTime - baselineTime;
   final slowdown = runDelayUs / baselineTime * 100;
@@ -41,35 +41,35 @@ void printStorageImpact(
     _StorageStageComparison(
       title: 'INSERT only',
       baselineSize: benchmarkResults.baseline.sizeFor(StorageStage.insert),
-      crdtSize: benchmarkResults.crdt.sizeFor(StorageStage.insert),
+      crdtSize: benchmarkResults.offlineSync.sizeFor(StorageStage.insert),
       baselineIncrement: benchmarkResults.baseline.sizeFor(StorageStage.insert),
-      crdtIncrement: benchmarkResults.crdt.sizeFor(StorageStage.insert),
+      crdtIncrement: benchmarkResults.offlineSync.sizeFor(StorageStage.insert),
       unitCount: rowCount,
       unitLabel: 'inserted row',
     ),
     _StorageStageComparison(
       title: 'INSERT + UPDATE',
       baselineSize: benchmarkResults.baseline.sizeFor(StorageStage.update),
-      crdtSize: benchmarkResults.crdt.sizeFor(StorageStage.update),
+      crdtSize: benchmarkResults.offlineSync.sizeFor(StorageStage.update),
       baselineIncrement:
           benchmarkResults.baseline.sizeFor(StorageStage.update) -
           benchmarkResults.baseline.previousSizeFor(StorageStage.update),
       crdtIncrement:
-          benchmarkResults.crdt.sizeFor(StorageStage.update) -
-          benchmarkResults.crdt.previousSizeFor(StorageStage.update),
+          benchmarkResults.offlineSync.sizeFor(StorageStage.update) -
+          benchmarkResults.offlineSync.previousSizeFor(StorageStage.update),
       unitCount: rowCount * TypesTableBenchmark.updatedColumnsPerRow,
       unitLabel: 'updated column',
     ),
     _StorageStageComparison(
       title: 'INSERT + UPDATE + DELETE',
       baselineSize: benchmarkResults.baseline.sizeFor(StorageStage.delete),
-      crdtSize: benchmarkResults.crdt.sizeFor(StorageStage.delete),
+      crdtSize: benchmarkResults.offlineSync.sizeFor(StorageStage.delete),
       baselineIncrement:
           benchmarkResults.baseline.sizeFor(StorageStage.delete) -
           benchmarkResults.baseline.previousSizeFor(StorageStage.delete),
       crdtIncrement:
-          benchmarkResults.crdt.sizeFor(StorageStage.delete) -
-          benchmarkResults.crdt.previousSizeFor(StorageStage.delete),
+          benchmarkResults.offlineSync.sizeFor(StorageStage.delete) -
+          benchmarkResults.offlineSync.previousSizeFor(StorageStage.delete),
       unitCount: rowCount,
       unitLabel: 'deleted row',
     ),
@@ -79,7 +79,7 @@ void printStorageImpact(
   print(
     '  Base database size: '
     '${benchmarkResults.baseline.baseDatabaseSize.toFormattedStorageSize()} '
-    '--> ${benchmarkResults.crdt.baseDatabaseSize.toFormattedStorageSize()}',
+    '--> ${benchmarkResults.offlineSync.baseDatabaseSize.toFormattedStorageSize()}',
   );
 
   for (final stage in stages) {
@@ -139,36 +139,36 @@ void printMergeImpact(
   if (runningInCI) print('```');
 }
 
-void printScopeImpact(
-  ScopeBenchmarkResults results, {
+void printSpaceImpact(
+  SpaceBenchmarkResults results, {
   required int rowCount,
   bool runningInCI = false,
 }) {
   String compare(
     double baseline,
-    double scoped,
+    double spaceScoped,
     double unscoped,
   ) {
     String overhead(double value) =>
         '${formatter2.format((value - baseline) / baseline * 100)}%';
     return '${baseline.toFormattedDuration()} --> '
-        '${scoped.toFormattedDuration()} scoped (+${overhead(scoped)}) / '
+        '${spaceScoped.toFormattedDuration()} space-scoped (+${overhead(spaceScoped)}) / '
         '${unscoped.toFormattedDuration()} unscoped (+${overhead(unscoped)})';
   }
 
   print(
     '${runningInCI ? '```' : ''}'
-    '\n🔭 SELECT scope impact '
+    '\n🔭 SELECT space impact '
     '(${formatter0.format(results.noiseUsers)} extra users, '
     '${formatter0.format(results.noiseCrdtRows)} CRDT noise rows):',
   );
   print(
     '  find all (${formatter0.format(rowCount)} rows): '
-    '${compare(results.baseline.findAllMicros, results.scoped.findAllMicros, results.unscoped.findAllMicros)}',
+    '${compare(results.baseline.findAllMicros, results.spaceScoped.findAllMicros, results.unscoped.findAllMicros)}',
   );
   print(
     '  findById (per lookup): '
-    '${compare(results.baseline.findByIdMicros, results.scoped.findByIdMicros, results.unscoped.findByIdMicros)}',
+    '${compare(results.baseline.findByIdMicros, results.spaceScoped.findByIdMicros, results.unscoped.findByIdMicros)}',
   );
   if (runningInCI) print('```');
 }
@@ -177,26 +177,26 @@ class BenchmarkResults {
   const BenchmarkResults({
     required this.operation,
     required this.baseline,
-    required this.crdt,
+    required this.offlineSync,
   });
 
   final Operation operation;
   final double baseline;
-  final double crdt;
+  final double offlineSync;
 }
 
-class ScopeBenchmarkResults {
-  const ScopeBenchmarkResults({
+class SpaceBenchmarkResults {
+  const SpaceBenchmarkResults({
     required this.baseline,
-    required this.scoped,
+    required this.spaceScoped,
     required this.unscoped,
     required this.noiseUsers,
     required this.noiseCrdtRows,
   });
 
-  final ScopeMeasurement baseline;
-  final ScopeMeasurement scoped;
-  final ScopeMeasurement unscoped;
+  final SpaceMeasurement baseline;
+  final SpaceMeasurement spaceScoped;
+  final SpaceMeasurement unscoped;
   final int noiseUsers;
   final int noiseCrdtRows;
 }
@@ -231,11 +231,11 @@ class MergeBenchmarkResults {
 class StorageBenchmarkResults {
   const StorageBenchmarkResults({
     required this.baseline,
-    required this.crdt,
+    required this.offlineSync,
   });
 
   final StorageBenchmarkRun baseline;
-  final StorageBenchmarkRun crdt;
+  final StorageBenchmarkRun offlineSync;
 }
 
 class _StorageStageComparison {

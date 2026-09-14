@@ -7,27 +7,27 @@ import '../hlc/hlc.dart';
 /// for CRDT operations.
 class HlcManager {
   HlcManager._(
-    this.uuidScopeId,
-    this.normalizedScopeId,
+    this.uuidSpaceId,
+    this.normalizedSpaceId,
     this.normalizedNodeId,
     this.lastHlc,
   );
 
-  /// Creates a new [HlcManager] for the current node of [scope].
-  factory HlcManager.forScope(CrdtScope scope) {
+  /// Creates a new [HlcManager] for the current node of [space].
+  factory HlcManager.forSpace(OfflineSyncSpace space) {
     return HlcManager._(
-      scope.uuidScopeId,
-      scope.id!,
-      scope.currentNodeId!,
-      scope.currentNode!.lastHlc ?? Hlc.zero(scope.currentNode!.uuidNodeId),
+      space.uuidSpaceId,
+      space.id!,
+      space.currentNodeId!,
+      space.currentNode!.lastHlc ?? Hlc.zero(space.currentNode!.uuidNodeId),
     );
   }
 
-  /// The UUID of the scope this manager is for.
-  final UuidValue uuidScopeId;
+  /// The UUID of the space this manager is for.
+  final UuidValue uuidSpaceId;
 
-  /// The normalized scope ID of the scope this manager is for.
-  final int normalizedScopeId;
+  /// The normalized space ID of the space this manager is for.
+  final int normalizedSpaceId;
 
   /// The node ID of the current node.
   UuidValue get uuidNodeId => lastHlc.nodeId;

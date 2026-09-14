@@ -16,8 +16,8 @@ void main() {
     () async {
       final random = DstRandom(114);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final parent = Person(id: ids.next(), name: 'parent');
       final child = RequiredSetNullChild(
@@ -26,7 +26,7 @@ void main() {
         parentId: parent.id!,
       );
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Person.db.insertRow(replica.session, parent, transaction: tx);
           await RequiredSetNullChild.db.insertRow(
             replica.session,
@@ -35,11 +35,11 @@ void main() {
           );
         }),
       );
-      final before = (await replica.collect(scope)).map(dstChangeKey).toSet();
+      final before = (await replica.collect(space)).map(dstChangeKey).toSet();
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.person,
         action: DstAction.deleteBatch,
       );
@@ -50,7 +50,7 @@ void main() {
         (await RequiredSetNullChild.db.findById(replica.session, child.id!))!.parentId,
         parent.id,
       );
-      expect((await replica.collect(scope)).map(dstChangeKey).toSet(), before);
+      expect((await replica.collect(space)).map(dstChangeKey).toSet(), before);
     },
   );
 
@@ -61,18 +61,18 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final original = Unique(id: ids.next(), name: 'shared');
       final peer = Unique(id: ids.next(), name: 'shared');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Unique.db.insertRow(replica.session, original, transaction: tx);
         }),
       );
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Unique.db.deleteRow(replica.session, original, transaction: tx);
           await Unique.db.insertRow(replica.session, peer, transaction: tx);
         }),
@@ -80,7 +80,7 @@ void main() {
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.unique,
         action: _action('restore'),
       );
@@ -101,12 +101,12 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('insertBatch'),
       );
@@ -125,20 +125,20 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final first = City(id: ids.next(), name: 'original-first');
       final second = City(id: ids.next(), name: 'original-second');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insert(replica.session, [first, second], transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('updateBatch'),
       );
@@ -163,20 +163,20 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final first = City(id: ids.next(), name: 'original-first');
       final second = City(id: ids.next(), name: 'original-second');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insert(replica.session, [first, second], transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('updateWhere'),
       );
@@ -201,20 +201,20 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final first = City(id: ids.next(), name: 'first');
       final second = City(id: ids.next(), name: 'second');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insert(replica.session, [first, second], transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('deleteBatch'),
       );
@@ -236,20 +236,20 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final first = City(id: ids.next(), name: 'first');
       final second = City(id: ids.next(), name: 'second');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insert(replica.session, [first, second], transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('deleteWhere'),
       );
@@ -271,20 +271,20 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final first = Unique(id: ids.next(), name: 'alice');
       final second = Unique(id: ids.next(), name: 'bob');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Unique.db.insert(replica.session, [first, second], transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.unique,
         action: _action('swapUnique'),
       );
@@ -302,19 +302,19 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final city = City(id: ids.next(), name: 'original');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insertRow(replica.session, city, transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('upsert'),
       );
@@ -334,12 +334,12 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('upsert'),
       );
@@ -356,24 +356,24 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
       final city = City(id: ids.next(), name: 'original');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insertRow(replica.session, city, transaction: tx);
         }),
       );
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.deleteRow(replica.session, city, transaction: tx);
         }),
       );
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.city,
         action: _action('upsert'),
       );
@@ -392,33 +392,33 @@ void main() {
     () async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final scope = ids.next();
-      final replica = await _replica(ids, scope);
+      final space = ids.next();
+      final replica = await _replica(ids, space);
       final operations = DstOperations(random, ids);
-      final source = await _replica(ids, scope);
+      final source = await _replica(ids, space);
       final mayor = Person(id: ids.next(), name: 'mayor');
       final town = Town(id: ids.next(), name: 'original-town', mayorId: mayor.id);
       await source.withReplicaClock(
-        () => source.session.db.transactionForUser(scope, (tx) async {
+        () => source.session.db.transactionForUser(space, (tx) async {
           await Person.db.insertRow(source.session, mayor, transaction: tx);
         }),
       );
-      await replica.merge(await source.collect(scope), scope);
+      await replica.merge(await source.collect(space), space);
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Town.db.insertRow(replica.session, town, transaction: tx);
         }),
       );
       await source.withReplicaClock(
-        () => source.session.db.transactionForUser(scope, (tx) async {
+        () => source.session.db.transactionForUser(space, (tx) async {
           await Person.db.deleteRow(source.session, mayor, transaction: tx);
         }),
       );
-      await replica.merge(await source.collect(scope), scope);
+      await replica.merge(await source.collect(space), space);
 
       final outcome = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.town,
         action: _action('fullRowUpdate'),
       );
@@ -427,7 +427,7 @@ void main() {
       final visible = (await Town.db.findById(replica.session, town.id!))!;
       expect(visible.name, isNot(town.name));
       expect(visible.mayorId, isNull);
-      final changes = await replica.collect(scope);
+      final changes = await replica.collect(space);
       final insert = changes.whereType<CrdtMergeInsert>().singleWhere(
         (change) => change.uuidRowId == town.id,
       );
@@ -439,9 +439,9 @@ void main() {
 DstAction _action(String name) =>
     DstAction.values.singleWhere((action) => action.name == name);
 
-Future<DstReplica> _replica(DstIds ids, UuidValue scope) => DstReplica.create(
+Future<DstReplica> _replica(DstIds ids, UuidValue space) => DstReplica.create(
   name: 'replica',
-  scopeUuids: [scope],
+  spaceUuids: [space],
   nodeUuid: ids.next(),
   clock: DstClock().clock,
 );

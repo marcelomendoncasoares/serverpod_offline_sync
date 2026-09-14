@@ -201,7 +201,7 @@ class CrdtForeignKeyProjector {
               transaction,
             );
             // Soft deletion leaves the physical target in place, so the SQL
-            // FK cannot reject a hidden or cross-scope default for us. A target
+            // FK cannot reject a hidden or cross-space default for us. A target
             // in this delete batch is still visible now but cannot be a repair.
             final deletesDefault =
                 repair.value != null &&
@@ -1059,7 +1059,7 @@ class CrdtForeignKeyProjector {
       rows[key] = (
         key: key,
         crdtRow: CrdtDataRow(
-          scopeId: _context.hlcManagerFor(transaction).normalizedScopeId,
+          spaceId: _context.hlcManagerFor(transaction).normalizedSpaceId,
           tblId: tableId,
           uuidRowId: pending.rowId,
           nodeId: pending.node.id!,
@@ -1137,12 +1137,12 @@ class CrdtForeignKeyProjector {
     if (rowIds != null && rowIds.isEmpty) return const {};
 
     final (tableId, _) = _context.schema[tableName]!;
-    final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
+    final userId = _context.hlcManagerFor(transaction).normalizedSpaceId;
     final crdtRows = await CrdtDataRow.db.find(
       _context.databaseSession,
       where: (t) {
-        final inScope = t.scopeId.equals(userId) & t.tblId.equals(tableId);
-        return rowIds == null ? inScope : inScope & t.uuidRowId.inSet(rowIds);
+        final inSpace = t.spaceId.equals(userId) & t.tblId.equals(tableId);
+        return rowIds == null ? inSpace : inSpace & t.uuidRowId.inSet(rowIds);
       },
       include: CrdtDataRow.include(
         node: CrdtNode.include(),
@@ -1772,11 +1772,11 @@ class CrdtForeignKeyProjector {
     if (rowIds.isEmpty || columnNames.isEmpty) return const [];
 
     final (tableId, _) = _context.schema[tableName]!;
-    final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
+    final userId = _context.hlcManagerFor(transaction).normalizedSpaceId;
     return CrdtDataField.db.find(
       _context.databaseSession,
       where: (t) =>
-          t.row.scopeId.equals(userId) &
+          t.row.spaceId.equals(userId) &
           t.row.tblId.equals(tableId) &
           t.row.uuidRowId.inSet(rowIds) &
           t.column.name.inSet(columnNames),
@@ -1799,11 +1799,11 @@ class CrdtForeignKeyProjector {
     if (rowIds.isEmpty || columnNames.isEmpty) return {};
 
     final (tableId, _) = _context.schema[tableName]!;
-    final userId = _context.hlcManagerFor(transaction).normalizedScopeId;
+    final userId = _context.hlcManagerFor(transaction).normalizedSpaceId;
     final fields = await CrdtDataField.db.find(
       _context.databaseSession,
       where: (t) =>
-          t.row.scopeId.equals(userId) &
+          t.row.spaceId.equals(userId) &
           t.row.tblId.equals(tableId) &
           t.row.uuidRowId.inSet(rowIds) &
           t.column.name.inSet(columnNames),
@@ -2403,7 +2403,7 @@ class CrdtForeignKeyProjector {
 
   /// Resolves the [CrdtDataField] id for every key, creating what is missing.
   ///
-  /// Projection state only holds fields loaded for the columns and scope of
+  /// Projection state only holds fields loaded for the columns and space of
   /// this pass, so a field for a row and column can already be persisted.
   /// Adopt those in one query and insert the genuinely new ones in one batch,
   /// rather than a select-then-insert round trip per field.

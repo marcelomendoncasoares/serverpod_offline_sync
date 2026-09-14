@@ -1,5 +1,5 @@
 ### Merge or sync operation that observed an integrity violation.
-enum: CrdtSyncViolationOperation
+enum: OfflineSyncViolationOperation
 serialized: byName
 values:
   - mergeInsert

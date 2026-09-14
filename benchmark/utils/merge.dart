@@ -42,7 +42,7 @@ typedef MergeMeasurement = ({
   );
 }
 
-/// Base harness for benchmarks of the merge path ([CrdtDatabase.mergeChanges]).
+/// Base harness for benchmarks of the merge path ([OfflineSyncDatabase.mergeChanges]).
 ///
 /// Changes are attributed to a single simulated remote node whose HLCs always
 /// advance, so every merged change is newer than the local state and is
@@ -60,7 +60,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   late final File _dbFile;
   late final ClientDatabaseSession _plainSession;
   late final QueryCountingDatabase _countingDb;
-  late CrdtDatabaseSession _crdtSession;
+  late OfflineSyncDatabaseSession _offlineSyncSession;
   var _hasOpenSession = false;
 
   final UuidValue _userId = const Uuid().v7obj();
@@ -102,7 +102,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   CrdtMergeInsert insertChangeFor(TableRow<UuidValue?> row) {
     final hlc = _nextRemoteHlc();
     return CrdtMergeInsert(
-      uuidScopeId: _userId,
+      uuidSpaceId: _userId,
       tableName: row.table.tableName,
       uuidRowId: row.id!,
       uuidNodeId: hlc.nodeId,
@@ -119,7 +119,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   ) {
     final hlc = _nextRemoteHlc();
     return CrdtMergeUpdate(
-      uuidScopeId: _userId,
+      uuidSpaceId: _userId,
       tableName: row.table.tableName,
       uuidRowId: row.id!,
       uuidNodeId: hlc.nodeId,
@@ -133,7 +133,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   CrdtMergeDelete deleteChangeFor(TableRow<UuidValue?> row) {
     final hlc = _nextRemoteHlc();
     return CrdtMergeDelete(
-      uuidScopeId: _userId,
+      uuidSpaceId: _userId,
       tableName: row.table.tableName,
       uuidRowId: row.id!,
       uuidNodeId: hlc.nodeId,
@@ -147,9 +147,9 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   /// Seeds [rows] through the merge path so they exist locally with remote
   /// CRDT metadata, like rows previously received from the remote node.
   Future<void> mergeSeedRows(List<TableRow<UuidValue?>> rows) {
-    return _crdtSession.db.mergeChanges(
+    return _offlineSyncSession.db.mergeChanges(
       [for (final row in rows) insertChangeFor(row)],
-      scopeId: _userId,
+      spaceId: _userId,
     );
   }
 
@@ -176,11 +176,11 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
 
     await clearUserTables(_plainSession);
     _countingDb = QueryCountingDatabase(_plainSession.db);
-    _crdtSession = CrdtDatabaseSession(
+    _offlineSyncSession = OfflineSyncDatabaseSession(
       _countingDb,
       syncTables: benchmarkSyncTables,
     );
-    await _crdtSession.db.initialize();
+    await _offlineSyncSession.db.initialize();
 
     await onSetup();
   }
@@ -223,7 +223,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
     final queriesBefore = _countingDb.queryCount;
     final rowsBefore = _countingDb.rowsRead;
     final rowsByTypeBefore = Map.of(_countingDb.rowsReadByType);
-    await _crdtSession.db.mergeChanges(_mergeSet, scopeId: _userId);
+    await _offlineSyncSession.db.mergeChanges(_mergeSet, spaceId: _userId);
     _timedQueries += _countingDb.queryCount - queriesBefore;
     _timedRowsRead += _countingDb.rowsRead - rowsBefore;
     for (final entry in _countingDb.rowsReadByType.entries) {
@@ -625,7 +625,7 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
     // HLC advancement alone cannot supersede a higher visibility flag. Advance
     // both on every delete/restore so no measured cycle becomes a stale no-op.
     return CrdtMergeDelete(
-      uuidScopeId: _userId,
+      uuidSpaceId: _userId,
       tableName: Town.t.tableName,
       uuidRowId: town.id!,
       uuidNodeId: hlc.nodeId,
@@ -640,11 +640,14 @@ class SetDefaultMergeBenchmark extends MergeScenarioBenchmark {
 
   @override
   Future<void> validateCycle() async {
-    final company = await Company.db.findById(_crdtSession, _companies.first.id!);
+    final company = await Company.db.findById(
+      _offlineSyncSession,
+      _companies.first.id!,
+    );
     if (company == null || company.townId != _expectedTownId) {
       throw StateError('$name cycle $_cycle did not project the company as expected.');
     }
-    final visibleTown = await Town.db.findById(_crdtSession, _changedTown.id!);
+    final visibleTown = await Town.db.findById(_offlineSyncSession, _changedTown.id!);
     if ((visibleTown == null) != _alternate) {
       throw StateError('$name cycle $_cycle did not apply its visibility change.');
     }

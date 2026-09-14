@@ -115,7 +115,7 @@ class _Toolbar extends StatelessWidget {
             ),
             Tooltip(
               tooltip: (context) => const TooltipContainer(
-                child: Text('Wipe both replicas and the server scope at once'),
+                child: Text('Wipe both replicas and the server space at once'),
               ),
               child: OutlineButton(
                 onPressed: controller.anyBusy
@@ -643,7 +643,7 @@ class _ServerPanel extends StatelessWidget {
                   const Gap(4),
                   Tooltip(
                     tooltip: (context) => const TooltipContainer(
-                      child: Text('Reset server scope: clear all rows'),
+                      child: Text('Reset server space: clear all rows'),
                     ),
                     child: IconButton.ghost(
                       icon: const Icon(Icons.delete_outline, size: 16),
@@ -706,7 +706,7 @@ class _ServerSeedButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       tooltip: (context) =>
-          const TooltipContainer(child: Text('Seed the server scope directly')),
+          const TooltipContainer(child: Text('Seed the server space directly')),
       child: IconButton.ghost(
         icon: const Icon(Icons.add, size: 16),
         onPressed: enabled ? () => _open(context) : null,

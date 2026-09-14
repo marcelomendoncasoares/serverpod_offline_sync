@@ -20,7 +20,7 @@ abstract class UniqueCascadeChild
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueCascadeChild._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.parentId,
     this.parent,
@@ -28,7 +28,7 @@ abstract class UniqueCascadeChild
 
   factory UniqueCascadeChild({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? parentId,
     _iensfz4m.Person? parent,
@@ -39,7 +39,7 @@ abstract class UniqueCascadeChild
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       parentId: jsonSerialization['parentId'] == null
           ? null
@@ -59,8 +59,8 @@ abstract class UniqueCascadeChild
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -76,7 +76,7 @@ abstract class UniqueCascadeChild
   @_is.useResult
   UniqueCascadeChild copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? parentId,
     _iensfz4m.Person? parent,
@@ -86,7 +86,7 @@ abstract class UniqueCascadeChild
     return {
       '__className__': 'UniqueCascadeChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (parentId != null) 'parentId': parentId?.toJson(),
       if (parent != null) 'parent': parent?.toJson(),
@@ -98,7 +98,7 @@ abstract class UniqueCascadeChild
     return {
       '__className__': 'UniqueCascadeChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (parentId != null) 'parentId': parentId?.toJson(),
       if (parent != null) 'parent': parent?.toJsonForProtocol(),
@@ -138,13 +138,13 @@ class _Undefined {}
 class _UniqueCascadeChildImpl extends UniqueCascadeChild {
   _UniqueCascadeChildImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? parentId,
     _iensfz4m.Person? parent,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          parentId: parentId,
          parent: parent,
@@ -156,14 +156,14 @@ class _UniqueCascadeChildImpl extends UniqueCascadeChild {
   @override
   UniqueCascadeChild copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? parentId = _Undefined,
     Object? parent = _Undefined,
   }) {
     return UniqueCascadeChild(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       parentId: parentId is _is.UuidValue? ? parentId : this.parentId,
       parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
@@ -175,8 +175,8 @@ class UniqueCascadeChildUpdateTable
     extends _is.UpdateTable<UniqueCascadeChildTable> {
   UniqueCascadeChildUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -197,8 +197,8 @@ class UniqueCascadeChildTable extends _is.Table<_is.UuidValue?> {
   UniqueCascadeChildTable({super.tableRelation})
     : super(tableName: 'unique_cascade_child') {
     updateTable = UniqueCascadeChildUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -213,8 +213,8 @@ class UniqueCascadeChildTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueCascadeChildUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -238,7 +238,7 @@ class UniqueCascadeChildTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     parentId,
   ];

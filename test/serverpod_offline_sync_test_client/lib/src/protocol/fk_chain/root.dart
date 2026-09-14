@@ -17,13 +17,13 @@ abstract class FkChainRoot
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   FkChainRoot._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
   });
 
   factory FkChainRoot({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
   }) = _FkChainRootImpl;
 
@@ -32,7 +32,7 @@ abstract class FkChainRoot
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
     );
   }
@@ -44,8 +44,8 @@ abstract class FkChainRoot
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -57,7 +57,7 @@ abstract class FkChainRoot
   @_isc.useResult
   FkChainRoot copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
   });
   @override
@@ -65,7 +65,7 @@ abstract class FkChainRoot
     return {
       '__className__': 'FkChainRoot',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
     };
   }
@@ -75,7 +75,7 @@ abstract class FkChainRoot
     return {
       '__className__': 'FkChainRoot',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
     };
   }
@@ -113,11 +113,11 @@ class _Undefined {}
 class _FkChainRootImpl extends FkChainRoot {
   _FkChainRootImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
        );
 
@@ -127,12 +127,12 @@ class _FkChainRootImpl extends FkChainRoot {
   @override
   FkChainRoot copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
   }) {
     return FkChainRoot(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
     );
   }
@@ -141,8 +141,8 @@ class _FkChainRootImpl extends FkChainRoot {
 class FkChainRootUpdateTable extends _isd.UpdateTable<FkChainRootTable> {
   FkChainRootUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -155,8 +155,8 @@ class FkChainRootUpdateTable extends _isd.UpdateTable<FkChainRootTable> {
 class FkChainRootTable extends _isd.Table<_isc.UuidValue?> {
   FkChainRootTable({super.tableRelation}) : super(tableName: 'fk_chain_root') {
     updateTable = FkChainRootUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -167,15 +167,15 @@ class FkChainRootTable extends _isd.Table<_isc.UuidValue?> {
 
   late final FkChainRootUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
   ];
 }

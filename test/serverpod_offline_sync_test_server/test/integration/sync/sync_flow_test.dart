@@ -32,8 +32,8 @@ void main() {
   ];
 
   late client.Client testClient;
-  late CrdtDatabaseSession serverSession;
-  late CrdtDatabaseSession clientSession;
+  late OfflineSyncDatabaseSession serverSession;
+  late OfflineSyncDatabaseSession clientSession;
 
   withServerpod(
     '[CRDT Sync]',
@@ -42,7 +42,7 @@ void main() {
       final rawServerSession = sessionBuilder.build();
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..initializeOfflineSync(syncTables: serverSyncTables)
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
           <Scope>{},
@@ -54,14 +54,14 @@ void main() {
           'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
-        clientSession = CrdtDatabaseSession.wraps(
+        clientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await clientSession.db.initialize();
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
@@ -87,7 +87,7 @@ void main() {
             const rounds = 6;
             final stopwatch = Stopwatch()..start();
             for (var round = 0; round < rounds; round++) {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
             }
             stopwatch.stop();
 
@@ -108,7 +108,7 @@ void main() {
           'then neither side reports a successful merge.',
           () async {
             var mergeSuccessCount = 0;
-            final syncSession = testClient.crdt.syncContinuously(
+            final syncSession = testClient.offlineSync.syncContinuously(
               clientSession,
               onMergeSuccess: (_, _) => mergeSuccessCount++,
             );
@@ -124,21 +124,21 @@ void main() {
           'when client syncContinuously runs, '
           'then neither side keeps sending frames while idle.',
           () async {
-            final clientToServer = StreamController<CrdtSyncStreamEvent>();
-            final serverToClient = StreamController<CrdtSyncStreamEvent>();
-            final clientOutboundEvents = <CrdtSyncStreamEvent>[];
-            final serverOutboundEvents = <CrdtSyncStreamEvent>[];
+            final clientToServer = StreamController<OfflineSyncStreamEvent>();
+            final serverToClient = StreamController<OfflineSyncStreamEvent>();
+            final clientOutboundEvents = <OfflineSyncStreamEvent>[];
+            final serverOutboundEvents = <OfflineSyncStreamEvent>[];
 
             void addIfOpen(
-              StreamController<CrdtSyncStreamEvent> controller,
-              CrdtSyncStreamEvent event,
+              StreamController<OfflineSyncStreamEvent> controller,
+              OfflineSyncStreamEvent event,
             ) {
               if (!controller.isClosed) {
                 controller.add(event);
               }
             }
 
-            final clientSync = CrdtSync(
+            final clientSync = OfflineSyncEngine(
               syncTables: clientSyncTables,
               serializationManager: clientSession.db.serializationManager,
             );
@@ -149,19 +149,19 @@ void main() {
                   userId: testCrdtUserId,
                   inbound: serverToClient.stream,
                   once: false,
-                  mode: CrdtSyncPeerMode.follower,
+                  mode: OfflineSyncPeerMode.follower,
                 )
                 .listen((event) {
                   clientOutboundEvents.add(event);
                   addIfOpen(clientToServer, event);
                 });
 
-            final serverSubscription = rawServerSession.crdt
+            final serverSubscription = rawServerSession.offlineSync
                 .sync(
                   userId: testCrdtUserId,
                   inbound: clientToServer.stream,
                   once: false,
-                  mode: CrdtSyncPeerMode.authoritative,
+                  mode: OfflineSyncPeerMode.authoritative,
                 )
                 .listen((event) {
                   serverOutboundEvents.add(event);
@@ -175,23 +175,23 @@ void main() {
               await serverSubscription.cancel();
             });
 
-            // Let the session establish: connect, scope handshake, first batch.
+            // Let the session establish: connect, space handshake, first batch.
             await Future<void>.delayed(const Duration(seconds: 1));
             clientOutboundEvents.clear();
             serverOutboundEvents.clear();
 
-            // An idle multi-scope session must then stay silent instead of
-            // re-announcing the scope set and an end-of-batch every cycle.
+            // An idle multi-space session must then stay silent instead of
+            // re-announcing the space set and an end-of-batch every cycle.
             await Future<void>.delayed(const Duration(seconds: 1));
 
             expect(clientOutboundEvents, isEmpty);
             expect(serverOutboundEvents, isEmpty);
 
             for (final events in [clientOutboundEvents, serverOutboundEvents]) {
-              expect(events.whereType<CrdtSyncMergeChunk>(), isEmpty);
-              expect(events.whereType<CrdtSyncEndOfBatch>(), isEmpty);
-              expect(events.whereType<CrdtSyncClose>(), isEmpty);
-              expect(events.whereType<CrdtSyncIdleTimeout>(), isEmpty);
+              expect(events.whereType<OfflineSyncMergeChunk>(), isEmpty);
+              expect(events.whereType<OfflineSyncEndOfBatch>(), isEmpty);
+              expect(events.whereType<OfflineSyncClose>(), isEmpty);
+              expect(events.whereType<OfflineSyncIdleTimeout>(), isEmpty);
             }
           },
         );
@@ -201,7 +201,9 @@ void main() {
           'then method stream teardown does not close the shared websocket.',
           () async {
             final stderr = await captureStderr(() async {
-              final syncSession = testClient.crdt.syncContinuously(clientSession);
+              final syncSession = testClient.offlineSync.syncContinuously(
+                clientSession,
+              );
 
               await Future<void>.delayed(const Duration(milliseconds: 300));
               await syncSession.cancel();
@@ -234,7 +236,7 @@ void main() {
           'when client syncOnce is called, '
           'then the server merges the client pending changes.',
           () async {
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
 
             final serverPerson = await server.Person.db.findById(
               serverSession,
@@ -251,7 +253,7 @@ void main() {
           'when client syncContinuously is called, '
           'then the server merges the client pending changes.',
           () async {
-            final syncSession = testClient.crdt.syncContinuously(clientSession);
+            final syncSession = testClient.offlineSync.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
 
             await _waitUntil(() async {
@@ -280,7 +282,9 @@ void main() {
           'then method stream teardown does not close the shared websocket.',
           () async {
             final stderr = await captureStderr(() async {
-              final syncSession = testClient.crdt.syncContinuously(clientSession);
+              final syncSession = testClient.offlineSync.syncContinuously(
+                clientSession,
+              );
 
               await syncSession.cancel();
               await syncSession.done;
@@ -315,7 +319,7 @@ void main() {
           'when client syncContinuously is called, '
           'then the client merges the server pending changes.',
           () async {
-            final syncSession = testClient.crdt.syncContinuously(clientSession);
+            final syncSession = testClient.offlineSync.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
 
             await _waitUntil(() async {
@@ -366,7 +370,7 @@ void main() {
           'when client syncOnce is called, '
           'then both the client and server have the two persons.',
           () async {
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
 
             final clientPerson = await client.Person.db.find(clientSession);
 
@@ -398,7 +402,7 @@ void main() {
           'when client syncContinuously is called, '
           'then the client merges the server pending changes.',
           () async {
-            final syncSession = testClient.crdt.syncContinuously(clientSession);
+            final syncSession = testClient.offlineSync.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
 
             await _waitUntil(() async {
@@ -456,7 +460,7 @@ void main() {
             ),
           );
 
-          await testClient.crdt.syncOnce(clientSession);
+          await testClient.offlineSync.syncOnce(clientSession);
         });
 
         test(
@@ -476,7 +480,7 @@ void main() {
               ),
             );
 
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
 
             expect(
               await client.Person.db.findById(clientSession, personId),
@@ -519,7 +523,7 @@ void main() {
               ),
             );
 
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
 
             final mergedClientPerson = await client.Person.db.findById(
               clientSession,
@@ -553,7 +557,7 @@ void main() {
               clientPerson.copyWith(name: 'reinserted-name'),
             );
 
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
 
             final serverPerson = await server.Person.db.findById(
               serverSession,
@@ -593,7 +597,7 @@ void main() {
           'when client syncOnce is called, '
           'then every field value survives the wire roundtrip to the server.',
           () async {
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
 
             final serverTypes = await server.Types.db.findById(
               serverSession,
@@ -619,7 +623,7 @@ void main() {
 
         group('with the row synchronized to the server,', () {
           setUp(() async {
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
           });
 
           test(
@@ -646,7 +650,7 @@ void main() {
                 ),
               );
 
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
 
               final mergedTypes = await client.Types.db.findById(
                 clientSession,
@@ -662,10 +666,10 @@ void main() {
       });
 
       group('Given a running client syncContinuously session,', () {
-        late CrdtSyncSession syncSession;
+        late OfflineSyncSubscription syncSession;
 
         setUp(() async {
-          syncSession = testClient.crdt.syncContinuously(clientSession);
+          syncSession = testClient.offlineSync.syncContinuously(clientSession);
         });
 
         tearDown(() async {
@@ -769,13 +773,13 @@ void main() {
       group(
         'Given a running client syncContinuously session with a merge success callback,',
         () {
-          late CrdtSyncSession syncSession;
+          late OfflineSyncSubscription syncSession;
           late Completer<Hlc> mergeSuccessCompleter;
 
           setUp(() async {
             mergeSuccessCompleter = Completer<Hlc>();
 
-            syncSession = testClient.crdt.syncContinuously(
+            syncSession = testClient.offlineSync.syncContinuously(
               clientSession,
               onMergeSuccess: (_, hlc) => mergeSuccessCompleter.complete(hlc),
             );
@@ -817,37 +821,39 @@ void main() {
         },
       );
 
-      group('Given a user with readWrite membership in a shared scope,', () {
-        late UuidValue sharedScopeId;
+      group('Given a user with readWrite membership in a shared space,', () {
+        late UuidValue sharedSpaceId;
 
         setUp(() async {
-          sharedScopeId = await rawServerSession.crdt.scopes.createFor(testCrdtUserId);
+          sharedSpaceId = await rawServerSession.offlineSync.spaces.createFor(
+            testCrdtUserId,
+          );
         });
 
         group('when client syncOnce is called,', () {
           setUp(() async {
-            await testClient.crdt.syncOnce(clientSession);
+            await testClient.offlineSync.syncOnce(clientSession);
           });
 
           test(
             'then the follower projects the shared membership with its role '
             'into the local cache.',
             () async {
-              final granted = await CrdtScopeMembership.memberGrants(
+              final granted = await OfflineSyncSpaceMembership.memberGrants(
                 clientSession,
                 testCrdtUserId,
               );
               final projected = granted
-                  .where((g) => g.uuidScopeId == sharedScopeId)
+                  .where((g) => g.uuidSpaceId == sharedSpaceId)
                   .toList();
 
               expect(projected, hasLength(1));
-              expect(projected.single.role, CrdtScopeRole.readWrite);
+              expect(projected.single.role, OfflineSyncSpaceRole.readWrite);
             },
           );
         });
 
-        group('with personal and shared scope rows on the server,', () {
+        group('with personal and shared space rows on the server,', () {
           late UuidValue personalPersonId;
           late UuidValue sharedPersonId;
 
@@ -869,16 +875,16 @@ void main() {
                 server.Person(name: 'shared-server-person'),
                 transaction: tx,
               ),
-              scopeId: sharedScopeId,
+              spaceId: sharedSpaceId,
             );
             sharedPersonId = sharedPerson.id!;
           });
 
           test(
             'when client syncOnce is called, '
-            'then personal and shared scope rows converge in the same call.',
+            'then personal and shared space rows converge in the same call.',
             () async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
 
               final personalClientPerson = await client.Person.db.findById(
                 clientSession,
@@ -898,16 +904,16 @@ void main() {
 
           group('with those rows synchronized to the client,', () {
             setUp(() async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
             });
 
             test(
-              'when finding people scoped to the shared scope uuid, '
-              'then only the shared scope row is returned.',
+              'when finding people space-scoped to the shared space uuid, '
+              'then only the shared space row is returned.',
               () async {
                 final sharedOnly = await client.Person.db.find(
                   clientSession,
-                  where: (t) => t.scopeEquals(sharedScopeId),
+                  where: (t) => t.spaceEquals(sharedSpaceId),
                 );
 
                 expect(sharedOnly, hasLength(1));
@@ -916,12 +922,12 @@ void main() {
             );
 
             test(
-              'when finding people scoped to the personal scope uuid, '
-              'then only the personal scope row is returned.',
+              'when finding people space-scoped to the personal space uuid, '
+              'then only the personal space row is returned.',
               () async {
                 final personalRows = await client.Person.db.find(
                   clientSession,
-                  where: (t) => t.scopeEquals(testCrdtUserId),
+                  where: (t) => t.spaceEquals(testCrdtUserId),
                 );
 
                 expect(personalRows, hasLength(1));
@@ -932,12 +938,12 @@ void main() {
         });
 
         group(
-          'with a local person pending in the shared scope,',
+          'with a local person pending in the shared space,',
           () {
             late UuidValue clientPersonId;
 
             setUp(() async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
 
               final clientPerson = await clientSession.db.transactionForUser(
                 testCrdtUserId,
@@ -946,7 +952,7 @@ void main() {
                   client.Person(name: 'read-write-member-write'),
                   transaction: tx,
                 ),
-                scopeId: sharedScopeId,
+                spaceId: sharedSpaceId,
               );
               clientPersonId = clientPerson.id!;
             });
@@ -955,7 +961,7 @@ void main() {
               'when client syncOnce is called, '
               'then the server accepts the readWrite member write.',
               () async {
-                await testClient.crdt.syncOnce(clientSession);
+                await testClient.offlineSync.syncOnce(clientSession);
 
                 final serverPerson = await server.Person.db.findById(
                   serverSession,
@@ -970,13 +976,13 @@ void main() {
         );
 
         test(
-          'when client syncContinuously is already running and a shared scope is granted, '
-          'then the client adopts and syncs the scope in the next cycle.',
+          'when client syncContinuously is already running and a shared space is granted, '
+          'then the client adopts and syncs the space in the next cycle.',
           () async {
-            final syncSession = testClient.crdt.syncContinuously(clientSession);
+            final syncSession = testClient.offlineSync.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
 
-            final laterScopeId = await rawServerSession.crdt.scopes.createFor(
+            final laterSpaceId = await rawServerSession.offlineSync.spaces.createFor(
               testCrdtUserId,
             );
 
@@ -987,7 +993,7 @@ void main() {
                 server.Person(name: 'later-shared-person'),
                 transaction: tx,
               ),
-              scopeId: laterScopeId,
+              spaceId: laterSpaceId,
             );
 
             await _waitUntil(() async {
@@ -1001,12 +1007,12 @@ void main() {
         );
 
         group(
-          'with an unsynced local person in the shared scope,',
+          'with an unsynced local person in the shared space,',
           () {
             late UuidValue pendingPersonId;
 
             setUp(() async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
 
               final pendingPerson = await clientSession.db.transactionForUser(
                 testCrdtUserId,
@@ -1015,7 +1021,7 @@ void main() {
                   client.Person(name: 'pending-before-demotion'),
                   transaction: tx,
                 ),
-                scopeId: sharedScopeId,
+                spaceId: sharedSpaceId,
               );
               pendingPersonId = pendingPerson.id!;
             });
@@ -1026,13 +1032,13 @@ void main() {
                 late UuidValue inboundPersonId;
 
                 setUp(() async {
-                  await rawServerSession.crdt.scopes.grant(
-                    scope: sharedScopeId,
+                  await rawServerSession.offlineSync.spaces.grant(
+                    space: sharedSpaceId,
                     user: testCrdtUserId,
-                    role: CrdtScopeRole.readOnly,
+                    role: OfflineSyncSpaceRole.readOnly,
                   );
                   final inboundPerson = await serverSession.db.transactionForUser(
-                    sharedScopeId,
+                    sharedSpaceId,
                     (tx) => server.Person.db.insertRow(
                       serverSession,
                       server.Person(name: 'inbound-after-demotion'),
@@ -1041,18 +1047,18 @@ void main() {
                   );
                   inboundPersonId = inboundPerson.id!;
 
-                  await testClient.crdt.syncOnce(clientSession);
+                  await testClient.offlineSync.syncOnce(clientSession);
                 });
 
                 test('then the projected role is updated to readOnly.', () async {
-                  final grants = await CrdtScopeMembership.memberGrants(
+                  final grants = await OfflineSyncSpaceMembership.memberGrants(
                     clientSession,
                     testCrdtUserId,
                   );
 
                   expect(
-                    grants.singleWhere((g) => g.uuidScopeId == sharedScopeId).role,
-                    CrdtScopeRole.readOnly,
+                    grants.singleWhere((g) => g.uuidSpaceId == sharedSpaceId).role,
+                    OfflineSyncSpaceRole.readOnly,
                   );
                 });
 
@@ -1077,10 +1083,10 @@ void main() {
                       isNull,
                     );
                     expect(
-                      await CrdtSyncIntegrityViolation.db.find(
+                      await OfflineSyncIntegrityViolation.db.find(
                         rawServerSession,
                         where: (t) =>
-                            t.type.equals(CrdtSyncViolationType.unauthorizedWrite),
+                            t.type.equals(OfflineSyncViolationType.unauthorizedWrite),
                       ),
                       isEmpty,
                     );
@@ -1093,7 +1099,7 @@ void main() {
 
         test(
           'when the membership is revoked during a running syncContinuously session, '
-          'then the scope stops syncing without dropping the session.',
+          'then the space stops syncing without dropping the session.',
           () async {
             final sharedPerson = await serverSession.db.transactionForUser(
               testCrdtUserId,
@@ -1102,9 +1108,9 @@ void main() {
                 server.Person(name: 'shared-before-revoke'),
                 transaction: tx,
               ),
-              scopeId: sharedScopeId,
+              spaceId: sharedSpaceId,
             );
-            final syncSession = testClient.crdt.syncContinuously(clientSession);
+            final syncSession = testClient.offlineSync.syncContinuously(clientSession);
             addTearDown(syncSession.cancel);
             await _waitUntil(() async {
               return await client.Person.db.findById(
@@ -1114,12 +1120,12 @@ void main() {
                   null;
             });
 
-            await rawServerSession.crdt.scopes.revoke(
-              scope: sharedScopeId,
+            await rawServerSession.offlineSync.spaces.revoke(
+              space: sharedSpaceId,
               user: testCrdtUserId,
             );
 
-            // The revoked scope's rows disappear from membership-wide reads…
+            // The revoked space's rows disappear from membership-wide reads…
             await _waitUntil(() async {
               return await client.Person.db.findById(
                     clientSession,
@@ -1128,7 +1134,7 @@ void main() {
                   null;
             });
 
-            // …while the same session keeps syncing the personal scope.
+            // …while the same session keeps syncing the personal space.
             final personalPerson = await serverSession.db.transactionForUser(
               testCrdtUserId,
               (tx) => server.Person.db.insertRow(
@@ -1157,35 +1163,35 @@ void main() {
                 testCrdtUserId,
                 (tx) => server.Person.db.insertRow(
                   serverSession,
-                  server.Person(name: 'revoked-scope-person'),
+                  server.Person(name: 'revoked-space-person'),
                   transaction: tx,
                 ),
-                scopeId: sharedScopeId,
+                spaceId: sharedSpaceId,
               );
               revokedPersonId = revokedPerson.id!;
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
             });
 
             group('with the revoked membership synchronized to the client,', () {
               setUp(() async {
-                await rawServerSession.crdt.scopes.revoke(
-                  scope: sharedScopeId,
+                await rawServerSession.offlineSync.spaces.revoke(
+                  space: sharedSpaceId,
                   user: testCrdtUserId,
                 );
-                await testClient.crdt.syncOnce(clientSession);
+                await testClient.offlineSync.syncOnce(clientSession);
               });
 
               test(
                 'when member grants are resolved, '
                 'then the revoked membership is absent from the local cache.',
                 () async {
-                  final grants = await CrdtScopeMembership.memberGrants(
+                  final grants = await OfflineSyncSpaceMembership.memberGrants(
                     clientSession,
                     testCrdtUserId,
                   );
 
                   expect(
-                    grants.where((g) => g.uuidScopeId == sharedScopeId),
+                    grants.where((g) => g.uuidSpaceId == sharedSpaceId),
                     isEmpty,
                   );
                 },
@@ -1205,7 +1211,7 @@ void main() {
               );
 
               test(
-                'when writing a person locally in the revoked scope, '
+                'when writing a person locally in the revoked space, '
                 'then the write is rejected before mutation.',
                 () async {
                   await expectLater(
@@ -1216,9 +1222,9 @@ void main() {
                         client.Person(name: 'blocked-after-revoke'),
                         transaction: tx,
                       ),
-                      scopeId: sharedScopeId,
+                      spaceId: sharedSpaceId,
                     ),
-                    throwsA(isA<CrdtScopeMembershipException>()),
+                    throwsA(isA<OfflineSyncSpaceMembershipException>()),
                   );
 
                   final blockedRows = await client.Person.db.find(
@@ -1234,17 +1240,17 @@ void main() {
       });
 
       group(
-        'Given a user with readOnly membership in a shared scope containing a server row,',
+        'Given a user with readOnly membership in a shared space containing a server row,',
         () {
-          late UuidValue readOnlyScopeId;
+          late UuidValue readOnlySpaceId;
           late UuidValue serverPersonId;
 
           setUp(() async {
-            readOnlyScopeId = await rawServerSession.crdt.scopes.create(
-              grants: {testCrdtUserId: CrdtScopeRole.readOnly},
+            readOnlySpaceId = await rawServerSession.offlineSync.spaces.create(
+              grants: {testCrdtUserId: OfflineSyncSpaceRole.readOnly},
             );
             final serverPerson = await serverSession.db.transactionForUser(
-              readOnlyScopeId,
+              readOnlySpaceId,
               (tx) => server.Person.db.insertRow(
                 serverSession,
                 server.Person(name: 'read-only-server-person'),
@@ -1256,9 +1262,9 @@ void main() {
 
           test(
             'when client syncOnce is called, '
-            'then the readOnly scope row is readable on the client.',
+            'then the readOnly space row is readable on the client.',
             () async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
 
               final clientPerson = await client.Person.db.findById(
                 clientSession,
@@ -1275,20 +1281,20 @@ void main() {
             'then syncOnce closes without unexpected server protocol errors.',
             () async {
               final stderr = await captureStderr(
-                () => testClient.crdt.syncOnce(clientSession),
+                () => testClient.offlineSync.syncOnce(clientSession),
               );
 
-              expect(stderr, isNot(contains('CrdtSyncUnexpectedEventException')));
+              expect(stderr, isNot(contains('OfflineSyncUnexpectedEventException')));
             },
           );
 
           group('with the membership synchronized to the client,', () {
             setUp(() async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
             });
 
             test(
-              'when writing a person locally in the readOnly scope, '
+              'when writing a person locally in the readOnly space, '
               'then the write is rejected before mutation.',
               () async {
                 await expectLater(
@@ -1299,9 +1305,9 @@ void main() {
                       client.Person(name: 'blocked-read-only-write'),
                       transaction: tx,
                     ),
-                    scopeId: readOnlyScopeId,
+                    spaceId: readOnlySpaceId,
                   ),
-                  throwsA(isA<CrdtScopeRoleException>()),
+                  throwsA(isA<OfflineSyncSpaceRoleException>()),
                 );
 
                 final blockedRows = await client.Person.db.find(
@@ -1316,16 +1322,16 @@ void main() {
       );
 
       group(
-        'Given a user without membership in a shared scope,',
+        'Given a user without membership in a shared space,',
         () {
-          late UuidValue ungrantedScopeId;
+          late UuidValue ungrantedSpaceId;
 
           setUp(() async {
-            ungrantedScopeId = await rawServerSession.crdt.scopes.create();
+            ungrantedSpaceId = await rawServerSession.offlineSync.spaces.create();
           });
 
           test(
-            'when a transaction is started for that scope, '
+            'when a transaction is started for that space, '
             'then it is rejected before writing.',
             () async {
               await expectLater(
@@ -1336,9 +1342,9 @@ void main() {
                     server.Person(name: 'ungranted-server-person'),
                     transaction: tx,
                   ),
-                  scopeId: ungrantedScopeId,
+                  spaceId: ungrantedSpaceId,
                 ),
-                throwsA(isA<CrdtScopeMembershipException>()),
+                throwsA(isA<OfflineSyncSpaceMembershipException>()),
               );
             },
           );
@@ -1346,20 +1352,20 @@ void main() {
       );
 
       group(
-        'Given a client with personal and local ungranted scope changes,',
+        'Given a client with personal and local ungranted space changes,',
         () {
-          late UuidValue ungrantedScopeId;
+          late UuidValue ungrantedSpaceId;
           late UuidValue personalPersonId;
           late UuidValue ungrantedPersonId;
 
           setUp(() async {
-            ungrantedScopeId = const Uuid().v7obj();
+            ungrantedSpaceId = const Uuid().v7obj();
             final personalPerson = await client.Person.db.insertRow(
               clientSession,
               client.Person(name: 'personal-client-person'),
             );
             final ungrantedPerson = await clientSession.db.transactionForUser(
-              ungrantedScopeId,
+              ungrantedSpaceId,
               (tx) => client.Person.db.insertRow(
                 clientSession,
                 client.Person(name: 'ungranted-client-person'),
@@ -1372,9 +1378,9 @@ void main() {
 
           test(
             'when client syncOnce is called, '
-            'then the ungranted scope is not streamed to the server.',
+            'then the ungranted space is not streamed to the server.',
             () async {
-              await testClient.crdt.syncOnce(clientSession);
+              await testClient.offlineSync.syncOnce(clientSession);
 
               final serverPersonalPerson = await server.Person.db.findById(
                 serverSession,
@@ -1403,7 +1409,7 @@ void main() {
           );
 
           await expectLater(
-            unauthenticatedClient.crdt
+            unauthenticatedClient.offlineSync
                 .syncOnce(clientSession)
                 .timeout(const Duration(seconds: 3)),
             throwsA(isA<client.ServerpodClientUnauthorized>()),
@@ -1421,7 +1427,7 @@ void main() {
       const syncInterval = Duration(milliseconds: 400);
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(
+        ..initializeOfflineSync(
           syncTables: serverSyncTables,
           continuousSyncInterval: syncInterval,
         )
@@ -1436,7 +1442,7 @@ void main() {
           'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
-        clientSession = CrdtDatabaseSession.wraps(
+        clientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
@@ -1453,7 +1459,7 @@ void main() {
           final firstMergeCompleter = Completer<void>();
           final secondMergeCompleter = Completer<void>();
 
-          final syncSession = testClient.crdt.syncContinuously(
+          final syncSession = testClient.offlineSync.syncContinuously(
             clientSession,
             onMergeSuccess: (_, _) {
               switch (++mergeSuccessCount) {
@@ -1511,10 +1517,10 @@ void main() {
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
-      late CrdtDatabaseSession secondClientSession;
+      late OfflineSyncDatabaseSession secondClientSession;
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..initializeOfflineSync(syncTables: serverSyncTables)
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
           <Scope>{},
@@ -1526,21 +1532,21 @@ void main() {
           'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
-        clientSession = CrdtDatabaseSession.wraps(
+        clientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await clientSession.db.initialize();
 
-        secondClientSession = CrdtDatabaseSession.wraps(
+        secondClientSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await secondClientSession.db.initialize();
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
@@ -1559,8 +1565,8 @@ void main() {
             clientSession,
             client.Unique(name: 'deleted-by-first-node'),
           );
-          await testClient.crdt.syncOnce(clientSession);
-          await testClient.crdt.syncOnce(secondClientSession);
+          await testClient.offlineSync.syncOnce(clientSession);
+          await testClient.offlineSync.syncOnce(secondClientSession);
 
           // After both nodes have synchronized, the first node deletes the row.
           await client.Unique.db.deleteRow(clientSession, rowToDelete);
@@ -1570,14 +1576,14 @@ void main() {
             secondClientSession,
             client.Unique(name: 'inserted-by-second-node'),
           );
-          await testClient.crdt.syncOnce(secondClientSession);
+          await testClient.offlineSync.syncOnce(secondClientSession);
 
           // The first node synchronizes the deletion with the server.
-          await testClient.crdt.syncOnce(clientSession);
+          await testClient.offlineSync.syncOnce(clientSession);
 
           // This last sync from the second node will only receive the deletion
           // from the first node if checkpoints are tracked per known node.
-          await testClient.crdt.syncOnce(secondClientSession);
+          await testClient.offlineSync.syncOnce(secondClientSession);
           final deletedRow = await client.Unique.db.findById(
             secondClientSession,
             rowToDelete.id!,
@@ -1589,19 +1595,19 @@ void main() {
   );
 
   withServerpod(
-    'Given two client CRDT sessions for different users sharing one readWrite scope,',
+    'Given two client CRDT sessions for different users sharing one readWrite space,',
     rollbackDatabase: RollbackDatabase.disabled,
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
       final secondUserId = const Uuid().v7obj();
       late client.Client firstClient;
       late client.Client secondClient;
-      late CrdtDatabaseSession firstClientSession;
-      late CrdtDatabaseSession secondClientSession;
-      late UuidValue sharedScopeId;
+      late OfflineSyncDatabaseSession firstClientSession;
+      late OfflineSyncDatabaseSession secondClientSession;
+      late UuidValue sharedSpaceId;
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..initializeOfflineSync(syncTables: serverSyncTables)
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           token.split(' ').last,
           <Scope>{},
@@ -1615,35 +1621,35 @@ void main() {
         secondClient = client.Client(serverUrl)
           ..authKeyProvider = TestClientAuthKeyProvider(secondUserId.toString());
 
-        firstClientSession = CrdtDatabaseSession.wraps(
+        firstClientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await firstClientSession.db.initialize();
 
-        secondClientSession = CrdtDatabaseSession.wraps(
+        secondClientSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: clientSyncTables,
           persistentUserId: secondUserId,
         );
         await secondClientSession.db.initialize();
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
         await serverSession.db.initialize();
 
-        sharedScopeId = await rawServerSession.crdt.scopes.create(
+        sharedSpaceId = await rawServerSession.offlineSync.spaces.create(
           grants: {
-            testCrdtUserId: CrdtScopeRole.readWrite,
-            secondUserId: CrdtScopeRole.readWrite,
+            testCrdtUserId: OfflineSyncSpaceRole.readWrite,
+            secondUserId: OfflineSyncSpaceRole.readWrite,
           },
         );
 
-        await firstClient.crdt.syncOnce(firstClientSession);
-        await secondClient.crdt.syncOnce(secondClientSession);
+        await firstClient.offlineSync.syncOnce(firstClientSession);
+        await secondClient.offlineSync.syncOnce(secondClientSession);
       });
 
       tearDown(() async {
@@ -1664,7 +1670,7 @@ void main() {
                 client.Person(name: 'first-user-shared-person'),
                 transaction: tx,
               ),
-              scopeId: sharedScopeId,
+              spaceId: sharedSpaceId,
             );
             sharedPersonId = sharedPerson.id!;
             final personalPerson = await client.Person.db.insertRow(
@@ -1673,11 +1679,11 @@ void main() {
             );
             personalPersonId = personalPerson.id!;
 
-            await firstClient.crdt.syncOnce(firstClientSession);
-            await secondClient.crdt.syncOnce(secondClientSession);
+            await firstClient.offlineSync.syncOnce(firstClientSession);
+            await secondClient.offlineSync.syncOnce(secondClientSession);
           });
 
-          test('then the second user receives the shared scope person.', () async {
+          test('then the second user receives the shared space person.', () async {
             final sharedPerson = await client.Person.db.findById(
               secondClientSession,
               sharedPersonId,
@@ -1715,12 +1721,12 @@ void main() {
                 client.Person(name: 'second-user-shared-person'),
                 transaction: tx,
               ),
-              scopeId: sharedScopeId,
+              spaceId: sharedSpaceId,
             );
             replyPersonId = replyPerson.id!;
 
-            await secondClient.crdt.syncOnce(secondClientSession);
-            await firstClient.crdt.syncOnce(firstClientSession);
+            await secondClient.offlineSync.syncOnce(secondClientSession);
+            await firstClient.offlineSync.syncOnce(firstClientSession);
           });
 
           test(

@@ -1,0 +1,19 @@
+### A CRDT node's participation and checkpoint state within one space.
+class: OfflineSyncSpaceNode
+table: offline_sync_space_nodes
+database: all
+fields:
+  ### Space this participation row belongs to.
+  space: OfflineSyncSpace?, relation(name=space_nodes, onDelete=Cascade)
+
+  ### Stable replica identity participating in the space.
+  node: CrdtNode?, relation(onDelete=Cascade)
+
+  ### Latest HLC from this node acknowledged for this space.
+  lastReceivedHlc: Hlc?
+
+indexes:
+  ### Enforces one checkpoint row per (space, node).
+  offline_sync_space_node_unique_idx:
+    fields: spaceId, nodeId
+    unique: true

@@ -12,16 +12,18 @@
 part of 'stream_event.dart';
 
 /// A chunk of merge changes carried inside a framed sync batch.
-abstract class CrdtSyncMergeChunk extends _icw2tu00.CrdtSyncStreamEvent
+abstract class OfflineSyncMergeChunk extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncMergeChunk._({required this.changes});
+  OfflineSyncMergeChunk._({required this.changes});
 
-  factory CrdtSyncMergeChunk({
+  factory OfflineSyncMergeChunk({
     required List<_icw2tu00.CrdtMergeChange> changes,
-  }) = _CrdtSyncMergeChunkImpl;
+  }) = _OfflineSyncMergeChunkImpl;
 
-  factory CrdtSyncMergeChunk.fromJson(Map<String, dynamic> jsonSerialization) {
-    return CrdtSyncMergeChunk(
+  factory OfflineSyncMergeChunk.fromJson(
+    Map<String, dynamic> jsonSerialization,
+  ) {
+    return OfflineSyncMergeChunk(
       changes: _icw2tu00.Protocol()
           .deserialize<List<_icw2tu00.CrdtMergeChange>>(
             jsonSerialization['changes'],
@@ -32,15 +34,15 @@ abstract class CrdtSyncMergeChunk extends _icw2tu00.CrdtSyncStreamEvent
   /// The merge changes to apply.
   List<_icw2tu00.CrdtMergeChange> changes;
 
-  /// Returns a shallow copy of this [CrdtSyncMergeChunk]
+  /// Returns a shallow copy of this [OfflineSyncMergeChunk]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  CrdtSyncMergeChunk copyWith({List<_icw2tu00.CrdtMergeChange>? changes});
+  OfflineSyncMergeChunk copyWith({List<_icw2tu00.CrdtMergeChange>? changes});
   @override
   Map<String, dynamic> toJson() {
     return {
-      '__className__': 'serverpod_offline_sync.CrdtSyncMergeChunk',
+      '__className__': 'serverpod_offline_sync.OfflineSyncMergeChunk',
       'changes': changes.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -48,7 +50,7 @@ abstract class CrdtSyncMergeChunk extends _icw2tu00.CrdtSyncStreamEvent
   @override
   Map<String, dynamic> toJsonForProtocol() {
     return {
-      '__className__': 'serverpod_offline_sync.CrdtSyncMergeChunk',
+      '__className__': 'serverpod_offline_sync.OfflineSyncMergeChunk',
       'changes': changes.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
   }
@@ -59,16 +61,16 @@ abstract class CrdtSyncMergeChunk extends _icw2tu00.CrdtSyncStreamEvent
   }
 }
 
-class _CrdtSyncMergeChunkImpl extends CrdtSyncMergeChunk {
-  _CrdtSyncMergeChunkImpl({required List<_icw2tu00.CrdtMergeChange> changes})
+class _OfflineSyncMergeChunkImpl extends OfflineSyncMergeChunk {
+  _OfflineSyncMergeChunkImpl({required List<_icw2tu00.CrdtMergeChange> changes})
     : super._(changes: changes);
 
-  /// Returns a shallow copy of this [CrdtSyncMergeChunk]
+  /// Returns a shallow copy of this [OfflineSyncMergeChunk]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  CrdtSyncMergeChunk copyWith({List<_icw2tu00.CrdtMergeChange>? changes}) {
-    return CrdtSyncMergeChunk(
+  OfflineSyncMergeChunk copyWith({List<_icw2tu00.CrdtMergeChange>? changes}) {
+    return OfflineSyncMergeChunk(
       changes: changes ?? this.changes.map((e0) => e0.copyWith()).toList(),
     );
   }

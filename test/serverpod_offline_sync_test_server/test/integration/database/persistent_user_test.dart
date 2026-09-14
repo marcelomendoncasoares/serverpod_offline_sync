@@ -25,13 +25,13 @@ void main() {
         expect(loaded?.name, 'local-only');
       });
 
-      test('then the CRDT scope exists.', () async {
-        final crdtScope = await CrdtScope.db.findFirstRow(
+      test('then the CRDT space exists.', () async {
+        final crdtSpace = await OfflineSyncSpace.db.findFirstRow(
           session,
-          where: (t) => t.uuidScopeId.equals(testCrdtUserId),
-          include: CrdtScope.include(currentNode: CrdtNode.include()),
+          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
+          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
         );
-        expect(crdtScope, isNotNull);
+        expect(crdtSpace, isNotNull);
       });
 
       test('then the CRDT metadata is written.', () async {

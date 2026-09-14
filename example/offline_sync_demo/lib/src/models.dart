@@ -76,7 +76,7 @@ class ScenarioCounter {
   }
 }
 
-/// Normalizes a demo username so the same person maps to one scope.
+/// Normalizes a demo username so the same person maps to one space.
 String normalizeUsername(String username) {
   return username.trim().toLowerCase();
 }

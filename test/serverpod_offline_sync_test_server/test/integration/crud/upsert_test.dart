@@ -25,9 +25,9 @@ void main() {
         );
       });
 
-      test('then the returned row keeps scopeId null.', () async {
+      test('then the returned row keeps spaceId null.', () async {
         expect(person, isNotNull);
-        expect(person!.scopeId, isNull);
+        expect(person!.spaceId, isNull);
       });
 
       test('then the row exists in the person table.', () async {
@@ -67,10 +67,10 @@ void main() {
         );
       });
 
-      test('then the returned row has a generated id and null scopeId.', () {
+      test('then the returned row has a generated id and null spaceId.', () {
         expect(created, isNotNull);
         expect(created!.id, isNotNull);
-        expect(created!.scopeId, isNull);
+        expect(created!.spaceId, isNull);
       });
 
       test('then the row exists in the person table.', () async {
@@ -132,9 +132,9 @@ void main() {
         );
       });
 
-      test('then the returned row keeps scopeId null.', () async {
+      test('then the returned row keeps spaceId null.', () async {
         expect(updatedPerson, isNotNull);
-        expect(updatedPerson!.scopeId, isNull);
+        expect(updatedPerson!.spaceId, isNull);
       });
 
       test('then the person row reflects the new values.', () async {
@@ -219,9 +219,9 @@ void main() {
         );
       });
 
-      test('then both rows are returned with scopeId null.', () {
+      test('then both rows are returned with spaceId null.', () {
         expect(upserted, hasLength(2));
-        expect(upserted.map((e) => e.scopeId), everyElement(isNull));
+        expect(upserted.map((e) => e.spaceId), everyElement(isNull));
       });
 
       test('then the existing row keeps its id and reflects the new values.', () {
@@ -383,10 +383,10 @@ void main() {
         );
       });
 
-      test('then the row is returned with the new values and null scopeId.', () {
+      test('then the row is returned with the new values and null spaceId.', () {
         expect(reinserted, isNotNull);
         expect(reinserted!.name, 'reinserted');
-        expect(reinserted!.scopeId, isNull);
+        expect(reinserted!.spaceId, isNull);
       });
 
       test('then the row is visible again.', () async {
@@ -558,9 +558,9 @@ void main() {
         );
       });
 
-      test('then all three rows are returned with scopeId null.', () {
+      test('then all three rows are returned with spaceId null.', () {
         expect(upserted, hasLength(3));
-        expect(upserted.map((e) => e.scopeId), everyElement(isNull));
+        expect(upserted.map((e) => e.spaceId), everyElement(isNull));
         expect(upserted.map((e) => e.name).toSet(), {
           'batch reinserted',
           'batch updated',
@@ -598,7 +598,7 @@ void main() {
       );
     });
 
-    group('when upserting another row with the same scoped unique key,', () {
+    group('when upserting another row with the same space-scoped unique key,', () {
       late UniqueComposite? upserted;
 
       setUp(() async {
@@ -607,7 +607,7 @@ void main() {
           (tx) => UniqueComposite.db.upsertRow(
             session,
             UniqueComposite(scope: 'domain', value: 'key'),
-            conflictColumns: (t) => [t.scopeId, t.scope, t.value],
+            conflictColumns: (t) => [t.spaceId, t.scope, t.value],
             transaction: tx,
           ),
         );
@@ -616,7 +616,7 @@ void main() {
       test('then the existing row is returned.', () async {
         expect(upserted, isNotNull);
         expect(upserted!.id, uniqueComposite.id);
-        expect(upserted!.scopeId, isNull);
+        expect(upserted!.spaceId, isNull);
       });
 
       test('then no duplicate row is inserted.', () async {

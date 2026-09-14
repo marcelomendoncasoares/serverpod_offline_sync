@@ -13,32 +13,32 @@ part of 'stream_event.dart';
 
 /// Marks a graceful end of a one-shot sync session.
 ///
-/// Both peers send [CrdtSyncClose] after merging the final batch in a
+/// Both peers send [OfflineSyncClose] after merging the final batch in a
 /// one-shot session so each side can shut down without closing the transport
 /// early.
-abstract class CrdtSyncClose extends _icw2tu00.CrdtSyncStreamEvent
+abstract class OfflineSyncClose extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncClose._();
+  OfflineSyncClose._();
 
-  factory CrdtSyncClose() = _CrdtSyncCloseImpl;
+  factory OfflineSyncClose() = _OfflineSyncCloseImpl;
 
-  factory CrdtSyncClose.fromJson(Map<String, dynamic> jsonSerialization) {
-    return CrdtSyncClose();
+  factory OfflineSyncClose.fromJson(Map<String, dynamic> jsonSerialization) {
+    return OfflineSyncClose();
   }
 
-  /// Returns a shallow copy of this [CrdtSyncClose]
+  /// Returns a shallow copy of this [OfflineSyncClose]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  CrdtSyncClose copyWith();
+  OfflineSyncClose copyWith();
   @override
   Map<String, dynamic> toJson() {
-    return {'__className__': 'serverpod_offline_sync.CrdtSyncClose'};
+    return {'__className__': 'serverpod_offline_sync.OfflineSyncClose'};
   }
 
   @override
   Map<String, dynamic> toJsonForProtocol() {
-    return {'__className__': 'serverpod_offline_sync.CrdtSyncClose'};
+    return {'__className__': 'serverpod_offline_sync.OfflineSyncClose'};
   }
 
   @override
@@ -47,14 +47,14 @@ abstract class CrdtSyncClose extends _icw2tu00.CrdtSyncStreamEvent
   }
 }
 
-class _CrdtSyncCloseImpl extends CrdtSyncClose {
-  _CrdtSyncCloseImpl() : super._();
+class _OfflineSyncCloseImpl extends OfflineSyncClose {
+  _OfflineSyncCloseImpl() : super._();
 
-  /// Returns a shallow copy of this [CrdtSyncClose]
+  /// Returns a shallow copy of this [OfflineSyncClose]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  CrdtSyncClose copyWith() {
-    return CrdtSyncClose();
+  OfflineSyncClose copyWith() {
+    return OfflineSyncClose();
   }
 }

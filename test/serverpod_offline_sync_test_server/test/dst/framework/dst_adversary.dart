@@ -11,15 +11,15 @@ class DstDelivery {
   /// Creates a pending delivery.
   DstDelivery({
     required this.target,
-    required this.scopeUuid,
+    required this.spaceUuid,
     required this.changes,
   });
 
   /// The replica that will merge the batch.
   final DstReplica target;
 
-  /// The scope the batch belongs to.
-  final UuidValue scopeUuid;
+  /// The space the batch belongs to.
+  final UuidValue spaceUuid;
 
   /// The changes to merge.
   final CrdtMergeSet changes;
@@ -40,7 +40,7 @@ class DstDelivery {
 ///   harness marks it delivered, and the fact is lost forever - which then
 ///   surfaces as a bogus convergence failure. Chunking in the real protocol
 ///   sits *below* the merge (`chunked()` feeds frames that
-///   `collectNextBatch` reassembles until `CrdtSyncEndOfBatch`), so the whole
+///   `collectNextBatch` reassembles until `OfflineSyncEndOfBatch`), so the whole
 ///   cycle is the causal unit and splitting here models nothing real.
 ///
 /// Delay, reorder, and redelivery are the honest moves; redelivery is how
@@ -88,8 +88,8 @@ class DstAdversary {
 
     for (var pass = 0; pass < _maxQuiescePasses; pass++) {
       for (final replica in replicas) {
-        for (final scopeUuid in replica.scopeUuids) {
-          await _collect(replica, scopeUuid);
+        for (final spaceUuid in replica.spaceUuids) {
+          await _collect(replica, spaceUuid);
         }
       }
       if (_pending.isEmpty) return;
@@ -116,20 +116,20 @@ class DstAdversary {
 
   Future<void> _collectFromRandomReplica() async {
     final source = random.pick(replicas);
-    final scopeUuid = random.pickOrNull(source.scopeUuids);
-    if (scopeUuid == null) return;
-    await _collect(source, scopeUuid);
+    final spaceUuid = random.pickOrNull(source.spaceUuids);
+    if (spaceUuid == null) return;
+    await _collect(source, spaceUuid);
   }
 
-  /// Collects [source]'s changes for [scopeUuid] and queues them for every
-  /// other replica that holds the scope.
-  Future<void> _collect(DstReplica source, UuidValue scopeUuid) async {
-    final changes = await source.collect(scopeUuid);
+  /// Collects [source]'s changes for [spaceUuid] and queues them for every
+  /// other replica that holds the space.
+  Future<void> _collect(DstReplica source, UuidValue spaceUuid) async {
+    final changes = await source.collect(spaceUuid);
     if (changes.isEmpty) return;
 
     for (final target in replicas) {
       if (identical(target, source)) continue;
-      if (!target.scopeUuids.contains(scopeUuid)) continue;
+      if (!target.spaceUuids.contains(spaceUuid)) continue;
 
       final delivered = _deliveredKeys.putIfAbsent(target.name, () => {});
       // Occasionally resend what the target already merged. Redelivery must be
@@ -144,7 +144,7 @@ class DstAdversary {
       if (fresh.isEmpty) continue;
 
       _pending.add(
-        DstDelivery(target: target, scopeUuid: scopeUuid, changes: fresh),
+        DstDelivery(target: target, spaceUuid: spaceUuid, changes: fresh),
       );
     }
   }
@@ -162,14 +162,14 @@ class DstAdversary {
     _pending.remove(delivery);
 
     try {
-      await delivery.target.merge(delivery.changes, delivery.scopeUuid);
+      await delivery.target.merge(delivery.changes, delivery.spaceUuid);
     } on Exception catch (exception) {
       // As with local operations, database errors arrive without engine
       // frames, so the batch that caused them is described here.
       final keys = delivery.changes.map(dstChangeKey).join('\n  ');
       throw StateError(
-        'Merging ${delivery.changes.length} changes for scope '
-        '${delivery.scopeUuid} into ${delivery.target} failed: $exception\n'
+        'Merging ${delivery.changes.length} changes for space '
+        '${delivery.spaceUuid} into ${delivery.target} failed: $exception\n'
         'Batch:\n  $keys',
       );
     }

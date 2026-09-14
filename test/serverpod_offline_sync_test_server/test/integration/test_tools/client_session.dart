@@ -17,7 +17,7 @@ final testSyncTables = syncTables;
 
 late Client _testClient;
 late ClientDatabaseSession _testSession;
-late CrdtDatabaseSession _crdtSession;
+late OfflineSyncDatabaseSession _offlineSyncSession;
 late Directory _tempDir;
 late String _templatePath;
 late UuidValue _testCrdtUserId;
@@ -27,9 +27,9 @@ var _databaseCount = 0;
 /// and removed once no longer needed.
 ClientDatabaseSession get testSession => _testSession;
 
-/// A fresh [CrdtDatabaseSession] for each test that is automatically closed
+/// A fresh [OfflineSyncDatabaseSession] for each test that is automatically closed
 /// and removed once no longer needed.
-CrdtDatabaseSession get session => _crdtSession;
+OfflineSyncDatabaseSession get session => _offlineSyncSession;
 
 /// The test CRDT user ID.
 UuidValue get testCrdtUserId => _testCrdtUserId;
@@ -46,8 +46,8 @@ UuidValue get testCrdtUserId => _testCrdtUserId;
 /// few milliseconds.
 ///
 /// When [withPersistentUser] is true, [testCrdtUserId] is passed as
-/// [CrdtDatabaseSession]'s `persistentUserId` so mutations can use plain
-/// [Database.transaction] instead of [CrdtDatabase.transactionForUser] (client
+/// [OfflineSyncDatabaseSession]'s `persistentUserId` so mutations can use plain
+/// [Database.transaction] instead of [OfflineSyncDatabase.transactionForUser] (client
 /// mode).
 ///
 /// Nothing is assigned while this function runs: it only registers callbacks.
@@ -55,7 +55,7 @@ UuidValue get testCrdtUserId => _testCrdtUserId;
 /// field, because a runner that separates test registration from test execution
 /// does not carry state written during registration into the run.
 ///
-/// With [createSessionPerTest] disabled, only the migrated template and scope
+/// With [createSessionPerTest] disabled, only the migrated template and space
 /// identity are shared. Each Given/when group must open its own database with
 /// [createAdditionalTestSession] in `setUpAll`; its cleanup then belongs to that
 /// group. This lets several read-only assertions reuse one arranged scenario.
@@ -81,12 +81,12 @@ void initTestClientSession({
       _testCrdtUserId = const Uuid().v7obj();
       path = await _nextDatabasePath();
       _testSession = await _openDatabase(path);
-      _crdtSession = CrdtDatabaseSession.wraps(
+      _offlineSyncSession = OfflineSyncDatabaseSession.wraps(
         _testSession,
         syncTables: testSyncTables,
         persistentUserId: withPersistentUser ? _testCrdtUserId : null,
       );
-      await _crdtSession.db.initialize();
+      await _offlineSyncSession.db.initialize();
     });
 
     // Registered here rather than with `addTearDown` in `setUp`, because

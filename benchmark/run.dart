@@ -3,7 +3,7 @@ import 'utils/conversion.dart';
 import 'utils/merge.dart';
 import 'utils/results.dart';
 import 'utils/runner.dart';
-import 'utils/scope.dart';
+import 'utils/space.dart';
 
 Future<void> main(List<String> args) async {
   final runningInCI = args.contains('--ci');
@@ -56,13 +56,13 @@ Future<void> main(List<String> args) async {
       BenchmarkResults(
         operation: operation,
         baseline: baselineResult,
-        crdt: crdtResult,
+        offlineSync: crdtResult,
       ),
     );
   }
 
   final spuriousBenchmarks = benchmarkResults.where(
-    (result) => result.baseline > result.crdt,
+    (result) => result.baseline > result.offlineSync,
   );
 
   if (spuriousBenchmarks.isNotEmpty) {
@@ -77,7 +77,7 @@ Future<void> main(List<String> args) async {
 
     for (final result in spuriousBenchmarks) {
       final baselineDelay = result.baseline.toFormattedDuration();
-      final crdtDelay = result.crdt.toFormattedDuration();
+      final crdtDelay = result.offlineSync.toFormattedDuration();
       print(
         '  - ${result.operation.label.toUpperCase()}: $baselineDelay > $crdtDelay',
       );
@@ -95,29 +95,29 @@ Future<void> main(List<String> args) async {
   // Production-shaped CRDT metadata: many users and a crdt_data_rows table
   // much larger than the queried rows, exercising the scoped and unscoped
   // tombstone predicates.
-  const scopeNoiseUsers = 100;
-  final scopeNoiseCrdtRows = rowCount * 100;
-  final scopeMeasurements = <ScopeMode, ScopeMeasurement>{};
-  for (final scopeMode in ScopeMode.values) {
-    scopeMeasurements[scopeMode] = await runWithProgress(
-      'Running select scope benchmark (${scopeMode.name})',
-      () => TombstoneScopeBenchmark(
-        'select scope (${scopeMode.name})',
-        mode: scopeMode,
+  const spaceNoiseUsers = 100;
+  final spaceNoiseCrdtRows = rowCount * 100;
+  final spaceMeasurements = <SpaceMode, SpaceMeasurement>{};
+  for (final spaceMode in SpaceMode.values) {
+    spaceMeasurements[spaceMode] = await runWithProgress(
+      'Running select space benchmark (${spaceMode.name})',
+      () => TombstoneSpaceBenchmark(
+        'select space (${spaceMode.name})',
+        mode: spaceMode,
         rowCount: rowCount,
-        noiseUsers: scopeNoiseUsers,
-        noiseCrdtRows: scopeNoiseCrdtRows,
+        noiseUsers: spaceNoiseUsers,
+        noiseCrdtRows: spaceNoiseCrdtRows,
       ).measure(),
       skipProgress: runningInCI,
     );
   }
-  printScopeImpact(
-    ScopeBenchmarkResults(
-      baseline: scopeMeasurements[ScopeMode.baseline]!,
-      scoped: scopeMeasurements[ScopeMode.scoped]!,
-      unscoped: scopeMeasurements[ScopeMode.unscoped]!,
-      noiseUsers: scopeNoiseUsers,
-      noiseCrdtRows: scopeNoiseCrdtRows,
+  printSpaceImpact(
+    SpaceBenchmarkResults(
+      baseline: spaceMeasurements[SpaceMode.baseline]!,
+      spaceScoped: spaceMeasurements[SpaceMode.spaceScoped]!,
+      unscoped: spaceMeasurements[SpaceMode.unscoped]!,
+      noiseUsers: spaceNoiseUsers,
+      noiseCrdtRows: spaceNoiseCrdtRows,
     ),
     rowCount: rowCount,
     runningInCI: runningInCI,
@@ -144,7 +144,7 @@ Future<void> main(List<String> args) async {
   printStorageImpact(
     StorageBenchmarkResults(
       baseline: baselineStorageResult,
-      crdt: crdtStorageResult,
+      offlineSync: crdtStorageResult,
     ),
     rowCount: rowCount,
     runningInCI: runningInCI,

@@ -29,8 +29,8 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     this.id,
     required super.hlcDatetime,
     required super.hlcCounter,
-    required this.scopeId,
-    this.scope,
+    required this.spaceId,
+    this.space,
     required this.tblId,
     this.tbl,
     required this.uuidRowId,
@@ -45,8 +45,8 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required int scopeId,
-    _icw2tu00.CrdtScope? scope,
+    required int spaceId,
+    _icw2tu00.OfflineSyncSpace? space,
     required int tblId,
     _icw2tu00.CrdtSchemaTable? tbl,
     required _iss.UuidValue uuidRowId,
@@ -64,11 +64,11 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
-      scopeId: jsonSerialization['scopeId'] as int,
-      scope: jsonSerialization['scope'] == null
+      spaceId: jsonSerialization['spaceId'] as int,
+      space: jsonSerialization['space'] == null
           ? null
-          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtScope>(
-              jsonSerialization['scope'],
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.OfflineSyncSpace>(
+              jsonSerialization['space'],
             ),
       tblId: jsonSerialization['tblId'] as int,
       tbl: jsonSerialization['tbl'] == null
@@ -110,10 +110,10 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
   @override
   int? id;
 
-  int scopeId;
+  int spaceId;
 
-  /// Identifier for the scope that owns the data.
-  _icw2tu00.CrdtScope? scope;
+  /// Identifier for the space that owns the data.
+  _icw2tu00.OfflineSyncSpace? space;
 
   int tblId;
 
@@ -154,8 +154,8 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
-    int? scopeId,
-    _icw2tu00.CrdtScope? scope,
+    int? spaceId,
+    _icw2tu00.OfflineSyncSpace? space,
     int? tblId,
     _icw2tu00.CrdtSchemaTable? tbl,
     _iss.UuidValue? uuidRowId,
@@ -172,8 +172,8 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
-      'scopeId': scopeId,
-      if (scope != null) 'scope': scope?.toJson(),
+      'spaceId': spaceId,
+      if (space != null) 'space': space?.toJson(),
       'tblId': tblId,
       if (tbl != null) 'tbl': tbl?.toJson(),
       'uuidRowId': uuidRowId.toJson(),
@@ -193,8 +193,8 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
-      'scopeId': scopeId,
-      if (scope != null) 'scope': scope?.toJsonForProtocol(),
+      'spaceId': spaceId,
+      if (space != null) 'space': space?.toJsonForProtocol(),
       'tblId': tblId,
       if (tbl != null) 'tbl': tbl?.toJsonForProtocol(),
       'uuidRowId': uuidRowId.toJson(),
@@ -208,14 +208,14 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
   }
 
   static CrdtDataRowInclude include({
-    _icw2tu00.CrdtScopeInclude? scope,
+    _icw2tu00.OfflineSyncSpaceInclude? space,
     _icw2tu00.CrdtSchemaTableInclude? tbl,
     _icw2tu00.CrdtNodeInclude? node,
     _icw2tu00.CrdtDataDeletedInclude? deleted,
     _icw2tu00.CrdtDataFieldIncludeList? fields,
   }) {
     return CrdtDataRowInclude._(
-      scope: scope,
+      space: space,
       tbl: tbl,
       node: node,
       deleted: deleted,
@@ -254,8 +254,8 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required int scopeId,
-    _icw2tu00.CrdtScope? scope,
+    required int spaceId,
+    _icw2tu00.OfflineSyncSpace? space,
     required int tblId,
     _icw2tu00.CrdtSchemaTable? tbl,
     required _iss.UuidValue uuidRowId,
@@ -268,8 +268,8 @@ class _CrdtDataRowImpl extends CrdtDataRow {
          id: id,
          hlcDatetime: hlcDatetime,
          hlcCounter: hlcCounter,
-         scopeId: scopeId,
-         scope: scope,
+         spaceId: spaceId,
+         space: space,
          tblId: tblId,
          tbl: tbl,
          uuidRowId: uuidRowId,
@@ -288,8 +288,8 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     Object? id = _Undefined,
     DateTime? hlcDatetime,
     int? hlcCounter,
-    int? scopeId,
-    Object? scope = _Undefined,
+    int? spaceId,
+    Object? space = _Undefined,
     int? tblId,
     Object? tbl = _Undefined,
     _iss.UuidValue? uuidRowId,
@@ -303,8 +303,10 @@ class _CrdtDataRowImpl extends CrdtDataRow {
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
-      scopeId: scopeId ?? this.scopeId,
-      scope: scope is _icw2tu00.CrdtScope? ? scope : this.scope?.copyWith(),
+      spaceId: spaceId ?? this.spaceId,
+      space: space is _icw2tu00.OfflineSyncSpace?
+          ? space
+          : this.space?.copyWith(),
       tblId: tblId ?? this.tblId,
       tbl: tbl is _icw2tu00.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
       uuidRowId: uuidRowId ?? this.uuidRowId,
@@ -335,8 +337,8 @@ class CrdtDataRowUpdateTable extends _isd.UpdateTable<CrdtDataRowTable> {
     value,
   );
 
-  _isd.ColumnValue<int, int> scopeId(int value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -378,8 +380,8 @@ class CrdtDataRowTable extends _isd.Table<int?> {
       'hlcCounter',
       this,
     );
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     tblId = _isd.ColumnInt(
@@ -410,10 +412,10 @@ class CrdtDataRowTable extends _isd.Table<int?> {
   /// The counter component of the HLC timestamp.
   late final _isd.ColumnInt hlcCounter;
 
-  late final _isd.ColumnInt scopeId;
+  late final _isd.ColumnInt spaceId;
 
-  /// Identifier for the scope that owns the data.
-  _icw2tu00.CrdtScopeTable? _scope;
+  /// Identifier for the space that owns the data.
+  _icw2tu00.OfflineSyncSpaceTable? _space;
 
   late final _isd.ColumnInt tblId;
 
@@ -446,17 +448,17 @@ class CrdtDataRowTable extends _isd.Table<int?> {
   /// The fields for this row.
   _isd.ManyRelation<_icw2tu00.CrdtDataFieldTable>? _fields;
 
-  _icw2tu00.CrdtScopeTable get scope {
-    if (_scope != null) return _scope!;
-    _scope = _isd.createRelationTable(
-      relationFieldName: 'scope',
-      field: CrdtDataRow.t.scopeId,
-      foreignField: _icw2tu00.CrdtScope.t.id,
+  _icw2tu00.OfflineSyncSpaceTable get space {
+    if (_space != null) return _space!;
+    _space = _isd.createRelationTable(
+      relationFieldName: 'space',
+      field: CrdtDataRow.t.spaceId,
+      foreignField: _icw2tu00.OfflineSyncSpace.t.id,
       tableRelation: tableRelation,
       createTable: (foreignTableRelation) =>
-          _icw2tu00.CrdtScopeTable(tableRelation: foreignTableRelation),
+          _icw2tu00.OfflineSyncSpaceTable(tableRelation: foreignTableRelation),
     );
-    return _scope!;
+    return _space!;
   }
 
   _icw2tu00.CrdtSchemaTableTable get tbl {
@@ -535,7 +537,7 @@ class CrdtDataRowTable extends _isd.Table<int?> {
     id,
     hlcDatetime,
     hlcCounter,
-    scopeId,
+    spaceId,
     tblId,
     uuidRowId,
     nodeId,
@@ -544,8 +546,8 @@ class CrdtDataRowTable extends _isd.Table<int?> {
 
   @override
   _isd.Table? getRelationTable(String relationField) {
-    if (relationField == 'scope') {
-      return scope;
+    if (relationField == 'space') {
+      return space;
     }
     if (relationField == 'tbl') {
       return tbl;
@@ -565,20 +567,20 @@ class CrdtDataRowTable extends _isd.Table<int?> {
 
 class CrdtDataRowInclude extends _isd.IncludeObject {
   CrdtDataRowInclude._({
-    _icw2tu00.CrdtScopeInclude? scope,
+    _icw2tu00.OfflineSyncSpaceInclude? space,
     _icw2tu00.CrdtSchemaTableInclude? tbl,
     _icw2tu00.CrdtNodeInclude? node,
     _icw2tu00.CrdtDataDeletedInclude? deleted,
     _icw2tu00.CrdtDataFieldIncludeList? fields,
   }) {
-    _scope = scope;
+    _space = space;
     _tbl = tbl;
     _node = node;
     _deleted = deleted;
     _fields = fields;
   }
 
-  _icw2tu00.CrdtScopeInclude? _scope;
+  _icw2tu00.OfflineSyncSpaceInclude? _space;
 
   _icw2tu00.CrdtSchemaTableInclude? _tbl;
 
@@ -590,7 +592,7 @@ class CrdtDataRowInclude extends _isd.IncludeObject {
 
   @override
   Map<String, _isd.Include?> get includes => {
-    'scope': _scope,
+    'space': _space,
     'tbl': _tbl,
     'node': _node,
     'deleted': _deleted,
@@ -1057,25 +1059,25 @@ class CrdtDataRowAttachRepository {
 class CrdtDataRowAttachRowRepository {
   const CrdtDataRowAttachRowRepository._();
 
-  /// Creates a relation between the given [CrdtDataRow] and [CrdtScope]
-  /// by setting the [CrdtDataRow]'s foreign key `scopeId` to refer to the [CrdtScope].
-  Future<void> scope(
+  /// Creates a relation between the given [CrdtDataRow] and [OfflineSyncSpace]
+  /// by setting the [CrdtDataRow]'s foreign key `spaceId` to refer to the [OfflineSyncSpace].
+  Future<void> space(
     _isd.DatabaseSession session,
     CrdtDataRow crdtDataRow,
-    _icw2tu00.CrdtScope scope, {
+    _icw2tu00.OfflineSyncSpace space, {
     _isd.Transaction? transaction,
   }) async {
     if (crdtDataRow.id == null) {
       throw ArgumentError.notNull('crdtDataRow.id');
     }
-    if (scope.id == null) {
-      throw ArgumentError.notNull('scope.id');
+    if (space.id == null) {
+      throw ArgumentError.notNull('space.id');
     }
 
-    var $crdtDataRow = crdtDataRow.copyWith(scopeId: scope.id);
+    var $crdtDataRow = crdtDataRow.copyWith(spaceId: space.id);
     await session.db.updateRow<CrdtDataRow>(
       $crdtDataRow,
-      columns: [CrdtDataRow.t.scopeId],
+      columns: [CrdtDataRow.t.spaceId],
       transaction: transaction,
     );
   }

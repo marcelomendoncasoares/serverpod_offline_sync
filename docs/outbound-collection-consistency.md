@@ -4,7 +4,7 @@
 
 Outbound change collection reads CRDT metadata and the domain data it describes
 in **separate, non-atomic queries**. Under concurrent domain writes — real on
-the server, where co-members of a shared scope write while a sync runs — this
+the server, where co-members of a shared space write while a sync runs — this
 race can make an otherwise-healthy stream sync **fail and record a durable
 integrity violation** for a condition that the very next round would resolve on
 its own. Failing the session for a transient, self-correcting race is the design
@@ -12,12 +12,12 @@ weakness to fix; no data is ever applied incorrectly, so this is a
 robustness/liveness problem, not a corruption one.
 
 This is **not yet implemented** — it is tracked design debt. The single-pass
-multi-scope collection (`collectPendingChanges`) did not introduce the race
+multi-space collection (`collectPendingChanges`) did not introduce the race
 but widened its window, which is what surfaced it.
 
 ## The mechanism
 
-Collection is *snapshot-then-fetch*, and lock-free by design (the per-scope
+Collection is *snapshot-then-fetch*, and lock-free by design (the per-space
 `transactionForUser` lock guards the inbound merge, not outbound collection):
 
 1. `_streamInserts` / `_streamUpdates` / `_streamDeletes` read the CRDT metadata
@@ -62,7 +62,7 @@ up the tombstone, the late insert, or the higher HLC, and replicas converge.
 Tearing down the stream — and persisting an integrity-violation record that reads
 like corruption — for a race that resolves itself next round converts an
 ordering skew into an outage plus a misleading audit trail. A durable
-`crdt_sync_integrity_violations` entry should mean a *genuine* invariant breach
+`offline_sync_integrity_violations` entry should mean a *genuine* invariant breach
 (an ownership collision, real corruption), not "two reads happened to straddle a
 concurrent commit."
 
@@ -71,9 +71,9 @@ concurrent commit."
 - **Read a consistent snapshot (primary).** Run the whole collection — the three
   metadata queries *and* the domain reads — inside one read-only,
   snapshot-consistent transaction (repeatable-read). On Postgres this is MVCC:
-  **a read snapshot, not a write lock**, so it adds no cross-scope write
+  **a read snapshot, not a write lock**, so it adds no cross-space write
   contention (and is therefore the right answer to "do we have to lock all
-  scopes?" — no, we take a snapshot, not a lock). A single snapshot closes the
+  spaces?" — no, we take a snapshot, not a lock). A single snapshot closes the
   race outright:
   - The delete in (1) is invisible if it commits after the snapshot, and fully
     visible (metadata + domain) if before — never half-seen.
@@ -98,7 +98,7 @@ concurrent commit."
 
 Correctness is preserved today (convergence + fail-safe: no wrong data is ever
 applied), so this does not block current use. But because it can fail a healthy
-long-lived continuous sync under concurrent shared-scope writes — the exact
-workload shared scopes enable — it should be addressed before such deployments
+long-lived continuous sync under concurrent shared-space writes — the exact
+workload shared spaces enable — it should be addressed before such deployments
 are relied upon. The consistent-snapshot approach is the smallest change that
 removes all three failure modes at once.

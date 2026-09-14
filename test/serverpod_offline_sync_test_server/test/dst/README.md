@@ -54,20 +54,20 @@ the failure and replay it.
 
 | Property | When it is checked |
 | --- | --- |
-| **Observer independence** - a scope looks identical to every replica holding it, whatever *other* scopes that replica holds | At quiescence |
-| **No cross-scope link** - no visible foreign key resolves to a row owned by another scope | After every local commit and merge |
-| **Foreign-key closure** - every visible foreign key resolves to a visible parent in the same scope | After every local commit and merge |
+| **Observer independence** - a space looks identical to every replica holding it, whatever *other* spaces that replica holds | At quiescence |
+| **No cross-space link** - no visible foreign key resolves to a row owned by another space | After every local commit and merge |
+| **Foreign-key closure** - every visible foreign key resolves to a visible parent in the same space | After every local commit and merge |
 | **Unique closure** - no visible unique index is violated | After every local commit and merge |
 | **Projection purity** - FK fields and recorded overrides satisfy the oracle's repair rules, including permitted terminal unique releases | After every local commit and merge |
-| **Ownership collision is terminal** - a merge claiming another scope's row id fails, records a durable violation, and leaves the owner untouched | `dst_ownership_collision_test.dart` |
+| **Ownership collision is terminal** - a merge claiming another space's row id fails, records a durable violation, and leaves the owner untouched | `dst_ownership_collision_test.dart` |
 
 Observer independence is the keystone. A synced row may only reference synced
-rows of its own scope (`docs/row-ownership.md`), so a merged cross-scope
+rows of its own space (`docs/row-ownership.md`), so a merged cross-space
 reference must be repaired or the child hidden. If that repair depended on
-which scopes the merging replica happens to hold, visibility would become a
+which spaces the merging replica happens to hold, visibility would become a
 function of the observer's subscription set and the merge would no longer be a
-deterministic function of the facts. `DstTopology.overlappingScopes` exists to
-make that falsifiable: two replicas hold one scope each, a third holds both.
+deterministic function of the facts. `DstTopology.overlappingSpaces` exists to
+make that falsifiable: two replicas hold one space each, a third holds both.
 
 ## What is injected
 
@@ -78,13 +78,13 @@ Determinism requires every source of variation to come from the seed.
   stay well under `Hlc`'s one-minute drift limit, so a run exercises clock
   disagreement without tripping `ClockDriftException`.
 - **Identifiers** - `DstIds` mints UUIDv7-shaped values from the seed.
-- **Node identity** - pinned per replica. `CrdtScopeManager` otherwise mints
+- **Node identity** - pinned per replica. `OfflineSyncSpaceManager` otherwise mints
   `CrdtNode()` with a wall-clock UUID, and `Hlc.compareTo` breaks ties on the
   node UUID, so an unpinned node id makes concurrent merge winners
   nondeterministic.
 
 Node identity is currently pinned by pre-creating the `CrdtNode` row and
-attaching it to every scope, which relies on how `CrdtScopeManager` resolves
+attaching it to every space, which relies on how `OfflineSyncSpaceManager` resolves
 the current node. `DstReplica._assertSeededNodeIdentity` fails loudly if that
 stops working, because the alternative is a silent loss of replayability. An
 injectable node id on the engine would remove the need for the trick.
@@ -106,7 +106,7 @@ that input arrives as a causally complete snapshot of the sender
   records it as delivered, and the fact is lost - surfacing as a bogus
   convergence failure. Chunking in the real protocol sits *below* the merge
   (`chunked()` emits frames that `collectNextBatch` reassembles until
-  `CrdtSyncEndOfBatch`), so the whole cycle is the causal unit and splitting here
+  `OfflineSyncEndOfBatch`), so the whole cycle is the causal unit and splitting here
   models nothing real.
 
 Delay, reorder, and redelivery are the honest moves - and redelivery is how
@@ -132,14 +132,14 @@ the generated schema; every domain FK of a simulated model is included.
 The operation generator selects columns from that same schema. Nullable FKs
 can be detached explicitly even when a parent is available. New required FK
 values are only generated when a visible parent exists. The well-known default
-town is inserted in one scope because row IDs are globally unique.
+town is inserted in one space because row IDs are globally unique.
 
 Projection purity checks every FK field, including fields without a sparse
 attempted-value record. A hidden child can retain its authored reference to a
-physically present parent in the same scope when its action has no legal repair;
+physically present parent in the same space when its action has no legal repair;
 it does not block that parent's deletion. Hidden values are recomputed, so an
 earlier projected fallback is not frozen in place. Visible non-null references
-must still resolve to visible parents in the same scope. FK repair reasons must
+must still resolve to visible parents in the same space. FK repair reasons must
 match the action and nullability; FK columns in unique indexes may instead carry
 a terminal unique-conflict or hidden-row release reason.
 
@@ -150,8 +150,8 @@ exact expected outcomes provide additional checks; a finite seed sweep is not
 a proof for every possible merged history.
 
 The unique simulation authors and captures text, non-FK UUID, nullable integer,
-composite, fixed-discriminator, overlapping, FK-only composite, and scoped mixed
-FK/text claims. The unique oracle reads all declared tuple components and scope.
+composite, fixed-discriminator, overlapping, FK-only composite, and space-scoped mixed
+FK/text claims. The unique oracle reads all declared tuple components and space.
 A null component releases the tuple, as in SQL.
 
 The operation generator can insert, update, delete, restore a retained identity,

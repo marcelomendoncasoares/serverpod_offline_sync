@@ -225,7 +225,7 @@ class _RowDetailSheetState extends State<_RowDetailSheet> {
           Text(detail.slot.label).small().muted(),
           const Gap(12),
           _kv(context, 'Row UUID', detail.uuid),
-          _kv(context, 'Scope id', detail.scopeId ?? '—'),
+          _kv(context, 'Space id', detail.spaceId ?? '—'),
           _kv(
             context,
             'Visibility',

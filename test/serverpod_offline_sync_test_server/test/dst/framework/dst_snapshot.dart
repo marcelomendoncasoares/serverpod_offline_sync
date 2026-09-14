@@ -13,7 +13,7 @@ import 'dst_world.dart';
 /// there" is a different defect from "missing here", and a diff that cannot
 /// tell them apart is much harder to act on.
 typedef DstRow = ({
-  UuidValue scopeUuid,
+  UuidValue spaceUuid,
   Map<String, Object?> columns,
   bool visible,
 });
@@ -41,8 +41,8 @@ typedef DstProjection = ({
 /// One replica's whole visible database, plus what it is hiding.
 ///
 /// Rows are keyed by `(table, rowId)` - the global identity the engine
-/// guarantees - and carry their owning scope as a UUID rather than the local
-/// normalized integer, which differs between replicas for the same scope.
+/// guarantees - and carry their owning space as a UUID rather than the local
+/// normalized integer, which differs between replicas for the same space.
 class DstSnapshot {
   /// Creates a snapshot. Prefer [capture].
   DstSnapshot({
@@ -53,15 +53,15 @@ class DstSnapshot {
 
   /// Captures [replica]'s current state through the ordinary read path.
   ///
-  /// Reads are unscoped, which is the package's admin read: no scope isolation
-  /// filter, and a row is visible while its owning scope sees it. That is the
+  /// Reads are unscoped, which is the package's admin read: no space isolation
+  /// filter, and a row is visible while its owning space sees it. That is the
   /// view the properties need, because the question is what each replica
-  /// believes about every scope it holds.
+  /// believes about every space it holds.
   static Future<DstSnapshot> capture(DstReplica replica) async {
     final session = replica.session;
-    final scopes = await CrdtScope.db.find(session);
-    final scopeUuidById = {
-      for (final scope in scopes) scope.id!: scope.uuidScopeId,
+    final spaces = await OfflineSyncSpace.db.find(session);
+    final spaceUuidById = {
+      for (final space in spaces) space.id!: space.uuidSpaceId,
     };
 
     final rows = <String, Map<UuidValue, DstRow>>{};
@@ -74,7 +74,7 @@ class DstSnapshot {
       rows[table.tableName] = {
         for (final row in allRows)
           row.id!: (
-            scopeUuid: scopeUuidById[_scopeIdOf(row)]!,
+            spaceUuid: spaceUuidById[_spaceIdOf(row)]!,
             columns: _comparableColumns(row),
             visible: visibleIds.contains(row.id),
           ),
@@ -105,7 +105,7 @@ class DstSnapshot {
   final Map<String, int> causalLengths;
 
   static Future<Map<String, int>> _captureCausalLengths(
-    CrdtDatabaseSession session,
+    OfflineSyncDatabaseSession session,
   ) async {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
@@ -122,7 +122,7 @@ class DstSnapshot {
   }
 
   static Future<Map<DstFieldKey, DstProjection>> _captureProjections(
-    CrdtDatabaseSession session,
+    OfflineSyncDatabaseSession session,
   ) async {
     final records = await CrdtDataAttemptedValue.db.find(
       session,
@@ -157,27 +157,27 @@ class DstSnapshot {
       },
   };
 
-  /// This snapshot restricted to the rows owned by [scopeUuid].
+  /// This snapshot restricted to the rows owned by [spaceUuid].
   ///
   /// This is the unit the observer-independence property compares: two replicas
-  /// holding different sets of scopes must still agree exactly here.
-  Map<String, Map<UuidValue, DstRow>> forScope(UuidValue scopeUuid) {
+  /// holding different sets of spaces must still agree exactly here.
+  Map<String, Map<UuidValue, DstRow>> forSpace(UuidValue spaceUuid) {
     return {
       for (final entry in rows.entries)
         entry.key: {
           for (final row in entry.value.entries)
-            if (row.value.scopeUuid == scopeUuid) row.key: row.value,
+            if (row.value.spaceUuid == spaceUuid) row.key: row.value,
         },
     };
   }
 
-  /// A stable, human-readable rendering of [forScope], for equality and diffs.
+  /// A stable, human-readable rendering of [forSpace], for equality and diffs.
   ///
   /// Hidden rows are rendered too, marked `HIDDEN`, so a diff distinguishes a
   /// row that merged but is hidden from one that never arrived.
-  String renderScope(UuidValue scopeUuid) {
+  String renderSpace(UuidValue spaceUuid) {
     final buffer = StringBuffer();
-    final byTable = forScope(scopeUuid);
+    final byTable = forSpace(spaceUuid);
     for (final tableName in byTable.keys.toList()..sort()) {
       final tableRows = byTable[tableName]!;
       for (final rowId
@@ -194,10 +194,10 @@ class DstSnapshot {
     return buffer.toString();
   }
 
-  /// How many rows are visible, across every table and scope.
+  /// How many rows are visible, across every table and space.
   int get visibleRowCount => _countRows(visible: true);
 
-  /// How many rows are present but hidden, across every table and scope.
+  /// How many rows are present but hidden, across every table and space.
   int get hiddenRowCount => _countRows(visible: false);
 
   int _countRows({required bool visible}) => rows.values.fold(
@@ -206,7 +206,7 @@ class DstSnapshot {
         sum + tableRows.values.where((row) => row.visible == visible).length,
   );
 
-  /// Looks up a visible row in any scope.
+  /// Looks up a visible row in any space.
   DstRow? lookupVisible(DstTable table, UuidValue rowId) {
     final row = rows[table.tableName]?[rowId];
     return row != null && row.visible ? row : null;
@@ -214,30 +214,30 @@ class DstSnapshot {
 
   /// Columns compared across replicas.
   ///
-  /// `scopeId` is dropped because it is a replica-local normalized integer; the
-  /// owning scope travels as a UUID on [DstRow] instead. Relation objects are
+  /// `spaceId` is dropped because it is a replica-local normalized integer; the
+  /// owning space travels as a UUID on [DstRow] instead. Relation objects are
   /// dropped because they are never populated without an explicit `include`.
   static Map<String, Object?> _comparableColumns(TableRow<UuidValue?> row) {
     final json = row.toJson() as Map<String, dynamic>;
     return {
       for (final entry in json.entries)
-        if (entry.key != 'scopeId' && entry.value is! Map) entry.key: entry.value,
+        if (entry.key != 'spaceId' && entry.value is! Map) entry.key: entry.value,
     };
   }
 
-  static int _scopeIdOf(TableRow<UuidValue?> row) {
+  static int _spaceIdOf(TableRow<UuidValue?> row) {
     final json = row.toJson() as Map<String, dynamic>;
-    final scopeId = json['scopeId'] as int?;
-    if (scopeId != null) return scopeId;
+    final spaceId = json['spaceId'] as int?;
+    if (spaceId != null) return spaceId;
     throw StateError(
-      'Row ${row.table.tableName}/${row.id} has a null scopeId. Rows created '
-      'behind the sync layer are invisible to scoped reads and cannot be '
+      'Row ${row.table.tableName}/${row.id} has a null spaceId. Rows created '
+      'behind the sync layer are invisible to space-scoped reads and cannot be '
       'compared across replicas.',
     );
   }
 
   static Future<List<TableRow<UuidValue?>>> _find(
-    CrdtDatabaseSession session,
+    OfflineSyncDatabaseSession session,
     DstTable table, {
     required bool includeHidden,
   }) async {
@@ -315,18 +315,18 @@ UuidValue? _reference(Object? value) {
 /// The properties every simulation state must satisfy.
 ///
 /// Structural invariants ([foreignKeyClosure], [uniqueClosure],
-/// [noCrossScopeLink]) hold after *every* merge. Agreement properties
+/// [noCrossSpaceLink]) hold after *every* merge. Agreement properties
 /// ([observerIndependence]) hold once the adversary has quiesced, since before
 /// that replicas legitimately hold different facts.
 class DstOracle {
-  /// No visible row links to a row owned by a different scope.
+  /// No visible row links to a row owned by a different space.
   ///
-  /// This is the invariant the cross-scope design rests on: a foreign key may
-  /// only target a row of its own scope, so a merged reference into another
-  /// scope must be repaired (set null / set default) or the child hidden -
+  /// This is the invariant the cross-space design rests on: a foreign key may
+  /// only target a row of its own space, so a merged reference into another
+  /// space must be repaired (set null / set default) or the child hidden -
   /// never linked. See `docs/row-ownership.md` "Foreign keys stay within a
-  /// scope".
-  static List<DstViolation> noCrossScopeLink(DstSnapshot snapshot) {
+  /// space".
+  static List<DstViolation> noCrossSpaceLink(DstSnapshot snapshot) {
     final violations = <DstViolation>[];
     for (final edge in dstForeignKeys) {
       final children = snapshot.visible[edge.child.tableName] ?? const {};
@@ -335,20 +335,20 @@ class DstOracle {
         if (parentId == null) continue;
         final parent = snapshot.lookupVisible(edge.parent, parentId);
         if (parent == null) continue;
-        if (parent.scopeUuid == entry.value.scopeUuid) continue;
+        if (parent.spaceUuid == entry.value.spaceUuid) continue;
         violations.add((
-          property: 'noCrossScopeLink',
+          property: 'noCrossSpaceLink',
           detail:
-              '${edge.child.tableName}/${entry.key} in scope '
-              '${entry.value.scopeUuid} links ${edge.column}=$parentId owned by '
-              'scope ${parent.scopeUuid}',
+              '${edge.child.tableName}/${entry.key} in space '
+              '${entry.value.spaceUuid} links ${edge.column}=$parentId owned by '
+              'space ${parent.spaceUuid}',
         ));
       }
     }
     return violations;
   }
 
-  /// Every visible foreign key resolves to a visible parent in the same scope.
+  /// Every visible foreign key resolves to a visible parent in the same space.
   static List<DstViolation> foreignKeyClosure(DstSnapshot snapshot) {
     final violations = <DstViolation>[];
     for (final edge in dstForeignKeys) {
@@ -357,7 +357,7 @@ class DstOracle {
         final parentId = _foreignKeyValue(entry.value.columns, edge.column);
         if (parentId == null) continue;
         final parent = snapshot.lookupVisible(edge.parent, parentId);
-        if (parent != null && parent.scopeUuid == entry.value.scopeUuid) {
+        if (parent != null && parent.spaceUuid == entry.value.spaceUuid) {
           continue;
         }
         violations.add((
@@ -365,7 +365,7 @@ class DstOracle {
           detail:
               'visible ${edge.child.tableName}/${entry.key} references '
               '${edge.parent.tableName}/$parentId which is '
-              '${parent == null ? 'missing' : 'owned by another scope'} '
+              '${parent == null ? 'missing' : 'owned by another space'} '
               '(${edge.action} edge)',
         ));
       }
@@ -374,7 +374,7 @@ class DstOracle {
   }
 
   /// No visible unique tuple is claimed twice. NULL in any component releases
-  /// a SQL unique tuple; scope uses its portable UUID instead of local scopeId.
+  /// a SQL unique tuple; space uses its portable UUID instead of local spaceId.
   static List<DstViolation> uniqueClosure(DstSnapshot snapshot) {
     final violations = <DstViolation>[];
     for (final index in dstUniqueIndexes) {
@@ -383,8 +383,8 @@ class DstOracle {
           in (snapshot.visible[index.table.tableName] ?? const {}).entries) {
         final values = [
           for (final column in index.columns)
-            column == 'scopeId'
-                ? entry.value.scopeUuid.toJson()
+            column == 'spaceId'
+                ? entry.value.spaceUuid.toJson()
                 : entry.value.columns[column],
         ];
         if (values.any((value) => value == null)) continue;
@@ -404,35 +404,35 @@ class DstOracle {
     return violations;
   }
 
-  /// Replicas holding a scope agree about it, whatever else they hold.
+  /// Replicas holding a space agree about it, whatever else they hold.
   ///
-  /// This is the keystone of the cross-scope design. If a replica subscribed to
+  /// This is the keystone of the cross-space design. If a replica subscribed to
   /// `{A, B}` derives a different visible state for `A` than a replica
   /// subscribed to `{A}`, then visibility became a function of the observer's
   /// subscription set and the merge is no longer a deterministic function of
   /// the facts.
   static List<DstViolation> observerIndependence(
     Map<DstReplica, DstSnapshot> snapshots,
-    UuidValue scopeUuid,
+    UuidValue spaceUuid,
   ) {
     final holders = [
       for (final entry in snapshots.entries)
-        if (entry.key.scopeUuids.contains(scopeUuid)) entry,
+        if (entry.key.spaceUuids.contains(spaceUuid)) entry,
     ];
     if (holders.length < 2) return const [];
 
     final reference = holders.first;
-    final expected = reference.value.renderScope(scopeUuid);
+    final expected = reference.value.renderSpace(spaceUuid);
     final violations = <DstViolation>[];
     for (final holder in holders.skip(1)) {
-      final actual = holder.value.renderScope(scopeUuid);
+      final actual = holder.value.renderSpace(spaceUuid);
       if (actual == expected) continue;
       violations.add((
         property: 'observerIndependence',
         detail:
-            'scope $scopeUuid differs between ${reference.key} (scopes '
-            '${reference.key.scopeUuids.length}) and ${holder.key} (scopes '
-            '${holder.key.scopeUuids.length})\n'
+            'space $spaceUuid differs between ${reference.key} (spaces '
+            '${reference.key.spaceUuids.length}) and ${holder.key} (spaces '
+            '${holder.key.spaceUuids.length})\n'
             '--- ${reference.key} ---\n$expected'
             '--- ${holder.key} ---\n$actual',
       ));
@@ -503,7 +503,7 @@ class DstOracle {
       // repair, retain the original physically valid reference as history.
       if (!child.visible &&
           target != null &&
-          target.scopeUuid == child.scopeUuid &&
+          target.spaceUuid == child.spaceUuid &&
           !_canRepair(snapshot, edge, child)) {
         return violations;
       }
@@ -565,7 +565,7 @@ class DstOracle {
         property: 'projectionPurity',
         detail:
             '$where keeps a ${reason.name} override while its target '
-            '$attempted is visible in the same scope',
+            '$attempted is visible in the same space',
       ));
     }
 
@@ -593,14 +593,14 @@ class DstOracle {
       };
 
   /// Whether [child] may reference [target]: present, visible, and in the same
-  /// scope, since a foreign key may never cross a scope boundary.
+  /// space, since a foreign key may never cross a space boundary.
   static bool _available(DstRow? target, DstRow child) =>
-      target != null && target.visible && target.scopeUuid == child.scopeUuid;
+      target != null && target.visible && target.spaceUuid == child.spaceUuid;
 
   /// Why [target] is not available, for a violation message.
   static String _targetState(DstRow? target) {
     if (target == null) return 'missing';
-    return target.visible ? 'owned by another scope' : 'hidden';
+    return target.visible ? 'owned by another space' : 'hidden';
   }
 
   /// Whether [reason] names a foreign-key repair rather than a unique release.
@@ -642,7 +642,7 @@ class DstOracle {
 
   /// The structural invariants that must hold after every merge.
   static List<DstViolation> invariants(DstSnapshot snapshot) => [
-    ...noCrossScopeLink(snapshot),
+    ...noCrossSpaceLink(snapshot),
     ...foreignKeyClosure(snapshot),
     ...uniqueClosure(snapshot),
     ...projectionPurity(snapshot),

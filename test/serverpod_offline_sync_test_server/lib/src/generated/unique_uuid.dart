@@ -16,13 +16,13 @@ abstract class UniqueUuid
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   UniqueUuid._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.value,
   });
 
   factory UniqueUuid({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required _is.UuidValue value,
   }) = _UniqueUuidImpl;
 
@@ -31,7 +31,7 @@ abstract class UniqueUuid
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       value: _is.UuidValueJsonExtension.fromJson(jsonSerialization['value']),
     );
   }
@@ -43,8 +43,8 @@ abstract class UniqueUuid
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   _is.UuidValue value;
 
@@ -56,7 +56,7 @@ abstract class UniqueUuid
   @_is.useResult
   UniqueUuid copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     _is.UuidValue? value,
   });
   @override
@@ -64,7 +64,7 @@ abstract class UniqueUuid
     return {
       '__className__': 'UniqueUuid',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'value': value.toJson(),
     };
   }
@@ -74,7 +74,7 @@ abstract class UniqueUuid
     return {
       '__className__': 'UniqueUuid',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'value': value.toJson(),
     };
   }
@@ -112,11 +112,11 @@ class _Undefined {}
 class _UniqueUuidImpl extends UniqueUuid {
   _UniqueUuidImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required _is.UuidValue value,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          value: value,
        );
 
@@ -126,12 +126,12 @@ class _UniqueUuidImpl extends UniqueUuid {
   @override
   UniqueUuid copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     _is.UuidValue? value,
   }) {
     return UniqueUuid(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       value: value ?? this.value,
     );
   }
@@ -140,8 +140,8 @@ class _UniqueUuidImpl extends UniqueUuid {
 class UniqueUuidUpdateTable extends _is.UpdateTable<UniqueUuidTable> {
   UniqueUuidUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -155,8 +155,8 @@ class UniqueUuidUpdateTable extends _is.UpdateTable<UniqueUuidTable> {
 class UniqueUuidTable extends _is.Table<_is.UuidValue?> {
   UniqueUuidTable({super.tableRelation}) : super(tableName: 'unique_uuid') {
     updateTable = UniqueUuidUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     value = _is.ColumnUuid(
@@ -167,15 +167,15 @@ class UniqueUuidTable extends _is.Table<_is.UuidValue?> {
 
   late final UniqueUuidUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnUuid value;
 
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     value,
   ];
 }

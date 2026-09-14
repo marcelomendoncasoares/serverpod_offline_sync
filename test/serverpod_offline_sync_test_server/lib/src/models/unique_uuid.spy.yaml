@@ -2,4 +2,4 @@ class: UniqueUuid
 table: unique_uuid
 database: sync
 fields:
-  value: UuidValue, unique(per=scopeId)
+  value: UuidValue, unique(per=spaceId)

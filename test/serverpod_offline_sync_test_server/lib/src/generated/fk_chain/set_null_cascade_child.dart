@@ -20,7 +20,7 @@ abstract class FkChainSetNullCascadeChild
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   FkChainSetNullCascadeChild._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.setNullMiddleId,
     this.setNullMiddle,
@@ -28,7 +28,7 @@ abstract class FkChainSetNullCascadeChild
 
   factory FkChainSetNullCascadeChild({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? setNullMiddleId,
     _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
@@ -41,7 +41,7 @@ abstract class FkChainSetNullCascadeChild
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       setNullMiddleId: jsonSerialization['setNullMiddleId'] == null
           ? null
@@ -63,8 +63,8 @@ abstract class FkChainSetNullCascadeChild
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -80,7 +80,7 @@ abstract class FkChainSetNullCascadeChild
   @_is.useResult
   FkChainSetNullCascadeChild copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? setNullMiddleId,
     _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
@@ -90,7 +90,7 @@ abstract class FkChainSetNullCascadeChild
     return {
       '__className__': 'FkChainSetNullCascadeChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (setNullMiddleId != null) 'setNullMiddleId': setNullMiddleId?.toJson(),
       if (setNullMiddle != null) 'setNullMiddle': setNullMiddle?.toJson(),
@@ -102,7 +102,7 @@ abstract class FkChainSetNullCascadeChild
     return {
       '__className__': 'FkChainSetNullCascadeChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (setNullMiddleId != null) 'setNullMiddleId': setNullMiddleId?.toJson(),
       if (setNullMiddle != null)
@@ -145,13 +145,13 @@ class _Undefined {}
 class _FkChainSetNullCascadeChildImpl extends FkChainSetNullCascadeChild {
   _FkChainSetNullCascadeChildImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? setNullMiddleId,
     _izcicqvj.FkChainSetNullMiddle? setNullMiddle,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          setNullMiddleId: setNullMiddleId,
          setNullMiddle: setNullMiddle,
@@ -163,14 +163,14 @@ class _FkChainSetNullCascadeChildImpl extends FkChainSetNullCascadeChild {
   @override
   FkChainSetNullCascadeChild copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? setNullMiddleId = _Undefined,
     Object? setNullMiddle = _Undefined,
   }) {
     return FkChainSetNullCascadeChild(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       setNullMiddleId: setNullMiddleId is _is.UuidValue?
           ? setNullMiddleId
@@ -186,8 +186,8 @@ class FkChainSetNullCascadeChildUpdateTable
     extends _is.UpdateTable<FkChainSetNullCascadeChildTable> {
   FkChainSetNullCascadeChildUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -208,8 +208,8 @@ class FkChainSetNullCascadeChildTable extends _is.Table<_is.UuidValue?> {
   FkChainSetNullCascadeChildTable({super.tableRelation})
     : super(tableName: 'fk_chain_set_null_cascade_child') {
     updateTable = FkChainSetNullCascadeChildUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -224,8 +224,8 @@ class FkChainSetNullCascadeChildTable extends _is.Table<_is.UuidValue?> {
 
   late final FkChainSetNullCascadeChildUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -251,7 +251,7 @@ class FkChainSetNullCascadeChildTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     setNullMiddleId,
   ];

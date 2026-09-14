@@ -1,5 +1,5 @@
 ### A CRDT sync event sent over a bidirectional stream.
 ###
 ### This is the base class of the CRDT sync protocol.
-class: CrdtSyncStreamEvent
+class: OfflineSyncStreamEvent
 sealed: true

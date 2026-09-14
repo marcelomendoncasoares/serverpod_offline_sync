@@ -2,5 +2,5 @@ class: UniqueCascadeChild
 table: unique_cascade_child
 database: sync
 fields:
-  name: String, unique(per=scopeId)
+  name: String, unique(per=spaceId)
   parent: Person?, relation(fk, optional, onDelete=Cascade, deferred)

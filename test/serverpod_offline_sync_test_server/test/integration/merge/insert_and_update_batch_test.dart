@@ -18,15 +18,15 @@ void main() {
 
   final syncTables = [City.t, Person.t, Town.t];
 
-  late CrdtSync crdtSync;
-  late CrdtDatabaseSession peerSession;
+  late OfflineSyncEngine offlineSync;
+  late OfflineSyncDatabaseSession peerSession;
 
   setUp(() async {
-    crdtSync = CrdtSync(
+    offlineSync = OfflineSyncEngine(
       syncTables: syncTables,
       serializationManager: testSession.db.serializationManager,
     );
-    peerSession = CrdtDatabaseSession.wraps(
+    peerSession = OfflineSyncDatabaseSession.wraps(
       await createAdditionalTestSession(),
       syncTables: syncTables,
     );
@@ -34,10 +34,10 @@ void main() {
   });
 
   Future<CrdtMergeSet> collectAuthoredChanges() {
-    return crdtSync
+    return offlineSync
         .collectPendingChanges(
           testSession,
-          checkpointsByScopeUuid: {testCrdtUserId: const []},
+          checkpointsBySpaceUuid: {testCrdtUserId: const []},
         )
         .toList();
   }
@@ -72,7 +72,7 @@ void main() {
         setUp(() async {
           await peerSession.db.mergeChanges(
             await collectAuthoredChanges(),
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 
@@ -119,7 +119,7 @@ void main() {
         setUp(() async {
           await peerSession.db.mergeChanges(
             await collectAuthoredChanges(),
-            scopeId: testCrdtUserId,
+            spaceId: testCrdtUserId,
           );
         });
 

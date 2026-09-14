@@ -73,7 +73,7 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   late final File _dbFile;
   late final ClientDatabaseSession _plainSession;
-  CrdtDatabaseSession? _crdtSession;
+  OfflineSyncDatabaseSession? _offlineSyncSession;
   var _hasOpenSession = false;
 
   final UuidValue _userId = const Uuid().v7obj();
@@ -109,8 +109,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       (j) => _createTypesRow(start + j, baseTimestamp),
     );
     if (crdtEnabled) {
-      return _crdtSession!.db.transactionForUser(_userId, (tx) async {
-        return Types.db.insert(_crdtSession!, rows, transaction: tx);
+      return _offlineSyncSession!.db.transactionForUser(_userId, (tx) async {
+        return Types.db.insert(_offlineSyncSession!, rows, transaction: tx);
       });
     }
     return Types.db.insert(_plainSession, rows);
@@ -121,8 +121,8 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       return;
     }
     if (crdtEnabled) {
-      await _crdtSession!.db.transactionForUser(_userId, (tx) async {
-        await Types.db.delete(_crdtSession!, rows, transaction: tx);
+      await _offlineSyncSession!.db.transactionForUser(_userId, (tx) async {
+        await Types.db.delete(_offlineSyncSession!, rows, transaction: tx);
       });
     } else {
       await Types.db.delete(_plainSession, rows);
@@ -145,11 +145,11 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
       );
     }).toList();
     if (crdtEnabled) {
-      _seededRows = await _crdtSession!.db.transactionForUser(
+      _seededRows = await _offlineSyncSession!.db.transactionForUser(
         _userId,
         (tx) async {
           return Types.db.update(
-            _crdtSession!,
+            _offlineSyncSession!,
             updated,
             columns: (t) => [
               t.aBool,
@@ -211,11 +211,11 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     ];
 
     if (crdtEnabled) {
-      _seededRows = await _crdtSession!.db.transactionForUser(
+      _seededRows = await _offlineSyncSession!.db.transactionForUser(
         _userId,
         (tx) async {
           return Types.db.upsert(
-            _crdtSession!,
+            _offlineSyncSession!,
             batch,
             conflictColumns: (t) => [t.id],
             updateColumns: (t) => [
@@ -252,7 +252,9 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
   }
 
   Future<List<Types>> _selectTypes() async {
-    final rows = await Types.db.find(crdtEnabled ? _crdtSession! : _plainSession);
+    final rows = await Types.db.find(
+      crdtEnabled ? _offlineSyncSession! : _plainSession,
+    );
     if (rows.length != rowCount) {
       throw Exception('Rows count is ${rows.length} but expected $rowCount.');
     }
@@ -261,12 +263,12 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
 
   Future<void> _bootstrapDatabase() async {
     await clearUserTables(_plainSession);
-    final wrapped = CrdtDatabaseSession.wraps(
+    final wrapped = OfflineSyncDatabaseSession.wraps(
       _plainSession,
       syncTables: benchmarkSyncTables,
     );
     await wrapped.db.initialize();
-    _crdtSession = crdtEnabled ? wrapped : null;
+    _offlineSyncSession = crdtEnabled ? wrapped : null;
   }
 
   @override
@@ -339,12 +341,12 @@ class TypesTableBenchmark extends AsyncBenchmarkBase {
     _seededRows = [];
     await clearUserTables(_plainSession);
     await _plainSession.db.unsafeExecute('VACUUM');
-    final wrapped = CrdtDatabaseSession.wraps(
+    final wrapped = OfflineSyncDatabaseSession.wraps(
       _plainSession,
       syncTables: benchmarkSyncTables,
     );
     await wrapped.db.initialize();
-    _crdtSession = crdtEnabled ? wrapped : null;
+    _offlineSyncSession = crdtEnabled ? wrapped : null;
   }
 
   @override

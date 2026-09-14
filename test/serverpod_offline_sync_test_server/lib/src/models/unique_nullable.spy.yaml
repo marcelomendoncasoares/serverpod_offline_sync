@@ -2,4 +2,4 @@ class: UniqueNullable
 table: unique_nullable
 database: sync
 fields:
-  value: int?, unique(per=scopeId)
+  value: int?, unique(per=spaceId)

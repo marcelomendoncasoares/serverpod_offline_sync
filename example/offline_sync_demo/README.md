@@ -13,8 +13,8 @@ UI code. Every replica follows the same four steps:
 
 1. **Open a local database.** `client.createSession(path)` opens a Serverpod
    client database (a local SQLite file) and runs the client migrations.
-2. **Wrap it for CRDT sync.** `CrdtDatabaseSession.wraps(raw, syncTables: …,
-   persistentUserId: …)`, then `crdtSession.db.initialize()` to establish this
+2. **Wrap it for CRDT sync.** `OfflineSyncDatabaseSession.wraps(raw, syncTables: …,
+   persistentUserId: …)`, then `offlineSyncSession.db.initialize()` to establish this
    device's CRDT node so it can take part in sync.
 3. **Read and write generated models** against that session, e.g.
    `Person.db.insertRow(session, person)` or `session.db.find<Person>()`. (The
@@ -23,8 +23,8 @@ UI code. Every replica follows the same four steps:
    is demo-only; the `seed*` methods in `lib/src/demo_controller.dart` show the
    plain form.)
 4. **Synchronize through a Serverpod client.**
-   `client.crdt.syncOnce(session, onMergeSuccess: …)` for a one-shot push/pull,
-   or `client.crdt.syncContinuously(session, …)` to stream until cancelled.
+   `client.offlineSync.syncOnce(session, onMergeSuccess: …)` for a one-shot push/pull,
+   or `client.offlineSync.syncContinuously(session, …)` to stream until cancelled.
 
 Connectivity is just *which client you sync through*: the demo swaps
 `Client.httpClientOverride` between a real transport and a failing one to
@@ -40,7 +40,7 @@ view of the synced schema), `demo_view.dart` / `sheets.dart` (widgets), and
 
 Each demo user owns two replicas (`<user>-a.db`, `<user>-b.db`) shown side by
 side. A replica is a local SQLite store with its own CRDT node id but the same
-sync scope; replicas share nothing locally and only converge by syncing through
+sync space; replicas share nothing locally and only converge by syncing through
 the server — like two phones on one account (see the "i" button in the toolbar).
 
 The layout is a **scenario rail**, **Replica A**, **Replica B**, and a **Server**
@@ -53,7 +53,7 @@ panel, with a global toolbar on top and a status line at the bottom.
 - **Show hidden rows** reveals locally hidden / soft-deleted (tombstoned) rows,
   shown struck-through and muted alongside the visible "user view".
 - **Refresh** reloads all three panels; **Reset all** wipes both replicas and the
-  server scope at once.
+  server space at once.
 - The **i** button explains replica isolation.
 - The app bar carries a light/dark toggle and an avatar menu for switching
   between or creating demo users.
@@ -74,13 +74,13 @@ panel, with a global toolbar on top and a status line at the bottom.
 
 **Server panel**
 
-- Shows the server's merged truth for the current scope, fetched through the
-  `demoDebug.fetchScopeSnapshot` endpoint (reads run in the caller's scope via
+- Shows the server's merged truth for the current space, fetched through the
+  `demoDebug.fetchSpaceSnapshot` endpoint (reads run in the caller's space via
   `transactionForUser`). It refreshes after each sync and via its own refresh
   button.
-- **Reset server scope** hard-clears every row and CRDT metadata record in the
-  scope; the seed buttons write a graph straight into the scope via
-  `demoDebug.seedScope`, so you can reset a replica and sync to exercise the
+- **Reset server space** hard-clears every row and CRDT metadata record in the
+  space; the seed buttons write a graph straight into the space via
+  `demoDebug.seedSpace`, so you can reset a replica and sync to exercise the
   fetch-from-scratch flow.
 
 **Scenario rail**

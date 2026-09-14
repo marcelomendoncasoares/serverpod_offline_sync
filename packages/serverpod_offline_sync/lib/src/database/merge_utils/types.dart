@@ -1,9 +1,9 @@
 import 'package:meta/meta.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
 
-import '../../crdt/sync.dart';
 import '../../generated/protocol.dart';
 import '../../hlc/hlc.dart';
+import '../../sync/engine.dart';
 
 /// Identifies a domain row during merges: `(tableName, rowId)`.
 @internal
@@ -35,11 +35,11 @@ typedef MergeFieldCache = ({
   CrdtNode node,
 });
 
-/// Remote nodes and scope-node rows loaded for a merge.
+/// Remote nodes and space-node rows loaded for a merge.
 @internal
 typedef MergeNodes = ({
   Map<UuidValue, CrdtNode> nodesByUuid,
-  Map<UuidValue, CrdtScopeNode> scopeNodesByUuid,
+  Map<UuidValue, OfflineSyncSpaceNode> spaceNodesByUuid,
 });
 
 /// A row that will be written after projection, included in unique/FK planning.

@@ -14,13 +14,13 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 /// understand the package. The four steps are:
 ///
 ///   1. [open] opens a local SQLite database ([Client.createSession])
-///      and wraps it in a [CrdtDatabaseSession]. Use
+///      and wraps it in a [OfflineSyncDatabaseSession]. Use
 ///      [openOrReset] when the file may predate the shipped
 ///      schema. The rest of the app reads and writes generated models through
 ///      [session].
 ///   2. CRUD happens against [session] with the generated model APIs (see
 ///      the `seed*` methods in `DemoController` for the plain, recommended form,
-///      e.g. `Person.db.insertRow(crdtSession, person)`).
+///      e.g. `Person.db.insertRow(offlineSyncSession, person)`).
 ///   3. [syncOnce] / [syncContinuously] push local changes and merge remote
 ///      ones through a Serverpod [Client].
 ///   4. [reset] / [close] tear the replica down.
@@ -37,7 +37,7 @@ class OfflineReplica {
   /// CRDT-aware session used for every model read and write. By default it only
   /// exposes visible (non-tombstoned) rows; queries opt into hidden rows with
   /// the `includeHiddenRows` where-clause.
-  final CrdtDatabaseSession session;
+  final OfflineSyncDatabaseSession session;
 
   /// The signed-in user every local write on this replica is attributed to.
   final UuidValue persistentUserId;
@@ -45,7 +45,7 @@ class OfflineReplica {
   /// Opens [databasePath] through [client] and wraps it for CRDT sync.
   ///
   /// [Client.createSession] opens the local client database (running
-  /// client migrations); [CrdtDatabaseSession.wraps] layers CRDT
+  /// client migrations); [OfflineSyncDatabaseSession.wraps] layers CRDT
   /// tracking over it; and `db.initialize()` establishes this device's CRDT
   /// node so it can take part in sync.
   static Future<OfflineReplica> open({
@@ -57,13 +57,13 @@ class OfflineReplica {
       databasePath,
       isDebugMode: kDebugMode,
     );
-    final crdtSession = CrdtDatabaseSession.wraps(
+    final offlineSyncSession = OfflineSyncDatabaseSession.wraps(
       rawSession,
       syncTables: syncTables,
       persistentUserId: persistentUserId,
     );
-    await crdtSession.db.initialize();
-    return OfflineReplica._(rawSession, crdtSession, persistentUserId);
+    await offlineSyncSession.db.initialize();
+    return OfflineReplica._(rawSession, offlineSyncSession, persistentUserId);
   }
 
   /// Like [open], but deletes [databasePath] and retries once when opening
@@ -108,50 +108,50 @@ class OfflineReplica {
   /// network. The replica's local database is the same either way.
   Future<void> syncOnce(
     Client client, {
-    CrdtSyncOnMergeSuccess? onMergeSuccess,
+    OfflineSyncOnMergeSuccess? onMergeSuccess,
   }) {
-    return client.crdt.syncOnce(session, onMergeSuccess: onMergeSuccess);
+    return client.offlineSync.syncOnce(session, onMergeSuccess: onMergeSuccess);
   }
 
   /// Streams changes through [client] until the returned session is cancelled
-  /// (via [CrdtSyncSession.cancel]) or the remote stream closes.
-  CrdtSyncSession syncContinuously(
+  /// (via [OfflineSyncSubscription.cancel]) or the remote stream closes.
+  OfflineSyncSubscription syncContinuously(
     Client client, {
-    CrdtSyncOnMergeSuccess? onMergeSuccess,
+    OfflineSyncOnMergeSuccess? onMergeSuccess,
   }) {
-    return client.crdt.syncContinuously(
+    return client.offlineSync.syncContinuously(
       session,
       onMergeSuccess: onMergeSuccess,
     );
   }
 
   /// Wipes this replica back to an empty device by deleting its local CRDT
-  /// scope row. Every synced table cascades on `scopeId` -> `crdt_scopes`, so
+  /// space row. Every synced table cascades on `spaceId` -> `offline_sync_spaces`, so
   /// the domain rows and CRDT metadata go with it — no need to drop and recreate
-  /// the database file. A fresh scope/node is established lazily on the next
+  /// the database file. A fresh space/node is established lazily on the next
   /// write.
   ///
-  /// The delete runs with `defer_foreign_keys` on: the scopeId cascade fans out
+  /// The delete runs with `defer_foreign_keys` on: the spaceId cascade fans out
   /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
   /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both
-  /// sides cascade off `crdt_scopes`), and SQLite's cascade order can
+  /// sides cascade off `offline_sync_spaces`), and SQLite's cascade order can
   /// transiently violate those immediate checks. Deferring them to commit lets
   /// the whole cascade complete first.
   Future<void> reset() async {
-    final scope = await CrdtScope.db.findFirstRow(
+    final space = await OfflineSyncSpace.db.findFirstRow(
       session,
-      where: (t) => t.uuidScopeId.equals(persistentUserId),
+      where: (t) => t.uuidSpaceId.equals(persistentUserId),
     );
-    final scopeId = scope?.id;
-    if (scopeId != null) {
+    final spaceId = space?.id;
+    if (spaceId != null) {
       await session.db.transaction((transaction) async {
         await session.db.unsafeExecute(
           'PRAGMA defer_foreign_keys = ON',
           transaction: transaction,
         );
-        await CrdtScope.db.deleteWhere(
+        await OfflineSyncSpace.db.deleteWhere(
           session,
-          where: (t) => t.id.equals(scopeId),
+          where: (t) => t.id.equals(spaceId),
           transaction: transaction,
         );
       });

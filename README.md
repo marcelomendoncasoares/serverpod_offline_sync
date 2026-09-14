@@ -20,7 +20,7 @@ out-of-the-box with Serverpod's existing APIs.
     - [3. Configure the sync engine on the client](#3-configure-the-sync-engine-on-the-client)
     - [4. Wire the sync call on the client](#4-wire-the-sync-call-on-the-client)
   - [Usage](#usage)
-    - [Scopes and sharing](#scopes-and-sharing)
+    - [Spaces and sharing](#spaces-and-sharing)
     - [Data modeling limitations](#data-modeling-limitations)
   - [How it works](#how-it-works)
   - [Performance](#performance)
@@ -74,9 +74,9 @@ never leave their tables — they are transparently hidden from the user.
   database at the time of each operation.
 - **Conflicts surface to the user.** Resolutions that require a human decision
   become visible state instead of silent data loss.
-- **Scopes and sharing.** Data is isolated per scope; each user has a personal
-  scope and can be a member of any number of read-only or read-write shared
-  scopes.
+- **Spaces and sharing.** Data is isolated per space; each user has a personal
+  space and can be a member of any number of read-only or read-write shared
+  spaces.
 - **One-shot and continuous sync.** The same stream-based protocol powers both
   pull-to-refresh and near-real-time streaming.
 - **Minimal overhead.** Metadata is normalized and never copies row data,
@@ -133,7 +133,7 @@ project is defined with `database: sync`, `database: all`, or `database: client`
 
 Each model you want to sync must be defined with `database: sync`. That generates
 the table on both the client and the server, uses a UUID primary key, and
-injects the `scopeId` ownership field. You mostly never set `scopeId` nor see
+injects the `spaceId` ownership field. You mostly never set `spaceId` nor see
 its value on reads; it is maintained by the CRDT sync layer.
 
 ```yaml
@@ -169,10 +169,10 @@ the sync operation will fail with a `Unauthorized` error.
 
 ```dart
 // Push local changes and merge remote ones once (i.e. pull-to-refresh).
-await client.crdt.syncOnce(session);
+await client.offlineSync.syncOnce(session);
 
 // Or stream changes both ways until cancelled for a near-real-time sync.
-final syncSession = client.crdt.syncContinuously(session);
+final syncSession = client.offlineSync.syncContinuously(session);
 ```
 
 ## Usage
@@ -182,53 +182,53 @@ like `Person.db.insertRow(session, person)`, `Person.db.find(session)`, etc.
 The sync layer tracks every operation atomically; you never touch conflict
 resolution.
 
-### Scopes and sharing
+### Spaces and sharing
 
-Data is isolated per **scope**. Each user has their own implicit personal scope
-and can be a member of any number of shared scopes, with read-only or read-write
+Data is isolated per **space**. Each user has their own implicit personal space
+and can be a member of any number of shared spaces, with read-only or read-write
 access.
 
 - **On the server**, wrap database operations in `session.db.transactionForUser`
-  to target the correct scope.
-- **On the client**, set a `persistentUserId` to target the personal scope by
-  default, or use `transactionForUser` to target a shared scope.
+  to target the correct space.
+- **On the client**, set a `persistentUserId` to target the personal space by
+  default, or use `transactionForUser` to target a shared space.
 
-Shared scopes are created and managed **on the server only** through the
-`session.crdt.scopes` API.
+Shared spaces are created and managed **on the server only** through the
+`session.offlineSync.spaces` API.
 
 ```dart
-// Create a shared scope granting read-write access to a single user.
-final scopeId = await session.crdt.scopes.createFor(userUuid);
+// Create a shared space granting read-write access to a single user.
+final spaceId = await session.offlineSync.spaces.createFor(userUuid);
 
-// Create a shared scope with multiple members.
-final scopeId = await session.crdt.scopes.create(
+// Create a shared space with multiple members.
+final spaceId = await session.offlineSync.spaces.create(
   grants: {
-    userUuid: CrdtScopeRole.readWrite,
-    anotherUserUuid: CrdtScopeRole.readOnly,
+    userUuid: OfflineSyncSpaceRole.readWrite,
+    anotherUserUuid: OfflineSyncSpaceRole.readOnly,
   },
   // It is also possible to pass a transaction object to all operations.
   transaction: transaction,
 )
 
 // Add or update a member's role (readOnly or readWrite).
-await session.crdt.scopes.grant(
-  scope: scopeId,
+await session.offlineSync.spaces.grant(
+  space: spaceId,
   user: bobUuid,
-  role: CrdtScopeRole.readWrite,
+  role: OfflineSyncSpaceRole.readWrite,
 );
 
 // Remove a member. No-op if they are not already a member.
-await session.crdt.scopes.revoke(scope: scopeId, user: bobUuid);
+await session.offlineSync.spaces.revoke(space: spaceId, user: bobUuid);
 ```
 
-If a streaming sync is ongoing, clients learn of new scopes and role changes on
+If a streaming sync is ongoing, clients learn of new spaces and role changes on
 the next sync cycle and apply them immediately. There is no need to restart the
 sync session for changes to take effect.
 
 > The package does not expose a management endpoint, since this is a domain
 > responsibility. If desired, create your own endpoints where you can enforce
 > an authorization policy (invitations, team ownership, etc.) and call the
-> `session.crdt.scopes` API accordingly.
+> `session.offlineSync.spaces` API accordingly.
 
 ### Data modeling limitations
 
@@ -240,15 +240,15 @@ fundamental to the design and can never be lifted.
 - Every synced table must be defined with `database: sync`.
   - Will exist on both the client and the server, like `database: all`.
   - The type of the `id` will be `UuidValue` with `defaultPersist=random_v7`.
-  - A `scopeId` field will be added as a cascade relation to `crdt_scopes`.
-  - Both `id` and `scopeId` can be manually declared for more control.
-- Unique indexes must include `scopeId` together with the target columns.
+  - A `spaceId` field will be added as a cascade relation to `offline_sync_spaces`.
+  - Both `id` and `spaceId` can be manually declared for more control.
+- Unique indexes must include `spaceId` together with the target columns.
 - Global unique indexes are unsupported, except for FK-only indexes.
 - Unique indexes are only supported with at least one
   `String`/`UuidValue`/nullable column.
 - All 1:1 relations must have the foreign-key column nullable (`optional`
   relation).
-- The only allowed non-synced-to-synced relation is `scopeId -> crdt_scopes.id`.
+- The only allowed non-synced-to-synced relation is `spaceId -> offline_sync_spaces.id`.
 - Non-nullable foreign-key relations must be declared as `deferred`.
 - Foreign-key action `onDelete=Restrict` must be replaced by `onDelete=NoAction`.
 
@@ -277,14 +277,14 @@ which Serverpod does not support either.
   applies remote facts monotonically, then derives the visible database —
   tombstone state, unique-conflict winners, and foreign-key repair — as a
   deterministic projection computed to a fixed point.
-- **Ownership & scopes.** A *scope* is the unit of replication and ownership; a
+- **Ownership & spaces.** A *space* is the unit of replication and ownership; a
   *user* is an authentication identity. Each row is globally identified by
-  `(table, rowId)` and owned by exactly one scope, so merging is always one chain
-  per row. Scopes can be purged for GDPR / account erasure via a
+  `(table, rowId)` and owned by exactly one space, so merging is always one chain
+  per row. Spaces can be purged for GDPR / account erasure via a
   database-enforced cascade.
 - **Sync protocol.** A session handshakes once to validate that both ends share
-  the same table schema. Per cycle, the server sends the authoritative scope set,
-  and every scope the user can access is synced (transferred all at once in
+  the same table schema. Per cycle, the server sends the authoritative space set,
+  and every space the user can access is synced (transferred all at once in
   chunks, merged one at a time). The same stream-based implementation powers both
   one-shot and continuous sync.
 

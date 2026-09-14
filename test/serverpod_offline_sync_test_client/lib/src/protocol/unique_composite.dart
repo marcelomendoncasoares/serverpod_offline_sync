@@ -17,14 +17,14 @@ abstract class UniqueComposite
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   UniqueComposite._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.scope,
     required this.value,
   });
 
   factory UniqueComposite({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String scope,
     required String value,
   }) = _UniqueCompositeImpl;
@@ -34,7 +34,7 @@ abstract class UniqueComposite
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       scope: jsonSerialization['scope'] as String,
       value: jsonSerialization['value'] as String,
     );
@@ -47,8 +47,8 @@ abstract class UniqueComposite
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   /// This scope field has no relation with the CRDT sync layer.
   String scope;
@@ -63,7 +63,7 @@ abstract class UniqueComposite
   @_isc.useResult
   UniqueComposite copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? scope,
     String? value,
   });
@@ -72,7 +72,7 @@ abstract class UniqueComposite
     return {
       '__className__': 'UniqueComposite',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'scope': scope,
       'value': value,
     };
@@ -83,7 +83,7 @@ abstract class UniqueComposite
     return {
       '__className__': 'UniqueComposite',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'scope': scope,
       'value': value,
     };
@@ -122,12 +122,12 @@ class _Undefined {}
 class _UniqueCompositeImpl extends UniqueComposite {
   _UniqueCompositeImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String scope,
     required String value,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          scope: scope,
          value: value,
        );
@@ -138,13 +138,13 @@ class _UniqueCompositeImpl extends UniqueComposite {
   @override
   UniqueComposite copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? scope,
     String? value,
   }) {
     return UniqueComposite(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       scope: scope ?? this.scope,
       value: value ?? this.value,
     );
@@ -155,8 +155,8 @@ class UniqueCompositeUpdateTable
     extends _isd.UpdateTable<UniqueCompositeTable> {
   UniqueCompositeUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -175,8 +175,8 @@ class UniqueCompositeTable extends _isd.Table<_isc.UuidValue?> {
   UniqueCompositeTable({super.tableRelation})
     : super(tableName: 'unique_composite') {
     updateTable = UniqueCompositeUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     scope = _isd.ColumnString(
@@ -191,8 +191,8 @@ class UniqueCompositeTable extends _isd.Table<_isc.UuidValue?> {
 
   late final UniqueCompositeUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   /// This scope field has no relation with the CRDT sync layer.
   late final _isd.ColumnString scope;
@@ -202,7 +202,7 @@ class UniqueCompositeTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     scope,
     value,
   ];

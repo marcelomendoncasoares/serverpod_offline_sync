@@ -20,7 +20,7 @@ abstract class FkChainSetNullMiddle
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   FkChainSetNullMiddle._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.cascadeMiddleId,
     this.cascadeMiddle,
@@ -28,7 +28,7 @@ abstract class FkChainSetNullMiddle
 
   factory FkChainSetNullMiddle({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? cascadeMiddleId,
     _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
@@ -41,7 +41,7 @@ abstract class FkChainSetNullMiddle
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       cascadeMiddleId: jsonSerialization['cascadeMiddleId'] == null
           ? null
@@ -63,8 +63,8 @@ abstract class FkChainSetNullMiddle
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -80,7 +80,7 @@ abstract class FkChainSetNullMiddle
   @_is.useResult
   FkChainSetNullMiddle copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? cascadeMiddleId,
     _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
@@ -90,7 +90,7 @@ abstract class FkChainSetNullMiddle
     return {
       '__className__': 'FkChainSetNullMiddle',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (cascadeMiddleId != null) 'cascadeMiddleId': cascadeMiddleId?.toJson(),
       if (cascadeMiddle != null) 'cascadeMiddle': cascadeMiddle?.toJson(),
@@ -102,7 +102,7 @@ abstract class FkChainSetNullMiddle
     return {
       '__className__': 'FkChainSetNullMiddle',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (cascadeMiddleId != null) 'cascadeMiddleId': cascadeMiddleId?.toJson(),
       if (cascadeMiddle != null)
@@ -145,13 +145,13 @@ class _Undefined {}
 class _FkChainSetNullMiddleImpl extends FkChainSetNullMiddle {
   _FkChainSetNullMiddleImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? cascadeMiddleId,
     _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          cascadeMiddleId: cascadeMiddleId,
          cascadeMiddle: cascadeMiddle,
@@ -163,14 +163,14 @@ class _FkChainSetNullMiddleImpl extends FkChainSetNullMiddle {
   @override
   FkChainSetNullMiddle copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? cascadeMiddleId = _Undefined,
     Object? cascadeMiddle = _Undefined,
   }) {
     return FkChainSetNullMiddle(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       cascadeMiddleId: cascadeMiddleId is _is.UuidValue?
           ? cascadeMiddleId
@@ -186,8 +186,8 @@ class FkChainSetNullMiddleUpdateTable
     extends _is.UpdateTable<FkChainSetNullMiddleTable> {
   FkChainSetNullMiddleUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -208,8 +208,8 @@ class FkChainSetNullMiddleTable extends _is.Table<_is.UuidValue?> {
   FkChainSetNullMiddleTable({super.tableRelation})
     : super(tableName: 'fk_chain_set_null_middle') {
     updateTable = FkChainSetNullMiddleUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -224,8 +224,8 @@ class FkChainSetNullMiddleTable extends _is.Table<_is.UuidValue?> {
 
   late final FkChainSetNullMiddleUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -251,7 +251,7 @@ class FkChainSetNullMiddleTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     cascadeMiddleId,
   ];

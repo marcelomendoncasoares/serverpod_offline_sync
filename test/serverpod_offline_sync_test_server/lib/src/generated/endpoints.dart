@@ -64,8 +64,8 @@ class Endpoints extends _is.EndpointDispatch {
       name: 'demoDebug',
       endpoint: endpoints['demoDebug']!,
       methodConnectors: {
-        'fetchScopeSnapshot': _is.MethodConnector(
-          name: 'fetchScopeSnapshot',
+        'fetchSpaceSnapshot': _is.MethodConnector(
+          name: 'fetchSpaceSnapshot',
           params: {
             'includeHidden': _is.ParameterDescription(
               name: 'includeHidden',
@@ -78,23 +78,23 @@ class Endpoints extends _is.EndpointDispatch {
                 _is.Session session,
                 Map<String, dynamic> params,
               ) async => (endpoints['demoDebug'] as _ikfteyi1.DemoDebugEndpoint)
-                  .fetchScopeSnapshot(
+                  .fetchSpaceSnapshot(
                     session,
                     includeHidden: params['includeHidden'],
                   ),
         ),
-        'resetScope': _is.MethodConnector(
-          name: 'resetScope',
+        'resetSpace': _is.MethodConnector(
+          name: 'resetSpace',
           params: {},
           call:
               (
                 _is.Session session,
                 Map<String, dynamic> params,
               ) async => (endpoints['demoDebug'] as _ikfteyi1.DemoDebugEndpoint)
-                  .resetScope(session),
+                  .resetSpace(session),
         ),
-        'seedScope': _is.MethodConnector(
-          name: 'seedScope',
+        'seedSpace': _is.MethodConnector(
+          name: 'seedSpace',
           params: {
             'kind': _is.ParameterDescription(
               name: 'kind',
@@ -112,7 +112,7 @@ class Endpoints extends _is.EndpointDispatch {
                 _is.Session session,
                 Map<String, dynamic> params,
               ) async => (endpoints['demoDebug'] as _ikfteyi1.DemoDebugEndpoint)
-                  .seedScope(
+                  .seedSpace(
                     session,
                     params['kind'],
                     params['text'],

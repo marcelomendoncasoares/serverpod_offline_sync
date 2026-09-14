@@ -52,7 +52,7 @@ class ReplicaState extends ChangeNotifier {
   SyncPhase phase = SyncPhase.idle;
   String? lastSyncedLabel;
   String? error;
-  offline.CrdtSyncSession? stream;
+  offline.OfflineSyncSubscription? stream;
   bool busy = false;
   bool _disposed = false;
 
@@ -141,7 +141,7 @@ class DemoController extends ChangeNotifier {
     final user = selectedUser?.username ?? '<user>';
     return 'Replica A and B are independent local SQLite stores '
         '($user-a.db, $user-b.db), each with its own CRDT node id but the '
-        'same sync scope. They share nothing locally and only exchange data '
+        'same sync space. They share nothing locally and only exchange data '
         'by syncing through the server — exactly like two phones on one '
         'account.';
   }
@@ -286,8 +286,8 @@ class DemoController extends ChangeNotifier {
       try {
         await session.syncOnce(
           client,
-          onMergeSuccess: (scopeUuid, hlc) =>
-              _handleReplicaMerge(slot, scopeUuid, hlc),
+          onMergeSuccess: (spaceUuid, hlc) =>
+              _handleReplicaMerge(slot, spaceUuid, hlc),
         );
         state.phase = SyncPhase.idle;
         state.lastSyncedLabel = 'synced ${_timeLabel()}';
@@ -313,8 +313,8 @@ class DemoController extends ChangeNotifier {
         () async {
           final stream = session.syncContinuously(
             client,
-            onMergeSuccess: (scopeUuid, hlc) =>
-                unawaited(_handleReplicaMerge(slot, scopeUuid, hlc)),
+            onMergeSuccess: (spaceUuid, hlc) =>
+                unawaited(_handleReplicaMerge(slot, spaceUuid, hlc)),
           );
           state.stream = stream;
           state.phase = SyncPhase.streaming;
@@ -383,7 +383,7 @@ class DemoController extends ChangeNotifier {
     server.loading = true;
     if (notify) server.changed();
     try {
-      final rows = await client.demoDebug.fetchScopeSnapshot(
+      final rows = await client.demoDebug.fetchSpaceSnapshot(
         includeHidden: showHidden,
       );
       // The server returns a flat list of row models. To flag CRDT-hidden rows
@@ -391,7 +391,7 @@ class DemoController extends ChangeNotifier {
       // used to do internally); skipped entirely when hidden rows aren't shown.
       final hiddenIds = <String>{};
       if (showHidden) {
-        final visible = await client.demoDebug.fetchScopeSnapshot(
+        final visible = await client.demoDebug.fetchSpaceSnapshot(
           includeHidden: false,
         );
         final visibleIds = {
@@ -422,10 +422,10 @@ class DemoController extends ChangeNotifier {
 
   Future<void> _handleReplicaMerge(
     ReplicaSlot slot,
-    offline.UuidValue scopeUuid,
+    offline.UuidValue spaceUuid,
     Object hlc,
   ) async {
-    replicas[slot]!.lastSyncedLabel = 'merged $scopeUuid at $hlc';
+    replicas[slot]!.lastSyncedLabel = 'merged $spaceUuid at $hlc';
     await _refreshReplica(slot, notify: false);
     await _fetchServer(notify: false);
     replicas[slot]!.changed();
@@ -469,7 +469,7 @@ class DemoController extends ChangeNotifier {
     );
   }
 
-  /// Wipes both replicas and the server scope at once, concurrently.
+  /// Wipes both replicas and the server space at once, concurrently.
   Future<void> resetAll() async {
     await _stopAllStreams();
     await Future.wait([
@@ -479,15 +479,15 @@ class DemoController extends ChangeNotifier {
     ]);
   }
 
-  /// Hard-clears the caller's server scope, including synced rows and CRDT
+  /// Hard-clears the caller's server space, including synced rows and CRDT
   /// metadata.
   Future<void> resetServer() async {
     if (!online) return;
-    await _runServer('Reset the server scope.', () async {
+    await _runServer('Reset the server space.', () async {
       await _stopAllStreams();
       _notifyReplicas();
       try {
-        await client.demoDebug.resetScope();
+        await client.demoDebug.resetSpace();
       } catch (error) {
         server.error = 'reset failed: $error';
         rethrow;
@@ -795,9 +795,9 @@ class DemoController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    await _runServer('Seeded the server scope ($kind).', () async {
+    await _runServer('Seeded the server space ($kind).', () async {
       try {
-        await client.demoDebug.seedScope(kind, text);
+        await client.demoDebug.seedSpace(kind, text);
       } catch (error) {
         server.error = 'seed failed: $error';
         rethrow;
@@ -912,7 +912,7 @@ class DemoController extends ChangeNotifier {
   /// since a plain findById only returns visible rows.
   Future<TableRow<protocol.UuidValue?>?> _findHiddenRow(
     TableOps ops,
-    offline.CrdtDatabaseSession crdt,
+    offline.OfflineSyncDatabaseSession crdt,
     protocol.UuidValue id,
   ) async {
     final all = await ops.findAll(crdt, includeHidden: true);
@@ -1249,8 +1249,8 @@ class RowDetail {
   final Map<String, dynamic> fields;
   final List<EditableField> editable;
 
-  /// The CRDT scope id stored on the row, if any.
-  String? get scopeId => fields['scopeId']?.toString();
+  /// The CRDT space id stored on the row, if any.
+  String? get spaceId => fields['spaceId']?.toString();
 }
 
 final _tableDefinitionsByName = <String, TableDefinition>{
@@ -1309,7 +1309,7 @@ bool _isPublicField(String key) {
 }
 
 bool _isEditableField(String key) {
-  return _isPublicField(key) && key != 'id' && key != 'scopeId';
+  return _isPublicField(key) && key != 'id' && key != 'spaceId';
 }
 
 bool _isEditableColumn(ColumnDefinition column) {

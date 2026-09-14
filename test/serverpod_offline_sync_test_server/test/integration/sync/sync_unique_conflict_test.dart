@@ -17,9 +17,9 @@ void main() {
   final serverSyncTables = [server.Unique.t];
 
   late client.Client syncHttpClient;
-  late CrdtDatabaseSession serverSession;
-  late CrdtDatabaseSession firstClientSession;
-  late CrdtDatabaseSession secondClientSession;
+  late OfflineSyncDatabaseSession serverSession;
+  late OfflineSyncDatabaseSession firstClientSession;
+  late OfflineSyncDatabaseSession secondClientSession;
 
   withServerpod(
     '[CRDT Sync Unique Conflict]',
@@ -28,7 +28,7 @@ void main() {
       final rawServerSession = sessionBuilder.build();
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(
+        ..initializeOfflineSync(
           syncTables: serverSyncTables,
         )
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
@@ -42,21 +42,21 @@ void main() {
           'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
-        firstClientSession = CrdtDatabaseSession.wraps(
+        firstClientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await firstClientSession.db.initialize();
 
-        secondClientSession = CrdtDatabaseSession.wraps(
+        secondClientSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await secondClientSession.db.initialize();
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
@@ -83,13 +83,13 @@ void main() {
             client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
           );
 
-          await syncHttpClient.crdt.syncOnce(firstClientSession);
+          await syncHttpClient.offlineSync.syncOnce(firstClientSession);
         });
 
         group('when the incoming row synchronizes,', () {
           setUp(() async {
-            await syncHttpClient.crdt.syncOnce(secondClientSession);
-            await syncHttpClient.crdt.syncOnce(firstClientSession);
+            await syncHttpClient.offlineSync.syncOnce(secondClientSession);
+            await syncHttpClient.offlineSync.syncOnce(firstClientSession);
           });
 
           test(
@@ -123,13 +123,13 @@ void main() {
             client.Unique(id: const Uuid().v7obj(), name: 'shared-name'),
           );
 
-          await syncHttpClient.crdt.syncOnce(firstClientSession);
+          await syncHttpClient.offlineSync.syncOnce(firstClientSession);
         });
 
         group('when the incoming row synchronizes,', () {
           setUp(() async {
-            await syncHttpClient.crdt.syncOnce(secondClientSession);
-            await syncHttpClient.crdt.syncOnce(firstClientSession);
+            await syncHttpClient.offlineSync.syncOnce(secondClientSession);
+            await syncHttpClient.offlineSync.syncOnce(firstClientSession);
           });
 
           test(
@@ -162,8 +162,8 @@ void main() {
           );
 
           // Ensures the row and update are visible on all nodes.
-          await syncHttpClient.crdt.syncOnce(firstClientSession);
-          await syncHttpClient.crdt.syncOnce(secondClientSession);
+          await syncHttpClient.offlineSync.syncOnce(firstClientSession);
+          await syncHttpClient.offlineSync.syncOnce(secondClientSession);
 
           // The `firstClientSession` holds the older update.
           await client.Unique.db.updateRow(
@@ -180,13 +180,13 @@ void main() {
 
           // The `secondClientSession` syncs first, so the newer update
           // reaches the server first.
-          await syncHttpClient.crdt.syncOnce(secondClientSession);
+          await syncHttpClient.offlineSync.syncOnce(secondClientSession);
         });
 
         group('when the incoming update synchronizes,', () {
           setUp(() async {
-            await syncHttpClient.crdt.syncOnce(firstClientSession);
-            await syncHttpClient.crdt.syncOnce(secondClientSession);
+            await syncHttpClient.offlineSync.syncOnce(firstClientSession);
+            await syncHttpClient.offlineSync.syncOnce(secondClientSession);
           });
 
           test(
@@ -227,13 +227,13 @@ void main() {
             updatedRow.copyWith(name: 'shared-name'),
           );
 
-          await syncHttpClient.crdt.syncOnce(firstClientSession);
+          await syncHttpClient.offlineSync.syncOnce(firstClientSession);
         });
 
         group('when the incoming insert synchronizes,', () {
           setUp(() async {
-            await syncHttpClient.crdt.syncOnce(secondClientSession);
-            await syncHttpClient.crdt.syncOnce(firstClientSession);
+            await syncHttpClient.offlineSync.syncOnce(secondClientSession);
+            await syncHttpClient.offlineSync.syncOnce(firstClientSession);
           });
 
           test(
@@ -256,9 +256,9 @@ void main() {
 }
 
 Future<void> _expectVisibleUniqueRowsOnAllNodes({
-  required CrdtDatabaseSession firstClientSession,
-  required CrdtDatabaseSession secondClientSession,
-  required CrdtDatabaseSession serverSession,
+  required OfflineSyncDatabaseSession firstClientSession,
+  required OfflineSyncDatabaseSession secondClientSession,
+  required OfflineSyncDatabaseSession serverSession,
   required UuidValue originalValueId,
   required UuidValue conflictValueId,
 }) async {

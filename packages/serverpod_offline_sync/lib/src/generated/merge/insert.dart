@@ -17,7 +17,7 @@ abstract class CrdtMergeInsert extends _icw2tu00.CrdtMergeChange
   CrdtMergeInsert._({
     required super.hlcDatetime,
     required super.hlcCounter,
-    required super.uuidScopeId,
+    required super.uuidSpaceId,
     required super.tableName,
     required super.uuidRowId,
     required super.uuidNodeId,
@@ -27,7 +27,7 @@ abstract class CrdtMergeInsert extends _icw2tu00.CrdtMergeChange
   factory CrdtMergeInsert({
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required _iss.UuidValue uuidScopeId,
+    required _iss.UuidValue uuidSpaceId,
     required String tableName,
     required _iss.UuidValue uuidRowId,
     required _iss.UuidValue uuidNodeId,
@@ -40,8 +40,8 @@ abstract class CrdtMergeInsert extends _icw2tu00.CrdtMergeChange
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
-      uuidScopeId: _iss.UuidValueJsonExtension.fromJson(
-        jsonSerialization['uuidScopeId'],
+      uuidSpaceId: _iss.UuidValueJsonExtension.fromJson(
+        jsonSerialization['uuidSpaceId'],
       ),
       tableName: jsonSerialization['tableName'] as String,
       uuidRowId: _iss.UuidValueJsonExtension.fromJson(
@@ -66,7 +66,7 @@ abstract class CrdtMergeInsert extends _icw2tu00.CrdtMergeChange
   CrdtMergeInsert copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _iss.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidSpaceId,
     String? tableName,
     _iss.UuidValue? uuidRowId,
     _iss.UuidValue? uuidNodeId,
@@ -78,7 +78,7 @@ abstract class CrdtMergeInsert extends _icw2tu00.CrdtMergeChange
       '__className__': 'serverpod_offline_sync.CrdtMergeInsert',
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
-      'uuidScopeId': uuidScopeId.toJson(),
+      'uuidSpaceId': uuidSpaceId.toJson(),
       'tableName': tableName,
       'uuidRowId': uuidRowId.toJson(),
       'uuidNodeId': uuidNodeId.toJson(),
@@ -92,7 +92,7 @@ abstract class CrdtMergeInsert extends _icw2tu00.CrdtMergeChange
       '__className__': 'serverpod_offline_sync.CrdtMergeInsert',
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
-      'uuidScopeId': uuidScopeId.toJson(),
+      'uuidSpaceId': uuidSpaceId.toJson(),
       'tableName': tableName,
       'uuidRowId': uuidRowId.toJson(),
       'uuidNodeId': uuidNodeId.toJson(),
@@ -113,7 +113,7 @@ class _CrdtMergeInsertImpl extends CrdtMergeInsert {
   _CrdtMergeInsertImpl({
     required DateTime hlcDatetime,
     required int hlcCounter,
-    required _iss.UuidValue uuidScopeId,
+    required _iss.UuidValue uuidSpaceId,
     required String tableName,
     required _iss.UuidValue uuidRowId,
     required _iss.UuidValue uuidNodeId,
@@ -121,7 +121,7 @@ class _CrdtMergeInsertImpl extends CrdtMergeInsert {
   }) : super._(
          hlcDatetime: hlcDatetime,
          hlcCounter: hlcCounter,
-         uuidScopeId: uuidScopeId,
+         uuidSpaceId: uuidSpaceId,
          tableName: tableName,
          uuidRowId: uuidRowId,
          uuidNodeId: uuidNodeId,
@@ -135,7 +135,7 @@ class _CrdtMergeInsertImpl extends CrdtMergeInsert {
   CrdtMergeInsert copyWith({
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _iss.UuidValue? uuidScopeId,
+    _iss.UuidValue? uuidSpaceId,
     String? tableName,
     _iss.UuidValue? uuidRowId,
     _iss.UuidValue? uuidNodeId,
@@ -144,7 +144,7 @@ class _CrdtMergeInsertImpl extends CrdtMergeInsert {
     return CrdtMergeInsert(
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
-      uuidScopeId: uuidScopeId ?? this.uuidScopeId,
+      uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
       tableName: tableName ?? this.tableName,
       uuidRowId: uuidRowId ?? this.uuidRowId,
       uuidNodeId: uuidNodeId ?? this.uuidNodeId,

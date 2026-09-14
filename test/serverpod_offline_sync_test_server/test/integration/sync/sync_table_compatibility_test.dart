@@ -19,8 +19,8 @@ void main() {
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
       late client.Client testClient;
-      late CrdtDatabaseSession clientSession;
-      late CrdtDatabaseSession serverSession;
+      late OfflineSyncDatabaseSession clientSession;
+      late OfflineSyncDatabaseSession serverSession;
 
       final serverSyncTables = [
         server.Address.t,
@@ -37,7 +37,7 @@ void main() {
       ];
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..initializeOfflineSync(syncTables: serverSyncTables)
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
           <Scope>{},
@@ -49,14 +49,14 @@ void main() {
           'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
-        clientSession = CrdtDatabaseSession.wraps(
+        clientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await clientSession.db.initialize();
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
@@ -72,7 +72,9 @@ void main() {
         'then synchronization completes.',
         () async {
           await expectLater(
-            testClient.crdt.syncOnce(clientSession).timeout(const Duration(seconds: 3)),
+            testClient.offlineSync
+                .syncOnce(clientSession)
+                .timeout(const Duration(seconds: 3)),
             completes,
           );
         },
@@ -89,8 +91,8 @@ void main() {
     (sessionBuilder, _) {
       final rawServerSession = sessionBuilder.build();
       late client.Client testClient;
-      late CrdtDatabaseSession clientSession;
-      late CrdtDatabaseSession serverSession;
+      late OfflineSyncDatabaseSession clientSession;
+      late OfflineSyncDatabaseSession serverSession;
 
       final serverSyncTables = [
         server.Address.t,
@@ -105,7 +107,7 @@ void main() {
       ];
 
       rawServerSession.serverpod
-        ..initializeCrdtSync(syncTables: serverSyncTables)
+        ..initializeOfflineSync(syncTables: serverSyncTables)
         ..authenticationHandler = (session, token) async => AuthenticationInfo(
           testCrdtUserId.toString(),
           <Scope>{},
@@ -117,14 +119,14 @@ void main() {
           'http://localhost:${rawServerSession.server.port}',
         )..authKeyProvider = TestClientAuthKeyProvider();
 
-        clientSession = CrdtDatabaseSession.wraps(
+        clientSession = OfflineSyncDatabaseSession.wraps(
           testSession,
           syncTables: clientSyncTables,
           persistentUserId: testCrdtUserId,
         );
         await clientSession.db.initialize();
 
-        serverSession = CrdtDatabaseSession.wraps(
+        serverSession = OfflineSyncDatabaseSession.wraps(
           rawServerSession,
           syncTables: serverSyncTables,
         );
@@ -135,11 +137,11 @@ void main() {
         await serverSession.clearUserTables();
       });
 
-      final expectedHashMismatch = isA<SyncTablesHashMismatchException>()
+      final expectedHashMismatch = isA<OfflineSyncTablesHashMismatchException>()
           .having(
             (e) => e.toString(),
             'message',
-            contains('SyncTablesHashMismatchException: schema hash mismatch.'),
+            contains('OfflineSyncTablesHashMismatchException: schema hash mismatch.'),
           )
           .having(
             (e) => e.toString(),
@@ -151,10 +153,10 @@ void main() {
 
       test(
         'when client syncOnce is called, '
-        'then SyncTablesHashMismatchException is thrown.',
+        'then OfflineSyncTablesHashMismatchException is thrown.',
         () async {
           await expectLater(
-            testClient.crdt.syncOnce(clientSession),
+            testClient.offlineSync.syncOnce(clientSession),
             throwsA(expectedHashMismatch),
           );
         },
@@ -162,9 +164,9 @@ void main() {
 
       test(
         'when client syncContinuously is called, '
-        'then SyncTablesHashMismatchException is thrown.',
+        'then OfflineSyncTablesHashMismatchException is thrown.',
         () async {
-          final syncSession = testClient.crdt.syncContinuously(clientSession);
+          final syncSession = testClient.offlineSync.syncContinuously(clientSession);
           addTearDown(syncSession.cancel);
 
           await expectLater(

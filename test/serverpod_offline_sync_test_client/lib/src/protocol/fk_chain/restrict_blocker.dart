@@ -21,7 +21,7 @@ abstract class FkChainRestrictBlocker
     implements _isd.TableRow<_isc.UuidValue?>, _isc.ProtocolSerialization {
   FkChainRestrictBlocker._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.cascadeMiddleId,
     this.cascadeMiddle,
@@ -29,7 +29,7 @@ abstract class FkChainRestrictBlocker
 
   factory FkChainRestrictBlocker({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _isc.UuidValue? cascadeMiddleId,
     _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
@@ -42,7 +42,7 @@ abstract class FkChainRestrictBlocker
       id: jsonSerialization['id'] == null
           ? null
           : _isc.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       cascadeMiddleId: jsonSerialization['cascadeMiddleId'] == null
           ? null
@@ -64,8 +64,8 @@ abstract class FkChainRestrictBlocker
   @override
   _isc.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -81,7 +81,7 @@ abstract class FkChainRestrictBlocker
   @_isc.useResult
   FkChainRestrictBlocker copyWith({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _isc.UuidValue? cascadeMiddleId,
     _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
@@ -91,7 +91,7 @@ abstract class FkChainRestrictBlocker
     return {
       '__className__': 'FkChainRestrictBlocker',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (cascadeMiddleId != null) 'cascadeMiddleId': cascadeMiddleId?.toJson(),
       if (cascadeMiddle != null) 'cascadeMiddle': cascadeMiddle?.toJson(),
@@ -103,7 +103,7 @@ abstract class FkChainRestrictBlocker
     return {
       '__className__': 'FkChainRestrictBlocker',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (cascadeMiddleId != null) 'cascadeMiddleId': cascadeMiddleId?.toJson(),
       if (cascadeMiddle != null)
@@ -146,13 +146,13 @@ class _Undefined {}
 class _FkChainRestrictBlockerImpl extends FkChainRestrictBlocker {
   _FkChainRestrictBlockerImpl({
     _isc.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _isc.UuidValue? cascadeMiddleId,
     _i2nw0ajk.FkChainCascadeMiddle? cascadeMiddle,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          cascadeMiddleId: cascadeMiddleId,
          cascadeMiddle: cascadeMiddle,
@@ -164,14 +164,14 @@ class _FkChainRestrictBlockerImpl extends FkChainRestrictBlocker {
   @override
   FkChainRestrictBlocker copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? cascadeMiddleId = _Undefined,
     Object? cascadeMiddle = _Undefined,
   }) {
     return FkChainRestrictBlocker(
       id: id is _isc.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       cascadeMiddleId: cascadeMiddleId is _isc.UuidValue?
           ? cascadeMiddleId
@@ -187,8 +187,8 @@ class FkChainRestrictBlockerUpdateTable
     extends _isd.UpdateTable<FkChainRestrictBlockerTable> {
   FkChainRestrictBlockerUpdateTable(super.table);
 
-  _isd.ColumnValue<int, int> scopeId(int? value) => _isd.ColumnValue(
-    table.scopeId,
+  _isd.ColumnValue<int, int> spaceId(int? value) => _isd.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -209,8 +209,8 @@ class FkChainRestrictBlockerTable extends _isd.Table<_isc.UuidValue?> {
   FkChainRestrictBlockerTable({super.tableRelation})
     : super(tableName: 'fk_chain_restrict_blocker') {
     updateTable = FkChainRestrictBlockerUpdateTable(this);
-    scopeId = _isd.ColumnInt(
-      'scopeId',
+    spaceId = _isd.ColumnInt(
+      'spaceId',
       this,
     );
     name = _isd.ColumnString(
@@ -225,8 +225,8 @@ class FkChainRestrictBlockerTable extends _isd.Table<_isc.UuidValue?> {
 
   late final FkChainRestrictBlockerUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _isd.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _isd.ColumnInt spaceId;
 
   late final _isd.ColumnString name;
 
@@ -252,7 +252,7 @@ class FkChainRestrictBlockerTable extends _isd.Table<_isc.UuidValue?> {
   @override
   List<_isd.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     cascadeMiddleId,
   ];

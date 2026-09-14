@@ -20,7 +20,7 @@ abstract class FkChainCascadeMiddle
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   FkChainCascadeMiddle._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.rootId,
     this.root,
@@ -28,7 +28,7 @@ abstract class FkChainCascadeMiddle
 
   factory FkChainCascadeMiddle({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? rootId,
     _iv6n0jeb.FkChainRoot? root,
@@ -41,7 +41,7 @@ abstract class FkChainCascadeMiddle
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       rootId: jsonSerialization['rootId'] == null
           ? null
@@ -61,8 +61,8 @@ abstract class FkChainCascadeMiddle
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -78,7 +78,7 @@ abstract class FkChainCascadeMiddle
   @_is.useResult
   FkChainCascadeMiddle copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? rootId,
     _iv6n0jeb.FkChainRoot? root,
@@ -88,7 +88,7 @@ abstract class FkChainCascadeMiddle
     return {
       '__className__': 'FkChainCascadeMiddle',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (rootId != null) 'rootId': rootId?.toJson(),
       if (root != null) 'root': root?.toJson(),
@@ -100,7 +100,7 @@ abstract class FkChainCascadeMiddle
     return {
       '__className__': 'FkChainCascadeMiddle',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (rootId != null) 'rootId': rootId?.toJson(),
       if (root != null) 'root': root?.toJsonForProtocol(),
@@ -142,13 +142,13 @@ class _Undefined {}
 class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
   _FkChainCascadeMiddleImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? rootId,
     _iv6n0jeb.FkChainRoot? root,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          rootId: rootId,
          root: root,
@@ -160,14 +160,14 @@ class _FkChainCascadeMiddleImpl extends FkChainCascadeMiddle {
   @override
   FkChainCascadeMiddle copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? rootId = _Undefined,
     Object? root = _Undefined,
   }) {
     return FkChainCascadeMiddle(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       rootId: rootId is _is.UuidValue? ? rootId : this.rootId,
       root: root is _iv6n0jeb.FkChainRoot? ? root : this.root?.copyWith(),
@@ -179,8 +179,8 @@ class FkChainCascadeMiddleUpdateTable
     extends _is.UpdateTable<FkChainCascadeMiddleTable> {
   FkChainCascadeMiddleUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -200,8 +200,8 @@ class FkChainCascadeMiddleTable extends _is.Table<_is.UuidValue?> {
   FkChainCascadeMiddleTable({super.tableRelation})
     : super(tableName: 'fk_chain_cascade_middle') {
     updateTable = FkChainCascadeMiddleUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -216,8 +216,8 @@ class FkChainCascadeMiddleTable extends _is.Table<_is.UuidValue?> {
 
   late final FkChainCascadeMiddleUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -241,7 +241,7 @@ class FkChainCascadeMiddleTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     rootId,
   ];

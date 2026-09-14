@@ -53,8 +53,8 @@ void main() {
         expect(row!.name, person.name);
       });
 
-      test('then the returned row hides scopeId.', () async {
-        expect(deletedPerson.scopeId, isNull);
+      test('then the returned row hides spaceId.', () async {
+        expect(deletedPerson.spaceId, isNull);
       });
     });
 
@@ -701,13 +701,13 @@ void main() {
   group(
     'Given a CRDT session tracking only the person table and untracked town and address rows referencing a person,',
     () {
-      late CrdtDatabaseSession subsetSession;
+      late OfflineSyncDatabaseSession subsetSession;
       late Person person;
       late Town town;
       late Address address;
 
       setUp(() async {
-        subsetSession = CrdtDatabaseSession.wraps(
+        subsetSession = OfflineSyncDatabaseSession.wraps(
           await createAdditionalTestSession(),
           syncTables: [Person.t],
         );
@@ -722,7 +722,7 @@ void main() {
           ),
         );
 
-        // Untracked tables bypass CRDT entirely, so these rows have no scope
+        // Untracked tables bypass CRDT entirely, so these rows have no space
         // and no metadata; only their physical foreign keys point at the
         // tracked person row.
         town = await Town.db.insertRow(

@@ -12,20 +12,20 @@ void main() {
 
   Future<String> render(SyncNode node) async {
     final persons = await Person.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visiblePersons = {
-      for (final person in await Person.db.find(node.crdt)) person.id,
+      for (final person in await Person.db.find(node.offlineSync)) person.id,
     };
     persons.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
 
     final towns = await Town.db.find(
-      node.crdt,
+      node.offlineSync,
       where: (t) => t.includeHiddenRows,
     );
     final visibleTowns = {
-      for (final town in await Town.db.find(node.crdt)) town.id,
+      for (final town in await Town.db.find(node.offlineSync)) town.id,
     };
     towns.sort((left, right) => left.id!.uuid.compareTo(right.id!.uuid));
 
@@ -50,15 +50,15 @@ void main() {
         final deleter = await syncNode(await createAdditionalTestSession(), syncTables);
 
         final mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.insertRow(author.crdt, mayor, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.insertRow(author.offlineSync, mayor, transaction: tx);
         });
         await pushChanges(author, deleter);
 
         // The person is deleted and the author merges that, so it holds the
         // delete as a fact and hides the person.
-        await deleter.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Person.db.deleteRow(deleter.crdt, mayor, transaction: tx);
+        await deleter.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Person.db.deleteRow(deleter.offlineSync, mayor, transaction: tx);
         });
         await pushChanges(deleter, author);
 
@@ -69,8 +69,8 @@ void main() {
           street: 'street',
           inhabitantId: mayor.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Address.db.insertRow(author.crdt, address, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Address.db.insertRow(author.offlineSync, address, transaction: tx);
         });
 
         // Only now, with the person visible again, is the set-null reference
@@ -80,15 +80,15 @@ void main() {
           name: 'town',
           mayorId: mayor.id,
         );
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.insertRow(author.crdt, town, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.insertRow(author.offlineSync, town, transaction: tx);
         });
-        await author.crdt.db.transactionForUser(testCrdtUserId, (tx) async {
-          await Town.db.deleteRow(author.crdt, town, transaction: tx);
+        await author.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+          await Town.db.deleteRow(author.offlineSync, town, transaction: tx);
         });
       });
 
-      group('when a node with no prior state merges the whole scope in one batch,', () {
+      group('when a node with no prior state merges the whole space in one batch,', () {
         late SyncNode fresh;
 
         setUp(() async {

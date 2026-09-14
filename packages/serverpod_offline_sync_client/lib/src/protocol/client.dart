@@ -17,22 +17,22 @@ import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
 
 /// Endpoint for CRDT-based offline-first synchronization.
 /// {@category Endpoint}
-class EndpointCrdtSync extends _isc.EndpointRef {
-  EndpointCrdtSync(_isc.EndpointCaller caller) : super(caller);
+class EndpointOfflineSync extends _isc.EndpointRef {
+  EndpointOfflineSync(_isc.EndpointCaller caller) : super(caller);
 
   @override
-  String get name => 'serverpod_offline_sync.crdtSync';
+  String get name => 'serverpod_offline_sync.offlineSync';
 
   /// Opens a bidirectional CRDT sync session with the authenticated client.
-  _ida.Stream<_icw2tu00.CrdtSyncStreamEvent> sync({
-    required _ida.Stream<_icw2tu00.CrdtSyncStreamEvent> changes,
+  _ida.Stream<_icw2tu00.OfflineSyncStreamEvent> sync({
+    required _ida.Stream<_icw2tu00.OfflineSyncStreamEvent> changes,
     required bool once,
   }) =>
       caller.callStreamingServerEndpoint<
-        _ida.Stream<_icw2tu00.CrdtSyncStreamEvent>,
-        _icw2tu00.CrdtSyncStreamEvent
+        _ida.Stream<_icw2tu00.OfflineSyncStreamEvent>,
+        _icw2tu00.OfflineSyncStreamEvent
       >(
-        'serverpod_offline_sync.crdtSync',
+        'serverpod_offline_sync.offlineSync',
         'sync',
         {'once': once},
         {'changes': changes},
@@ -41,13 +41,13 @@ class EndpointCrdtSync extends _isc.EndpointRef {
 
 class Caller extends _isc.ModuleEndpointCaller {
   Caller(_isc.ServerpodClientShared client) : super(client) {
-    crdtSync = EndpointCrdtSync(this);
+    offlineSync = EndpointOfflineSync(this);
   }
 
-  late final EndpointCrdtSync crdtSync;
+  late final EndpointOfflineSync offlineSync;
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
-    'serverpod_offline_sync.crdtSync': crdtSync,
+    'serverpod_offline_sync.offlineSync': offlineSync,
   };
 }

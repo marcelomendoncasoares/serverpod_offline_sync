@@ -9,7 +9,7 @@ import 'client_session.dart';
 /// and throws without it.
 Future<Hlc> rowHlc(
   UuidValue rowId, {
-  CrdtDatabaseSession? databaseSession,
+  OfflineSyncDatabaseSession? databaseSession,
 }) async {
   final crdtRow = await CrdtDataRow.db.findFirstRow(
     databaseSession ?? session,
@@ -25,7 +25,7 @@ Future<Hlc> rowHlc(
 Future<CrdtDataAttemptedValue?> attemptedValue({
   required UuidValue rowId,
   required String columnName,
-  CrdtDatabaseSession? databaseSession,
+  OfflineSyncDatabaseSession? databaseSession,
 }) async {
   final field = await CrdtDataField.db.findFirstRow(
     databaseSession ?? session,

@@ -10,16 +10,17 @@ import 'unique_index_utils.dart';
 /// The registry and projection state are left unchanged. Each message names
 /// the affected table and column and tells the developer how to convert data
 /// and attest the new type identity on [CrdtSchemaColumn].
-class CrdtSchemaReconciliationException implements Exception {
-  /// Creates a [CrdtSchemaReconciliationException] from one or more failures.
-  CrdtSchemaReconciliationException(this.failures)
+class OfflineSyncSchemaReconciliationException implements Exception {
+  /// Creates a [OfflineSyncSchemaReconciliationException] from one or more failures.
+  OfflineSyncSchemaReconciliationException(this.failures)
     : assert(failures.isNotEmpty, 'At least one failure is required.');
 
   /// Actionable failure messages, one per blocked change.
   final List<String> failures;
 
   @override
-  String toString() => 'CrdtSchemaReconciliationException: ${failures.join(' ')}';
+  String toString() =>
+      'OfflineSyncSchemaReconciliationException: ${failures.join(' ')}';
 }
 
 /// Manages the CRDT schema for a database.
@@ -46,16 +47,16 @@ class CrdtSchemaRegistry {
       );
     }
 
-    final tablesWithoutScopeId = syncTables
-        .where((table) => table.crdtScopeIdColumn == null)
+    final tablesWithoutSpaceId = syncTables
+        .where((table) => table.offlineSyncSpaceIdColumn == null)
         .toList();
-    if (tablesWithoutScopeId.isNotEmpty) {
+    if (tablesWithoutSpaceId.isNotEmpty) {
       throw StateError(
-        'CRDT can only synchronize tables with a nullable int scopeId column, '
-        'but ${tablesWithoutScopeId.length} table(s) are missing it or declare '
+        'CRDT can only synchronize tables with a nullable int spaceId column, '
+        'but ${tablesWithoutSpaceId.length} table(s) are missing it or declare '
         'it with the wrong type: '
-        '${tablesWithoutScopeId.map((t) => '"${t.tableName}"').join(', ')}'
-        '$_scopeIdFieldHelp',
+        '${tablesWithoutSpaceId.map((t) => '"${t.tableName}"').join(', ')}'
+        '$_spaceIdFieldHelp',
       );
     }
 
@@ -83,10 +84,10 @@ class CrdtSchemaRegistry {
     );
     if (globalUniqueIndexes.isNotEmpty) {
       throw StateError(
-        'CRDT can only synchronize tables with per-scope unique indexes, but '
-        '${globalUniqueIndexes.length} unique index(es) do not include scopeId: '
+        'CRDT can only synchronize tables with per-space unique indexes, but '
+        '${globalUniqueIndexes.length} unique index(es) do not include spaceId: '
         '${globalUniqueIndexes.join(', ')}. '
-        'Add scopeId to the unique index fields. '
+        'Add spaceId to the unique index fields. '
         'The only allowed global unique indexes are foreign-key-only indexes '
         'whose target tables are also synchronized.',
       );
@@ -125,23 +126,23 @@ class CrdtSchemaRegistry {
     if (nonReleasableUniqueIndexes.isNotEmpty) {
       throw StateError(
         'CRDT unique conflict resolution requires at least one releasable '
-        'non-scope column for ${nonReleasableUniqueIndexes.length} unique '
+        'non-space column for ${nonReleasableUniqueIndexes.length} unique '
         'index(es): ${nonReleasableUniqueIndexes.join(', ')}. '
         'Only nullable, text, and non-FK UUID unique columns are supported.',
       );
     }
 
-    final tablesMissingScopeIdRelation = _missingCrdtScopeRelations(
+    final tablesMissingSpaceIdRelation = _missingCrdtSpaceRelations(
       syncTables,
       tableDefinitionsByName,
     );
-    if (tablesMissingScopeIdRelation.isNotEmpty) {
+    if (tablesMissingSpaceIdRelation.isNotEmpty) {
       throw StateError(
-        'CRDT synced tables must declare scopeId as a cascade relation to '
-        'crdt_scopes, but ${tablesMissingScopeIdRelation.length} table(s) are '
+        'CRDT synced tables must declare spaceId as a cascade relation to '
+        'offline_sync_spaces, but ${tablesMissingSpaceIdRelation.length} table(s) are '
         'missing this relation: '
-        '${tablesMissingScopeIdRelation.map((t) => '"$t"').join(', ')}'
-        '$_scopeIdFieldHelp',
+        '${tablesMissingSpaceIdRelation.map((t) => '"$t"').join(', ')}'
+        '$_spaceIdFieldHelp',
       );
     }
 
@@ -173,14 +174,14 @@ class CrdtSchemaRegistry {
   }
 
   /// Help text appended to schema validation errors that describes the required
-  /// `scopeId` ownership field on every synced model.
-  static const _scopeIdFieldHelp =
+  /// `spaceId` ownership field on every synced model.
+  static const _spaceIdFieldHelp =
       '\n\n'
       'Add this field to every synced model:\n'
       'fields:\n'
       '  id: UuidValue?, defaultPersist=random_v7\n'
-      '  ### Owner scope of this row. Maintained by the CRDT sync layer.\n'
-      '  scopeId: int?, relation(parent=crdt_scopes, onDelete=Cascade)\n\n'
+      '  ### Owner space of this row. Maintained by the CRDT sync layer.\n'
+      '  spaceId: int?, relation(parent=offline_sync_spaces, onDelete=Cascade)\n\n'
       'If the column is declared with scope=serverOnly, remove the scope; '
       'the column must exist on every database.';
 
@@ -201,7 +202,7 @@ class CrdtSchemaRegistry {
     for (final table in syncTables)
       table.tableName: [
         for (final column in table.columns)
-          if (column.columnName != 'scopeId') column.columnName,
+          if (column.columnName != 'spaceId') column.columnName,
       ],
   };
 
@@ -213,7 +214,7 @@ class CrdtSchemaRegistry {
         for (final column
             in _tableDefinitionsByName[table.tableName]?.columns ??
                 const <ColumnDefinition>[])
-          if (column.name != 'scopeId') column.name: column,
+          if (column.name != 'spaceId') column.name: column,
       },
   };
 
@@ -221,7 +222,7 @@ class CrdtSchemaRegistry {
   ///
   /// Reconciliation plans every addition, drop, possible rename, and type or
   /// policy change before mutating. Failures throw
-  /// [CrdtSchemaReconciliationException] without writing registry rows.
+  /// [OfflineSyncSchemaReconciliationException] without writing registry rows.
   Future<(List<CrdtSchemaTable>, List<CrdtSchemaColumn>)> syncAndGetSchema() async {
     return _session.db.transaction((transaction) async {
       final existingTables = await CrdtSchemaTable.db.find(
@@ -238,7 +239,7 @@ class CrdtSchemaRegistry {
         transaction: transaction,
       );
       if (plan.failures.isNotEmpty) {
-        throw CrdtSchemaReconciliationException(plan.failures);
+        throw OfflineSyncSchemaReconciliationException(plan.failures);
       }
       return _applyReconciliation(
         plan,
@@ -646,7 +647,7 @@ bool _isForbiddenGlobalUniqueIndex(
   Set<String> syncTableNames,
 ) {
   if (!index.isUnique || index.isPrimary) return false;
-  if (isCrdtScopedUniqueIndex(index)) return false;
+  if (isCrdtSpaceUniqueIndex(index)) return false;
 
   return !isCrdtAllowedForeignKeyOnlyUniqueIndex(
     tableDefinition,
@@ -655,28 +656,28 @@ bool _isForbiddenGlobalUniqueIndex(
   );
 }
 
-List<String> _missingCrdtScopeRelations(
+List<String> _missingCrdtSpaceRelations(
   List<Table> syncTables,
   Map<String, TableDefinition> tableDefinitionsByName,
 ) {
   return [
     for (final table in syncTables)
       if (tableDefinitionsByName.containsKey(table.tableName) &&
-          !_hasCrdtScopeRelation(tableDefinitionsByName[table.tableName]!))
+          !_hasCrdtSpaceRelation(tableDefinitionsByName[table.tableName]!))
         table.tableName,
   ];
 }
 
-bool _hasCrdtScopeRelation(TableDefinition tableDefinition) {
+bool _hasCrdtSpaceRelation(TableDefinition tableDefinition) {
   return tableDefinition.foreignKeys.any(
-    (fk) => _isCrdtScopeForeignKey(fk) && fk.onDelete == ForeignKeyAction.cascade,
+    (fk) => _isCrdtSpaceForeignKey(fk) && fk.onDelete == ForeignKeyAction.cascade,
   );
 }
 
-bool _isCrdtScopeForeignKey(ForeignKeyDefinition fk) {
+bool _isCrdtSpaceForeignKey(ForeignKeyDefinition fk) {
   return fk.columns.length == 1 &&
-      fk.columns.single == 'scopeId' &&
-      fk.referenceTable == 'crdt_scopes' &&
+      fk.columns.single == 'spaceId' &&
+      fk.referenceTable == 'offline_sync_spaces' &&
       fk.referenceColumns.length == 1 &&
       fk.referenceColumns.single == 'id';
 }
@@ -689,7 +690,7 @@ List<String> _nonDeferredForeignKeyViolations(
     for (final table in syncTables)
       if (tableDefinitionsByName[table.tableName] case final tableDefinition?)
         for (final fk in tableDefinition.foreignKeys)
-          if (!_isCrdtScopeForeignKey(fk) &&
+          if (!_isCrdtSpaceForeignKey(fk) &&
               !_isRepairableByProjection(fk, tableDefinition) &&
               fk.deferrable != DeferrableConstraint.initiallyDeferred)
             '${table.tableName}.${fk.columns.join(',')}',
@@ -715,7 +716,7 @@ List<String> _restrictForeignKeyViolations(
     for (final table in syncTables)
       if (tableDefinitionsByName.containsKey(table.tableName))
         for (final fk in tableDefinitionsByName[table.tableName]!.foreignKeys)
-          if (!_isCrdtScopeForeignKey(fk) && fk.onDelete == ForeignKeyAction.restrict)
+          if (!_isCrdtSpaceForeignKey(fk) && fk.onDelete == ForeignKeyAction.restrict)
             '${table.tableName}.${fk.columns.join(',')}',
   ];
 }

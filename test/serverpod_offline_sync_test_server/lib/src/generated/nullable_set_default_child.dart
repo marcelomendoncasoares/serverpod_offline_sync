@@ -20,7 +20,7 @@ abstract class NullableSetDefaultChild
     implements _is.TableRow<_is.UuidValue?>, _is.ProtocolSerialization {
   NullableSetDefaultChild._({
     this.id,
-    this.scopeId,
+    this.spaceId,
     required this.name,
     this.parentId,
     this.parent,
@@ -28,7 +28,7 @@ abstract class NullableSetDefaultChild
 
   factory NullableSetDefaultChild({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? parentId,
     _iensfz4m.Person? parent,
@@ -41,7 +41,7 @@ abstract class NullableSetDefaultChild
       id: jsonSerialization['id'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['id']),
-      scopeId: jsonSerialization['scopeId'] as int?,
+      spaceId: jsonSerialization['spaceId'] as int?,
       name: jsonSerialization['name'] as String,
       parentId: jsonSerialization['parentId'] == null
           ? null
@@ -61,8 +61,8 @@ abstract class NullableSetDefaultChild
   @override
   _is.UuidValue? id;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  int? scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  int? spaceId;
 
   String name;
 
@@ -78,7 +78,7 @@ abstract class NullableSetDefaultChild
   @_is.useResult
   NullableSetDefaultChild copyWith({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     String? name,
     _is.UuidValue? parentId,
     _iensfz4m.Person? parent,
@@ -88,7 +88,7 @@ abstract class NullableSetDefaultChild
     return {
       '__className__': 'NullableSetDefaultChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (parentId != null) 'parentId': parentId?.toJson(),
       if (parent != null) 'parent': parent?.toJson(),
@@ -100,7 +100,7 @@ abstract class NullableSetDefaultChild
     return {
       '__className__': 'NullableSetDefaultChild',
       if (id != null) 'id': id?.toJson(),
-      if (scopeId != null) 'scopeId': scopeId,
+      if (spaceId != null) 'spaceId': spaceId,
       'name': name,
       if (parentId != null) 'parentId': parentId?.toJson(),
       if (parent != null) 'parent': parent?.toJsonForProtocol(),
@@ -142,13 +142,13 @@ class _Undefined {}
 class _NullableSetDefaultChildImpl extends NullableSetDefaultChild {
   _NullableSetDefaultChildImpl({
     _is.UuidValue? id,
-    int? scopeId,
+    int? spaceId,
     required String name,
     _is.UuidValue? parentId,
     _iensfz4m.Person? parent,
   }) : super._(
          id: id,
-         scopeId: scopeId,
+         spaceId: spaceId,
          name: name,
          parentId: parentId,
          parent: parent,
@@ -160,14 +160,14 @@ class _NullableSetDefaultChildImpl extends NullableSetDefaultChild {
   @override
   NullableSetDefaultChild copyWith({
     Object? id = _Undefined,
-    Object? scopeId = _Undefined,
+    Object? spaceId = _Undefined,
     String? name,
     Object? parentId = _Undefined,
     Object? parent = _Undefined,
   }) {
     return NullableSetDefaultChild(
       id: id is _is.UuidValue? ? id : this.id,
-      scopeId: scopeId is int? ? scopeId : this.scopeId,
+      spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       parentId: parentId is _is.UuidValue? ? parentId : this.parentId,
       parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
@@ -179,8 +179,8 @@ class NullableSetDefaultChildUpdateTable
     extends _is.UpdateTable<NullableSetDefaultChildTable> {
   NullableSetDefaultChildUpdateTable(super.table);
 
-  _is.ColumnValue<int, int> scopeId(int? value) => _is.ColumnValue(
-    table.scopeId,
+  _is.ColumnValue<int, int> spaceId(int? value) => _is.ColumnValue(
+    table.spaceId,
     value,
   );
 
@@ -201,8 +201,8 @@ class NullableSetDefaultChildTable extends _is.Table<_is.UuidValue?> {
   NullableSetDefaultChildTable({super.tableRelation})
     : super(tableName: 'nullable_set_default_child') {
     updateTable = NullableSetDefaultChildUpdateTable(this);
-    scopeId = _is.ColumnInt(
-      'scopeId',
+    spaceId = _is.ColumnInt(
+      'spaceId',
       this,
     );
     name = _is.ColumnString(
@@ -217,8 +217,8 @@ class NullableSetDefaultChildTable extends _is.Table<_is.UuidValue?> {
 
   late final NullableSetDefaultChildUpdateTable updateTable;
 
-  /// The scope owning this row. Maintained by the sync engine.
-  late final _is.ColumnInt scopeId;
+  /// The space owning this row. Maintained by the sync engine.
+  late final _is.ColumnInt spaceId;
 
   late final _is.ColumnString name;
 
@@ -242,7 +242,7 @@ class NullableSetDefaultChildTable extends _is.Table<_is.UuidValue?> {
   @override
   List<_is.Column> get columns => [
     id,
-    scopeId,
+    spaceId,
     name,
     parentId,
   ];

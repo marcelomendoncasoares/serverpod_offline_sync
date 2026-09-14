@@ -31,7 +31,7 @@ export 'package:serverpod/serverpod.dart' hide Serverpod;
 ///
 /// The `serverpod_offline_sync` engine is initialized with the tables
 /// declared with `database: sync`, wrapping any provided
-/// [databaseInterceptor] with `crdtDatabaseInterceptor`.
+/// [databaseInterceptor] with `offlineSyncDatabaseInterceptor`.
 class Serverpod extends _is.Serverpod {
   Serverpod(
     List<String> args, {
@@ -66,7 +66,7 @@ class Serverpod extends _is.Serverpod {
              (
                session,
                inner,
-             ) => _izehhkf5.crdtDatabaseInterceptor(
+             ) => _izehhkf5.offlineSyncDatabaseInterceptor(
                session,
                databaseInterceptor?.call(
                      session,
@@ -75,6 +75,6 @@ class Serverpod extends _is.Serverpod {
                    inner,
              ),
        ) {
-    initializeCrdtSync(syncTables: _ii3f3u05.syncTables);
+    initializeOfflineSync(syncTables: _ii3f3u05.syncTables);
   }
 }

@@ -17,19 +17,19 @@ part 'close.dart';
 part 'connect.dart';
 part 'end_of_batch.dart';
 part 'merge_chunk.dart';
-part 'scope_set.dart';
 part 'since_hlc.dart';
+part 'space_set.dart';
 part 'timeout.dart';
 
 /// A CRDT sync event sent over a bidirectional stream.
 ///
 /// This is the base class of the CRDT sync protocol.
-sealed class CrdtSyncStreamEvent
+sealed class OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncStreamEvent();
+  OfflineSyncStreamEvent();
 
-  /// Returns a shallow copy of this [CrdtSyncStreamEvent]
+  /// Returns a shallow copy of this [OfflineSyncStreamEvent]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
-  CrdtSyncStreamEvent copyWith();
+  OfflineSyncStreamEvent copyWith();
 }

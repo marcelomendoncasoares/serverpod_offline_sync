@@ -34,7 +34,7 @@ class CrdtForeignKeyGraph {
   /// Creates a [CrdtForeignKeyGraph] over the tables known to the context.
   CrdtForeignKeyGraph(this._context);
 
-  final CrdtDatabaseContext _context;
+  final OfflineSyncDatabaseContext _context;
 
   /// Foreign keys grouped by the table they reference.
   ///

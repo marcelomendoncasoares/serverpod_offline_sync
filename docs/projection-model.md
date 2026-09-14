@@ -160,7 +160,7 @@ Outbound collection substitutes `CrdtDataAttemptedValue.value` whenever it
 exists; otherwise it reads the domain value. It never exports an FK candidate,
 unique loser value, or temporary parking value as an authored update.
 
-An empty replica merging a complete scope export must reproduce normalized
+An empty replica merging a complete space export must reproduce normalized
 domain rows, hidden state, authored values/HLCs, and derived projection. A
 rebuild may rewrite `projectionReason`, but it must preserve
 `CrdtDataAttemptedValue.value`: while the row exists, that is the only copy of
@@ -210,7 +210,7 @@ store an otherwise supported dynamic value.
 
 ### Initialization algorithm
 
-Call `await crdtDatabase.initialize()` after application migrations and before
+Call `await offlineSyncDatabase.initialize()` after application migrations and before
 serving requests or starting sync. Reconciliation must plan before mutating:
 
 1. Load the persisted CRDT registry and target `TableDefinition`s.

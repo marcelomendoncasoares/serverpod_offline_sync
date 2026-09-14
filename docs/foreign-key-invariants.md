@@ -54,7 +54,7 @@ soft-deleted instead of removed:
 - `ON DELETE SET DEFAULT`: visible child FK columns are updated to the column
   default when the default is legal, and those child FK fields receive ordinary
   CRDT field updates. A nullable null default is legal; a non-null default must
-  remain visible in the same scope after the delete. A default in the same
+  remain visible in the same space after the delete. A default in the same
   delete batch is unavailable. If a visible child needs this repair, an invalid
   default rejects the transaction, including any earlier repairs or tombstones
   in that transaction. An unused invalid default does not itself block a delete.
@@ -100,7 +100,7 @@ restrict edges are evaluated first internally.
 
 Hidden children do not block parent deletions. They still participate in FK
 projection: when no legal repair exists and the authored parent remains
-physically present in the same scope, the FK candidate retains the authored
+physically present in the same space, the FK candidate retains the authored
 reference, even if that parent is hidden. This recomputes from authored values;
 it does not preserve an earlier projected fallback. Unique projection can then
 release that candidate, as described in the combined projection model below.
@@ -134,7 +134,7 @@ common case skips the dependency walk.
 
 When a default is changed directly, or affected through a possible deletion,
 cascade, or missing parent, the loader queries sparse dependency seeds in the
-current scope: authored tombstones and hidden rows in the original-parent and
+current space: authored tombstones and hidden rows in the original-parent and
 cascade-ancestor tables, hidden children, and children with FK overrides. The
 ordinary reference walk then loads their children, parents, and unique claimants.
 Blocked deletions are included even when the original parent is still visible
@@ -145,7 +145,7 @@ starting from authored tombstones.
 This keeps ordinary merges on the existing row-closure path; there is no
 component-wide domain-row load. Default-specific invalidation can still visit
 many rows when many deletes, hidden rows, or repair claims depend on that default.
-The sparse metadata lookup itself may scan rows in the relevant scoped metadata
+The sparse metadata lookup itself may scan rows in the relevant space-scoped metadata
 tables, but it runs only for affected defaults. Full rebuilds still load the
 complete requested components.
 

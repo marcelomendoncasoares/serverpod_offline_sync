@@ -6,12 +6,12 @@
 ### All identifiers are denormalized UUIDs and names so the record remains
 ### useful after merge rollbacks and across databases that do not share the
 ### same local CRDT metadata rows.
-class: CrdtSyncIntegrityViolation
-table: crdt_sync_integrity_violations
+class: OfflineSyncIntegrityViolation
+table: offline_sync_integrity_violations
 database: all
 fields:
   ### High-level integrity violation category.
-  type: CrdtSyncViolationType
+  type: OfflineSyncViolationType
 
   ### Durable table name for the violated domain row.
   domainTableName: String
@@ -19,14 +19,14 @@ fields:
   ### Domain row UUID involved in the violation.
   uuidRowId: UuidValue
 
-  ### Global scope UUID that owns the physical domain row, when known.
-  ownerScopeUuid: UuidValue?
+  ### Global space UUID that owns the physical domain row, when known.
+  ownerSpaceUuid: UuidValue?
 
-  ### Global scope UUID that attempted to operate on the row.
-  incomingScopeUuid: UuidValue
+  ### Global space UUID that attempted to operate on the row.
+  incomingSpaceUuid: UuidValue
 
   ### Merge or sync operation that observed the violation.
-  operation: CrdtSyncViolationOperation
+  operation: OfflineSyncViolationOperation
 
   ### UUID of the node that authored the rejected change, when known.
   uuidNodeId: UuidValue?
@@ -50,6 +50,6 @@ fields:
   occurrences: int
 
 indexes:
-  crdt_sync_integrity_violations_key_idx:
-    fields: type, operation, domainTableName, uuidRowId, ownerScopeUuid, incomingScopeUuid
+  offline_sync_integrity_violations_key_idx:
+    fields: type, operation, domainTableName, uuidRowId, ownerSpaceUuid, incomingSpaceUuid
     unique: true

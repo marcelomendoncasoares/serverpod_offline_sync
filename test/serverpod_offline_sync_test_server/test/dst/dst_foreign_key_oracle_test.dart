@@ -16,10 +16,10 @@ void main() {
     'then the hidden row retains null while the schema retains its non-null default.',
     () async {
       final ids = DstIds(DstRandom(118));
-      final scope = ids.next();
+      final space = ids.next();
       final replica = await DstReplica.create(
         name: 'replica',
-        scopeUuids: [scope],
+        spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
@@ -30,7 +30,7 @@ void main() {
         parentId: parent.id,
       );
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Town.db.insertRow(replica.session, parent, transaction: tx);
           await UniqueSetDefaultChild.db.insertRow(
             replica.session,
@@ -41,7 +41,7 @@ void main() {
       );
 
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await UniqueSetDefaultChild.db.deleteRow(
             replica.session,
             child,
@@ -70,15 +70,15 @@ void main() {
     'then the oracle rejects the unrepaired reference.',
     () {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final parentId = ids.next();
       final childId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'company': {parentId: (scopeUuid: scope, columns: {}, visible: false)},
+          'company': {parentId: (spaceUuid: space, columns: {}, visible: false)},
           'person': {
             childId: (
-              scopeUuid: scope,
+              spaceUuid: space,
               columns: {'oldCompanyId': parentId},
               visible: true,
             ),
@@ -100,14 +100,14 @@ void main() {
     'then the oracle rejects the unrepaired reference.',
     () {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final parentId = ids.next();
       final childId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'person': {parentId: (scopeUuid: scope, columns: {}, visible: false)},
+          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
           'required_set_null_child': {
-            childId: (scopeUuid: scope, columns: {'parentId': parentId}, visible: true),
+            childId: (spaceUuid: space, columns: {'parentId': parentId}, visible: true),
           },
         },
         projections: {},
@@ -126,15 +126,15 @@ void main() {
     'then the oracle rejects the unrepaired reference.',
     () {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final parentId = ids.next();
       final childId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'person': {parentId: (scopeUuid: scope, columns: {}, visible: false)},
+          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
           'nullable_set_default_child': {
             childId: (
-              scopeUuid: scope,
+              spaceUuid: space,
               columns: {'parentId': parentId},
               visible: false,
             ),
@@ -156,17 +156,17 @@ void main() {
     'then the oracle rejects the unrepaired reference.',
     () {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final parentId = ids.next();
       final childId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
           'fk_chain_cascade_middle': {
-            parentId: (scopeUuid: scope, columns: {}, visible: false),
+            parentId: (spaceUuid: space, columns: {}, visible: false),
           },
           'fk_chain_restrict_blocker': {
             childId: (
-              scopeUuid: scope,
+              spaceUuid: space,
               columns: {'cascadeMiddleId': parentId},
               visible: true,
             ),
@@ -188,14 +188,14 @@ void main() {
     'then the oracle accepts its set-default projection.',
     () {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final parentId = ids.next();
       final childId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'person': {parentId: (scopeUuid: scope, columns: {}, visible: false)},
+          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
           'nullable_set_default_child': {
-            childId: (scopeUuid: scope, columns: {'parentId': null}, visible: true),
+            childId: (spaceUuid: space, columns: {'parentId': null}, visible: true),
           },
         },
         projections: {
@@ -219,15 +219,15 @@ void main() {
     'then the oracle accepts the unchanged non-null reference.',
     () {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final parentId = ids.next();
       final childId = ids.next();
       final snapshot = DstSnapshot(
         rows: {
-          'person': {parentId: (scopeUuid: scope, columns: {}, visible: false)},
+          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
           'required_set_null_child': {
             childId: (
-              scopeUuid: scope,
+              spaceUuid: space,
               columns: {'parentId': parentId},
               visible: false,
             ),
@@ -249,10 +249,10 @@ void main() {
     'then the child and its reference are available to the oracle.',
     () async {
       final ids = DstIds(DstRandom(3));
-      final scope = ids.next();
+      final space = ids.next();
       final replica = await DstReplica.create(
         name: 'replica',
-        scopeUuids: [scope],
+        spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
@@ -263,7 +263,7 @@ void main() {
         parentId: parent.id!,
       );
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Person.db.insertRow(replica.session, parent, transaction: tx);
           await RequiredSetNullChild.db.insertRow(
             replica.session,
@@ -288,10 +288,10 @@ void main() {
     () async {
       final random = DstRandom(300);
       final ids = DstIds(random);
-      final scope = ids.next();
+      final space = ids.next();
       final replica = await DstReplica.create(
         name: 'replica',
-        scopeUuids: [scope],
+        spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
@@ -305,7 +305,7 @@ void main() {
       final company = Company(id: ids.next(), name: 'company', townId: town.id);
       final person = Person(id: ids.next(), name: 'person');
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await City.db.insertRow(replica.session, city, transaction: tx);
           await Organization.db.insertRow(
             replica.session,
@@ -324,13 +324,13 @@ void main() {
       for (var index = 0; index < 60; index++) {
         await operations.apply(
           replica,
-          scope,
+          space,
           table: DstTable.person,
           action: DstAction.update,
         );
         await operations.apply(
           replica,
-          scope,
+          space,
           table: DstTable.town,
           action: DstAction.update,
         );
@@ -353,21 +353,21 @@ void main() {
   );
 
   test(
-    'Given visible person and town parents in one scope, '
+    'Given visible person and town parents in one space, '
     'when the DST inserts children of every required and nullable FK shape, '
     'then each shape is authored and captured with valid references.',
     () async {
       final random = DstRandom(301);
       final ids = DstIds(random);
-      final scope = ids.next();
+      final space = ids.next();
       final replica = await DstReplica.create(
         name: 'replica',
-        scopeUuids: [scope],
+        spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
       await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(scope, (tx) async {
+        () => replica.session.db.transactionForUser(space, (tx) async {
           await Person.db.insertRow(
             replica.session,
             Person(id: ids.next(), name: 'parent'),
@@ -384,37 +384,37 @@ void main() {
 
       final requiredNull = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.requiredSetNullChild,
         action: DstAction.insert,
       );
       final requiredCascade = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.requiredCascadeChild,
         action: DstAction.insert,
       );
       final requiredNoAction = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.requiredNoActionChild,
         action: DstAction.insert,
       );
       final nullableDefault = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.nullableSetDefaultChild,
         action: DstAction.insert,
       );
       final uniqueDefault = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.uniqueSetDefaultChild,
         action: DstAction.insert,
       );
       final uniqueCascade = await operations.apply(
         replica,
-        scope,
+        space,
         table: DstTable.uniqueCascadeReference,
         action: DstAction.insert,
       );

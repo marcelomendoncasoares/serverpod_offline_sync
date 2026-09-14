@@ -52,7 +52,7 @@ void main() {
       test(
         'then the columns are registered with the correct names and IDs.',
         () async {
-          // scopeId is CRDT-managed and never registered as a synced column.
+          // spaceId is CRDT-managed and never registered as a synced column.
           expect(columnRows.map((column) => column.name).toSet(), {
             'id',
             'name',
@@ -200,21 +200,21 @@ void main() {
   );
 
   test(
-    'Given a CRDT database with a scoped composite unique index that has a stable discriminator and a releasable column, '
+    'Given a CRDT database with a space-scoped composite unique index that has a stable discriminator and a releasable column, '
     'when the database is initialized, '
     'then the unique index metadata is accepted.',
     () async {
-      final crdtSession = CrdtDatabaseSession.wraps(
+      final offlineSyncSession = OfflineSyncDatabaseSession.wraps(
         testSession,
         syncTables: [UniqueDiscriminator.t],
       );
 
-      await expectLater(crdtSession.db.initialize(), completes);
+      await expectLater(offlineSyncSession.db.initialize(), completes);
     },
   );
 
   test(
-    'Given a CRDT schema registry with a synced table that has the scopeId cascade relation to crdt_scopes, '
+    'Given a CRDT schema registry with a synced table that has the spaceId cascade relation to offline_sync_spaces, '
     'when the registry is created, '
     'then no error is thrown.',
     () async {
@@ -258,15 +258,15 @@ void main() {
       final uniqueDefinition = testSession.db.serializationManager
           .getTargetTableDefinitions()
           .firstWhere((definition) => definition.name == Unique.t.tableName);
-      final scopedUniqueIndex = uniqueDefinition.indexes.singleWhere(
+      final spaceScopedUniqueIndex = uniqueDefinition.indexes.singleWhere(
         (index) => index.isUnique && !index.isPrimary,
       );
       final globalUniqueDefinition = uniqueDefinition.copyWith(
         indexes: [
-          scopedUniqueIndex.copyWith(
+          spaceScopedUniqueIndex.copyWith(
             elements: [
-              for (final element in scopedUniqueIndex.elements)
-                if (element.definition != 'scopeId') element,
+              for (final element in spaceScopedUniqueIndex.elements)
+                if (element.definition != 'spaceId') element,
             ],
           ),
         ],
@@ -283,7 +283,7 @@ void main() {
             (e) => e.message,
             'message',
             contains(
-              'CRDT can only synchronize tables with per-scope unique indexes',
+              'CRDT can only synchronize tables with per-space unique indexes',
             ),
           ),
         ),
@@ -442,7 +442,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a scoped unique index that has no releasable non-scope column, '
+    'Given a CRDT schema registry with a space-scoped unique index that has no releasable non-space column, '
     'when the registry is created, '
     'then an error is thrown.',
     () {
@@ -457,7 +457,7 @@ void main() {
             'message',
             contains(
               'CRDT unique conflict resolution requires at least one '
-              'releasable non-scope column',
+              'releasable non-space column',
             ),
           ),
         ),
@@ -466,24 +466,24 @@ void main() {
   );
 
   test(
-    'Given a CRDT database with a scoped unique index that has no releasable non-scope column, '
+    'Given a CRDT database with a space-scoped unique index that has no releasable non-space column, '
     'when the database is initialized, '
     'then an error is thrown.',
     () async {
-      final crdtSession = CrdtDatabaseSession.wraps(
+      final offlineSyncSession = OfflineSyncDatabaseSession.wraps(
         testSession,
         syncTables: [UniqueNoRelease.t],
       );
 
       await expectLater(
-        crdtSession.db.initialize(),
+        offlineSyncSession.db.initialize(),
         throwsA(
           isA<StateError>().having(
             (e) => e.message,
             'message',
             contains(
               'CRDT unique conflict resolution requires at least one '
-              'releasable non-scope column',
+              'releasable non-space column',
             ),
           ),
         ),
@@ -492,7 +492,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table missing the scopeId cascade relation to crdt_scopes, '
+    'Given a CRDT schema registry with a synced table missing the spaceId cascade relation to offline_sync_spaces, '
     'when the registry is created, '
     'then an error is thrown.',
     () async {
@@ -500,12 +500,12 @@ void main() {
           .getTargetTableDefinitions()
           .firstWhere((definition) => definition.name == Person.t.tableName);
 
-      final noScopeRelationDefinition = personDefinition.copyWith(
+      final noSpaceRelationDefinition = personDefinition.copyWith(
         foreignKeys: personDefinition.foreignKeys
             .where(
               (fk) =>
-                  !(fk.columns.contains('scopeId') &&
-                      fk.referenceTable == 'crdt_scopes'),
+                  !(fk.columns.contains('spaceId') &&
+                      fk.referenceTable == 'offline_sync_spaces'),
             )
             .toList(),
       );
@@ -514,14 +514,14 @@ void main() {
         () => CrdtSchemaRegistry(
           session,
           syncTables: [Person.t],
-          tableDefinitions: [noScopeRelationDefinition],
+          tableDefinitions: [noSpaceRelationDefinition],
         ),
         throwsA(
           isA<StateError>().having(
             (e) => e.message,
             'message',
             contains(
-              'CRDT synced tables must declare scopeId as a cascade relation to crdt_scopes',
+              'CRDT synced tables must declare spaceId as a cascade relation to offline_sync_spaces',
             ),
           ),
         ),
@@ -530,7 +530,7 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table with scopeId referencing crdt_scopes but without onDelete=Cascade, '
+    'Given a CRDT schema registry with a synced table with spaceId referencing offline_sync_spaces but without onDelete=Cascade, '
     'when the registry is created, '
     'then an error is thrown.',
     () async {
@@ -540,7 +540,7 @@ void main() {
       final wrongActionDefinition = personDefinition.copyWith(
         foreignKeys: [
           for (final fk in personDefinition.foreignKeys)
-            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+            fk.columns.contains('spaceId') && fk.referenceTable == 'offline_sync_spaces'
                 ? fk.copyWith(onDelete: .restrict)
                 : fk,
         ],
@@ -557,7 +557,7 @@ void main() {
             (e) => e.message,
             'message',
             contains(
-              'CRDT synced tables must declare scopeId as a cascade relation to crdt_scopes',
+              'CRDT synced tables must declare spaceId as a cascade relation to offline_sync_spaces',
             ),
           ),
         ),
@@ -566,17 +566,17 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table whose only non-deferred foreign key is the scopeId relation to crdt_scopes, '
+    'Given a CRDT schema registry with a synced table whose only non-deferred foreign key is the spaceId relation to offline_sync_spaces, '
     'when the registry is created, '
     'then no error is thrown.',
     () async {
       final personDefinition = testSession.db.serializationManager
           .getTargetTableDefinitions()
           .firstWhere((definition) => definition.name == Person.t.tableName);
-      final nonDeferredScopeDefinition = personDefinition.copyWith(
+      final nonDeferredSpaceDefinition = personDefinition.copyWith(
         foreignKeys: [
           for (final fk in personDefinition.foreignKeys)
-            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+            fk.columns.contains('spaceId') && fk.referenceTable == 'offline_sync_spaces'
                 ? fk.copyWith(deferrable: null)
                 : fk,
         ],
@@ -586,7 +586,7 @@ void main() {
         () => CrdtSchemaRegistry(
           session,
           syncTables: [Person.t],
-          tableDefinitions: [nonDeferredScopeDefinition],
+          tableDefinitions: [nonDeferredSpaceDefinition],
         ),
         returnsNormally,
       );
@@ -733,17 +733,17 @@ void main() {
   );
 
   test(
-    'Given a CRDT schema registry with a synced table whose scopeId relation uses onDelete Restrict, '
+    'Given a CRDT schema registry with a synced table whose spaceId relation uses onDelete Restrict, '
     'when the registry is created, '
-    'then the scopeId relation is not exempt from the cascade requirement.',
+    'then the spaceId relation is not exempt from the cascade requirement.',
     () async {
       final personDefinition = testSession.db.serializationManager
           .getTargetTableDefinitions()
           .firstWhere((definition) => definition.name == Person.t.tableName);
-      final restrictScopeDefinition = personDefinition.copyWith(
+      final restrictSpaceDefinition = personDefinition.copyWith(
         foreignKeys: [
           for (final fk in personDefinition.foreignKeys)
-            fk.columns.contains('scopeId') && fk.referenceTable == 'crdt_scopes'
+            fk.columns.contains('spaceId') && fk.referenceTable == 'offline_sync_spaces'
                 ? fk.copyWith(onDelete: ForeignKeyAction.restrict)
                 : fk,
         ],
@@ -753,7 +753,7 @@ void main() {
         () => CrdtSchemaRegistry(
           session,
           syncTables: [Person.t],
-          tableDefinitions: [restrictScopeDefinition],
+          tableDefinitions: [restrictSpaceDefinition],
         ),
         throwsA(isA<StateError>()),
       );
@@ -829,7 +829,7 @@ void main() {
             'message',
             'CRDT cannot synchronize unique indexes that include json or jsonb '
                 'columns, because sync does not define canonical cross-dialect '
-                'JSON equality: unique.unique__scopeId__name__unique_idx. Remove '
+                'JSON equality: unique.unique__spaceId__name__unique_idx. Remove '
                 'those columns from the unique index.',
           ),
         ),
@@ -860,7 +860,7 @@ void main() {
             'message',
             'CRDT cannot synchronize unique indexes that include json or jsonb '
                 'columns, because sync does not define canonical cross-dialect '
-                'JSON equality: unique.unique__scopeId__name__unique_idx. Remove '
+                'JSON equality: unique.unique__spaceId__name__unique_idx. Remove '
                 'those columns from the unique index.',
           ),
         ),
@@ -985,10 +985,10 @@ void main() {
               tableDefinitions: [nullableNameDefinition],
             ).syncAndGetSchema(),
             throwsA(
-              isA<CrdtSchemaReconciliationException>().having(
+              isA<OfflineSyncSchemaReconciliationException>().having(
                 (error) => error.toString(),
                 'toString',
-                'CrdtSchemaReconciliationException: Cannot change unique.name type '
+                'OfflineSyncSchemaReconciliationException: Cannot change unique.name type '
                     'identity from columnType=text dartType=String isNullable=false '
                     'to columnType=text dartType=String? isNullable=true, because '
                     'attempted-value rows still exist. Convert the domain column and '
@@ -1093,10 +1093,10 @@ void main() {
               tableDefinitions: [_uuidPkTableDefinition(renamed)],
             ).syncAndGetSchema(),
             throwsA(
-              isA<CrdtSchemaReconciliationException>().having(
+              isA<OfflineSyncSchemaReconciliationException>().having(
                 (error) => error.toString(),
                 'toString',
-                'CrdtSchemaReconciliationException: Cannot reconcile '
+                'OfflineSyncSchemaReconciliationException: Cannot reconcile '
                     'uuid_pk_table: columns uuid_pk_table.name would be dropped '
                     'while uuid_pk_table.title would be added, and the dropped '
                     'columns still have CRDT field metadata. Update '
@@ -1145,7 +1145,7 @@ void main() {
   );
 }
 
-/// A synced table with a UUID primary key, the CRDT scope relation, one text
+/// A synced table with a UUID primary key, the CRDT space relation, one text
 /// column named by the test, and one boolean column.
 class _UuidPkTable extends Table<UuidValue> {
   _UuidPkTable({required super.tableName, required this.textColumnName});
@@ -1155,7 +1155,7 @@ class _UuidPkTable extends Table<UuidValue> {
   @override
   List<Column> get columns => [
     id,
-    ColumnInt('scopeId', this),
+    ColumnInt('spaceId', this),
     ColumnString(textColumnName, this),
     ColumnBool('is_active', this),
   ];
@@ -1170,14 +1170,14 @@ class _UuidPkTable extends Table<UuidValue> {
             name: column.columnName,
             columnType: switch (column.columnName) {
               'id' => ColumnType.uuid,
-              'scopeId' => ColumnType.bigint,
+              'spaceId' => ColumnType.bigint,
               'is_active' => ColumnType.boolean,
               _ => ColumnType.text,
             },
-            isNullable: column.columnName == 'id' || column.columnName == 'scopeId',
+            isNullable: column.columnName == 'id' || column.columnName == 'spaceId',
             dartType: switch (column.columnName) {
               'id' => 'UuidValue?',
-              'scopeId' => 'int?',
+              'spaceId' => 'int?',
               'is_active' => 'bool',
               _ => 'String',
             },
@@ -1185,9 +1185,9 @@ class _UuidPkTable extends Table<UuidValue> {
       ],
       foreignKeys: [
         ForeignKeyDefinition(
-          constraintName: '${tableName}_fk_scopeId',
-          columns: const ['scopeId'],
-          referenceTable: 'crdt_scopes',
+          constraintName: '${tableName}_fk_spaceId',
+          columns: const ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
           referenceColumns: const ['id'],
           onDelete: ForeignKeyAction.cascade,
@@ -1208,14 +1208,14 @@ TableDefinition _uuidPkTableDefinition(_UuidPkTable table) {
           name: column.columnName,
           columnType: switch (column.columnName) {
             'id' => ColumnType.uuid,
-            'scopeId' => ColumnType.bigint,
+            'spaceId' => ColumnType.bigint,
             'is_active' => ColumnType.boolean,
             _ => ColumnType.text,
           },
-          isNullable: column.columnName == 'id' || column.columnName == 'scopeId',
+          isNullable: column.columnName == 'id' || column.columnName == 'spaceId',
           dartType: switch (column.columnName) {
             'id' => 'UuidValue?',
-            'scopeId' => 'int?',
+            'spaceId' => 'int?',
             'is_active' => 'bool',
             _ => 'String',
           },
@@ -1223,9 +1223,9 @@ TableDefinition _uuidPkTableDefinition(_UuidPkTable table) {
     ],
     foreignKeys: [
       ForeignKeyDefinition(
-        constraintName: '${table.tableName}_fk_scopeId',
-        columns: const ['scopeId'],
-        referenceTable: 'crdt_scopes',
+        constraintName: '${table.tableName}_fk_spaceId',
+        columns: const ['spaceId'],
+        referenceTable: 'offline_sync_spaces',
         referenceTableSchema: 'public',
         referenceColumns: const ['id'],
         onDelete: ForeignKeyAction.cascade,
@@ -1261,7 +1261,7 @@ TableDefinition _uniqueNameDefinition({
 
 /// Registers CRDT field metadata for [column] on a new row of [table].
 ///
-/// The scope, node and data row are the metadata chain a field hangs off; only
+/// The space, node and data row are the metadata chain a field hangs off; only
 /// the field's existence is what a test asserts against.
 Future<CrdtDataField> _insertFieldMetadata({
   required CrdtSchemaColumn column,
@@ -1271,14 +1271,14 @@ Future<CrdtDataField> _insertFieldMetadata({
     session,
     CrdtNode(uuidNodeId: const Uuid().v7obj()),
   );
-  final scope = await CrdtScope.db.insertRow(
+  final space = await OfflineSyncSpace.db.insertRow(
     session,
-    CrdtScope(uuidScopeId: testCrdtUserId, currentNodeId: node.id),
+    OfflineSyncSpace(uuidSpaceId: testCrdtUserId, currentNodeId: node.id),
   );
   final row = await CrdtDataRow.db.insertRow(
     session,
     CrdtDataRow(
-      scopeId: scope.id!,
+      spaceId: space.id!,
       tblId: table.id!,
       uuidRowId: const Uuid().v7obj(),
       nodeId: node.id!,

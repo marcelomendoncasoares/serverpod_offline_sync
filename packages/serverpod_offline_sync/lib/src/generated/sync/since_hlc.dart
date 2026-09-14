@@ -11,23 +11,23 @@
 
 part of 'stream_event.dart';
 
-/// Per-scope checkpoint sent by each peer before the first visit to a scope.
-abstract class CrdtSyncSinceHlc extends _icw2tu00.CrdtSyncStreamEvent
+/// Per-space checkpoint sent by each peer before the first visit to a space.
+abstract class OfflineSyncSinceHlc extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  CrdtSyncSinceHlc._({
-    required this.uuidScopeId,
+  OfflineSyncSinceHlc._({
+    required this.uuidSpaceId,
     required this.nodeCheckpoints,
   });
 
-  factory CrdtSyncSinceHlc({
-    required _iss.UuidValue uuidScopeId,
+  factory OfflineSyncSinceHlc({
+    required _iss.UuidValue uuidSpaceId,
     required List<_icw2tu00.Hlc> nodeCheckpoints,
-  }) = _CrdtSyncSinceHlcImpl;
+  }) = _OfflineSyncSinceHlcImpl;
 
-  factory CrdtSyncSinceHlc.fromJson(Map<String, dynamic> jsonSerialization) {
-    return CrdtSyncSinceHlc(
-      uuidScopeId: _iss.UuidValueJsonExtension.fromJson(
-        jsonSerialization['uuidScopeId'],
+  factory OfflineSyncSinceHlc.fromJson(Map<String, dynamic> jsonSerialization) {
+    return OfflineSyncSinceHlc(
+      uuidSpaceId: _iss.UuidValueJsonExtension.fromJson(
+        jsonSerialization['uuidSpaceId'],
       ),
       nodeCheckpoints: _icw2tu00.Protocol().deserialize<List<_icw2tu00.Hlc>>(
         jsonSerialization['nodeCheckpoints'],
@@ -35,8 +35,8 @@ abstract class CrdtSyncSinceHlc extends _icw2tu00.CrdtSyncStreamEvent
     );
   }
 
-  /// Scope this checkpoint belongs to.
-  _iss.UuidValue uuidScopeId;
+  /// Space this checkpoint belongs to.
+  _iss.UuidValue uuidSpaceId;
 
   /// Per-node checkpoints that describe which changes the sender already has.
   ///
@@ -46,19 +46,19 @@ abstract class CrdtSyncSinceHlc extends _icw2tu00.CrdtSyncStreamEvent
   /// nodes unknown at the time of the previous sync.
   List<_icw2tu00.Hlc> nodeCheckpoints;
 
-  /// Returns a shallow copy of this [CrdtSyncSinceHlc]
+  /// Returns a shallow copy of this [OfflineSyncSinceHlc]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  CrdtSyncSinceHlc copyWith({
-    _iss.UuidValue? uuidScopeId,
+  OfflineSyncSinceHlc copyWith({
+    _iss.UuidValue? uuidSpaceId,
     List<_icw2tu00.Hlc>? nodeCheckpoints,
   });
   @override
   Map<String, dynamic> toJson() {
     return {
-      '__className__': 'serverpod_offline_sync.CrdtSyncSinceHlc',
-      'uuidScopeId': uuidScopeId.toJson(),
+      '__className__': 'serverpod_offline_sync.OfflineSyncSinceHlc',
+      'uuidSpaceId': uuidSpaceId.toJson(),
       'nodeCheckpoints': nodeCheckpoints.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -66,8 +66,8 @@ abstract class CrdtSyncSinceHlc extends _icw2tu00.CrdtSyncStreamEvent
   @override
   Map<String, dynamic> toJsonForProtocol() {
     return {
-      '__className__': 'serverpod_offline_sync.CrdtSyncSinceHlc',
-      'uuidScopeId': uuidScopeId.toJson(),
+      '__className__': 'serverpod_offline_sync.OfflineSyncSinceHlc',
+      'uuidSpaceId': uuidSpaceId.toJson(),
       'nodeCheckpoints': nodeCheckpoints.toJson(
         valueToJson: (v) =>
             // ignore: unnecessary_type_check
@@ -86,25 +86,25 @@ abstract class CrdtSyncSinceHlc extends _icw2tu00.CrdtSyncStreamEvent
   }
 }
 
-class _CrdtSyncSinceHlcImpl extends CrdtSyncSinceHlc {
-  _CrdtSyncSinceHlcImpl({
-    required _iss.UuidValue uuidScopeId,
+class _OfflineSyncSinceHlcImpl extends OfflineSyncSinceHlc {
+  _OfflineSyncSinceHlcImpl({
+    required _iss.UuidValue uuidSpaceId,
     required List<_icw2tu00.Hlc> nodeCheckpoints,
   }) : super._(
-         uuidScopeId: uuidScopeId,
+         uuidSpaceId: uuidSpaceId,
          nodeCheckpoints: nodeCheckpoints,
        );
 
-  /// Returns a shallow copy of this [CrdtSyncSinceHlc]
+  /// Returns a shallow copy of this [OfflineSyncSinceHlc]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  CrdtSyncSinceHlc copyWith({
-    _iss.UuidValue? uuidScopeId,
+  OfflineSyncSinceHlc copyWith({
+    _iss.UuidValue? uuidSpaceId,
     List<_icw2tu00.Hlc>? nodeCheckpoints,
   }) {
-    return CrdtSyncSinceHlc(
-      uuidScopeId: uuidScopeId ?? this.uuidScopeId,
+    return OfflineSyncSinceHlc(
+      uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
       nodeCheckpoints:
           nodeCheckpoints ??
           this.nodeCheckpoints.map((e0) => e0.copyWith()).toList(),

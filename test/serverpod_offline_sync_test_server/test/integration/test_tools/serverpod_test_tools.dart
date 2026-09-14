@@ -218,7 +218,7 @@ class _DemoDebugEndpoint {
 
   final _is.SerializationManager _serializationManager;
 
-  _ida.Future<List<dynamic>> fetchScopeSnapshot(
+  _ida.Future<List<dynamic>> fetchSpaceSnapshot(
     _ist.TestSessionBuilder sessionBuilder, {
     required bool includeHidden,
   }) async {
@@ -226,13 +226,13 @@ class _DemoDebugEndpoint {
       var _localUniqueSession = (sessionBuilder as _ist.InternalTestSessionBuilder)
           .internalBuild(
             endpoint: 'demoDebug',
-            method: 'fetchScopeSnapshot',
+            method: 'fetchSpaceSnapshot',
           );
       try {
         var _localCallContext = await _endpointDispatch.getMethodCallContext(
           createSessionCallback: (_) => _localUniqueSession,
           endpointPath: 'demoDebug',
-          methodName: 'fetchScopeSnapshot',
+          methodName: 'fetchSpaceSnapshot',
           parameters: _ist.testObjectToJson({'includeHidden': includeHidden}),
           serializationManager: _serializationManager,
         );
@@ -249,18 +249,18 @@ class _DemoDebugEndpoint {
     });
   }
 
-  _ida.Future<void> resetScope(_ist.TestSessionBuilder sessionBuilder) async {
+  _ida.Future<void> resetSpace(_ist.TestSessionBuilder sessionBuilder) async {
     return _ist.callAwaitableFunctionAndHandleExceptions(() async {
       var _localUniqueSession = (sessionBuilder as _ist.InternalTestSessionBuilder)
           .internalBuild(
             endpoint: 'demoDebug',
-            method: 'resetScope',
+            method: 'resetSpace',
           );
       try {
         var _localCallContext = await _endpointDispatch.getMethodCallContext(
           createSessionCallback: (_) => _localUniqueSession,
           endpointPath: 'demoDebug',
-          methodName: 'resetScope',
+          methodName: 'resetSpace',
           parameters: _ist.testObjectToJson({}),
           serializationManager: _serializationManager,
         );
@@ -277,7 +277,7 @@ class _DemoDebugEndpoint {
     });
   }
 
-  _ida.Future<void> seedScope(
+  _ida.Future<void> seedSpace(
     _ist.TestSessionBuilder sessionBuilder,
     String kind,
     String? text,
@@ -286,13 +286,13 @@ class _DemoDebugEndpoint {
       var _localUniqueSession = (sessionBuilder as _ist.InternalTestSessionBuilder)
           .internalBuild(
             endpoint: 'demoDebug',
-            method: 'seedScope',
+            method: 'seedSpace',
           );
       try {
         var _localCallContext = await _endpointDispatch.getMethodCallContext(
           createSessionCallback: (_) => _localUniqueSession,
           endpointPath: 'demoDebug',
-          methodName: 'seedScope',
+          methodName: 'seedSpace',
           parameters: _ist.testObjectToJson({
             'kind': kind,
             'text': text,

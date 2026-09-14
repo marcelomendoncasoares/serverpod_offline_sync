@@ -5,7 +5,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart';
 import '../../crdt/extensions.dart';
 import '../../generated/protocol.dart';
 import '../../managers/hlc.dart';
-import '../../managers/scope.dart';
+import '../../managers/space.dart';
 import '../database.dart';
 import '../recorder.dart';
 import '../session.dart';
@@ -23,7 +23,7 @@ enum ForeignKeyTargetPresence {
 
 /// Shared state and database access for the CRDT recorder and its helpers.
 ///
-/// Owns per-recorder scope/HLC management and the low-level domain and CRDT
+/// Owns per-recorder space/HLC management and the low-level domain and CRDT
 /// metadata queries shared by the mutation recorder, the unique conflict
 /// resolver, and the foreign key projector.
 @internal
@@ -39,7 +39,7 @@ class CrdtRecorderContext {
   final Database database;
 
   /// Process-level CRDT metadata shared across recorders.
-  final CrdtDatabaseContext databaseContext;
+  final OfflineSyncDatabaseContext databaseContext;
 
   /// The user ID to use for all CRDT operations. This should only be used for
   /// databases operating on the client side, where all data is for the same user.
@@ -49,8 +49,10 @@ class CrdtRecorderContext {
   /// A plain session over [database] for metadata queries.
   late final DatabaseSession databaseSession = database.session;
 
-  /// Manages [CrdtScope] rows and their cache.
-  late final CrdtScopeManager scopeManager = CrdtScopeManager(databaseSession);
+  /// Manages [OfflineSyncSpace] rows and their cache.
+  late final OfflineSyncSpaceManager spaceManager = OfflineSyncSpaceManager(
+    databaseSession,
+  );
 
   final Map<UuidValue, HlcManager> _hlcManagers = {};
 
@@ -95,7 +97,7 @@ class CrdtRecorderContext {
   /// Synced tables by table name.
   Map<String, Table> get syncTableByName => databaseContext.syncTableByName;
 
-  /// Column names of every synced table, used to scope merge metadata lookups.
+  /// Column names of every synced table, used to space merge metadata lookups.
   Map<String, Set<String>> get syncedTableColumnNamesForMerge =>
       databaseContext.syncedTableColumnNamesForMerge;
 
@@ -110,11 +112,11 @@ class CrdtRecorderContext {
     CrdtDataRowInclude? include,
   }) {
     final (tableId, _) = schema[tableName]!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     return CrdtDataRow.db.find(
       databaseSession,
       where: (t) =>
-          t.scopeId.equals(scopeId) &
+          t.spaceId.equals(spaceId) &
           t.tblId.equals(tableId) &
           t.uuidRowId.inSet(rowIds),
       include: include,
@@ -159,10 +161,10 @@ class CrdtRecorderContext {
     required Transaction transaction,
   }) async {
     final (tableId, _) = schema[tableName]!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     final ids = rowIds.sqlLiteralList();
     final rowPredicate =
-        'r."scopeId" = $scopeId AND r."tblId" = $tableId '
+        'r."spaceId" = $spaceId AND r."tblId" = $tableId '
         'AND r."uuidRowId" IN ($ids)';
     final conditions = <String>[
       if (persisted)
@@ -177,16 +179,16 @@ WHERE $rowPredicate AND ($_rowVisible)
 SELECT 1 FROM "crdt_data_attempted_value" a
 JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
-WHERE r."scopeId" = $scopeId AND r."tblId" = $tableId)''',
+WHERE r."spaceId" = $spaceId AND r."tblId" = $tableId)''',
     ];
     for (final MapEntry(key: parentTable, value: parentIds) in parentsByTable.entries) {
       final (parentTableId, _) = schema[parentTable]!;
       conditions.add('''(SELECT COUNT(*)
 FROM "${parentTable.escapeIdentifier()}" p
 JOIN "crdt_data_rows" r ON r."uuidRowId" = p."id"
-  AND r."tblId" = $parentTableId AND r."scopeId" = $scopeId
+  AND r."tblId" = $parentTableId AND r."spaceId" = $spaceId
 LEFT JOIN "crdt_data_tombstone" d ON d."rowId" = r."id"
-WHERE p."scopeId" = $scopeId AND p."id" IN (${parentIds.sqlLiteralList()})
+WHERE p."spaceId" = $spaceId AND p."id" IN (${parentIds.sqlLiteralList()})
   AND ($_rowVisible) AND (d."id" IS NULL OR d."clFlag" % 2 = 1)
 ) = ${parentIds.length}''');
     }
@@ -215,7 +217,7 @@ WHERE p."scopeId" = $scopeId AND p."id" IN (${parentIds.sqlLiteralList()})
 SELECT 1 FROM "crdt_data_attempted_value" a
 JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
-WHERE r."scopeId" = $scopeId AND r."tblId" = $childTableId
+WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
   AND f."columnId" IN (${columnIds.join(', ')})
   AND a."value" IN (${encodedIds.join(', ')}))''');
     }
@@ -466,14 +468,14 @@ WHERE r."scopeId" = $scopeId AND r."tblId" = $childTableId
     };
     if (encodedValues.isEmpty) return const {};
 
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     final result = await database.unsafeQuery(
       '''
 SELECT DISTINCT r."uuidRowId"
 FROM "crdt_data_attempted_value" a
 JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
-WHERE r."scopeId" = $scopeId
+WHERE r."spaceId" = $spaceId
   AND r."tblId" = $tableId
   AND f."columnId" IN (${columnIds.join(', ')})
   AND a."value" IN (${encodedValues.join(', ')})
@@ -502,12 +504,12 @@ WHERE r."scopeId" = $scopeId
     };
     final (childTableId, columns) = schema[childTableName]!;
     final columnId = columns[childColumn]!.id!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     final result = await database.unsafeQuery(
       '''SELECT r."tblId", r."uuidRowId"
 FROM "crdt_data_rows" r
 LEFT JOIN "crdt_data_tombstone" d ON d."rowId" = r."id"
-WHERE r."scopeId" = $scopeId
+WHERE r."spaceId" = $spaceId
   AND r."tblId" IN (${tablesById.keys.join(', ')})
   AND ($_rowHidden OR d."clFlag" % 2 = 0)
 UNION
@@ -515,7 +517,7 @@ SELECT r."tblId", r."uuidRowId"
 FROM "crdt_data_attempted_value" a
 JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
-WHERE r."scopeId" = $scopeId
+WHERE r."spaceId" = $spaceId
   AND r."tblId" = $childTableId
   AND f."columnId" = $columnId
 ''',
@@ -583,17 +585,17 @@ WHERE (${predicates.join(') AND (')})
   /// reads that pair as one boolean.
   String _visibilityJoin(String tableName, Transaction transaction) {
     final (tableId, _) = schema[tableName]!;
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     return '''
 FROM "${tableName.escapeIdentifier()}" d
 LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"''';
+  ON r."spaceId" = $spaceId AND r."tblId" = $tableId AND r."uuidRowId" = d."id"''';
   }
 
   /// Whether tracked row alias `r` is hidden; shared by metadata/domain lookups.
   static final _rowHidden = 'r."visibility" > $crdtRowLastVisibleVisibilityIndex';
 
-  /// Whether the row joined by [_visibilityJoin] is visible in this scope.
+  /// Whether the row joined by [_visibilityJoin] is visible in this space.
   static final _rowVisible =
       'r."id" IS NULL OR r."visibility" <= $crdtRowLastVisibleVisibilityIndex';
 
@@ -629,13 +631,13 @@ LEFT JOIN "crdt_data_rows" r
   }) async {
     if (values.isEmpty) return const {};
 
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     final result = await database.unsafeQuery(
       '''
 SELECT d."${parentColumn.escapeIdentifier()}",
   CASE WHEN $_rowVisible THEN 1 ELSE 0 END AS visible
 ${_visibilityJoin(parentTableName, transaction)}
-WHERE (${domainColumnPredicate('scopeId', scopeId)})
+WHERE (${domainColumnPredicate('spaceId', spaceId)})
   AND (d."${parentColumn.escapeIdentifier()}" IN (${values.sqlLiteralList()}))
 ''',
       transaction: transaction,
@@ -746,10 +748,10 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
   }
 
   HlcManager hlcManagerFor(Transaction transaction) {
-    final user = effectiveScopeFor(transaction);
+    final user = effectiveSpaceFor(transaction);
     return _hlcManagers.putIfAbsent(
-      user.uuidScopeId,
-      () => HlcManager.forScope(user),
+      user.uuidSpaceId,
+      () => HlcManager.forSpace(user),
     );
   }
 
@@ -796,33 +798,33 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     label: 'CRDT node "$uuidNodeId"',
   );
 
-  Future<CrdtScopeNode> findOrCreateScopeNode(
-    int scopeId,
+  Future<OfflineSyncSpaceNode> findOrCreateSpaceNode(
+    int spaceId,
     int nodeId,
     Transaction transaction,
   ) => _findOrCreate(
-    find: () => CrdtScopeNode.db.findFirstRow(
+    find: () => OfflineSyncSpaceNode.db.findFirstRow(
       databaseSession,
-      where: (t) => t.scopeId.equals(scopeId) & t.nodeId.equals(nodeId),
+      where: (t) => t.spaceId.equals(spaceId) & t.nodeId.equals(nodeId),
       transaction: transaction,
     ),
-    insert: () => CrdtScopeNode.db.insert(
+    insert: () => OfflineSyncSpaceNode.db.insert(
       databaseSession,
-      [CrdtScopeNode(scopeId: scopeId, nodeId: nodeId)],
+      [OfflineSyncSpaceNode(spaceId: spaceId, nodeId: nodeId)],
       transaction: transaction,
       ignoreConflicts: true,
     ),
-    label: 'CRDT scope-node row for scope $scopeId and node $nodeId',
+    label: 'CRDT space-node row for space $spaceId and node $nodeId',
   );
 
-  CrdtScope effectiveScopeFor(Transaction transaction) {
-    final scope = scopeForTransaction[transaction];
-    if (scope != null) return scope;
+  OfflineSyncSpace effectiveSpaceFor(Transaction transaction) {
+    final space = spaceForTransaction[transaction];
+    if (space != null) return space;
     final userId = persistentUserId;
     if (userId == null) {
       throw StateError('No user ID found for transaction or persistent user ID.');
     }
-    return scopeManager.getCached(userId);
+    return spaceManager.getCached(userId);
   }
 
   Future<({int foreignKeyIndex, Object value})?> findInvalidForeignKeyReference({
@@ -833,7 +835,7 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
   }) async {
     if (foreignKeys.isEmpty) return null;
 
-    final scopeId = hlcManagerFor(transaction).normalizedScopeId;
+    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     final escapedChildTable = childTableName.escapeIdentifier();
     final whereRowIds = childRowIds.sqlLiteralList();
 
@@ -850,12 +852,12 @@ FROM "$escapedChildTable" c
 LEFT JOIN "$parentTable" p
   ON p."$parentColumn" = c."$childColumn"
 LEFT JOIN "crdt_data_rows" r
-  ON r."scopeId" = $scopeId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
+  ON r."spaceId" = $spaceId AND r."tblId" = $parentTableId AND r."uuidRowId" = p."id"
 WHERE c."id" IN ($whereRowIds)
   AND c."$childColumn" IS NOT NULL
   AND (
     p."id" IS NULL OR
-    p."scopeId" <> $scopeId OR
+    p."spaceId" <> $spaceId OR
     $_rowHidden
   )
 ''';

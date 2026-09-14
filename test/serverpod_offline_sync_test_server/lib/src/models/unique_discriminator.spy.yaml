@@ -3,4 +3,4 @@ table: unique_discriminator
 database: sync
 fields:
   categoryId: int
-  name: String, unique(per=[scopeId, categoryId])
+  name: String, unique(per=[spaceId, categoryId])
