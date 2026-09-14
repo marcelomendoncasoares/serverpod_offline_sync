@@ -19,9 +19,9 @@ dev_dependencies:
 dependency_overrides:
   serverpod_cli:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
+      url: https://github.com/serverpod/serverpod.git
       path: tools/serverpod_cli
-      ref: 352cf64a53c4b266c3e1bea03b61eda1051eede7
+      ref: 3e9ccff494c4fd2b190d013aa74bd93a619358e4
 
 # dependency_overrides:
 #   serverpod:
