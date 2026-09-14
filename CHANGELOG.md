@@ -1,11 +1,32 @@
-## Unreleased
+## 0.0.6
 
-- refactor: BREAKING. Rename integration and synchronization APIs to `OfflineSync*`
-  and ownership scopes to spaces, including `spaceId`, `session.offlineSync`,
-  `client.offlineSync`, and `session.offlineSync.spaces`.
-- refactor: Rename the synchronization endpoint, serialized events, and space
-  metadata tables. Regenerate server/client code with the matching Serverpod CLI
-  and apply the corresponding database migrations.
+- refactor: BREAKING. Rename integration APIs and ownership scopes:
+  - Rename `CrdtDatabase*` wrappers to `OfflineSyncDatabase*`.
+  - Rename `CrdtSync` to `OfflineSyncEngine` and `CrdtSyncSession` to
+    `OfflineSyncSubscription`.
+  - Access sync through `.offlineSync` and `.offlineSyncDb` instead of
+    `.crdt` and `.crdtDb`.
+  - Replace `CrdtScope*` models and services with `OfflineSyncSpace*`
+  - Change access to shared spaces through `.spaces` instead of `.scopes`.
+  - Use `spaceId` in models and indexes, and `offline_sync_spaces` in
+    ownership relations.
+  - Initialize with `initializeOfflineSync` and use `offlineSyncDatabaseInterceptor`.
+  - Import client helpers from `offline_sync.dart` instead of `crdt.dart`.
+  - Rename the synchronization endpoint, serialized events, and space metadata
+  tables.
+- fix: Recompute `onDelete=SetDefault` repairs when default targets are
+  inserted, deleted, restored, or hidden to preserve authored values.
+- fix: Reject local deletes atomically when a needed `SetDefault` target is
+  missing, hidden, owned by another space, or deleted in the same batch.
+- fix: Preserve projection-selected nulls during inserts instead of reapplying
+  column defaults, and apply fixed UUID foreign-key defaults in local upserts.
+- fix: Resolve composite unique conflicts when only a fixed discriminator
+  column changes.
+- perf: Avoid redundant foreign-key projection for ordinary local writes and
+  primary-key upserts, and batch dependency checks and field-clock writes.
+- perf: Overlap independent membership reads and skip unnecessary space lookups
+  for untracked tables.
+- chore: Update Serverpod to `4.0.0` and use the published CLI.
 
 ## 0.0.5
 
