@@ -40,6 +40,21 @@ void main() {
           expect(session.offlineSync, isNotNull);
         },
       );
+
+      test(
+        'when closing a sync wrapper around a server session is attempted, '
+        'then it rejects the operation and leaves the server connection open.',
+        () async {
+          final wrapped = OfflineSyncDatabaseSession.wraps(
+            session,
+            syncTables: syncTables,
+          );
+
+          await expectLater(wrapped.close(), throwsUnsupportedError);
+
+          expect(await session.db.testConnection(), isTrue);
+        },
+      );
     },
   );
 

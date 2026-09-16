@@ -175,6 +175,14 @@ await client.offlineSync.syncOnce(session);
 final syncSession = client.offlineSync.syncContinuously(session);
 ```
 
+When disposing a client replica, cancel its sync subscription before closing
+the local database:
+
+```dart
+await syncSession.cancel();
+await session.close();
+```
+
 ## Usage
 
 Once wired up, use normal generated-model CRUD against the `session` instance,

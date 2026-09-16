@@ -191,13 +191,20 @@ class DemoController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     stopScenarioAutoPlay();
-    unawaited(_stopAllStreams());
-    // TODO: Close replica databases once createSyncSession exposes a close API.
+    unawaited(_closeSessions());
     for (final state in replicas.values) {
       state.dispose();
     }
     server.dispose();
     super.dispose();
+  }
+
+  Future<void> _closeSessions() async {
+    try {
+      await _stopAllStreams();
+    } finally {
+      await Future.wait(_sessions.values.map((replica) => replica.close()));
+    }
   }
 
   @override

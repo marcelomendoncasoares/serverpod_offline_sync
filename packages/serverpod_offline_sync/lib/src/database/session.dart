@@ -66,9 +66,32 @@ class OfflineSyncDatabaseSession implements DatabaseSession {
     syncBatchSize: syncBatchSize,
     continuousSyncInterval: continuousSyncInterval,
     persistentUserId: persistentUserId,
-  );
+  ).._wrappedSession = session;
 
   final OfflineSyncDatabase _db;
+  DatabaseSession? _wrappedSession;
+  Future<void>? _closeFuture;
+
+  /// Closes the underlying client database.
+  ///
+  /// Supported for sessions created by [OfflineSyncDatabaseSession.wraps] around
+  /// a [ClientDatabaseSession], including nested sync-session wrappers and the
+  /// sessions returned by the generated client's `createSyncSession` method.
+  /// Repeated or concurrent calls share the same close operation.
+  ///
+  /// Throws [UnsupportedError] for sessions constructed directly from a
+  /// [Database] or wrapping a non-client session. Those connections must be
+  /// closed through their owner, such as the server.
+  Future<void> close() => _closeFuture ??= switch (_wrappedSession) {
+    final ClientDatabaseSession session => session.close(),
+    final OfflineSyncDatabaseSession session => session.close(),
+    _ => Future<void>.error(
+      UnsupportedError(
+        'Only sync sessions wrapping a ClientDatabaseSession can be closed. '
+        'Close the underlying database through its owner.',
+      ),
+    ),
+  };
 
   @override
   OfflineSyncDatabase get db => _db;

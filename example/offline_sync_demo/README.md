@@ -25,6 +25,9 @@ UI code. Every replica follows the same three steps:
    `client.offlineSync.syncOnce(session, onMergeSuccess: …)` for a one-shot push/pull,
    or `client.offlineSync.syncContinuously(session, …)` to stream until cancelled.
 
+When disposing a replica, cancel its sync subscription and call `session.close()`
+to release the local database connection.
+
 Connectivity is just *which client you sync through*: the demo swaps
 `Client.httpClientOverride` between a real transport and a failing one to
 simulate going offline — the local database is untouched either way.

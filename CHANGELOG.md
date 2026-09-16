@@ -1,6 +1,7 @@
 ## Unreleased
 
 - fix: Keep non-synced `updateRow` calls in the test harness transaction.
+- fix: Allow generated client sync sessions to close their SQLite connections.
 - fix: Resolve shared-package models and enums during projection and sync.
 - fix: Preserve boolean types when syncing SQLite column updates.
 - fix: Preserve JSON and JSONB field types and values through inserts, updates,

@@ -21,7 +21,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 ///      e.g. `Person.db.insertRow(offlineSyncSession, person)`).
 ///   3. [syncOnce] / [syncContinuously] push local changes and merge remote
 ///      ones through a Serverpod [Client].
-///   4. [reset] clears the replica's local data.
+///   4. [reset] clears local data; [close] releases the database connection.
 ///
 /// It deliberately holds **no UI state**: the demo's `DemoController` layers
 /// busy/error/projection bookkeeping on top of these calls so that this file
@@ -146,4 +146,7 @@ class OfflineReplica {
     }
     await session.db.initialize();
   }
+
+  /// Closes the underlying database connection.
+  Future<void> close() => session.close();
 }
