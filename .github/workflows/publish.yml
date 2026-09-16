@@ -10,23 +10,26 @@ on:
 jobs:
   publish-serverpod_offline_sync:
     permissions:
+      contents: read
       id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    uses: ./.github/workflows/publish-package.yml
     with:
       working-directory: packages/serverpod_offline_sync
 
   publish-serverpod_offline_sync_client:
     needs: publish-serverpod_offline_sync
     permissions:
+      contents: read
       id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    uses: ./.github/workflows/publish-package.yml
     with:
       working-directory: packages/serverpod_offline_sync_client
 
   publish-serverpod_offline_sync_server:
     needs: publish-serverpod_offline_sync
     permissions:
+      contents: read
       id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    uses: ./.github/workflows/publish-package.yml
     with:
       working-directory: packages/serverpod_offline_sync_server

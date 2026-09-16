@@ -1,0 +1,35 @@
+name: Publish package to pub.dev
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory of the package to publish.
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v4
+      # setup-dart also configures OIDC authentication for pub.dev.
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.12.2
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Publish - dry run
+        # Exact dependency versions produce warnings. Keep validation errors fatal.
+        run: dart pub publish --dry-run --ignore-warnings
+
+      - name: Publish to pub.dev
+        run: dart pub publish --force

@@ -128,4 +128,4 @@ melos:
     reset:
       exec: rm -f test.db*
     publish-check:
-      run: melos exec --category="publish" -- dart pub publish --dry-run
+      run: melos exec --category="publish" -- dart pub publish --dry-run --ignore-warnings
