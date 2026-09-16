@@ -2,7 +2,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-marcelomendoncasoares-181717.svg?style=flat&logo=github)](https://github.com/marcelomendoncasoares)
 [![Pub Package](https://img.shields.io/pub/v/serverpod_offline_sync.svg)](https://pub.dev/packages/serverpod_offline_sync)
-[![Dart SDK Version](https://badgen.net/pub/sdk-version/serverpod_offline_sync.svg)](https://pub.dev/packages/serverpod_offline_sync)
+[![Dart SDK Version](https://badgen.net/pub/sdk-version/serverpod_offline_sync)](https://pub.dev/packages/serverpod_offline_sync)
 [![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD_3--Clause-yellow.svg)](https://github.com/marcelomendoncasoares/serverpod_offline_sync/blob/main/LICENSE)
 [![CI](https://github.com/marcelomendoncasoares/serverpod_offline_sync/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/marcelomendoncasoares/serverpod_offline_sync/actions/workflows/ci.yaml)
 
