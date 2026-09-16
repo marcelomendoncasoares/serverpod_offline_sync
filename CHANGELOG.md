@@ -1,4 +1,4 @@
-## Unreleased
+## 0.0.7
 
 - fix: Keep non-synced `updateRow` calls in the test harness transaction.
 - fix: Allow generated client sync sessions to close their SQLite connections.
