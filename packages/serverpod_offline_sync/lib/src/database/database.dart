@@ -657,6 +657,13 @@ class OfflineSyncDatabase implements Database {
     Transaction? transaction,
   }) async {
     await _ensureInitialized();
+    if (!_recorder.isCrdtTracked<T>(row.table)) {
+      return _delegate.updateRow<T>(
+        row,
+        columns: columns,
+        transaction: transaction,
+      );
+    }
     return DatabaseUtil.runInTransactionOrSavepoint(
       _delegate,
       transaction,
