@@ -1,3 +1,10 @@
+## Unreleased
+
+- fix: Resolve shared-package models and enums during projection and sync.
+- fix: Preserve boolean types when syncing SQLite column updates.
+- fix: Preserve JSON and JSONB field types and values through inserts, updates,
+  and explicit nulls.
+
 ## 0.0.6
 
 - refactor: BREAKING. Rename integration APIs and ownership scopes:
