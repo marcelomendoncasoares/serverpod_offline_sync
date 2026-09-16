@@ -1,0 +1,1 @@
+../../serverpod_offline_sync/example/README.md
