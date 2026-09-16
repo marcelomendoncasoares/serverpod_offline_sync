@@ -15,27 +15,23 @@ void main() {
   final serverDirectory = Directory(
     '${Directory.systemTemp.path}/offline_sync_updates_${const Uuid().v4()}',
   );
-  late TestSessionBuilder testSessionBuilder;
-  late Session session;
-
   setUpAll(() async {
     await _preparePostgresMigrations(serverDirectory);
-    // Configure sync before Serverpod starts and opens the harness transaction.
-    testSessionBuilder.build().serverpod.initializeOfflineSync(syncTables: []);
   });
 
   tearDownAll(() async {
     if (serverDirectory.existsSync()) await serverDirectory.delete(recursive: true);
   });
 
-  setUp(() {
-    session = testSessionBuilder.build();
-  });
-
   withServerpod(
     'PostgreSQL untracked updates with the database interceptor',
     (sessionBuilder, _) {
-      testSessionBuilder = sessionBuilder;
+      late Session session;
+
+      setUp(() {
+        sessionBuilder.build().serverpod.initializeOfflineSync(syncTables: []);
+        session = sessionBuilder.build();
+      });
 
       group('Given an ordinary row in the test harness transaction,', () {
         late ServerHealthMetric metric;
