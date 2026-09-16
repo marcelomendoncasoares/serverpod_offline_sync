@@ -9,20 +9,19 @@ them converge.
 
 If you are here to learn the package, read **`lib/src/offline_replica.dart`**
 first — it is the entire integration in ~60 lines, deliberately free of demo and
-UI code. Every replica follows the same four steps:
+UI code. Every replica follows the same three steps:
 
-1. **Open a local database.** `client.createSession(path)` opens a Serverpod
-   client database (a local SQLite file) and runs the client migrations.
-2. **Wrap it for CRDT sync.** `OfflineSyncDatabaseSession.wraps(raw, syncTables: …,
-   persistentUserId: …)`, then `offlineSyncSession.db.initialize()` to establish this
-   device's CRDT node so it can take part in sync.
-3. **Read and write generated models** against that session, e.g.
+1. **Open a sync session.** The generated
+   `client.createSyncSession(path, isDebugMode: kDebugMode, persistentUserId: …)`
+   opens the local SQLite database, runs client migrations, wraps the generated
+   sync tables, and initializes CRDT tracking.
+2. **Read and write generated models** against that session, e.g.
    `Person.db.insertRow(session, person)` or `session.db.find<Person>()`. (The
    demo also routes these through a generic `TableOps` registry so its
    metadata-driven UI can touch any table without a per-type switch — that part
    is demo-only; the `seed*` methods in `lib/src/demo_controller.dart` show the
    plain form.)
-4. **Synchronize through a Serverpod client.**
+3. **Synchronize through a Serverpod client.**
    `client.offlineSync.syncOnce(session, onMergeSuccess: …)` for a one-shot push/pull,
    or `client.offlineSync.syncContinuously(session, …)` to stream until cancelled.
 

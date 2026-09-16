@@ -192,9 +192,7 @@ class DemoController extends ChangeNotifier {
     _disposed = true;
     stopScenarioAutoPlay();
     unawaited(_stopAllStreams());
-    for (final replica in _sessions.values) {
-      unawaited(replica.close());
-    }
+    // TODO: Close replica databases once createSyncSession exposes a close API.
     for (final state in replicas.values) {
       state.dispose();
     }

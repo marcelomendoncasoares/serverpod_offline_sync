@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:path/path.dart' as p;
-import 'package:serverpod_database/serverpod_database.dart'
-    show ClientDatabaseSession;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -13,8 +11,8 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 /// This class is the entire surface a real integration needs — read it first to
 /// understand the package. The four steps are:
 ///
-///   1. [open] opens a local SQLite database ([Client.createSession])
-///      and wraps it in a [OfflineSyncDatabaseSession]. Use
+///   1. [open] uses [Client.createSyncSession] to open and initialize a local
+///      SQLite database as an [OfflineSyncDatabaseSession]. Use
 ///      [openOrReset] when the file may predate the shipped
 ///      schema. The rest of the app reads and writes generated models through
 ///      [session].
@@ -23,16 +21,13 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 ///      e.g. `Person.db.insertRow(offlineSyncSession, person)`).
 ///   3. [syncOnce] / [syncContinuously] push local changes and merge remote
 ///      ones through a Serverpod [Client].
-///   4. [reset] / [close] tear the replica down.
+///   4. [reset] clears the replica's local data.
 ///
 /// It deliberately holds **no UI state**: the demo's `DemoController` layers
 /// busy/error/projection bookkeeping on top of these calls so that this file
 /// stays a clean reference for the package itself.
 class OfflineReplica {
-  OfflineReplica._(this._rawSession, this.session, this.persistentUserId);
-
-  /// Owns the underlying SQLite connection; closed by [close].
-  final ClientDatabaseSession _rawSession;
+  OfflineReplica._(this.session, this.persistentUserId);
 
   /// CRDT-aware session used for every model read and write. By default it only
   /// exposes visible (non-tombstoned) rows; queries opt into hidden rows with
@@ -44,26 +39,19 @@ class OfflineReplica {
 
   /// Opens [databasePath] through [client] and wraps it for CRDT sync.
   ///
-  /// [Client.createSession] opens the local client database (running
-  /// client migrations); [OfflineSyncDatabaseSession.wraps] layers CRDT
-  /// tracking over it; and `db.initialize()` establishes this device's CRDT
-  /// node so it can take part in sync.
+  /// [Client.createSyncSession] runs client migrations, wraps the database for
+  /// the generated sync tables, and initializes CRDT tracking for this user.
   static Future<OfflineReplica> open({
     required Client client,
     required String databasePath,
     required UuidValue persistentUserId,
   }) async {
-    final rawSession = await client.createSession(
+    final session = await client.createSyncSession(
       databasePath,
       isDebugMode: kDebugMode,
-    );
-    final offlineSyncSession = OfflineSyncDatabaseSession.wraps(
-      rawSession,
-      syncTables: syncTables,
       persistentUserId: persistentUserId,
     );
-    await offlineSyncSession.db.initialize();
-    return OfflineReplica._(rawSession, offlineSyncSession, persistentUserId);
+    return OfflineReplica._(session, persistentUserId);
   }
 
   /// Like [open], but deletes [databasePath] and retries once when opening
@@ -158,7 +146,4 @@ class OfflineReplica {
     }
     await session.db.initialize();
   }
-
-  /// Closes the underlying database connection.
-  Future<void> close() => _rawSession.close();
 }
