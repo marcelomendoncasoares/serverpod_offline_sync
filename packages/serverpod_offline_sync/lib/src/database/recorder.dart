@@ -598,6 +598,9 @@ class CrdtMutationRecorder {
         data[column.fieldName] = planned[column.columnName];
       }
     }
+    // Ask the serialization manager for the name it resolves this row by. A
+    // model from a shared package writes its own unprefixed `__className__`,
+    // while the host protocol only answers to the prefixed form.
     final className =
         _session.db.serializationManager.getClassNameForObject(row) ??
         data['__className__'] as String?;

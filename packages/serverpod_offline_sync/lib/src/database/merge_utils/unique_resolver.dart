@@ -259,6 +259,21 @@ String canonicalProjectionValue(Object? value) {
 @internal
 bool projectionValuesEqual(Object? left, Object? right) {
   if (left == null || right == null) return left == right;
+  if (left is Map && right is Map) {
+    return left.length == right.length &&
+        left.entries.every(
+          (entry) =>
+              right.containsKey(entry.key) &&
+              projectionValuesEqual(entry.value, right[entry.key]),
+        );
+  }
+  if (left is List && right is List) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (!projectionValuesEqual(left[index], right[index])) return false;
+    }
+    return true;
+  }
   final leftUuid = tryUuidValue(left);
   final rightUuid = tryUuidValue(right);
   if (leftUuid != null && rightUuid != null) {

@@ -14,6 +14,8 @@ dependencies:
     path: ../../packages/serverpod_offline_sync
   serverpod_offline_sync_server:
     path: ../../packages/serverpod_offline_sync_server
+  serverpod_offline_sync_test_shared:
+    path: ../serverpod_offline_sync_test_shared
 
 dev_dependencies:
   clock: ^1.1.2

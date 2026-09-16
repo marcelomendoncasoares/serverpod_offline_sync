@@ -1,0 +1,7 @@
+### A synchronized parent owned by a shared package rather than the server.
+class: SharedParent
+table: shared_parent
+database: sync
+fields:
+  name: String
+  children: List<SharedChild>?, relation(name=shared_parent_children)

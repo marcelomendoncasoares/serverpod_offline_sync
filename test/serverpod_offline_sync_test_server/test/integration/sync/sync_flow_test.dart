@@ -626,6 +626,50 @@ void main() {
             await testClient.offlineSync.syncOnce(clientSession);
           });
 
+          group('when the client edits every typed column and synchronizes,', () {
+            late server.Types merged;
+            final updatedDate = DateTime.utc(2027, 2, 3, 4, 5, 6);
+            final updatedInt64 = BigInt.parse('12345678901234567890');
+            late UuidValue updatedUuid;
+
+            setUp(() async {
+              updatedUuid = const Uuid().v7obj();
+              await client.Types.db.updateRow(
+                clientSession,
+                clientTypes.copyWith(
+                  aBool: false,
+                  aDateTime: updatedDate,
+                  aText: 'edited offline',
+                  anInt: 73,
+                  anInt64: updatedInt64,
+                  aReal: 2.75,
+                  aBlob: ByteData.sublistView(Uint8List.fromList([9, 8, 7])),
+                  anEnum: client.TypesEnum.beta,
+                  optionalText: null,
+                  optionalUuid: updatedUuid,
+                ),
+              );
+              await testClient.offlineSync.syncOnce(clientSession);
+              merged = (await server.Types.db.findById(
+                serverSession,
+                clientTypes.id!,
+              ))!;
+            });
+
+            test('then the server stores the edited values with their types.', () {
+              expect(merged.aBool, isFalse);
+              expect(merged.aDateTime, updatedDate);
+              expect(merged.aText, 'edited offline');
+              expect(merged.anInt, 73);
+              expect(merged.anInt64, updatedInt64);
+              expect(merged.aReal, 2.75);
+              expect(Uint8List.sublistView(merged.aBlob), [9, 8, 7]);
+              expect(merged.anEnum, server.TypesEnum.beta);
+              expect(merged.optionalText, isNull);
+              expect(merged.optionalUuid, updatedUuid);
+            });
+          });
+
           test(
             'when the server updates typed columns and the client syncs again, '
             'then the client receives the typed values.',
@@ -641,11 +685,12 @@ void main() {
                 (tx) => server.Types.db.updateRow(
                   serverSession,
                   serverTypes!.copyWith(
+                    aBool: false,
                     aDateTime: updatedDateTime,
                     anInt64: updatedInt64,
                     anEnum: server.TypesEnum.beta,
                   ),
-                  columns: (t) => [t.aDateTime, t.anInt64, t.anEnum],
+                  columns: (t) => [t.aBool, t.aDateTime, t.anInt64, t.anEnum],
                   transaction: tx,
                 ),
               );
@@ -657,11 +702,48 @@ void main() {
                 clientTypes.id!,
               );
               expect(mergedTypes, isNotNull);
-              expect(mergedTypes!.aDateTime, updatedDateTime);
+              expect(mergedTypes!.aBool, isFalse);
+              expect(mergedTypes.aDateTime, updatedDateTime);
               expect(mergedTypes.anInt64, updatedInt64);
               expect(mergedTypes.anEnum, client.TypesEnum.beta);
             },
           );
+        });
+      });
+
+      group('Given a client row inserted and synchronized with a false boolean,', () {
+        late client.Types row;
+        setUp(() async {
+          row = await client.Types.db.insertRow(
+            clientSession,
+            client.Types(
+              id: const Uuid().v7obj(),
+              aBool: false,
+              aDateTime: DateTime.utc(2026, 5, 8),
+              aText: 'false at insert',
+              anInt: 1,
+              anInt64: BigInt.one,
+              aReal: 1.5,
+              aBlob: ByteData.sublistView(Uint8List.fromList([1])),
+              anEnum: client.TypesEnum.gamma,
+            ),
+          );
+          await testClient.offlineSync.syncOnce(clientSession);
+        });
+        group('when the client changes it to true and synchronizes,', () {
+          late server.Types merged;
+          setUp(() async {
+            await client.Types.db.updateRow(
+              clientSession,
+              row.copyWith(aBool: true),
+              columns: (t) => [t.aBool],
+            );
+            await testClient.offlineSync.syncOnce(clientSession);
+            merged = (await server.Types.db.findById(serverSession, row.id!))!;
+          });
+          test('then the server stores true.', () {
+            expect(merged.aBool, isTrue);
+          });
         });
       });
 
