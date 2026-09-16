@@ -11,10 +11,11 @@ import 'dst_world.dart';
 /// describe it wrongly on the wire, and the only symptom would be a peer
 /// disagreeing later, for reasons that look like a merge defect.
 ///
-/// This closes that gap with an independent oracle. A replica's own export,
+/// This checks the export/bootstrap boundary. A replica's own export,
 /// merged into an empty replica, has to land on the same visible state. It
 /// needs no peer and no scheduling luck: one replica plus a mirror is enough,
-/// and a mismatch localizes the fault to collection rather than merge.
+/// and a mismatch localizes the fault to export plus bootstrap/projection.
+/// It is not independent evidence against identical corruption on both sides.
 ///
 /// The comparison is per space, because that is the unit a replica exports.
 /// [expected] is the caller's already-captured snapshot of [source]. Nothing

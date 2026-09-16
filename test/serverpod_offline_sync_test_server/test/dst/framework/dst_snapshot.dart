@@ -38,6 +38,11 @@ typedef DstProjection = ({
   CrdtProjectionReason projectionReason,
 });
 
+typedef DstTombstone = ({Hlc hlc, int clFlag, CrdtDataDeletedReason reason});
+
+/// Canonical JSON also normalizes UUID objects and JSON UUID strings.
+String dstValue(Object? value) => jsonEncode(value is UuidValue ? value.uuid : value);
+
 /// One replica's whole visible database, plus what it is hiding.
 ///
 /// Rows are keyed by `(table, rowId)` - the global identity the engine
@@ -49,6 +54,9 @@ class DstSnapshot {
     required this.rows,
     required this.projections,
     required this.causalLengths,
+    this.rowHlcs = const {},
+    this.fieldHlcs = const {},
+    this.tombstones = const {},
   });
 
   /// Captures [replica]'s current state through the ordinary read path.
@@ -75,13 +83,49 @@ class DstSnapshot {
         for (final row in allRows)
           row.id!: (
             spaceUuid: spaceUuidById[_spaceIdOf(row)]!,
-            columns: _comparableColumns(row),
+            columns: _comparableColumns(row, table),
             visible: visibleIds.contains(row.id),
           ),
       };
     }
 
+    final metadata = await CrdtDataRow.db.find(
+      session,
+      include: CrdtDataRow.include(
+        tbl: CrdtSchemaTable.include(),
+        node: CrdtNode.include(),
+        fields: CrdtDataField.includeList(
+          include: CrdtDataField.include(
+            column: CrdtSchemaColumn.include(),
+            node: CrdtNode.include(),
+          ),
+        ),
+        deleted: CrdtDataDeleted.include(node: CrdtNode.include()),
+      ),
+    );
+    final rowHlcs = <String, Hlc>{};
+    final fieldHlcs = <DstFieldKey, Hlc>{};
+    final tombstones = <String, DstTombstone>{};
+    for (final row in metadata) {
+      final table = row.tbl!.name;
+      final key = '$table/${row.uuidRowId}';
+      rowHlcs[key] = row.hlc;
+      for (final field in row.fields ?? <CrdtDataField>[]) {
+        fieldHlcs[(table, row.uuidRowId, field.column!.name)] = field.hlc;
+      }
+      final tombstone = row.deleted;
+      if (tombstone != null) {
+        tombstones[key] = (
+          hlc: tombstone.hlc,
+          clFlag: tombstone.clFlag,
+          reason: tombstone.reason,
+        );
+      }
+    }
     return DstSnapshot(
+      rowHlcs: rowHlcs,
+      fieldHlcs: fieldHlcs,
+      tombstones: tombstones,
       rows: rows,
       projections: await _captureProjections(session),
       causalLengths: await _captureCausalLengths(session),
@@ -91,11 +135,62 @@ class DstSnapshot {
   /// Every row by table name and row id, visible or not.
   final Map<String, Map<UuidValue, DstRow>> rows;
 
+  late final Map<String, UuidValue> rowSpaces = {
+    for (final table in rows.entries)
+      for (final row in table.value.entries)
+        '${table.key}/${row.key}': row.value.spaceUuid,
+  };
+
   /// The authored value of every field whose domain column differs from it.
   ///
   /// Sparse: a field with no entry here holds its authored value. See
   /// [DstProjection].
   final Map<DstFieldKey, DstProjection> projections;
+
+  /// Portable clocks; absent field records inherit the insertion clock.
+  /// A projector may create an explicit field at that same clock, so compare
+  /// effective clocks rather than the incidental presence of sparse records.
+  final Map<String, Hlc> rowHlcs;
+  final Map<DstFieldKey, Hlc> fieldHlcs;
+  final Map<String, DstTombstone> tombstones;
+
+  Hlc? fieldHlc(DstFieldKey key) => fieldHlcs[key] ?? rowHlcs['${key.$1}/${key.$2}'];
+
+  Object? authoredValue(DstFieldKey key) => projections.containsKey(key)
+      ? projections[key]!.attemptedValue
+      : rows[key.$1]?[key.$2]?.columns[key.$3];
+
+  /// A generation-one userInsert marker is an alternate encoding of a newer
+  /// insertion applied to an existing row. It is redundant only when every
+  /// effective field clock already includes that insertion. Real delete/restore
+  /// generations and unexplained insertion markers remain strict facts.
+  DstTombstone? canonicalTombstone(String table, UuidValue id) {
+    final tombstone = tombstones['$table/$id'];
+    if (tombstone?.clFlag == 1 &&
+        tombstone?.reason == CrdtDataDeletedReason.userInsert) {
+      final columns = rows[table]?[id]?.columns.keys
+          .where((column) => column != 'id')
+          .toList();
+      if (columns != null &&
+          columns.isNotEmpty &&
+          columns.every(
+            (column) =>
+                fieldHlc((table, id, column)) != null &&
+                fieldHlc((table, id, column))! >= tombstone!.hlc,
+          )) {
+        return null;
+      }
+    }
+    return tombstone;
+  }
+
+  /// Raw storage metadata is intentionally stricter than portable equality and
+  /// is retained for expected-rejection rollback, including redundant anchors.
+  String renderRawMetadata() => ([
+    for (final entry in rowHlcs.entries) 'row ${entry.key}: ${entry.value}',
+    for (final entry in fieldHlcs.entries) 'field ${entry.key}: ${entry.value}',
+    for (final entry in tombstones.entries) 'tombstone ${entry.key}: ${entry.value}',
+  ]..sort()).join('\n');
 
   /// Causal-length flag per row, keyed `table/rowId`.
   ///
@@ -188,7 +283,22 @@ class DstSnapshot {
             '$column=${row.columns[column]}',
         ].join(',');
         final marker = row.visible ? '' : ' HIDDEN';
-        buffer.writeln('$tableName/$rowId$marker {$rendered}');
+        final rowKey = '$tableName/$rowId';
+        buffer.writeln('$rowKey$marker {$rendered}');
+        final tombstone = canonicalTombstone(tableName, rowId);
+        buffer.writeln(
+          '  tombstone=${tombstone == null ? null : '${tombstone.clFlag} ${tombstone.hlc} ${tombstone.reason.name}'}',
+        );
+        for (final column in row.columns.keys.toList()..sort()) {
+          if (column == 'id' || column == '__className__') continue;
+          final key = (tableName, rowId, column);
+          final projection = projections[key];
+          buffer.writeln(
+            '  $column authored=${dstValue(authoredValue(key))} '
+            'hlc=${fieldHlc(key)} '
+            'projection=${projection?.projectionReason.name}',
+          );
+        }
       }
     }
     return buffer.toString();
@@ -217,11 +327,14 @@ class DstSnapshot {
   /// `spaceId` is dropped because it is a replica-local normalized integer; the
   /// owning space travels as a UUID on [DstRow] instead. Relation objects are
   /// dropped because they are never populated without an explicit `include`.
-  static Map<String, Object?> _comparableColumns(TableRow<UuidValue?> row) {
+  static Map<String, Object?> _comparableColumns(
+    TableRow<UuidValue?> row,
+    DstTable table,
+  ) {
     final json = row.toJson() as Map<String, dynamic>;
     return {
-      for (final entry in json.entries)
-        if (entry.key != 'spaceId' && entry.value is! Map) entry.key: entry.value,
+      for (final column in table.definition.columns)
+        if (column.name != 'spaceId') column.name: json[column.name],
     };
   }
 
@@ -640,11 +753,35 @@ class DstOracle {
     (index) => index.table == edge.child && index.columns.contains(edge.column),
   );
 
+  /// A live row without any authored outbound reference cannot be hidden by
+  /// FK projection. Unique release changes fields, never visibility. This
+  /// deliberately does not attempt general FK fixed-point arbitration: a
+  /// deleted parent can legitimately be restored by a no-action child.
+  static List<DstViolation> legitimateVisibility(DstSnapshot snapshot) => [
+    for (final table in snapshot.rows.entries)
+      for (final row in table.value.entries)
+        if (snapshot.rowHlcs.containsKey('${table.key}/${row.key}') &&
+            !row.value.visible &&
+            !(snapshot.tombstones['${table.key}/${row.key}']?.clFlag.isEven ?? false) &&
+            !dstForeignKeys
+                .where((edge) => edge.child.tableName == table.key)
+                .any(
+                  (edge) =>
+                      snapshot.authoredValue((table.key, row.key, edge.column)) != null,
+                ))
+          (
+            property: 'legitimateVisibility',
+            detail:
+                '${table.key}/${row.key} is live with no authored outbound reference but is hidden',
+          ),
+  ];
+
   /// The structural invariants that must hold after every merge.
   static List<DstViolation> invariants(DstSnapshot snapshot) => [
     ...noCrossSpaceLink(snapshot),
     ...foreignKeyClosure(snapshot),
     ...uniqueClosure(snapshot),
     ...projectionPurity(snapshot),
+    ...legitimateVisibility(snapshot),
   ];
 }

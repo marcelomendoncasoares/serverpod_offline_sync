@@ -62,6 +62,18 @@ class DstAdversary {
 
   /// Batches merged so far, for reporting how much work a seed actually did.
   int mergeCount = 0;
+  int receiveIsolationEvents = 0;
+  int duplicateBatches = 0;
+  int maxBatchSize = 0;
+  int deliveredChanges = 0;
+
+  Map<String, int> get metrics => {
+    'merges': mergeCount,
+    'receiveIsolationEvents': receiveIsolationEvents,
+    'duplicateBatches': duplicateBatches,
+    'maxBatchSize': maxBatchSize,
+    'deliveredChanges': deliveredChanges,
+  };
 
   /// Advances the schedule by one round.
   ///
@@ -107,6 +119,7 @@ class DstAdversary {
   }
 
   void _partitionRandomReplica() {
+    receiveIsolationEvents++;
     final replica = random.pick(replicas);
     _partitionedUntil[replica.name] = _round + random.between(1, 3);
   }
@@ -144,7 +157,7 @@ class DstAdversary {
       if (fresh.isEmpty) continue;
 
       _pending.add(
-        DstDelivery(target: target, spaceUuid: spaceUuid, changes: fresh),
+        DstDelivery(target: target, spaceUuid: spaceUuid, changes: changes),
       );
     }
   }
@@ -173,6 +186,12 @@ class DstAdversary {
         'Batch:\n  $keys',
       );
     }
+    final prior = _deliveredKeys[delivery.target.name] ?? {};
+    if (delivery.changes.any((change) => prior.contains(dstChangeKey(change)))) {
+      duplicateBatches++;
+    }
+    if (delivery.changes.length > maxBatchSize) maxBatchSize = delivery.changes.length;
+    deliveredChanges += delivery.changes.length;
     mergeCount++;
     _trace(delivery);
 

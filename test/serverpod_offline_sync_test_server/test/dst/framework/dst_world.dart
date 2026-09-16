@@ -6,8 +6,12 @@ import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
 import '../../integration/test_tools/client_session.dart';
+import 'dst_authored.dart';
+import 'dst_coverage.dart';
 import 'dst_random.dart';
+import 'dst_rejection.dart';
 import 'dst_schema.dart';
+import 'dst_snapshot.dart';
 
 export 'dst_schema.dart';
 
@@ -214,7 +218,7 @@ enum DstOperationOutcome {
   applied,
 
   /// The engine refused the operation by design - a no-action violation, a
-  /// unique conflict, or a reference to a row that is not visible in space.
+  /// required set-null delete, or a restored reference unavailable in space.
   rejected,
 
   /// There was nothing to act on (for example a delete with no rows yet).
@@ -235,6 +239,33 @@ class DstOperations {
   /// Rejections the engine is expected to produce, recorded per run so a test
   /// can assert the simulation actually exercised the constrained paths.
   final List<String> rejections = [];
+
+  final DstAuthoredOracle oracle = DstAuthoredOracle();
+  final DstCoverage coverage = DstCoverage();
+  final DstCausalLength _causalLength = DstCausalLength();
+  final Map<DstReplica, DstSnapshot> _observed = {};
+
+  /// Shared observation boundary for every local commit and delivered merge.
+  List<DstViolation> observe(
+    DstReplica replica,
+    DstSnapshot snapshot, {
+    DstSnapshot? before,
+  }) {
+    coverage.observe(snapshot, before: before ?? _observed[replica]);
+    _observed[replica] = snapshot;
+    return [
+      ...DstOracle.invariants(snapshot),
+      ..._causalLength.observe(replica.name, snapshot),
+    ];
+  }
+
+  final Map<String, int> skippedPaths = {};
+  final Map<String, int> unexpectedPaths = {};
+  int validationFailures = 0;
+  int get unexpected => unexpectedPaths.values.fold(0, (sum, value) => sum + value);
+  int get attempted => attemptedPaths.values.fold(0, (sum, value) => sum + value);
+  int get committed => appliedPaths.values.fold(0, (sum, value) => sum + value);
+  int get skipped => skippedPaths.values.fold(0, (sum, value) => sum + value);
 
   /// Committed paths, retaining table and action so a sweep exposes omissions.
   final Map<String, int> appliedPaths = {};
@@ -272,23 +303,92 @@ class DstOperations {
     required DstTable table,
     required DstAction action,
   }) async {
+    return perform(
+      replica,
+      spaceUuid,
+      table: table,
+      action: action,
+      body: (tx, evidence, refusal) =>
+          _apply(replica, spaceUuid, table, action, tx, evidence, refusal),
+    );
+  }
+
+  /// Runs a concrete populated-workload operation through the same authoring,
+  /// refusal and rollback boundary as random operations.
+  Future<DstOperationOutcome> perform(
+    DstReplica replica,
+    UuidValue spaceUuid, {
+    required DstTable table,
+    required DstAction action,
+    required Future<DstOperationOutcome> Function(
+      Transaction,
+      DstWriteEvidence,
+      DstRejection,
+    )
+    body,
+  }) async {
     final path = '${table.tableName}.${action.name}';
     attemptedPaths.update(path, (count) => count + 1, ifAbsent: () => 1);
+    final before = await DstSnapshot.capture(replica);
+    final evidence = DstWriteEvidence(before);
+    final refusal = DstRejection(before, spaceUuid);
+    final progressBefore = await _spaceProgress(replica);
+    var recorded = false;
+    var committed = false;
+    var checked = false;
     try {
       final outcome = await replica.withReplicaClock(
         () => replica.session.db.transactionForUser(
           spaceUuid,
-          (tx) => _apply(replica, table, action, tx),
+          (tx) => body(tx, evidence, refusal),
         ),
       );
       if (outcome == DstOperationOutcome.applied) {
         appliedPaths.update(path, (count) => count + 1, ifAbsent: () => 1);
+        recorded = true;
+        committed = true;
+        final after = await DstSnapshot.capture(replica);
+        final blockers = refusal.deleteReasons(definiteOnly: true).toList();
+        if (blockers.isNotEmpty) {
+          throw StateError('Blocked $path unexpectedly committed: $blockers');
+        }
+        final violations = [
+          ...evidence.validate(after),
+          ...observe(replica, after, before: before),
+        ];
+        if (violations.isNotEmpty) {
+          throw StateError(
+            '$path: $violations\nBefore:\n${before.renderSpace(spaceUuid)}\nInputs: ${evidence.values}\nAfter:\n${after.renderSpace(spaceUuid)}',
+          );
+        }
+        oracle.accept(after, before: before);
+        if (action == DstAction.swapUnique) {
+          coverage.observeSwap(table, before, after, evidence.values.keys.toSet());
+        }
+        checked = true;
+      }
+      if (outcome == DstOperationOutcome.skipped) {
+        skippedPaths.update(path, (count) => count + 1, ifAbsent: () => 1);
+        recorded = true;
       }
       return outcome;
     } on Exception catch (exception) {
       final message = exception.toString();
-      if (_isExpectedRejection(message, table, action)) {
+      if (refusal.accepts(message, evidence)) {
+        final after = await DstSnapshot.capture(replica);
+        final progressAfter = await _spaceProgress(replica);
+        if (_rollbackState(before, replica) != _rollbackState(after, replica) ||
+            progressBefore != progressAfter) {
+          throw StateError(
+            'Rejected $path left domain or authored progress: $message\n'
+            'Before: ${_rollbackState(before, replica)}\n'
+            'After: ${_rollbackState(after, replica)}\n'
+            'Scope progress before: $progressBefore\nAfter: $progressAfter',
+          );
+        }
         rejections.add(message);
+        recorded = true;
+        coverage.event('constrainedRejection', '$path/${rejections.length}');
         return DstOperationOutcome.rejected;
       }
       // Errors from the database cross an isolate boundary and arrive with no
@@ -298,27 +398,52 @@ class DstOperations {
         'Local ${action.name} on ${table.tableName} at ${replica.name} '
         'failed: $exception',
       );
+    } finally {
+      if (!recorded) {
+        unexpectedPaths.update(path, (count) => count + 1, ifAbsent: () => 1);
+      }
+      if (committed && !checked) validationFailures++;
     }
   }
 
   Future<DstOperationOutcome> _apply(
     DstReplica replica,
+    UuidValue spaceUuid,
     DstTable table,
     DstAction action,
     Transaction tx,
+    DstWriteEvidence evidence,
+    DstRejection refusal,
   ) async {
     final session = replica.session;
+    void intend(
+      TableRow<UuidValue?> row, {
+      Set<String>? columns,
+      bool insertDefaults = false,
+    }) => evidence.write(
+      table.tableName,
+      row.toJson() as Map<String, dynamic>,
+      columns: columns,
+      insertDefaults: insertDefaults,
+    );
     final model = table.model;
-    final visible = await model.find(session, transaction: tx);
+    final visible = await model.find(session, transaction: tx, spaceUuid: spaceUuid);
 
     if (action == DstAction.restore) {
-      final all = await model.find(session, transaction: tx, includeHidden: true);
+      final all = await model.find(
+        session,
+        transaction: tx,
+        includeHidden: true,
+        spaceUuid: spaceUuid,
+      );
       final visibleIds = visible.map((row) => row.id).toSet();
       final hidden = all.where((row) => !visibleIds.contains(row.id)).toList();
       final row = random.pickOrNull(hidden);
       if (row == null) return DstOperationOutcome.skipped;
       // Reuse the identity and pass the materialized row through. The engine
       // must recover any authored unique/FK claim retained behind projection.
+      intend(row);
+      evidence.visibility(table.tableName, [row.id!], deleted: false);
       await model.insert(session, row, tx);
       return DstOperationOutcome.applied;
     }
@@ -327,9 +452,18 @@ class DstOperations {
       final rows = <TableRow<UuidValue?>>[];
       final count = action == DstAction.insertBatch ? 2 : 1;
       for (var index = 0; index < count; index++) {
-        final row = await _generatedRow(session, table, tx);
+        final row = await _generatedRow(
+          session,
+          table,
+          tx,
+          spaceUuid,
+          insertDefaults: true,
+        );
         if (row == null) return DstOperationOutcome.skipped;
         rows.add(row);
+      }
+      for (final row in rows) {
+        intend(row, insertDefaults: true);
       }
       if (action == DstAction.insertBatch) {
         await model.insertBatch(session, rows, tx);
@@ -340,10 +474,34 @@ class DstOperations {
     }
 
     if (action == DstAction.upsert) {
-      final all = await model.find(session, transaction: tx, includeHidden: true);
+      final all = await model.find(
+        session,
+        transaction: tx,
+        includeHidden: true,
+        spaceUuid: spaceUuid,
+      );
       final existing = random.pickOrNull(all);
-      final row = await _generatedRow(session, table, tx, existing: existing);
+      final row = await _generatedRow(
+        session,
+        table,
+        tx,
+        spaceUuid,
+        existing: existing,
+        insertDefaults:
+            existing == null ||
+            evidence.before.rows[table.tableName]![existing.id]!.visible,
+      );
       if (row == null) return DstOperationOutcome.skipped;
+      intend(
+        row,
+        insertDefaults:
+            existing == null ||
+            evidence.before.rows[table.tableName]![existing.id]!.visible,
+      );
+      if (existing != null &&
+          !evidence.before.rows[table.tableName]![existing.id]!.visible) {
+        evidence.visibility(table.tableName, [row.id!], deleted: false);
+      }
       await model.upsert(session, row, tx);
       return DstOperationOutcome.applied;
     }
@@ -351,6 +509,8 @@ class DstOperations {
     if (visible.isEmpty) return DstOperationOutcome.skipped;
     final first = random.pick(visible);
     if (action == DstAction.delete) {
+      refusal.delete(table, [first.id!]);
+      evidence.visibility(table.tableName, [first.id!], deleted: true);
       await model.delete(session, first, tx);
       return DstOperationOutcome.applied;
     }
@@ -359,10 +519,22 @@ class DstOperations {
     final second = random.pickOrNull(rest);
     final selected = [first, ?second];
     if (action == DstAction.deleteBatch) {
+      refusal.delete(table, selected.map((row) => row.id!));
+      evidence.visibility(
+        table.tableName,
+        selected.map((row) => row.id!),
+        deleted: true,
+      );
       await model.deleteBatch(session, selected, tx);
       return DstOperationOutcome.applied;
     }
     if (action == DstAction.deleteWhere) {
+      refusal.delete(table, selected.map((row) => row.id!));
+      evidence.visibility(
+        table.tableName,
+        selected.map((row) => row.id!),
+        deleted: true,
+      );
       await model.deleteWhere(session, selected.map((row) => row.id!).toSet(), tx);
       return DstOperationOutcome.applied;
     }
@@ -383,6 +555,8 @@ class DstOperations {
         ...right,
         for (final column in columns) column: left[column],
       };
+      intend(model.fromJson(swappedLeft), columns: columns);
+      intend(model.fromJson(swappedRight), columns: columns);
       await model.updateBatch(
         session,
         [model.fromJson(swappedLeft), model.fromJson(swappedRight)],
@@ -412,10 +586,12 @@ class DstOperations {
         session,
         table,
         tx,
+        spaceUuid,
         existing: first,
         columns: changed,
       );
       if (row == null) return DstOperationOutcome.skipped;
+      intend(row);
       await model.update(session, row, null, tx);
       return DstOperationOutcome.applied;
     }
@@ -425,12 +601,19 @@ class DstOperations {
       session,
       table,
       tx,
+      spaceUuid,
       existing: first,
       columns: changed,
     );
     if (updatedFirst == null) return DstOperationOutcome.skipped;
     if (action == DstAction.updateWhere) {
       final data = updatedFirst.toJson() as Map<String, dynamic>;
+      for (final row in selected) {
+        evidence.write(table.tableName, {
+          ...row.toJson() as Map<String, dynamic>,
+          for (final column in changed) column: data[column],
+        }, columns: changed);
+      }
       await model.updateWhere(session, selected.map((row) => row.id!).toSet(), {
         for (final column in changed) column: data[column],
       }, tx);
@@ -441,14 +624,19 @@ class DstOperations {
           session,
           table,
           tx,
+          spaceUuid,
           existing: second,
           columns: changed,
         );
         if (row == null) return DstOperationOutcome.skipped;
         updated.add(row);
       }
+      for (final row in updated) {
+        intend(row, columns: changed);
+      }
       await model.updateBatch(session, updated, changed, tx);
     } else {
+      intend(updatedFirst, columns: changed);
       await model.update(session, updatedFirst, changed, tx);
     }
     return DstOperationOutcome.applied;
@@ -462,9 +650,11 @@ class DstOperations {
   Future<TableRow<UuidValue?>?> _generatedRow(
     DatabaseSession session,
     DstTable table,
-    Transaction tx, {
+    Transaction tx,
+    UuidValue spaceUuid, {
     TableRow<UuidValue?>? existing,
     Set<String>? columns,
+    bool insertDefaults = false,
   }) async {
     final data = existing == null
         ? <String, dynamic>{'id': _newId().toJson()}
@@ -480,11 +670,27 @@ class DstOperations {
       );
       if (edges.isNotEmpty) {
         final edge = edges.single;
-        final parent = await _pickRow(edge.parent.model.find(session, transaction: tx));
+        final parents = await edge.parent.model.find(
+          session,
+          transaction: tx,
+          spaceUuid: spaceUuid,
+        );
+        final parent = random.pickOrNull(parents);
         if (parent == null && !edge.nullable) return null;
-        data[column.name] = edge.nullable && random.chance(0.25)
+        var value = edge.nullable && random.chance(0.25)
             ? null
             : (parent?.toJson() as Map<String, dynamic>?)?[edge.parentColumn];
+        // An omitted persisted default is an actual insert reference. Keep
+        // exercising defaults when legal, but do not generate cross-space or
+        // missing default targets and call those valid operations.
+        if (insertDefaults &&
+            value == null &&
+            edge.defaultValue != null &&
+            !parents.any((row) => row.id == edge.defaultValue)) {
+          if (parent == null) return null;
+          value = (parent.toJson() as Map<String, dynamic>)[edge.parentColumn];
+        }
+        data[column.name] = value;
       } else if ((column.dartType ?? '').startsWith('String')) {
         final unique = dstUniqueIndexes.any(
           (index) => index.table == table && index.columns.contains(column.name),
@@ -504,58 +710,19 @@ class DstOperations {
     return table.model.fromJson(data);
   }
 
-  Future<T?> _pickRow<T>(Future<List<T>> rows) async => random.pickOrNull(await rows);
-
   UuidValue _newId() => ids.next();
 
   String _name(String prefix) => '$prefix-${random.nextInt(1000)}';
 
-  /// Whether [message] is a refusal the engine makes by design.
-  ///
-  /// The list is deliberately narrow. An unrecognized failure is rethrown so a
-  /// real defect surfaces as a failing seed instead of being absorbed as an
-  /// expected rejection.
-  static bool _isExpectedRejection(
-    String message,
-    DstTable table,
-    DstAction action,
-  ) {
-    if (action == DstAction.delete ||
-        action == DstAction.deleteBatch ||
-        action == DstAction.deleteWhere) {
-      final deletedTables = {table};
-      var grew = true;
-      while (grew) {
-        grew = false;
-        for (final edge in dstForeignKeys) {
-          if (edge.action == 'cascade' && deletedTables.contains(edge.parent)) {
-            grew = deletedTables.add(edge.child) || grew;
-          }
-        }
-      }
-      for (final edge in dstForeignKeys) {
-        if (edge.action == 'setNull' &&
-            !edge.nullable &&
-            deletedTables.contains(edge.parent) &&
-            message.contains(
-              'NOT NULL constraint failed: ${edge.child.tableName}.${edge.column},',
-            )) {
-          return true;
-        }
-      }
-    }
-    const expected = [
-      // `_assertVisibleForeignKeyTargets`: the target is tombstoned, missing,
-      // or owned by another space - the three are one branch by design.
-      'Cannot reference deleted row',
-      // A local `onDelete=NoAction` parent delete with a visible child still
-      // referencing it.
-      'Cannot delete',
-      // Constraint rejections surfaced by the database itself.
-      'UNIQUE constraint failed',
-      'FOREIGN KEY constraint failed',
-    ];
-    return expected.any(message.contains);
+  static String _rollbackState(DstSnapshot snapshot, DstReplica replica) => [
+    for (final space in replica.spaceUuids) snapshot.renderSpace(space),
+    snapshot.renderRawMetadata(),
+  ].join('\n');
+
+  static Future<String> _spaceProgress(DstReplica replica) async {
+    final nodes = await OfflineSyncSpaceNode.db.find(replica.rawSession);
+    final values = nodes.map((node) => node.toJson().toString()).toList()..sort();
+    return values.join('\n');
   }
 }
 

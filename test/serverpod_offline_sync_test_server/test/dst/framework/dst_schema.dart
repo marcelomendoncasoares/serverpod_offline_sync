@@ -55,8 +55,13 @@ class DstModel<T extends db.TableRow<models.UuidValue?>> {
     db.DatabaseSession session, {
     db.Transaction? transaction,
     bool includeHidden = false,
+    models.UuidValue? spaceUuid,
   }) => session.db.find<T>(
-    where: includeHidden ? table.includeHiddenRows : null,
+    where: spaceUuid == null
+        ? (includeHidden ? table.includeHiddenRows : null)
+        : includeHidden
+        ? table.includeHiddenRows & table.spaceEquals(spaceUuid)
+        : table.spaceEquals(spaceUuid),
     transaction: transaction,
   );
 

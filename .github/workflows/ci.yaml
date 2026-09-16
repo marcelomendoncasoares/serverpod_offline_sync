@@ -101,7 +101,7 @@ jobs:
   simulation:
     name: deterministic simulation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     # Deliberately not on pull requests. The suite seeds from the clock, so it
     # searches fresh schedules on every run and can fail for a defect unrelated
     # to the change under review - which is what makes it worth running, and
@@ -116,10 +116,13 @@ jobs:
       - name: Run the simulation suite
         run: melos test-dst
         env:
-          # Wider than a local run, and still inside the job timeout. A failure
-          # prints DST_SEED_BASE, which replays that simulation exactly.
-          DST_SEEDS: 50
-          DST_ROUNDS: 20
+          # Depth matters: 200 rounds reproduces deferred engine failures that
+          # 20-round empty worlds missed. Alternate populated conflict graphs
+          # and sparse exploration; publish DST_METRICS even for failing seeds.
+          DST_SEEDS: 4
+          DST_ROUNDS: 200
+          DST_PROFILE: mixed
+          DST_GRAPH_WIDTH: 2
 
   benchmarks:
     name: run benchmarks

@@ -400,6 +400,7 @@ void main() {
         isNotEmpty,
       );
     },
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 }
 

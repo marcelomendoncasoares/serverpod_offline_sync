@@ -127,22 +127,33 @@ class DstClock {
 /// DST_SEEDS=200 DST_ROUNDS=40 dart test -P dst
 /// DST_SEED_BASE=1781161784 DST_SEEDS=1 dart test -P dst   # replay a failure
 /// ```
+enum DstProfile { sparse, populated, mixed }
+
 class DstConfig {
   /// Creates an explicit configuration, mostly for focused tests.
   const DstConfig({
     required this.seedCount,
     required this.rounds,
     required this.seedBase,
+    this.profile = DstProfile.sparse,
+    this.graphWidth = 2,
   });
 
   /// Reads the sweep configuration from the environment.
   factory DstConfig.fromEnvironment() {
     return DstConfig(
       seedCount: _readInt('DST_SEEDS', 8),
-      rounds: _readInt('DST_ROUNDS', 12),
+      rounds: _readInt('DST_ROUNDS', 40),
       seedBase: _readInt('DST_SEED_BASE', _defaultSeedBase),
+      profile: DstProfile.values.byName(
+        Platform.environment['DST_PROFILE'] ?? 'sparse',
+      ),
+      graphWidth: _readInt('DST_GRAPH_WIDTH', 2),
     );
   }
+
+  final DstProfile profile;
+  final int graphWidth;
 
   /// How many seeds the sweep runs.
   final int seedCount;
@@ -172,6 +183,13 @@ class DstConfig {
   static int _readInt(String name, int fallback) {
     final raw = Platform.environment[name];
     if (raw == null || raw.isEmpty) return fallback;
-    return int.tryParse(raw) ?? fallback;
+    final value = int.tryParse(raw);
+    if (value == null || value < 1) {
+      throw FormatException('$name must be a positive integer: $raw');
+    }
+    if (name == 'DST_GRAPH_WIDTH' && value < 2) {
+      throw const FormatException('DST_GRAPH_WIDTH must be at least 2');
+    }
+    return value;
   }
 }

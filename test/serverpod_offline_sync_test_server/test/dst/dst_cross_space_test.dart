@@ -36,9 +36,13 @@ void main() {
             index: index,
             seed: seed,
             rounds: config.rounds,
+            profile: config.profile,
+            graphWidth: config.graphWidth,
             run: () => runDstSimulation(
               seed: seed,
               rounds: config.rounds,
+              profile: config.profile,
+              graphWidth: config.graphWidth,
               topology: DstTopology.overlappingSpaces,
             ),
           );

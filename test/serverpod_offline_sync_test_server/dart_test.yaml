@@ -2,7 +2,7 @@ tags:
   integration: {}
   dst:
     # A simulation drives many real SQLite transactions across replicas.
-    timeout: 5x
+    timeout: 10m
     skip: 'Simulation suite: run with `dart test -P dst`'
 
 # The simulation suite is excluded from an ordinary run. It is slow, and its

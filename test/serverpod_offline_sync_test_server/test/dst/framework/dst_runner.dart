@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'dst_adversary.dart';
 import 'dst_random.dart';
 import 'dst_roundtrip.dart';
 import 'dst_snapshot.dart';
+import 'dst_workload.dart';
 import 'dst_world.dart';
 
 /// The shape of one simulated deployment.
@@ -57,7 +61,45 @@ class DstRunReport {
     required this.hiddenRows,
     required this.appliedPaths,
     required this.attemptedPaths,
+    required this.rounds,
+    required this.profile,
+    required this.graphWidth,
+    required this.skipped,
+    required this.setupAttempted,
+    required this.scheduledCommitted,
+    required this.coverage,
+    required this.network,
   });
+
+  final int rounds;
+  final DstProfile profile;
+  final int graphWidth;
+  final int skipped;
+  final int setupAttempted;
+  final int scheduledCommitted;
+  final Map<String, Object> coverage;
+  final Map<String, int> network;
+  int get attempted => attemptedPaths.values.fold(0, (sum, value) => sum + value);
+  int get scheduledAttempted => attempted - setupAttempted;
+
+  Map<String, Object> toJson() => {
+    'seed': seed,
+    'rounds': rounds,
+    'profile': profile.name,
+    'graphWidth': graphWidth,
+    'attempted': attempted,
+    'committed': applied,
+    'rejected': rejected,
+    'skipped': skipped,
+    'setupAttempted': setupAttempted,
+    'scheduledAttempted': scheduledAttempted,
+    'scheduledCommitted': scheduledCommitted,
+    'qualification': rounds >= 100 && scheduledCommitted >= 30 ? 'stress' : 'smoke',
+    'appliedPaths': appliedPaths,
+    'attemptedPaths': attemptedPaths,
+    'coverage': coverage,
+    'network': network,
+  };
 
   /// The seed that produced the run.
   final int seed;
@@ -95,7 +137,15 @@ Future<DstRunReport> runDstSimulation({
   required int seed,
   required int rounds,
   DstTopology topology = DstTopology.overlappingSpaces,
+  DstProfile profile = DstProfile.sparse,
+  int graphWidth = 2,
 }) async {
+  if (rounds < 1 || graphWidth < 2) {
+    throw ArgumentError('rounds >= 1 and graphWidth >= 2 required');
+  }
+  final resolvedProfile = profile == DstProfile.mixed
+      ? (seed.isEven ? DstProfile.populated : DstProfile.sparse)
+      : profile;
   final random = DstRandom(seed);
   final ids = DstIds(random);
   final simulationClock = DstClock();
@@ -127,86 +177,176 @@ Future<DstRunReport> runDstSimulation({
   await replicas.first.seedDefaultTown(replicas.first.spaceUuids.first);
 
   final operations = DstOperations(random, ids);
+  operations.oracle.accept(await DstSnapshot.capture(replicas.first));
   final adversary = DstAdversary(random, replicas);
-  var applied = 0;
-
-  final causalLength = DstCausalLength();
+  var schedulingStarted = false;
+  var setupAttempted = 0;
+  var setupCommitted = 0;
 
   Future<void> checkInvariants(DstReplica replica) async {
     final snapshot = await DstSnapshot.capture(replica);
-    final violations = [
-      ...DstOracle.invariants(snapshot),
-      ...causalLength.observe(replica.name, snapshot),
-    ];
+    final violations = operations.observe(replica, snapshot);
     if (violations.isEmpty) return;
     throw DstPropertyFailure(
       seed: seed,
       rounds: rounds,
+      profile: profile,
+      graphWidth: graphWidth,
       replica: replica,
       violations: violations,
     );
   }
 
-  for (var round = 0; round < rounds; round++) {
-    for (final replica in replicas) {
-      final spaceUuid = random.pickOrNull(replica.spaceUuids);
-      if (spaceUuid == null) continue;
-      final outcome = await operations.step(replica, spaceUuid);
-      if (outcome == DstOperationOutcome.applied) {
-        applied++;
-        await checkInvariants(replica);
+  try {
+    if (resolvedProfile == DstProfile.populated) {
+      for (final space in spaceUuids) {
+        final author = replicas.firstWhere(
+          (replica) => replica.spaceUuids.contains(space),
+        );
+        await populateDstSpace(
+          replica: author,
+          space: space,
+          operations: operations,
+          ids: ids,
+          width: graphWidth,
+        );
       }
-      simulationClock.advance(Duration(milliseconds: random.between(1, 40)));
+      // Start scheduled conflicts from shared, populated graphs. Full collector
+      // batches are merged; no causal batch is split to manufacture disorder.
+      await adversary.quiesce(checkInvariants);
     }
-    await adversary.step(checkInvariants);
-  }
+    setupAttempted = operations.attempted;
+    setupCommitted = operations.committed;
+    schedulingStarted = true;
 
-  await adversary.quiesce(checkInvariants);
+    for (var round = 0; round < rounds; round++) {
+      for (final replica in replicas) {
+        final spaceUuid = random.pickOrNull(replica.spaceUuids);
+        if (spaceUuid == null) continue;
+        await operations.step(replica, spaceUuid);
+        simulationClock.advance(Duration(milliseconds: random.between(1, 40)));
+      }
+      await adversary.step(checkInvariants);
+    }
 
-  final snapshots = <DstReplica, DstSnapshot>{
-    for (final replica in replicas) replica: await DstSnapshot.capture(replica),
-  };
+    await adversary.quiesce(checkInvariants);
 
-  final violations = <DstViolation>[];
-  for (final spaceUuid in spaceUuids) {
-    violations.addAll(DstOracle.observerIndependence(snapshots, spaceUuid));
-  }
-  for (final entry in snapshots.entries) {
-    violations.addAll(DstOracle.invariants(entry.value));
-  }
+    final snapshots = <DstReplica, DstSnapshot>{
+      for (final replica in replicas) replica: await DstSnapshot.capture(replica),
+    };
 
-  // Round trips run once the network is quiet, because each one builds a
-  // replica and replays a whole space into it.
-  for (final entry in snapshots.entries) {
-    violations.addAll(
-      await exportRoundTrip(
-        source: entry.key,
-        expected: entry.value,
-        ids: ids,
-        clock: simulationClock.clock,
+    final violations = <DstViolation>[];
+    for (final spaceUuid in spaceUuids) {
+      violations.addAll(DstOracle.observerIndependence(snapshots, spaceUuid));
+    }
+    for (final entry in snapshots.entries) {
+      violations.addAll(DstOracle.invariants(entry.value));
+      for (final space in entry.key.spaceUuids) {
+        violations.addAll(operations.oracle.validate(entry.value, space));
+      }
+    }
+
+    // Round trips run once the network is quiet, because each one builds a
+    // replica and replays a whole space into it.
+    for (final entry in snapshots.entries) {
+      violations.addAll(
+        await exportRoundTrip(
+          source: entry.key,
+          expected: entry.value,
+          ids: ids,
+          clock: simulationClock.clock,
+        ),
+      );
+    }
+    if (violations.isNotEmpty) {
+      throw DstPropertyFailure(
+        seed: seed,
+        rounds: rounds,
+        profile: profile,
+        graphWidth: graphWidth,
+        violations: violations,
+      );
+    }
+
+    final report = DstRunReport(
+      seed: seed,
+      merges: adversary.mergeCount,
+      applied: operations.committed,
+      rounds: rounds,
+      profile: resolvedProfile,
+      graphWidth: graphWidth,
+      skipped: operations.skipped,
+      setupAttempted: setupAttempted,
+      scheduledCommitted: operations.committed - setupCommitted,
+      coverage: operations.coverage.toJson(),
+      network: adversary.metrics,
+      rejected: operations.rejections.length,
+      visibleRows: snapshots.values.fold(
+        0,
+        (sum, snapshot) => sum + snapshot.visibleRowCount,
+      ),
+      appliedPaths: Map.unmodifiable(operations.appliedPaths),
+      attemptedPaths: Map.unmodifiable(operations.attemptedPaths),
+      hiddenRows: snapshots.values.fold(
+        0,
+        (sum, snapshot) => sum + snapshot.hiddenRowCount,
       ),
     );
+    final requiredCommits = math.min(rounds >= 100 ? 30 : 3, rounds * replicas.length);
+    if (report.scheduledCommitted < requiredCommits || report.merges == 0) {
+      throw StateError(
+        'Insufficient scheduled activity: required $requiredCommits commits; ${report.toJson()}',
+      );
+    }
+    if (resolvedProfile == DstProfile.populated) {
+      final transitions = operations.coverage.transitions;
+      final missing = [
+        for (final kind in [
+          'authoredCycle',
+          'restore',
+          'redelete',
+          'fkRetarget',
+          'fkDetach',
+          'uniqueConflict',
+          'uniqueSwap',
+          'constrainedRejection',
+        ])
+          if ((transitions[kind] ?? 0) == 0) kind,
+        if (operations.coverage.foreignKeys.length != dstForeignKeys.length)
+          'all declared FK edges',
+      ];
+      if (missing.isNotEmpty) throw StateError('Populated workload missed $missing');
+    }
+    return report;
+  } finally {
+    // Emit aggregate observations on passing and failing runs. Setup progress
+    // remains distinct from random scheduled commits, and failures retain the
+    // profile/width/depth needed to replay the workload.
+    // ignore: avoid_print
+    print(
+      'DST_METRICS ${jsonEncode({
+        'seed': seed,
+        'rounds': rounds,
+        'profile': resolvedProfile.name,
+        'requestedProfile': profile.name,
+        'graphWidth': graphWidth,
+        'attempted': operations.attempted,
+        'committed': operations.committed,
+        'rejected': operations.rejections.length,
+        'skipped': operations.skipped,
+        'unexpectedFailures': operations.unexpected,
+        'committedValidationFailures': operations.validationFailures,
+        'setupAttempted': schedulingStarted ? setupAttempted : operations.attempted,
+        'scheduledAttempted': schedulingStarted ? operations.attempted - setupAttempted : 0,
+        'scheduledCommitted': schedulingStarted ? operations.committed - setupCommitted : 0,
+        'attemptedPaths': operations.attemptedPaths,
+        'appliedPaths': operations.appliedPaths,
+        'skippedPaths': operations.skippedPaths,
+        'coverage': operations.coverage.toJson(),
+        'network': adversary.metrics,
+      })}',
+    );
   }
-  if (violations.isNotEmpty) {
-    throw DstPropertyFailure(seed: seed, rounds: rounds, violations: violations);
-  }
-
-  return DstRunReport(
-    seed: seed,
-    merges: adversary.mergeCount,
-    applied: applied,
-    rejected: operations.rejections.length,
-    visibleRows: snapshots.values.fold(
-      0,
-      (sum, snapshot) => sum + snapshot.visibleRowCount,
-    ),
-    appliedPaths: Map.unmodifiable(operations.appliedPaths),
-    attemptedPaths: Map.unmodifiable(operations.attemptedPaths),
-    hiddenRows: snapshots.values.fold(
-      0,
-      (sum, snapshot) => sum + snapshot.hiddenRowCount,
-    ),
-  );
 }
 
 /// Runs [run], making sure any failure names the seed behind it.
@@ -221,6 +361,8 @@ Future<T> runWithSeedReported<T>({
   required int seed,
   required int rounds,
   required Future<T> Function() run,
+  DstProfile profile = DstProfile.sparse,
+  int graphWidth = 2,
 }) async {
   try {
     return await run();
@@ -230,7 +372,7 @@ Future<T> runWithSeedReported<T>({
     Error.throwWithStackTrace(
       StateError(
         'Simulation $index (seed $seed) failed\n'
-        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds dart test -P dst\n'
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds DST_PROFILE=${profile.name} DST_GRAPH_WIDTH=$graphWidth dart test -P dst\n'
         '$error',
       ),
       stackTrace,
@@ -249,7 +391,12 @@ class DstPropertyFailure implements Exception {
     required this.rounds,
     required this.violations,
     this.replica,
+    this.profile = DstProfile.sparse,
+    this.graphWidth = 2,
   });
+
+  final DstProfile profile;
+  final int graphWidth;
 
   /// The seed that produced the failure.
   final int seed;
@@ -268,7 +415,7 @@ class DstPropertyFailure implements Exception {
     final buffer = StringBuffer()
       ..writeln('DST property failure (seed $seed)')
       ..writeln(
-        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds dart test -P dst',
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds DST_PROFILE=${profile.name} DST_GRAPH_WIDTH=$graphWidth dart test -P dst',
       );
     if (replica != null) buffer.writeln('Replica: $replica');
     for (final violation in violations) {
