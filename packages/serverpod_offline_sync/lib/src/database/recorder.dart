@@ -18,6 +18,7 @@ import 'merge_utils/recorder_context.dart';
 import 'merge_utils/types.dart';
 import 'merge_utils/unique_resolver.dart';
 import 'schema.dart';
+import 'space_cache.dart';
 import 'unique_index_utils.dart';
 
 part 'merge.dart';
@@ -45,6 +46,10 @@ class OfflineSyncDatabaseContext {
 
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
+
+  /// Committed space visibility, validated against its database revision.
+  @internal
+  final spaceCache = OfflineSyncSpaceCache();
 
   final List<TableDefinition> _tableDefinitions;
 
@@ -314,7 +319,9 @@ class CrdtMutationRecorder {
   /// user is associated with [transaction] and no persistent user exists.
   OfflineSyncSpace? spaceForQueries(Transaction? transaction) {
     if (transaction != null) {
-      final user = spaceForTransaction[transaction];
+      final user =
+          spaceForTransaction[OfflineSyncSpaceTransaction.of(transaction) ??
+              transaction];
       if (user != null) return user;
     }
     final userId = persistentUserId;

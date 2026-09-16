@@ -9,6 +9,7 @@ import '../../managers/space.dart';
 import '../database.dart';
 import '../recorder.dart';
 import '../session.dart';
+import '../space_cache.dart';
 import '../unique_index_utils.dart';
 import 'database_helpers.dart';
 import 'types.dart';
@@ -818,7 +819,8 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
   );
 
   OfflineSyncSpace effectiveSpaceFor(Transaction transaction) {
-    final space = spaceForTransaction[transaction];
+    final space =
+        spaceForTransaction[OfflineSyncSpaceTransaction.of(transaction) ?? transaction];
     if (space != null) return space;
     final userId = persistentUserId;
     if (userId == null) {

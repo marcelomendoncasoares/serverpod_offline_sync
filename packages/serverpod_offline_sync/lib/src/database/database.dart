@@ -18,6 +18,8 @@ import '../sync/integrity_violation.dart';
 import 'merge_utils/database_helpers.dart';
 import 'recorder.dart';
 import 'session.dart';
+import 'space_cache.dart';
+import 'space_cache_database.dart';
 import 'tombstone.dart';
 
 part 'space.dart';
@@ -65,25 +67,26 @@ class OfflineSyncDatabase implements Database {
        );
 
   OfflineSyncDatabase._(
-    this._delegate,
+    Database delegate,
     this._context, {
     required this._syncTables,
     required this._syncBatchSize,
     required this._continuousSyncInterval,
-    required UuidValue? persistentUserId,
-  }) : _recorder = CrdtMutationRecorder(
-         _delegate,
-         context: _context,
-         persistentUserId: persistentUserId,
-       );
+    required this._persistentUserId,
+  }) : _delegate = OfflineSyncSpaceCacheDatabase(delegate, _context.spaceCache);
 
-  final Database _delegate;
+  final OfflineSyncSpaceCacheDatabase _delegate;
+  final UuidValue? _persistentUserId;
   final OfflineSyncDatabaseContext _context;
   final List<Table> _syncTables;
   final int _syncBatchSize;
   final Duration _continuousSyncInterval;
 
-  final CrdtMutationRecorder _recorder;
+  late final CrdtMutationRecorder _recorder = CrdtMutationRecorder(
+    _delegate,
+    context: _context,
+    persistentUserId: _persistentUserId,
+  );
 
   late final _sync = OfflineSyncEngine(
     syncTables: _syncTables,
@@ -230,6 +233,24 @@ class OfflineSyncDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     await _ensureInitialized();
+    if (transaction == null &&
+        _recorder.persistentUserId != null &&
+        (include != null || _recorder.isCrdtTracked<T>())) {
+      return _delegate.transaction(
+        (tx) => find<T>(
+          where: where,
+          limit: limit,
+          offset: offset,
+          orderBy: orderBy,
+          orderByList: orderByList,
+          orderDescending: orderDescending,
+          transaction: tx,
+          include: include,
+          lockMode: lockMode,
+          lockBehavior: lockBehavior,
+        ),
+      );
+    }
     final result = await _delegate.find<T>(
       where: await _whereVisibleWithTombstone<T>(
         where,
@@ -258,6 +279,19 @@ class OfflineSyncDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     await _ensureInitialized();
+    if (transaction == null &&
+        _recorder.persistentUserId != null &&
+        (include != null || _recorder.isCrdtTracked<T>())) {
+      return _delegate.transaction(
+        (tx) => findById<T>(
+          id,
+          transaction: tx,
+          include: include,
+          lockMode: lockMode,
+          lockBehavior: lockBehavior,
+        ),
+      );
+    }
     final table = serializationManager.getTableForType(T);
     final where = table?.id.equals(id);
     final result = await _delegate.findFirstRow<T>(
@@ -289,6 +323,23 @@ class OfflineSyncDatabase implements Database {
     LockBehavior? lockBehavior,
   }) async {
     await _ensureInitialized();
+    if (transaction == null &&
+        _recorder.persistentUserId != null &&
+        (include != null || _recorder.isCrdtTracked<T>())) {
+      return _delegate.transaction(
+        (tx) => findFirstRow<T>(
+          where: where,
+          offset: offset,
+          orderBy: orderBy,
+          orderByList: orderByList,
+          orderDescending: orderDescending,
+          transaction: tx,
+          include: include,
+          lockMode: lockMode,
+          lockBehavior: lockBehavior,
+        ),
+      );
+    }
     final result = await _delegate.findFirstRow<T>(
       where: await _whereVisibleWithTombstone<T>(
         where,
@@ -883,6 +934,14 @@ class OfflineSyncDatabase implements Database {
     Transaction? transaction,
   }) async {
     await _ensureInitialized();
+    if (transaction == null &&
+        _recorder.persistentUserId != null &&
+        _recorder.isCrdtTracked<T>()) {
+      return _delegate.transaction(
+        (tx) =>
+            count<T>(where: where, limit: limit, useCache: useCache, transaction: tx),
+      );
+    }
     return _delegate.count<T>(
       where: await _whereVisibleWithTombstone<T>(
         where,
@@ -995,25 +1054,10 @@ class OfflineSyncDatabase implements Database {
     final userId = _userIdForQueries(transaction);
     if (userId == null) return null;
 
-    // On the server this is authoritative membership; on a persistent client it
-    // is the server-projected membership cache.
-    final spaceGroups = await Future.wait<List<OfflineSyncSpace>>([
-      OfflineSyncSpace.db.find(
-        _delegate.session,
-        where: (t) => t.uuidSpaceId.equals(userId),
-      ),
-      OfflineSyncSpaceMember.db
-          .find(
-            _delegate.session,
-            where: (t) => t.userUuid.equals(userId),
-            include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
-          )
-          .then((memberships) => [for (final member in memberships) member.space!]),
-    ]);
-    return {
-      for (final spaces in spaceGroups)
-        for (final space in spaces) space.id!,
-    }.toList();
+    if (transaction == null) {
+      throw StateError('Space-scoped reads require a database transaction.');
+    }
+    return _delegate.spaceIds(userId, transaction);
   }
 
   List<int>? _actingSpaceIdsForQueries(Transaction? transaction) {
@@ -1023,7 +1067,9 @@ class OfflineSyncDatabase implements Database {
 
   UuidValue? _userIdForQueries(Transaction? transaction) {
     if (transaction != null) {
-      final userId = userForTransaction[transaction];
+      final userId =
+          userForTransaction[OfflineSyncSpaceTransaction.of(transaction) ??
+              transaction];
       if (userId != null) return userId;
     }
     return _recorder.persistentUserId;
