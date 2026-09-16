@@ -728,5 +728,132 @@ void main() {
         expect(row?.occurrences, 3);
       });
     });
+
+    group('when updating the row with updateRow,', () {
+      late OfflineSyncIntegrityViolation updated;
+
+      setUp(() async {
+        updated = await OfflineSyncIntegrityViolation.db.updateRow(
+          session,
+          violation.copyWith(occurrences: 2),
+        );
+      });
+
+      test('then the updated row is returned.', () {
+        expect(updated.id, violation.id);
+        expect(updated.occurrences, 2);
+      });
+
+      test('then the row reflects the new values.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 2);
+      });
+    });
+
+    group('when updateRow selects only the occurrences column,', () {
+      late OfflineSyncIntegrityViolation updated;
+
+      setUp(() async {
+        updated = await OfflineSyncIntegrityViolation.db.updateRow(
+          session,
+          violation.copyWith(occurrences: 2, lastSeenAt: DateTime.utc(2027)),
+          columns: (t) => [t.occurrences],
+        );
+      });
+
+      test('then the returned row preserves the unselected timestamp.', () {
+        expect(updated.occurrences, 2);
+        expect(updated.lastSeenAt, violation.lastSeenAt);
+      });
+
+      test('then only the selected column changes in the database.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 2);
+        expect(stored?.lastSeenAt, violation.lastSeenAt);
+      });
+    });
+
+    group('when update selects only the occurrences column,', () {
+      late List<OfflineSyncIntegrityViolation> updated;
+
+      setUp(() async {
+        updated = await OfflineSyncIntegrityViolation.db.update(
+          session,
+          [violation.copyWith(occurrences: 2, lastSeenAt: DateTime.utc(2027))],
+          columns: (t) => [t.occurrences],
+        );
+      });
+
+      test('then the returned row preserves the unselected timestamp.', () {
+        expect(updated.single.id, violation.id);
+        expect(updated.single.occurrences, 2);
+        expect(updated.single.lastSeenAt, violation.lastSeenAt);
+      });
+
+      test('then only the selected column changes in the database.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 2);
+        expect(stored?.lastSeenAt, violation.lastSeenAt);
+      });
+    });
+
+    group('when updateRow runs in an explicit transaction that rolls back,', () {
+      setUp(() async {
+        final rollback = StateError('rollback');
+        await expectLater(
+          session.db.transaction((tx) async {
+            await OfflineSyncIntegrityViolation.db.updateRow(
+              session,
+              violation.copyWith(occurrences: 2),
+              transaction: tx,
+            );
+            throw rollback;
+          }),
+          throwsA(same(rollback)),
+        );
+      });
+
+      test('then the original row is preserved.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 1);
+      });
+    });
+
+    group('when updateById changes the occurrences column,', () {
+      late OfflineSyncIntegrityViolation? updated;
+
+      setUp(() async {
+        updated = await OfflineSyncIntegrityViolation.db.updateById(
+          session,
+          violation.id!,
+          columnValues: (t) => [t.occurrences(2)],
+        );
+      });
+
+      test('then the updated row is returned.', () {
+        expect(updated?.id, violation.id);
+        expect(updated?.occurrences, 2);
+      });
+
+      test('then the row reflects the new values.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 2);
+      });
+    });
   });
 }

@@ -785,4 +785,142 @@ void main() {
       });
     },
   );
+
+  group('Given two rows on a table not tracked by CRDT,', () {
+    late OfflineSyncIntegrityViolation violation;
+    late OfflineSyncIntegrityViolation otherViolation;
+
+    setUp(() async {
+      violation = await OfflineSyncIntegrityViolation.db.insertRow(
+        session,
+        OfflineSyncIntegrityViolation(
+          type: OfflineSyncViolationType.ownershipCollision,
+          domainTableName: Person.t.tableName,
+          uuidRowId: const Uuid().v7obj(),
+          incomingSpaceUuid: testCrdtUserId,
+          operation: OfflineSyncViolationOperation.mergeInsert,
+          firstSeenAt: DateTime.utc(2026),
+          lastSeenAt: DateTime.utc(2026),
+          occurrences: 1,
+        ),
+      );
+      otherViolation = await OfflineSyncIntegrityViolation.db.insertRow(
+        session,
+        violation.copyWith(id: null, uuidRowId: const Uuid().v7obj()),
+      );
+    });
+
+    group('when deleting one row with deleteRow,', () {
+      late OfflineSyncIntegrityViolation deleted;
+
+      setUp(() async {
+        deleted = await OfflineSyncIntegrityViolation.db.deleteRow(session, violation);
+      });
+
+      test('then the deleted row is returned.', () {
+        expect(deleted.id, violation.id);
+        expect(deleted.uuidRowId, violation.uuidRowId);
+      });
+
+      test('then only that row is physically removed.', () async {
+        expect(
+          await OfflineSyncIntegrityViolation.db.findById(testSession, violation.id!),
+          isNull,
+        );
+        expect(
+          await OfflineSyncIntegrityViolation.db.findById(
+            testSession,
+            otherViolation.id!,
+          ),
+          isNotNull,
+        );
+      });
+    });
+
+    group('when deleting one row with delete and noReturn,', () {
+      late List<OfflineSyncIntegrityViolation> deleted;
+
+      setUp(() async {
+        deleted = await OfflineSyncIntegrityViolation.db.delete(
+          session,
+          [violation],
+          noReturn: true,
+        );
+      });
+
+      test('then an empty list is returned.', () {
+        expect(deleted, isEmpty);
+      });
+
+      test('then only that row is physically removed.', () async {
+        expect(
+          await OfflineSyncIntegrityViolation.db.findById(testSession, violation.id!),
+          isNull,
+        );
+        expect(
+          await OfflineSyncIntegrityViolation.db.findById(
+            testSession,
+            otherViolation.id!,
+          ),
+          isNotNull,
+        );
+      });
+    });
+
+    group('when deleting one row with deleteWhere and noReturn,', () {
+      late List<OfflineSyncIntegrityViolation> deleted;
+
+      setUp(() async {
+        deleted = await OfflineSyncIntegrityViolation.db.deleteWhere(
+          session,
+          where: (t) => t.id.equals(violation.id),
+          noReturn: true,
+        );
+      });
+
+      test('then an empty list is returned.', () {
+        expect(deleted, isEmpty);
+      });
+
+      test('then only the matching row is physically removed.', () async {
+        expect(
+          await OfflineSyncIntegrityViolation.db.findById(testSession, violation.id!),
+          isNull,
+        );
+        expect(
+          await OfflineSyncIntegrityViolation.db.findById(
+            testSession,
+            otherViolation.id!,
+          ),
+          isNotNull,
+        );
+      });
+    });
+
+    group('when deleteRow runs in an explicit transaction that rolls back,', () {
+      setUp(() async {
+        final rollback = StateError('rollback');
+        await expectLater(
+          session.db.transaction((tx) async {
+            await OfflineSyncIntegrityViolation.db.deleteRow(
+              session,
+              violation,
+              transaction: tx,
+            );
+            throw rollback;
+          }),
+          throwsA(same(rollback)),
+        );
+      });
+
+      test('then the deleted row is restored.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          testSession,
+          violation.id!,
+        );
+        expect(stored?.uuidRowId, violation.uuidRowId);
+        expect(stored?.occurrences, 1);
+      });
+    });
+  });
 }

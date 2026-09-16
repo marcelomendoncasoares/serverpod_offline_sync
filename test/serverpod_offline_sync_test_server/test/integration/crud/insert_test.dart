@@ -545,4 +545,112 @@ void main() {
       });
     });
   });
+
+  group('Given an empty table not tracked by CRDT,', () {
+    late OfflineSyncIntegrityViolation violation;
+
+    setUp(() {
+      violation = OfflineSyncIntegrityViolation(
+        type: OfflineSyncViolationType.ownershipCollision,
+        domainTableName: Person.t.tableName,
+        uuidRowId: const Uuid().v7obj(),
+        incomingSpaceUuid: testCrdtUserId,
+        operation: OfflineSyncViolationOperation.mergeInsert,
+        firstSeenAt: DateTime.utc(2026),
+        lastSeenAt: DateTime.utc(2026),
+        occurrences: 1,
+      );
+    });
+
+    group('when inserting a row with insertRow,', () {
+      late OfflineSyncIntegrityViolation inserted;
+
+      setUp(() async {
+        inserted = await OfflineSyncIntegrityViolation.db.insertRow(session, violation);
+      });
+
+      test('then the returned row has a generated id and the supplied values.', () {
+        expect(inserted.id, isNotNull);
+        expect(inserted.uuidRowId, violation.uuidRowId);
+        expect(inserted.occurrences, 1);
+      });
+
+      test('then the row is stored in the database.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          inserted.id!,
+        );
+        expect(stored?.uuidRowId, violation.uuidRowId);
+        expect(stored?.occurrences, 1);
+      });
+    });
+
+    group('when inserting rows with noReturn,', () {
+      late List<OfflineSyncIntegrityViolation> inserted;
+
+      setUp(() async {
+        inserted = await OfflineSyncIntegrityViolation.db.insert(
+          session,
+          [violation],
+          noReturn: true,
+        );
+      });
+
+      test('then an empty list is returned.', () {
+        expect(inserted, isEmpty);
+      });
+
+      test('then the row is stored in the database.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(violation.uuidRowId),
+        );
+        expect(stored?.occurrences, 1);
+      });
+    });
+  });
+
+  group('Given an existing row on a table not tracked by CRDT,', () {
+    late OfflineSyncIntegrityViolation violation;
+
+    setUp(() async {
+      violation = await OfflineSyncIntegrityViolation.db.insertRow(
+        session,
+        OfflineSyncIntegrityViolation(
+          type: OfflineSyncViolationType.ownershipCollision,
+          domainTableName: Person.t.tableName,
+          uuidRowId: const Uuid().v7obj(),
+          incomingSpaceUuid: testCrdtUserId,
+          operation: OfflineSyncViolationOperation.mergeInsert,
+          firstSeenAt: DateTime.utc(2026),
+          lastSeenAt: DateTime.utc(2026),
+          occurrences: 1,
+        ),
+      );
+    });
+
+    group('when inserting the same primary key with ignoreConflicts,', () {
+      late List<OfflineSyncIntegrityViolation> inserted;
+
+      setUp(() async {
+        inserted = await OfflineSyncIntegrityViolation.db.insert(
+          session,
+          [violation.copyWith(occurrences: 2)],
+          ignoreConflicts: true,
+        );
+      });
+
+      test('then an empty list is returned.', () {
+        expect(inserted, isEmpty);
+      });
+
+      test('then the original row is preserved.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 1);
+      });
+    });
+  });
 }

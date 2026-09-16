@@ -638,4 +638,139 @@ void main() {
       });
     });
   });
+
+  group('Given an existing row on a table not tracked by CRDT,', () {
+    late OfflineSyncIntegrityViolation violation;
+
+    setUp(() async {
+      violation = await OfflineSyncIntegrityViolation.db.insertRow(
+        session,
+        OfflineSyncIntegrityViolation(
+          type: OfflineSyncViolationType.ownershipCollision,
+          domainTableName: Person.t.tableName,
+          uuidRowId: const Uuid().v7obj(),
+          incomingSpaceUuid: testCrdtUserId,
+          operation: OfflineSyncViolationOperation.mergeInsert,
+          firstSeenAt: DateTime.utc(2026),
+          lastSeenAt: DateTime.utc(2026),
+          occurrences: 1,
+        ),
+      );
+    });
+
+    group('when upserting a new row without an id,', () {
+      late UuidValue rowUuid;
+      late OfflineSyncIntegrityViolation? inserted;
+
+      setUp(() async {
+        rowUuid = const Uuid().v7obj();
+        inserted = await OfflineSyncIntegrityViolation.db.upsertRow(
+          session,
+          violation.copyWith(id: null, uuidRowId: rowUuid, occurrences: 2),
+          conflictColumns: (t) => [t.id],
+        );
+      });
+
+      test('then the returned row has a generated id and the supplied values.', () {
+        expect(inserted?.id, isNotNull);
+        expect(inserted?.id, isNot(violation.id));
+        expect(inserted?.uuidRowId, rowUuid);
+        expect(inserted?.occurrences, 2);
+      });
+
+      test('then both rows are stored with their respective values.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(rowUuid),
+        );
+        final original = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 2);
+        expect(original?.occurrences, 1);
+      });
+    });
+
+    group(
+      'when upserting a conflicting row with only occurrences selected for update,',
+      () {
+        late OfflineSyncIntegrityViolation? updated;
+
+        setUp(() async {
+          updated = await OfflineSyncIntegrityViolation.db.upsertRow(
+            session,
+            violation.copyWith(occurrences: 2, lastSeenAt: DateTime.utc(2027)),
+            conflictColumns: (t) => [t.id],
+            updateColumns: (t) => [t.occurrences],
+          );
+        });
+
+        test('then the returned row preserves its id and unselected timestamp.', () {
+          expect(updated?.id, violation.id);
+          expect(updated?.occurrences, 2);
+          expect(updated?.lastSeenAt, violation.lastSeenAt);
+        });
+
+        test('then only the selected column changes in the database.', () async {
+          final stored = await OfflineSyncIntegrityViolation.db.findById(
+            session,
+            violation.id!,
+          );
+          expect(stored?.occurrences, 2);
+          expect(stored?.lastSeenAt, violation.lastSeenAt);
+        });
+      },
+    );
+
+    group('when upserting a conflicting row with a non-matching updateWhere,', () {
+      late OfflineSyncIntegrityViolation? updated;
+
+      setUp(() async {
+        updated = await OfflineSyncIntegrityViolation.db.upsertRow(
+          session,
+          violation.copyWith(occurrences: 2),
+          conflictColumns: (t) => [t.id],
+          updateWhere: (t) => t.occurrences.equals(99),
+        );
+      });
+
+      test('then no row is returned.', () {
+        expect(updated, isNull);
+      });
+
+      test('then the original row is preserved.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 1);
+      });
+    });
+
+    group('when upserting a conflicting row with noReturn,', () {
+      late List<OfflineSyncIntegrityViolation> updated;
+
+      setUp(() async {
+        updated = await OfflineSyncIntegrityViolation.db.upsert(
+          session,
+          [violation.copyWith(occurrences: 2)],
+          conflictColumns: (t) => [t.id],
+          noReturn: true,
+        );
+      });
+
+      test('then an empty list is returned.', () {
+        expect(updated, isEmpty);
+      });
+
+      test('then the row reflects the new values.', () async {
+        final stored = await OfflineSyncIntegrityViolation.db.findById(
+          session,
+          violation.id!,
+        );
+        expect(stored?.occurrences, 2);
+      });
+    });
+  });
 }

@@ -51,84 +51,11 @@ void main() {
         });
 
         group('when updateRow changes its name,', () {
-          late ServerHealthMetric updated;
-
           setUp(() async {
-            updated = await ServerHealthMetric.db.updateRow(
+            await ServerHealthMetric.db.updateRow(
               session,
               metric.copyWith(name: 'updated'),
             );
-          });
-
-          test('then the updated row is returned.', () {
-            expect(updated.id, metric.id);
-            expect(updated.name, 'updated');
-          });
-
-          test('then the change is visible in the test transaction.', () async {
-            final stored = await ServerHealthMetric.db.findById(session, metric.id!);
-            expect(stored?.name, 'updated');
-          });
-        });
-
-        group('when updateRow selects only the name column,', () {
-          late ServerHealthMetric updated;
-
-          setUp(() async {
-            updated = await ServerHealthMetric.db.updateRow(
-              session,
-              metric.copyWith(name: 'updated', value: 2),
-              columns: (t) => [t.name],
-            );
-          });
-
-          test('then the returned row preserves the unselected value.', () {
-            expect(updated.name, 'updated');
-            expect(updated.value, 1);
-          });
-
-          test('then only the selected column is changed in the database.', () async {
-            final stored = await ServerHealthMetric.db.findById(session, metric.id!);
-            expect(stored?.name, 'updated');
-            expect(stored?.value, 1);
-          });
-        });
-
-        group('when updateRow runs in an explicit transaction that rolls back,', () {
-          setUp(() async {
-            await expectLater(
-              session.db.transaction((tx) async {
-                await ServerHealthMetric.db.updateRow(
-                  session,
-                  metric.copyWith(name: 'updated'),
-                  transaction: tx,
-                );
-                throw StateError('rollback');
-              }),
-              throwsStateError,
-            );
-          });
-
-          test('then the original row is preserved.', () async {
-            final stored = await ServerHealthMetric.db.findById(session, metric.id!);
-            expect(stored?.name, 'original');
-          });
-        });
-
-        group('when updateById changes its name,', () {
-          late ServerHealthMetric? updated;
-
-          setUp(() async {
-            updated = await ServerHealthMetric.db.updateById(
-              session,
-              metric.id!,
-              columnValues: (t) => [t.name('updated')],
-            );
-          });
-
-          test('then the updated row is returned.', () {
-            expect(updated?.id, metric.id);
-            expect(updated?.name, 'updated');
           });
 
           test('then the change is visible in the test transaction.', () async {
