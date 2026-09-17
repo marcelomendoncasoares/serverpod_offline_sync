@@ -463,6 +463,84 @@ void main() {
     });
   });
 
+  group('Given a merged town with a withheld mayor,', () {
+    late SyncNode node;
+    late Person mayor;
+    late Town town;
+
+    setUpAll(() async {
+      node = await syncNode(await createAdditionalTestSession(), testSyncTables);
+      mayor = Person(id: const Uuid().v7obj(), name: 'mayor');
+      town = Town(id: const Uuid().v7obj(), name: 'town', mayorId: mayor.id);
+      final hlc = Hlc(DateTime.now().toUtc(), 0, const Uuid().v7obj());
+      await node.offlineSync.db.mergeChanges([
+        CrdtMergeInsert(
+          uuidSpaceId: testCrdtUserId,
+          tableName: Town.t.tableName,
+          uuidRowId: town.id!,
+          uuidNodeId: hlc.nodeId,
+          hlcDatetime: hlc.datetime,
+          hlcCounter: hlc.counter,
+          data: town,
+        ),
+      ], spaceId: testCrdtUserId);
+    });
+
+    group('when a set-based write clears the mayor,', () {
+      setUpAll(() async {
+        // A narrowed write authors the column it names, so it replaces the claim
+        // the projection is holding rather than passing over it. The column
+        // already displays null, which is exactly when a write that did not
+        // author would leave the withheld mayor to reappear later.
+        await node.offlineSync.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => Town.db.updateWhere(
+            node.offlineSync,
+            columnValues: (t) => [t.mayorId(null)],
+            where: (t) => t.id.equals(town.id),
+            transaction: tx,
+          ),
+        );
+      });
+
+      test('then the town no longer holds a withheld mayor.', () async {
+        expect(
+          await attemptedValue(
+            rowId: town.id!,
+            columnName: 'mayorId',
+            databaseSession: node.offlineSync,
+          ),
+          isNull,
+        );
+      });
+    });
+
+    group(
+      'when a set-based write clears the mayor and the missing person is inserted locally,',
+      () {
+        setUpAll(() async {
+          await node.offlineSync.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Town.db.updateWhere(
+              node.offlineSync,
+              columnValues: (t) => [t.mayorId(null)],
+              where: (t) => t.id.equals(town.id),
+              transaction: tx,
+            ),
+          );
+          await node.offlineSync.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Person.db.insertRow(node.offlineSync, mayor, transaction: tx),
+          );
+        });
+
+        test('then the cleared mayor stays cleared.', () async {
+          expect((await Town.db.findById(node.offlineSync, town.id!))!.mayorId, isNull);
+        });
+      },
+    );
+  });
+
   group(
     'Given two merged unique children waiting for unavailable parents and a missing fallback,',
     () {

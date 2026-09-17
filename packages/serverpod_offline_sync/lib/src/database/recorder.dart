@@ -837,11 +837,19 @@ class CrdtMutationRecorder {
   }
 
   /// Records CRDT field metadata for updated rows.
+  ///
+  /// [authoredColumnValues] marks a write that reached the domain without a
+  /// planning pass, which is the set-based `updateWhere`. Every accepted column
+  /// value it carries is authored, so it overlays the attempted value a
+  /// projection is holding for the same field. Without the overlay the pass
+  /// below would read that stale attempt as the authored value and restore it
+  /// over the write.
   Future<void> afterUpdate<T extends TableRow>(
     List<T> updatedRows,
     List<Column>? columns,
     Transaction transaction, {
     bool projectionUnchanged = false,
+    bool authoredColumnValues = false,
     Map<MergeRowKey, Map<String, Object?>> domainBeforeUpsert = const {},
   }) async {
     await _foreignKeyProjector.assertVisibleTargets(updatedRows, columns, transaction);
@@ -857,22 +865,29 @@ class CrdtMutationRecorder {
         'updated',
         transaction,
       );
-      // Only rows returned by the physical upsert were accepted by updateWhere.
       // Explicit columns author even an unchanged null; full-row passthrough
       // keeps the claim behind an unchanged displayed alternative.
       final authoredOverlays = <MergeFieldKey, Object?>{
-        for (final row in updatedRows)
-          if (domainBeforeUpsert.containsKey((tableName, row.id)))
+        if (authoredColumnValues)
+          for (final row in updatedRows)
             for (final MapEntry(key: columnName, value: value)
                 in _authoredValuesFromRow(row, columns).entries)
-              if ((domainBeforeUpsert[(tableName, row.id)]?.containsKey(columnName) ??
-                      false) &&
-                  (columns != null ||
-                      !projectionValuesEqual(
-                        domainBeforeUpsert[(tableName, row.id)]![columnName],
-                        value,
-                      )))
-                (tableName, row.id as UuidValue, columnName): value,
+              (tableName, row.id as UuidValue, columnName): value
+        else
+          // Only rows returned by the physical upsert were accepted by its
+          // `updateWhere` predicate.
+          for (final row in updatedRows)
+            if (domainBeforeUpsert.containsKey((tableName, row.id)))
+              for (final MapEntry(key: columnName, value: value)
+                  in _authoredValuesFromRow(row, columns).entries)
+                if ((domainBeforeUpsert[(tableName, row.id)]?.containsKey(columnName) ??
+                        false) &&
+                    (columns != null ||
+                        !projectionValuesEqual(
+                          domainBeforeUpsert[(tableName, row.id)]![columnName],
+                          value,
+                        )))
+                  (tableName, row.id as UuidValue, columnName): value,
       };
       _uniqueResolver.validateAuthoredFields(authoredOverlays);
       final implicitForeignKeyRepairFields = columns == null

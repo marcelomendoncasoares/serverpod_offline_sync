@@ -231,6 +231,91 @@ void main() {
           expect((await Unique.db.findById(session, winner.id!))!.name, 'shared-name');
         },
       );
+
+      test(
+        'when a set-based write gives the loser a free name, '
+        'then the write is authored and the released claim is not restored.',
+        () async {
+          await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => Unique.db.updateWhere(
+              session,
+              columnValues: (t) => [t.name('renamed')],
+              where: (t) => t.id.equals(loser.id),
+              transaction: tx,
+            ),
+          );
+
+          expect((await Unique.db.findById(session, loser.id!))!.name, 'renamed');
+          expect(
+            await attemptedValue(
+              rowId: loser.id!,
+              columnName: Unique.t.name.columnName,
+            ),
+            isNull,
+          );
+          expect((await Unique.db.findById(session, winner.id!))!.name, 'shared-name');
+        },
+      );
+    },
+  );
+
+  group(
+    'Given a nullable unique loser whose claim was released to null, ',
+    () {
+      late UniqueNullable winner;
+      late UniqueNullable loser;
+
+      setUp(() async {
+        winner = await session.db.transactionForUser(
+          testCrdtUserId,
+          (tx) => UniqueNullable.db.insertRow(
+            session,
+            UniqueNullable(id: const Uuid().v7obj(), value: 1),
+            transaction: tx,
+          ),
+        );
+        loser = UniqueNullable(id: const Uuid().v7obj(), value: 1);
+        await mergeIndependentInsert(
+          session,
+          loser,
+          space: testCrdtUserId,
+          tables: [UniqueNullable.t],
+        );
+      });
+
+      test(
+        'when a set-based write authors null on both rows, '
+        'then the loser keeps the written null rather than reclaiming its value.',
+        () async {
+          // The loser displays the null its release wrote, so writing null is
+          // an unchanged domain value. A narrowed write authors it anyway:
+          // otherwise the freed claim behind it would win the reprojection the
+          // winner's own null triggers, and reappear as a value nobody wrote.
+          await session.db.transactionForUser(
+            testCrdtUserId,
+            (tx) => UniqueNullable.db.updateWhere(
+              session,
+              columnValues: (t) => [t.value(null)],
+              where: (t) => t.id.inSet(<UuidValue>{winner.id!, loser.id!}),
+              transaction: tx,
+            ),
+          );
+
+          expect((await UniqueNullable.db.findById(session, loser.id!))!.value, isNull);
+          expect(
+            await attemptedValue(
+              rowId: loser.id!,
+              columnName: UniqueNullable.t.value.columnName,
+            ),
+            isNull,
+          );
+          expect(
+            (await UniqueNullable.db.findById(session, winner.id!))!.value,
+            isNull,
+          );
+        },
+      );
     },
   );
 
