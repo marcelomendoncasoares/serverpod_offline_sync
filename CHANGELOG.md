@@ -1,3 +1,19 @@
+## 0.0.8
+
+- fix: BREAKING. Reject unique-text values ending in `__conflict__<UUID>`,
+  `__hidden__<UUID>`, or `__park__<UUID>`, and unique version-8 UUIDs (except
+  primary keys, foreign keys, and nullable UUID columns). Local writes and
+  incoming sync throw `OfflineSyncReservedValueException` for these values.
+- fix: Enforce database unique constraints on local writes and restores, and
+  reject upsert batches that target the same record more than once.
+- fix: Retain upserted values and explicit nulls when replacing a conflicting
+  value, including upserts matched through another unique index.
+- fix: Treat restored rows as fresh writes so field values and conflict ages
+  stay consistent across sync and bootstrap.
+- fix: Preserve UUID-shaped text and binary values during conflict resolution
+  and sync, and encode restored values according to their column types.
+- fix: Show UUIDs correctly in errors for references to deleted records.
+
 ## 0.0.7
 
 - fix: Keep non-synced `updateRow` calls in the test harness transaction.
