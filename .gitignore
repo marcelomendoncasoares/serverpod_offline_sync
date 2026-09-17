@@ -19,3 +19,6 @@ coverage-results.txt
 # Melos
 .idea/
 *melos_*.iml
+
+# Deterministic simulation hunt results
+.dst-soak/
