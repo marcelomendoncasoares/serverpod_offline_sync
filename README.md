@@ -22,6 +22,7 @@ out-of-the-box with Serverpod's existing APIs.
   - [Usage](#usage)
     - [Spaces and sharing](#spaces-and-sharing)
     - [Data modeling limitations](#data-modeling-limitations)
+      - [Reserved values](#reserved-values)
   - [How it works](#how-it-works)
   - [Performance](#performance)
   - [Example](#example)
@@ -242,8 +243,7 @@ sync session for changes to take effect.
 
 Because of the nature of merge conflicts, the package imposes some data-modeling
 limitations. With `database: sync`, Serverpod reports most of them at generate
-time. Other schema restrictions are checked during initialization; reserved
-values are checked when written or received through sync. Most are
+time. The rest are enforced at runtime during initialization. Most are
 fundamental to the design and can never be lifted.
 
 - Every synced table must be defined with `database: sync`.
@@ -255,15 +255,6 @@ fundamental to the design and can never be lifted.
 - Global unique indexes are unsupported, except for FK-only indexes.
 - Unique indexes are only supported with at least one
   `String`/`UuidValue`/nullable column.
-- Unique text values cannot be authored with a suffix matching
-  `__conflict__<UUID>`, `__hidden__<UUID>`, or `__park__<UUID>`. These suffixes
-  belong to sync projection; new claims throw `OfflineSyncReservedValueException`.
-  Full-record saves can echo an unchanged displayed alternative while retaining
-  the original claim. Non-unique text fields are unrestricted.
-- Non-nullable unique UUID columns that are not foreign keys reserve version 8
-  for generated alternatives. Authoring a version-8 value throws
-  `OfflineSyncReservedValueException`; primary keys, foreign keys, nullable UUID
-  columns, and non-unique UUID columns are unrestricted by this rule.
 - All 1:1 relations must have the foreign-key column nullable (`optional`
   relation).
 - The only allowed non-synced-to-synced relation is `spaceId -> offline_sync_spaces.id`.
@@ -273,6 +264,21 @@ fundamental to the design and can never be lifted.
 Respecting these limitations, all other database invariants — including
 foreign-key actions — are preserved, with the exception of check constraints,
 which Serverpod does not support either.
+
+#### Reserved values
+
+Besides the schema restrictions, some values are reserved by the sync layer and
+cannot be authored by the user. Such values are used by the engine to resolve
+unique conflicts and are not expected to represent a restriction to real
+production usage. Trying to author a reserved value will immediately throw an
+`OfflineSyncReservedValueException` exception to prevent later conflicts.
+
+- Unique text values cannot be authored with a suffix matching
+  `__conflict__<UUID>`, `__hidden__<UUID>`, or `__park__<UUID>`. Non-unique
+  text fields are unrestricted.
+- Non-nullable unique UUID columns that are not foreign keys reserve version 8
+  for generated alternatives. Primary keys, foreign keys, nullable UUID columns
+  and non-unique UUID columns are unrestricted.
 
 ## How it works
 
