@@ -159,6 +159,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     // Field metadata for merged inserts is recorded per table and node rather
     // than per row: every query behind it already takes a set of row ids.
     final pendingAttempts = _PendingInsertAttempts();
+    final deferredDeletes = <CrdtMergeDelete>[];
 
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) {
@@ -191,6 +192,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             transaction,
           );
         case final CrdtMergeDelete delete:
+          // A higher delete/restore generation can have an older HLC than a
+          // concurrent reinsertion. Bootstrap must retain it until this batch
+          // has inserted the row it belongs to.
+          if (!context.rows.containsKey((delete.tableName, delete.uuidRowId))) {
+            deferredDeletes.add(delete);
+            continue;
+          }
           await _applyMergeDelete(
             delete,
             nodesByUuid,
@@ -204,6 +212,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     await _flushInsertAttempts(pendingAttempts, context, transaction);
+    for (final delete in deferredDeletes) {
+      await _applyMergeDelete(delete, nodesByUuid, context, transaction);
+    }
 
     if (mayAffectProjection) {
       await _foreignKeyProjector.project(
