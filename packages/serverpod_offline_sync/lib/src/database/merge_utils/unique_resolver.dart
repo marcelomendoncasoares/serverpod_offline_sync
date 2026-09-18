@@ -163,8 +163,8 @@ class CrdtUniqueConflictResolver {
       ]..sort(compareMergeRowKeys);
 
       // A null tuple makes no unique claim, but still needs to shed any old
-      // release. Restore candidates before resolving any index so overlapping
-      // indexes can release shared columns without a later reset undoing it.
+      // release. Restore candidates first; per-index winners then retain their
+      // canonical tuples so they remain identifiable through those indexes.
       for (final rowKey in tableRowKeys) {
         if (!resolveVisibleConflicts && !hidden.contains(rowKey)) continue;
         for (final uniqueIndex in uniqueIndexes) {
