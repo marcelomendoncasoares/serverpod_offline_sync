@@ -197,10 +197,18 @@ Data is isolated per **space**. Each user has their own implicit personal space
 and can be a member of any number of shared spaces, with read-only or read-write
 access.
 
-- **On the server**, wrap database operations in `session.db.transactionForUser`
-  to target the correct space.
+- **On the server**, wrap database operations in
+  `session.offlineSyncDb.transactionForUser` to target the correct space.
+  `Session.db` is typed as the plain `Database`, so `offlineSyncDb` is what
+  reaches the CRDT-aware one the database interceptor put behind it.
 - **On the client**, set a `persistentUserId` to target the personal space by
   default, or use `transactionForUser` to target a shared space.
+
+```dart
+await session.offlineSyncDb.transactionForUser(userId, (tx) async {
+  await Person.db.insertRow(session, person, transaction: tx);
+});
+```
 
 Shared spaces are created and managed **on the server only** through the
 `session.offlineSync.spaces` API.

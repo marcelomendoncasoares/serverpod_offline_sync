@@ -10,6 +10,16 @@ import 'offline_sync_spaces.dart';
 /// process-wide singleton.
 final _offlineSyncByServerpod = Expando<OfflineSyncEngine>('offlineSync');
 
+/// The CRDT-aware database the interceptor built for each session.
+///
+/// [Session.db] is the database a session hands out, and it is normally the
+/// wrapped instance itself. Under `serverpod_test` it is a proxy in front of
+/// the wrapped instance, which hides it, so the interceptor remembers what it
+/// wrapped and [OfflineSyncSessionDatabase.offlineSyncDb] falls back to it.
+final _syncDatabaseBySession = Expando<OfflineSyncDatabase>(
+  'offlineSyncDatabase',
+);
+
 /// Intercepts each Serverpod session database with a CRDT-aware database once
 /// [OfflineSyncInitialize.initializeOfflineSync] has configured sync.
 ///
@@ -17,7 +27,48 @@ final _offlineSyncByServerpod = Expando<OfflineSyncEngine>('offlineSync');
 /// original [inner] database is returned unchanged.
 Database offlineSyncDatabaseInterceptor(Session session, Database inner) {
   final offlineSync = _offlineSyncByServerpod[session.server.serverpod];
-  return offlineSync?.wrapDatabase(inner) ?? inner;
+  final wrapped = offlineSync?.wrapDatabase(inner);
+  if (wrapped == null) return inner;
+  _syncDatabaseBySession[session] = wrapped;
+  return wrapped;
+}
+
+/// Access to the CRDT-aware database of a server [Session].
+///
+/// The database a session exposes as [Session.db] is typed [Database], so the
+/// CRDT-only members — [OfflineSyncDatabase.transactionForUser] above all —
+/// are not reachable from it. This resolves the wrapped instance instead:
+///
+/// ```dart
+/// await session.offlineSyncDb.transactionForUser(userId, (tx) async {
+///   await Turnover.db.insertRow(session, turnover, transaction: tx);
+/// });
+/// ```
+///
+/// Prefer this over [OfflineSyncDatabaseAccess.offlineSyncDb] on a plain
+/// [DatabaseSession]: it also resolves under `serverpod_test`, where
+/// [Session.db] is a proxy that hides the wrapped database.
+extension OfflineSyncSessionDatabase on Session {
+  /// The CRDT-aware database behind this session.
+  ///
+  /// Throws a [StateError] when the [Serverpod] instance was not constructed
+  /// with [offlineSyncDatabaseInterceptor] as its `databaseInterceptor`, or
+  /// when sync was not initialized before this session was created.
+  OfflineSyncDatabase get offlineSyncDb {
+    final database = db;
+    if (database is OfflineSyncDatabase) return database;
+
+    final intercepted = _syncDatabaseBySession[this];
+    if (intercepted != null) return intercepted;
+
+    throw StateError(
+      'The database of this session is not CRDT-aware. Construct the Serverpod '
+      'instance with `databaseInterceptor: offlineSyncDatabaseInterceptor` and '
+      'call `pod.initializeOfflineSync(...)` before the session is created. In '
+      'tests, pass the interceptor to `withServerpod` and initialize sync on '
+      '`sessionBuilder.build().serverpod`.',
+    );
+  }
 }
 
 /// Extension methods for [Serverpod] to configure the CRDT sync on the server.
