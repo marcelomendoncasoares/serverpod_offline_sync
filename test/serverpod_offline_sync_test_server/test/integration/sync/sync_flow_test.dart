@@ -116,7 +116,7 @@ void main() {
             var mergeSuccessCount = 0;
             final syncSession = testClient.offlineSync.syncContinuously(
               clientSession,
-              onMergeSuccess: (_, _) => mergeSuccessCount++,
+              onMergeSuccess: (_) => mergeSuccessCount++,
             );
             addTearDown(syncSession.cancel);
 
@@ -1065,7 +1065,8 @@ void main() {
 
             syncSession = testClient.offlineSync.syncContinuously(
               clientSession,
-              onMergeSuccess: (_, hlc) => mergeSuccessCompleter.complete(hlc),
+              onMergeSuccess: (event) =>
+                  mergeSuccessCompleter.complete(event.syncedHlc),
             );
           });
 
@@ -1745,7 +1746,7 @@ void main() {
 
           final syncSession = testClient.offlineSync.syncContinuously(
             clientSession,
-            onMergeSuccess: (_, _) {
+            onMergeSuccess: (_) {
               switch (++mergeSuccessCount) {
                 case 1:
                   firstMergeCompleter.complete();

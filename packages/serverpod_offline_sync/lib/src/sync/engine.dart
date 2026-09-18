@@ -18,13 +18,11 @@ import '../spaces/membership.dart';
 import '../utils/case_when.dart' show Case;
 import 'exceptions.dart';
 import 'integrity_violation.dart';
+import 'merge_event.dart';
 import 'space_state.dart';
 
+export 'merge_event.dart';
 export 'space_state.dart' show OfflineSyncPeerMode;
-
-/// Callback function for when a merge is successful.
-typedef OfflineSyncOnMergeSuccess =
-    FutureOr<void> Function(UuidValue spaceUuid, Hlc syncedHlc);
 
 /// A tuple representing the ownership of a domain row.
 typedef DomainRowOwner = ({bool exists, int? spaceId});
@@ -299,7 +297,7 @@ class OfflineSyncEngine {
 
         final hadSendableCheckpoints = spaces.sendableCheckpoints.isNotEmpty;
         var hasChanges = false;
-        final outboundSpaces = <UuidValue>{};
+        final sentHlcBySpace = <UuidValue, Hlc>{};
 
         if (spaces.shouldAnnounce) {
           yield OfflineSyncSpaceSet(spaces: spaces.localGrants);
@@ -322,7 +320,9 @@ class OfflineSyncEngine {
           hasChanges = true;
           for (final change in changes) {
             spaces.advanceCheckpoint(change.uuidSpaceId, change);
-            outboundSpaces.add(change.uuidSpaceId);
+            sentHlcBySpace[change.uuidSpaceId] = change.hlc.maxBetween(
+              sentHlcBySpace[change.uuidSpaceId],
+            );
           }
           yield OfflineSyncMergeChunk(changes: changes);
         }
@@ -345,7 +345,7 @@ class OfflineSyncEngine {
           session,
           spaces,
           batch,
-          outboundSpaces,
+          sentHlcBySpace,
           onMergeSuccess,
         );
 
@@ -405,7 +405,7 @@ class OfflineSyncEngine {
     DatabaseSession session,
     OfflineSyncSpaceState spaces,
     OfflineSyncCycleBatch batch,
-    Set<UuidValue> outboundSpaces,
+    Map<UuidValue, Hlc> sentHlcBySpace,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
   ) async {
     if (batch.spaceSet != null) {
@@ -440,10 +440,17 @@ class OfflineSyncEngine {
         otherNodeId: spaces.peerNodeId,
         mergeSet: entry.value,
       );
-      await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
+      await _reportMerge(
+        onMergeSuccess,
+        spaces,
+        spaceId,
+        receivedHlc: receivedHlc,
+        sentHlc: sentHlcBySpace[spaceId],
+      );
     }
-    for (final spaceId in outboundSpaces.difference(mergedSpaces)) {
-      await _reportMerge(onMergeSuccess, spaces, spaceId, null);
+    for (final entry in sentHlcBySpace.entries) {
+      if (mergedSpaces.contains(entry.key)) continue;
+      await _reportMerge(onMergeSuccess, spaces, entry.key, sentHlc: entry.value);
     }
   }
 
@@ -494,17 +501,33 @@ class OfflineSyncEngine {
     };
   }
 
-  /// Reports a successful merge for [spaceId] to [onMergeSuccess], combining the
-  /// space's checkpoint high-water mark with the [receivedHlc] just merged.
+  /// Reports this cycle's activity for [spaceId] to [onMergeSuccess].
+  ///
+  /// [receivedHlc] is set once the inbound merge for the space committed, and
+  /// [sentHlc] once outbound changes were put on the wire. A cycle that moved
+  /// nothing for the space reports nothing. [OfflineSyncMergeEvent.syncedHlc]
+  /// combines the space's checkpoint high-water mark with [receivedHlc].
   Future<void> _reportMerge(
     OfflineSyncOnMergeSuccess? onMergeSuccess,
     OfflineSyncSpaceState spaces,
-    UuidValue spaceId,
+    UuidValue spaceId, {
     Hlc? receivedHlc,
-  ) async {
+    Hlc? sentHlc,
+  }) async {
+    if (onMergeSuccess == null) return;
+    if (receivedHlc == null && sentHlc == null) return;
     final checkpointMax = spaces.checkpointMaxOf(spaceId);
     if (checkpointMax == null) return;
-    await onMergeSuccess?.call(spaceId, checkpointMax.maxBetween(receivedHlc));
+    await onMergeSuccess(
+      OfflineSyncMergeEvent(
+        syncingUserId: spaces.userId,
+        spaceUuid: spaceId,
+        peerNodeId: spaces.peerNodeId,
+        syncedHlc: checkpointMax.maxBetween(receivedHlc),
+        receivedHlc: receivedHlc,
+        sentHlc: sentHlc,
+      ),
+    );
   }
 
   /// Drains [iterator] until the peer closes the stream.

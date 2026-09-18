@@ -291,8 +291,7 @@ class DemoController extends ChangeNotifier {
       try {
         await session.syncOnce(
           client,
-          onMergeSuccess: (spaceUuid, hlc) =>
-              _handleReplicaMerge(slot, spaceUuid, hlc),
+          onMergeSuccess: (event) => _handleReplicaMerge(slot, event),
         );
         state.phase = SyncPhase.idle;
         state.lastSyncedLabel = 'synced ${_timeLabel()}';
@@ -318,8 +317,8 @@ class DemoController extends ChangeNotifier {
         () async {
           final stream = session.syncContinuously(
             client,
-            onMergeSuccess: (spaceUuid, hlc) =>
-                unawaited(_handleReplicaMerge(slot, spaceUuid, hlc)),
+            onMergeSuccess: (event) =>
+                unawaited(_handleReplicaMerge(slot, event)),
           );
           state.stream = stream;
           state.phase = SyncPhase.streaming;
@@ -427,10 +426,10 @@ class DemoController extends ChangeNotifier {
 
   Future<void> _handleReplicaMerge(
     ReplicaSlot slot,
-    offline.UuidValue spaceUuid,
-    Object hlc,
+    offline.OfflineSyncMergeEvent event,
   ) async {
-    replicas[slot]!.lastSyncedLabel = 'merged $spaceUuid at $hlc';
+    replicas[slot]!.lastSyncedLabel =
+        'merged ${event.spaceUuid} at ${event.syncedHlc}';
     await _refreshReplica(slot, notify: false);
     await _fetchServer(notify: false);
     replicas[slot]!.changed();
