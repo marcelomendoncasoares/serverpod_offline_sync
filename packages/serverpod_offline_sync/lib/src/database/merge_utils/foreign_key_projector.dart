@@ -2120,12 +2120,24 @@ class CrdtForeignKeyProjector {
         if (state.pendingInsertKeys.contains(row.key)) continue;
         for (final column in _uniqueResolver.uniqueColumnNamesFor(row.key.$1)) {
           final key = (row.key.$1, row.key.$2, column);
-          row.values[column] = canonicalDomainValue(
+          final localValue = canonicalDomainValue(
             authoredOverlays.containsKey(key)
                 ? authoredOverlays[key]
                 : state.originalDomain[row.key]?[column],
             _context.columnsByTableAndName[row.key.$1]?[column],
           );
+          // An authored unique claim still needs its FK repair when a local
+          // edit makes the parent hidden. Only a released value may replace it.
+          if (foreignKeys.reasons.containsKey(key) &&
+              !authoredOverlays.containsKey(key) &&
+              projectionValuesEqual(localValue, authoredByField[key])) {
+            continue;
+          }
+          if (!projectionValuesEqual(localValue, row.values[column])) {
+            // Retaining a unique release supersedes the FK candidate's reason.
+            foreignKeys.reasons.remove(key);
+          }
+          row.values[column] = localValue;
         }
       }
     }
