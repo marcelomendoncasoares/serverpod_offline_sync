@@ -1028,11 +1028,12 @@ class OfflineSyncDatabase implements Database {
         // Take every space lock before a write locks the shared replica node.
         // Otherwise a merge holding a later space FOR UPDATE can wait on our
         // node lock while our next scope waits on that space's foreign key.
-        await OfflineSyncSpace.db.find(
+        final preparedSpaceIds = {
+          for (final space in preparedSpaces.values) space.id!,
+        };
+        await OfflineSyncSpace.db.lockRows(
           _delegate.session,
-          where: (t) =>
-              t.id.inSet(<int>{for (final space in preparedSpaces.values) space.id!}),
-          orderBy: (t) => t.id,
+          where: (t) => t.id.inSet(preparedSpaceIds),
           transaction: tx,
           lockMode: LockMode.forKeyShare,
         );

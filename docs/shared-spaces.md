@@ -490,8 +490,8 @@ await session.db.transactionForSpaces(userId, {spaceA, spaceB}, (spaces) async {
   scope by throwing; let the exception escape the enclosing callback to abort
   all writes. Do not call `tx.cancel()` inside a scope: cancellation prevents
   Serverpod's savepoint cleanup and produces a cleanup error.
-- On PostgreSQL, the transaction locks every declared space row in ID order
-  with `FOR KEY SHARE` before invoking the callback. These locks last until the
+- On PostgreSQL, the transaction locks every declared space row with
+  `FOR KEY SHARE` before invoking the callback. These locks last until the
   transaction ends, preventing a lock-order deadlock with concurrent sync merges.
 - An undeclared space throws `ArgumentError`. The context expires when the
   transaction callback returns or throws; using it afterwards throws `StateError`.
