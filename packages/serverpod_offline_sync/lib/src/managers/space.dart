@@ -46,35 +46,6 @@ class OfflineSyncSpaceManager {
     return _instances[uuidSpaceId] = space;
   }
 
-  /// Reads an already prepared space without creating or repairing metadata.
-  ///
-  /// A missing space, current node, or space-node association must be prepared
-  /// with [getOrCreate] before opening [transaction].
-  Future<OfflineSyncSpace> getPrepared(
-    UuidValue uuidSpaceId, {
-    required Transaction transaction,
-  }) async {
-    final space = await OfflineSyncSpace.db.findFirstRow(
-      _session,
-      where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
-      include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-      transaction: transaction,
-    );
-    if (space?.currentNode != null) {
-      final association = await OfflineSyncSpaceNode.db.findFirstRow(
-        _session,
-        where: (t) =>
-            t.spaceId.equals(space!.id) & t.nodeId.equals(space.currentNodeId),
-        transaction: transaction,
-      );
-      if (association != null) return space!;
-    }
-    throw StateError(
-      'Space $uuidSpaceId is not prepared. Call prepareForUser before '
-      'opening the transaction.',
-    );
-  }
-
   Future<OfflineSyncSpace> _getOrCreate(
     UuidValue uuidSpaceId,
     Transaction transaction,

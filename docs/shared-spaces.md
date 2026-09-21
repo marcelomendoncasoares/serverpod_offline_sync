@@ -66,8 +66,8 @@ membership relation and a sync protocol that iterates spaces.
    from anything the client sends. A space the user is not a member of is never
    synced, even if the client names it.
 5. **One space per write scope.** Reads are membership-wide; writes stay pinned
-   to exactly one space per `runForUser` call. Several calls may share one SQL
-   transaction, with each space prepared before the transaction starts.
+   to exactly one space per `runForSpace` call. `transactionForSpaces` prepares
+   all declared spaces before opening their shared SQL transaction.
    Two spaces' chains replicate independently and a remote replica can never
    observe a cross-space write atomically.
 6. **Roles are closed CRDT access roles.** The package stores and projects
@@ -431,58 +431,60 @@ change.
 
 ## Transaction API
 
-`runForUser` is the space-binding primitive. `transactionForUser` keeps its
-name and user-first semantics as a thin wrapper that starts a new transaction
-and calls `runForUser`. Both take an optional space:
+`transactionForUser` keeps its existing single-space interface. Use
+`transactionForSpaces` when several spaces must share one local commit:
 
 ```dart
-db.transactionForUser(userId, fn);                  // acts in the personal space
-db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
+await session.db.transactionForUser(userId, fn); // personal space
+await session.db.transactionForUser(userId, fn, spaceId: listId); // shared space
 
-// Prepare once before the domain transaction (already prepared spaces are fine).
-await db.prepareForUser(userId, spaceId: spaceA);
-await db.prepareForUser(userId, spaceId: spaceB);
-await db.transaction((tx) async {
-  await db.runForUser(userId, fn, spaceId: spaceA, transaction: tx);
-  await db.runForUser(userId, fn, spaceId: spaceB, transaction: tx);
+await session.db.transactionForSpaces(userId, {spaceA, spaceB}, (spaces) async {
+  await spaces.runForSpace(spaceA, (tx) async {
+    await Person.db.insertRow(session, alice, transaction: tx);
+  });
+  await spaces.runForSpace(spaceB, (tx) async {
+    await Person.db.insertRow(session, bob, transaction: tx);
+  });
 });
 ```
 
-- Without `spaceId`, the space resolves to the user's personal space —
-  `userId` itself by convention — which is exactly today's behavior.
-- With `spaceId`, the package resolves the member role with
-  `OfflineSyncSpaceMembership.roleOf` — no injected validator. On the server that table
-  is authoritative; on a persistent client it is the server-projected membership
-  cache. A missing role throws `OfflineSyncSpaceMembershipException`; anything other
-  than `readWrite` throws `OfflineSyncSpaceRoleException` before the function runs.
-- `prepareForUser` checks write membership and commits any missing local space,
-  replica, and space-node metadata in its own transaction. Call it before
-  opening a domain transaction. Preparation survives a later domain rollback.
-  Shared-space creation and grants still belong to the server space-management
-  API; preparation does not grant access.
-- With `transaction`, `runForUser` only reads prepared metadata. A missing space,
-  current node, or space-node association throws `StateError` before the callback;
-  it never creates or repairs metadata inside the supplied transaction.
-  A newly created shared space must therefore be committed and prepared before
-  its first domain write. Without `transaction`, `runForUser` and
-  `transactionForUser` automatically prepare before starting their transaction.
-- Initialize manually wrapped database sessions before opening the transaction;
-  `prepareForUser` and the generated client's `createSyncSession` do this for
-  you. An uninitialized wrapper rejects joining a transaction rather than
-  attempting schema/replica initialization through another connection.
-- Membership checks and membership-wide reads use the supplied transaction, so
-  grants, role changes, and revocations made there are visible immediately.
-- A `runForUser` call acts in **exactly one** space (constraint 5). Passing
-  `transaction` lets several calls share one SQL commit; each call still stamps,
-  asserts, and filters against its own space. Remote replicas still cannot
-  observe a cross-space write atomically.
+- Both entry points initialize the database and prepare space, replica, and
+  space-node metadata **before opening the domain transaction**. Preparation
+  commits separately and survives a later domain rollback; callers do not need
+  a separate preparation step. Shared-space creation and grants still belong
+  to the server space-management API and must already be committed. Automatic
+  preparation does not grant access.
+- `transactionForUser` defaults to the personal space (`userId` itself).
+  `transactionForSpaces` takes one authenticated user and a set of declared
+  space UUIDs. That set is captured when called. The user remains fixed across
+  all scopes; the caller is responsible for authenticating that identity.
+- Write authorization is checked for every declared shared space before the
+  transaction callback, using `OfflineSyncSpaceMembership.roleOf`. On the server
+  that table is authoritative; on a persistent client it is the server-projected
+  membership cache. A missing role throws `OfflineSyncSpaceMembershipException`;
+  anything other than `readWrite` throws `OfflineSyncSpaceRoleException`.
+- The callback receives an `OfflineSyncSpacesTransaction`. Its
+  `runForSpace(spaceId, fn)` binds a declared space and supplies the shared SQL
+  transaction to `fn`. Pass that `tx` to ORM calls as shown above. Each scope
+  returns its callback's result, as does the enclosing transaction.
+- `runForSpace` checks membership again using the transaction. Membership-wide
+  reads also use that transaction, so grants, role changes, and revocations made
+  there are visible immediately. Reads retain their existing membership-wide
+  behavior; the declared set limits which spaces the context can act in.
+- Each `runForSpace` acts in **exactly one** space (constraint 5), with its own
+  savepoint. A caught failure rolls back that scope's writes and restores the
+  previous binding; an uncaught failure rolls back the entire domain transaction,
+  including its CRDT changes. Preparation remains committed.
 - Await each scope before using the transaction again. Awaited nested scopes
-  are supported and restore the outer user/space after success or failure.
-  Each joined scope uses a savepoint: a caught failure rolls back that scope's
-  writes, while an uncaught failure rolls back the enclosing transaction.
-  Overlapping sibling `runForUser` calls on one transaction throw `StateError`
-  before creating another savepoint or changing its binding. Separate database
-  transactions may execute concurrently, including for the same user.
+  are supported and restore the outer binding after success or failure.
+  Overlapping sibling calls throw `StateError` before creating a savepoint.
+  Independent transactions can run concurrently, including for the same user.
+- An undeclared space throws `ArgumentError`. The context expires when the
+  transaction callback returns or throws; using it afterwards throws `StateError`.
+  `transactionForSpaces` owns its SQL transaction and does not accept an existing
+  one. Both transaction entry points retain the optional `settings` argument.
+- Atomicity is local: spaces replicate independently, so remote replicas cannot
+  observe a cross-space write atomically.
 
 ## Read path: membership-wide
 
@@ -541,7 +543,8 @@ to run with `--concurrency=1`.
   device behaves identically to today.
 - **Phase 3 — transaction API.** Implemented
   `transactionForUser(userId, fn, {spaceId})` with the membership assertion,
-  and `runForUser(..., {transaction})` so several spaces can share one SQL
+  and `transactionForSpaces(userId, spaceIds, fn, {settings})` with automatic
+  preparation and a `runForSpace` context so several spaces share one local
   commit. One space per write scope.
 - **Phase 4 — membership-wide reads.** Implemented the space-scoped read filter as
   `spaceId IN (…)` over the user's member spaces.
@@ -648,9 +651,9 @@ tested once, not per combination.
 - **Iteration order:** sorted space UUIDs, so both peers stay in lockstep
   without negotiation. Each merge change carries its space UUID, so receive can
   regroup a combined batch deterministically.
-- **One space per write scope:** kept. Several `runForUser` calls may share one
-  SQL transaction; remote replicas cannot observe a cross-space write atomically
-  anyway.
+- **One space per write scope:** kept. Several `runForSpace` calls inside
+  `transactionForSpaces` share one SQL transaction; remote replicas cannot
+  observe a cross-space write atomically.
 - **Membership table is `database: all` but unsynced:** the schema exists on
   every node, yet it is server-authoritative app state, never CRDT-replicated.
 - **Idle chatter removed:** continuous sync has one combined data loop per

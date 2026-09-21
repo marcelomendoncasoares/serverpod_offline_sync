@@ -619,13 +619,13 @@ db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
   member" — the same predicate row-level security policies mirror. The
   caller remains responsible for `userId` being authenticated, exactly as
   today.
-- A `runForUser` call acts in **exactly one space**. Several calls may share
-  one SQL transaction by passing `transaction`. Prepare the spaces with
-  `prepareForUser` before opening that transaction, and await each scope.
-  Joining a transaction never creates space/replica metadata. A failed scope
-  restores the outer binding and rolls back to its savepoint. Two spaces'
-  chains replicate independently and remote replicas can never observe a
-  cross-space write atomically anyway.
+- A `runForSpace` call acts in **exactly one space**. Several calls inside
+  `transactionForSpaces(userId, spaceIds, fn)` share one SQL transaction for
+  one authenticated user. All declared spaces are automatically prepared
+  before that transaction opens; their metadata survives a domain rollback.
+  Await each scope. A failed scope restores the outer binding and rolls back
+  to its savepoint. Two spaces' chains replicate independently and remote
+  replicas cannot observe a cross-space write atomically.
 
 ### Reads: membership-wide; writes: space-pinned
 

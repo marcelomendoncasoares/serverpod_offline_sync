@@ -230,10 +230,6 @@ class CrdtMutationRecorder {
   Future<void>? _ensureInitializedFuture;
   var _isInitialized = false;
 
-  /// Whether this recorder can join a transaction without lazy initialization.
-  @internal
-  bool get isInitialized => _isInitialized;
-
   DatabaseSession get _session => _context.databaseSession;
 
   /// Initializes the CRDT recorder.
@@ -327,14 +323,9 @@ class CrdtMutationRecorder {
   }
 
   /// Returns the [OfflineSyncSpace] for the given user ID, creating it when needed.
-  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue spaceId) =>
-      _context.spaceManager.getOrCreate(spaceId);
-
-  /// Reads a space prepared before [transaction], without creating metadata.
-  Future<OfflineSyncSpace> getPreparedSpace(
-    UuidValue spaceId,
-    Transaction transaction,
-  ) => _context.spaceManager.getPrepared(spaceId, transaction: transaction);
+  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue userId) {
+    return _context.spaceManager.getOrCreate(userId);
+  }
 
   /// Records the latest acknowledged sync checkpoint for [otherNodeId].
   Future<void> recordSyncCheckpoint(
