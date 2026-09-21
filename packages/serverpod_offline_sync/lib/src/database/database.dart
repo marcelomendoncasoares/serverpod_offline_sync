@@ -969,40 +969,107 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Executes the [transactionFunction] in a transaction with the provided [userId].
+  /// Executes the [transactionFunction] acting as [userId] in one space.
   ///
   /// Without [spaceId], writes act in the user's personal space. With [spaceId],
   /// [userId] stays the authenticated identity and [spaceId] is the space being
-  /// acted in; the pair is checked before the transaction starts.
-  Future<R> transactionForUser<R>(
+  /// acted in; the pair is checked before the function runs.
+  ///
+  /// When [transaction] is omitted, this starts a new transaction. When
+  /// [transaction] is provided, the function joins that transaction as a
+  /// savepoint and restores the previous space binding afterwards, so several
+  /// [runForUser] calls can share one commit without leaking one space's writes
+  /// into another.
+  Future<R> runForUser<R>(
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
     UuidValue? spaceId,
+    Transaction? transaction,
     TransactionSettings? settings,
   }) async {
     await _ensureInitialized();
     final effectiveSpaceId = spaceId ?? userId;
-    await _assertCanActInSpace(userId, effectiveSpaceId);
 
-    // Ensure that the space exists with a node before starting the transaction.
-    final space = await _recorder.getOrCreateSpace(effectiveSpaceId);
+    // A new transaction commits the space first so callbacks can read it
+    // without joining this transaction. A caller-owned transaction must see
+    // uncommitted grants and must not open a second connection, so membership
+    // and space creation join that transaction instead.
+    if (transaction == null) {
+      await _assertCanActInSpace(userId, effectiveSpaceId);
+      final space = await _recorder.getOrCreateSpace(effectiveSpaceId);
+      return DatabaseUtil.runInTransactionOrSavepoint(
+        _delegate,
+        null,
+        (tx) => _runBound(tx, space, userId, transactionFunction),
+        settings: settings,
+      );
+    }
 
-    return transaction<R>(
+    return DatabaseUtil.runInTransactionOrSavepoint(
+      _delegate,
+      transaction,
       (tx) async {
-        try {
-          spaceForTransaction[tx] = space;
-          userForTransaction[tx] = userId;
-          return await _recorder.withCurrentNodeHlc(tx, transactionFunction);
-        } finally {
-          spaceForTransaction.remove(tx);
-          userForTransaction.remove(tx);
-        }
+        await _assertCanActInSpace(userId, effectiveSpaceId, transaction: tx);
+        final space = await _recorder.getOrCreateSpace(
+          effectiveSpaceId,
+          transaction: tx,
+        );
+        return _runBound(tx, space, userId, transactionFunction);
       },
       settings: settings,
     );
   }
 
-  Future<void> _assertCanActInSpace(UuidValue userId, UuidValue spaceId) async {
+  Future<R> _runBound<R>(
+    Transaction tx,
+    OfflineSyncSpace space,
+    UuidValue userId,
+    TransactionFunction<R> transactionFunction,
+  ) async {
+    final previousSpace = spaceForTransaction[tx];
+    final previousUser = userForTransaction[tx];
+    spaceForTransaction[tx] = space;
+    userForTransaction[tx] = userId;
+    try {
+      return await _recorder.withCurrentNodeHlc(tx, transactionFunction);
+    } finally {
+      if (previousSpace != null) {
+        spaceForTransaction[tx] = previousSpace;
+      } else {
+        spaceForTransaction.remove(tx);
+      }
+      if (previousUser != null) {
+        userForTransaction[tx] = previousUser;
+      } else {
+        userForTransaction.remove(tx);
+      }
+    }
+  }
+
+  /// Starts a new transaction and runs [transactionFunction] via [runForUser].
+  ///
+  /// Without [spaceId], writes act in the user's personal space. With [spaceId],
+  /// [userId] stays the authenticated identity and [spaceId] is the space being
+  /// acted in; the pair is checked before the function runs.
+  Future<R> transactionForUser<R>(
+    UuidValue userId,
+    TransactionFunction<R> transactionFunction, {
+    UuidValue? spaceId,
+    TransactionSettings? settings,
+  }) {
+    return runForUser(
+      userId,
+      transactionFunction,
+      spaceId: spaceId,
+      settings: settings,
+    );
+  }
+
+  Future<void> _assertCanActInSpace(
+    UuidValue userId,
+    UuidValue spaceId, {
+    Transaction? transaction,
+  }) async {
     if (userId == spaceId) return;
 
     // Authoritative membership: the source of truth on the server, the
@@ -1013,6 +1080,7 @@ class OfflineSyncDatabase implements Database {
       _delegate.session,
       userUuid: userId,
       spaceUuid: spaceId,
+      transaction: transaction,
     );
     if (role == null) {
       throw OfflineSyncSpaceMembershipException(userId: userId, spaceId: spaceId);

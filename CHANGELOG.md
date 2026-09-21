@@ -1,5 +1,8 @@
 ## 0.0.8
 
+- feat: Add `runForUser` so space-scoped writes can join an existing
+  transaction as a savepoint. `transactionForUser` is now a thin wrapper
+  around it.
 - fix: BREAKING. Reject unique-text values ending in `__conflict__<UUID>`,
   `__hidden__<UUID>`, or `__park__<UUID>`, and unique version-8 UUIDs (except
   primary keys, foreign keys, and nullable UUID columns). Local writes and

@@ -619,10 +619,10 @@ db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
   member" — the same predicate row-level security policies mirror. The
   caller remains responsible for `userId` being authenticated, exactly as
   today.
-- A transaction acts in **exactly one space**. Cross-space writes need
-  separate transactions; this is deliberate honesty about CRDT semantics,
-  since two spaces' chains replicate independently and remote replicas can
-  never observe a cross-space write atomically anyway.
+- A `runForUser` call acts in **exactly one space**. Several calls may share
+  one SQL transaction by passing `transaction`; this is still honest about
+  CRDT semantics, since two spaces' chains replicate independently and remote
+  replicas can never observe a cross-space write atomically anyway.
 
 ### Reads: membership-wide; writes: space-pinned
 

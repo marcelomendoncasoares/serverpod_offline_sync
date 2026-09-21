@@ -201,6 +201,9 @@ access.
   to target the correct space.
 - **On the client**, set a `persistentUserId` to target the personal space by
   default, or use `transactionForUser` to target a shared space.
+- To write in more than one space in a single local commit, open a normal
+  `session.db.transaction` and call `runForUser` with that transaction for
+  each space. Each call still writes in exactly one space.
 
 Shared spaces are created and managed **on the server only** through the
 `session.offlineSync.spaces` API.

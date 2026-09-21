@@ -322,8 +322,11 @@ class CrdtMutationRecorder {
   }
 
   /// Returns the [OfflineSyncSpace] for the given user ID, creating it when needed.
-  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue userId) {
-    return _context.spaceManager.getOrCreate(userId);
+  Future<OfflineSyncSpace> getOrCreateSpace(
+    UuidValue userId, {
+    Transaction? transaction,
+  }) {
+    return _context.spaceManager.getOrCreate(userId, transaction: transaction);
   }
 
   /// Whether a plain transaction can share an already initialized client node.
