@@ -234,13 +234,12 @@ class CrdtMutationRecorder {
 
   /// Initializes the CRDT recorder.
   ///
-  /// Clears this recorder's live space/HLC caches, then ensures the shared
+  /// Clears this recorder's live space cache, then ensures the shared
   /// [OfflineSyncDatabaseContext] metadata is loaded. The shared schema is loaded only
   /// once per process and is not reloaded here; see [OfflineSyncDatabaseContext] for
   /// the cache lifetime assumptions.
   Future<void> initialize() async {
     _context.spaceManager.clearCache();
-    _context.clearHlcManagers();
     _ensureInitializedFuture = null;
     _isInitialized = false;
 
@@ -326,6 +325,19 @@ class CrdtMutationRecorder {
   Future<OfflineSyncSpace> getOrCreateSpace(UuidValue userId) {
     return _context.spaceManager.getOrCreate(userId);
   }
+
+  /// Whether a plain transaction can share an already initialized client node.
+  bool get hasPersistentSpace => _isInitialized && persistentUserId != null;
+
+  /// Shares the current-node clock within an atomic scope without reading it yet.
+  Future<R> withCurrentNodeHlc<R>(
+    Transaction transaction,
+    TransactionFunction<R> action,
+  ) => _context.withCurrentNodeHlc(transaction, action);
+
+  /// Locks the node and refreshes its clock before the first tracked write or merge.
+  Future<void> lockAndRefreshCurrentNodeHlc(Transaction transaction) =>
+      _context.lockAndRefreshCurrentNodeHlc(transaction);
 
   /// Records the latest acknowledged sync checkpoint for [otherNodeId].
   Future<void> recordSyncCheckpoint(
@@ -1077,6 +1089,10 @@ class CrdtMutationRecorder {
       tableName,
       deletedRows.uuidRowIds,
       null,
+      transaction,
+    );
+    await _context.persistCurrentNodeHlc(
+      _context.hlcManagerFor(transaction),
       transaction,
     );
   }

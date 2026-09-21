@@ -21,6 +21,15 @@ enum ForeignKeyTargetPresence {
   hidden,
 }
 
+class _CurrentNodeHlc {
+  _CurrentNodeHlc(this.node);
+
+  final CrdtNode node;
+  final managers = <int, HlcManager>{};
+  bool active = false;
+  Future<void>? observed;
+}
+
 /// Shared state and database access for the CRDT recorder and its helpers.
 ///
 /// Owns per-recorder space/HLC management and the low-level domain and CRDT
@@ -54,10 +63,55 @@ class CrdtRecorderContext {
     databaseSession,
   );
 
-  final Map<UuidValue, HlcManager> _hlcManagers = {};
+  // A node clock belongs to the active transaction, not a wrapper or a space.
+  // Nested wrappers share it; completing or rolling back the scope drops it.
+  static final _currentNodes = Expando<Map<int, _CurrentNodeHlc>>();
 
-  /// Clears cached [HlcManager] instances for this recorder session.
-  void clearHlcManagers() => _hlcManagers.clear();
+  _CurrentNodeHlc _currentNodeFor(OfflineSyncSpace space, Transaction transaction) =>
+      (_currentNodes[transaction] ??= {})[space.currentNodeId!] ??= _CurrentNodeHlc(
+        space.currentNode!.copyWith(),
+      );
+
+  Future<R> withCurrentNodeHlc<R>(
+    Transaction transaction,
+    TransactionFunction<R> action,
+  ) async {
+    final space = effectiveSpaceFor(transaction);
+    final nodeId = space.currentNodeId!;
+    final currentNode = _currentNodeFor(space, transaction);
+    if (currentNode.active) return action(transaction);
+
+    currentNode.active = true;
+    try {
+      return await action(transaction);
+    } finally {
+      final nodes = _currentNodes[transaction]!..remove(nodeId);
+      if (nodes.isEmpty) _currentNodes[transaction] = null;
+    }
+  }
+
+  Future<void> lockAndRefreshCurrentNodeHlc(Transaction transaction) {
+    final currentNode = _currentNodeFor(effectiveSpaceFor(transaction), transaction);
+    return currentNode.observed ??= _lockAndRefreshCurrentNodeHlc(
+      currentNode,
+      transaction,
+    );
+  }
+
+  Future<void> _lockAndRefreshCurrentNodeHlc(
+    _CurrentNodeHlc currentNode,
+    Transaction transaction,
+  ) async {
+    final nodeId = currentNode.node.id!;
+    final node = await CrdtNode.db.findById(
+      databaseSession,
+      nodeId,
+      transaction: transaction,
+      lockMode: LockMode.forUpdate,
+    );
+    if (node == null) throw StateError('Current CRDT node $nodeId is missing.');
+    currentNode.node.lastHlc = node.lastHlc;
+  }
 
   /// CRDT schema ids by table name: `tableName -> (tableId, columnsByName)`.
   Map<String, (int, Map<String, CrdtSchemaColumn>)> get schema =>
@@ -792,9 +846,9 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
 
   HlcManager hlcManagerFor(Transaction transaction) {
     final user = effectiveSpaceFor(transaction);
-    return _hlcManagers.putIfAbsent(
-      user.uuidSpaceId,
-      () => HlcManager.forSpace(user),
+    final currentNode = _currentNodeFor(user, transaction);
+    return currentNode.managers[user.id!] ??= HlcManager.forSpace(
+      user.copyWith(currentNode: currentNode.node),
     );
   }
 
@@ -802,11 +856,12 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     HlcManager hlcManager,
     Transaction transaction,
   ) async {
-    await CrdtNode.db.updateRow(
+    await CrdtNode.db.update(
       databaseSession,
-      hlcManager.getNode(),
+      [hlcManager.getNode()],
       columns: (t) => [t.lastHlc],
       transaction: transaction,
+      noReturn: true,
     );
   }
 
