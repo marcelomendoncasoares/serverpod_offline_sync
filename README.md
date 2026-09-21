@@ -239,6 +239,50 @@ sync session for changes to take effect.
 > an authorization policy (invitations, team ownership, etc.) and call the
 > `session.offlineSync.spaces` API accordingly.
 
+### Reacting to merges on the server
+
+A sync session is the only moment the server learns that a client changed
+anything. Register a server-wide handler on the pod to react to it:
+
+```dart
+final pod = Serverpod(args, Protocol(), Endpoints());
+
+pod.configureOfflineSync(
+  onMergeSuccess: (session, event) async {
+    if (event.receivedHlc == null) return;
+
+    await reactions.forUser(event.syncingUserId).handle(
+      session,
+      spaceUuid: event.spaceUuid,
+    );
+  },
+);
+
+await pod.start();
+```
+
+The generated `Serverpod` subclass calls `initializeOfflineSync` for you, so
+`configureOfflineSync` updates the sync that is already initialized — it never
+replaces the engine and can be called again on a running server.
+
+The handler is reported to once per space and per sync cycle that moved data,
+whichever client ran it. `OfflineSyncMergeEvent` carries the authenticated
+`syncingUserId`, the `spaceUuid` the activity landed in (personal or shared),
+the peer replica's `peerNodeId`, and the directional `receivedHlc` / `sentHlc`,
+either of which is null when nothing moved that way. Inbound activity is
+reported after that space's merge transaction and its projections committed, so
+the merged rows are readable from the handler; a rejected merge reports nothing.
+The event stays at space level — query the committed state when you need rows.
+
+A callback passed to a single sync session (`OfflineSyncSession.sync`) is an
+addition, not a replacement: both observers receive the same event. An observer
+that throws is logged on the session and isolated, so it cannot fail the
+synchronization that already committed or stop the other observer. Delivery is
+best-effort notification rather than durable business-event delivery, so keep
+the handler cheap: post a message, schedule work, update an in-memory index.
+The `session` is only valid while the handler runs, so queued work must open its
+own session and carry the identifiers it needs from the event.
+
 ### Data modeling limitations
 
 Because of the nature of merge conflicts, the package imposes some data-modeling
