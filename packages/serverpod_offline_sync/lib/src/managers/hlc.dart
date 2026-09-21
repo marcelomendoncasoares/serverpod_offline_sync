@@ -10,7 +10,7 @@ class HlcManager {
     this.uuidSpaceId,
     this.normalizedSpaceId,
     this.normalizedNodeId,
-    this.lastHlc,
+    this._node,
   );
 
   /// Creates a new [HlcManager] for the current node of [space].
@@ -19,7 +19,7 @@ class HlcManager {
       space.uuidSpaceId,
       space.id!,
       space.currentNodeId!,
-      space.currentNode!.lastHlc ?? Hlc.zero(space.currentNode!.uuidNodeId),
+      space.currentNode!,
     );
   }
 
@@ -35,8 +35,12 @@ class HlcManager {
   /// The normalized node ID of the current node.
   final int normalizedNodeId;
 
+  final CrdtNode _node;
+
   /// The last HLC timestamp for the current node.
-  Hlc lastHlc;
+  Hlc get lastHlc => _node.lastHlc ?? Hlc.zero(_node.uuidNodeId);
+
+  set lastHlc(Hlc value) => _node.lastHlc = value;
 
   /// Returns the next HLC timestamp for the current node.
   Hlc increment() {

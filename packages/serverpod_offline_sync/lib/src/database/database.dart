@@ -168,7 +168,7 @@ class OfflineSyncDatabase implements Database {
         ));
     try {
       await transactionForUser<void>(effectiveSpaceId, (tx) async {
-        await _recorder.lockCurrentUser(tx);
+        await _recorder.lockAndRefreshCurrentNodeHlc(tx);
         await _recorder.mergeChanges(mergeSet, tx);
       });
     } on OfflineSyncIntegrityViolationException catch (exception) {
@@ -308,6 +308,18 @@ class OfflineSyncDatabase implements Database {
     return _stripSpaceIdFromSpaceScopedRead([result], include, transaction).single;
   }
 
+  Future<R> _runTrackedWrite<R>(
+    Transaction? transaction,
+    TransactionFunction<R> action,
+  ) => DatabaseUtil.runInTransactionOrSavepoint(
+    _delegate,
+    transaction,
+    (tx) => _recorder.withCurrentNodeHlc(tx, (tx) async {
+      await _recorder.lockAndRefreshCurrentNodeHlc(tx);
+      return action(tx);
+    }),
+  );
+
   @override
   Future<List<T>> insert<T extends TableRow>(
     List<T> rows, {
@@ -325,8 +337,7 @@ class OfflineSyncDatabase implements Database {
         noReturn: noReturn,
       );
     }
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
+    return _runTrackedWrite(
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
@@ -426,8 +437,7 @@ class OfflineSyncDatabase implements Database {
         noReturn: noReturn,
       );
     }
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
+    return _runTrackedWrite(
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
@@ -641,8 +651,7 @@ class OfflineSyncDatabase implements Database {
         noReturn: noReturn,
       );
     }
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
+    return _runTrackedWrite(
       transaction,
       (tx) async {
         final plannedUpdates = await _recorder.planLocalUpdates(rows, columns, tx);
@@ -681,8 +690,7 @@ class OfflineSyncDatabase implements Database {
         transaction: transaction,
       );
     }
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
+    return _runTrackedWrite(
       transaction,
       (tx) async {
         final plannedUpdates = await _recorder.planLocalUpdates([row], columns, tx);
@@ -786,8 +794,7 @@ class OfflineSyncDatabase implements Database {
     }
 
     _assertNoSpaceIdColumnValues<T>(columnValues);
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
+    return _runTrackedWrite(
       transaction,
       (tx) async {
         final result = await _delegate.updateWhere<T>(
@@ -882,8 +889,7 @@ class OfflineSyncDatabase implements Database {
       );
     }
 
-    return DatabaseUtil.runInTransactionOrSavepoint(
-      _delegate,
+    return _runTrackedWrite(
       transaction,
       (tx) async {
         final rows = await _delegate.find<T>(
@@ -956,7 +962,9 @@ class OfflineSyncDatabase implements Database {
     // [transaction] before CRDT tables exist. Callers that need CRDT state
     // ([transactionForUser], mutating ORM methods) initialize explicitly.
     return _delegate.transaction(
-      transactionFunction,
+      _recorder.hasPersistentSpace
+          ? (tx) => _recorder.withCurrentNodeHlc(tx, transactionFunction)
+          : transactionFunction,
       settings: settings,
     );
   }
@@ -984,7 +992,7 @@ class OfflineSyncDatabase implements Database {
         try {
           spaceForTransaction[tx] = space;
           userForTransaction[tx] = userId;
-          return await transactionFunction(tx);
+          return await _recorder.withCurrentNodeHlc(tx, transactionFunction);
         } finally {
           spaceForTransaction.remove(tx);
           userForTransaction.remove(tx);

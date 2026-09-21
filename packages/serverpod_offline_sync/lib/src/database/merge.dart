@@ -65,20 +65,6 @@ class _PendingInsertAttempts {
 
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
-  /// Locks the current user row so merges can serialize with other work.
-  Future<void> lockCurrentUser(Transaction transaction) async {
-    final user = _context.effectiveSpaceFor(transaction);
-    // Use a row lock without fetching the record since the merge path only
-    // needs serialization against concurrent work for the same user.
-    await OfflineSyncSpace.db.lockRows(
-      _session,
-      where: (t) => t.id.equals(user.id),
-      transaction: transaction,
-      lockMode: LockMode.forUpdate,
-      lockBehavior: LockBehavior.wait,
-    );
-  }
-
   /// Merges remote CRDT changes into the current database.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet,
