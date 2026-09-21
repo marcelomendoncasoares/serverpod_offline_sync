@@ -20,7 +20,7 @@ void main() {
   });
 
   withServerpod(
-    'PostgreSQL user scopes',
+    'PostgreSQL space transactions',
     (sessionBuilder, _) {
       late Session raw;
       late OfflineSyncDatabaseSession session;
@@ -42,7 +42,7 @@ void main() {
 
         setUp(() async {
           user = const Uuid().v7obj();
-          await session.db.prepareForUser(const Uuid().v7obj());
+          await session.db.currentNodeId(userId: const Uuid().v7obj());
         });
 
         test(
@@ -58,8 +58,8 @@ void main() {
                 transaction: barrier,
               );
               preparations = Future.wait([
-                session.db.prepareForUser(user),
-                secondSession.db.prepareForUser(user),
+                session.db.transactionForSpaces<void>(user, {user}, (_) async {}),
+                secondSession.db.transactionForSpaces<void>(user, {user}, (_) async {}),
               ]);
               await _waitForBlockedTransactions(raw, 2);
             });
@@ -92,8 +92,11 @@ void main() {
               transaction: barrier,
             );
             preparations = Future.wait([
-              session.db.prepareForUser(const Uuid().v7obj()),
-              secondSession.db.prepareForUser(const Uuid().v7obj()),
+              session.db.transactionForUser<void>(const Uuid().v7obj(), (_) async {}),
+              secondSession.db.transactionForUser<void>(
+                const Uuid().v7obj(),
+                (_) async {},
+              ),
             ]);
             await _waitForBlockedTransactions(raw, 2);
           });
@@ -107,13 +110,117 @@ void main() {
         },
       );
 
+      group('Given a user with a shared space and no personal space yet,', () {
+        late UuidValue user;
+        late OfflineSyncSpace shared;
+
+        setUp(() async {
+          user = const Uuid().v7obj();
+          shared = await OfflineSyncSpace.db.insertRow(
+            raw,
+            OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
+          );
+          await OfflineSyncSpaceMember.db.insertRow(
+            raw,
+            OfflineSyncSpaceMember(
+              spaceId: shared.id!,
+              userUuid: user,
+              role: OfflineSyncSpaceRole.readWrite,
+            ),
+          );
+        });
+
+        group(
+          'when a failed nested write is caught and both spaces are written again,',
+          () {
+            late StateError failure;
+            Object? caught;
+            late List<Person> rows;
+            late List<Person> visible;
+            late List<CrdtDataRow> records;
+            late List<OfflineSyncSpace> prepared;
+
+            setUp(() async {
+              failure = StateError('nested rollback');
+              await session.db.transactionForSpaces(user, {user, shared.uuidSpaceId}, (
+                spaces,
+              ) async {
+                prepared = await OfflineSyncSpace.db.find(raw);
+                await spaces.runForSpace(user, (tx) async {
+                  await Person.db.insertRow(
+                    session,
+                    Person(name: 'before'),
+                    transaction: tx,
+                  );
+                  try {
+                    await spaces.runForSpace(shared.uuidSpaceId, (tx) async {
+                      await Person.db.insertRow(
+                        session,
+                        Person(name: 'discard'),
+                        transaction: tx,
+                      );
+                      throw failure;
+                    });
+                  } on Object catch (error) {
+                    caught = error;
+                  }
+                  await Person.db.insertRow(
+                    session,
+                    Person(name: 'after'),
+                    transaction: tx,
+                  );
+                  await spaces.runForSpace(shared.uuidSpaceId, (tx) async {
+                    await Person.db.insertRow(
+                      session,
+                      Person(name: 'shared'),
+                      transaction: tx,
+                    );
+                    visible = await Person.db.find(session, transaction: tx);
+                  });
+                });
+              });
+              rows = await Person.db.find(raw);
+              records = await CrdtDataRow.db.find(raw);
+            });
+
+            test(
+              'then the failed savepoint is rolled back and the outer binding is restored.',
+              () {
+                final personal = prepared.singleWhere((s) => s.uuidSpaceId == user);
+                expect(caught, same(failure));
+                expect(rows.map((r) => (r.name, r.spaceId)).toSet(), {
+                  ('before', personal.id),
+                  ('after', personal.id),
+                  ('shared', shared.id),
+                });
+                expect(visible.map((r) => r.name).toSet(), {
+                  'before',
+                  'after',
+                  'shared',
+                });
+              },
+            );
+
+            test('then CRDT rows retain the committed preparation identities.', () {
+              expect(records, hasLength(3));
+              for (final row in rows) {
+                final record = records.singleWhere((r) => r.uuidRowId == row.id);
+                final space = prepared.singleWhere((s) => s.id == row.spaceId);
+                expect(record.spaceId, space.id);
+                expect(record.nodeId, space.currentNodeId);
+              }
+            });
+          },
+        );
+      });
+
       group('Given a prepared personal space,', () {
         late UuidValue user;
         late OfflineSyncSpace prepared;
 
         setUp(() async {
           user = const Uuid().v7obj();
-          await session.db.prepareForUser(user);
+          await session.db.transactionForSpaces<void>(user, {user}, (_) async {});
           prepared = (await OfflineSyncSpace.db.findFirstRow(
             raw,
             where: (t) => t.uuidSpaceId.equals(user),
@@ -126,26 +233,28 @@ void main() {
           () async {
             final firstReady = Completer<void>();
             final releaseFirst = Completer<void>();
-            final first = session.db.transaction((tx) async {
-              await session.db.runForUser(user, (tx) async {
+            final first = session.db.transactionForSpaces(user, {user}, (spaces) async {
+              await spaces.runForSpace(user, (tx) async {
                 await Person.db.insertRow(
                   session,
                   Person(name: 'first'),
                   transaction: tx,
                 );
-              }, transaction: tx);
+              });
               firstReady.complete();
               await releaseFirst.future;
             });
             await firstReady.future;
-            final second = secondSession.db.transaction((tx) async {
-              await secondSession.db.runForUser(user, (tx) async {
+            final second = secondSession.db.transactionForSpaces(user, {user}, (
+              spaces,
+            ) async {
+              await spaces.runForSpace(user, (tx) async {
                 await Person.db.insertRow(
                   secondSession,
                   Person(name: 'second'),
                   transaction: tx,
                 );
-              }, transaction: tx);
+              });
             });
             final both = Future.wait([first, second]);
             try {
@@ -170,26 +279,26 @@ void main() {
           () async {
             final failure = StateError('outer rollback');
             await expectLater(
-              session.db.transaction((tx) async {
-                await session.db.runForUser(user, (tx) async {
+              session.db.transactionForSpaces(user, {user}, (spaces) async {
+                await spaces.runForSpace(user, (tx) async {
                   await Person.db.insertRow(
                     session,
                     Person(name: 'discard'),
                     transaction: tx,
                   );
-                }, transaction: tx);
+                });
                 throw failure;
               }),
               throwsA(same(failure)),
             );
-            await session.db.transaction((tx) async {
-              await session.db.runForUser(user, (tx) async {
+            await session.db.transactionForSpaces(user, {user}, (spaces) async {
+              await spaces.runForSpace(user, (tx) async {
                 await Person.db.insertRow(
                   session,
                   Person(name: 'retry'),
                   transaction: tx,
                 );
-              }, transaction: tx);
+              });
             });
 
             final spaces = await OfflineSyncSpace.db.find(raw);

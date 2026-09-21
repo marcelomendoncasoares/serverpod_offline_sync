@@ -21,15 +21,13 @@ import 'session.dart';
 import 'tombstone.dart';
 
 part 'space.dart';
+part 'space_transaction.dart';
 
 /// Map of transaction hashes to the space they are associated with.
 final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
 
 /// Map of transaction hashes to the authenticated user associated with them.
 final userForTransaction = <Transaction, UuidValue>{};
-
-final _activeUserScopes = <Transaction, Object>{};
-final _userScopeZoneKey = Object();
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -972,122 +970,68 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Prepares a space for later [runForUser] calls in a caller-owned transaction.
-  ///
-  /// Call before opening that transaction. Without [spaceId], prepares the
-  /// personal space; otherwise checks [userId]'s write membership first.
-  /// Preparation commits space/replica metadata separately, so it survives a
-  /// later domain rollback. Existing prepared spaces need no additional call.
-  Future<void> prepareForUser(UuidValue userId, {UuidValue? spaceId}) async {
-    await _prepareSpaceForUser(userId, spaceId ?? userId);
-  }
-
-  Future<OfflineSyncSpace> _prepareSpaceForUser(
-    UuidValue userId,
-    UuidValue spaceId,
-  ) async {
-    await _ensureInitialized();
-    await _assertCanActInSpace(userId, spaceId);
-    return _recorder.getOrCreateSpace(spaceId);
-  }
-
-  /// Executes the [transactionFunction] acting as [userId] in one space.
+  /// Executes [transactionFunction] in a transaction acting as [userId].
   ///
   /// Without [spaceId], writes act in the user's personal space. With [spaceId],
   /// [userId] stays the authenticated identity and [spaceId] is the space being
-  /// acted in; the pair is checked before the function runs.
-  ///
-  /// When [transaction] is omitted, prepares the space and starts a new
-  /// transaction. When [transaction] is provided, the space must already be
-  /// prepared (see [prepareForUser]); otherwise throws [StateError] before
-  /// invoking the function. The function joins the transaction as a
-  /// savepoint and restores the previous space binding afterwards, so several
-  /// [runForUser] calls can share one commit without leaking one space's writes
-  /// into another.
-  /// A manually wrapped session must also be initialized before opening the
-  /// transaction; [prepareForUser] initializes it automatically. [settings]
-  /// applies only when starting a new transaction.
-  ///
-  /// Await each call before using the transaction again. Awaited nesting is
-  /// supported; overlapping sibling calls throw [StateError] because savepoints
-  /// on one SQL transaction cannot execute independently.
-  Future<R> runForUser<R>(
+  /// acted in; the pair is checked before the transaction starts.
+  Future<R> transactionForUser<R>(
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
     UuidValue? spaceId,
-    Transaction? transaction,
     TransactionSettings? settings,
   }) async {
+    await _ensureInitialized();
     final effectiveSpaceId = spaceId ?? userId;
+    await _assertCanActInSpace(userId, effectiveSpaceId);
+    final space = await _recorder.getOrCreateSpace(effectiveSpaceId);
 
-    if (transaction == null) {
-      final space = await _prepareSpaceForUser(userId, effectiveSpaceId);
-      return DatabaseUtil.runInTransactionOrSavepoint(
-        _delegate,
-        null,
-        (tx) => _runUserScope(
-          tx,
-          (tx) => _runBound(tx, space, userId, transactionFunction),
-        ),
-        settings: settings,
-      );
-    }
-
-    // Lazy initialization can create schema/replica metadata on another
-    // connection. In particular, it would wait for this transaction's own
-    // SQLite writer lock. Preparation must be complete before joining.
-    if (!_recorder.isInitialized) {
-      throw StateError(
-        'Call initialize() or prepareForUser() before opening a transaction '
-        'for runForUser.',
-      );
-    }
-    return _runUserScope(
-      transaction,
-      (tx) => DatabaseUtil.runInTransactionOrSavepoint(
-        _delegate,
-        tx,
-        (tx) async {
-          await _assertCanActInSpace(userId, effectiveSpaceId, transaction: tx);
-          final space = await _recorder.getPreparedSpace(
-            effectiveSpaceId,
-            tx,
-          );
-          return _runBound(tx, space, userId, transactionFunction);
-        },
-        settings: settings,
-      ),
+    return transaction(
+      (tx) => _runBound(tx, space, userId, transactionFunction),
+      settings: settings,
     );
   }
 
-  Future<R> _runUserScope<R>(
-    Transaction tx,
-    TransactionFunction<R> action,
-  ) async {
-    final inherited = Zone.current[_userScopeZoneKey] as Map<Transaction, Object>?;
-    final previous = _activeUserScopes[tx];
-    if (previous != null && !identical(inherited?[tx], previous)) {
-      throw StateError(
-        'Overlapping runForUser calls on one transaction are not supported. '
-        'Await each call before using the transaction again.',
-      );
+  /// Executes [transactionFunction] as [userId] in one local transaction across
+  /// the declared [spaceIds].
+  ///
+  /// Initializes the database and prepares all declared spaces before opening
+  /// the transaction. Preparation survives a domain rollback. Shared spaces
+  /// must already grant [userId] write access; membership is checked again
+  /// inside the transaction by [OfflineSyncSpacesTransaction.runForSpace].
+  ///
+  /// Await each space scope. Nested scopes use savepoints and restore the outer
+  /// binding; overlapping siblings are rejected. The context expires when
+  /// [transactionFunction] finishes. Remote replicas sync spaces independently,
+  /// so this guarantees atomicity only in the local database.
+  Future<R> transactionForSpaces<R>(
+    UuidValue userId,
+    Set<UuidValue> spaceIds,
+    Future<R> Function(OfflineSyncSpacesTransaction spaces) transactionFunction, {
+    TransactionSettings? settings,
+  }) async {
+    // Snapshot before the first await: callers cannot widen the declared set
+    // by mutating it during preparation or during the transaction.
+    final declaredSpaceIds = Set<UuidValue>.of(spaceIds);
+    await _ensureInitialized();
+    final preparedSpaces = <UuidValue, OfflineSyncSpace>{};
+    for (final spaceId in declaredSpaceIds) {
+      await _assertCanActInSpace(userId, spaceId);
+      preparedSpaces[spaceId] = await _recorder.getOrCreateSpace(spaceId);
     }
-    final scope = Object();
-    _activeUserScopes[tx] = scope;
-    try {
-      return await runZoned(
-        () => action(tx),
-        zoneValues: {
-          _userScopeZoneKey: <Transaction, Object>{...?inherited, tx: scope},
-        },
-      );
-    } finally {
-      if (previous == null) {
-        _activeUserScopes.remove(tx);
-      } else {
-        _activeUserScopes[tx] = previous;
+
+    return transaction((tx) async {
+      final spaces = OfflineSyncSpacesTransaction._(this, userId, tx, preparedSpaces);
+      try {
+        final result = await transactionFunction(spaces);
+        if (spaces._activeScopes.isNotEmpty) {
+          throw StateError('Await every runForSpace call before returning.');
+        }
+        return result;
+      } finally {
+        spaces._close();
       }
-    }
+    }, settings: settings);
   }
 
   Future<R> _runBound<R>(
@@ -1114,25 +1058,6 @@ class OfflineSyncDatabase implements Database {
         userForTransaction.remove(tx);
       }
     }
-  }
-
-  /// Starts a new transaction and runs [transactionFunction] via [runForUser].
-  ///
-  /// Without [spaceId], writes act in the user's personal space. With [spaceId],
-  /// [userId] stays the authenticated identity and [spaceId] is the space being
-  /// acted in; the pair is checked before the function runs.
-  Future<R> transactionForUser<R>(
-    UuidValue userId,
-    TransactionFunction<R> transactionFunction, {
-    UuidValue? spaceId,
-    TransactionSettings? settings,
-  }) {
-    return runForUser(
-      userId,
-      transactionFunction,
-      spaceId: spaceId,
-      settings: settings,
-    );
   }
 
   Future<void> _assertCanActInSpace(
