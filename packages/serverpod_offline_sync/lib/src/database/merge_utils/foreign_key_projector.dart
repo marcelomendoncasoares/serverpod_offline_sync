@@ -2133,6 +2133,10 @@ class CrdtForeignKeyProjector {
               projectionValuesEqual(localValue, authoredByField[key])) {
             continue;
           }
+          if (!projectionValuesEqual(localValue, row.values[column])) {
+            // Retaining a unique release supersedes the FK candidate's reason.
+            foreignKeys.reasons.remove(key);
+          }
           row.values[column] = localValue;
         }
       }
