@@ -33,31 +33,55 @@ class OfflineSyncSpaceManager {
   ///
   /// Will create a new [OfflineSyncSpace] if no space is found.
   ///
-  /// When [transaction] is provided, creation joins that transaction as a
-  /// savepoint and is not cached until a later committed lookup, so a rolled
-  /// back caller does not leave a stale space in memory.
-  Future<OfflineSyncSpace> getOrCreate(
-    UuidValue uuidSpaceId, {
-    Transaction? transaction,
-  }) async {
+  /// Preparation commits in its own transaction. Call this before opening a
+  /// transaction that writes domain rows, so cached IDs cannot be rolled back.
+  Future<OfflineSyncSpace> getOrCreate(UuidValue uuidSpaceId) async {
     final cached = _instances[uuidSpaceId];
     if (cached != null) return cached;
 
-    final space = await DatabaseUtil.runInTransactionOrSavepoint(
-      _session.db,
-      transaction,
+    final space = await _session.db.transaction(
       (tx) => _getOrCreate(uuidSpaceId, tx),
     );
-    if (transaction == null) {
-      _instances[uuidSpaceId] = space;
+    _cachedCurrentNode = space.currentNode;
+    return _instances[uuidSpaceId] = space;
+  }
+
+  /// Reads an already prepared space without creating or repairing metadata.
+  ///
+  /// A missing space, current node, or space-node association must be prepared
+  /// with [getOrCreate] before opening [transaction].
+  Future<OfflineSyncSpace> getPrepared(
+    UuidValue uuidSpaceId, {
+    required Transaction transaction,
+  }) async {
+    final space = await OfflineSyncSpace.db.findFirstRow(
+      _session,
+      where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
+      include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
+      transaction: transaction,
+    );
+    if (space?.currentNode != null) {
+      final association = await OfflineSyncSpaceNode.db.findFirstRow(
+        _session,
+        where: (t) =>
+            t.spaceId.equals(space!.id) & t.nodeId.equals(space.currentNodeId),
+        transaction: transaction,
+      );
+      if (association != null) return space!;
     }
-    return space;
+    throw StateError(
+      'Space $uuidSpaceId is not prepared. Call prepareForUser before '
+      'opening the transaction.',
+    );
   }
 
   Future<OfflineSyncSpace> _getOrCreate(
     UuidValue uuidSpaceId,
     Transaction transaction,
   ) async {
+    // Resolve the replica before inserting a space. A concurrent first-time
+    // preparation must not hold a space row while waiting for the replica lock.
+    var currentNode = await _getOrCreateCurrentNode(transaction);
     var space = await OfflineSyncSpace.db.findFirstRow(
       _session,
       where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
@@ -65,13 +89,23 @@ class OfflineSyncSpaceManager {
       transaction: transaction,
     );
 
-    space ??= await OfflineSyncSpace.db.insertRow(
-      _session,
-      OfflineSyncSpace(uuidSpaceId: uuidSpaceId),
-      transaction: transaction,
-    );
-
-    var currentNode = await _getOrCreateCurrentNode(transaction);
+    if (space == null) {
+      // Another transaction may have passed the same lookup. Let the unique
+      // index arbitrate, then read its committed row (or our own new row).
+      await OfflineSyncSpace.db.insert(
+        _session,
+        [OfflineSyncSpace(uuidSpaceId: uuidSpaceId)],
+        transaction: transaction,
+        ignoreConflicts: true,
+      );
+      space = await OfflineSyncSpace.db.findFirstRow(
+        _session,
+        where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
+        include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
+        transaction: transaction,
+      );
+      if (space == null) throw StateError('Could not create space $uuidSpaceId.');
+    }
 
     currentNode = await _preserveLatestCurrentNodeHlc(
       currentNode,
@@ -89,8 +123,6 @@ class OfflineSyncSpaceManager {
 
     await _ensureSpaceNode(space.id!, currentNode.id!, transaction);
 
-    _cachedCurrentNode = currentNode;
-
     return space.copyWith(
       currentNodeId: currentNode.id,
       currentNode: currentNode,
@@ -105,10 +137,35 @@ class OfflineSyncSpaceManager {
         cachedId,
         transaction: transaction,
       );
-      if (node != null) return node;
+      if (node?.uuidNodeId == _cachedCurrentNode?.uuidNodeId && node != null) {
+        return node;
+      }
       _cachedCurrentNode = null;
     }
 
+    final existingNode = await _findCurrentNode(transaction);
+    if (existingNode != null) return existingNode;
+
+    if (_session.db.dialect == DatabaseDialect.postgres) {
+      // Serialize only first-replica initialization across sessions/processes.
+      // The two-key advisory lock is namespaced to offline sync ("osyn", 1).
+      // SQLite already serializes write transactions.
+      await _session.db.unsafeQuery(
+        'SELECT pg_advisory_xact_lock(1869838702, 1)',
+        transaction: transaction,
+      );
+      final concurrentNode = await _findCurrentNode(transaction);
+      if (concurrentNode != null) return concurrentNode;
+    }
+
+    return CrdtNode.db.insertRow(
+      _session,
+      CrdtNode(),
+      transaction: transaction,
+    );
+  }
+
+  Future<CrdtNode?> _findCurrentNode(Transaction transaction) async {
     final existingSpace = await OfflineSyncSpace.db.findFirstRow(
       _session,
       where: (t) => t.currentNodeId.notEquals(null),
@@ -117,16 +174,7 @@ class OfflineSyncSpaceManager {
       transaction: transaction,
     );
 
-    final existingNode = existingSpace?.currentNode;
-    if (existingNode != null) {
-      return _cachedCurrentNode = existingNode;
-    }
-
-    return _cachedCurrentNode = await CrdtNode.db.insertRow(
-      _session,
-      CrdtNode(),
-      transaction: transaction,
-    );
+    return existingSpace?.currentNode;
   }
 
   Future<CrdtNode> _preserveLatestCurrentNodeHlc(

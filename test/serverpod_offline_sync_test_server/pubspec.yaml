@@ -21,6 +21,7 @@ dev_dependencies:
   clock: ^1.1.2
   lints: '>=3.0.0 <7.0.0'
   path: ^1.9.1
+  serverpod_cli: 4.0.0
   serverpod_database: 4.0.0
   serverpod_offline_sync_client:
     path: ../../packages/serverpod_offline_sync_client

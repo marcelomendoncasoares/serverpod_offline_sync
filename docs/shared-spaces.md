@@ -67,9 +67,9 @@ membership relation and a sync protocol that iterates spaces.
    synced, even if the client names it.
 5. **One space per write scope.** Reads are membership-wide; writes stay pinned
    to exactly one space per `runForUser` call. Several calls may share one SQL
-   transaction. This is still honest about CRDT semantics: two spaces' chains
-   replicate independently and a remote replica can never observe a cross-space
-   write atomically.
+   transaction, with each space prepared before the transaction starts.
+   Two spaces' chains replicate independently and a remote replica can never
+   observe a cross-space write atomically.
 6. **Roles are closed CRDT access roles.** The package stores and projects
    non-null `OfflineSyncSpaceRole` values in space grants and shared memberships:
    `readWrite` allows CRDT writes and `readOnly` blocks them. The implicit
@@ -439,6 +439,9 @@ and calls `runForUser`. Both take an optional space:
 db.transactionForUser(userId, fn);                  // acts in the personal space
 db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
 
+// Prepare once before the domain transaction (already prepared spaces are fine).
+await db.prepareForUser(userId, spaceId: spaceA);
+await db.prepareForUser(userId, spaceId: spaceB);
 await db.transaction((tx) async {
   await db.runForUser(userId, fn, spaceId: spaceA, transaction: tx);
   await db.runForUser(userId, fn, spaceId: spaceB, transaction: tx);
@@ -452,10 +455,34 @@ await db.transaction((tx) async {
   is authoritative; on a persistent client it is the server-projected membership
   cache. A missing role throws `OfflineSyncSpaceMembershipException`; anything other
   than `readWrite` throws `OfflineSyncSpaceRoleException` before the function runs.
-- A [runForUser] call acts in **exactly one** space (constraint 5). Passing
-  [transaction] lets several calls share one SQL commit; each call still stamps,
+- `prepareForUser` checks write membership and commits any missing local space,
+  replica, and space-node metadata in its own transaction. Call it before
+  opening a domain transaction. Preparation survives a later domain rollback.
+  Shared-space creation and grants still belong to the server space-management
+  API; preparation does not grant access.
+- With `transaction`, `runForUser` only reads prepared metadata. A missing space,
+  current node, or space-node association throws `StateError` before the callback;
+  it never creates or repairs metadata inside the supplied transaction.
+  A newly created shared space must therefore be committed and prepared before
+  its first domain write. Without `transaction`, `runForUser` and
+  `transactionForUser` automatically prepare before starting their transaction.
+- Initialize manually wrapped database sessions before opening the transaction;
+  `prepareForUser` and the generated client's `createSyncSession` do this for
+  you. An uninitialized wrapper rejects joining a transaction rather than
+  attempting schema/replica initialization through another connection.
+- Membership checks and membership-wide reads use the supplied transaction, so
+  grants, role changes, and revocations made there are visible immediately.
+- A `runForUser` call acts in **exactly one** space (constraint 5). Passing
+  `transaction` lets several calls share one SQL commit; each call still stamps,
   asserts, and filters against its own space. Remote replicas still cannot
   observe a cross-space write atomically.
+- Await each scope before using the transaction again. Awaited nested scopes
+  are supported and restore the outer user/space after success or failure.
+  Each joined scope uses a savepoint: a caught failure rolls back that scope's
+  writes, while an uncaught failure rolls back the enclosing transaction.
+  Overlapping sibling `runForUser` calls on one transaction throw `StateError`
+  before creating another savepoint or changing its binding. Separate database
+  transactions may execute concurrently, including for the same user.
 
 ## Read path: membership-wide
 
