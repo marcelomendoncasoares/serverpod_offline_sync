@@ -103,7 +103,7 @@ class Hlc implements Comparable<Hlc> {
 
   /// Increments the current timestamp for transmission to another system.
   Hlc increment() {
-    final localWallTime = clock.now().toUtc();
+    final localWallTime = clock.now().toUtcMillisecond();
     final datetimeNew = localWallTime.isAfter(datetime) ? localWallTime : datetime;
     final counterNew = datetimeNew == datetime ? counter + 1 : 0;
 
