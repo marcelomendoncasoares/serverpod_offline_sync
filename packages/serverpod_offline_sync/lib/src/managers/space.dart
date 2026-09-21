@@ -32,10 +32,26 @@ class OfflineSyncSpaceManager {
   /// Returns the [OfflineSyncSpace] for the given space ID.
   ///
   /// Will create a new [OfflineSyncSpace] if no space is found.
-  Future<OfflineSyncSpace> getOrCreate(UuidValue uuidSpaceId) async {
-    return _instances[uuidSpaceId] ??= await _session.db.transaction(
-      (transaction) => _getOrCreate(uuidSpaceId, transaction),
+  ///
+  /// When [transaction] is provided, creation joins that transaction as a
+  /// savepoint and is not cached until a later committed lookup, so a rolled
+  /// back caller does not leave a stale space in memory.
+  Future<OfflineSyncSpace> getOrCreate(
+    UuidValue uuidSpaceId, {
+    Transaction? transaction,
+  }) async {
+    final cached = _instances[uuidSpaceId];
+    if (cached != null) return cached;
+
+    final space = await DatabaseUtil.runInTransactionOrSavepoint(
+      _session.db,
+      transaction,
+      (tx) => _getOrCreate(uuidSpaceId, tx),
     );
+    if (transaction == null) {
+      _instances[uuidSpaceId] = space;
+    }
+    return space;
   }
 
   Future<OfflineSyncSpace> _getOrCreate(

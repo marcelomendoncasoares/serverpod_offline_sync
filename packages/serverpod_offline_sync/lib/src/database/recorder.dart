@@ -323,8 +323,11 @@ class CrdtMutationRecorder {
   }
 
   /// Returns the [OfflineSyncSpace] for the given user ID, creating it when needed.
-  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue userId) {
-    return _context.spaceManager.getOrCreate(userId);
+  Future<OfflineSyncSpace> getOrCreateSpace(
+    UuidValue userId, {
+    Transaction? transaction,
+  }) {
+    return _context.spaceManager.getOrCreate(userId, transaction: transaction);
   }
 
   /// Records the latest acknowledged sync checkpoint for [otherNodeId].

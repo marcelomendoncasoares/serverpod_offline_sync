@@ -65,10 +65,11 @@ membership relation and a sync protocol that iterates spaces.
    `offline_sync_space_members` (plus the implicit personal space) and never widens it
    from anything the client sends. A space the user is not a member of is never
    synced, even if the client names it.
-5. **One space per transaction.** Reads are membership-wide; writes stay pinned
-   to exactly one space. This is deliberate honesty about CRDT semantics: two
-   spaces' chains replicate independently and a remote replica can never
-   observe a cross-space write atomically.
+5. **One space per write scope.** Reads are membership-wide; writes stay pinned
+   to exactly one space per `runForUser` call. Several calls may share one SQL
+   transaction. This is still honest about CRDT semantics: two spaces' chains
+   replicate independently and a remote replica can never observe a cross-space
+   write atomically.
 6. **Roles are closed CRDT access roles.** The package stores and projects
    non-null `OfflineSyncSpaceRole` values in space grants and shared memberships:
    `readWrite` allows CRDT writes and `readOnly` blocks them. The implicit
@@ -430,12 +431,18 @@ change.
 
 ## Transaction API
 
-`transactionForUser` keeps its name and user-first semantics and gains an
-optional space:
+`runForUser` is the space-binding primitive. `transactionForUser` keeps its
+name and user-first semantics as a thin wrapper that starts a new transaction
+and calls `runForUser`. Both take an optional space:
 
 ```dart
 db.transactionForUser(userId, fn);                  // acts in the personal space
 db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
+
+await db.transaction((tx) async {
+  await db.runForUser(userId, fn, spaceId: spaceA, transaction: tx);
+  await db.runForUser(userId, fn, spaceId: spaceB, transaction: tx);
+});
 ```
 
 - Without `spaceId`, the space resolves to the user's personal space —
@@ -444,10 +451,11 @@ db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
   `OfflineSyncSpaceMembership.roleOf` — no injected validator. On the server that table
   is authoritative; on a persistent client it is the server-projected membership
   cache. A missing role throws `OfflineSyncSpaceMembershipException`; anything other
-  than `readWrite` throws `OfflineSyncSpaceRoleException` before the transaction starts.
-- A transaction acts in **exactly one** space (constraint 5). The write path —
-  stamp-or-assert, the space-scoped `WHERE`, `spaceId` immutability — is unchanged
-  beyond which space is resolved.
+  than `readWrite` throws `OfflineSyncSpaceRoleException` before the function runs.
+- A [runForUser] call acts in **exactly one** space (constraint 5). Passing
+  [transaction] lets several calls share one SQL commit; each call still stamps,
+  asserts, and filters against its own space. Remote replicas still cannot
+  observe a cross-space write atomically.
 
 ## Read path: membership-wide
 
@@ -505,8 +513,9 @@ to run with `--concurrency=1`.
   (adopts the server's set). Space-aware `onMergeSuccess`. A personal-space-only
   device behaves identically to today.
 - **Phase 3 — transaction API.** Implemented
-  `transactionForUser(userId, fn, {spaceId})` with the membership assertion;
-  one space per transaction.
+  `transactionForUser(userId, fn, {spaceId})` with the membership assertion,
+  and `runForUser(..., {transaction})` so several spaces can share one SQL
+  commit. One space per write scope.
 - **Phase 4 — membership-wide reads.** Implemented the space-scoped read filter as
   `spaceId IN (…)` over the user's member spaces.
 - **Phase 5 — lifecycle and docs.** Documented client adoption of newly
@@ -612,8 +621,8 @@ tested once, not per combination.
 - **Iteration order:** sorted space UUIDs, so both peers stay in lockstep
   without negotiation. Each merge change carries its space UUID, so receive can
   regroup a combined batch deterministically.
-- **One space per transaction:** kept. Cross-space writes need separate
-  transactions; remote replicas cannot observe a cross-space write atomically
+- **One space per write scope:** kept. Several `runForUser` calls may share one
+  SQL transaction; remote replicas cannot observe a cross-space write atomically
   anyway.
 - **Membership table is `database: all` but unsynced:** the schema exists on
   every node, yet it is server-authoritative app state, never CRDT-replicated.
