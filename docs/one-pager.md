@@ -50,7 +50,7 @@ The sync engine is a **black box that "just works"**: changes are tracked atomic
 
 Understanding the behavior is also straightforward: conflict resolution respects unique and relational constraints, mirroring what would be expected if the merged data existed in a single database at the time of each operation.
 
-Finally, the data is isolated per space: each user has their own implicit personal space, and can be a member of any number of shared spaces - with read-only or read-write access. On the server, database operations need to be wrapped in a special `session.db.transactionForUser` method to target the correct space. On the client, it is possible to set a `persistentUserId` to target the personal space by default, or use the `transactionForUser` to target a shared space. Local writes to more than one space can share a single commit by passing that transaction into `runForUser`.
+Finally, the data is isolated per space: each user has their own implicit personal space, and can be a member of any number of shared spaces - with read-only or read-write access. On the server, database operations need to be wrapped in a special `session.db.transactionForUser` method to target the correct space. On the client, it is possible to set a `persistentUserId` to target the personal space by default, or use the `transactionForUser` to target a shared space. Local writes to more than one space can share a single commit: prepare spaces with `prepareForUser` before opening the transaction, then await each `runForUser` call with that transaction.
 
 #### Data modeling limitations
 

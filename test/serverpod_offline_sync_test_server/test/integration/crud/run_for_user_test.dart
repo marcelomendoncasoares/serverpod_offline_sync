@@ -10,8 +10,10 @@ void main() {
   group('Given two personal spaces,', () {
     late UuidValue otherUserId;
 
-    setUp(() {
+    setUp(() async {
       otherUserId = const Uuid().v7obj();
+      await session.db.prepareForUser(testCrdtUserId);
+      await session.db.prepareForUser(otherUserId);
     });
 
     group(
@@ -74,8 +76,9 @@ void main() {
       'when the shared transaction throws after inserting into both spaces,',
       () {
         setUp(() async {
-          try {
-            await session.db.transaction((tx) async {
+          final failure = StateError('force rollback');
+          await expectLater(
+            session.db.transaction((tx) async {
               await session.db.runForUser(
                 testCrdtUserId,
                 (tx) => Person.db.insertRow(
@@ -94,11 +97,10 @@ void main() {
                 ),
                 transaction: tx,
               );
-              throw StateError('force rollback');
-            });
-          } on StateError {
-            // The outer transaction is expected to roll back.
-          }
+              throw failure;
+            }),
+            throwsA(same(failure)),
+          );
         });
 
         test('then neither row persists.', () async {
@@ -113,6 +115,7 @@ void main() {
         late Person outerPerson;
 
         setUp(() async {
+          final failure = StateError('force nested rollback');
           await session.db.transaction((tx) async {
             outerPerson = await session.db.runForUser(
               testCrdtUserId,
@@ -123,8 +126,8 @@ void main() {
               ),
               transaction: tx,
             );
-            try {
-              await session.db.runForUser(
+            await expectLater(
+              session.db.runForUser(
                 otherUserId,
                 (tx) async {
                   await Person.db.insertRow(
@@ -132,13 +135,12 @@ void main() {
                     Person(name: 'nested-space-person'),
                     transaction: tx,
                   );
-                  throw StateError('force nested rollback');
+                  throw failure;
                 },
                 transaction: tx,
-              );
-            } on StateError {
-              // The nested savepoint is expected to roll back.
-            }
+              ),
+              throwsA(same(failure)),
+            );
           });
         });
 
@@ -250,7 +252,7 @@ void main() {
   });
 
   group(
-    'Given a new shared space granted inside the same database transaction, '
+    'Given a prepared shared space granted inside the same database transaction, '
     'when inserting a person in that space,',
     () {
       late UuidValue sharedSpaceId;
@@ -258,12 +260,10 @@ void main() {
 
       setUp(() async {
         sharedSpaceId = const Uuid().v7obj();
+        final space = await OfflineSyncSpaceManager(
+          testSession,
+        ).getOrCreate(sharedSpaceId);
         await session.db.transaction((tx) async {
-          final space = await OfflineSyncSpace.db.insertRow(
-            session,
-            OfflineSyncSpace(uuidSpaceId: sharedSpaceId),
-            transaction: tx,
-          );
           await OfflineSyncSpaceMember.db.insertRow(
             session,
             OfflineSyncSpaceMember(

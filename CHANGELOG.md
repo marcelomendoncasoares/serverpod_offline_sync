@@ -1,8 +1,12 @@
 ## 0.0.8
 
 - feat: Add `runForUser` so space-scoped writes can join an existing
-  transaction as a savepoint. `transactionForUser` is now a thin wrapper
-  around it.
+  transaction as a savepoint. Prepare spaces first with `prepareForUser`;
+  joined scopes never create space/replica metadata and reject overlapping
+  sibling calls. `transactionForUser` remains the automatically prepared,
+  single-space convenience method.
+- fix: Make concurrent space preparation use one space and local replica
+  identity, and resolve read membership inside the supplied transaction.
 - fix: BREAKING. Reject unique-text values ending in `__conflict__<UUID>`,
   `__hidden__<UUID>`, or `__park__<UUID>`, and unique version-8 UUIDs (except
   primary keys, foreign keys, and nullable UUID columns). Local writes and

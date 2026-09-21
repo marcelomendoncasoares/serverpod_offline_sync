@@ -620,9 +620,12 @@ db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
   caller remains responsible for `userId` being authenticated, exactly as
   today.
 - A `runForUser` call acts in **exactly one space**. Several calls may share
-  one SQL transaction by passing `transaction`; this is still honest about
-  CRDT semantics, since two spaces' chains replicate independently and remote
-  replicas can never observe a cross-space write atomically anyway.
+  one SQL transaction by passing `transaction`. Prepare the spaces with
+  `prepareForUser` before opening that transaction, and await each scope.
+  Joining a transaction never creates space/replica metadata. A failed scope
+  restores the outer binding and rolls back to its savepoint. Two spaces'
+  chains replicate independently and remote replicas can never observe a
+  cross-space write atomically anyway.
 
 ### Reads: membership-wide; writes: space-pinned
 
