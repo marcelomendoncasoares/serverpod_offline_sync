@@ -851,6 +851,7 @@ class CrdtMutationRecorder {
     bool projectionUnchanged = false,
     bool authoredColumnValues = false,
     Map<MergeRowKey, Map<String, Object?>> domainBeforeUpsert = const {},
+    List<TableRow> upsertRows = const [],
   }) async {
     await _foreignKeyProjector.assertVisibleTargets(updatedRows, columns, transaction);
 
@@ -865,6 +866,33 @@ class CrdtMutationRecorder {
         'updated',
         transaction,
       );
+      final implicitForeignKeyRepairFields = columns == null
+          ? await _foreignKeyProjector.findImplicitRepairFields(
+              tableName: tableName,
+              rowIds: rowIds,
+              transaction: transaction,
+            )
+          : const <MergeFieldKey>{};
+      final upsertInputs = upsertRows.isEmpty || implicitForeignKeyRepairFields.isEmpty
+          ? const <MergeRowKey, Map<String, Object?>>{}
+          : {
+              for (final row in upsertRows)
+                if (row.id case final UuidValue rowId)
+                  (row.table.tableName, rowId):
+                      row.toJsonForDatabase() as Map<String, dynamic>,
+            };
+      // Insert defaults must not author over an echoed null that is holding
+      // a projected FK claim.
+      bool echoesProjectedNull(UuidValue rowId, String columnName) {
+        if (!implicitForeignKeyRepairFields.contains((tableName, rowId, columnName))) {
+          return false;
+        }
+        final input = upsertInputs[(tableName, rowId)];
+        return input != null &&
+            input[columnName] == null &&
+            domainBeforeUpsert[(tableName, rowId)]?[columnName] == null;
+      }
+
       // Explicit columns author even an unchanged null; full-row passthrough
       // keeps the claim behind an unchanged displayed alternative.
       final authoredOverlays = <MergeFieldKey, Object?>{
@@ -883,20 +911,14 @@ class CrdtMutationRecorder {
                 if ((domainBeforeUpsert[(tableName, row.id)]?.containsKey(columnName) ??
                         false) &&
                     (columns != null ||
-                        !projectionValuesEqual(
-                          domainBeforeUpsert[(tableName, row.id)]![columnName],
-                          value,
-                        )))
+                        (!projectionValuesEqual(
+                              domainBeforeUpsert[(tableName, row.id)]![columnName],
+                              value,
+                            ) &&
+                            !echoesProjectedNull(row.id as UuidValue, columnName))))
                   (tableName, row.id as UuidValue, columnName): value,
       };
       _uniqueResolver.validateAuthoredFields(authoredOverlays);
-      final implicitForeignKeyRepairFields = columns == null
-          ? await _foreignKeyProjector.findImplicitRepairFields(
-              tableName: tableName,
-              rowIds: rowIds,
-              transaction: transaction,
-            )
-          : const <MergeFieldKey>{};
       await _recordUpdatedFields(
         updatedRows,
         crdtDataRows,

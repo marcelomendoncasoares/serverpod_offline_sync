@@ -477,6 +477,9 @@ class OfflineSyncDatabase implements Database {
           tx,
           projectionUnchanged: projection.projectionUnchanged,
           domainBeforeUpsert: projection.domain,
+          upsertRows: updateColumns == null && projection.domain.isNotEmpty
+              ? prepared.rows
+              : const [],
         );
         if (noReturn) return <T>[];
         _stripStampedRows(result, prepared);
