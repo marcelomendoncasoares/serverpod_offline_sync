@@ -214,6 +214,131 @@ void main() {
         );
       });
 
+      group('Given two sessions with prepared personal and shared spaces,', () {
+        late UuidValue user;
+        late OfflineSyncSpace personal;
+        late OfflineSyncSpace shared;
+        late Person personalPerson;
+        late Person sharedPerson;
+        late Person remotePerson;
+        late CrdtMergeSet incoming;
+
+        setUp(() async {
+          user = const Uuid().v7obj();
+          shared = await OfflineSyncSpace.db.insertRow(
+            raw,
+            OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
+          );
+          await OfflineSyncSpaceMember.db.insertRow(
+            raw,
+            OfflineSyncSpaceMember(
+              spaceId: shared.id!,
+              userUuid: user,
+              role: OfflineSyncSpaceRole.readWrite,
+            ),
+          );
+          await session.db.transactionForSpaces<void>(user, {
+            user,
+            shared.uuidSpaceId,
+          }, (_) async {});
+          await secondSession.db.currentNodeId(userId: shared.uuidSpaceId);
+          personal = (await OfflineSyncSpace.db.findFirstRow(
+            raw,
+            where: (t) => t.uuidSpaceId.equals(user),
+          ))!;
+          personalPerson = Person(id: const Uuid().v7obj(), name: 'personal');
+          sharedPerson = Person(id: const Uuid().v7obj(), name: 'shared');
+          remotePerson = Person(id: const Uuid().v7obj(), name: 'remote');
+          final remoteHlc = Hlc(DateTime.now().toUtc(), 0, const Uuid().v7obj());
+          incoming = [
+            CrdtMergeInsert(
+              uuidSpaceId: shared.uuidSpaceId,
+              tableName: Person.t.tableName,
+              uuidRowId: remotePerson.id!,
+              uuidNodeId: remoteHlc.nodeId,
+              hlcDatetime: remoteHlc.datetime,
+              hlcCounter: remoteHlc.counter,
+              data: remotePerson,
+            ),
+          ];
+        });
+
+        group('when a merge into the second space overlaps the multi-space write,', () {
+          Object? localError;
+          Object? mergeError;
+          late List<Person> rows;
+          late List<CrdtDataRow> records;
+
+          setUp(() async {
+            localError = null;
+            mergeError = null;
+            final firstWritten = Completer<void>();
+            final resume = Completer<void>();
+            final local = session.db
+                .transactionForSpaces<void>(
+                  user,
+                  {user, shared.uuidSpaceId},
+                  (spaces) async {
+                    await spaces.runForSpace(
+                      user,
+                      (tx) =>
+                          Person.db.insertRow(session, personalPerson, transaction: tx),
+                    );
+                    firstWritten.complete();
+                    await resume.future;
+                    await spaces.runForSpace(
+                      shared.uuidSpaceId,
+                      (tx) =>
+                          Person.db.insertRow(session, sharedPerson, transaction: tx),
+                    );
+                  },
+                )
+                .catchError((Object error) {
+                  localError = error;
+                });
+            await firstWritten.future;
+            final merge = secondSession.db
+                .mergeChanges(
+                  incoming,
+                  spaceId: shared.uuidSpaceId,
+                )
+                .catchError((Object error) {
+                  mergeError = error;
+                });
+            try {
+              // The merge must contend with the live domain transaction;
+              // a timer alone cannot establish the problematic lock order.
+              await _waitForBlockedTransactions(raw, 1);
+            } finally {
+              resume.complete();
+              await Future.wait([local, merge]);
+            }
+            rows = await Person.db.find(raw);
+            records = await CrdtDataRow.db.find(raw);
+          });
+
+          test('then both operations finish without a deadlock.', () {
+            expect(localError, isNull);
+            expect(mergeError, isNull);
+          });
+
+          test(
+            'then all local and remote rows retain their space and CRDT identity.',
+            () {
+              final expectedSpaces = {
+                personalPerson.id: personal.id,
+                sharedPerson.id: shared.id,
+                remotePerson.id: shared.id,
+              };
+              expect({for (final row in rows) row.id: row.spaceId}, expectedSpaces);
+              expect({
+                for (final row in records) row.uuidRowId: row.spaceId,
+              }, expectedSpaces);
+            },
+          );
+        });
+      });
+
       group('Given a prepared personal space,', () {
         late UuidValue user;
         late OfflineSyncSpace prepared;

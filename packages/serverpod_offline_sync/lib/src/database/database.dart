@@ -1021,6 +1021,19 @@ class OfflineSyncDatabase implements Database {
     }
 
     return transaction((tx) async {
+      if (dialect == DatabaseDialect.postgres && preparedSpaces.isNotEmpty) {
+        // Take every space lock before a write locks the shared replica node.
+        // Otherwise a merge holding a later space FOR UPDATE can wait on our
+        // node lock while our next scope waits on that space's foreign key.
+        await OfflineSyncSpace.db.find(
+          _delegate.session,
+          where: (t) =>
+              t.id.inSet(<int>{for (final space in preparedSpaces.values) space.id!}),
+          orderBy: (t) => t.id,
+          transaction: tx,
+          lockMode: LockMode.forKeyShare,
+        );
+      }
       final spaces = OfflineSyncSpacesTransaction._(this, userId, tx, preparedSpaces);
       try {
         final result = await transactionFunction(spaces);
