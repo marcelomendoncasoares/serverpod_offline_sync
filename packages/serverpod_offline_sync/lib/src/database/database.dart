@@ -25,12 +25,10 @@ part 'space.dart';
 part 'space_transaction.dart';
 
 /// Map of transaction hashes to the space they are associated with.
-final Map<Transaction, OfflineSyncSpace> spaceForTransaction =
-    _ScopedTransactionBindings<OfflineSyncSpace>();
+final spaceForTransaction = _ScopedTransactionBindings<OfflineSyncSpace>();
 
 /// Map of transaction hashes to the authenticated user associated with them.
-final Map<Transaction, UuidValue> userForTransaction =
-    _ScopedTransactionBindings<UuidValue>();
+final userForTransaction = _ScopedTransactionBindings<UuidValue>();
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -987,6 +985,8 @@ class OfflineSyncDatabase implements Database {
     await _ensureInitialized();
     final effectiveSpaceId = spaceId ?? userId;
     await _assertCanActInSpace(userId, effectiveSpaceId);
+
+    // Ensure that the space exists with a node before starting the transaction.
     final space = await _recorder.getOrCreateSpace(effectiveSpaceId);
 
     return transaction(

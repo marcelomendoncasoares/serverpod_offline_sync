@@ -17,8 +17,10 @@ void main() {
 
     setUp(() async {
       sharedSpaceId = const Uuid().v7obj();
+
       await session.db.currentNodeId(userId: testCrdtUserId);
       await OfflineSyncSpaceManager(testSession).getOrCreate(sharedSpaceId);
+
       firstSpace = (await OfflineSyncSpace.db.findFirstRow(
         testSession,
         where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
@@ -27,6 +29,7 @@ void main() {
         testSession,
         where: (t) => t.uuidSpaceId.equals(sharedSpaceId),
       ))!;
+
       await OfflineSyncSpaceMember.db.insertRow(
         testSession,
         OfflineSyncSpaceMember(
@@ -42,6 +45,7 @@ void main() {
       'then domain rows and CRDT records use the prepared space and node IDs.',
       () async {
         final failure = StateError('roll back the first write');
+
         await session.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, sharedSpaceId},
@@ -53,10 +57,12 @@ void main() {
                   Person(name: 'discard'),
                   transaction: tx,
                 );
+
                 throw failure;
               }),
               throwsA(same(failure)),
             );
+
             await spaces.runForSpace(sharedSpaceId, (tx) async {
               await Person.db.insertRow(
                 session,
@@ -64,6 +70,7 @@ void main() {
                 transaction: tx,
               );
             });
+
             await spaces.runForSpace(testCrdtUserId, (tx) async {
               await Person.db.insertRow(
                 session,
@@ -76,10 +83,13 @@ void main() {
 
         final rows = await Person.db.find(testSession);
         final records = await CrdtDataRow.db.find(testSession);
+
         expect(rows.map((row) => row.name).toSet(), {'other', 'retry'});
+
         for (final row in rows) {
           final expectedSpace = row.name == 'retry' ? firstSpace : otherSpace;
           final record = records.singleWhere((record) => record.uuidRowId == row.id);
+
           expect(row.spaceId, expectedSpace.id);
           expect(record.spaceId, expectedSpace.id);
           expect(record.nodeId, expectedSpace.currentNodeId);
@@ -93,11 +103,13 @@ void main() {
       () async {
         final failure = StateError('nested failure');
         late List<Person> visible;
+
         await session.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, sharedSpaceId},
           (spaces) => spaces.runForSpace(testCrdtUserId, (tx) async {
             await Person.db.insertRow(session, Person(name: 'before'), transaction: tx);
+
             await expectLater(
               spaces.runForSpace(sharedSpaceId, (tx) async {
                 await Person.db.insertRow(
@@ -105,16 +117,20 @@ void main() {
                   Person(name: 'discard'),
                   transaction: tx,
                 );
+
                 throw failure;
               }),
               throwsA(same(failure)),
             );
+
             await Person.db.insertRow(session, Person(name: 'after'), transaction: tx);
+
             visible = await Person.db.find(session, transaction: tx);
           }),
         );
 
         final rows = await Person.db.find(testSession);
+
         expect(rows.map((row) => row.name).toSet(), {'before', 'after'});
         expect(rows.map((row) => row.spaceId).toSet(), {firstSpace.id});
         expect(visible.map((row) => row.name).toSet(), {'before', 'after'});
@@ -128,6 +144,7 @@ void main() {
         final entered = Completer<void>();
         final resume = Completer<void>();
         var siblingRan = false;
+
         await session.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, sharedSpaceId},
@@ -135,6 +152,7 @@ void main() {
             final first = spaces.runForSpace(testCrdtUserId, (tx) async {
               entered.complete();
               await resume.future;
+
               await Person.db.insertRow(
                 session,
                 Person(name: 'first'),
@@ -142,6 +160,7 @@ void main() {
               );
             });
             await entered.future;
+
             try {
               await expectLater(
                 spaces.runForSpace(sharedSpaceId, (tx) async {
@@ -158,6 +177,7 @@ void main() {
               resume.complete();
               await first;
             }
+
             // The rejection must also leave the transaction available afterwards.
             await spaces.runForSpace(sharedSpaceId, (tx) async {
               await Person.db.insertRow(
@@ -170,6 +190,7 @@ void main() {
         );
 
         final rows = await Person.db.find(testSession);
+
         expect(siblingRan, isFalse);
         expect(rows.map((row) => (row.name, row.spaceId)).toSet(), {
           ('first', firstSpace.id),
@@ -194,6 +215,7 @@ void main() {
           final failure = StateError('failed scope');
           late List<Person> visible;
           late Transaction tx;
+
           await session.db.transactionForSpaces(
             testCrdtUserId,
             {testCrdtUserId, sharedSpaceId},
@@ -206,10 +228,12 @@ void main() {
                   transaction: tx,
                 );
               });
+
               await expectLater(
                 Person.db.insertRow(session, Person(name: 'unbound'), transaction: tx),
                 throwsA(isA<StateError>()),
               );
+
               await expectLater(
                 spaces.runForSpace(
                   sharedSpaceId,
@@ -217,6 +241,7 @@ void main() {
                 ),
                 throwsA(same(failure)),
               );
+
               await expectLater(
                 Person.db.insertRow(
                   session,
@@ -225,6 +250,7 @@ void main() {
                 ),
                 throwsA(isA<StateError>()),
               );
+
               await spaces.runForSpace(sharedSpaceId, (tx) async {
                 await Person.db.insertRow(
                   session,
@@ -232,6 +258,7 @@ void main() {
                   transaction: tx,
                 );
               });
+
               visible = await Person.db.find(session, transaction: tx);
             },
           );
@@ -251,6 +278,7 @@ void main() {
       () async {
         final beforeNode = (await CrdtNode.db.find(testSession)).single;
         final failure = StateError('whole transaction rollback');
+
         await expectLater(
           session.db.transactionForSpaces(
             testCrdtUserId,
@@ -263,6 +291,7 @@ void main() {
                   transaction: tx,
                 );
               });
+
               await spaces.runForSpace(sharedSpaceId, (tx) async {
                 await Person.db.insertRow(
                   session,
@@ -270,6 +299,7 @@ void main() {
                   transaction: tx,
                 );
               });
+
               throw failure;
             },
           ),
@@ -280,8 +310,10 @@ void main() {
         expect(await CrdtDataRow.db.count(testSession), 0);
         expect(await CrdtDataField.db.count(testSession), 0);
         expect(await CrdtDataDeleted.db.count(testSession), 0);
+
         expect(await OfflineSyncSpace.db.count(testSession), 2);
         expect(await OfflineSyncSpaceNode.db.count(testSession), 2);
+
         final afterNode = (await CrdtNode.db.find(testSession)).single;
         expect(afterNode.toJson(), beforeNode.toJson());
       },
@@ -299,12 +331,15 @@ void main() {
         );
         await persistent.db.initialize();
         await persistent.db.currentNodeId();
+
         final persistentSpace = (await OfflineSyncSpace.db.findFirstRow(
           testSession,
           where: (t) => t.uuidSpaceId.equals(persistentUser),
         ))!;
+
         final failure = StateError('explicit scope failure');
         late Transaction tx;
+
         await persistent.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, sharedSpaceId},
@@ -317,10 +352,12 @@ void main() {
                   Person(name: 'discard'),
                   transaction: tx,
                 );
+
                 throw failure;
               }),
               throwsA(same(failure)),
             );
+
             await Person.db.insertRow(
               persistent,
               Person(name: 'personal'),
@@ -330,6 +367,7 @@ void main() {
         );
 
         final row = (await Person.db.find(testSession)).single;
+
         expect(row.name, 'personal');
         expect(row.spaceId, persistentSpace.id);
         expect(
@@ -349,6 +387,7 @@ void main() {
           (tx) =>
               Person.db.insertRow(session, Person(name: 'original'), transaction: tx),
         );
+
         other = await session.db.transactionForUser(
           testCrdtUserId,
           (tx) =>
@@ -378,6 +417,7 @@ void main() {
                     transaction: tx,
                   ),
                 );
+
                 await Person.db.deleteWhere(
                   session,
                   where: (t) => t.name.equals('original'),
@@ -385,6 +425,7 @@ void main() {
                 );
               }),
             );
+
             remaining = await Person.db.find(session);
             records = await CrdtDataRow.db.find(testSession);
             deleted = await CrdtDataDeleted.db.find(testSession);
@@ -400,6 +441,7 @@ void main() {
 
           test('then the deletion is recorded only against the outer space row.', () {
             final tombstoned = records.singleWhere((row) => row.uuidRowId == first.id);
+
             expect(tombstoned.spaceId, firstSpace.id);
             expect(deleted.single.rowId, tombstoned.id);
             expect(

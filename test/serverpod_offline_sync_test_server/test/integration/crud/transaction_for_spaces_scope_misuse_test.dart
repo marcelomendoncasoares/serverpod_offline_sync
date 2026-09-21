@@ -18,6 +18,7 @@ void main() {
         testSession,
         OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
       );
+
       await OfflineSyncSpaceMember.db.insertRow(
         testSession,
         OfflineSyncSpaceMember(
@@ -26,6 +27,7 @@ void main() {
           role: OfflineSyncSpaceRole.readWrite,
         ),
       );
+
       await session.db.transactionForSpaces<void>(
         testCrdtUserId,
         {testCrdtUserId, shared.uuidSpaceId},
@@ -46,8 +48,10 @@ void main() {
         transactionError = null;
         inspectedSpaces = [];
         inspectedUsers = [];
+
         final entered = Completer<void>();
         final resume = Completer<void>();
+
         final operation = session.db
             .transactionForSpaces<void>(testCrdtUserId, {testCrdtUserId}, (
               spaces,
@@ -58,8 +62,10 @@ void main() {
                   Person(name: 'before'),
                   transaction: tx,
                 );
+
                 entered.complete();
                 await resume.future;
+
                 await Person.db.insertRow(
                   session,
                   Person(name: 'after'),
@@ -71,6 +77,7 @@ void main() {
               transactionError = error;
             });
         await entered.future;
+
         try {
           // Diagnostics outside the transaction must not invalidate its scope.
           inspectedSpaces = spaceForTransaction.values.toList();
@@ -85,6 +92,7 @@ void main() {
           resume.complete();
           await operation;
         }
+
         rows = await Person.db.find(testSession);
         records = await CrdtDataRow.db.find(testSession);
       });
@@ -117,8 +125,10 @@ void main() {
       setUp(() async {
         writeError = null;
         transactionError = null;
+
         final entered = Completer<void>();
         final resume = Completer<void>();
+
         await session.db
             .transactionForSpaces<void>(
               testCrdtUserId,
@@ -131,6 +141,7 @@ void main() {
                       Person(name: 'before'),
                       transaction: tx,
                     );
+
                     final child = spaces.runForSpace<void>(shared.uuidSpaceId, (
                       _,
                     ) async {
@@ -138,6 +149,7 @@ void main() {
                       await resume.future;
                     });
                     await entered.future;
+
                     try {
                       await Person.db.insertRow(
                         session,
@@ -159,6 +171,7 @@ void main() {
             .catchError((Object error) {
               transactionError = error;
             });
+
         rows = await Person.db.count(testSession);
         records = await CrdtDataRow.db.count(testSession);
       });
@@ -180,8 +193,10 @@ void main() {
       setUp(() async {
         readError = null;
         transactionError = null;
+
         final entered = Completer<void>();
         final resume = Completer<void>();
+
         await session.db
             .transactionForSpaces<void>(
               testCrdtUserId,
@@ -194,6 +209,7 @@ void main() {
                       Person(name: 'before'),
                       transaction: tx,
                     );
+
                     final child = spaces.runForSpace<void>(shared.uuidSpaceId, (
                       _,
                     ) async {
@@ -201,6 +217,7 @@ void main() {
                       await resume.future;
                     });
                     await entered.future;
+
                     try {
                       await Person.db.find(session, transaction: tx);
                     } on Object catch (error) {
@@ -218,6 +235,7 @@ void main() {
             .catchError((Object error) {
               transactionError = error;
             });
+
         rows = await Person.db.count(testSession);
         records = await CrdtDataRow.db.count(testSession);
       });
@@ -241,12 +259,14 @@ void main() {
         setUp(() async {
           scopeError = null;
           transactionError = null;
+
           await session.db
               .transactionForSpaces<void>(testCrdtUserId, {testCrdtUserId}, (
                 spaces,
               ) async {
                 final tx = await spaces.runForSpace(testCrdtUserId, (tx) async => tx);
                 final earlierSavepoint = await tx.createSavepoint();
+
                 try {
                   await spaces.runForSpace(testCrdtUserId, (tx) async {
                     await Person.db.insertRow(
@@ -254,6 +274,7 @@ void main() {
                       Person(name: 'must not commit'),
                       transaction: tx,
                     );
+
                     // Releasing an earlier savepoint destroys all later ones.
                     await earlierSavepoint.release();
                     throw StateError('scope action failed');
@@ -265,6 +286,7 @@ void main() {
               .catchError((Object error) {
                 transactionError = error;
               });
+
           rows = await Person.db.count(testSession);
           records = await CrdtDataRow.db.count(testSession);
         });
@@ -291,10 +313,12 @@ void main() {
         finishParent = Completer<void>();
         parentError = null;
         transactionError = null;
+
         final childEntered = Completer<void>();
         final parentReady = Completer<void>();
         final resumeChild = Completer<void>();
         late Future<void> child;
+
         operation = session.db
             .transactionForSpaces<void>(
               testCrdtUserId,
@@ -307,11 +331,13 @@ void main() {
                       Person(name: 'before'),
                       transaction: tx,
                     );
+
                     try {
                       await spaces.runForSpace(shared.uuidSpaceId, (_) async {
                         child = spaces.runForSpace<void>(testCrdtUserId, (tx) async {
                           childEntered.complete();
                           await resumeChild.future;
+
                           await Person.db.insertRow(
                             session,
                             Person(name: 'late child'),
@@ -319,6 +345,7 @@ void main() {
                           );
                         });
                         unawaited(child.catchError((Object _) {}));
+
                         await childEntered.future;
                         parentReady.complete();
                         await finishParent.future;
@@ -329,6 +356,7 @@ void main() {
                       resumeChild.complete();
                       await child.catchError((Object _) {});
                     }
+
                     // The child is fully drained before the enclosing callback ends.
                     // Merely checking for unfinished scopes at root exit misses this.
                     await Person.db.insertRow(
@@ -357,6 +385,7 @@ void main() {
           setUp(() async {
             finishParent.complete();
             await operation;
+
             rows = await Person.db.count(testSession);
             records = await CrdtDataRow.db.count(testSession);
           });
@@ -379,6 +408,7 @@ void main() {
           setUp(() async {
             finishParent.completeError(StateError('parent action failed'));
             await operation;
+
             rows = await Person.db.count(testSession);
             records = await CrdtDataRow.db.count(testSession);
           });

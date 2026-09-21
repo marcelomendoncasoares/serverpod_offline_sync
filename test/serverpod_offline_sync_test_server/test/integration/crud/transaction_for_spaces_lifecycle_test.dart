@@ -38,6 +38,7 @@ void main() {
         final node = (await CrdtNode.db.find(testSession)).single;
         final association = (await OfflineSyncSpaceNode.db.find(testSession)).single;
         final record = (await CrdtDataRow.db.find(testSession)).single;
+
         expect(space.currentNodeId, node.id);
         expect(association.nodeId, node.id);
         expect(association.spaceId, space.id);
@@ -84,11 +85,13 @@ void main() {
     'then it is rejected before running an action.',
     () async {
       late OfflineSyncSpacesTransaction captured;
+
       await session.db.transactionForSpaces(testCrdtUserId, {testCrdtUserId}, (
         spaces,
       ) async {
         captured = spaces;
       });
+
       var callbackRan = false;
 
       await expectLater(
@@ -109,6 +112,7 @@ void main() {
     () async {
       late OfflineSyncSpacesTransaction captured;
       final failure = StateError('rollback');
+
       await expectLater(
         session.db.transactionForSpaces(testCrdtUserId, {testCrdtUserId}, (
           spaces,
@@ -118,6 +122,7 @@ void main() {
         }),
         throwsA(same(failure)),
       );
+
       var callbackRan = false;
 
       await expectLater(
@@ -139,6 +144,7 @@ void main() {
       final entered = Completer<void>();
       final release = Completer<void>();
       late Future<void> pending;
+
       final operation = session.db.transactionForSpaces(
         testCrdtUserId,
         {testCrdtUserId},
@@ -149,9 +155,11 @@ void main() {
               Person(name: 'discard'),
               transaction: tx,
             );
+
             entered.complete();
             await release.future;
           });
+
           // A savepoint finishing after its transaction ended may also fail.
           unawaited(pending.catchError((Object _) {}));
           await entered.future;
@@ -178,6 +186,7 @@ void main() {
       final entered = Completer<void>();
       final release = Completer<void>();
       late Future<void> pending;
+
       final operation = session.db.transactionForSpaces(
         testCrdtUserId,
         {testCrdtUserId},
@@ -189,9 +198,11 @@ void main() {
                 Person(name: 'discard'),
                 transaction: tx,
               );
+
               entered.complete();
               await release.future;
             });
+
             unawaited(pending.catchError((Object _) {}));
             await entered.future;
           });
@@ -219,6 +230,7 @@ void main() {
         testSession,
         OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
       );
+
       membership = await OfflineSyncSpaceMember.db.insertRow(
         testSession,
         OfflineSyncSpaceMember(
@@ -234,6 +246,7 @@ void main() {
       'then that scope is rejected and the personal scope can continue.',
       () async {
         var sharedCallbackRan = false;
+
         await session.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, shared.uuidSpaceId},
@@ -243,12 +256,14 @@ void main() {
               membership.copyWith(role: OfflineSyncSpaceRole.readOnly),
               transaction: tx,
             );
+
             await expectLater(
               spaces.runForSpace(shared.uuidSpaceId, (_) async {
                 sharedCallbackRan = true;
               }),
               throwsA(isA<OfflineSyncSpaceRoleException>()),
             );
+
             await Person.db.insertRow(
               session,
               Person(name: 'personal'),
@@ -259,6 +274,7 @@ void main() {
 
         final row = (await Person.db.find(testSession)).single;
         final space = await OfflineSyncSpace.db.findById(testSession, row.spaceId!);
+
         expect(sharedCallbackRan, isFalse);
         expect(space!.uuidSpaceId, testCrdtUserId);
       },
@@ -269,6 +285,7 @@ void main() {
       'then entering that space uses the transaction and rejects the write.',
       () async {
         var sharedCallbackRan = false;
+
         await session.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, shared.uuidSpaceId},
@@ -278,6 +295,7 @@ void main() {
               membership,
               transaction: tx,
             );
+
             await expectLater(
               spaces.runForSpace(shared.uuidSpaceId, (_) async {
                 sharedCallbackRan = true;
@@ -301,8 +319,10 @@ void main() {
           (tx) => Person.db.insertRow(session, Person(name: 'shared'), transaction: tx),
           spaceId: shared.uuidSpaceId,
         );
+
         late List<Person> withoutMembership;
         late List<Person> withMembership;
+
         await session.db.transactionForSpaces(
           testCrdtUserId,
           {testCrdtUserId, shared.uuidSpaceId},
@@ -313,11 +333,13 @@ void main() {
               transaction: tx,
             );
             withoutMembership = await Person.db.find(session, transaction: tx);
+
             await OfflineSyncSpaceMember.db.insertRow(
               session,
               membership,
               transaction: tx,
             );
+
             await spaces.runForSpace(shared.uuidSpaceId, (tx) async {
               withMembership = await Person.db.find(session, transaction: tx);
             });

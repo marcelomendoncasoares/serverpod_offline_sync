@@ -15,6 +15,7 @@ void main() {
         testSession,
         OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
       );
+
       await OfflineSyncSpaceMember.db.insertRow(
         testSession,
         OfflineSyncSpaceMember(
@@ -41,6 +42,7 @@ void main() {
             // Reading through the raw session proves preparation has committed
             // before the domain transaction starts writing.
             prepared = await OfflineSyncSpace.db.find(testSession);
+
             personal = await spaces.runForSpace(
               testCrdtUserId,
               (tx) => Person.db.insertRow(
@@ -49,6 +51,7 @@ void main() {
                 transaction: tx,
               ),
             );
+
             other = await spaces.runForSpace(
               shared.uuidSpaceId,
               (tx) => Person.db.insertRow(
@@ -57,9 +60,11 @@ void main() {
                 transaction: tx,
               ),
             );
+
             return 'committed';
           },
         );
+
         rows = await Person.db.find(testSession);
         records = await CrdtDataRow.db.find(testSession);
       });
@@ -70,6 +75,7 @@ void main() {
           shared.uuidSpaceId,
         });
         expect(prepared.every((s) => s.currentNodeId != null), isTrue);
+
         expect(result, 'committed');
         expect(rows.map((row) => row.id).toSet(), {personal.id, other.id});
       });
@@ -78,11 +84,14 @@ void main() {
         final personalSpace = prepared.singleWhere(
           (s) => s.uuidSpaceId == testCrdtUserId,
         );
+
         expect(rows.singleWhere((r) => r.id == personal.id).spaceId, personalSpace.id);
         expect(rows.singleWhere((r) => r.id == other.id).spaceId, shared.id);
+
         for (final row in rows) {
           final space = prepared.singleWhere((s) => s.id == row.spaceId);
           final record = records.singleWhere((r) => r.uuidRowId == row.id);
+
           expect(record.spaceId, space.id);
           expect(record.nodeId, space.currentNodeId);
         }
@@ -99,6 +108,7 @@ void main() {
           {testCrdtUserId, shared.uuidSpaceId},
           (spaces) => spaces.runForSpace(testCrdtUserId, (tx) async {
             await Person.db.insertRow(session, Person(name: 'before'), transaction: tx);
+
             await spaces.runForSpace(shared.uuidSpaceId, (tx) async {
               await Person.db.insertRow(
                 session,
@@ -106,9 +116,11 @@ void main() {
                 transaction: tx,
               );
             });
+
             await Person.db.insertRow(session, Person(name: 'after'), transaction: tx);
           }),
         );
+
         rows = await Person.db.find(testSession);
         personalSpace = (await OfflineSyncSpace.db.findFirstRow(
           testSession,
@@ -130,6 +142,7 @@ void main() {
       'then it is rejected before its callback runs.',
       () async {
         var callbackRan = false;
+
         await session.db.transactionForSpaces(testCrdtUserId, {testCrdtUserId}, (
           spaces,
         ) async {
@@ -152,10 +165,12 @@ void main() {
       () async {
         final declared = {testCrdtUserId};
         var callbackRan = false;
+
         final operation = session.db.transactionForSpaces(testCrdtUserId, declared, (
           spaces,
         ) async {
           await spaces.runForSpace(testCrdtUserId, (_) async {});
+
           await expectLater(
             spaces.runForSpace(shared.uuidSpaceId, (_) async {
               callbackRan = true;
@@ -163,6 +178,7 @@ void main() {
             throwsArgumentError,
           );
         });
+
         declared
           ..clear()
           ..add(shared.uuidSpaceId);
@@ -188,6 +204,7 @@ void main() {
       'then authorization fails before the transaction callback.',
       () async {
         var callbackRan = false;
+
         await expectLater(
           session.db.transactionForSpaces(testCrdtUserId, {shared.uuidSpaceId}, (
             _,
@@ -211,6 +228,7 @@ void main() {
         testSession,
         OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
       );
+
       await OfflineSyncSpaceMember.db.insertRow(
         testSession,
         OfflineSyncSpaceMember(
@@ -226,6 +244,7 @@ void main() {
       'then write authorization fails before the transaction callback.',
       () async {
         var callbackRan = false;
+
         await expectLater(
           session.db.transactionForSpaces(testCrdtUserId, {shared.uuidSpaceId}, (
             _,
