@@ -1,5 +1,35 @@
 part of 'database.dart';
 
+// Weak keys retain the guard for escaped transaction references without keeping
+// completed transactions alive. Expando also permits the context to hold its tx.
+final _spaceTransactionContexts = Expando<OfflineSyncSpacesTransaction>();
+
+// All recorder and query paths already resolve these maps. Validate those reads
+// centrally so another wrapper cannot bypass the active scope's zone check.
+class _ScopedTransactionBindings<V> extends MapBase<Transaction, V> {
+  final _bindings = <Transaction, V>{};
+
+  @override
+  V? operator [](Object? key) {
+    if (key is Transaction) {
+      _spaceTransactionContexts[key]?._assertBindingAccess();
+    }
+    return _bindings[key];
+  }
+
+  @override
+  void operator []=(Transaction key, V value) => _bindings[key] = value;
+
+  @override
+  Iterable<Transaction> get keys => _bindings.keys;
+
+  @override
+  V? remove(Object? key) => _bindings.remove(key);
+
+  @override
+  void clear() => _bindings.clear();
+}
+
 /// Space scopes sharing one transaction for one authenticated user.
 ///
 /// Created by [OfflineSyncDatabase.transactionForSpaces]. Only its declared
@@ -10,7 +40,9 @@ final class OfflineSyncSpacesTransaction {
     this._userId,
     this._transaction,
     this._spaces,
-  );
+  ) {
+    _spaceTransactionContexts[_transaction] = this;
+  }
 
   final OfflineSyncDatabase _database;
   final UuidValue _userId;
@@ -19,6 +51,7 @@ final class OfflineSyncSpacesTransaction {
   final _scopeZoneKey = Object();
   var _isActive = true;
   final _activeScopes = <Object>[];
+  StateError? _failure;
 
   /// Runs [action] in [spaceId] using the enclosing transaction.
   ///
@@ -29,6 +62,13 @@ final class OfflineSyncSpacesTransaction {
   /// Await every call. Awaited nesting is supported; overlapping sibling calls
   /// throw [StateError]. An undeclared space throws [ArgumentError], and using
   /// the context after its transaction callback ends throws [StateError].
+  /// Using a parent binding while its child runs, or letting a child outlive its
+  /// parent, invalidates the whole transaction even if the error is caught.
+  ///
+  /// Do not call `cancel()` on the scope transaction: cancellation prevents
+  /// savepoint cleanup. Throw from the scope to roll it back, or let the error
+  /// escape the enclosing callback to roll back all writes. A failed savepoint
+  /// rollback also invalidates the whole transaction.
   Future<R> runForSpace<R>(
     UuidValue spaceId,
     TransactionFunction<R> action,
@@ -55,11 +95,25 @@ final class OfflineSyncSpacesTransaction {
           (tx) async {
             await _database._assertCanActInSpace(_userId, spaceId, transaction: tx);
             _assertActive();
-            return _database._runBound(tx, space, _userId, action);
+            return _database._runBound(tx, space, _userId, (tx) async {
+              try {
+                return await action(tx);
+              } finally {
+                // Check both exits before _runBound restores the prior binding.
+                // Otherwise an orphan can observe that binding in a microtask
+                // between restoration and the enclosing savepoint cleanup.
+                _assertScopeCanExit(scope);
+              }
+            });
           },
         ),
         zoneValues: {_scopeZoneKey: scope},
       );
+    } on RollbackToSavepointFailedException {
+      // The driver can no longer guarantee that the failed scope was undone.
+      // Catching that exception must not allow a partial transaction to commit.
+      _invalidate('A runForSpace savepoint failed to roll back.');
+      rethrow;
     } finally {
       _activeScopes.remove(scope);
       // An unawaited nested action may finish after its transaction closed.
@@ -75,8 +129,28 @@ final class OfflineSyncSpacesTransaction {
   }
 
   void _assertActive() {
+    final failure = _failure;
+    if (failure != null) throw failure;
     if (!_isActive) {
       throw StateError('The transactionForSpaces callback has ended.');
     }
   }
+
+  void _assertBindingAccess() {
+    _assertActive();
+    if (!identical(Zone.current[_scopeZoneKey], _activeScopes.lastOrNull)) {
+      throw _invalidate(
+        'Await each runForSpace call before using the transaction again.',
+      );
+    }
+  }
+
+  void _assertScopeCanExit(Object scope) {
+    _assertActive();
+    if (!identical(_activeScopes.lastOrNull, scope)) {
+      throw _invalidate('Await every nested runForSpace call before returning.');
+    }
+  }
+
+  StateError _invalidate(String message) => _failure ??= StateError(message);
 }

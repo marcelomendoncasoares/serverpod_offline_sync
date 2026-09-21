@@ -3,6 +3,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
@@ -24,10 +25,12 @@ part 'space.dart';
 part 'space_transaction.dart';
 
 /// Map of transaction hashes to the space they are associated with.
-final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
+final Map<Transaction, OfflineSyncSpace> spaceForTransaction =
+    _ScopedTransactionBindings<OfflineSyncSpace>();
 
 /// Map of transaction hashes to the authenticated user associated with them.
-final userForTransaction = <Transaction, UuidValue>{};
+final Map<Transaction, UuidValue> userForTransaction =
+    _ScopedTransactionBindings<UuidValue>();
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -1037,6 +1040,7 @@ class OfflineSyncDatabase implements Database {
       final spaces = OfflineSyncSpacesTransaction._(this, userId, tx, preparedSpaces);
       try {
         final result = await transactionFunction(spaces);
+        spaces._assertActive();
         if (spaces._activeScopes.isNotEmpty) {
           throw StateError('Await every runForSpace call before returning.');
         }

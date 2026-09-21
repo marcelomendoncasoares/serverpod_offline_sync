@@ -479,6 +479,17 @@ await session.db.transactionForSpaces(userId, {spaceA, spaceB}, (spaces) async {
   are supported and restore the outer binding after success or failure.
   Overlapping sibling calls throw `StateError` before creating a savepoint.
   Independent transactions can run concurrently, including for the same user.
+- Reading or writing through a parent binding while a child scope runs, or
+  letting a child outlive its parent, invalidates the entire transaction even
+  if the callback catches the error. Raw SQL and untracked tables do not resolve
+  space bindings, so callers must still obey the await rule for those operations.
+- A failed savepoint rollback also invalidates the entire transaction. Abort a
+  scope by throwing; let the exception escape the enclosing callback to abort
+  all writes. Do not call `tx.cancel()` inside a scope: cancellation prevents
+  Serverpod's savepoint cleanup and produces a cleanup error.
+- On PostgreSQL, the transaction locks every declared space row in ID order
+  with `FOR KEY SHARE` before invoking the callback. These locks last until the
+  transaction ends, preventing a lock-order deadlock with concurrent sync merges.
 - An undeclared space throws `ArgumentError`. The context expires when the
   transaction callback returns or throws; using it afterwards throws `StateError`.
   `transactionForSpaces` owns its SQL transaction and does not accept an existing

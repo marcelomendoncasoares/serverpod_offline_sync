@@ -214,6 +214,141 @@ void main() {
         );
       });
 
+      group('Given a PostgreSQL transaction spanning personal and shared spaces,', () {
+        late UuidValue user;
+        late OfflineSyncSpace shared;
+
+        setUp(() async {
+          user = const Uuid().v7obj();
+          shared = await OfflineSyncSpace.db.insertRow(
+            raw,
+            OfflineSyncSpace(uuidSpaceId: const Uuid().v7obj()),
+          );
+          await OfflineSyncSpaceMember.db.insertRow(
+            raw,
+            OfflineSyncSpaceMember(
+              spaceId: shared.id!,
+              userUuid: user,
+              role: OfflineSyncSpaceRole.readWrite,
+            ),
+          );
+        });
+
+        group('when a parent writes through another wrapper while its child runs,', () {
+          Object? writeError;
+          Object? transactionError;
+          late int rows;
+          late int records;
+
+          setUp(() async {
+            writeError = null;
+            transactionError = null;
+            final entered = Completer<void>();
+            final resume = Completer<void>();
+            await session.db
+                .transactionForSpaces<void>(user, {user, shared.uuidSpaceId}, (
+                  spaces,
+                ) async {
+                  try {
+                    await spaces.runForSpace(user, (tx) async {
+                      await Person.db.insertRow(
+                        session,
+                        Person(name: 'before'),
+                        transaction: tx,
+                      );
+                      final child = spaces.runForSpace<void>(shared.uuidSpaceId, (
+                        _,
+                      ) async {
+                        entered.complete();
+                        await resume.future;
+                      });
+                      await entered.future;
+                      try {
+                        await Person.db.insertRow(
+                          secondSession,
+                          Person(name: 'private'),
+                          transaction: tx,
+                        );
+                      } on Object catch (error) {
+                        writeError = error;
+                      } finally {
+                        resume.complete();
+                        await child;
+                      }
+                    });
+                  } on Object {
+                    // Handling a scope error cannot make the transaction healthy again.
+                  }
+                })
+                .catchError((Object error) {
+                  transactionError = error;
+                });
+            rows = await Person.db.count(raw);
+            records = await CrdtDataRow.db.count(raw);
+          });
+
+          test(
+            'then the private write is rejected and every domain and CRDT write rolls back.',
+            () {
+              expect(writeError, isA<StateError>());
+              expect(transactionError, isA<StateError>());
+              expect(rows, 0);
+              expect(records, 0);
+            },
+          );
+        });
+
+        group(
+          'when a caller destroys a scope savepoint and catches its rollback failure,',
+          () {
+            Object? scopeError;
+            Object? transactionError;
+            late int rows;
+            late int records;
+
+            setUp(() async {
+              scopeError = null;
+              transactionError = null;
+              await session.db
+                  .transactionForSpaces<void>(user, {user, shared.uuidSpaceId}, (
+                    spaces,
+                  ) async {
+                    final tx = await spaces.runForSpace(user, (tx) async => tx);
+                    final earlierSavepoint = await tx.createSavepoint();
+                    try {
+                      await spaces.runForSpace(shared.uuidSpaceId, (tx) async {
+                        await Person.db.insertRow(
+                          session,
+                          Person(name: 'must not commit'),
+                          transaction: tx,
+                        );
+                        await earlierSavepoint.release();
+                        throw StateError('scope action failed');
+                      });
+                    } on Object catch (error) {
+                      scopeError = error;
+                    }
+                  })
+                  .catchError((Object error) {
+                    transactionError = error;
+                  });
+              rows = await Person.db.count(raw);
+              records = await CrdtDataRow.db.count(raw);
+            });
+
+            test(
+              'then the enclosing transaction fails and the failed scope cannot commit.',
+              () {
+                expect(scopeError, isA<RollbackToSavepointFailedException>());
+                expect(transactionError, isA<StateError>());
+                expect(rows, 0);
+                expect(records, 0);
+              },
+            );
+          },
+        );
+      });
+
       group('Given two sessions with prepared personal and shared spaces,', () {
         late UuidValue user;
         late OfflineSyncSpace personal;
