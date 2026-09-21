@@ -480,7 +480,7 @@ await session.db.transactionForSpaces(userId, {spaceA, spaceB}, (spaces) async {
   Overlapping sibling calls throw `StateError` before creating a savepoint.
   Independent transactions can run concurrently, including for the same user.
 - Reading or writing through a parent binding while a child scope runs, or
-  letting a child outlive its parent, invalidates the entire transaction even
+  returning from a parent while its child still runs, invalidates the transaction
   if the callback catches the error. Raw SQL and untracked tables do not resolve
   space bindings, so callers must still obey the await rule for those operations.
 - A failed savepoint rollback also invalidates the entire transaction. Abort a

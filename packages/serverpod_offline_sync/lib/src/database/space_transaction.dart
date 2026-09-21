@@ -6,28 +6,19 @@ final _spaceTransactionContexts = Expando<OfflineSyncSpacesTransaction>();
 
 // All recorder and query paths already resolve these maps. Validate those reads
 // centrally so another wrapper cannot bypass the active scope's zone check.
-class _ScopedTransactionBindings<V> extends MapBase<Transaction, V> {
-  final _bindings = <Transaction, V>{};
+// MapView forwards inspection directly to the underlying map. MapBase would
+// route values/entries/toString through [], poisoning unrelated active scopes
+// merely because diagnostic code inspected their bindings from another zone.
+class _ScopedTransactionBindings<V> extends MapView<Transaction, V> {
+  _ScopedTransactionBindings() : super(<Transaction, V>{});
 
   @override
   V? operator [](Object? key) {
     if (key is Transaction) {
       _spaceTransactionContexts[key]?._assertBindingAccess();
     }
-    return _bindings[key];
+    return super[key];
   }
-
-  @override
-  void operator []=(Transaction key, V value) => _bindings[key] = value;
-
-  @override
-  Iterable<Transaction> get keys => _bindings.keys;
-
-  @override
-  V? remove(Object? key) => _bindings.remove(key);
-
-  @override
-  void clear() => _bindings.clear();
 }
 
 /// Space scopes sharing one transaction for one authenticated user.
@@ -62,8 +53,8 @@ final class OfflineSyncSpacesTransaction {
   /// Await every call. Awaited nesting is supported; overlapping sibling calls
   /// throw [StateError]. An undeclared space throws [ArgumentError], and using
   /// the context after its transaction callback ends throws [StateError].
-  /// Using a parent binding while its child runs, or letting a child outlive its
-  /// parent, invalidates the whole transaction even if the error is caught.
+  /// Using a parent binding while its child runs, or returning from a parent
+  /// while its child still runs, invalidates the whole transaction even if caught.
   ///
   /// Do not call `cancel()` on the scope transaction: cancellation prevents
   /// savepoint cleanup. Throw from the scope to roll it back, or let the error

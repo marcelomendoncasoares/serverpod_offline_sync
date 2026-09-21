@@ -33,6 +33,81 @@ void main() {
       );
     });
 
+    group('when unrelated code inspects binding maps while a scope is paused,', () {
+      Object? inspectionError;
+      Object? transactionError;
+      late List<OfflineSyncSpace> inspectedSpaces;
+      late List<UuidValue> inspectedUsers;
+      late List<Person> rows;
+      late List<CrdtDataRow> records;
+
+      setUp(() async {
+        inspectionError = null;
+        transactionError = null;
+        inspectedSpaces = [];
+        inspectedUsers = [];
+        final entered = Completer<void>();
+        final resume = Completer<void>();
+        final operation = session.db
+            .transactionForSpaces<void>(testCrdtUserId, {testCrdtUserId}, (
+              spaces,
+            ) async {
+              await spaces.runForSpace(testCrdtUserId, (tx) async {
+                await Person.db.insertRow(
+                  session,
+                  Person(name: 'before'),
+                  transaction: tx,
+                );
+                entered.complete();
+                await resume.future;
+                await Person.db.insertRow(
+                  session,
+                  Person(name: 'after'),
+                  transaction: tx,
+                );
+              });
+            })
+            .catchError((Object error) {
+              transactionError = error;
+            });
+        await entered.future;
+        try {
+          // Diagnostics outside the transaction must not invalidate its scope.
+          inspectedSpaces = spaceForTransaction.values.toList();
+          inspectedUsers = userForTransaction.entries
+              .map((entry) => entry.value)
+              .toList();
+          spaceForTransaction.toString();
+          userForTransaction.toString();
+        } on Object catch (error) {
+          inspectionError = error;
+        } finally {
+          resume.complete();
+          await operation;
+        }
+        rows = await Person.db.find(testSession);
+        records = await CrdtDataRow.db.find(testSession);
+      });
+
+      test(
+        'then inspection succeeds and the transaction commits its domain and CRDT writes.',
+        () {
+          expect(inspectionError, isNull);
+          expect(transactionError, isNull);
+          expect(inspectedSpaces.single.uuidSpaceId, testCrdtUserId);
+          expect(inspectedUsers, [testCrdtUserId]);
+          expect(rows.map((row) => row.name).toSet(), {'before', 'after'});
+          expect(
+            records.map((record) => record.uuidRowId).toSet(),
+            rows.map((row) => row.id).toSet(),
+          );
+          expect(records.map((record) => record.spaceId).toSet(), {
+            inspectedSpaces.single.id,
+          });
+        },
+      );
+    });
+
     group('when a parent writes while its child is running and catches the error,', () {
       Object? writeError;
       Object? transactionError;
