@@ -1,0 +1,10 @@
+### Coordinates space visibility caches across database sessions and processes.
+### Row 1 is shared-locked by readers and exclusively locked by space writers.
+class: OfflineSyncSpaceCacheVersion
+table: offline_sync_space_cache_versions
+database: all
+fields:
+  ### Separates caches even when a sync context wraps different databases.
+  databaseUuid: UuidValue, default=random_v7
+  ### Changes whenever a space or membership mutation commits.
+  revision: int, default=0

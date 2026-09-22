@@ -29,10 +29,12 @@ void main() {
       late Unique? found;
       late int queries;
       late int rowsRead;
+      late int nodesRead;
 
       setUpAll(() async {
         final queriesBefore = database.queryCount;
         final rowsBefore = database.rowsRead;
+        final nodesBefore = database.rowsReadByType['CrdtNode'] ?? 0;
 
         found = await app.db.transaction(
           (tx) => Unique.db.findById(app, row.id!, transaction: tx),
@@ -40,12 +42,14 @@ void main() {
 
         queries = database.queryCount - queriesBefore;
         rowsRead = database.rowsRead - rowsBefore;
+        nodesRead = (database.rowsReadByType['CrdtNode'] ?? 0) - nodesBefore;
       });
 
-      test('then the read uses only membership and domain queries.', () {
+      test('then the read checks space visibility without reading the node clock.', () {
         expect(found?.name, 'client read');
-        expect(queries, 3);
-        expect(rowsRead, 2);
+        expect(queries, 4);
+        expect(rowsRead, 3);
+        expect(nodesRead, 0);
       });
     });
   });
@@ -74,10 +78,12 @@ void main() {
       late Unique? found;
       late int queries;
       late int rowsRead;
+      late int nodesRead;
 
       setUpAll(() async {
         final queriesBefore = database.queryCount;
         final rowsBefore = database.rowsRead;
+        final nodesBefore = database.rowsReadByType['CrdtNode'] ?? 0;
 
         found = await app.db.transactionForUser(
           testCrdtUserId,
@@ -86,12 +92,14 @@ void main() {
 
         queries = database.queryCount - queriesBefore;
         rowsRead = database.rowsRead - rowsBefore;
+        nodesRead = (database.rowsReadByType['CrdtNode'] ?? 0) - nodesBefore;
       });
 
-      test('then the read uses only membership and domain queries.', () {
+      test('then the read checks space visibility without reading the node clock.', () {
         expect(found?.name, 'space read');
-        expect(queries, 3);
-        expect(rowsRead, 2);
+        expect(queries, 4);
+        expect(rowsRead, 3);
+        expect(nodesRead, 0);
       });
     });
   });
