@@ -15,7 +15,7 @@ workspace:
 
 dev_dependencies:
   melos: ^7.5.1
-  serverpod_cli: 4.0.0
+  serverpod_cli: ^4.0.0
 
 # dependency_overrides:
 #   serverpod:
