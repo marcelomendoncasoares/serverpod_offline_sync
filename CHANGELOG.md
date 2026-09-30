@@ -1,3 +1,9 @@
+## 0.0.9
+
+- fix: Refreshes node clocks across sync wrappers.
+- fix: Repairs foreign keys on columns that also carry a unique claim.
+- chore: Release the Serverpod dependency version to `^4.0.0`.
+
 ## 0.0.8
 
 - fix: BREAKING. Reject unique-text values ending in `__conflict__<UUID>`,
