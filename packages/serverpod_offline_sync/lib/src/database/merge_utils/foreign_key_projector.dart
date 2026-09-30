@@ -897,18 +897,15 @@ class CrdtForeignKeyProjector {
     );
 
     if (seedRows == null) {
-      for (final tableName in tablesToLoad) {
-        await _loadTableRowsInto(
-          tableName: tableName,
-          rowIds: null,
-          columnNames: columnsByTable[tableName] ?? const <String>{},
-          rows: rows,
-          fieldIds: fieldIds,
-          attemptedValues: attemptedValues,
-          fieldHlcs: fieldHlcs,
-          transaction: transaction,
-        );
-      }
+      await _loadRowsInto(
+        requestedRows: {for (final table in tablesToLoad) table: null},
+        columnsByTable: columnsByTable,
+        rows: rows,
+        fieldIds: fieldIds,
+        attemptedValues: attemptedValues,
+        fieldHlcs: fieldHlcs,
+        transaction: transaction,
+      );
     } else {
       await _loadRowClosureInto(
         tablesToLoad: tablesToLoad,
@@ -1105,29 +1102,36 @@ class CrdtForeignKeyProjector {
     return childRowsByAttempt;
   }
 
-  /// Loads [rowIds] of [tableName], or every row of it when [rowIds] is null.
-  ///
-  /// Returns the row ids that exist, so a closure pass can expand from them.
-  Future<Set<UuidValue>> _loadTableRowsInto({
-    required String tableName,
-    required Set<UuidValue>? rowIds,
-    required Set<String> columnNames,
+  /// Loads one closure wave, sharing metadata reads across its tables.
+  /// A null row-id set requests the whole table during a full rebuild.
+  Future<Map<String, Set<UuidValue>>> _loadRowsInto({
+    required Map<String, Set<UuidValue>?> requestedRows,
+    required Map<String, Set<String>> columnsByTable,
     required Map<MergeRowKey, _ProjectedForeignKeyRow> rows,
     required Map<MergeFieldKey, int> fieldIds,
     required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
     required Map<MergeFieldKey, Hlc> fieldHlcs,
     required Transaction transaction,
   }) async {
-    if (rowIds != null && rowIds.isEmpty) return const {};
+    final tablesById = {
+      for (final entry in requestedRows.entries)
+        if (entry.value == null || entry.value!.isNotEmpty)
+          _context.schema[entry.key]!.$1: entry.key,
+    };
+    if (tablesById.isEmpty) return {};
 
-    final (tableId, _) = _context.schema[tableName]!;
-    final userId = _context.hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = _context.hlcManagerFor(transaction).normalizedSpaceId;
     final crdtRows = await CrdtDataRow.db.find(
       _context.databaseSession,
-      where: (t) {
-        final inSpace = t.spaceId.equals(userId) & t.tblId.equals(tableId);
-        return rowIds == null ? inSpace : inSpace & t.uuidRowId.inSet(rowIds);
-      },
+      where: (t) =>
+          t.spaceId.equals(spaceId) &
+          tablesById.entries
+              .map((entry) {
+                final rowIds = requestedRows[entry.value];
+                final table = t.tblId.equals(entry.key);
+                return rowIds == null ? table : table & t.uuidRowId.inSet(rowIds);
+              })
+              .reduce((left, right) => left | right),
       include: CrdtDataRow.include(
         node: CrdtNode.include(),
         deleted: CrdtDataDeleted.include(node: CrdtNode.include()),
@@ -1135,46 +1139,78 @@ class CrdtForeignKeyProjector {
       orderBy: (t) => t.uuidRowId,
       transaction: transaction,
     );
-    if (crdtRows.isEmpty) return const {};
-
-    final loadedIds = {for (final row in crdtRows) row.uuidRowId};
-    final valuesByRowId = columnNames.isEmpty
-        ? <UuidValue, Map<String, Object?>>{}
-        : await _context.readDomainColumnValues(
-            tableName,
-            loadedIds,
-            columnNames.toList(),
-            transaction,
-          );
-
+    final metadataByTable = <String, List<CrdtDataRow>>{};
     for (final row in crdtRows) {
-      final key = (tableName, row.uuidRowId);
-      rows[key] = (
-        key: key,
-        crdtRow: row,
-        values: Map<String, Object?>.from(valuesByRowId[row.uuidRowId] ?? const {}),
-      );
+      (metadataByTable[tablesById[row.tblId]!] ??= []).add(row);
     }
 
-    if (columnNames.isNotEmpty) {
-      final loadedFields = await _loadFields(
-        tableName: tableName,
-        rowIds: loadedIds,
-        columnNames: columnNames,
-        transaction: transaction,
-      );
-      for (final field in loadedFields) {
-        final fieldKey = (tableName, field.row!.uuidRowId, field.column!.name);
-        fieldIds[fieldKey] = field.id!;
-        fieldHlcs[fieldKey] = field.hlc;
-        final attempted = field.attemptedValue;
-        if (attempted != null) {
-          attemptedValues[fieldKey] = attempted;
-        }
+    final loadedByTable = <String, Set<UuidValue>>{};
+    for (final tableName in requestedRows.keys) {
+      final tableRows = metadataByTable[tableName];
+      if (tableRows == null) continue;
+      final loadedIds = {for (final row in tableRows) row.uuidRowId};
+      loadedByTable[tableName] = loadedIds;
+      final columns = columnsByTable[tableName] ?? const <String>{};
+      final valuesByRowId = columns.isEmpty
+          ? <UuidValue, Map<String, Object?>>{}
+          : await _context.readDomainColumnValues(
+              tableName,
+              loadedIds,
+              columns.toList(),
+              transaction,
+            );
+      for (final row in tableRows) {
+        final key = (tableName, row.uuidRowId);
+        rows[key] = (
+          key: key,
+          crdtRow: row,
+          values: Map<String, Object?>.from(valuesByRowId[row.uuidRowId] ?? const {}),
+        );
       }
     }
 
-    return loadedIds;
+    final columnsById = <int, String>{};
+    final fieldRequests = <({Set<int> rows, Set<int> columns})>[];
+    for (final tableName in metadataByTable.keys) {
+      final columns = _context.schemaColumnIds(
+        tableName,
+        columnsByTable[tableName] ?? const <String>{},
+      );
+      if (columns.isEmpty) continue;
+      columnsById.addAll({for (final entry in columns.entries) entry.value: entry.key});
+      fieldRequests.add((
+        rows: {for (final row in metadataByTable[tableName]!) row.id!},
+        columns: columns.values.toSet(),
+      ));
+    }
+    if (fieldRequests.isEmpty) return loadedByTable;
+
+    final rowKeysById = {
+      for (final row in crdtRows) row.id!: (tablesById[row.tblId]!, row.uuidRowId),
+    };
+    final fields = await CrdtDataField.db.find(
+      _context.databaseSession,
+      where: (t) => fieldRequests
+          .map((request) {
+            return t.rowId.inSet(request.rows) & t.columnId.inSet(request.columns);
+          })
+          .reduce((left, right) => left | right),
+      include: CrdtDataField.include(
+        node: CrdtNode.include(),
+        attemptedValue: CrdtDataAttemptedValue.include(),
+      ),
+      transaction: transaction,
+    );
+    for (final field in fields) {
+      final rowKey = rowKeysById[field.rowId]!;
+      final fieldKey = (rowKey.$1, rowKey.$2, columnsById[field.columnId]!);
+      fieldIds[fieldKey] = field.id!;
+      fieldHlcs[fieldKey] = field.hlc;
+      if (field.attemptedValue case final attempted?) {
+        attemptedValues[fieldKey] = attempted;
+      }
+    }
+    return loadedByTable;
   }
 
   /// Loads the rows the seeds can reach instead of every row of their tables.
@@ -1205,6 +1241,20 @@ class CrdtForeignKeyProjector {
     required Map<MergeFieldKey, Hlc> fieldHlcs,
     required Transaction transaction,
   }) async {
+    final spaceId = _context.hlcManagerFor(transaction).normalizedSpaceId;
+    final hasAttemptedClaims =
+        tablesToLoad.isNotEmpty &&
+        await CrdtDataAttemptedValue.db.findFirstRow(
+              _context.databaseSession,
+              where: (t) =>
+                  t.field.row.spaceId.equals(spaceId) &
+                  t.field.row.tblId.inSet({
+                    for (final table in tablesToLoad) _context.schema[table]!.$1,
+                  }),
+              transaction: transaction,
+            ) !=
+            null;
+
     final unwrittenValues = _unwrittenValues(pendingInserts, authoredOverlays);
 
     final requested = <String, Set<UuidValue>>{};
@@ -1245,20 +1295,15 @@ class CrdtForeignKeyProjector {
         final wave = queued;
         queued = <String, Set<UuidValue>>{};
 
-        final loadedNow = <String, Set<UuidValue>>{};
-        for (final MapEntry(key: tableName, value: ids) in wave.entries) {
-          final loaded = await _loadTableRowsInto(
-            tableName: tableName,
-            rowIds: ids,
-            columnNames: columnsByTable[tableName] ?? const <String>{},
-            rows: rows,
-            fieldIds: fieldIds,
-            attemptedValues: attemptedValues,
-            fieldHlcs: fieldHlcs,
-            transaction: transaction,
-          );
-          if (loaded.isNotEmpty) loadedNow[tableName] = loaded;
-        }
+        final loadedNow = await _loadRowsInto(
+          requestedRows: wave,
+          columnsByTable: columnsByTable,
+          rows: rows,
+          fieldIds: fieldIds,
+          attemptedValues: attemptedValues,
+          fieldHlcs: fieldHlcs,
+          transaction: transaction,
+        );
 
         for (final MapEntry(key: tableName, value: ids) in frontier.entries) {
           (loadedNow[tableName] ??= <UuidValue>{}).addAll(ids);
@@ -1268,6 +1313,7 @@ class CrdtForeignKeyProjector {
 
         await _expandRowClosure(
           loadedNow: loadedNow,
+          hasAttemptedClaims: hasAttemptedClaims,
           tablesToLoad: tablesToLoad,
           rows: rows,
           unwrittenValues: unwrittenValues,
@@ -1535,6 +1581,7 @@ class CrdtForeignKeyProjector {
     required Map<MergeRowKey, Map<String, Object?>> unwrittenValues,
     required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
     required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required bool hasAttemptedClaims,
     required Transaction transaction,
   }) async {
     // Both the stored and the unwritten value matter: the walk has to reach the
@@ -1555,6 +1602,7 @@ class CrdtForeignKeyProjector {
 
     for (final edge in _foreignKeys.edges) {
       await _expandToChildren(
+        hasAttemptedClaims: hasAttemptedClaims,
         edge: edge,
         loadedNow: loadedNow,
         tablesToLoad: tablesToLoad,
@@ -1575,6 +1623,7 @@ class CrdtForeignKeyProjector {
     }
 
     await _expandUniqueClaimants(
+      hasAttemptedClaims: hasAttemptedClaims,
       loadedNow: loadedNow,
       attemptedValues: attemptedValues,
       valuesFor: valuesFor,
@@ -1593,6 +1642,7 @@ class CrdtForeignKeyProjector {
     required Set<String> tablesToLoad,
     required Set<Object?> Function(MergeRowKey, String) valuesFor,
     required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required bool hasAttemptedClaims,
     required Transaction transaction,
   }) async {
     final parentIds = loadedNow[edge.parentTableName];
@@ -1612,6 +1662,7 @@ class CrdtForeignKeyProjector {
     if (references.isEmpty) return;
 
     await _enqueueRowsClaiming(
+      hasAttemptedClaims: hasAttemptedClaims,
       tableName: edge.childTableName,
       valuesByColumn: {edge.childColumn: references},
       enqueue: enqueue,
@@ -1691,6 +1742,7 @@ class CrdtForeignKeyProjector {
     required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
     required Set<Object?> Function(MergeRowKey, String) valuesFor,
     required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required bool hasAttemptedClaims,
     required Transaction transaction,
   }) async {
     for (final MapEntry(key: tableName, value: rowIds) in loadedNow.entries) {
@@ -1714,6 +1766,7 @@ class CrdtForeignKeyProjector {
         }
 
         await _enqueueRowsClaiming(
+          hasAttemptedClaims: hasAttemptedClaims,
           tableName: tableName,
           valuesByColumn: claimedByColumn,
           enqueue: enqueue,
@@ -1732,6 +1785,7 @@ class CrdtForeignKeyProjector {
     required String tableName,
     required Map<String, Set<Object?>> valuesByColumn,
     required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
+    required bool hasAttemptedClaims,
     required Transaction transaction,
   }) async {
     enqueue(
@@ -1742,6 +1796,8 @@ class CrdtForeignKeyProjector {
         transaction: transaction,
       ),
     );
+    if (!hasAttemptedClaims) return;
+
     enqueue(
       tableName,
       await _context.findRowIdsHoldingAttemptedValues(

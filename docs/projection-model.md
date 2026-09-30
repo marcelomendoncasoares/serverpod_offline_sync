@@ -175,6 +175,19 @@ full-row passthrough translates an unchanged projected value back to its
 preserved authored value; explicit/narrowed field writes author the supplied
 value. Reinsertion follows the full-row reauthoring rule above.
 
+## Projection reads
+
+Each projection pass reads its complete affected closure in the active write
+transaction. Metadata rows and fields are loaded together for each expansion
+wave; field identities reuse the scoped row records and registered column IDs
+already loaded by that pass. Domain values remain grouped by their own table.
+
+A closure pass checks whether the relevant space and tables contain attempted values.
+When none exist, closure expansion omits the empty attempted-claim lookups.
+When any exist, it performs the full lookups. This proof belongs only to the
+current read phase; each subsequent projection checks again. Both projection
+passes, authored facts, HLCs, tombstones, and dependency expansion remain intact.
+
 ## Outbound and rebuild behavior
 
 Outbound collection substitutes `CrdtDataAttemptedValue.value` whenever it
