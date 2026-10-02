@@ -21,6 +21,7 @@ import 'schema.dart';
 import 'unique_index_utils.dart';
 
 part 'merge.dart';
+part 'merge_write_batch.dart';
 
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 

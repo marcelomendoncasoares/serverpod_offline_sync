@@ -1,68 +1,5 @@
 part of 'recorder.dart';
 
-/// Field metadata for merged inserts, waiting to be written as one batch.
-///
-/// Every query behind [CrdtForeignKeyProjector.recordInsertAttempts] already
-/// takes a set of row ids, so a batch of inserts into one table costs the same
-/// as one insert. Rows are grouped by node as well as table because the merge
-/// cache stores each field with the node that authored it.
-class _PendingInsertAttempts {
-  final Map<(String, int), ({Set<UuidValue> rowIds, CrdtNode node})> _byGroup = {};
-  final Map<String, ProjectionAttemptsByField> _attemptsByTable = {};
-  final Set<MergeRowKey> _rows = {};
-
-  bool get isEmpty => _byGroup.isEmpty;
-
-  /// Whether metadata for [rowKey] is still unwritten.
-  bool holds(MergeRowKey rowKey) => _rows.contains(rowKey);
-
-  void add({
-    required String tableName,
-    required UuidValue rowId,
-    required CrdtNode node,
-    required ProjectionAttemptsByField attempts,
-  }) {
-    _byGroup
-        .putIfAbsent(
-          (tableName, node.id!),
-          () => (rowIds: <UuidValue>{}, node: node),
-        )
-        .rowIds
-        .add(rowId);
-    _rows.add((tableName, rowId));
-    if (attempts.isEmpty) return;
-    _attemptsByTable
-        .putIfAbsent(tableName, () => <MergeFieldKey, ProjectionAttempt>{})
-        .addAll(attempts);
-  }
-
-  /// Empties the collector and returns what it held.
-  List<
-    ({
-      String tableName,
-      Set<UuidValue> rowIds,
-      CrdtNode node,
-      ProjectionAttemptsByField attempts,
-    })
-  >
-  take() {
-    final groups = [
-      for (final MapEntry(key: key, value: group) in _byGroup.entries)
-        (
-          tableName: key.$1,
-          rowIds: group.rowIds,
-          node: group.node,
-          attempts:
-              _attemptsByTable[key.$1] ?? const <MergeFieldKey, ProjectionAttempt>{},
-        ),
-    ];
-    _byGroup.clear();
-    _attemptsByTable.clear();
-    _rows.clear();
-    return groups;
-  }
-}
-
 /// Adds merge-specific behavior to [CrdtMutationRecorder].
 extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   /// Merges remote CRDT changes into the current database.
@@ -142,70 +79,61 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             transaction,
           );
 
-    // Field metadata for merged inserts is recorded per table and node rather
-    // than per row: every query behind it already takes a set of row ids.
-    final pendingAttempts = _PendingInsertAttempts();
-    final pendingFieldUpdates = <int, CrdtDataField>{};
+    final writes = _MergeWriteBatch(
+      session: _session,
+      projector: _foreignKeyProjector,
+      context: context,
+      transaction: transaction,
+    );
     final deferredDeletes = <CrdtMergeDelete>[];
 
-    for (final operation in operations) {
-      if (!_context.isCrdtTrackedTableName(operation.tableName)) {
-        continue;
-      }
-      // Context fields carry the latest clocks while consecutive updates wait.
-      // Persist them before insert/delete processing can read metadata again.
-      if (operation is! CrdtMergeUpdate ||
-          pendingAttempts.holds((operation.tableName, operation.uuidRowId))) {
-        await _flushMergeFieldUpdates(pendingFieldUpdates, transaction);
-      }
+    await writes.apply(
+      operations.where(
+        (operation) => _context.isCrdtTrackedTableName(operation.tableName),
+      ),
+      (operation) async {
+        switch (operation) {
+          case final CrdtMergeInsert insert:
+            await _applyMergeInsert(
+              insert,
+              nodesByUuid,
+              context,
+              authoredOverlays,
+              batch.plan,
+              writes,
+              presence,
+              transaction,
+            );
+          case final CrdtMergeUpdate update:
+            await _applyMergeUpdate(
+              update,
+              nodesByUuid,
+              context,
+              authoredOverlays,
+              writes,
+              transaction,
+            );
+          case final CrdtMergeDelete delete:
+            // A higher delete/restore generation can have an older HLC than a
+            // concurrent reinsertion. Bootstrap must retain it until this batch
+            // has inserted the row it belongs to.
+            if (!context.rows.containsKey((delete.tableName, delete.uuidRowId))) {
+              deferredDeletes.add(delete);
+              return;
+            }
+            await _applyMergeDelete(
+              delete,
+              nodesByUuid,
+              context,
+              transaction,
+            );
+            // A delete can hide the row, and a resurrecting one can bring it
+            // back; either way what was known about it no longer holds.
+            presence?.forget((delete.tableName, delete.uuidRowId));
+        }
+      },
+    );
 
-      if (pendingAttempts.holds((operation.tableName, operation.uuidRowId))) {
-        await _flushInsertAttempts(pendingAttempts, context, transaction);
-      }
-
-      switch (operation) {
-        case final CrdtMergeInsert insert:
-          await _applyMergeInsert(
-            insert,
-            nodesByUuid,
-            context,
-            authoredOverlays,
-            batch.plan,
-            pendingAttempts,
-            presence,
-            transaction,
-          );
-        case final CrdtMergeUpdate update:
-          await _applyMergeUpdate(
-            update,
-            nodesByUuid,
-            context,
-            authoredOverlays,
-            pendingFieldUpdates,
-            transaction,
-          );
-        case final CrdtMergeDelete delete:
-          // A higher delete/restore generation can have an older HLC than a
-          // concurrent reinsertion. Bootstrap must retain it until this batch
-          // has inserted the row it belongs to.
-          if (!context.rows.containsKey((delete.tableName, delete.uuidRowId))) {
-            deferredDeletes.add(delete);
-            continue;
-          }
-          await _applyMergeDelete(
-            delete,
-            nodesByUuid,
-            context,
-            transaction,
-          );
-          // A delete can hide the row, and a resurrecting one can bring it
-          // back; either way what was known about it no longer holds.
-          presence?.forget((delete.tableName, delete.uuidRowId));
-      }
-    }
-
-    await _flushMergeFieldUpdates(pendingFieldUpdates, transaction);
-    await _flushInsertAttempts(pendingAttempts, context, transaction);
     for (final delete in deferredDeletes) {
       await _applyMergeDelete(delete, nodesByUuid, context, transaction);
     }
@@ -479,7 +407,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     MergeContext context,
     Map<MergeFieldKey, Object?> authoredOverlays,
     ProjectionPlan? batchPlan,
-    _PendingInsertAttempts pendingAttempts,
+    _MergeWriteBatch writes,
     CrdtForeignKeyPresenceCache? presence,
     Transaction transaction,
   ) async {
@@ -533,7 +461,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         // same-space recovery), so same-merge field updates resolve ownership
         // from the cache instead of re-reading the domain row.
         context.domainOwners[rowKey] = (exists: true, spaceId: mergingSpaceId);
-        pendingAttempts.add(
+        writes.recordInsertAttempts(
           tableName: insert.tableName,
           rowId: insert.uuidRowId,
           node: remoteNode,
@@ -624,53 +552,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     return (domain: plannedDomain, attempts: attempts);
   }
 
-  /// Writes the field metadata collected for merged inserts, one call per
-  /// table and node.
-  ///
-  /// Grouped by node because the merge cache pairs every field it stores with
-  /// the node that authored it, which is how the cached field resolves its own
-  /// clock.
-  Future<void> _flushInsertAttempts(
-    _PendingInsertAttempts pending,
-    MergeContext context,
-    Transaction transaction,
-  ) async {
-    if (pending.isEmpty) return;
-
-    final groups = pending.take();
-    for (final group in groups) {
-      await _foreignKeyProjector.recordInsertAttempts(
-        group.tableName,
-        group.rowIds,
-        transaction,
-        group.attempts,
-        mergeCache: (fields: context.fields, node: group.node),
-      );
-    }
-  }
-
-  Future<void> _flushMergeFieldUpdates(
-    Map<int, CrdtDataField> pending,
-    Transaction transaction,
-  ) async {
-    if (pending.isEmpty) return;
-
-    await CrdtDataField.db.update(
-      _session,
-      pending.values.toList(),
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
-      transaction: transaction,
-      noReturn: true,
-    );
-    pending.clear();
-  }
-
   Future<void> _applyMergeUpdate(
     CrdtMergeUpdate update,
     Map<UuidValue, CrdtNode> remoteNodes,
     MergeContext context,
     Map<MergeFieldKey, Object?> authoredOverlays,
-    Map<int, CrdtDataField> pendingFieldUpdates,
+    _MergeWriteBatch writes,
     Transaction transaction,
   ) async {
     final rowKey = (update.tableName, update.uuidRowId);
@@ -698,7 +585,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       remoteNode: remoteNode,
       incomingHlc: update.hlc,
       fields: context.fields,
-      pendingFieldUpdates: pendingFieldUpdates,
+      writes: writes,
       transaction: transaction,
     );
 
@@ -807,7 +694,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Hlc incomingHlc,
     CrdtDataField? currentField,
     Transaction transaction, {
-    Map<int, CrdtDataField>? pendingFieldUpdates,
+    _MergeWriteBatch? writes,
   }) async {
     // Projection can create field metadata for a row this merge context loaded
     // before the row existed, so an unseen field may still be persisted. Adopt
@@ -849,8 +736,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       hlcCounter: incomingHlc.counter,
     );
 
-    if (pendingFieldUpdates != null) {
-      pendingFieldUpdates[updatedField.id!] = updatedField;
+    if (writes != null) {
+      writes.recordFieldUpdate(updatedField);
     } else {
       await CrdtDataField.db.update(
         _session,
@@ -1049,7 +936,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     required Map<MergeFieldKey, CrdtDataField> fields,
     required Transaction transaction,
     CrdtSchemaColumn? schemaColumn,
-    Map<int, CrdtDataField>? pendingFieldUpdates,
+    _MergeWriteBatch? writes,
   }) async {
     final resolvedSchemaColumn =
         schemaColumn ?? _context.schemaColumn(tableName, columnName);
@@ -1067,7 +954,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       incomingHlc,
       currentField,
       transaction,
-      pendingFieldUpdates: pendingFieldUpdates,
+      writes: writes,
     );
     return true;
   }
