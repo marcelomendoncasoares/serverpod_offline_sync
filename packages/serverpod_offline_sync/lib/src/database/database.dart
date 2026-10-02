@@ -655,15 +655,11 @@ class OfflineSyncDatabase implements Database {
       transaction,
       (tx) async {
         final plannedUpdates = await _recorder.planLocalUpdates(rows, columns, tx);
-        final updatedRows = [
-          for (final row in plannedUpdates.rows)
-            await _updateRowWithoutRecording(
-              row,
-              stripSpaceId: _shouldStripReturnedSpaceId(row, tx),
-              transaction: tx,
-              columns: columns,
-            ),
-        ];
+        final updatedRows = await _updateRowsWithoutRecording(
+          plannedUpdates.rows,
+          transaction: tx,
+          columns: columns,
+        );
 
         await _recorder.afterUpdate(
           updatedRows,
@@ -713,13 +709,105 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
+  Future<List<T>> _updateRowsWithoutRecording<T extends TableRow>(
+    List<T> rows, {
+    required Transaction transaction,
+    List<Column>? columns,
+  }) async {
+    final result = <T>[];
+    var start = 0;
+    Map<String, dynamic>? nextValues;
+    while (start < rows.length) {
+      final row = rows[start];
+      final stripSpaceId = _shouldStripReturnedSpaceId(row, transaction);
+      final selected = (columns ?? row.table.managedColumns).crdtSyncableColumns
+          .toList();
+      final values = nextValues ?? row.toJsonForDatabase() as Map<String, dynamic>;
+      nextValues = null;
+      final rowIds = <Object>{if (row.id case final Object id) id};
+      var end = start + 1;
+      if (row.id != null) {
+        while (end < rows.length) {
+          final next = rows[end];
+          if (next.id == null ||
+              rowIds.contains(next.id) ||
+              next.table.tableName != row.table.tableName ||
+              _readSpaceId(next) != _readSpaceId(row)) {
+            break;
+          }
+          final candidateValues = next.toJsonForDatabase() as Map<String, dynamic>;
+          var same = true;
+          for (final column in selected) {
+            final value = values[column.columnName];
+            final candidate = candidateValues[column.columnName];
+            if (value.runtimeType != candidate.runtimeType ||
+                value != candidate ||
+                (value is double &&
+                    candidate is double &&
+                    value.isNegative != candidate.isNegative)) {
+              same = false;
+              break;
+            }
+          }
+          if (!same) {
+            nextValues = candidateValues;
+            break;
+          }
+          rowIds.add(next.id as Object);
+          end++;
+        }
+      }
+
+      if (end == start + 1) {
+        result.add(
+          await _updateRowWithoutRecording(
+            row,
+            stripSpaceId: stripSpaceId,
+            transaction: transaction,
+            columns: columns,
+            databaseValues: values,
+          ),
+        );
+      } else {
+        final updated = await _delegate.updateWhere<T>(
+          columnValues: [
+            for (final column in selected)
+              ColumnValue(column, values[column.columnName]),
+          ],
+          where: (await _whereVisibleWithTombstone<T>(
+            row.table.id.inSet(rowIds.castToIdType().toSet()),
+            null,
+            transaction,
+            membershipWide: false,
+          ))!,
+          transaction: transaction,
+        );
+        final byId = {for (final saved in updated) saved.id: saved};
+        if (byId.length != rowIds.length) {
+          throw DatabaseUnexpectedResultException(
+            'Failed to update row, no rows updated',
+          );
+        }
+
+        for (var index = start; index < end; index++) {
+          final saved = byId[rows[index].id]!;
+          if (stripSpaceId) _stripSpaceId(saved);
+          result.add(saved);
+        }
+      }
+      start = end;
+    }
+    return result;
+  }
+
   Future<T> _updateRowWithoutRecording<T extends TableRow>(
     T row, {
     required Transaction transaction,
     required bool stripSpaceId,
     List<Column>? columns,
+    Map<String, dynamic>? databaseValues,
   }) async {
-    final values = row.toJsonForDatabase() as Map<String, dynamic>;
+    final values = databaseValues ?? row.toJsonForDatabase() as Map<String, dynamic>;
     final columnValues = (columns ?? row.table.managedColumns).crdtSyncableColumns
         .map((c) => ColumnValue(c, values[c.columnName]))
         .toList();

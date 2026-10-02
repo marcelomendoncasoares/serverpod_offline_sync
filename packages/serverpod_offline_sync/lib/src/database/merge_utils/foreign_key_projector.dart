@@ -1600,15 +1600,19 @@ class CrdtForeignKeyProjector {
       }..remove(null);
     }
 
+    final claimsByTable = <String, List<Map<String, Set<Object?>>>>{};
+
+    void collectClaims(String tableName, Map<String, Set<Object?>> claims) {
+      (claimsByTable[tableName] ??= []).add(claims);
+    }
+
     for (final edge in _foreignKeys.edges) {
-      await _expandToChildren(
-        hasAttemptedClaims: hasAttemptedClaims,
+      _expandToChildren(
         edge: edge,
         loadedNow: loadedNow,
         tablesToLoad: tablesToLoad,
         valuesFor: valuesFor,
-        enqueue: enqueue,
-        transaction: transaction,
+        collectClaims: collectClaims,
       );
       await _expandToParents(
         edge: edge,
@@ -1622,29 +1626,52 @@ class CrdtForeignKeyProjector {
       );
     }
 
-    await _expandUniqueClaimants(
-      hasAttemptedClaims: hasAttemptedClaims,
+    _expandUniqueClaimants(
       loadedNow: loadedNow,
       attemptedValues: attemptedValues,
       valuesFor: valuesFor,
-      enqueue: enqueue,
-      transaction: transaction,
+      collectClaims: collectClaims,
     );
+
+    for (final MapEntry(key: tableName, value: claims) in claimsByTable.entries) {
+      enqueue(
+        tableName,
+        await _context.findDomainRowIdsWhereAnyColumnsIn(
+          tableName: tableName,
+          alternatives: claims,
+          transaction: transaction,
+        ),
+      );
+      if (!hasAttemptedClaims) continue;
+
+      enqueue(
+        tableName,
+        await _context.findRowIdsHoldingAnyAttemptedValues(
+          tableName: tableName,
+          alternatives: [
+            for (final claim in claims)
+              (
+                columnNames: claim.keys.toSet(),
+                values: {for (final values in claim.values) ...values},
+              ),
+          ],
+          transaction: transaction,
+        ),
+      );
+    }
   }
 
   /// Enqueues the children of the parents loaded in this wave.
   ///
   /// Hiding or restoring a parent decides its children's fate, so they join the
   /// walk whether they still name it or only remember it as an attempt.
-  Future<void> _expandToChildren({
+  void _expandToChildren({
     required ForeignKeyEdge edge,
     required Map<String, Set<UuidValue>> loadedNow,
     required Set<String> tablesToLoad,
     required Set<Object?> Function(MergeRowKey, String) valuesFor,
-    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
-    required bool hasAttemptedClaims,
-    required Transaction transaction,
-  }) async {
+    required void Function(String, Map<String, Set<Object?>>) collectClaims,
+  }) {
     final parentIds = loadedNow[edge.parentTableName];
     if (parentIds == null || parentIds.isEmpty) return;
     if (!tablesToLoad.contains(edge.childTableName)) return;
@@ -1661,13 +1688,7 @@ class CrdtForeignKeyProjector {
     }
     if (references.isEmpty) return;
 
-    await _enqueueRowsClaiming(
-      hasAttemptedClaims: hasAttemptedClaims,
-      tableName: edge.childTableName,
-      valuesByColumn: {edge.childColumn: references},
-      enqueue: enqueue,
-      transaction: transaction,
-    );
+    collectClaims(edge.childTableName, {edge.childColumn: references});
   }
 
   /// Enqueues the parents of the children loaded in this wave.
@@ -1737,14 +1758,12 @@ class CrdtForeignKeyProjector {
   /// own unique index for it. A row that wants a value it does not hold is
   /// already loaded, because holding a projection means holding an attempted
   /// value.
-  Future<void> _expandUniqueClaimants({
+  void _expandUniqueClaimants({
     required Map<String, Set<UuidValue>> loadedNow,
     required Map<MergeFieldKey, CrdtDataAttemptedValue> attemptedValues,
     required Set<Object?> Function(MergeRowKey, String) valuesFor,
-    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
-    required bool hasAttemptedClaims,
-    required Transaction transaction,
-  }) async {
+    required void Function(String, Map<String, Set<Object?>>) collectClaims,
+  }) {
     for (final MapEntry(key: tableName, value: rowIds) in loadedNow.entries) {
       for (final uniqueIndex in _uniqueResolver.uniqueIndexesFor(tableName)) {
         final claimedByColumn = <String, Set<Object?>>{};
@@ -1765,48 +1784,9 @@ class CrdtForeignKeyProjector {
           continue;
         }
 
-        await _enqueueRowsClaiming(
-          hasAttemptedClaims: hasAttemptedClaims,
-          tableName: tableName,
-          valuesByColumn: claimedByColumn,
-          enqueue: enqueue,
-          transaction: transaction,
-        );
+        collectClaims(tableName, claimedByColumn);
       }
     }
-  }
-
-  /// Enqueues every row of [tableName] that holds, or is owed, these values.
-  ///
-  /// A row that was repaired or released away from a value no longer names it
-  /// in the domain column, so the attempted value is the only record left of
-  /// the claim it is waiting to take back.
-  Future<void> _enqueueRowsClaiming({
-    required String tableName,
-    required Map<String, Set<Object?>> valuesByColumn,
-    required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
-    required bool hasAttemptedClaims,
-    required Transaction transaction,
-  }) async {
-    enqueue(
-      tableName,
-      await _context.findDomainRowIdsWhereColumnsIn(
-        tableName: tableName,
-        valuesByColumn: valuesByColumn,
-        transaction: transaction,
-      ),
-    );
-    if (!hasAttemptedClaims) return;
-
-    enqueue(
-      tableName,
-      await _context.findRowIdsHoldingAttemptedValues(
-        tableName: tableName,
-        columnNames: valuesByColumn.keys.toSet(),
-        values: {for (final values in valuesByColumn.values) ...values},
-        transaction: transaction,
-      ),
-    );
   }
 
   Future<List<CrdtDataField>> _loadFields({

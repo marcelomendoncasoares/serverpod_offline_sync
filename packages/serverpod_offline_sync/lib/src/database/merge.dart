@@ -145,14 +145,20 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     // Field metadata for merged inserts is recorded per table and node rather
     // than per row: every query behind it already takes a set of row ids.
     final pendingAttempts = _PendingInsertAttempts();
+    final pendingFieldUpdates = <int, CrdtDataField>{};
     final deferredDeletes = <CrdtMergeDelete>[];
 
     for (final operation in operations) {
       if (!_context.isCrdtTrackedTableName(operation.tableName)) {
         continue;
       }
-      // A later operation on a row resolves its field metadata through the
-      // merge cache, so anything still pending for that row is written first.
+      // Context fields carry the latest clocks while consecutive updates wait.
+      // Persist them before insert/delete processing can read metadata again.
+      if (operation is! CrdtMergeUpdate ||
+          pendingAttempts.holds((operation.tableName, operation.uuidRowId))) {
+        await _flushMergeFieldUpdates(pendingFieldUpdates, transaction);
+      }
+
       if (pendingAttempts.holds((operation.tableName, operation.uuidRowId))) {
         await _flushInsertAttempts(pendingAttempts, context, transaction);
       }
@@ -175,6 +181,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             nodesByUuid,
             context,
             authoredOverlays,
+            pendingFieldUpdates,
             transaction,
           );
         case final CrdtMergeDelete delete:
@@ -197,6 +204,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       }
     }
 
+    await _flushMergeFieldUpdates(pendingFieldUpdates, transaction);
     await _flushInsertAttempts(pendingAttempts, context, transaction);
     for (final delete in deferredDeletes) {
       await _applyMergeDelete(delete, nodesByUuid, context, transaction);
@@ -641,11 +649,28 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
   }
 
+  Future<void> _flushMergeFieldUpdates(
+    Map<int, CrdtDataField> pending,
+    Transaction transaction,
+  ) async {
+    if (pending.isEmpty) return;
+
+    await CrdtDataField.db.update(
+      _session,
+      pending.values.toList(),
+      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+      transaction: transaction,
+      noReturn: true,
+    );
+    pending.clear();
+  }
+
   Future<void> _applyMergeUpdate(
     CrdtMergeUpdate update,
     Map<UuidValue, CrdtNode> remoteNodes,
     MergeContext context,
     Map<MergeFieldKey, Object?> authoredOverlays,
+    Map<int, CrdtDataField> pendingFieldUpdates,
     Transaction transaction,
   ) async {
     final rowKey = (update.tableName, update.uuidRowId);
@@ -673,6 +698,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       remoteNode: remoteNode,
       incomingHlc: update.hlc,
       fields: context.fields,
+      pendingFieldUpdates: pendingFieldUpdates,
       transaction: transaction,
     );
 
@@ -780,8 +806,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     CrdtNode remoteNode,
     Hlc incomingHlc,
     CrdtDataField? currentField,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    Map<int, CrdtDataField>? pendingFieldUpdates,
+  }) async {
     // Projection can create field metadata for a row this merge context loaded
     // before the row existed, so an unseen field may still be persisted. Adopt
     // it instead of inserting a second row onto the row/column unique index.
@@ -822,12 +849,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       hlcCounter: incomingHlc.counter,
     );
 
-    await CrdtDataField.db.update(
-      _session,
-      [updatedField],
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
-      transaction: transaction,
-    );
+    if (pendingFieldUpdates != null) {
+      pendingFieldUpdates[updatedField.id!] = updatedField;
+    } else {
+      await CrdtDataField.db.update(
+        _session,
+        [updatedField],
+        columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+        transaction: transaction,
+      );
+    }
     return updatedField;
   }
 
@@ -1018,6 +1049,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     required Map<MergeFieldKey, CrdtDataField> fields,
     required Transaction transaction,
     CrdtSchemaColumn? schemaColumn,
+    Map<int, CrdtDataField>? pendingFieldUpdates,
   }) async {
     final resolvedSchemaColumn =
         schemaColumn ?? _context.schemaColumn(tableName, columnName);
@@ -1035,6 +1067,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       incomingHlc,
       currentField,
       transaction,
+      pendingFieldUpdates: pendingFieldUpdates,
     );
     return true;
   }

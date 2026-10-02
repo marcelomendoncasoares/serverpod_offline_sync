@@ -531,22 +531,43 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
     required Transaction transaction,
   }) async {
     if (columnNames.isEmpty || values.isEmpty) return const {};
+    return findRowIdsHoldingAnyAttemptedValues(
+      tableName: tableName,
+      alternatives: [(columnNames: columnNames, values: values)],
+      transaction: transaction,
+    );
+  }
 
+  /// Matches the union of claim lookups without mixing their columns and values.
+  Future<Set<UuidValue>> findRowIdsHoldingAnyAttemptedValues({
+    required String tableName,
+    required List<({Set<String> columnNames, Set<Object?> values})> alternatives,
+    required Transaction transaction,
+  }) async {
     final (tableId, columns) = schema[tableName]!;
-    final columnIds = {
-      for (final columnName in columnNames) ?columns[columnName]?.id,
-    };
-    if (columnIds.isEmpty) return const {};
+    final predicates = <String>{};
+    for (final alternative in alternatives) {
+      final columnIds = {
+        for (final columnName in alternative.columnNames) ?columns[columnName]?.id,
+      };
+      if (columnIds.isEmpty) continue;
 
-    final encodedValues = {
-      for (final value in values)
-        if (value != null)
-          ValueEncoder.instance.encodeColumnValue(
-            CrdtDataAttemptedValue.t.value,
-            Protocol().dynamicFieldToJson(value),
-          ),
-    };
-    if (encodedValues.isEmpty) return const {};
+      final encodedValues = {
+        for (final value in alternative.values)
+          if (value != null)
+            ValueEncoder.instance.encodeColumnValue(
+              CrdtDataAttemptedValue.t.value,
+              Protocol().dynamicFieldToJson(value),
+            ),
+      };
+      if (encodedValues.isEmpty) continue;
+
+      predicates.add(
+        '(f."columnId" IN (${columnIds.join(', ')}) '
+        'AND a."value" IN (${encodedValues.join(', ')}))',
+      );
+    }
+    if (predicates.isEmpty) return const {};
 
     final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
     final result = await database.unsafeQuery(
@@ -557,8 +578,7 @@ JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
 WHERE r."spaceId" = $spaceId
   AND r."tblId" = $tableId
-  AND f."columnId" IN (${columnIds.join(', ')})
-  AND a."value" IN (${encodedValues.join(', ')})
+  AND (${predicates.join(' OR ')})
 ''',
       transaction: transaction,
     );
@@ -618,22 +638,38 @@ WHERE r."spaceId" = $spaceId
     required String tableName,
     required Map<String, Set<Object?>> valuesByColumn,
     required Transaction transaction,
-  }) async {
-    if (valuesByColumn.isEmpty) return const {};
-    if (valuesByColumn.values.any((values) => values.isEmpty)) return const {};
+  }) => findDomainRowIdsWhereAnyColumnsIn(
+    tableName: tableName,
+    alternatives: [valuesByColumn],
+    transaction: transaction,
+  );
 
-    final predicates = valuesByColumn.entries
-        .map(
-          (entry) =>
-              '"${entry.key.escapeIdentifier()}" IN (${entry.value.sqlLiteralList()})',
-        )
-        .join(') AND (');
+  /// Matches each composite claim independently and unions the matching row ids.
+  Future<Set<UuidValue>> findDomainRowIdsWhereAnyColumnsIn({
+    required String tableName,
+    required List<Map<String, Set<Object?>>> alternatives,
+    required Transaction transaction,
+  }) async {
+    final predicates = <String>{};
+    for (final valuesByColumn in alternatives) {
+      if (valuesByColumn.isEmpty) continue;
+      if (valuesByColumn.values.any((values) => values.isEmpty)) continue;
+
+      final claim = valuesByColumn.entries
+          .map(
+            (entry) =>
+                '"${entry.key.escapeIdentifier()}" IN (${entry.value.sqlLiteralList()})',
+          )
+          .join(') AND (');
+      predicates.add('(($claim))');
+    }
+    if (predicates.isEmpty) return const {};
 
     final result = await database.unsafeQuery(
       '''
 SELECT "id"
 FROM "${tableName.escapeIdentifier()}"
-WHERE ($predicates)
+WHERE ${predicates.join(' OR ')}
 ''',
       transaction: transaction,
     );
