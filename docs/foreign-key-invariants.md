@@ -21,12 +21,14 @@ not new user field updates emitted opportunistically during merge.
 - Supported foreign keys are single-column child references to single-column
   parent references. Schemas with composite foreign keys must fail recorder
   initialization instead of silently bypassing projection.
-- Merge input is causally complete: the sync protocol delivers each batch as a
-  full causal snapshot of the sender, so every merged FK attempt's parent facts
-  precede or accompany the child fact. Input that violates this precondition
-  (for example, a non-nullable FK attempt whose parent fact is absent and whose
-  default target is missing) is outside the merge contract and fails the merge
-  transaction atomically against the database foreign key constraints.
+- Merge input is causally complete relative to the receiver: every merged FK
+  attempt's parent facts must already be committed at the receiver or accompany
+  the child fact in the same complete batch. A checkpoint-filtered delta can
+  omit acknowledged facts; it need not repeat the sender's full history. Input
+  that violates this precondition (for example, a non-nullable FK attempt whose
+  parent fact is absent and whose default target is missing) is outside the
+  merge contract and fails the merge transaction atomically against the database
+  foreign key constraints.
 - Local `ON DELETE` actions are authored CRDT facts. `RESTRICT` and `NO ACTION`
   reject the local delete while visible children exist; `SET NULL` and
   `SET DEFAULT` update child FK fields and their ordinary `CrdtDataField` HLCs;

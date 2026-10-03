@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:serverpod/serverpod.dart';
@@ -6,48 +7,64 @@ import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart
 import 'dst_random.dart';
 import 'dst_world.dart';
 
-/// One batch of changes waiting to be merged into a replica.
+/// The phase in which a network action actually takes place.
+enum DstNetworkPhase { setup, scheduled, drain }
+
+/// An immutable captured batch, including the committed receiver baseline.
+///
+/// Generated changes and their domain payloads are mutable. Store the wire
+/// representation and decode a fresh copy for each merge, so even a merge that
+/// mutates its input cannot change a later replay.
 class DstDelivery {
-  /// Creates a pending delivery.
   DstDelivery({
+    required this.source,
     required this.target,
     required this.spaceUuid,
-    required this.changes,
-  });
+    required CrdtMergeSet changes,
+    List<Hlc> checkpoints = const [],
+    this.partial = false,
+    this.replay = false,
+  }) : payload = jsonEncode(changes),
+       checkpoints = List.unmodifiable(checkpoints);
 
-  /// The replica that will merge the batch.
+  DstDelivery._replay(DstDelivery original)
+    : source = original.source,
+      target = original.target,
+      spaceUuid = original.spaceUuid,
+      payload = original.payload,
+      checkpoints = original.checkpoints,
+      partial = original.partial,
+      replay = true;
+
+  final DstReplica source;
   final DstReplica target;
-
-  /// The space the batch belongs to.
   final UuidValue spaceUuid;
+  final String payload;
+  final List<Hlc> checkpoints;
+  final bool partial;
+  final bool replay;
 
-  /// The changes to merge.
-  final CrdtMergeSet changes;
+  CrdtMergeSet get changes => [
+    for (final value in jsonDecode(payload) as List)
+      target.rawSession.db.serializationManager.deserialize<CrdtMergeChange>(value),
+  ];
 }
 
-/// Schedules change delivery between replicas adversarially.
+/// Delays, reorders, redelivers and isolates complete collected batches.
 ///
-/// The adversary reorders, delays, redelivers, and partitions. Two moves are
-/// deliberately *not* available, both for the same reason: the merge contract
-/// states that each batch arrives as a causally complete snapshot of the
-/// sender (`docs/foreign-key-invariants.md`).
-///
-/// - **Never drops permanently.** Dropping would manufacture failures outside
-///   the contract instead of finding real ones.
-/// - **Never splits a collected batch.** An earlier version of this harness
-///   split batches at a random pivot to vary framing. That delivers, say, a
-///   delete without its insert; the engine ignores the orphaned change, the
-///   harness marks it delivered, and the fact is lost forever - which then
-///   surfaces as a bogus convergence failure. Chunking in the real protocol
-///   sits *below* the merge (`chunked()` feeds frames that
-///   `collectNextBatch` reassembles until `OfflineSyncEndOfBatch`), so the whole
-///   cycle is the causal unit and splitting here models nothing real.
-///
-/// Delay, reorder, and redelivery are the honest moves; redelivery is how
-/// idempotence gets probed.
+/// Full mode retains the original convergence experiment. Delta mode always
+/// collects against facts already committed at the receiver, never against a
+/// pending delivery. Thus pending batches may overlap but do not depend on one
+/// another arriving first. Neither mode splits batches or drops them forever.
 class DstAdversary {
-  /// Creates an adversary over [replicas].
-  DstAdversary(this.random, this.replicas);
+  DstAdversary(
+    this.random,
+    this.replicas, {
+    this.delivery = DstDeliveryMode.full,
+  });
+
+  final DstDeliveryMode delivery;
+  DstNetworkPhase phase = DstNetworkPhase.scheduled;
 
   static const receiveIsolationProbability = 0.2;
   static const collectionProbability = 0.8;
@@ -62,7 +79,21 @@ class DstAdversary {
   final List<DstDelivery> _pending = [];
   final Map<String, Set<String>> _deliveredKeys = {};
   final Map<String, int> _partitionedUntil = {};
+  final Map<String, List<DstDelivery>> _replayable = {};
+  final Map<String, int> _observations = {};
   var _round = 0;
+
+  void _count(String name, [int amount = 1]) {
+    _observations
+      ..update(name, (value) => value + amount, ifAbsent: () => amount)
+      ..update(
+        '${phase.name}.$name',
+        (value) => value + amount,
+        ifAbsent: () => amount,
+      );
+  }
+
+  int get scheduledPartialBatches => _observations['scheduled.partialBatches'] ?? 0;
 
   /// Batches merged so far, for reporting how much work a seed actually did.
   int mergeCount = 0;
@@ -72,6 +103,7 @@ class DstAdversary {
   int deliveredChanges = 0;
 
   Map<String, int> get metrics => {
+    ..._observations,
     'merges': mergeCount,
     'receiveIsolationEvents': receiveIsolationEvents,
     'duplicateBatches': duplicateBatches,
@@ -117,13 +149,14 @@ class DstAdversary {
     throw StateError(
       'The simulation did not quiesce after $_maxQuiescePasses passes. '
       'Replicas keep producing changes for each other, which means merging a '
-      'batch is not idempotent: a merge is re-authoring facts instead of '
-      'absorbing them.',
+      'batch is not idempotent or checkpoint collection cannot settle. '
+      'Delivery mode: ${delivery.name}; metrics: $metrics',
     );
   }
 
   void _partitionRandomReplica() {
     receiveIsolationEvents++;
+    _count('receiveIsolationEvents');
     final replica = random.pick(replicas);
     _partitionedUntil[replica.name] = _round + random.between(1, 3);
   }
@@ -146,12 +179,18 @@ class DstAdversary {
     bool allowResend = true,
   }) async {
     final changes = await source.collect(spaceUuid);
-    if (changes.isEmpty) return;
+    if (changes.isEmpty && delivery == DstDeliveryMode.full) return;
 
     for (final target in replicas) {
       if (identical(target, source)) continue;
       if (!target.spaceUuids.contains(spaceUuid)) continue;
 
+      if (delivery == DstDeliveryMode.delta) {
+        await _collectDelta(source, target, spaceUuid, changes.length, allowResend);
+        continue;
+      }
+
+      _count('fullCollections');
       final delivered = _deliveredKeys.putIfAbsent(target.name, () => {});
       // Occasionally resend what the target already merged. Redelivery must be
       // a no-op, so this is the idempotence probe rather than wasted work.
@@ -167,9 +206,57 @@ class DstAdversary {
       if (fresh.isEmpty) continue;
 
       _pending.add(
-        DstDelivery(target: target, spaceUuid: spaceUuid, changes: changes),
+        DstDelivery(
+          source: source,
+          target: target,
+          spaceUuid: spaceUuid,
+          changes: changes,
+        ),
       );
     }
+  }
+
+  Future<void> _collectDelta(
+    DstReplica source,
+    DstReplica target,
+    UuidValue spaceUuid,
+    int fullSize,
+    bool allowResend,
+  ) async {
+    final edge = '${source.name}|${target.name}|$spaceUuid';
+    final history = _replayable[edge] ?? const <DstDelivery>[];
+    if (allowResend && random.chance(resendProbability) && history.isNotEmpty) {
+      _pending.add(DstDelivery._replay(random.pick(history)));
+    }
+
+    final checkpoints = await target.checkpoints(spaceUuid);
+    _count('checkpointCollections');
+    final advanced = checkpoints.any(
+      (checkpoint) =>
+          checkpoint.nodeId != target.nodeUuid &&
+          checkpoint > Hlc.zero(checkpoint.nodeId),
+    );
+    if (advanced) _count('advancedCheckpointCollections');
+
+    // No local writes or merges interleave the full-size observation above
+    // and this collection. The full export measures omission only; it is never
+    // delivered as a repair in delta mode.
+    final changes = await source.collect(spaceUuid, checkpoints: checkpoints);
+    if (changes.isEmpty) {
+      _count('emptyCollections');
+      return;
+    }
+
+    _pending.add(
+      DstDelivery(
+        source: source,
+        target: target,
+        spaceUuid: spaceUuid,
+        changes: changes,
+        checkpoints: checkpoints,
+        partial: advanced && changes.length < fullSize,
+      ),
+    );
   }
 
   Future<void> _deliverOne(Future<void> Function(DstReplica) onMerged) async {
@@ -184,30 +271,53 @@ class DstAdversary {
     final delivery = random.pick(deliverable);
     _pending.remove(delivery);
 
+    final changes = delivery.changes;
     try {
-      await delivery.target.merge(delivery.changes, delivery.spaceUuid);
+      await delivery.target.merge(changes, delivery.spaceUuid);
     } on Exception catch (exception) {
       // As with local operations, database errors arrive without engine
       // frames, so the batch that caused them is described here.
-      final keys = delivery.changes.map(dstChangeKey).join('\n  ');
+      final keys = changes.map(dstChangeKey).join('\n  ');
       throw StateError(
-        'Merging ${delivery.changes.length} changes for space '
-        '${delivery.spaceUuid} into ${delivery.target} failed: $exception\n'
+        'Merging ${changes.length} changes for space '
+        '${delivery.spaceUuid} from ${delivery.source} into ${delivery.target} failed: $exception\n'
+        'Mode: ${this.delivery.name}; checkpoints: ${delivery.checkpoints}; replay: ${delivery.replay}\n'
         'Batch:\n  $keys',
       );
     }
     final prior = _deliveredKeys[delivery.target.name] ?? {};
-    if (delivery.changes.any((change) => prior.contains(dstChangeKey(change)))) {
+    if (changes.any((change) => prior.contains(dstChangeKey(change)))) {
       duplicateBatches++;
+      _count('duplicateBatches');
     }
-    if (delivery.changes.length > maxBatchSize) maxBatchSize = delivery.changes.length;
-    deliveredChanges += delivery.changes.length;
+    if (changes.length > maxBatchSize) maxBatchSize = changes.length;
+    final phaseMaxKey = '${phase.name}.maxBatchSize';
+    _observations.update(
+      phaseMaxKey,
+      (value) => value > changes.length ? value : changes.length,
+      ifAbsent: () => changes.length,
+    );
+    deliveredChanges += changes.length;
+    _count('deliveredChanges', changes.length);
     mergeCount++;
+    _count('merges');
+    if (delivery.replay) _count('explicitReplays');
+    if (delivery.partial && !delivery.replay) _count('partialBatches');
+    final repeated = changes
+        .where((change) => prior.contains(dstChangeKey(change)))
+        .length;
+    _count('repeatedChanges', repeated);
+    _count('freshChanges', changes.length - repeated);
+    if (this.delivery == DstDeliveryMode.delta && !delivery.replay) {
+      final edge =
+          '${delivery.source.name}|${delivery.target.name}|${delivery.spaceUuid}';
+      _replayable.putIfAbsent(edge, () => []).add(delivery);
+    }
     _trace(delivery);
 
     _deliveredKeys
         .putIfAbsent(delivery.target.name, () => {})
-        .addAll(delivery.changes.map(dstChangeKey));
+        .addAll(changes.map(dstChangeKey));
 
     await onMerged(delivery.target);
   }
@@ -233,7 +343,11 @@ class DstAdversary {
     // Printing is the point: this is an opt-in trace read from the test runner
     // output while diagnosing a failing seed.
     // ignore: avoid_print
-    print('merge -> ${delivery.target}: ${relevant.join('  ||  ')}');
+    print(
+      'merge ${delivery.source} -> ${delivery.target} '
+      'mode=${this.delivery.name} checkpoints=${delivery.checkpoints} '
+      'replay=${delivery.replay}: ${relevant.join('  ||  ')}',
+    );
   }
 
   static const _maxQuiescePasses = 24;
