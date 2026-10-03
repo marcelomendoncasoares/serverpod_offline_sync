@@ -346,6 +346,14 @@ class CrdtMutationRecorder {
     UuidValue otherNodeId,
     Hlc syncedHlc,
   ) async {
+    if (syncedHlc.nodeId != otherNodeId) {
+      throw ArgumentError.value(
+        syncedHlc,
+        'syncedHlc',
+        'A per-author checkpoint must carry otherNodeId',
+      );
+    }
+
     final space = await _context.spaceManager.getOrCreate(userId);
     await _db.transaction((transaction) async {
       final node = await _context.findOrCreateNode(otherNodeId, transaction);
@@ -356,7 +364,9 @@ class CrdtMutationRecorder {
       );
 
       final currentSyncHlc = spaceNode.lastReceivedHlc;
-      if (currentSyncHlc != null && currentSyncHlc >= syncedHlc) {
+      if (currentSyncHlc != null &&
+          currentSyncHlc.nodeId == otherNodeId &&
+          currentSyncHlc >= syncedHlc) {
         return;
       }
 

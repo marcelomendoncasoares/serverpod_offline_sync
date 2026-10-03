@@ -2,6 +2,8 @@
 
 - fix: Include the persisted local logical clock in resume checkpoints so
   reconnecting within the same millisecond or after clock rollback settles.
+- fix: Keep relay checkpoints tagged with their actual author and recover
+  incorrectly tagged stored progress without repeated transfers on reconnect.
 - fix: Reconsider released unique claims after local updates and upserts so
   the author and peers receiving checkpoint deltas keep the same projection.
 - test: Add checkpoint-based deterministic delivery alongside full-history

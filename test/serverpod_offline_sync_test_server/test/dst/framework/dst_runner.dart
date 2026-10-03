@@ -11,7 +11,11 @@ import 'dst_world.dart';
 /// The shape of one simulated deployment.
 class DstTopology {
   /// Creates a topology.
-  const DstTopology({required this.spaceCount, required this.subscriptions});
+  const DstTopology({
+    required this.name,
+    required this.spaceCount,
+    required this.subscriptions,
+  });
 
   /// Two spaces, and three replicas whose subscription sets deliberately
   /// differ: two hold only one space each, one holds both.
@@ -20,6 +24,7 @@ class DstTopology {
   /// some replica holds strictly more than another, because the claim is that
   /// the extra space changes nothing about the shared one.
   static const overlappingSpaces = DstTopology(
+    name: 'cross_space',
     spaceCount: 2,
     subscriptions: [
       [0],
@@ -30,6 +35,7 @@ class DstTopology {
 
   /// One space shared by every replica - the classic convergence shape.
   static const singleSpace = DstTopology(
+    name: 'convergence',
     spaceCount: 1,
     subscriptions: [
       [0],
@@ -37,6 +43,9 @@ class DstTopology {
       [0],
     ],
   );
+
+  /// The stable topology name used in reports and soak records.
+  final String name;
 
   /// How many spaces exist.
   final int spaceCount;
@@ -54,6 +63,7 @@ class DstRunReport {
   /// Creates a report.
   DstRunReport({
     required this.seed,
+    required this.topology,
     required this.merges,
     required this.applied,
     required this.rejected,
@@ -72,6 +82,7 @@ class DstRunReport {
     required this.network,
   });
 
+  final String topology;
   final int rounds;
   final DstDeliveryMode delivery;
   final DstProfile profile;
@@ -86,6 +97,7 @@ class DstRunReport {
 
   Map<String, Object> toJson() => {
     'seed': seed,
+    'topology': topology,
     'rounds': rounds,
     'profile': profile.name,
     'delivery': delivery.name,
@@ -127,7 +139,7 @@ class DstRunReport {
 
   @override
   String toString() =>
-      'seed=$seed merges=$merges applied=$applied rejected=$rejected '
+      'seed=$seed topology=$topology merges=$merges applied=$applied rejected=$rejected '
       'visible=$visibleRows hidden=$hiddenRows paths=$appliedPaths';
 }
 
@@ -280,6 +292,7 @@ Future<DstRunReport> runDstSimulation({
     }
 
     final report = DstRunReport(
+      topology: topology.name,
       seed: seed,
       merges: adversary.mergeCount,
       applied: operations.committed,
@@ -345,6 +358,7 @@ Future<DstRunReport> runDstSimulation({
     print(
       'DST_METRICS ${jsonEncode({
         'seed': seed,
+        'topology': topology.name,
         'rounds': rounds,
         'profile': resolvedProfile.name,
         'requestedProfile': profile.name,

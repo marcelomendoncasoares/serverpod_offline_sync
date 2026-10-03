@@ -222,6 +222,7 @@ void main() {
           adversary.phase = DstNetworkPhase.scheduled;
           await adversary.step((_) async {});
           await adversary.step((_) async {});
+          await adversary.step((_) async {});
           partialBeforeDrain = adversary.scheduledPartialBatches;
           adversary.phase = DstNetworkPhase.drain;
           await adversary.quiesce((_) async {});
@@ -238,7 +239,7 @@ void main() {
             expect(partialBeforeDrain, greaterThan(0));
             expect(adversary.scheduledPartialBatches, partialBeforeDrain);
             expect(adversary.metrics['explicitReplays'], greaterThan(0));
-            expect(adversary.metrics['emptyCollections'], greaterThan(0));
+            expect(adversary.metrics['scheduled.emptyCollections'], greaterThan(0));
             expect(adversary.metrics['setup.partialBatches'], isNull);
           },
         );

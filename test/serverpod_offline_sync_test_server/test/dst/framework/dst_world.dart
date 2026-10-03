@@ -2,6 +2,7 @@ import 'package:clock/clock.dart';
 // Imported with `show` because the barrel below re-exports overlapping names.
 import 'package:serverpod_database/serverpod_database.dart'
     show DatabaseSession, TableRow, Transaction;
+import 'package:serverpod_offline_sync/src/sync/space_state.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -188,7 +189,11 @@ class DstReplica {
       () => sync
           .collectPendingChanges(
             rawSession,
-            checkpointsBySpaceUuid: {spaceUuid: checkpoints},
+            checkpointsBySpaceUuid: {
+              spaceUuid: OfflineSyncSpaceState.normalizeCheckpoints(
+                checkpoints,
+              ).values.toList(),
+            },
           )
           .toList(),
     );
@@ -198,7 +203,11 @@ class DstReplica {
   Future<void> merge(CrdtMergeSet changes, UuidValue spaceUuid) async {
     if (changes.isEmpty) return;
     await withReplicaClock(
-      () => session.db.mergeChanges(changes, spaceId: spaceUuid),
+      () => sync.mergeInboundBatch(
+        rawSession,
+        spaceId: spaceUuid,
+        mergeSet: changes,
+      ),
     );
   }
 

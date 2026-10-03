@@ -214,7 +214,8 @@ and causal monotonicity. The selected delivery mode distributes the populated
 spaces before random scheduling starts; bootstrap naturally includes previously
 unknown facts. The sparse profile retains empty-world exploration.
 
-Every run emits one `DST_METRICS` JSON record, including failed runs. It separates
+Every run emits one `DST_METRICS` JSON record, including failed runs. Its
+`topology` identifies `convergence` or `cross_space`. It separates
 setup attempts from scheduled commits and records attempted, committed, rejected,
 skipped, unexpected failures, and committed transactions whose oracle failed.
 A run failing during setup reports zero scheduled activity. Paths retain table
@@ -234,7 +235,8 @@ Counters carry `setup.`, `scheduled.`, or `drain.` prefixes according to when th
 collection or delivery occurred. Exact replays do not count as new partial
 batches. Delta stress runs (100+ rounds) require at least one scheduled partial
 batch; setup and final draining cannot satisfy that gate. Shorter runs remain
-smoke checks. The soak script retains `METRICS.jsonl` even for passing runs.
+smoke checks. The soak script retains `METRICS.jsonl` even for passing runs,
+adding a `runId` that joins each record to the run's `id` in `RUNS.tsv`.
 
 Coverage counts distinct field/tombstone events rather than repeated snapshot
 appearances. FK edges and cycles are **authored graph** observations. Unique
@@ -264,5 +266,6 @@ DST_SEED_BASE=62 DST_SEEDS=1 DST_ROUNDS=200 DST_PROFILE=populated DST_GRAPH_WIDT
 The oracle remains bounded: it does not independently arbitrate all unique
 winners or FK fixed points. Concurrent collection, continuous-session send cursors, crash recovery, space
 grant/revoke, and transport framing remain outside this schedule. Delta mode
-exercises production resume-vector creation, checkpoint filtering, and received
-progress persisted by merge; it does not simulate the full sync driver.
+exercises production resume-vector creation, peer-handshake vector normalization,
+checkpoint filtering, and the inbound merge primitive that atomically persists
+per-author received progress; it does not simulate the full sync driver.

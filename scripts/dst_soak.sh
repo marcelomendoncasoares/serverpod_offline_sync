@@ -146,7 +146,7 @@ while [ "$(date +%s)" -lt "$UNTIL" ]; do
   fi
 
   # Preserve actual coverage before deleting bulky passing-run output.
-  sed -n 's/^.*DST_METRICS //p' "$log" >> "$OUT/METRICS.jsonl"
+  sed -n "s/^.*DST_METRICS {/\{\"runId\":\"$id\",/p" "$log" >> "$OUT/METRICS.jsonl"
 
   if [ $status -eq 0 ]; then
     # Metrics above retain coverage evidence; keep bulky per-test output only
