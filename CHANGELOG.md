@@ -1,3 +1,12 @@
+## Unreleased
+
+- fix: Include the persisted local logical clock in resume checkpoints so
+  reconnecting within the same millisecond or after clock rollback settles.
+- fix: Reconsider released unique claims after local updates and upserts so
+  the author and peers receiving checkpoint deltas keep the same projection.
+- test: Add checkpoint-based deterministic delivery alongside full-history
+  convergence, with replayable batches and separate coverage metrics.
+
 ## 0.0.9
 
 - fix: Refreshes node clocks across sync wrappers.
