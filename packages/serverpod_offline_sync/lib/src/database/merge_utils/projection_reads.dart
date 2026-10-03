@@ -3,6 +3,9 @@ part of 'foreign_key_projector.dart';
 /// Loads metadata for one projection read phase in one space and transaction.
 /// Field identities are resolved through the scoped rows and registered columns,
 /// so equal domain UUIDs in different tables remain distinct.
+///
+/// Its maps become mutable projection state. Complete loading before applying
+/// pending inserts or authored overlays to them.
 class _ProjectionReader {
   _ProjectionReader(this._context, this._transaction);
 

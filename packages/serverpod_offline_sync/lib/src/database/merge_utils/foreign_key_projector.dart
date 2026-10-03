@@ -912,7 +912,6 @@ class CrdtForeignKeyProjector {
         authoredOverlays: authoredOverlays,
         columnsByTable: columnsByTable,
         reader: reader,
-        transaction: transaction,
       );
     }
 
@@ -1120,8 +1119,8 @@ class CrdtForeignKeyProjector {
     required Map<MergeFieldKey, Object?> authoredOverlays,
     required Map<String, Set<String>> columnsByTable,
     required _ProjectionReader reader,
-    required Transaction transaction,
   }) async {
+    final transaction = reader._transaction;
     final rows = reader.rows;
     final attemptedValues = reader.attemptedValues;
     final hasAttemptedClaims = await reader.hasAttemptedClaims(tablesToLoad);
