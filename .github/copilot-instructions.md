@@ -22,6 +22,16 @@
 - Remove unnecessary comments from production code.
 - Ensure linting passes before considering the task finished.
 
+## Performance Changes
+
+- Do not infer application bulk-write intent by inspecting or comparing domain
+  row values. Applications express uniform bulk edits explicitly through
+  `updateWhere`; the engine must not rediscover that intent from equal values.
+- Engine-owned planning may drive batching, including projected explicit-null
+  column sets, query predicates, schema identities, and merge operation boundaries.
+  Preserve domain inspection required for CRDT correctness and dependency traversal.
+- Compare proposed gains against the best existing API for the operation.
+
 ## Pubspec Dependency Management
 
 - Do not add any new dependencies, unless explicitly asked.

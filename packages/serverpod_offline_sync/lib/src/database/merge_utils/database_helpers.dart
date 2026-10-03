@@ -94,7 +94,7 @@ TableRow<UuidValue?> withExplicitInsertNulls(
 
 /// Keeps per-row default semantics when a batch contains projected nulls.
 /// PostgreSQL builds a batch using the first row's table, so rows with different
-/// null overrides must be written separately within the caller's transaction.
+/// null overrides use separate consecutive batches in the caller's transaction.
 @internal
 Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
   Database database,
@@ -112,15 +112,30 @@ Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
       noReturn: noReturn,
     );
   }
-  return [
-    for (final row in rows)
-      ...(await database.insert<TableRow<UuidValue?>>(
-        [withExplicitInsertNulls(row, explicitNulls[row.id] ?? const {})],
-        transaction: transaction,
-        ignoreConflicts: ignoreConflicts,
-        noReturn: noReturn,
-      )).cast<T>(),
-  ];
+  final inserted = <T>[];
+  var start = 0;
+  while (start < rows.length) {
+    final columns = explicitNulls[rows[start].id] ?? const <String>{};
+    var end = start + 1;
+    while (end < rows.length) {
+      final next = explicitNulls[rows[end].id] ?? const <String>{};
+      if (columns.length != next.length || !columns.containsAll(next)) break;
+      end++;
+    }
+
+    final result = await database.insert<TableRow<UuidValue?>>(
+      [
+        for (var index = start; index < end; index++)
+          withExplicitInsertNulls(rows[index], columns),
+      ],
+      transaction: transaction,
+      ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
+    );
+    inserted.addAll(result.cast<T>());
+    start = end;
+  }
+  return inserted;
 }
 
 class _ExplicitNullRow implements TableRow<UuidValue?> {
