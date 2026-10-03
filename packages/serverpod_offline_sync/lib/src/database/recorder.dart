@@ -574,21 +574,35 @@ class CrdtMutationRecorder {
   }
 
   /// Plans FK/unique projection for rows that are about to be updated.
-  Future<({List<T> rows, bool projectionUnchanged})>
+  Future<({List<T> rows, bool projectionUnchanged, Set<MergeRowKey> projectionRows})>
   planLocalUpdates<T extends TableRow>(
     List<T> rows,
     List<Column>? columns,
     Transaction transaction, {
     bool restoring = false,
   }) async {
-    if (rows.isEmpty) return (rows: rows, projectionUnchanged: true);
+    if (rows.isEmpty) {
+      return (
+        rows: rows,
+        projectionUnchanged: true,
+        projectionRows: const <MergeRowKey>{},
+      );
+    }
     final tableName = rows.first.table.tableName;
     if (!_context.isCrdtTrackedTableName(tableName)) {
-      return (rows: rows, projectionUnchanged: true);
+      return (
+        rows: rows,
+        projectionUnchanged: true,
+        projectionRows: const <MergeRowKey>{},
+      );
     }
     final columnNames = columns?.map((column) => column.columnName).toSet();
     if (!_foreignKeyProjector.needsProjection(tableName, columnNames)) {
-      return (rows: rows, projectionUnchanged: true);
+      return (
+        rows: rows,
+        projectionUnchanged: true,
+        projectionRows: const <MergeRowKey>{},
+      );
     }
 
     if (await _foreignKeyProjector.canLeaveLocalProjectionUnchanged(
@@ -597,7 +611,11 @@ class CrdtMutationRecorder {
       inserting: false,
       columns: columns,
     )) {
-      return (rows: rows, projectionUnchanged: true);
+      return (
+        rows: rows,
+        projectionUnchanged: true,
+        projectionRows: const <MergeRowKey>{},
+      );
     }
 
     final authored = {
@@ -646,6 +664,7 @@ class CrdtMutationRecorder {
     );
     return (
       projectionUnchanged: false,
+      projectionRows: planned.domain.keys.toSet(),
       rows: [
         for (final row in rows)
           _withPlannedDomainValues(
@@ -809,8 +828,9 @@ class CrdtMutationRecorder {
   /// Records a row insertion that reused an existing tombstoned domain row.
   Future<void> afterReinsert<T extends TableRow>(
     List<T> reinsertedRows,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    Set<MergeRowKey> projectionRows = const {},
+  }) async {
     await _forTrackedRows(reinsertedRows, transaction, (
       tableName,
       rowIds,
@@ -835,7 +855,13 @@ class CrdtMutationRecorder {
         CrdtDataDeletedReason.userReinsert,
         transaction,
       );
-      await _maybeProject(tableName, rowIds, null, transaction);
+      await _maybeProject(
+        tableName,
+        rowIds,
+        null,
+        transaction,
+        projectionRows: projectionRows,
+      );
       // Only projected fields need a metadata row to hold their authored value.
       // All other fields now inherit the insertion timestamp implicitly.
       await CrdtDataField.db.deleteWhere(
@@ -847,6 +873,52 @@ class CrdtMutationRecorder {
         noReturn: true,
       );
     });
+  }
+
+  /// Captures the old projection closure before a set-based physical update.
+  ///
+  /// Updating a winning unique tuple can disconnect its released claimants.
+  /// Select targets while the write transaction holds the node lock. The
+  /// caller must update these identities instead of evaluating a limited
+  /// predicate again, which could select different rows without a total order.
+  Future<({Set<UuidValue> rowIds, Set<MergeRowKey> projectionRows})?>
+  planLocalUpdateWhere<T extends TableRow>(
+    List<Column> columns,
+    Expression where,
+    Transaction transaction, {
+    int? limit,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+  }) async {
+    final table = _session.db.serializationManager.getTableForType(T)!;
+    if (!_foreignKeyProjector.needsProjection(
+      table.tableName,
+      columns.map((column) => column.columnName).toSet(),
+    )) {
+      return null;
+    }
+
+    final rows = await _session.db.find<T>(
+      where: where,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      transaction: transaction,
+    );
+    final rowIds = {for (final row in rows) row.id as UuidValue};
+    if (rowIds.isEmpty) {
+      return (rowIds: rowIds, projectionRows: const <MergeRowKey>{});
+    }
+
+    final plan = await _foreignKeyProjector.project(
+      transaction,
+      seedTables: {table.tableName},
+      seedRows: {for (final rowId in rowIds) (table.tableName, rowId)},
+      materialize: false,
+    );
+    return (rowIds: rowIds, projectionRows: plan.domain.keys.toSet());
   }
 
   /// Records CRDT field metadata for updated rows.
@@ -863,6 +935,7 @@ class CrdtMutationRecorder {
     Transaction transaction, {
     bool projectionUnchanged = false,
     bool authoredColumnValues = false,
+    Set<MergeRowKey> projectionRows = const {},
     Map<MergeRowKey, Map<String, Object?>> domainBeforeUpsert = const {},
     List<TableRow> upsertRows = const [],
   }) async {
@@ -957,6 +1030,7 @@ class CrdtMutationRecorder {
         updatedColumnNames,
         transaction,
         authoredOverlays: authoredOverlays,
+        projectionRows: {...projectionRows, ...domainBeforeUpsert.keys},
       );
     });
   }
@@ -967,12 +1041,15 @@ class CrdtMutationRecorder {
     Set<String>? columnNames,
     Transaction transaction, {
     Map<MergeFieldKey, Object?> authoredOverlays = const {},
+    Set<MergeRowKey> projectionRows = const {},
   }) async {
     if (_foreignKeyProjector.needsProjection(tableName, columnNames)) {
       await _foreignKeyProjector.project(
         transaction,
         seedTables: {tableName},
-        seedRows: {for (final rowId in rowIds) (tableName, rowId)},
+        // A physical local write can remove the old tuple from the seed row.
+        // Retain its pre-write closure so released claimants are reconsidered.
+        seedRows: {...projectionRows, for (final rowId in rowIds) (tableName, rowId)},
         authoredOverlays: authoredOverlays,
       );
     }
