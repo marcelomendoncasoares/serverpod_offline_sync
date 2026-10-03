@@ -8,13 +8,13 @@ class _MergeWriteBatch {
   _MergeWriteBatch({
     required this._session,
     required this._projector,
-    required this._context,
+    required this._fields,
     required this._transaction,
   });
 
   final DatabaseSession _session;
   final CrdtForeignKeyProjector _projector;
-  final MergeContext _context;
+  final Map<MergeFieldKey, CrdtDataField> _fields;
   final Transaction _transaction;
   final _insertAttempts = _PendingInsertAttempts();
   final _fieldUpdates = <int, CrdtDataField>{};
@@ -88,7 +88,7 @@ class _MergeWriteBatch {
         group.rowIds,
         _transaction,
         group.attempts,
-        mergeCache: (fields: _context.fields, node: group.node),
+        mergeCache: (fields: _fields, node: group.node),
       );
     }
   }

@@ -82,7 +82,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final writes = _MergeWriteBatch(
       session: _session,
       projector: _foreignKeyProjector,
-      context: context,
+      fields: context.fields,
       transaction: transaction,
     );
     final deferredDeletes = <CrdtMergeDelete>[];
