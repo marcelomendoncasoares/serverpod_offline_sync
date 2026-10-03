@@ -340,7 +340,9 @@ class CrdtMutationRecorder {
   Future<void> lockAndRefreshCurrentNodeHlc(Transaction transaction) =>
       _context.lockAndRefreshCurrentNodeHlc(transaction);
 
-  /// Records the latest acknowledged sync checkpoint for [otherNodeId].
+  /// Records per-author progress, rejecting an HLC not tagged with [otherNodeId].
+  ///
+  /// Replaces mis-tagged stored progress; correctly tagged progress only advances.
   Future<void> recordSyncCheckpoint(
     UuidValue userId,
     UuidValue otherNodeId,

@@ -133,7 +133,11 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Records the latest acknowledged sync checkpoint for [otherNodeId].
+  /// Records acknowledged per-author progress for [otherNodeId].
+  ///
+  /// [syncedHlc] must carry [otherNodeId] as its author. Throws [ArgumentError]
+  /// otherwise. A correctly tagged checkpoint replaces previously stored
+  /// progress tagged with another author; valid progress advances monotonically.
   Future<void> recordSyncCheckpoint(
     UuidValue otherNodeId,
     Hlc syncedHlc, {

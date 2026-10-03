@@ -4,6 +4,9 @@
   reconnecting within the same millisecond or after clock rollback settles.
 - fix: Keep relay checkpoints tagged with their actual author and recover
   incorrectly tagged stored progress without repeated transfers on reconnect.
+- fix: Require `recordSyncCheckpoint` to receive an HLC authored by its
+  `otherNodeId`, throwing `ArgumentError` on a mismatch. Valid checkpoints
+  replace incorrectly tagged stored progress.
 - fix: Reconsider released unique claims after local updates and upserts so
   the author and peers receiving checkpoint deltas keep the same projection.
 - test: Add checkpoint-based deterministic delivery alongside full-history
