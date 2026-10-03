@@ -167,18 +167,28 @@ class DstReplica {
     );
   }
 
-  /// Collects every change this replica holds for [spaceUuid].
+  /// Reads the production resume vector under this replica's seeded clock.
+  Future<List<Hlc>> checkpoints(UuidValue spaceUuid) => withReplicaClock(
+    () async => (await sync.createSyncSinceHlc(
+      rawSession,
+      spaceId: spaceUuid,
+    )).nodeCheckpoints,
+  );
+
+  /// Collects a complete batch after the receiver's committed [checkpoints].
   ///
-  /// The harness deliberately collects the full history rather than tracking
-  /// per-peer checkpoints. Redelivery is a merge the engine must absorb
-  /// idempotently, so letting the adversary resend is a property under test
-  /// rather than a defect in the harness.
-  Future<CrdtMergeSet> collect(UuidValue spaceUuid) async {
+  /// An empty vector preserves the full-history convergence experiment. Delta
+  /// callers pass the receiver's production handshake vector, including one
+  /// entry per known author in this space, never progress from queued batches.
+  Future<CrdtMergeSet> collect(
+    UuidValue spaceUuid, {
+    List<Hlc> checkpoints = const [],
+  }) async {
     return withReplicaClock(
       () => sync
           .collectPendingChanges(
             rawSession,
-            checkpointsBySpaceUuid: {spaceUuid: const []},
+            checkpointsBySpaceUuid: {spaceUuid: checkpoints},
           )
           .toList(),
     );
