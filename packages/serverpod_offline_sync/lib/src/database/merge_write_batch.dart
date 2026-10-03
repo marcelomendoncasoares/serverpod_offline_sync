@@ -3,6 +3,7 @@ part of 'recorder.dart';
 /// Owns pending metadata for one merge and the boundaries that make it readable.
 /// Context fields advance immediately. Existing field writes wait until an
 /// insert, delete, pending insert's next operation, or successful completion.
+/// Insert attempts are flushed before another operation touches their row.
 class _MergeWriteBatch {
   _MergeWriteBatch({
     required this._session,

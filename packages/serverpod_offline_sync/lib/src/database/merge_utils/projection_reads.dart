@@ -13,7 +13,9 @@ class _ProjectionReader {
   final attemptedValues = <MergeFieldKey, CrdtDataAttemptedValue>{};
   final fieldHlcs = <MergeFieldKey, Hlc>{};
 
-  /// This existence proof is valid only until the next write phase.
+  /// Whether this space and these tables hold any attempted claims.
+  /// A false result lets the closure skip attempted-claim queries, but is
+  /// valid only until the next write phase; each projection checks again.
   Future<bool> hasAttemptedClaims(Set<String> tablesToLoad) async {
     final spaceId = _context.hlcManagerFor(_transaction).normalizedSpaceId;
     return tablesToLoad.isNotEmpty &&
@@ -137,6 +139,7 @@ class _ProjectionReader {
 }
 
 /// Collects the required claim lookups for one closure wave by table.
+/// Traversal selects the claims; this collector handles grouped execution.
 /// Each composite claim remains independent when the queries are combined.
 class _ProjectionClaimReads {
   _ProjectionClaimReads(

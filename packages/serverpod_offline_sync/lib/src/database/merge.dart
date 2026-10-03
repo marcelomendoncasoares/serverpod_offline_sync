@@ -708,6 +708,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         );
 
     if (existingField == null) {
+      // Dependent metadata needs the field identity, so new fields cannot
+      // wait in the batch of existing field-clock updates.
       final insertedField = await CrdtDataField.db.insertRow(
         _session,
         CrdtDataField(
