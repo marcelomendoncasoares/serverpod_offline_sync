@@ -21,6 +21,9 @@ class _MergeWriteBatch {
 
   /// Successful completion persists all metadata before projection can run.
   /// Failure leaves rollback to the enclosing transaction, without flushing.
+  ///
+  /// Update callbacks must use the merge context's current clocks and record
+  /// changes to existing fields through [recordFieldUpdate].
   Future<void> apply(
     Iterable<CrdtMergeChange> operations,
     Future<void> Function(CrdtMergeChange operation) applyOperation,
@@ -30,6 +33,9 @@ class _MergeWriteBatch {
         operation.tableName,
         operation.uuidRowId,
       ));
+
+      // Reinserts can advance field clocks immediately. Flush older queued
+      // updates first so the final flush cannot overwrite those newer clocks.
       if (operation is! CrdtMergeUpdate || needsInsertMetadata) {
         await _flushFieldUpdates();
       }

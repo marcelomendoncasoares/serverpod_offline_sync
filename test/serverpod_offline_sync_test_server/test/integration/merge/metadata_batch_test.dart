@@ -139,6 +139,83 @@ void main() {
     );
   });
 
+  group('Given a city with a local name edit,', () {
+    late SyncNode node;
+    late City city;
+    late Hlc localNameClock;
+
+    setUpAll(() async {
+      node = await syncNode(await createAdditionalTestSession(), testSyncTables);
+      city = City(id: const Uuid().v7obj(), name: 'original');
+      await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
+        await City.db.insertRow(node.offlineSync, city, transaction: tx);
+        await City.db.updateRow(
+          node.offlineSync,
+          city.copyWith(name: 'locally edited'),
+          columns: (t) => [t.name],
+          transaction: tx,
+        );
+      });
+      localNameClock = (await _fieldClock(node, 'city', city.id!, 'name'))!;
+    });
+
+    group(
+      'when one batch edits and reinserts it before an intermediate edit arrives,',
+      () {
+        late Hlc reinsertClock;
+        late City? merged;
+        late Hlc? mergedClock;
+        late City? afterLateEdit;
+        late Hlc? afterLateClock;
+
+        setUpAll(() async {
+          final editClock = Hlc(
+            localNameClock.datetime.add(const Duration(seconds: 1)),
+            0,
+            const Uuid().v7obj(),
+          );
+          reinsertClock = Hlc(editClock.datetime, 2, const Uuid().v7obj());
+          await node.offlineSync.db.mergeChanges([
+            _update('city', city.id!, 'name', 'edited', editClock),
+            CrdtMergeInsert(
+              uuidSpaceId: testCrdtUserId,
+              tableName: 'city',
+              uuidRowId: city.id!,
+              uuidNodeId: reinsertClock.nodeId,
+              hlcDatetime: reinsertClock.datetime,
+              hlcCounter: reinsertClock.counter,
+              data: city.copyWith(name: 'reinserted'),
+            ),
+          ], spaceId: testCrdtUserId);
+          merged = await City.db.findById(node.offlineSync, city.id!);
+          mergedClock = await _fieldClock(node, 'city', city.id!, 'name');
+
+          await node.offlineSync.db.mergeChanges([
+            _update(
+              'city',
+              city.id!,
+              'name',
+              'late edit',
+              Hlc(editClock.datetime, 1, editClock.nodeId),
+            ),
+          ], spaceId: testCrdtUserId);
+          afterLateEdit = await City.db.findById(node.offlineSync, city.id!);
+          afterLateClock = await _fieldClock(node, 'city', city.id!, 'name');
+        });
+
+        test('then the batch preserves the reinsertion value and author clock.', () {
+          expect(merged?.name, 'reinserted');
+          expect(mergedClock, reinsertClock);
+        });
+
+        test('then the intermediate edit cannot overwrite the newer reinsertion.', () {
+          expect(afterLateEdit?.name, 'reinserted');
+          expect(afterLateClock, reinsertClock);
+        });
+      },
+    );
+  });
+
   group('Given two cities with existing name edits,', () {
     late SyncNode node;
     late City first;
