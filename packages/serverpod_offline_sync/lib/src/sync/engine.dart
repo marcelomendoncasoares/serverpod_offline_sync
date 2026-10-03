@@ -195,8 +195,9 @@ class OfflineSyncEngine {
     return OfflineSyncSinceHlc(
       uuidSpaceId: spaceId,
       nodeCheckpoints: [
-        // The local node is always included to avoid collecting its own changes.
-        Hlc.now(localNodeId),
+        // Cover committed logical ticks as well as wall time. A clock that has
+        // not advanced (or moved backward) must not make peers echo our facts.
+        Hlc.now(localNodeId).maxBetween(space.currentNode!.lastHlc),
         for (final spaceNode in spaceNodes)
           spaceNode.lastReceivedHlc ?? Hlc.zero(spaceNode.node!.uuidNodeId),
       ],
