@@ -1034,23 +1034,25 @@ class OfflineSyncDatabase implements Database {
     if (userId == null) return null;
 
     // On the server this is authoritative membership; on a persistent client it
-    // is the server-projected membership cache.
-    final spaceGroups = await Future.wait<List<OfflineSyncSpace>>([
-      OfflineSyncSpace.db.find(
-        _delegate.session,
-        where: (t) => t.uuidSpaceId.equals(userId),
-      ),
-      OfflineSyncSpaceMember.db
-          .find(
-            _delegate.session,
-            where: (t) => t.userUuid.equals(userId),
-            include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
-          )
-          .then((memberships) => [for (final member in memberships) member.space!]),
-    ]);
+    // is the server-projected membership cache. Re-read it for every query,
+    // respecting the caller's isolation and uncommitted membership changes.
+    // Use the transaction sequentially: an outside read can deadlock against
+    // its write lock on single-connection backends such as web SQLite.
+    final personalSpaces = await OfflineSyncSpace.db.find(
+      _delegate.session,
+      where: (t) => t.uuidSpaceId.equals(userId),
+      transaction: transaction,
+    );
+    final memberships = await OfflineSyncSpaceMember.db.find(
+      _delegate.session,
+      where: (t) => t.userUuid.equals(userId),
+      include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
+      transaction: transaction,
+    );
+
     return {
-      for (final spaces in spaceGroups)
-        for (final space in spaces) space.id!,
+      for (final space in personalSpaces) space.id!,
+      for (final membership in memberships) membership.space!.id!,
     }.toList();
   }
 

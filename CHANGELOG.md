@@ -1,3 +1,8 @@
+## Unreleased
+
+- fix: Keep membership reads inside the caller's transaction, preventing web
+  deadlocks and reflecting uncommitted membership grants and revocations.
+
 ## 0.0.9
 
 - fix: Refreshes node clocks across sync wrappers.

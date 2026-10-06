@@ -98,6 +98,21 @@ jobs:
       #     file-path: coverage-results.txt
       #     comment-tag: coverage-results
 
+  browser_tests:
+    name: dart test (Chrome)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Prepare SQLite web assets
+        run: bash scripts/setup_sqlite_web_assets.sh
+
+      - name: Run browser regressions
+        working-directory: test/serverpod_offline_sync_test_server
+        run: dart test test/browser --platform chrome --concurrency=1
+
   simulation:
     name: deterministic simulation (${{ matrix.topology }})
     runs-on: ubuntu-latest
