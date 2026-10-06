@@ -1036,23 +1036,31 @@ class OfflineSyncDatabase implements Database {
     // On the server this is authoritative membership; on a persistent client it
     // is the server-projected membership cache. Re-read it for every query,
     // respecting the caller's isolation and uncommitted membership changes.
-    // Use the transaction sequentially: an outside read can deadlock against
-    // its write lock on single-connection backends such as web SQLite.
-    final personalSpaces = await OfflineSyncSpace.db.find(
+    Future<List<OfflineSyncSpace>> personalSpaces() => OfflineSyncSpace.db.find(
       _delegate.session,
       where: (t) => t.uuidSpaceId.equals(userId),
       transaction: transaction,
     );
-    final memberships = await OfflineSyncSpaceMember.db.find(
-      _delegate.session,
-      where: (t) => t.userUuid.equals(userId),
-      include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
-      transaction: transaction,
-    );
+
+    Future<List<OfflineSyncSpace>> sharedSpaces() async {
+      final memberships = await OfflineSyncSpaceMember.db.find(
+        _delegate.session,
+        where: (t) => t.userUuid.equals(userId),
+        include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
+        transaction: transaction,
+      );
+      return [for (final membership in memberships) membership.space!];
+    }
+
+    // Run independent reads concurrently, but serialize queries sharing a
+    // transaction. Both must use that transaction to avoid waiting on its lock.
+    final spaceGroups = transaction == null
+        ? await Future.wait([personalSpaces(), sharedSpaces()])
+        : [await personalSpaces(), await sharedSpaces()];
 
     return {
-      for (final space in personalSpaces) space.id!,
-      for (final membership in memberships) membership.space!.id!,
+      for (final spaces in spaceGroups)
+        for (final space in spaces) space.id!,
     }.toList();
   }
 
