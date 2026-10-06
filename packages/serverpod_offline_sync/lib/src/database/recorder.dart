@@ -840,9 +840,8 @@ class CrdtMutationRecorder {
   /// Records a row insertion that reused an existing tombstoned domain row.
   Future<void> afterReinsert<T extends TableRow>(
     List<T> reinsertedRows,
-    Transaction transaction, {
-    Set<MergeRowKey> projectionRows = const {},
-  }) async {
+    Transaction transaction,
+  ) async {
     await _forTrackedRows(reinsertedRows, transaction, (
       tableName,
       rowIds,
@@ -867,13 +866,9 @@ class CrdtMutationRecorder {
         CrdtDataDeletedReason.userReinsert,
         transaction,
       );
-      await _maybeProject(
-        tableName,
-        rowIds,
-        null,
-        transaction,
-        projectionRows: projectionRows,
-      );
+      // Hidden rows already released their old unique claims; seed projection
+      // from the restored rows to resolve their new values.
+      await _maybeProject(tableName, rowIds, null, transaction);
       // Only projected fields need a metadata row to hold their authored value.
       // All other fields now inherit the insertion timestamp implicitly.
       await CrdtDataField.db.deleteWhere(

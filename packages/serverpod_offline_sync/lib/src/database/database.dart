@@ -560,11 +560,7 @@ class OfflineSyncDatabase implements Database {
       plannedReinserts.rows,
       transaction: transaction,
     );
-    await _recorder.afterReinsert(
-      reinsertedRows,
-      transaction,
-      projectionRows: plannedReinserts.projectionRows,
-    );
+    await _recorder.afterReinsert(reinsertedRows, transaction);
     return reinsertedRows;
   }
 
