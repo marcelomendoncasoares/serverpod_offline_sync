@@ -99,7 +99,7 @@ jobs:
       #     comment-tag: coverage-results
 
   simulation:
-    name: deterministic simulation (${{ matrix.topology }})
+    name: deterministic simulation (${{ matrix.topology }}, ${{ matrix.delivery }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # Deliberately not on pull requests. The suite seeds from the clock, so it
@@ -115,6 +115,7 @@ jobs:
         # Keep the topology files below and shared ownership controls exhaustive
         # when adding a new test file tagged dst.
         topology: [convergence, cross_space]
+        delivery: [full, delta]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -135,6 +136,7 @@ jobs:
           DST_ROUNDS: 200
           DST_PROFILE: mixed
           DST_GRAPH_WIDTH: 2
+          DST_DELIVERY: ${{ matrix.delivery }}
 
   benchmarks:
     name: run benchmarks

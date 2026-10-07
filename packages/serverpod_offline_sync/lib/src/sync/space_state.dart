@@ -197,10 +197,13 @@ class OfflineSyncSpaceState {
   /// Records the peer's resume vector for [spaceId] from its [sinceHlc],
   /// completing the space's handshake from this peer's side.
   void recordPeerHandshake(UuidValue spaceId, OfflineSyncSinceHlc sinceHlc) {
-    _checkpointsBySpace[spaceId] = {
-      for (final checkpoint in sinceHlc.nodeCheckpoints) checkpoint.nodeId: checkpoint,
-    };
+    _checkpointsBySpace[spaceId] = normalizeCheckpoints(sinceHlc.nodeCheckpoints);
   }
+
+  /// Normalizes a wire resume vector exactly as a peer handshake does.
+  static Map<UuidValue, Hlc> normalizeCheckpoints(Iterable<Hlc> checkpoints) => {
+    for (final checkpoint in checkpoints) checkpoint.nodeId: checkpoint,
+  };
 
   /// Checkpoints for writable spaces whose handshake completed both ways, keyed
   /// by space — the input to a pending-change collection pass.

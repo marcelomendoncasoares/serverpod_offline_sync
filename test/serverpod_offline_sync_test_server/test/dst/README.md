@@ -2,7 +2,7 @@
 
 These suites drive several replicas through randomized operations and
 adversarial delivery, then check properties the engine must hold. A run is
-described by its seed, rounds, workload profile, and graph width. Those inputs
+described by its seed, rounds, workload profile, graph width, and delivery mode. Those inputs
 replay exactly within the same source/SDK revision.
 
 They complement the `integration/` suites rather than replacing them.
@@ -32,6 +32,7 @@ directory are untagged and run with ordinary `dart test`.
 | `DST_SEED_BASE` | unix seconds | First seed; successive seeds increment |
 | `DST_PROFILE` | sparse | `sparse`, `populated`, or `mixed` (even seeds populated, odd sparse) |
 | `DST_GRAPH_WIDTH` | 2 | Rows per table in each populated graph, minimum 2 |
+| `DST_DELIVERY` | full | `full` exports all retained facts; `delta` uses the receiver's committed checkpoint vector |
 | `DST_DEBUG_TABLE` | unset | Print every merge touching this table, in delivery order |
 
 A divergence is usually explained by which facts a replica had merged when it
@@ -47,7 +48,7 @@ which defects those fixed seeds reach.
 Nothing is lost to reproducibility: a seed determines its simulation entirely
 and a failure prints its replay command. Tests are named by position rather
 than by seed, so the suite stays stable while the schedules underneath it vary.
-Pin the seed, rounds, profile, and graph width to re-run an exact sweep.
+Pin the seed, rounds, profile, graph width, and delivery mode to re-run an exact sweep.
 
 The consequence to expect is that a run can fail for a defect unrelated to the
 change that triggered it. That is the suite doing its job; take the seed from
@@ -102,27 +103,39 @@ Reorders, delays, redelivers already-merged batches, and isolates incoming
 delivery to selected replicas for a few rounds. Sources can still send during
 this receive isolation; this is not a bidirectional network partition.
 
-Two moves are deliberately unavailable, both because the merge contract states
-that input arrives as a causally complete snapshot of the sender
-(`docs/foreign-key-invariants.md`):
+`full` preserves the original merge convergence experiment: collection exports
+all retained facts, and a receiver's already-delivered keys decide whether another
+complete export is worth scheduling. `delta` reads each receiver's production
+`createSyncSinceHlc` vector under its seeded clock and passes it to the sender's
+`collectPendingChanges`. Vectors are scoped by receiver, space, and author.
 
-- **It never drops permanently.** Dropping manufactures failures outside the
-  contract instead of finding real ones.
-- **It never splits a collected batch.** An earlier version of this harness
-  split batches at a random pivot to vary framing. That delivers, for example, a
-  delete without its insert; the engine ignores the orphaned change, the harness
-  records it as delivered, and the fact is lost - surfacing as a bogus
-  convergence failure. Chunking in the real protocol sits *below* the merge
-  (`chunked()` emits frames that `collectNextBatch` reassembles until
-  `OfflineSyncEndOfBatch`), so the whole cycle is the causal unit and splitting here
-  models nothing real.
+Causal completeness is relative to the receiver: prerequisites must already be
+committed there or accompany the incoming fact. Each delta is collected against
+committed receiver progress, never a queued batch's anticipated progress. Pending
+batches can overlap and arrive in any order without relying on one another.
+Collection and merge run sequentially; this does not simulate concurrent writes
+during collection or the continuous sync driver's in-session send cursor.
 
-Delay, reorder, and redelivery are the honest moves - and redelivery is how
-idempotence gets probed.
+Neither mode permanently drops facts or splits a collected batch. Wire chunking
+belongs below this boundary: the protocol reassembles chunks through
+`OfflineSyncEndOfBatch` before merging. Delta replay selects a previously merged
+batch from the same source/target/space edge. Captured payloads are serialized and
+decoded afresh for each delivery, so later local writes or input mutation cannot
+change the replay. Full mode retains its original complete-export resends.
 
-When the schedule ends, quiescence drains every pending batch and collects only
-facts a receiver has not yet seen. It stops introducing deliberate duplicates,
-so stable replicas cannot exhaust the convergence limit merely through resends.
+Quiescence clears receive isolation, drains pending batches, and stops scheduling
+deliberate replays. In delta mode it requires empty checkpoint-based collections
+on every directed peer/space exchange. There is no full-history repair before
+checking convergence or accepted authored facts. The existing export-to-empty
+mirror check runs afterward and never repairs the simulated replicas.
+
+```sh
+DST_DELIVERY=delta DST_SEED_BASE=114 DST_SEEDS=1 DST_ROUNDS=200 DST_PROFILE=populated dart test -P dst
+```
+
+The modes need not author identical operations for an identical seed: delivery
+changes visible state and subsequent generator choices. Fixed collection
+regressions compare full and delta receivers of the same authored scenario.
 
 ## Layout
 
@@ -197,15 +210,33 @@ The populated profile creates every declared table and FK edge, closes the
 person/company/town cycles, and drives unique conflicts, a real tuple exchange,
 restore/redelete, FK retarget/detach, and a constrained refusal. These are actual
 ORM transactions, each checked immediately for structure, authored preservation,
-and causal monotonicity. Complete exports distribute the populated spaces before
-random scheduling starts. The sparse profile retains empty-world exploration.
+and causal monotonicity. The selected delivery mode distributes the populated
+spaces before random scheduling starts; bootstrap naturally includes previously
+unknown facts. The sparse profile retains empty-world exploration.
 
-Every run emits one `DST_METRICS` JSON record, including failed runs. It separates
+Every run emits one `DST_METRICS` JSON record, including failed runs. Its
+`topology` identifies `convergence` or `cross_space`. It separates
 setup attempts from scheduled commits and records attempted, committed, rejected,
 skipped, unexpected failures, and committed transactions whose oracle failed.
 A run failing during setup reports zero scheduled activity. Paths retain table
 and action; network observations include merge counts, duplicate batches, maximum
 batch size, total delivered changes, and receive-isolation events.
+
+Network observations also report checkpoint collections, collections with a
+nonzero remote-author checkpoint, empty collections, partial batches, explicit
+replays, and fresh/repeated delivered change keys. A partial batch is nonempty,
+uses committed remote progress, and is smaller than the unchanged sender's full
+export. Full exports in delta mode measure omissions only and are never queued.
+Fresh means the key was not previously delivered to this receiver; it does not
+claim the fact was absent from local authoring. A repeated key has the same
+identity, not necessarily identical serialized insertion payload.
+
+Counters carry `setup.`, `scheduled.`, or `drain.` prefixes according to when the
+collection or delivery occurred. Exact replays do not count as new partial
+batches. Delta stress runs (100+ rounds) require at least one scheduled partial
+batch; setup and final draining cannot satisfy that gate. Shorter runs remain
+smoke checks. The soak script retains `METRICS.jsonl` even for passing runs,
+adding a `runId` that joins each record to the run's `id` in `RUNS.tsv`.
 
 Coverage counts distinct field/tombstone events rather than repeated snapshot
 appearances. FK edges and cycles are **authored graph** observations. Unique
@@ -219,13 +250,12 @@ also require all declared authored FK edges and the mandatory semantic paths.
 Setup commits alone cannot satisfy the scheduled-activity gate.
 
 CI alternates sparse and populated profiles across four consecutive seeds at
-200 rounds in both topologies: 4,800 scheduled operation attempts, versus the
-previous 6,000 attempts spread across fifty shallow 20-round worlds. This keeps
-comparable attempt volume while exploring ten times the history depth and
-connected graphs. Each topology runs in its own sixty-minute CI job with four
-ten-minute per-seed ceilings; a failure in one job does not cancel the other.
-Both jobs also run the ownership-collision controls. The local `melos test-dst`
-command runs both topologies together, so it covers the combined CI matrix.
+200 rounds in both topologies and both delivery modes: four separate jobs, each
+with 2,400 scheduled operation attempts and four ten-minute per-seed ceilings
+within a sixty-minute job. A failure in one job does not cancel another.
+All jobs also run the ownership-collision controls. The local `melos test-dst`
+command runs both topologies for the selected `DST_DELIVERY` mode; run it once
+with `full` and once with `delta` to cover both modes.
 Known engine failures remain failures; CI is intentionally not a PR merge gate.
 
 ```sh
@@ -234,5 +264,8 @@ DST_SEED_BASE=62 DST_SEEDS=1 DST_ROUNDS=200 DST_PROFILE=populated DST_GRAPH_WIDT
 ```
 
 The oracle remains bounded: it does not independently arbitrate all unique
-winners or FK fixed points. Collector concurrency/checkpoint lifecycle, crash
-recovery, space grant/revoke, and transport framing remain outside this schedule.
+winners or FK fixed points. Concurrent collection, continuous-session send cursors, crash recovery, space
+grant/revoke, and transport framing remain outside this schedule. Delta mode
+exercises production resume-vector creation, peer-handshake vector normalization,
+checkpoint filtering, and the inbound merge primitive that atomically persists
+per-author received progress; it does not simulate the full sync driver.

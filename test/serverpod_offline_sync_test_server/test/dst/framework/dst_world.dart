@@ -2,6 +2,7 @@ import 'package:clock/clock.dart';
 // Imported with `show` because the barrel below re-exports overlapping names.
 import 'package:serverpod_database/serverpod_database.dart'
     show DatabaseSession, TableRow, Transaction;
+import 'package:serverpod_offline_sync/src/sync/space_state.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -167,18 +168,32 @@ class DstReplica {
     );
   }
 
-  /// Collects every change this replica holds for [spaceUuid].
+  /// Reads the production resume vector under this replica's seeded clock.
+  Future<List<Hlc>> checkpoints(UuidValue spaceUuid) => withReplicaClock(
+    () async => (await sync.createSyncSinceHlc(
+      rawSession,
+      spaceId: spaceUuid,
+    )).nodeCheckpoints,
+  );
+
+  /// Collects a complete batch after the receiver's committed [checkpoints].
   ///
-  /// The harness deliberately collects the full history rather than tracking
-  /// per-peer checkpoints. Redelivery is a merge the engine must absorb
-  /// idempotently, so letting the adversary resend is a property under test
-  /// rather than a defect in the harness.
-  Future<CrdtMergeSet> collect(UuidValue spaceUuid) async {
+  /// An empty vector preserves the full-history convergence experiment. Delta
+  /// callers pass the receiver's production handshake vector, including one
+  /// entry per known author in this space, never progress from queued batches.
+  Future<CrdtMergeSet> collect(
+    UuidValue spaceUuid, {
+    List<Hlc> checkpoints = const [],
+  }) async {
     return withReplicaClock(
       () => sync
           .collectPendingChanges(
             rawSession,
-            checkpointsBySpaceUuid: {spaceUuid: const []},
+            checkpointsBySpaceUuid: {
+              spaceUuid: OfflineSyncSpaceState.normalizeCheckpoints(
+                checkpoints,
+              ).values.toList(),
+            },
           )
           .toList(),
     );
@@ -188,7 +203,11 @@ class DstReplica {
   Future<void> merge(CrdtMergeSet changes, UuidValue spaceUuid) async {
     if (changes.isEmpty) return;
     await withReplicaClock(
-      () => session.db.mergeChanges(changes, spaceId: spaceUuid),
+      () => sync.mergeInboundBatch(
+        rawSession,
+        spaceId: spaceUuid,
+        mergeSet: changes,
+      ),
     );
   }
 

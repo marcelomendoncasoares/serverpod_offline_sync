@@ -32,11 +32,13 @@ void main() {
             rounds: config.rounds,
             profile: config.profile,
             graphWidth: config.graphWidth,
+            delivery: config.delivery,
             run: () => runDstSimulation(
               seed: seed,
               rounds: config.rounds,
               profile: config.profile,
               graphWidth: config.graphWidth,
+              delivery: config.delivery,
               topology: DstTopology.singleSpace,
             ),
           );

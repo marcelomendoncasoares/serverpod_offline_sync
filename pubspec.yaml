@@ -119,6 +119,7 @@ melos:
       # seeds from the clock, so it searches fresh schedules on every run and
       # can fail for a defect unrelated to the change that triggered it.
       #
+      # Select full-history or checkpoint delivery with DST_DELIVERY=full|delta.
       # Widen the search with DST_SEEDS and DST_ROUNDS; a failure prints the
       # command that replays it. Concurrency is pinned to one so the reported
       # failures cannot interleave, which matters when reading a wide sweep.

@@ -133,7 +133,11 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Records the latest acknowledged sync checkpoint for [otherNodeId].
+  /// Records acknowledged per-author progress for [otherNodeId].
+  ///
+  /// [syncedHlc] must carry [otherNodeId] as its author. Throws [ArgumentError]
+  /// otherwise. A correctly tagged checkpoint replaces previously stored
+  /// progress tagged with another author; valid progress advances monotonically.
   Future<void> recordSyncCheckpoint(
     UuidValue otherNodeId,
     Hlc syncedHlc, {
@@ -670,6 +674,7 @@ class OfflineSyncDatabase implements Database {
           columns,
           tx,
           projectionUnchanged: plannedUpdates.projectionUnchanged,
+          projectionRows: plannedUpdates.projectionRows,
         );
         return noReturn ? <T>[] : updatedRows;
       },
@@ -707,6 +712,7 @@ class OfflineSyncDatabase implements Database {
           columns,
           tx,
           projectionUnchanged: plannedUpdates.projectionUnchanged,
+          projectionRows: plannedUpdates.projectionRows,
         );
         return updatedRow;
       },
@@ -797,28 +803,42 @@ class OfflineSyncDatabase implements Database {
     return _runTrackedWrite(
       transaction,
       (tx) async {
-        final result = await _delegate.updateWhere<T>(
-          columnValues: columnValues,
-          where: (await _whereVisibleWithTombstone<T>(
-            where,
-            null,
-            tx,
-            membershipWide: false,
-          ))!,
+        final scopedWhere = (await _whereVisibleWithTombstone<T>(
+          where,
+          null,
+          tx,
+          membershipWide: false,
+        ))!;
+        final columns = columnValues.map((e) => e.column).toList();
+        final plan = await _recorder.planLocalUpdateWhere<T>(
+          columns,
+          scopedWhere,
+          tx,
           limit: limit,
           offset: offset,
+          orderBy: orderBy,
+          orderByList: orderByList,
+        );
+        final selectedWhere = plan == null
+            ? scopedWhere
+            : serializationManager.getTableForType(T)!.id.inSet(plan.rowIds);
+        final result = await _delegate.updateWhere<T>(
+          columnValues: columnValues,
+          where: selectedWhere,
+          limit: plan == null ? limit : null,
+          offset: plan == null ? offset : null,
           orderBy: orderBy,
           orderByList: orderByList,
           transaction: tx,
         );
 
-        final columns = columnValues.map((e) => e.column).toList();
         _recorder.validateAuthoredRows(result, columns);
         await _recorder.afterUpdate(
           result,
           columns,
           tx,
           authoredColumnValues: true,
+          projectionRows: plan?.projectionRows ?? const {},
         );
         if (noReturn) return <T>[];
         result.forEach(_stripSpaceId);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:clock/clock.dart';
+import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
@@ -192,18 +193,27 @@ class OfflineSyncEngine {
       include: OfflineSyncSpaceNode.include(node: CrdtNode.include()),
     );
 
+    final checkpoints = <UuidValue, Hlc>{
+      // Cover committed logical ticks as well as wall time. A clock that has
+      // not advanced (or moved backward) must not make peers echo our facts.
+      localNodeId: Hlc.now(localNodeId).maxBetween(space.currentNode!.lastHlc),
+    };
+    for (final spaceNode in spaceNodes) {
+      final nodeId = spaceNode.node!.uuidNodeId;
+      final received = spaceNode.lastReceivedHlc;
+      // Older inbound bookkeeping could store a relayed author's clock under
+      // its direct peer. It proves no per-author progress for that peer.
+      final checkpoint = received?.nodeId == nodeId ? received! : Hlc.zero(nodeId);
+      checkpoints[nodeId] = checkpoint.maxBetween(checkpoints[nodeId]);
+    }
+
     return OfflineSyncSinceHlc(
       uuidSpaceId: spaceId,
-      nodeCheckpoints: [
-        // The local node is always included to avoid collecting its own changes.
-        Hlc.now(localNodeId),
-        for (final spaceNode in spaceNodes)
-          spaceNode.lastReceivedHlc ?? Hlc.zero(spaceNode.node!.uuidNodeId),
-      ],
+      nodeCheckpoints: checkpoints.values.toList(),
     );
   }
 
-  /// Merges a remote [mergeSet] and records the sync checkpoint for [otherNodeId].
+  /// Merges a remote [mergeSet] and atomically records its per-author progress.
   ///
   /// Inbound merge applies each remote change, then materializes foreign-key
   /// projection into domain tables via [OfflineSyncDatabase.mergeChanges].
@@ -213,23 +223,16 @@ class OfflineSyncEngine {
   ///
   /// Returns the greatest HLC synced in the batch, or `null` if the batch is
   /// empty.
-  Future<Hlc?> _mergeInboundBatch(
+  @visibleForTesting
+  Future<Hlc?> mergeInboundBatch(
     DatabaseSession session, {
     required UuidValue spaceId,
-    required UuidValue otherNodeId,
     required CrdtMergeSet mergeSet,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final offlineSyncDb = _openOfflineSyncDatabase(session);
     await offlineSyncDb.mergeChanges(mergeSet, spaceId: spaceId);
-    if (maxSyncedHlc != null) {
-      await offlineSyncDb.recordSyncCheckpoint(
-        otherNodeId,
-        maxSyncedHlc,
-        userId: spaceId,
-      );
-    }
     return maxSyncedHlc;
   }
 
@@ -434,10 +437,9 @@ class OfflineSyncEngine {
           changes: entry.value,
         );
       }
-      final receivedHlc = await _mergeInboundBatch(
+      final receivedHlc = await mergeInboundBatch(
         session,
         spaceId: spaceId,
-        otherNodeId: spaces.peerNodeId,
         mergeSet: entry.value,
       );
       await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
