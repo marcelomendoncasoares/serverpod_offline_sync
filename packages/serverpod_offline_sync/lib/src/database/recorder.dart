@@ -966,24 +966,20 @@ class CrdtMutationRecorder {
               transaction: transaction,
             )
           : const <MergeFieldKey>{};
-      final upsertInputs = upsertRows.isEmpty || implicitForeignKeyRepairFields.isEmpty
+      final upsertInputs = upsertRows.isEmpty || domainBeforeUpsert.isEmpty
           ? const <MergeRowKey, Map<String, Object?>>{}
           : {
               for (final row in upsertRows)
                 if (row.id case final UuidValue rowId)
-                  (row.table.tableName, rowId):
-                      row.toJsonForDatabase() as Map<String, dynamic>,
+                  (row.table.tableName, rowId): _authoredValuesFromRow(row, columns),
             };
-      // Insert defaults must not author over an echoed null that is holding
-      // a projected FK claim.
-      bool echoesProjectedNull(UuidValue rowId, String columnName) {
-        if (!implicitForeignKeyRepairFields.contains((tableName, rowId, columnName))) {
-          return false;
-        }
+      // A null foreign key is resolved to its column default before the
+      // physical upsert, so the stored value can equal a projected default the
+      // caller never wrote. Passthrough is about what the caller supplied.
+      Object? suppliedValue(UuidValue rowId, String columnName, Object? stored) {
         final input = upsertInputs[(tableName, rowId)];
-        return input != null &&
-            input[columnName] == null &&
-            domainBeforeUpsert[(tableName, rowId)]?[columnName] == null;
+        if (input == null || !input.containsKey(columnName)) return stored;
+        return input[columnName];
       }
 
       // Explicit columns author even an unchanged null; full-row passthrough
@@ -1004,11 +1000,10 @@ class CrdtMutationRecorder {
                 if ((domainBeforeUpsert[(tableName, row.id)]?.containsKey(columnName) ??
                         false) &&
                     (columns != null ||
-                        (!projectionValuesEqual(
-                              domainBeforeUpsert[(tableName, row.id)]![columnName],
-                              value,
-                            ) &&
-                            !echoesProjectedNull(row.id as UuidValue, columnName))))
+                        !projectionValuesEqual(
+                          domainBeforeUpsert[(tableName, row.id)]![columnName],
+                          suppliedValue(row.id as UuidValue, columnName, value),
+                        )))
                   (tableName, row.id as UuidValue, columnName): value,
       };
       _uniqueResolver.validateAuthoredFields(authoredOverlays);
