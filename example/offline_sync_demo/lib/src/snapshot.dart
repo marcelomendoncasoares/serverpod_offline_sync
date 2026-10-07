@@ -319,7 +319,7 @@ IconData iconForTable(String table, {required bool hidden}) {
     'town' => Icons.map,
     'organization' => Icons.apartment,
     'company' => Icons.business,
-    'restrict_child' || 'required_set_null_child' => Icons.link,
+    'restrict_child' => Icons.link,
     'unique' || 'unique_uuid' || 'unique_composite' => Icons.key,
     'types' => Icons.data_object,
     _ when table.startsWith('fk_chain') => Icons.account_tree,

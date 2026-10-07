@@ -1,6 +1,0 @@
-class: RequiredSetNullChild
-table: required_set_null_child
-database: sync
-fields:
-  name: String
-  parent: Person?, relation(fk, onDelete=SetNull, deferred)

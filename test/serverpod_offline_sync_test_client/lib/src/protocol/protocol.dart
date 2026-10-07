@@ -31,12 +31,10 @@ import 'fk_chain/set_null_cascade_child.dart' as _ideurard;
 import 'fk_chain/set_null_middle.dart' as _icv70ksq;
 import 'fk_chain/set_null_restrict_child.dart' as _ix62gjf0;
 import 'fk_chain/set_null_set_null_child.dart' as _ihkyqxiw;
-import 'nullable_set_default_child.dart' as _i6rvg9xd;
 import 'organization.dart' as _irjtvpke;
 import 'person.dart' as _iensfz4m;
 import 'required_cascade_child.dart' as _ivx9jyda;
 import 'required_no_action_child.dart' as _itlfbi2f;
-import 'required_set_null_child.dart' as _i1huw131;
 import 'restrict_child.dart' as _isrf0aof;
 import 'sync_document.dart' as _ix6xayzv;
 import 'town.dart' as _iytblq2r;
@@ -67,12 +65,10 @@ export 'fk_chain/set_null_cascade_child.dart';
 export 'fk_chain/set_null_middle.dart';
 export 'fk_chain/set_null_restrict_child.dart';
 export 'fk_chain/set_null_set_null_child.dart';
-export 'nullable_set_default_child.dart';
 export 'organization.dart';
 export 'person.dart';
 export 'required_cascade_child.dart';
 export 'required_no_action_child.dart';
-export 'required_set_null_child.dart';
 export 'restrict_child.dart';
 export 'sync_document.dart';
 export 'town.dart';
@@ -779,64 +775,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
       managed: true,
     ),
     _isd.TableDefinition(
-      name: 'nullable_set_default_child',
-      dartName: 'NullableSetDefaultChild',
-      schema: 'public',
-      module: 'serverpod_offline_sync_test',
-      columns: [
-        _isd.ColumnDefinition(
-          name: 'id',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: false,
-          dartType: 'UuidValue?',
-          columnDefault: 'random_v7',
-        ),
-        _isd.ColumnDefinition(
-          name: 'spaceId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: true,
-          dartType: 'int?',
-        ),
-        _isd.ColumnDefinition(
-          name: 'name',
-          columnType: _isd.ColumnType.text,
-          isNullable: false,
-          dartType: 'String',
-        ),
-        _isd.ColumnDefinition(
-          name: 'parentId',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: true,
-          dartType: 'UuidValue?',
-        ),
-      ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'nullable_set_default_child_fk_0',
-          columns: ['spaceId'],
-          referenceTable: 'offline_sync_spaces',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.cascade,
-          matchType: null,
-        ),
-        _isd.ForeignKeyDefinition(
-          constraintName: 'nullable_set_default_child_fk_1',
-          columns: ['parentId'],
-          referenceTable: 'person',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.setDefault,
-          matchType: null,
-          deferrable: _isd.DeferrableConstraint.initiallyDeferred,
-        ),
-      ],
-      indexes: [],
-      managed: true,
-    ),
-    _isd.TableDefinition(
       name: 'organization',
       dartName: 'Organization',
       schema: 'public',
@@ -1100,64 +1038,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
           referenceColumns: ['id'],
           onUpdate: _isd.ForeignKeyAction.noAction,
           onDelete: _isd.ForeignKeyAction.noAction,
-          matchType: null,
-          deferrable: _isd.DeferrableConstraint.initiallyDeferred,
-        ),
-      ],
-      indexes: [],
-      managed: true,
-    ),
-    _isd.TableDefinition(
-      name: 'required_set_null_child',
-      dartName: 'RequiredSetNullChild',
-      schema: 'public',
-      module: 'serverpod_offline_sync_test',
-      columns: [
-        _isd.ColumnDefinition(
-          name: 'id',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: false,
-          dartType: 'UuidValue?',
-          columnDefault: 'random_v7',
-        ),
-        _isd.ColumnDefinition(
-          name: 'spaceId',
-          columnType: _isd.ColumnType.bigint,
-          isNullable: true,
-          dartType: 'int?',
-        ),
-        _isd.ColumnDefinition(
-          name: 'name',
-          columnType: _isd.ColumnType.text,
-          isNullable: false,
-          dartType: 'String',
-        ),
-        _isd.ColumnDefinition(
-          name: 'parentId',
-          columnType: _isd.ColumnType.uuid,
-          isNullable: false,
-          dartType: 'UuidValue',
-        ),
-      ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'required_set_null_child_fk_0',
-          columns: ['spaceId'],
-          referenceTable: 'offline_sync_spaces',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.cascade,
-          matchType: null,
-        ),
-        _isd.ForeignKeyDefinition(
-          constraintName: 'required_set_null_child_fk_1',
-          columns: ['parentId'],
-          referenceTable: 'person',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.setNull,
           matchType: null,
           deferrable: _isd.DeferrableConstraint.initiallyDeferred,
         ),
@@ -2455,9 +2335,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _ihkyqxiw.FkChainSetNullSetNullChild) {
       return _ihkyqxiw.FkChainSetNullSetNullChild.fromJson(data) as T;
     }
-    if (t == _i6rvg9xd.NullableSetDefaultChild) {
-      return _i6rvg9xd.NullableSetDefaultChild.fromJson(data) as T;
-    }
     if (t == _irjtvpke.Organization) {
       return _irjtvpke.Organization.fromJson(data) as T;
     }
@@ -2469,9 +2346,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
     if (t == _itlfbi2f.RequiredNoActionChild) {
       return _itlfbi2f.RequiredNoActionChild.fromJson(data) as T;
-    }
-    if (t == _i1huw131.RequiredSetNullChild) {
-      return _i1huw131.RequiredSetNullChild.fromJson(data) as T;
     }
     if (t == _isrf0aof.RestrictChild) {
       return _isrf0aof.RestrictChild.fromJson(data) as T;
@@ -2587,12 +2461,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
               : null)
           as T;
     }
-    if (t == _isc.getType<_i6rvg9xd.NullableSetDefaultChild?>()) {
-      return (data != null
-              ? _i6rvg9xd.NullableSetDefaultChild.fromJson(data)
-              : null)
-          as T;
-    }
     if (t == _isc.getType<_irjtvpke.Organization?>()) {
       return (data != null ? _irjtvpke.Organization.fromJson(data) : null) as T;
     }
@@ -2608,12 +2476,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == _isc.getType<_itlfbi2f.RequiredNoActionChild?>()) {
       return (data != null
               ? _itlfbi2f.RequiredNoActionChild.fromJson(data)
-              : null)
-          as T;
-    }
-    if (t == _isc.getType<_i1huw131.RequiredSetNullChild?>()) {
-      return (data != null
-              ? _i1huw131.RequiredSetNullChild.fromJson(data)
               : null)
           as T;
     }
@@ -2757,12 +2619,10 @@ class Protocol extends _isd.DatabaseSerializationManager {
       _icv70ksq.FkChainSetNullMiddle => 'FkChainSetNullMiddle',
       _ix62gjf0.FkChainSetNullRestrictChild => 'FkChainSetNullRestrictChild',
       _ihkyqxiw.FkChainSetNullSetNullChild => 'FkChainSetNullSetNullChild',
-      _i6rvg9xd.NullableSetDefaultChild => 'NullableSetDefaultChild',
       _irjtvpke.Organization => 'Organization',
       _iensfz4m.Person => 'Person',
       _ivx9jyda.RequiredCascadeChild => 'RequiredCascadeChild',
       _itlfbi2f.RequiredNoActionChild => 'RequiredNoActionChild',
-      _i1huw131.RequiredSetNullChild => 'RequiredSetNullChild',
       _isrf0aof.RestrictChild => 'RestrictChild',
       _ix6xayzv.SyncDocument => 'SyncDocument',
       _iytblq2r.Town => 'Town',
@@ -2822,8 +2682,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return 'FkChainSetNullRestrictChild';
       case _ihkyqxiw.FkChainSetNullSetNullChild():
         return 'FkChainSetNullSetNullChild';
-      case _i6rvg9xd.NullableSetDefaultChild():
-        return 'NullableSetDefaultChild';
       case _irjtvpke.Organization():
         return 'Organization';
       case _iensfz4m.Person():
@@ -2832,8 +2690,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return 'RequiredCascadeChild';
       case _itlfbi2f.RequiredNoActionChild():
         return 'RequiredNoActionChild';
-      case _i1huw131.RequiredSetNullChild():
-        return 'RequiredSetNullChild';
       case _isrf0aof.RestrictChild():
         return 'RestrictChild';
       case _ix6xayzv.SyncDocument():
@@ -2934,9 +2790,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (dataClassName == 'FkChainSetNullSetNullChild') {
       return deserialize<_ihkyqxiw.FkChainSetNullSetNullChild>(data['data']);
     }
-    if (dataClassName == 'NullableSetDefaultChild') {
-      return deserialize<_i6rvg9xd.NullableSetDefaultChild>(data['data']);
-    }
     if (dataClassName == 'Organization') {
       return deserialize<_irjtvpke.Organization>(data['data']);
     }
@@ -2948,9 +2801,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
     }
     if (dataClassName == 'RequiredNoActionChild') {
       return deserialize<_itlfbi2f.RequiredNoActionChild>(data['data']);
-    }
-    if (dataClassName == 'RequiredSetNullChild') {
-      return deserialize<_i1huw131.RequiredSetNullChild>(data['data']);
     }
     if (dataClassName == 'RestrictChild') {
       return deserialize<_isrf0aof.RestrictChild>(data['data']);
@@ -3087,8 +2937,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return _ix62gjf0.FkChainSetNullRestrictChild.t;
       case _ihkyqxiw.FkChainSetNullSetNullChild:
         return _ihkyqxiw.FkChainSetNullSetNullChild.t;
-      case _i6rvg9xd.NullableSetDefaultChild:
-        return _i6rvg9xd.NullableSetDefaultChild.t;
       case _irjtvpke.Organization:
         return _irjtvpke.Organization.t;
       case _iensfz4m.Person:
@@ -3097,8 +2945,6 @@ class Protocol extends _isd.DatabaseSerializationManager {
         return _ivx9jyda.RequiredCascadeChild.t;
       case _itlfbi2f.RequiredNoActionChild:
         return _itlfbi2f.RequiredNoActionChild.t;
-      case _i1huw131.RequiredSetNullChild:
-        return _i1huw131.RequiredSetNullChild.t;
       case _isrf0aof.RestrictChild:
         return _isrf0aof.RestrictChild.t;
       case _iytblq2r.Town:

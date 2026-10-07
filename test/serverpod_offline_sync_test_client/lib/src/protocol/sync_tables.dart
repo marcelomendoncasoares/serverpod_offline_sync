@@ -25,12 +25,10 @@ import 'fk_chain/set_null_cascade_child.dart' as _ideurard;
 import 'fk_chain/set_null_middle.dart' as _icv70ksq;
 import 'fk_chain/set_null_restrict_child.dart' as _ix62gjf0;
 import 'fk_chain/set_null_set_null_child.dart' as _ihkyqxiw;
-import 'nullable_set_default_child.dart' as _i6rvg9xd;
 import 'organization.dart' as _irjtvpke;
 import 'person.dart' as _iensfz4m;
 import 'required_cascade_child.dart' as _ivx9jyda;
 import 'required_no_action_child.dart' as _itlfbi2f;
-import 'required_set_null_child.dart' as _i1huw131;
 import 'restrict_child.dart' as _isrf0aof;
 import 'town.dart' as _iytblq2r;
 import 'types.dart' as _iwxwszsz;
@@ -63,12 +61,10 @@ final List<_isd.Table> syncTables = [
   _icv70ksq.FkChainSetNullMiddle.t,
   _ix62gjf0.FkChainSetNullRestrictChild.t,
   _ihkyqxiw.FkChainSetNullSetNullChild.t,
-  _i6rvg9xd.NullableSetDefaultChild.t,
   _irjtvpke.Organization.t,
   _iensfz4m.Person.t,
   _ivx9jyda.RequiredCascadeChild.t,
   _itlfbi2f.RequiredNoActionChild.t,
-  _i1huw131.RequiredSetNullChild.t,
   _isrf0aof.RestrictChild.t,
   _i2ap9bqs.SharedChild.t,
   _i2ap9bqs.SharedParent.t,

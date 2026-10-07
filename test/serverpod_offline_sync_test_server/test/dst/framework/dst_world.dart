@@ -236,8 +236,8 @@ enum DstOperationOutcome {
   /// The operation committed.
   applied,
 
-  /// The engine refused the operation by design - a no-action violation, a
-  /// required set-null delete, or a restored reference unavailable in space.
+  /// The engine refused the operation by design - a no-action violation or a
+  /// restored reference unavailable in space.
   rejected,
 
   /// There was nothing to act on (for example a delete with no rows yet).

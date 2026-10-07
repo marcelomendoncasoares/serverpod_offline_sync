@@ -17,26 +17,6 @@ dev_dependencies:
   melos: ^7.5.1
   serverpod_cli: ^4.0.0
 
-# Workspace resolution only. Published packages still declare ^4.0.0.
-#
-# Serverpod 4.0.4 rejects nullable_set_default_child (SetDefault with no
-# database default) and required_set_null_child (SetNull on a non-nullable
-# parentId). Those fixtures cover engine behavior the CLI can no longer
-# express, and the CLI is locked to the same patch as the runtime packages.
-dependency_overrides:
-  serverpod: 4.0.3
-  serverpod_auth_core_client: 4.0.3
-  serverpod_auth_core_server: 4.0.3
-  serverpod_cli: 4.0.3
-  serverpod_client: 4.0.3
-  serverpod_database: 4.0.3
-  serverpod_embedded_postgres: 4.0.3
-  serverpod_lints: 4.0.3
-  serverpod_serialization: 4.0.3
-  serverpod_service_client: 4.0.3
-  serverpod_shared: 4.0.3
-  serverpod_test: 4.0.3
-
 # dependency_overrides:
 #   serverpod:
 #     git:

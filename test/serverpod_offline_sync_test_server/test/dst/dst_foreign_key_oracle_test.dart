@@ -1,4 +1,3 @@
-import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
@@ -95,62 +94,6 @@ void main() {
   );
 
   test(
-    'Given a visible required set-null child referencing a hidden person, '
-    'when its snapshot is checked, '
-    'then the oracle rejects the unrepaired reference.',
-    () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'required_set_null_child': {
-            childId: (spaceUuid: space, columns: {'parentId': parentId}, visible: true),
-          },
-        },
-        projections: {},
-        causalLengths: {},
-      );
-
-      final violations = DstOracle.foreignKeyClosure(snapshot);
-
-      expect(violations, hasLength(1));
-    },
-  );
-
-  test(
-    'Given a hidden nullable set-default child whose null repair was skipped, '
-    'when its snapshot is checked, '
-    'then the oracle rejects the unrepaired reference.',
-    () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'nullable_set_default_child': {
-            childId: (
-              spaceUuid: space,
-              columns: {'parentId': parentId},
-              visible: false,
-            ),
-          },
-        },
-        projections: {},
-        causalLengths: {},
-      );
-
-      final violations = DstOracle.projectionPurity(snapshot);
-
-      expect(violations, hasLength(1));
-    },
-  );
-
-  test(
     'Given a visible no-action descendant of a hidden cascade middle, '
     'when its snapshot is checked, '
     'then the oracle rejects the unrepaired reference.',
@@ -182,105 +125,6 @@ void main() {
     },
   );
 
-  test(
-    'Given a nullable set-default child repaired to its null default, '
-    'when its snapshot is checked, '
-    'then the oracle accepts its set-default projection.',
-    () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'nullable_set_default_child': {
-            childId: (spaceUuid: space, columns: {'parentId': null}, visible: true),
-          },
-        },
-        projections: {
-          ('nullable_set_default_child', childId, 'parentId'): (
-            attemptedValue: parentId,
-            projectionReason: CrdtProjectionReason.foreignKeySetDefault,
-          ),
-        },
-        causalLengths: {},
-      );
-
-      final violations = DstOracle.projectionPurity(snapshot);
-
-      expect(violations, isEmpty);
-    },
-  );
-
-  test(
-    'Given a hidden required set-null child and its hidden parent, '
-    'when its snapshot is checked, '
-    'then the oracle accepts the unchanged non-null reference.',
-    () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'required_set_null_child': {
-            childId: (
-              spaceUuid: space,
-              columns: {'parentId': parentId},
-              visible: false,
-            ),
-          },
-        },
-        projections: {},
-        causalLengths: {},
-      );
-
-      final violations = DstOracle.projectionPurity(snapshot);
-
-      expect(violations, isEmpty);
-    },
-  );
-
-  test(
-    'Given a replica holding a required set-null child, '
-    'when its snapshot is captured, '
-    'then the child and its reference are available to the oracle.',
-    () async {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final replica = await DstReplica.create(
-        name: 'replica',
-        spaceUuids: [space],
-        nodeUuid: ids.next(),
-        clock: DstClock().clock,
-      );
-      final parent = Person(id: ids.next(), name: 'parent');
-      final child = RequiredSetNullChild(
-        id: ids.next(),
-        name: 'child',
-        parentId: parent.id!,
-      );
-      await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(space, (tx) async {
-          await Person.db.insertRow(replica.session, parent, transaction: tx);
-          await RequiredSetNullChild.db.insertRow(
-            replica.session,
-            child,
-            transaction: tx,
-          );
-        }),
-      );
-
-      final snapshot = await DstSnapshot.capture(replica);
-
-      expect(
-        snapshot.rows['required_set_null_child']?[child.id]?.columns['parentId'],
-        parent.id.toString(),
-      );
-    },
-  );
   test(
     'Given a person and visible city, organization, company, and town parents, '
     'when the DST repeatedly retargets the person and town, '
@@ -354,7 +198,7 @@ void main() {
 
   test(
     'Given visible person and town parents in one space, '
-    'when the DST inserts children of every required and nullable FK shape, '
+    'when the DST inserts the remaining required and nullable FK shapes, '
     'then each shape is authored and captured with valid references.',
     () async {
       final random = DstRandom(301);
@@ -382,12 +226,6 @@ void main() {
       );
       final operations = DstOperations(random, ids);
 
-      final requiredNull = await operations.apply(
-        replica,
-        space,
-        table: DstTable.requiredSetNullChild,
-        action: DstAction.insert,
-      );
       final requiredCascade = await operations.apply(
         replica,
         space,
@@ -398,12 +236,6 @@ void main() {
         replica,
         space,
         table: DstTable.requiredNoActionChild,
-        action: DstAction.insert,
-      );
-      final nullableDefault = await operations.apply(
-        replica,
-        space,
-        table: DstTable.nullableSetDefaultChild,
         action: DstAction.insert,
       );
       final uniqueDefault = await operations.apply(
@@ -421,17 +253,13 @@ void main() {
       final snapshot = await DstSnapshot.capture(replica);
 
       expect([
-        requiredNull,
         requiredCascade,
         requiredNoAction,
-        nullableDefault,
         uniqueDefault,
         uniqueCascade,
       ], everyElement(DstOperationOutcome.applied));
-      expect(snapshot.rows['required_set_null_child'], hasLength(1));
       expect(snapshot.rows['required_cascade_child'], hasLength(1));
       expect(snapshot.rows['required_no_action_child'], hasLength(1));
-      expect(snapshot.rows['nullable_set_default_child'], hasLength(1));
       expect(snapshot.rows['unique_set_default_child'], hasLength(1));
       expect(snapshot.rows['unique_cascade_reference'], hasLength(1));
       expect(DstOracle.invariants(snapshot), isEmpty);

@@ -436,64 +436,6 @@ void main() {
   );
 
   group(
-    'Given a parent with a required (non-nullable) set-null child insert,',
-    () {
-      late Person parent;
-      late RequiredSetNullChild child;
-      late CrdtMergeDelete remoteParentDelete;
-
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          parent = await Person.db.insertRow(
-            session,
-            Person(id: const Uuid().v7obj(), name: 'required set-null parent'),
-            transaction: tx,
-          );
-          child = await RequiredSetNullChild.db.insertRow(
-            session,
-            RequiredSetNullChild(
-              id: const Uuid().v7obj(),
-              name: 'required set-null child',
-              parentId: parent.id!,
-            ),
-            transaction: tx,
-          );
-        });
-      });
-
-      group('when a concurrent remote parent delete is merged,', () {
-        setUp(() async {
-          remoteParentDelete = _deleteChange(
-            tableName: Person.t.tableName,
-            rowId: parent.id!,
-            after: await rowHlc(parent.id!),
-          );
-
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            spaceId: testCrdtUserId,
-          );
-        });
-
-        test(
-          'then the parent remains visible because set-null cannot repair the child.',
-          () async {
-            final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await RequiredSetNullChild.db.findById(
-              session,
-              child.id!,
-            );
-
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.parentId, parent.id);
-          },
-        );
-      });
-    },
-  );
-
-  group(
     'Given a parent with a nullable set-null foreign key whose attempted value was stored on update,',
     () {
       late Person attemptedParent;
@@ -2097,13 +2039,13 @@ void main() {
     'to a parent that is inserted after it,',
     () {
       late Person parent;
-      late RequiredSetNullChild child;
+      late RequiredNoActionChild child;
       late CrdtMergeSet mergeSet;
 
       setUp(() {
         final remoteNodeId = const Uuid().v7obj();
         parent = Person(id: const Uuid().v7obj(), name: 'late required parent');
-        child = RequiredSetNullChild(
+        child = RequiredNoActionChild(
           id: const Uuid().v7obj(),
           name: 'early required child',
           parentId: parent.id!,
@@ -2115,7 +2057,7 @@ void main() {
         mergeSet = [
           CrdtMergeInsert(
             uuidSpaceId: testCrdtUserId,
-            tableName: RequiredSetNullChild.t.tableName,
+            tableName: RequiredNoActionChild.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: remoteNodeId,
             hlcDatetime: childHlc.datetime,
@@ -2143,7 +2085,7 @@ void main() {
           'then both rows are visible and the child keeps its foreign key.',
           () async {
             final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await RequiredSetNullChild.db.findById(
+            final visibleChild = await RequiredNoActionChild.db.findById(
               session,
               child.id!,
             );
