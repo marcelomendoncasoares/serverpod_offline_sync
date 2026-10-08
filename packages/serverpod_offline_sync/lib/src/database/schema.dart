@@ -171,17 +171,6 @@ class CrdtSchemaRegistry {
         '"onDelete=NoAction" instead, which produces the same effect.',
       );
     }
-
-    final invalidForeignKeyActions = _foreignKeyActionViolations(
-      syncTables,
-      tableDefinitionsByName,
-    );
-    if (invalidForeignKeyActions.isNotEmpty) {
-      throw StateError(
-        'CRDT requires foreign key actions compatible with their columns: '
-        '${invalidForeignKeyActions.join('; ')}.',
-      );
-    }
   }
 
   /// Help text appended to schema validation errors that describes the required
@@ -730,39 +719,4 @@ List<String> _restrictForeignKeyViolations(
           if (!_isCrdtSpaceForeignKey(fk) && fk.onDelete == ForeignKeyAction.restrict)
             '${table.tableName}.${fk.columns.join(',')}',
   ];
-}
-
-List<String> _foreignKeyActionViolations(
-  List<Table> syncTables,
-  Map<String, TableDefinition> tableDefinitionsByName,
-) {
-  final violations = <String>[];
-  for (final table in syncTables) {
-    final definition = tableDefinitionsByName[table.tableName]!;
-    final columns = {for (final column in definition.columns) column.name: column};
-
-    for (final foreignKey in definition.foreignKeys) {
-      for (final (name, action) in [
-        ('onDelete', foreignKey.onDelete),
-        ('onUpdate', foreignKey.onUpdate),
-      ]) {
-        if (action != ForeignKeyAction.setNull &&
-            action != ForeignKeyAction.setDefault) {
-          continue;
-        }
-
-        for (final columnName in foreignKey.columns) {
-          final column = columns[columnName]!;
-          final field = '${table.tableName}.$columnName';
-          if (action == ForeignKeyAction.setNull && !column.isNullable) {
-            violations.add('$field ($name=SetNull requires a nullable column)');
-          }
-          if (action == ForeignKeyAction.setDefault && column.columnDefault == null) {
-            violations.add('$field ($name=SetDefault requires a database default)');
-          }
-        }
-      }
-    }
-  }
-  return violations;
 }

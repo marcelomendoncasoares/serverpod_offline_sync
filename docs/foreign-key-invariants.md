@@ -21,10 +21,8 @@ not new user field updates emitted opportunistically during merge.
 - Supported foreign keys are single-column child references to single-column
   parent references. Schemas with composite foreign keys must fail recorder
   initialization instead of silently bypassing projection.
-- Schema registration validates both `ON DELETE` and `ON UPDATE` actions:
-  `SET NULL` requires nullable columns, and `SET DEFAULT` requires declared
-  database defaults. These checks also cover definitions generated before
-  Serverpod 4.0.4.
+- Serverpod-generated schemas guarantee that `SET NULL` uses nullable columns
+  and `SET DEFAULT` uses columns with declared database defaults.
 - Merge input is causally complete relative to the receiver: every merged FK
   attempt's parent facts must already be committed at the receiver or accompany
   the child fact in the same complete batch. A checkpoint-filtered delta can
@@ -56,15 +54,14 @@ soft-deleted instead of removed:
   still references the parent. No parent tombstone is recorded for the failed
   operation.
 - `ON DELETE SET NULL`: visible child FK columns are updated to `null`, and
-  those child FK fields receive ordinary CRDT field updates. Schema registration
-  rejects this action on non-nullable columns.
+  those child FK fields receive ordinary CRDT field updates.
 - `ON DELETE SET DEFAULT`: visible child FK columns are updated to the column
   default when the default is legal, and those child FK fields receive ordinary
-  CRDT field updates. Schema registration requires a declared database default.
-  A concrete UUID default must remain visible in the same space after the
-  delete. A default in the same delete batch is unavailable. If a visible child needs this repair, an invalid
-  default rejects the transaction, including any earlier repairs or tombstones
-  in that transaction. An unused invalid default does not itself block a delete.
+  CRDT field updates. A concrete UUID default must remain visible in the same
+  space after the delete. A default in the same delete batch is unavailable.
+  If a visible child needs this repair, an invalid default rejects the
+  transaction, including any earlier repairs or tombstones in that transaction.
+  An unused invalid default does not itself block a delete.
 - `ON DELETE CASCADE`: visible cascade descendants receive synced
   user-delete tombstones. Local cascade descendants are not hidden only as
   `foreignKeyCascade` projection rows.
