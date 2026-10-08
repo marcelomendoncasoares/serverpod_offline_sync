@@ -113,8 +113,15 @@ Causal completeness is relative to the receiver: prerequisites must already be
 committed there or accompany the incoming fact. Each delta is collected against
 committed receiver progress, never a queued batch's anticipated progress. Pending
 batches can overlap and arrive in any order without relying on one another.
-Collection and merge run sequentially; this does not simulate concurrent writes
-during collection or the continuous sync driver's in-session send cursor.
+Both modes inject two or three seeded operations during capture or between
+emitted changes. Capture starts an independent writer after insert metadata is
+read; SQLite queues it until capture completes. A pause of up to 500 ms lets an
+unprotected writer commit before payload reads resume. All writes finish before
+collection returns. Setup and drain do not inject writes, and the driver's
+in-session send cursor is not simulated.
+
+`dst_outbound_snapshot_test.dart` covers both schedules and detects checkpoint
+gaps, including when collection buffers without a transaction.
 
 Neither mode permanently drops facts or splits a collected batch. Wire chunking
 belongs below this boundary: the protocol reassembles chunks through
@@ -225,8 +232,9 @@ batch size, total delivered changes, and receive-isolation events.
 Network observations also report checkpoint collections, collections with a
 nonzero remote-author checkpoint, empty collections, partial batches, explicit
 replays, and fresh/repeated delivered change keys. A partial batch is nonempty,
-uses committed remote progress, and is smaller than the unchanged sender's full
-export. Full exports in delta mode measure omissions only and are never queued.
+uses committed remote progress, and is smaller than the sender's full export
+measured before that collection's injected writes. Full exports in delta mode
+measure omissions only and are never queued.
 Fresh means the key was not previously delivered to this receiver; it does not
 claim the fact was absent from local authoring. A repeated key has the same
 identity, not necessarily identical serialized insertion payload.
@@ -235,7 +243,12 @@ Counters carry `setup.`, `scheduled.`, or `drain.` prefixes according to when th
 collection or delivery occurred. Exact replays do not count as new partial
 batches. Delta stress runs (100+ rounds) require at least one scheduled partial
 batch; setup and final draining cannot satisfy that gate. Shorter runs remain
-smoke checks. The soak script retains `METRICS.jsonl` even for passing runs,
+smoke checks. `collectionInterleavings` and `captureInterleavings` count schedules;
+their `*InterleavedCommits` counters count eventual commits. Yield counters also
+record the emitted change kind (`.insert`, `.update`, `.delete`). In either
+delivery mode, runs of 100+ rounds require scheduled commits from both types.
+
+The soak script retains `METRICS.jsonl` even for passing runs,
 adding a `runId` that joins each record to the run's `id` in `RUNS.tsv`.
 
 Coverage counts distinct field/tombstone events rather than repeated snapshot

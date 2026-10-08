@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:clock/clock.dart';
 // Imported with `show` because the barrel below re-exports overlapping names.
 import 'package:serverpod_database/serverpod_database.dart'
@@ -7,6 +9,7 @@ import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
 import '../../integration/test_tools/client_session.dart';
+import '../../integration/test_tools/outbound_capture_database.dart';
 import 'dst_authored.dart';
 import 'dst_coverage.dart';
 import 'dst_random.dart';
@@ -138,6 +141,16 @@ class DstReplica {
   /// This replica's sync engine, used to collect outbound changes.
   final OfflineSyncEngine sync;
 
+  late final _captureDatabase = OutboundCaptureDatabase(
+    rawSession.db,
+    syncTables: dstSyncTables,
+  );
+
+  late final _captureSession = OfflineSyncDatabaseSession(
+    _captureDatabase,
+    syncTables: dstSyncTables,
+  );
+
   /// The spaces the adversary exchanges for this replica.
   final List<UuidValue> spaceUuids;
 
@@ -181,21 +194,54 @@ class DstReplica {
   /// An empty vector preserves the full-history convergence experiment. Delta
   /// callers pass the receiver's production handshake vector, including one
   /// entry per known author in this space, never progress from queued batches.
+  /// [onChange] lets the scheduler commit an application operation at a real
+  /// collector yield, before requesting the next change from the same stream.
+  /// [onCapture] starts an independent writer after insert metadata is read.
+  /// It finishes before collection returns, even when SQLite queues it behind
+  /// capture, so later scheduling never overlaps its random or clock state.
   Future<CrdtMergeSet> collect(
     UuidValue spaceUuid, {
     List<Hlc> checkpoints = const [],
+    Future<void> Function(CrdtMergeChange)? onChange,
+    Future<void> Function()? onCapture,
   }) async {
     return withReplicaClock(
-      () => sync
-          .collectPendingChanges(
-            rawSession,
+      () async {
+        Future<void>? captureWrite;
+        if (onCapture != null) {
+          final writerZone = Zone.current;
+          _captureDatabase.afterInsertMetadata = () async {
+            captureWrite = writerZone.run(onCapture);
+            // An unprotected writer can finish before payload reads resume.
+            // A snapshot queues it until capture releases the write lock.
+            await Future.any([
+              captureWrite!,
+              Future<void>.delayed(const Duration(milliseconds: 500)),
+            ]);
+          };
+        }
+
+        final changes = <CrdtMergeChange>[];
+        try {
+          await for (final change in sync.collectPendingChanges(
+            onCapture == null ? rawSession : _captureSession,
             checkpointsBySpaceUuid: {
               spaceUuid: OfflineSyncSpaceState.normalizeCheckpoints(
                 checkpoints,
               ).values.toList(),
             },
-          )
-          .toList(),
+          )) {
+            changes.add(change);
+            await onChange?.call(change);
+          }
+        } finally {
+          if (onCapture != null) {
+            _captureDatabase.afterInsertMetadata = null;
+            await captureWrite;
+          }
+        }
+        return changes;
+      },
     );
   }
 

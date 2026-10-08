@@ -61,14 +61,22 @@ class DstAdversary {
     this.random,
     this.replicas, {
     this.delivery = DstDeliveryMode.full,
+    this.onCollecting,
   });
 
   final DstDeliveryMode delivery;
+
+  /// Attempts scheduled application writes during capture or at a collector
+  /// yield. Returns commits, so skipped writes cannot count as races.
+  final Future<int> Function(DstReplica source, UuidValue spaceUuid)? onCollecting;
+
   DstNetworkPhase phase = DstNetworkPhase.scheduled;
 
   static const receiveIsolationProbability = 0.2;
   static const collectionProbability = 0.8;
   static const resendProbability = 0.15;
+  static const collectionInterleavingProbability = 0.35;
+  static const captureInterleavingProbability = 0.5;
 
   /// The simulation's randomness.
   final DstRandom random;
@@ -178,17 +186,21 @@ class DstAdversary {
     UuidValue spaceUuid, {
     bool allowResend = true,
   }) async {
-    final changes = await source.collect(spaceUuid);
-    if (changes.isEmpty && delivery == DstDeliveryMode.full) return;
+    if (delivery == DstDeliveryMode.delta) {
+      for (final target in replicas) {
+        if (identical(target, source)) continue;
+        if (!target.spaceUuids.contains(spaceUuid)) continue;
+        await _collectDelta(source, target, spaceUuid, allowResend);
+      }
+      return;
+    }
+
+    final changes = await _collectPending(source, spaceUuid);
+    if (changes.isEmpty) return;
 
     for (final target in replicas) {
       if (identical(target, source)) continue;
       if (!target.spaceUuids.contains(spaceUuid)) continue;
-
-      if (delivery == DstDeliveryMode.delta) {
-        await _collectDelta(source, target, spaceUuid, changes.length, allowResend);
-        continue;
-      }
 
       _count('fullCollections');
       final delivered = _deliveredKeys.putIfAbsent(target.name, () => {});
@@ -220,7 +232,6 @@ class DstAdversary {
     DstReplica source,
     DstReplica target,
     UuidValue spaceUuid,
-    int fullSize,
     bool allowResend,
   ) async {
     final edge = '${source.name}|${target.name}|$spaceUuid';
@@ -238,10 +249,15 @@ class DstAdversary {
     );
     if (advanced) _count('advancedCheckpointCollections');
 
-    // No local writes or merges interleave the full-size observation above
-    // and this collection. The full export measures omission only; it is never
-    // delivered as a repair in delta mode.
-    final changes = await source.collect(spaceUuid, checkpoints: checkpoints);
+    // Measure each receiver's baseline before its collection, since an earlier
+    // receiver's collection may have interleaved a write. This full export is
+    // observation only; delta mode never delivers it as a repair.
+    final fullSize = (await source.collect(spaceUuid)).length;
+    final changes = await _collectPending(
+      source,
+      spaceUuid,
+      checkpoints: checkpoints,
+    );
     if (changes.isEmpty) {
       _count('emptyCollections');
       return;
@@ -256,6 +272,52 @@ class DstAdversary {
         checkpoints: checkpoints,
         partial: advanced && changes.length < fullSize,
       ),
+    );
+  }
+
+  Future<CrdtMergeSet> _collectPending(
+    DstReplica source,
+    UuidValue spaceUuid, {
+    List<Hlc> checkpoints = const [],
+  }) async {
+    final interleave = onCollecting;
+    if (phase != DstNetworkPhase.scheduled ||
+        interleave == null ||
+        !random.chance(collectionInterleavingProbability)) {
+      return source.collect(spaceUuid, checkpoints: checkpoints);
+    }
+
+    if (random.chance(captureInterleavingProbability)) {
+      return source.collect(
+        spaceUuid,
+        checkpoints: checkpoints,
+        onCapture: () async {
+          _count('captureInterleavings');
+          final committed = await interleave(source, spaceUuid);
+          if (committed > 0) _count('captureInterleavedCommits', committed);
+        },
+      );
+    }
+
+    final yieldIndex = random.between(1, 3);
+    var emitted = 0;
+    return source.collect(
+      spaceUuid,
+      checkpoints: checkpoints,
+      onChange: (change) async {
+        if (++emitted != yieldIndex) return;
+        _count('collectionInterleavings');
+        final committed = await interleave(source, spaceUuid);
+        if (committed > 0) {
+          _count('collectionInterleavedCommits', committed);
+          final kind = switch (change) {
+            CrdtMergeInsert() => 'insert',
+            CrdtMergeUpdate() => 'update',
+            CrdtMergeDelete() => 'delete',
+          };
+          _count('collectionInterleavedCommits.$kind', committed);
+        }
+      },
     );
   }
 
