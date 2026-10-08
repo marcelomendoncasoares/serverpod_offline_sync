@@ -627,14 +627,15 @@ void main() {
         expect(rows, hasLength(1));
       });
 
-      test('then CRDT fields are tracked for the default updated columns.', () async {
+      test('then the conflict columns keep their original implicit clocks.', () async {
         final fields = await CrdtDataField.db.find(
           session,
           where: (t) => t.row.uuidRowId.equals(uniqueComposite.id),
-          include: CrdtDataField.include(column: CrdtSchemaColumn.include()),
         );
 
-        expect(fields.map((e) => e.column!.name).toSet(), {'scope', 'value'});
+        // Both domain columns are conflict keys, so Serverpod's default
+        // update set contains no authored domain write.
+        expect(fields, isEmpty);
       });
     });
   });

@@ -317,6 +317,47 @@ void main() {
           );
         },
       );
+
+      group(
+        'when a batch retargets the child and skips a later input with the same key,',
+        () {
+          late List<UniqueSetDefaultChild> saved;
+          late UniqueSetDefaultChild? stored;
+          late CrdtDataAttemptedValue? attempt;
+
+          setUp(() async {
+            saved = await node.offlineSync.db.transactionForUser(
+              testCrdtUserId,
+              (tx) => UniqueSetDefaultChild.db.upsert(
+                node.offlineSync,
+                [
+                  UniqueSetDefaultChild(name: child.name, parentId: insertParent.id),
+                  UniqueSetDefaultChild(name: child.name, parentId: defaultTownId),
+                ],
+                conflictColumns: (t) => [t.spaceId, t.name],
+                updateWhere: (t) => t.parentId.equals(defaultTownId),
+                transaction: tx,
+              ),
+            );
+            stored = await UniqueSetDefaultChild.db.findById(
+              node.offlineSync,
+              child.id!,
+            );
+            attempt = await attemptedValue(
+              rowId: child.id!,
+              columnName: 'parentId',
+              databaseSession: node.offlineSync,
+            );
+          });
+
+          test('then the accepted input supplies the authored parent.', () {
+            expect(saved, hasLength(1));
+            expect(saved.single.id, child.id);
+            expect(stored!.parentId, insertParent.id);
+            expect(attempt, isNull);
+          });
+        },
+      );
     });
   });
 }
