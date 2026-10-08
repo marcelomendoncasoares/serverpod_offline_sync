@@ -1,5 +1,7 @@
 ## Unreleased
 
+- fix: Keep membership reads inside the caller's transaction, preventing web
+  deadlocks and reflecting uncommitted membership grants and revocations.
 - fix: Include the persisted local logical clock in resume checkpoints so
   reconnecting within the same millisecond or after clock rollback settles.
 - fix: Keep relay checkpoints tagged with their actual author and recover

@@ -1,4 +1,3 @@
-import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
@@ -8,23 +7,25 @@ import 'framework/dst_snapshot.dart';
 import 'framework/dst_world.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
-  test(
-    'Given a unique nullable set-default child referencing its default town, '
-    'when the child is deleted and its released field is read back, '
-    'then the hidden row retains null while the schema retains its non-null default.',
-    () async {
+  group('Given a unique nullable set-default child referencing its default town,', () {
+    late DstReplica replica;
+    late UuidValue space;
+    late Town parent;
+    late UniqueSetDefaultChild child;
+
+    setUpAll(() async {
       final ids = DstIds(DstRandom(118));
-      final space = ids.next();
-      final replica = await DstReplica.create(
+      space = ids.next();
+      replica = await DstReplica.create(
         name: 'replica',
         spaceUuids: [space],
         nodeUuid: ids.next(),
         clock: DstClock().clock,
       );
-      final parent = Town(id: dstDefaultTownId, name: 'default');
-      final child = UniqueSetDefaultChild(
+      parent = Town(id: dstDefaultTownId, name: 'default');
+      child = UniqueSetDefaultChild(
         id: ids.next(),
         name: 'child',
         parentId: parent.id,
@@ -39,30 +40,44 @@ void main() {
           );
         }),
       );
+    });
 
-      await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(space, (tx) async {
-          await UniqueSetDefaultChild.db.deleteRow(
-            replica.session,
-            child,
-            transaction: tx,
-          );
-        }),
-      );
-      final snapshot = await DstSnapshot.capture(replica);
+    group('when the child is deleted and its released field is read back,', () {
+      late DstSnapshot snapshot;
 
-      final hidden = snapshot.rows['unique_set_default_child']![child.id]!;
-      expect(hidden.visible, isFalse);
-      expect(hidden.columns['parentId'], isNull);
-      expect(
-        dstForeignKeys
-            .singleWhere((edge) => edge.child == DstTable.uniqueSetDefaultChild)
-            .defaultValue,
-        parent.id,
-      );
-      expect(DstOracle.invariants(snapshot), isEmpty);
-    },
-  );
+      setUpAll(() async {
+        await replica.withReplicaClock(
+          () => replica.session.db.transactionForUser(space, (tx) async {
+            await UniqueSetDefaultChild.db.deleteRow(
+              replica.session,
+              child,
+              transaction: tx,
+            );
+          }),
+        );
+        snapshot = await DstSnapshot.capture(replica);
+      });
+
+      test('then the hidden row retains a null reference.', () {
+        final hidden = snapshot.rows['unique_set_default_child']![child.id]!;
+        expect(hidden.visible, isFalse);
+        expect(hidden.columns['parentId'], isNull);
+      });
+
+      test('then the schema retains its non-null default.', () {
+        expect(
+          dstForeignKeys
+              .singleWhere((edge) => edge.child == DstTable.uniqueSetDefaultChild)
+              .defaultValue,
+          parent.id,
+        );
+      });
+
+      test('then the snapshot satisfies the oracle invariants.', () {
+        expect(DstOracle.invariants(snapshot), isEmpty);
+      });
+    });
+  });
 
   test(
     'Given a visible person referencing a hidden company, '
@@ -89,62 +104,6 @@ void main() {
       );
 
       final violations = DstOracle.foreignKeyClosure(snapshot);
-
-      expect(violations, hasLength(1));
-    },
-  );
-
-  test(
-    'Given a visible required set-null child referencing a hidden person, '
-    'when its snapshot is checked, '
-    'then the oracle rejects the unrepaired reference.',
-    () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'required_set_null_child': {
-            childId: (spaceUuid: space, columns: {'parentId': parentId}, visible: true),
-          },
-        },
-        projections: {},
-        causalLengths: {},
-      );
-
-      final violations = DstOracle.foreignKeyClosure(snapshot);
-
-      expect(violations, hasLength(1));
-    },
-  );
-
-  test(
-    'Given a hidden nullable set-default child whose null repair was skipped, '
-    'when its snapshot is checked, '
-    'then the oracle rejects the unrepaired reference.',
-    () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'nullable_set_default_child': {
-            childId: (
-              spaceUuid: space,
-              columns: {'parentId': parentId},
-              visible: false,
-            ),
-          },
-        },
-        projections: {},
-        causalLengths: {},
-      );
-
-      final violations = DstOracle.projectionPurity(snapshot);
 
       expect(violations, hasLength(1));
     },
@@ -182,259 +141,195 @@ void main() {
     },
   );
 
-  test(
-    'Given a nullable set-default child repaired to its null default, '
-    'when its snapshot is checked, '
-    'then the oracle accepts its set-default projection.',
+  group(
+    'Given a person and visible city, organization, company, and town parents,',
     () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'nullable_set_default_child': {
-            childId: (spaceUuid: space, columns: {'parentId': null}, visible: true),
-          },
-        },
-        projections: {
-          ('nullable_set_default_child', childId, 'parentId'): (
-            attemptedValue: parentId,
-            projectionReason: CrdtProjectionReason.foreignKeySetDefault,
-          ),
-        },
-        causalLengths: {},
-      );
+      late DstReplica replica;
+      late UuidValue space;
+      late City city;
+      late Organization organization;
+      late Town town;
+      late Company company;
+      late Person person;
+      late DstOperations operations;
 
-      final violations = DstOracle.projectionPurity(snapshot);
+      setUpAll(() async {
+        final random = DstRandom(300);
+        final ids = DstIds(random);
+        space = ids.next();
+        replica = await DstReplica.create(
+          name: 'replica',
+          spaceUuids: [space],
+          nodeUuid: ids.next(),
+          clock: DstClock().clock,
+        );
+        city = City(id: ids.next(), name: 'city');
+        organization = Organization(
+          id: ids.next(),
+          name: 'organization',
+          cityId: city.id,
+        );
+        town = Town(id: ids.next(), name: 'town', cityId: city.id);
+        company = Company(id: ids.next(), name: 'company', townId: town.id);
+        person = Person(id: ids.next(), name: 'person');
+        await replica.withReplicaClock(
+          () => replica.session.db.transactionForUser(space, (tx) async {
+            await City.db.insertRow(replica.session, city, transaction: tx);
+            await Organization.db.insertRow(
+              replica.session,
+              organization,
+              transaction: tx,
+            );
+            await Town.db.insertRow(replica.session, town, transaction: tx);
+            await Company.db.insertRow(replica.session, company, transaction: tx);
+            await Person.db.insertRow(replica.session, person, transaction: tx);
+          }),
+        );
+        operations = DstOperations(random, ids);
+      });
 
-      expect(violations, isEmpty);
+      group('when the DST repeatedly retargets the person and town,', () {
+        late Set<String> references;
+        late bool cycleAuthored;
+
+        setUpAll(() async {
+          references = <String>{};
+          cycleAuthored = false;
+
+          for (var index = 0; index < 60; index++) {
+            await operations.apply(
+              replica,
+              space,
+              table: DstTable.person,
+              action: DstAction.update,
+            );
+            await operations.apply(
+              replica,
+              space,
+              table: DstTable.town,
+              action: DstAction.update,
+            );
+            final actualPerson = (await Person.db.findById(
+              replica.session,
+              person.id!,
+            ))!;
+            final actualTown = (await Town.db.findById(replica.session, town.id!))!;
+            if (actualPerson.organizationId == organization.id) {
+              references.add('organization');
+            }
+            if (actualPerson.oldCompanyId == company.id) references.add('company');
+            if (actualPerson.cityId == city.id) references.add('city');
+            if (actualPerson.oldCompanyId == company.id &&
+                actualTown.mayorId == person.id) {
+              cycleAuthored = true;
+            }
+          }
+        });
+
+        test('then every person reference can be authored.', () {
+          expect(references, {'organization', 'company', 'city'});
+        });
+
+        test('then the company-town-person cycle can be authored.', () {
+          expect(cycleAuthored, isTrue);
+        });
+      });
     },
   );
 
-  test(
-    'Given a hidden required set-null child and its hidden parent, '
-    'when its snapshot is checked, '
-    'then the oracle accepts the unchanged non-null reference.',
+  group(
+    'Given visible person and town parents for required cascade, required no-action, unique set-default, and unique cascade children,',
     () {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final parentId = ids.next();
-      final childId = ids.next();
-      final snapshot = DstSnapshot(
-        rows: {
-          'person': {parentId: (spaceUuid: space, columns: {}, visible: false)},
-          'required_set_null_child': {
-            childId: (
-              spaceUuid: space,
-              columns: {'parentId': parentId},
-              visible: false,
-            ),
-          },
-        },
-        projections: {},
-        causalLengths: {},
-      );
+      late DstReplica replica;
+      late UuidValue space;
+      late DstOperations operations;
 
-      final violations = DstOracle.projectionPurity(snapshot);
-
-      expect(violations, isEmpty);
-    },
-  );
-
-  test(
-    'Given a replica holding a required set-null child, '
-    'when its snapshot is captured, '
-    'then the child and its reference are available to the oracle.',
-    () async {
-      final ids = DstIds(DstRandom(3));
-      final space = ids.next();
-      final replica = await DstReplica.create(
-        name: 'replica',
-        spaceUuids: [space],
-        nodeUuid: ids.next(),
-        clock: DstClock().clock,
-      );
-      final parent = Person(id: ids.next(), name: 'parent');
-      final child = RequiredSetNullChild(
-        id: ids.next(),
-        name: 'child',
-        parentId: parent.id!,
-      );
-      await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(space, (tx) async {
-          await Person.db.insertRow(replica.session, parent, transaction: tx);
-          await RequiredSetNullChild.db.insertRow(
-            replica.session,
-            child,
-            transaction: tx,
-          );
-        }),
-      );
-
-      final snapshot = await DstSnapshot.capture(replica);
-
-      expect(
-        snapshot.rows['required_set_null_child']?[child.id]?.columns['parentId'],
-        parent.id.toString(),
-      );
-    },
-  );
-  test(
-    'Given a person and visible city, organization, company, and town parents, '
-    'when the DST repeatedly retargets the person and town, '
-    'then every person reference and the company-town-person cycle can be authored.',
-    () async {
-      final random = DstRandom(300);
-      final ids = DstIds(random);
-      final space = ids.next();
-      final replica = await DstReplica.create(
-        name: 'replica',
-        spaceUuids: [space],
-        nodeUuid: ids.next(),
-        clock: DstClock().clock,
-      );
-      final city = City(id: ids.next(), name: 'city');
-      final organization = Organization(
-        id: ids.next(),
-        name: 'organization',
-        cityId: city.id,
-      );
-      final town = Town(id: ids.next(), name: 'town', cityId: city.id);
-      final company = Company(id: ids.next(), name: 'company', townId: town.id);
-      final person = Person(id: ids.next(), name: 'person');
-      await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(space, (tx) async {
-          await City.db.insertRow(replica.session, city, transaction: tx);
-          await Organization.db.insertRow(
-            replica.session,
-            organization,
-            transaction: tx,
-          );
-          await Town.db.insertRow(replica.session, town, transaction: tx);
-          await Company.db.insertRow(replica.session, company, transaction: tx);
-          await Person.db.insertRow(replica.session, person, transaction: tx);
-        }),
-      );
-      final operations = DstOperations(random, ids);
-      final references = <String>{};
-      var cycleAuthored = false;
-
-      for (var index = 0; index < 60; index++) {
-        await operations.apply(
-          replica,
-          space,
-          table: DstTable.person,
-          action: DstAction.update,
+      setUpAll(() async {
+        final random = DstRandom(301);
+        final ids = DstIds(random);
+        space = ids.next();
+        replica = await DstReplica.create(
+          name: 'replica',
+          spaceUuids: [space],
+          nodeUuid: ids.next(),
+          clock: DstClock().clock,
         );
-        await operations.apply(
-          replica,
-          space,
-          table: DstTable.town,
-          action: DstAction.update,
+        await replica.withReplicaClock(
+          () => replica.session.db.transactionForUser(space, (tx) async {
+            await Person.db.insertRow(
+              replica.session,
+              Person(id: ids.next(), name: 'parent'),
+              transaction: tx,
+            );
+            await Town.db.insertRow(
+              replica.session,
+              Town(id: dstDefaultTownId, name: 'default'),
+              transaction: tx,
+            );
+          }),
         );
-        final actualPerson = (await Person.db.findById(replica.session, person.id!))!;
-        final actualTown = (await Town.db.findById(replica.session, town.id!))!;
-        if (actualPerson.organizationId == organization.id) {
-          references.add('organization');
-        }
-        if (actualPerson.oldCompanyId == company.id) references.add('company');
-        if (actualPerson.cityId == city.id) references.add('city');
-        if (actualPerson.oldCompanyId == company.id &&
-            actualTown.mayorId == person.id) {
-          cycleAuthored = true;
-        }
-      }
+        operations = DstOperations(random, ids);
+      });
 
-      expect(references, {'organization', 'company', 'city'});
-      expect(cycleAuthored, isTrue);
-    },
-  );
+      group('when the DST inserts the children,', () {
+        late DstOperationOutcome requiredCascade;
+        late DstOperationOutcome requiredNoAction;
+        late DstOperationOutcome uniqueDefault;
+        late DstOperationOutcome uniqueCascade;
+        late DstSnapshot snapshot;
 
-  test(
-    'Given visible person and town parents in one space, '
-    'when the DST inserts children of every required and nullable FK shape, '
-    'then each shape is authored and captured with valid references.',
-    () async {
-      final random = DstRandom(301);
-      final ids = DstIds(random);
-      final space = ids.next();
-      final replica = await DstReplica.create(
-        name: 'replica',
-        spaceUuids: [space],
-        nodeUuid: ids.next(),
-        clock: DstClock().clock,
-      );
-      await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(space, (tx) async {
-          await Person.db.insertRow(
-            replica.session,
-            Person(id: ids.next(), name: 'parent'),
-            transaction: tx,
+        setUpAll(() async {
+          requiredCascade = await operations.apply(
+            replica,
+            space,
+            table: DstTable.requiredCascadeChild,
+            action: DstAction.insert,
           );
-          await Town.db.insertRow(
-            replica.session,
-            Town(id: dstDefaultTownId, name: 'default'),
-            transaction: tx,
+          requiredNoAction = await operations.apply(
+            replica,
+            space,
+            table: DstTable.requiredNoActionChild,
+            action: DstAction.insert,
           );
-        }),
-      );
-      final operations = DstOperations(random, ids);
+          uniqueDefault = await operations.apply(
+            replica,
+            space,
+            table: DstTable.uniqueSetDefaultChild,
+            action: DstAction.insert,
+          );
+          uniqueCascade = await operations.apply(
+            replica,
+            space,
+            table: DstTable.uniqueCascadeReference,
+            action: DstAction.insert,
+          );
+          snapshot = await DstSnapshot.capture(replica);
+        });
 
-      final requiredNull = await operations.apply(
-        replica,
-        space,
-        table: DstTable.requiredSetNullChild,
-        action: DstAction.insert,
-      );
-      final requiredCascade = await operations.apply(
-        replica,
-        space,
-        table: DstTable.requiredCascadeChild,
-        action: DstAction.insert,
-      );
-      final requiredNoAction = await operations.apply(
-        replica,
-        space,
-        table: DstTable.requiredNoActionChild,
-        action: DstAction.insert,
-      );
-      final nullableDefault = await operations.apply(
-        replica,
-        space,
-        table: DstTable.nullableSetDefaultChild,
-        action: DstAction.insert,
-      );
-      final uniqueDefault = await operations.apply(
-        replica,
-        space,
-        table: DstTable.uniqueSetDefaultChild,
-        action: DstAction.insert,
-      );
-      final uniqueCascade = await operations.apply(
-        replica,
-        space,
-        table: DstTable.uniqueCascadeReference,
-        action: DstAction.insert,
-      );
-      final snapshot = await DstSnapshot.capture(replica);
+        test('then the required cascade child is authored and captured.', () {
+          expect(requiredCascade, DstOperationOutcome.applied);
+          expect(snapshot.rows['required_cascade_child'], hasLength(1));
+        });
 
-      expect([
-        requiredNull,
-        requiredCascade,
-        requiredNoAction,
-        nullableDefault,
-        uniqueDefault,
-        uniqueCascade,
-      ], everyElement(DstOperationOutcome.applied));
-      expect(snapshot.rows['required_set_null_child'], hasLength(1));
-      expect(snapshot.rows['required_cascade_child'], hasLength(1));
-      expect(snapshot.rows['required_no_action_child'], hasLength(1));
-      expect(snapshot.rows['nullable_set_default_child'], hasLength(1));
-      expect(snapshot.rows['unique_set_default_child'], hasLength(1));
-      expect(snapshot.rows['unique_cascade_reference'], hasLength(1));
-      expect(DstOracle.invariants(snapshot), isEmpty);
+        test('then the required no-action child is authored and captured.', () {
+          expect(requiredNoAction, DstOperationOutcome.applied);
+          expect(snapshot.rows['required_no_action_child'], hasLength(1));
+        });
+
+        test('then the unique set-default child is authored and captured.', () {
+          expect(uniqueDefault, DstOperationOutcome.applied);
+          expect(snapshot.rows['unique_set_default_child'], hasLength(1));
+        });
+
+        test('then the unique cascade child is authored and captured.', () {
+          expect(uniqueCascade, DstOperationOutcome.applied);
+          expect(snapshot.rows['unique_cascade_reference'], hasLength(1));
+        });
+
+        test('then every child reference satisfies the oracle invariants.', () {
+          expect(DstOracle.invariants(snapshot), isEmpty);
+        });
+      });
     },
   );
 }

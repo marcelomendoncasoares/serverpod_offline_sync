@@ -19,7 +19,6 @@ List<Table> get benchmarkSyncTables => [
   FkChainSetNullSetNullChild.t,
   Organization.t,
   Person.t,
-  RequiredSetNullChild.t,
   RestrictChild.t,
   Town.t,
   Types.t,

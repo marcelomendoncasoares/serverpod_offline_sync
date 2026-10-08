@@ -1070,6 +1070,7 @@ class OfflineSyncDatabase implements Database {
           )
           .then((memberships) => [for (final member in memberships) member.space!]),
     ]);
+
     return {
       for (final spaces in spaceGroups)
         for (final space in spaces) space.id!,
