@@ -21,6 +21,10 @@ not new user field updates emitted opportunistically during merge.
 - Supported foreign keys are single-column child references to single-column
   parent references. Schemas with composite foreign keys must fail recorder
   initialization instead of silently bypassing projection.
+- Schema registration validates both `ON DELETE` and `ON UPDATE` actions:
+  `SET NULL` requires nullable columns, and `SET DEFAULT` requires declared
+  database defaults. These checks also cover definitions generated before
+  Serverpod 4.0.4.
 - Merge input is causally complete relative to the receiver: every merged FK
   attempt's parent facts must already be committed at the receiver or accompany
   the child fact in the same complete batch. A checkpoint-filtered delta can
@@ -51,13 +55,14 @@ soft-deleted instead of removed:
 - `ON DELETE RESTRICT` and `NO ACTION`: the delete fails if any visible child
   still references the parent. No parent tombstone is recorded for the failed
   operation.
-- `ON DELETE SET NULL`: visible child FK columns are updated to `null` when the
-  FK is nullable, and those child FK fields receive ordinary CRDT field updates.
+- `ON DELETE SET NULL`: visible child FK columns are updated to `null`, and
+  those child FK fields receive ordinary CRDT field updates. Schema registration
+  rejects this action on non-nullable columns.
 - `ON DELETE SET DEFAULT`: visible child FK columns are updated to the column
   default when the default is legal, and those child FK fields receive ordinary
-  CRDT field updates. A nullable null default is legal; a non-null default must
-  remain visible in the same space after the delete. A default in the same
-  delete batch is unavailable. If a visible child needs this repair, an invalid
+  CRDT field updates. Schema registration requires a declared database default.
+  A concrete UUID default must remain visible in the same space after the
+  delete. A default in the same delete batch is unavailable. If a visible child needs this repair, an invalid
   default rejects the transaction, including any earlier repairs or tombstones
   in that transaction. An unused invalid default does not itself block a delete.
 - `ON DELETE CASCADE`: visible cascade descendants receive synced
@@ -80,9 +85,8 @@ a column.
 
 For each child FK whose attempted value points to a hidden or missing parent:
 
-- `ON DELETE SET NULL`: the visible FK value is `null` when the FK is nullable.
-  If the FK is non-nullable, this action cannot repair the row and must fall
-  through to the deterministic blocking policy.
+- `ON DELETE SET NULL`: the visible FK value is `null`. The schema guarantees
+  that the FK is nullable.
 - `ON DELETE SET DEFAULT`: the visible FK value is the column default only if
   that default points to a visible parent or is a legal nullable default. If the
   default target is hidden or missing, this action cannot repair the row and
@@ -92,7 +96,7 @@ For each child FK whose attempted value points to a hidden or missing parent:
   projection.
 - `ON DELETE CASCADE`: the child can be hidden only if the whole cascade closure
   is valid. If any descendant blocks the cascade through `RESTRICT`, `NO ACTION`,
-  invalid `SET NULL`, or invalid `SET DEFAULT`, the ancestor delete loses and
+  or an unavailable `SET DEFAULT` target, the ancestor delete loses and
   the cascade is not partially applied.
 
 This makes mixed chains atomic for visibility. For example, if deleting `A`

@@ -694,14 +694,11 @@ class DstOracle {
 
   static bool _canRepair(DstSnapshot snapshot, DstForeignKey edge, DstRow child) =>
       switch (edge.action) {
-        'setNull' => edge.nullable,
-        'setDefault' =>
-          edge.defaultValue == null
-              ? edge.nullable
-              : _available(
-                  snapshot.rows[edge.parent.tableName]?[edge.defaultValue],
-                  child,
-                ),
+        'setNull' => true,
+        'setDefault' => _available(
+          snapshot.rows[edge.parent.tableName]?[edge.defaultValue],
+          child,
+        ),
         _ => false,
       };
 
@@ -735,14 +732,12 @@ class DstOracle {
   /// repair.
   static bool _reasonFitsEdge(CrdtProjectionReason reason, DstForeignKey edge) {
     return switch (reason) {
-      CrdtProjectionReason.foreignKeySetNull =>
-        edge.action == 'setNull' && edge.nullable,
+      CrdtProjectionReason.foreignKeySetNull => edge.action == 'setNull',
       CrdtProjectionReason.foreignKeySetDefault => edge.action == 'setDefault',
       CrdtProjectionReason.foreignKeyMissingParent =>
         edge.action == 'cascade' ||
             edge.action == 'noAction' ||
-            edge.action == 'setDefault' ||
-            (edge.action == 'setNull' && !edge.nullable),
+            edge.action == 'setDefault',
       CrdtProjectionReason.uniqueConflict ||
       CrdtProjectionReason.hiddenUniqueRelease => _isUniqueForeignKey(edge),
     };
