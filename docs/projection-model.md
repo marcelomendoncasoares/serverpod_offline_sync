@@ -9,7 +9,6 @@ Related documents:
 
 - [Foreign-key projection invariants](foreign-key-invariants.md)
 - [Unique-constraint invariants](unique-constraint-invariants.md)
-- [Outbound collection consistency](outbound-collection-consistency.md)
 
 ## Decisions
 
@@ -177,9 +176,23 @@ value. Reinsertion follows the full-row reauthoring rule above.
 
 ## Outbound and rebuild behavior
 
+Collection captures pending insert, update, and delete metadata, attempted
+values, domain payloads, and ownership checks in one repeatable-read
+transaction. It releases the transaction before emitting the captured changes.
+Concurrent commits outside that snapshot wait for a later pass. Consume the
+collector outside application transactions, with no ambient session transaction.
+
+The complete pass is buffered, so memory use grows with its payloads and the
+first change is emitted only after capture completes. SQLite writers wait
+during capture. Bounded wire chunks do not bound capture memory.
+
 Outbound collection substitutes `CrdtDataAttemptedValue.value` whenever it
 exists; otherwise it reads the domain value. It never exports an FK candidate,
 unique loser value, or temporary parking value as an authored update.
+
+Snapshot collection cannot recover changes already skipped by an older
+collector's checkpoint. Recovery requires an explicit full-history collection
+using `checkpointsBySpaceUuid: {space: []}`, merged into the affected peer.
 
 An empty replica merging a complete space export must reproduce normalized
 domain rows, hidden state, authored values/HLCs, and derived projection. A

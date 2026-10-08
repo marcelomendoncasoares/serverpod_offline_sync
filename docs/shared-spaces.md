@@ -60,7 +60,8 @@ membership relation and a sync protocol that iterates spaces.
    materializes a cycle's pending rows across the active spaces (one
    `spaceId IN (…)` query per change kind), so peak memory tracks a cycle's
    pending rows rather than being held strictly one space at a time. See
-   `outbound-collection-consistency.md`.
+   [outbound and rebuild behavior](projection-model.md#outbound-and-rebuild-behavior)
+   for snapshot guarantees and capture costs.
 4. **Membership cannot be forged.** The server computes its own space set from
    `offline_sync_space_members` (plus the implicit personal space) and never widens it
    from anything the client sends. A space the user is not a member of is never
@@ -640,11 +641,3 @@ role enforcement above.
    Purge-vs-keep policy, and whether revoked or demoted unsynced changes are
    surfaced, dropped, or kept pending locally, need their own design. (Carried
    from `row-ownership.md` open question 3.)
-2. **Outbound collection consistency.** Collection reads CRDT metadata and the
-   domain data separately and lock-free, so a concurrent delete — or an FK
-   reference to a row inserted after the insert snapshot — can fail a healthy
-   stream sync and record a durable violation for a race that the next round
-   would resolve. The single-pass multi-space collection widened this window.
-   Failing the session for a transient, self-correcting race is the weakness to
-   fix; the leading direction is a read-only snapshot (MVCC, not a lock). See
-   `outbound-collection-consistency.md`.
