@@ -113,8 +113,28 @@ Causal completeness is relative to the receiver: prerequisites must already be
 committed there or accompany the incoming fact. Each delta is collected against
 committed receiver progress, never a queued batch's anticipated progress. Pending
 batches can overlap and arrive in any order without relying on one another.
-Collection and merge run sequentially; this does not simulate concurrent writes
-during collection or the continuous sync driver's in-session send cursor.
+Scheduled collection either starts writes after its insert metadata query or
+suspends at one of its first three emitted changes. Both paths run two or three
+seeded application operations. The capture hook wraps real database queries and
+starts the writer outside the capture transaction's zone. It allows up to 500 ms
+for an unprotected writer to finish before resuming payload reads; SQLite's
+snapshot transaction instead queues that writer until capture ends. The harness
+awaits the writer before returning the collected batch, preserving the seeded
+order of operations and clock changes.
+
+This exercises commits between change-kind queries, including the checkpoint
+gap in issue #163, and distinguishes a common snapshot from buffering alone.
+The ordinary operation generator still validates authored facts, rollbacks, and
+invariants for these operations.
+Setup and drain phases do not inject writes. The continuous sync driver's
+in-session send cursor remains outside this harness.
+
+`dst_outbound_snapshot_test.dart` pins insert/update and update/delete
+interleavings at consumer yields, plus an insert/update/insert write attempted
+during capture. The yield cases fail with the original collector; the capture
+case also rejects a collector that buffers without a transaction. Snapshot
+collection converges without a full-history repair. Full mode retains both
+schedule types as a separate delivery experiment.
 
 Neither mode permanently drops facts or splits a collected batch. Wire chunking
 belongs below this boundary: the protocol reassembles chunks through
@@ -225,8 +245,10 @@ batch size, total delivered changes, and receive-isolation events.
 Network observations also report checkpoint collections, collections with a
 nonzero remote-author checkpoint, empty collections, partial batches, explicit
 replays, and fresh/repeated delivered change keys. A partial batch is nonempty,
-uses committed remote progress, and is smaller than the unchanged sender's full
-export. Full exports in delta mode measure omissions only and are never queued.
+uses committed remote progress, and is smaller than the sender's full export
+captured immediately before that receiver's collection. Interleaved writes occur
+after this baseline; snapshot collection keeps them out of the captured pass.
+Full exports in delta mode measure omissions only and are never queued.
 Fresh means the key was not previously delivered to this receiver; it does not
 claim the fact was absent from local authoring. A repeated key has the same
 identity, not necessarily identical serialized insertion payload.
@@ -235,7 +257,16 @@ Counters carry `setup.`, `scheduled.`, or `drain.` prefixes according to when th
 collection or delivery occurred. Exact replays do not count as new partial
 batches. Delta stress runs (100+ rounds) require at least one scheduled partial
 batch; setup and final draining cannot satisfy that gate. Shorter runs remain
-smoke checks. The soak script retains `METRICS.jsonl` even for passing runs,
+smoke checks. `collectionInterleavings` counts attempted yield-point schedules;
+`collectionInterleavedCommits` counts transactions actually committed there,
+with `.insert`, `.update`, and `.delete` suffixes identifying the emitted change
+kind. `captureInterleavings` counts schedules started after metadata capture;
+`captureInterleavedCommits` counts their eventual commits, including writes
+queued until the snapshot releases its lock. Stress runs in either delivery
+mode require committed writes from both schedule types; setup and drain cannot
+satisfy either gate.
+
+The soak script retains `METRICS.jsonl` even for passing runs,
 adding a `runId` that joins each record to the run's `id` in `RUNS.tsv`.
 
 Coverage counts distinct field/tombstone events rather than repeated snapshot

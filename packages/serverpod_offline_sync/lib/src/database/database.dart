@@ -1059,12 +1059,14 @@ class OfflineSyncDatabase implements Database {
       OfflineSyncSpace.db.find(
         _delegate.session,
         where: (t) => t.uuidSpaceId.equals(userId),
+        transaction: transaction,
       ),
       OfflineSyncSpaceMember.db
           .find(
             _delegate.session,
             where: (t) => t.userUuid.equals(userId),
             include: OfflineSyncSpaceMember.include(space: OfflineSyncSpace.include()),
+            transaction: transaction,
           )
           .then((memberships) => [for (final member in memberships) member.space!]),
     ]);

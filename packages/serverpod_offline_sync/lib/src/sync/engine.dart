@@ -126,8 +126,14 @@ class OfflineSyncEngine {
 
   /// Streams pending changes for every space in [checkpointsBySpaceUuid].
   ///
-  /// Changes are emitted in insert, update, then delete order. Domain row and
-  /// column payloads are resolved incrementally as each change is yielded.
+  /// Changes are captured in one consistent transaction, including domain
+  /// payloads, then emitted in insert, update, and delete order. The transaction
+  /// is released before yielding, so consumer backpressure or consumer writes
+  /// cannot keep the snapshot (or SQLite's write lock) open.
+  ///
+  /// Consume this stream outside application transactions, using a session
+  /// without an ambient transaction. Collection opens its own transaction to
+  /// capture committed data; it does not join a caller's transaction.
   ///
   /// Foreign-key columns with an active projection override are sent with their
   /// durable [CrdtDataAttemptedValue.value], not the visible value stored
@@ -150,10 +156,15 @@ class OfflineSyncEngine {
   }) async* {
     if (checkpointsBySpaceUuid.isEmpty) return;
 
+    // Resolve stable space identities before opening the snapshot. A wrapped
+    // database may initialize its CRDT registry on this first query, which can
+    // itself need a write transaction.
     final spaces = await OfflineSyncSpace.db.find(
       session,
       where: (t) => t.uuidSpaceId.inSet(checkpointsBySpaceUuid.keys.toSet()),
     );
+    if (spaces.isEmpty) return;
+
     final spaceUuidById = {
       for (final space in spaces) space.id!: space.uuidSpaceId,
     };
@@ -163,11 +174,19 @@ class OfflineSyncEngine {
     };
 
     try {
-      await for (final change in _streamPendingChanges(
-        session,
-        spaceUuidById,
-        checkpointsBySpaceId,
-      )) {
+      final changes = await session.db.transaction(
+        (transaction) => _streamPendingChanges(
+          session,
+          spaceUuidById,
+          checkpointsBySpaceId,
+          transaction,
+        ).toList(),
+        settings: const TransactionSettings(
+          isolationLevel: IsolationLevel.repeatableRead,
+        ),
+      );
+
+      for (final change in changes) {
         yield change;
       }
     } on PendingOutboundIntegrityViolation catch (violation) {
@@ -548,13 +567,31 @@ class OfflineSyncEngine {
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
     Map<int, List<Hlc>> checkpointsBySpaceId,
+    Transaction transaction,
   ) async* {
-    // Domain ownership is immutable while a collection runs, so read each
-    // row's owner at most once across all three streams.
+    // Cache ownership within this collection's consistent snapshot.
     final ownerCache = DomainRowOwnerCache();
-    yield* _streamInserts(session, spaceUuidById, checkpointsBySpaceId, ownerCache);
-    yield* _streamUpdates(session, spaceUuidById, checkpointsBySpaceId, ownerCache);
-    yield* _streamDeletes(session, spaceUuidById, checkpointsBySpaceId, ownerCache);
+    yield* _streamInserts(
+      session,
+      spaceUuidById,
+      checkpointsBySpaceId,
+      ownerCache,
+      transaction,
+    );
+    yield* _streamUpdates(
+      session,
+      spaceUuidById,
+      checkpointsBySpaceId,
+      ownerCache,
+      transaction,
+    );
+    yield* _streamDeletes(
+      session,
+      spaceUuidById,
+      checkpointsBySpaceId,
+      ownerCache,
+      transaction,
+    );
   }
 
   Stream<CrdtMergeInsert> _streamInserts(
@@ -562,9 +599,11 @@ class OfflineSyncEngine {
     Map<int, UuidValue> spaceUuidById,
     Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
+    Transaction transaction,
   ) async* {
     final rows = await CrdtDataRow.db.find(
       session,
+      transaction: transaction,
       where: (t) => _rowHlcAfterFilter(t, checkpointsBySpaceId),
       include: CrdtDataRow.include(
         tbl: CrdtSchemaTable.include(),
@@ -575,6 +614,7 @@ class OfflineSyncEngine {
     final attemptedValueFieldsByRowId = await _loadAttemptedValueFields(
       session,
       rows,
+      transaction,
     );
 
     for (final row in rows) {
@@ -597,6 +637,7 @@ class OfflineSyncEngine {
         attemptedValueFieldsByRowId[row.id!],
         spaceId,
         ownerCache,
+        transaction,
       );
       if (!domainRow.exists) {
         _throwPendingIntegrityViolation(
@@ -642,9 +683,11 @@ class OfflineSyncEngine {
     Map<int, UuidValue> spaceUuidById,
     Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
+    Transaction transaction,
   ) async* {
     final fields = await CrdtDataField.db.find(
       session,
+      transaction: transaction,
       where: (t) => _fieldHlcAfterFilter(t, checkpointsBySpaceId),
       include: CrdtDataField.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
@@ -674,6 +717,7 @@ class OfflineSyncEngine {
         field.attemptedValue,
         spaceId,
         ownerCache,
+        transaction,
       );
       if (!columnValue.exists) {
         _throwPendingIntegrityViolation(
@@ -720,9 +764,11 @@ class OfflineSyncEngine {
     Map<int, UuidValue> spaceUuidById,
     Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
+    Transaction transaction,
   ) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
+      transaction: transaction,
       where: (t) => _tombstoneHlcAfterFilter(t, checkpointsBySpaceId),
       include: CrdtDataDeleted.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
@@ -743,6 +789,7 @@ class OfflineSyncEngine {
         tableName,
         tombstone.row!.uuidRowId,
         ownerCache,
+        transaction,
       );
       if (owner.exists && owner.spaceId != spaceId) {
         _throwPendingIntegrityViolation(
@@ -828,6 +875,7 @@ class OfflineSyncEngine {
     List<CrdtDataField>? attemptedValueFields,
     int spaceId,
     DomainRowOwnerCache ownerCache,
+    Transaction transaction,
   ) async {
     final cols = table.columns
         .map(
@@ -842,9 +890,16 @@ class OfflineSyncEngine {
       'SELECT $cols FROM "$escapedTableName" '
       'WHERE "id" = $encodedRowId AND "spaceId" = $encodedSpaceId '
       'LIMIT 1',
+      transaction: transaction,
     );
     if (result.isEmpty) {
-      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+      final owner = await _readDomainRowOwner(
+        session,
+        tableName,
+        rowId,
+        ownerCache,
+        transaction,
+      );
       return (exists: owner.exists, ownerSpaceId: owner.spaceId, row: null);
     }
     ownerCache[(tableName, rowId)] = (exists: true, spaceId: spaceId);
@@ -893,9 +948,16 @@ class OfflineSyncEngine {
     CrdtDataAttemptedValue? attempted,
     int spaceId,
     DomainRowOwnerCache ownerCache,
+    Transaction transaction,
   ) async {
     if (attempted != null) {
-      final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+      final owner = await _readDomainRowOwner(
+        session,
+        tableName,
+        rowId,
+        ownerCache,
+        transaction,
+      );
       if (!owner.exists || owner.spaceId != spaceId) {
         return (exists: owner.exists, ownerSpaceId: owner.spaceId, value: null);
       }
@@ -917,6 +979,7 @@ class OfflineSyncEngine {
       'FROM "$escapedTableName" '
       'WHERE "id" = $encodedRowId AND "spaceId" = $encodedSpaceId '
       'LIMIT 1',
+      transaction: transaction,
     );
     if (result.isNotEmpty) {
       ownerCache[(tableName, rowId)] = (exists: true, spaceId: spaceId);
@@ -931,7 +994,13 @@ class OfflineSyncEngine {
       );
     }
 
-    final owner = await _readDomainRowOwner(session, tableName, rowId, ownerCache);
+    final owner = await _readDomainRowOwner(
+      session,
+      tableName,
+      rowId,
+      ownerCache,
+      transaction,
+    );
     return (exists: owner.exists, ownerSpaceId: owner.spaceId, value: null);
   }
 
@@ -940,6 +1009,7 @@ class OfflineSyncEngine {
     String tableName,
     UuidValue rowId,
     DomainRowOwnerCache ownerCache,
+    Transaction transaction,
   ) async {
     final cached = ownerCache[(tableName, rowId)];
     if (cached != null) return cached;
@@ -950,6 +1020,7 @@ class OfflineSyncEngine {
       'SELECT "spaceId" FROM "$escapedTableName" '
       'WHERE "id" = $encodedRowId '
       'LIMIT 1',
+      transaction: transaction,
     );
     final owner = result.isEmpty
         ? (exists: false, spaceId: null)
@@ -1031,12 +1102,14 @@ class OfflineSyncEngine {
   Future<Map<int, List<CrdtDataField>>> _loadAttemptedValueFields(
     DatabaseSession session,
     List<CrdtDataRow> rows,
+    Transaction transaction,
   ) async {
     final rowIds = {for (final row in rows) ?row.id};
     if (rowIds.isEmpty) return {};
 
     final fields = await CrdtDataField.db.find(
       session,
+      transaction: transaction,
       where: (t) => t.rowId.inSet(rowIds) & t.attemptedValue.id.notEquals(null),
       include: CrdtDataField.include(
         column: CrdtSchemaColumn.include(),

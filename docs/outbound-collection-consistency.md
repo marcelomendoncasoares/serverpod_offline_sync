@@ -1,104 +1,162 @@
-# Outbound collection consistency (follow-up)
+# Outbound collection consistency
 
-## Summary
+## Problem
 
-Outbound change collection reads CRDT metadata and the domain data it describes
-in **separate, non-atomic queries**. Under concurrent domain writes — real on
-the server, where co-members of a shared space write while a sync runs — this
-race can make an otherwise-healthy stream sync **fail and record a durable
-integrity violation** for a condition that the very next round would resolve on
-its own. Failing the session for a transient, self-correcting race is the design
-weakness to fix; no data is ever applied incorrectly, so this is a
-robustness/liveness problem, not a corruption one.
+[Issue #163](https://github.com/marcelomendoncasoares/serverpod_offline_sync/issues/163)
+reports a permanent checkpoint gap when a commit lands between the separate
+insert, update, and delete queries. This reproduces on `main` at `f59a90b`, after
+PR #158.
 
-This is **not yet implemented** — it is tracked design debt. The single-pass
-multi-space collection (`collectPendingChanges`) did not introduce the race
-but widened its window, which is what surfaced it.
+For example, the insert query finishes before a transaction inserts `A` at `t1`,
+updates `B` at `t2`, and inserts `C` at `t3`, where `t1 < t2 < t3`. The update
+query emits `t2`. `OfflineSyncSpaceState.advanceCheckpoint` advances that space's
+author checkpoint to `t2`, so the next collection selects `C` but never `A`.
+The inbound merge persists the same incomplete progress, so reconnecting does
+not repair it.
 
-## The mechanism
+There is an equivalent update/delete gap: after the update query, a transaction
+updates `B` and then deletes another row. Emitting the later deletion skips the
+name update permanently. Both paths can complete collection and merge without
+an integrity error.
 
-Collection is *snapshot-then-fetch*, and lock-free by design (the per-space
-`transactionForUser` lock guards the inbound merge, not outbound collection):
+Earlier versions of this document incorrectly described collection races as
+always self-correcting. They are data convergence defects.
 
-1. `_streamInserts` / `_streamUpdates` / `_streamDeletes` read the CRDT metadata
-   (`CrdtDataRow` / `CrdtDataField` / tombstones) as a query result — a snapshot
-   at some point `t0`.
-2. The domain row/column values are then read in **later, separate** queries
-   (`_fetchDomainRow`, `_fetchOwnedColumnValue`, `_readDomainRowOwner`).
+## Implementation
 
-Between (1) and (2), and across the three independently-snapshotted queries, the
-domain can change underneath the collection.
+`collectPendingChanges` resolves stable space IDs, then captures every pending
+change in one database transaction. The three metadata queries, included
+attempted values, domain payload queries, and ownership checks all receive that
+same transaction. It requests `IsolationLevel.repeatableRead`, which PostgreSQL
+supports through Serverpod's adapter.
 
-## Failure modes
+The complete captured list is emitted in insert, update, then delete order
+**after the transaction completes**. A consumer may commit a write or pause
+between changes without holding the capture transaction open. A commit is either
+visible to the captured snapshot or deferred until the next pass; it cannot
+contribute only its later change kind to the current checkpoint.
 
-1. **Concurrent delete → false-positive `missingDomainRow`.** A row whose CRDT
-   insert metadata was snapshotted, but whose domain row is deleted before the
-   domain read, makes `_fetchDomainRow` miss. Today that records a durable
-   `missingDomainRow` violation and **fails the session** — even though the next
-   round would simply collect the tombstone and converge.
+This also prevents payload reads from observing values newer than the metadata
+snapshot. Genuine integrity failures abort capture; the durable violation is
+recorded outside the rolled-back transaction. Stable space identities are
+resolved before capture so a lazily initialized sync wrapper can initialize its
+schema without opening a nested SQLite transaction.
 
-2. **FK target inserted after the insert snapshot → dangling reference.** The
-   insert snapshot is taken at `t0`, but FK *column values* are read at fetch
-   time (later). If a referencing row's FK points to row `B` that was inserted
-   **after** `t0`, then `B` is not in the collected insert batch, yet the
-   reference to it is shipped. The same applies to an FK **update** collected in
-   the updates pass whose target was inserted after the inserts pass: the edge is
-   sent without the node. The peer then either churns through FK projection
-   (`SET NULL` / `SET DEFAULT` / `RESTRICT` with the durable `attemptedValue`)
-   until a later round delivers `B`, or trips an integrity violation and fails.
-   Either way, a benign ordering skew degrades the stream.
+Application membership lookups also retain their active transaction. In the
+Serverpod 4.0.3 SQLite adapter, an application transaction queued behind capture
+can otherwise hit a lock error when a visibility read starts outside that
+transaction. Both personal-space and shared-membership reads receive the same
+transaction; the existing concurrent lookups remain concurrent.
 
-3. **Value ahead of its HLC (self-correcting, listed for completeness).** If a
-   column is bumped from HLC `h` to `h2` between the metadata read and the domain
-   read, the batch ships `(value@h2, HLC=h)`. This converges: our own
-   `CrdtDataField` is now at `h2`, our send checkpoint only advanced to `h`, so
-   the next round re-ships `(value@h2, HLC=h2)` and every replica ratifies it.
-   No permanent divergence — but it shares the same root cause as (1) and (2).
+### Costs and boundaries
 
-## Why "fail the session" is the wrong response
+- The resolved Serverpod 4.0.3 SQLite adapter exposes `writeTransaction`, while
+  the underlying `sqlite_async` connection supports `readTransaction`. SQLite
+  writers therefore wait during capture. No SQLite write lock is held across
+  an emitted change. An upstream read-transaction API would remove this
+  contention without changing collection semantics.
+- Capturing a whole pass uses memory proportional to its payloads and delays the
+  first emitted change until capture completes. Wire chunk sizes remain bounded,
+  but do not bound capture memory. This is a correctness fix, not a claimed
+  collection performance improvement.
+- PostgreSQL repeatable-read snapshots do not require row write locks on the
+  collected spaces. All reads must retain the explicit transaction argument.
+- Consume the collector outside application transactions, with no ambient
+  session transaction. It captures committed data in its own transaction;
+  nested SQLite collection is unsupported. Application queries inside write
+  callbacks must also receive their transaction: unscoped reads can still hit
+  Serverpod 4.0.3's lock-zone error when transactions overlap.
+- A consistent snapshot cannot repair an already-invalid checkpoint, prove
+  completeness of arbitrary partial wire chunks, or establish ordering of
+  remote author facts received across independent relays. Projected attempted
+  FK values may also reference absent rows by design.
 
-All three are **transient and self-correcting**: the next collection round picks
-up the tombstone, the late insert, or the higher HLC, and replicas converge.
-Tearing down the stream — and persisting an integrity-violation record that reads
-like corruption — for a race that resolves itself next round converts an
-ordering skew into an outage plus a misleading audit trail. A durable
-`offline_sync_integrity_violations` entry should mean a *genuine* invariant breach
-(an ownership collision, real corruption), not "two reads happened to straddle a
-concurrent commit."
+## Why an HLC upper bound alone is insufficient for a common snapshot
 
-## Directions
+The issue's proposed upper bound addresses the reproduced schedules if each
+author's commits become visible in HLC order. It preserves lazy payload reads,
+however: an insert below the bound can still fetch a domain value written after
+the bound. Attempted values and ownership reads need consistency too.
 
-- **Read a consistent snapshot (primary).** Run the whole collection — the three
-  metadata queries *and* the domain reads — inside one read-only,
-  snapshot-consistent transaction (repeatable-read). On Postgres this is MVCC:
-  **a read snapshot, not a write lock**, so it adds no cross-space write
-  contention (and is therefore the right answer to "do we have to lock all
-  spaces?" — no, we take a snapshot, not a lock). A single snapshot closes the
-  race outright:
-  - The delete in (1) is invisible if it commits after the snapshot, and fully
-    visible (metadata + domain) if before — never half-seen.
-  - It makes each batch **referentially closed by construction**: the domain's
-    own FK constraint guarantees that wherever `A.fk = B` is visible in the
-    snapshot, `B` is too, so `B` is collected alongside `A`. (2) cannot happen.
+Current local writes already lock and refresh their `CrdtNode` through
+`lockAndRefreshCurrentNodeHlc`; this is distinct from proving ordered arrival
+of relayed facts. The existing metadata indexes cover row and field identities,
+not the proposed node/HLC descending lookups, so the claimed indexed-query cost
+would also need validation or new indexes.
 
-- **Tolerate, don't fail (fallback / defense in depth).** Where a consistent
-  snapshot is impractical, distinguish a *transient* missing row / missing
-  referent (present in CRDT metadata, not yet consistently readable, or arriving
-  next round) from a *true* violation, and **defer the racy change to the next
-  round** instead of failing the session and recording a durable violation. The
-  peer's FK projection already tolerates a transiently-missing referent — the
-  collector should match that posture rather than failing on it.
+Silently deferring individual racy changes is unsafe if another emitted change
+advances the same author's checkpoint past them. Faster or batched domain reads
+reduce the race window but do not establish a snapshot.
 
-- **Shrink the window.** Independent of the above, replace row-by-row domain
-  reads with set-based queries (`WHERE id IN (…)`) per table, narrowing the gap
-  between the metadata snapshot and the domain reads. Cheap, and reduces exposure
-  even before a full snapshot lands.
+## Regressions and DST
 
-## Priority
+Run the deterministic regressions from the test-server package:
 
-Correctness is preserved today (convergence + fail-safe: no wrong data is ever
-applied), so this does not block current use. But because it can fail a healthy
-long-lived continuous sync under concurrent shared-space writes — the exact
-workload shared spaces enable — it should be addressed before such deployments
-are relied upon. The consistent-snapshot approach is the smallest change that
-removes all three failure modes at once.
+```sh
+dart test test/integration/sync/outbound_snapshot_test.dart test/integration/sync/outbound_snapshot_concurrency_test.dart test/dst/dst_outbound_snapshot_test.dart
+```
+
+The SQLite integration cases use real peers, `mergeInboundBatch`, and persisted
+`createSyncSinceHlc` vectors. On the original collector, three assertions fail:
+collected inserts omit `A`, the peer lacks `A`, and the update/delete peer keeps
+`B1` instead of `B2`. Two full-history recovery assertions pass. All five pass
+with the snapshot fix. A sixth check covers lazy wrapper initialization,
+cancellation after one change, and a subsequent write and collection.
+
+The DST regressions drive the same interleavings through `DstAdversary` in delta
+mode and drain exclusively through receiver checkpoints. Replacing the fixed
+collector with the original makes both convergence assertions fail while the
+interleaving coverage assertions still pass. This verifies that the harness
+executes the race and cannot hide it with a full-history repair.
+
+Additional integration and DST cases start an independent writer after the
+real insert metadata query, before payload capture resumes. They reject a
+mutation that keeps buffering but removes the transaction, which the
+consumer-yield cases alone cannot detect. The integration suite also exercises
+a membership-filtered read and insert queued behind capture: it fails with a
+SQLite lock error when membership lookups lose their transaction.
+
+Seeded simulations schedule two or three application operations either during
+capture or at a selected collector yield. Capture-time writes run in an
+independent zone with a bounded 500 ms opportunity to commit while capture is
+paused; SQLite's transaction keeps them queued instead. The harness awaits
+their completion before returning the batch, so clock and random state cannot
+overlap later scheduling. The operation generator retains its ordinary authored
+fact, rollback, and invariant checks. Interleavings run only during the scheduled
+phase, in both full and delta modes; setup and draining remain quiescent.
+
+Network metrics record attempts and committed transactions separately, including
+the emitted change kind at yield suspension points. Separate capture metrics
+count capture schedules and their eventual committed transactions after the
+snapshot releases its lock. Runs of 100 or more rounds must commit at least one
+write from each schedule type. These gates supplement existing commit and delta partial-batch
+requirements.
+
+Local stress validation used seed `163`, the sparse profile, and 100 rounds in
+each topology and delivery mode. All four runs passed:
+
+| Delivery | Topology | Commits at collector yields | Commits attempted during capture |
+| --- | --- | --- | --- |
+| full | cross_space | 20 | 18 |
+| full | convergence | 19 | 16 |
+| delta | cross_space | 12 | 12 |
+| delta | convergence | 41 | 43 |
+
+Both delta topologies reproduced identical complete metrics on replay. A
+buffer-only mutation failed the randomized delta convergence run for seed
+`163`, in addition to the pinned capture-time DST and integration regressions.
+
+A separate PostgreSQL 16 adapter probe committed an independent writer after
+the insert metadata read and before payload reads. Capture retained `B0`, then
+the next collection delivered `A`, `C`, and the `B1` update. The probe generated
+PostgreSQL SQL from the current schema definition in an isolated cluster; the
+test server's checked-in migration SQL targets SQLite. Changing only the capture
+isolation to read-committed makes that probe fail, confirming that buffering
+without a repeatable snapshot is insufficient.
+
+## Recovery
+
+Fixing future collections cannot recover operations already below a receiver's
+checkpoint. The tested recovery is an explicit full-history collection using
+`checkpointsBySpaceUuid: {space: []}`, merged on the affected peer. Ordinary
+checkpoint retries did not repair either original reproduction.

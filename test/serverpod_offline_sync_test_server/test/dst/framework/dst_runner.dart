@@ -196,8 +196,24 @@ Future<DstRunReport> runDstSimulation({
 
   final operations = DstOperations(random, ids);
   operations.oracle.accept(await DstSnapshot.capture(replicas.first));
-  final adversary = DstAdversary(random, replicas, delivery: delivery)
-    ..phase = DstNetworkPhase.setup;
+  final adversary = DstAdversary(
+    random,
+    replicas,
+    delivery: delivery,
+    onCollecting: (replica, space) async {
+      var committed = 0;
+      // Multiple operations can cross change kinds (insert/update/delete)
+      // before the collector resumes. A lone insertion would not expose a
+      // later change advancing the checkpoint past the missing insertion.
+      final attempts = random.between(2, 3);
+      for (var index = 0; index < attempts; index++) {
+        final outcome = await operations.step(replica, space);
+        simulationClock.advance(Duration(milliseconds: random.between(1, 40)));
+        if (outcome == DstOperationOutcome.applied) committed++;
+      }
+      return committed;
+    },
+  )..phase = DstNetworkPhase.setup;
   var schedulingStarted = false;
   var setupAttempted = 0;
   var setupCommitted = 0;
@@ -328,6 +344,18 @@ Future<DstRunReport> runDstSimulation({
         adversary.scheduledPartialBatches == 0) {
       throw StateError(
         'Delta stress run delivered no scheduled partial batches: ${report.toJson()}',
+      );
+    }
+    if (rounds >= 100 &&
+        (adversary.metrics['scheduled.collectionInterleavedCommits'] ?? 0) == 0) {
+      throw StateError(
+        'Stress run committed no writes during collection: ${report.toJson()}',
+      );
+    }
+    if (rounds >= 100 &&
+        (adversary.metrics['scheduled.captureInterleavedCommits'] ?? 0) == 0) {
+      throw StateError(
+        'Stress run committed no writes attempted during capture: ${report.toJson()}',
       );
     }
     if (resolvedProfile == DstProfile.populated) {
