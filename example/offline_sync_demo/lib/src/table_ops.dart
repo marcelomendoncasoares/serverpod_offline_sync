@@ -160,14 +160,6 @@ final Map<String, TableOps> demoTableOps = {
       create: (id, label, foreignKeys) =>
           RestrictChild(id: id, name: label, parentId: foreignKeys['parentId']),
     ),
-    _ops<RequiredSetNullChild>(
-      canCreateRoot: false,
-      create: (id, label, foreignKeys) {
-        final parentId = foreignKeys['parentId'];
-        if (parentId == null) return null;
-        return RequiredSetNullChild(id: id, name: label, parentId: parentId);
-      },
-    ),
     _ops<Unique>(
       create: (id, label, foreignKeys) => Unique(id: id, name: label),
     ),

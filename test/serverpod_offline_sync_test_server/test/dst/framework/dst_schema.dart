@@ -25,10 +25,8 @@ enum DstTable {
   uniqueFkPair('unique_fk_pair'),
   uniqueMixedFk('unique_mixed_fk'),
   organization('organization'),
-  requiredSetNullChild('required_set_null_child'),
   requiredCascadeChild('required_cascade_child'),
   requiredNoActionChild('required_no_action_child'),
-  nullableSetDefaultChild('nullable_set_default_child'),
   uniqueSetDefaultChild('unique_set_default_child'),
   uniqueCascadeReference('unique_cascade_reference'),
   restrictChild('restrict_child'),
@@ -216,10 +214,6 @@ final dstModels = <DstTable, DstModel<db.TableRow<models.UuidValue?>>>{
     table: models.Organization.t,
     fromJson: models.Organization.fromJson,
   ),
-  DstTable.requiredSetNullChild: DstModel<models.RequiredSetNullChild>(
-    table: models.RequiredSetNullChild.t,
-    fromJson: models.RequiredSetNullChild.fromJson,
-  ),
   DstTable.requiredCascadeChild: DstModel<models.RequiredCascadeChild>(
     table: models.RequiredCascadeChild.t,
     fromJson: models.RequiredCascadeChild.fromJson,
@@ -227,10 +221,6 @@ final dstModels = <DstTable, DstModel<db.TableRow<models.UuidValue?>>>{
   DstTable.requiredNoActionChild: DstModel<models.RequiredNoActionChild>(
     table: models.RequiredNoActionChild.t,
     fromJson: models.RequiredNoActionChild.fromJson,
-  ),
-  DstTable.nullableSetDefaultChild: DstModel<models.NullableSetDefaultChild>(
-    table: models.NullableSetDefaultChild.t,
-    fromJson: models.NullableSetDefaultChild.fromJson,
   ),
   DstTable.uniqueSetDefaultChild: DstModel<models.UniqueSetDefaultChild>(
     table: models.UniqueSetDefaultChild.t,

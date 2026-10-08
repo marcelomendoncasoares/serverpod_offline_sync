@@ -436,64 +436,6 @@ void main() {
   );
 
   group(
-    'Given a parent with a required (non-nullable) set-null child insert,',
-    () {
-      late Person parent;
-      late RequiredSetNullChild child;
-      late CrdtMergeDelete remoteParentDelete;
-
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
-          parent = await Person.db.insertRow(
-            session,
-            Person(id: const Uuid().v7obj(), name: 'required set-null parent'),
-            transaction: tx,
-          );
-          child = await RequiredSetNullChild.db.insertRow(
-            session,
-            RequiredSetNullChild(
-              id: const Uuid().v7obj(),
-              name: 'required set-null child',
-              parentId: parent.id!,
-            ),
-            transaction: tx,
-          );
-        });
-      });
-
-      group('when a concurrent remote parent delete is merged,', () {
-        setUp(() async {
-          remoteParentDelete = _deleteChange(
-            tableName: Person.t.tableName,
-            rowId: parent.id!,
-            after: await rowHlc(parent.id!),
-          );
-
-          await session.db.mergeChanges(
-            [remoteParentDelete],
-            spaceId: testCrdtUserId,
-          );
-        });
-
-        test(
-          'then the parent remains visible because set-null cannot repair the child.',
-          () async {
-            final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await RequiredSetNullChild.db.findById(
-              session,
-              child.id!,
-            );
-
-            expect(visibleParent, isNotNull);
-            expect(visibleChild, isNotNull);
-            expect(visibleChild!.parentId, parent.id);
-          },
-        );
-      });
-    },
-  );
-
-  group(
     'Given a parent with a nullable set-null foreign key whose attempted value was stored on update,',
     () {
       late Person attemptedParent;
@@ -2093,17 +2035,16 @@ void main() {
   // transaction commits: drop `DEFERRABLE INITIALLY DEFERRED` from the schema
   // and this group fails with a foreign key violation.
   group(
-    'Given a merge set whose non-nullable child insert carries a foreign key '
-    'to a parent that is inserted after it,',
+    'Given a merge set whose non-nullable child insert carries a foreign key to a parent that is inserted after it,',
     () {
       late Person parent;
-      late RequiredSetNullChild child;
+      late RequiredNoActionChild child;
       late CrdtMergeSet mergeSet;
 
       setUp(() {
         final remoteNodeId = const Uuid().v7obj();
         parent = Person(id: const Uuid().v7obj(), name: 'late required parent');
-        child = RequiredSetNullChild(
+        child = RequiredNoActionChild(
           id: const Uuid().v7obj(),
           name: 'early required child',
           parentId: parent.id!,
@@ -2115,7 +2056,7 @@ void main() {
         mergeSet = [
           CrdtMergeInsert(
             uuidSpaceId: testCrdtUserId,
-            tableName: RequiredSetNullChild.t.tableName,
+            tableName: RequiredNoActionChild.t.tableName,
             uuidRowId: child.id!,
             uuidNodeId: remoteNodeId,
             hlcDatetime: childHlc.datetime,
@@ -2143,7 +2084,7 @@ void main() {
           'then both rows are visible and the child keeps its foreign key.',
           () async {
             final visibleParent = await Person.db.findById(session, parent.id!);
-            final visibleChild = await RequiredSetNullChild.db.findById(
+            final visibleChild = await RequiredNoActionChild.db.findById(
               session,
               child.id!,
             );
@@ -2320,7 +2261,7 @@ void main() {
         );
       });
 
-      group('when the root delete replayed after merged,', () {
+      group('when the root delete is merged twice,', () {
         late List<String> visibilityAfterMerge;
         late List<String> visibilityAfterReplay;
         late List<String> foreignKeyProjectionAfterMerge;
@@ -2398,8 +2339,7 @@ void main() {
       });
 
       group(
-        'when a newer remote update for a cascade-hidden descendant is merged '
-        'after the root delete,',
+        'when the root delete and a newer descendant update are merged in order,',
         () {
           late CrdtMergeUpdate remoteOrganizationUpdate;
 
@@ -2434,33 +2374,53 @@ void main() {
               expect(await Person.db.findById(session, person.id!), isNull);
             },
           );
+        },
+      );
 
-          group('when the root restore is merged afterwards,', () {
-            setUp(() async {
-              final remoteCityRestore = _restoreChange(
-                tableName: City.t.tableName,
-                rowId: city.id!,
-                after: remoteOrganizationUpdate.hlc,
-              );
-              await session.db.mergeChanges(
-                [remoteCityRestore],
-                spaceId: testCrdtUserId,
-              );
-            });
+      group(
+        'when the root delete, a newer descendant update, and the root restore are merged in order,',
+        () {
+          late Organization? visibleOrganization;
 
-            test(
-              'then the descendant becomes visible with the merged update value.',
-              () async {
-                final visibleOrganization = await Organization.db.findById(
-                  session,
-                  organization.id!,
-                );
-
-                expect(visibleOrganization, isNotNull);
-                expect(visibleOrganization!.name, 'renamed while hidden');
-                expect(visibleOrganization.cityId, city.id);
-              },
+          setUp(() async {
+            await session.db.mergeChanges(
+              [remoteCityDelete],
+              spaceId: testCrdtUserId,
             );
+
+            final remoteOrganizationUpdate = _updateChange(
+              tableName: Organization.t.tableName,
+              rowId: organization.id!,
+              columnName: Organization.t.name.columnName,
+              value: 'renamed while hidden',
+              after: (await rowHlc(organization.id!)).maxBetween(
+                remoteCityDelete.hlc,
+              ),
+            );
+            await session.db.mergeChanges(
+              [remoteOrganizationUpdate],
+              spaceId: testCrdtUserId,
+            );
+
+            final remoteCityRestore = _restoreChange(
+              tableName: City.t.tableName,
+              rowId: city.id!,
+              after: remoteOrganizationUpdate.hlc,
+            );
+            await session.db.mergeChanges(
+              [remoteCityRestore],
+              spaceId: testCrdtUserId,
+            );
+            visibleOrganization = await Organization.db.findById(
+              session,
+              organization.id!,
+            );
+          });
+
+          test('then the descendant becomes visible with the merged update value.', () {
+            expect(visibleOrganization, isNotNull);
+            expect(visibleOrganization!.name, 'renamed while hidden');
+            expect(visibleOrganization!.cityId, city.id);
           });
         },
       );
