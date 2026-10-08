@@ -540,13 +540,11 @@ class CrdtForeignKeyProjector {
 
       switch (edge.action) {
         case ForeignKeyAction.setNull:
-          if (edge.childNullable) {
-            safeData[edge.childColumn] = null;
-            attempts[fieldKey] = (
-              value: attemptedValue,
-              reason: CrdtProjectionReason.foreignKeySetNull,
-            );
-          }
+          safeData[edge.childColumn] = null;
+          attempts[fieldKey] = (
+            value: attemptedValue,
+            reason: CrdtProjectionReason.foreignKeySetNull,
+          );
         case ForeignKeyAction.setDefault:
           final defaultProjection = await _defaultProjectionValueFromDatabase(
             edge,
@@ -1808,7 +1806,7 @@ class CrdtForeignKeyProjector {
   ) {
     switch (edge.action) {
       case ForeignKeyAction.setNull:
-        return edge.childNullable;
+        return true;
       case ForeignKeyAction.setDefault:
         final defaultValue = edge.defaultValue.toUuidValue();
         if (defaultValue == null) return edge.childNullable;
@@ -1893,7 +1891,7 @@ class CrdtForeignKeyProjector {
             case ForeignKeyAction.noAction:
               return true;
             case ForeignKeyAction.setNull:
-              if (!edge.childNullable) return true;
+              break;
             case ForeignKeyAction.setDefault:
               if (!_defaultProjectionValue(edge, state, finalHidden).valid) {
                 return true;
@@ -2124,10 +2122,8 @@ class CrdtForeignKeyProjector {
             _targetHiddenOrMissing(edge, attemptedValue, state, finalHidden)) {
           switch (edge.action) {
             case ForeignKeyAction.setNull:
-              if (edge.childNullable) {
-                desiredVisibleValue = null;
-                overrideReason = CrdtProjectionReason.foreignKeySetNull;
-              }
+              desiredVisibleValue = null;
+              overrideReason = CrdtProjectionReason.foreignKeySetNull;
             case ForeignKeyAction.setDefault:
               final defaultProjection = _defaultProjectionValue(
                 edge,

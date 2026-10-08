@@ -601,7 +601,7 @@ void main() {
       final childDefinition = testSession.db.serializationManager
           .getTargetTableDefinitions()
           .firstWhere(
-            (definition) => definition.name == RequiredSetNullChild.t.tableName,
+            (definition) => definition.name == RequiredNoActionChild.t.tableName,
           );
       final nonDeferredDefinition = childDefinition.copyWith(
         foreignKeys: [
@@ -613,7 +613,7 @@ void main() {
       expect(
         () => CrdtSchemaRegistry(
           session,
-          syncTables: [RequiredSetNullChild.t],
+          syncTables: [RequiredNoActionChild.t],
           tableDefinitions: [nonDeferredDefinition],
         ),
         throwsA(
@@ -622,7 +622,7 @@ void main() {
             'message',
             'CRDT requires deferred foreign keys for non-optional relations, '
                 'but 1 foreign key(s) are not deferred: '
-                '"required_set_null_child.parentId". Mark these as "deferred" '
+                '"required_no_action_child.parentId". Mark these as "deferred" '
                 'or make the relation optional.',
           ),
         ),
@@ -638,7 +638,7 @@ void main() {
       final childDefinition = testSession.db.serializationManager
           .getTargetTableDefinitions()
           .firstWhere(
-            (definition) => definition.name == RequiredSetNullChild.t.tableName,
+            (definition) => definition.name == RequiredNoActionChild.t.tableName,
           );
       final immediateDefinition = childDefinition.copyWith(
         foreignKeys: [
@@ -652,7 +652,7 @@ void main() {
       expect(
         () => CrdtSchemaRegistry(
           session,
-          syncTables: [RequiredSetNullChild.t],
+          syncTables: [RequiredNoActionChild.t],
           tableDefinitions: [immediateDefinition],
         ),
         throwsA(
@@ -661,7 +661,7 @@ void main() {
             'message',
             'CRDT requires deferred foreign keys for non-optional relations, '
                 'but 1 foreign key(s) are not deferred: '
-                '"required_set_null_child.parentId". Mark these as "deferred" '
+                '"required_no_action_child.parentId". Mark these as "deferred" '
                 'or make the relation optional.',
           ),
         ),

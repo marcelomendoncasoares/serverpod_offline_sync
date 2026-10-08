@@ -291,7 +291,6 @@ class DemoDebugEndpoint extends Endpoint {
     await add<Organization>();
     await add<Company>();
     await add<RestrictChild>();
-    await add<RequiredSetNullChild>();
     await add<Unique>();
     await add<UniqueUuid>();
     await add<UniqueComposite>();

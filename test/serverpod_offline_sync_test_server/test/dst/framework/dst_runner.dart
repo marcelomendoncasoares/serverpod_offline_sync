@@ -11,7 +11,11 @@ import 'dst_world.dart';
 /// The shape of one simulated deployment.
 class DstTopology {
   /// Creates a topology.
-  const DstTopology({required this.spaceCount, required this.subscriptions});
+  const DstTopology({
+    required this.name,
+    required this.spaceCount,
+    required this.subscriptions,
+  });
 
   /// Two spaces, and three replicas whose subscription sets deliberately
   /// differ: two hold only one space each, one holds both.
@@ -20,6 +24,7 @@ class DstTopology {
   /// some replica holds strictly more than another, because the claim is that
   /// the extra space changes nothing about the shared one.
   static const overlappingSpaces = DstTopology(
+    name: 'cross_space',
     spaceCount: 2,
     subscriptions: [
       [0],
@@ -30,6 +35,7 @@ class DstTopology {
 
   /// One space shared by every replica - the classic convergence shape.
   static const singleSpace = DstTopology(
+    name: 'convergence',
     spaceCount: 1,
     subscriptions: [
       [0],
@@ -37,6 +43,9 @@ class DstTopology {
       [0],
     ],
   );
+
+  /// The stable topology name used in reports and soak records.
+  final String name;
 
   /// How many spaces exist.
   final int spaceCount;
@@ -54,6 +63,7 @@ class DstRunReport {
   /// Creates a report.
   DstRunReport({
     required this.seed,
+    required this.topology,
     required this.merges,
     required this.applied,
     required this.rejected,
@@ -64,6 +74,7 @@ class DstRunReport {
     required this.rounds,
     required this.profile,
     required this.graphWidth,
+    required this.delivery,
     required this.skipped,
     required this.setupAttempted,
     required this.scheduledCommitted,
@@ -71,7 +82,9 @@ class DstRunReport {
     required this.network,
   });
 
+  final String topology;
   final int rounds;
+  final DstDeliveryMode delivery;
   final DstProfile profile;
   final int graphWidth;
   final int skipped;
@@ -84,8 +97,10 @@ class DstRunReport {
 
   Map<String, Object> toJson() => {
     'seed': seed,
+    'topology': topology,
     'rounds': rounds,
     'profile': profile.name,
+    'delivery': delivery.name,
     'graphWidth': graphWidth,
     'attempted': attempted,
     'committed': applied,
@@ -124,7 +139,7 @@ class DstRunReport {
 
   @override
   String toString() =>
-      'seed=$seed merges=$merges applied=$applied rejected=$rejected '
+      'seed=$seed topology=$topology merges=$merges applied=$applied rejected=$rejected '
       'visible=$visibleRows hidden=$hiddenRows paths=$appliedPaths';
 }
 
@@ -139,6 +154,7 @@ Future<DstRunReport> runDstSimulation({
   DstTopology topology = DstTopology.overlappingSpaces,
   DstProfile profile = DstProfile.sparse,
   int graphWidth = 2,
+  DstDeliveryMode delivery = DstDeliveryMode.full,
 }) async {
   if (rounds < 1 || graphWidth < 2) {
     throw ArgumentError('rounds >= 1 and graphWidth >= 2 required');
@@ -180,7 +196,8 @@ Future<DstRunReport> runDstSimulation({
 
   final operations = DstOperations(random, ids);
   operations.oracle.accept(await DstSnapshot.capture(replicas.first));
-  final adversary = DstAdversary(random, replicas);
+  final adversary = DstAdversary(random, replicas, delivery: delivery)
+    ..phase = DstNetworkPhase.setup;
   var schedulingStarted = false;
   var setupAttempted = 0;
   var setupCommitted = 0;
@@ -194,6 +211,7 @@ Future<DstRunReport> runDstSimulation({
       rounds: rounds,
       profile: profile,
       graphWidth: graphWidth,
+      delivery: delivery,
       replica: replica,
       violations: violations,
     );
@@ -220,6 +238,7 @@ Future<DstRunReport> runDstSimulation({
     setupAttempted = operations.attempted;
     setupCommitted = operations.committed;
     schedulingStarted = true;
+    adversary.phase = DstNetworkPhase.scheduled;
 
     for (var round = 0; round < rounds; round++) {
       for (final replica in replicas) {
@@ -231,6 +250,7 @@ Future<DstRunReport> runDstSimulation({
       await adversary.step(checkInvariants);
     }
 
+    adversary.phase = DstNetworkPhase.drain;
     await adversary.quiesce(checkInvariants);
 
     final snapshots = <DstReplica, DstSnapshot>{
@@ -266,17 +286,20 @@ Future<DstRunReport> runDstSimulation({
         rounds: rounds,
         profile: profile,
         graphWidth: graphWidth,
+        delivery: delivery,
         violations: violations,
       );
     }
 
     final report = DstRunReport(
+      topology: topology.name,
       seed: seed,
       merges: adversary.mergeCount,
       applied: operations.committed,
       rounds: rounds,
       profile: resolvedProfile,
       graphWidth: graphWidth,
+      delivery: delivery,
       skipped: operations.skipped,
       setupAttempted: setupAttempted,
       scheduledCommitted: operations.committed - setupCommitted,
@@ -298,6 +321,13 @@ Future<DstRunReport> runDstSimulation({
     if (report.scheduledCommitted < requiredCommits || report.merges == 0) {
       throw StateError(
         'Insufficient scheduled activity: required $requiredCommits commits; ${report.toJson()}',
+      );
+    }
+    if (delivery == DstDeliveryMode.delta &&
+        rounds >= 100 &&
+        adversary.scheduledPartialBatches == 0) {
+      throw StateError(
+        'Delta stress run delivered no scheduled partial batches: ${report.toJson()}',
       );
     }
     if (resolvedProfile == DstProfile.populated) {
@@ -328,9 +358,11 @@ Future<DstRunReport> runDstSimulation({
     print(
       'DST_METRICS ${jsonEncode({
         'seed': seed,
+        'topology': topology.name,
         'rounds': rounds,
         'profile': resolvedProfile.name,
         'requestedProfile': profile.name,
+        'delivery': delivery.name,
         'graphWidth': graphWidth,
         'attempted': operations.attempted,
         'committed': operations.committed,
@@ -365,6 +397,7 @@ Future<T> runWithSeedReported<T>({
   required Future<T> Function() run,
   DstProfile profile = DstProfile.sparse,
   int graphWidth = 2,
+  DstDeliveryMode delivery = DstDeliveryMode.full,
 }) async {
   try {
     return await run();
@@ -374,7 +407,7 @@ Future<T> runWithSeedReported<T>({
     Error.throwWithStackTrace(
       StateError(
         'Simulation $index (seed $seed) failed\n'
-        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds DST_PROFILE=${profile.name} DST_GRAPH_WIDTH=$graphWidth dart test -P dst\n'
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds DST_PROFILE=${profile.name} DST_GRAPH_WIDTH=$graphWidth DST_DELIVERY=${delivery.name} dart test -P dst\n'
         '$error',
       ),
       stackTrace,
@@ -395,8 +428,10 @@ class DstPropertyFailure implements Exception {
     this.replica,
     this.profile = DstProfile.sparse,
     this.graphWidth = 2,
+    this.delivery = DstDeliveryMode.full,
   });
 
+  final DstDeliveryMode delivery;
   final DstProfile profile;
   final int graphWidth;
 
@@ -417,7 +452,7 @@ class DstPropertyFailure implements Exception {
     final buffer = StringBuffer()
       ..writeln('DST property failure (seed $seed)')
       ..writeln(
-        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds DST_PROFILE=${profile.name} DST_GRAPH_WIDTH=$graphWidth dart test -P dst',
+        'Replay: DST_SEED_BASE=$seed DST_SEEDS=1 DST_ROUNDS=$rounds DST_PROFILE=${profile.name} DST_GRAPH_WIDTH=$graphWidth DST_DELIVERY=${delivery.name} dart test -P dst',
       );
     if (replica != null) buffer.writeln('Replica: $replica');
     for (final violation in violations) {

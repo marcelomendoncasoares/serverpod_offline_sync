@@ -16,6 +16,7 @@
 # Results live in .dst-soak:
 #   FAILURES.md          one section per failing run, with its replay command
 #   RUNS.tsv             every run attempted, so coverage is auditable
+#   METRICS.jsonl        coverage records retained for passing and failing runs
 #   runs/<id>.log        full output, kept for failures only
 #   tree.txt, tree.diff  the exact code state being hunted
 
@@ -50,8 +51,16 @@ mkdir -p "$OUT/runs"
 git -C "$REPO_ROOT" diff HEAD > "$OUT/tree.diff"
 
 [ -f "$OUT/RUNS.tsv" ] ||
-  printf 'started\tid\tprofile\tseed_base\tseeds\trounds\twidth\ttarget\tresult\tseconds\n' \
+  printf 'started\tid\tprofile\tseed_base\tseeds\trounds\twidth\ttarget\tresult\tseconds\tdelivery\n' \
     > "$OUT/RUNS.tsv"
+# Upgrade existing ledgers without reinterpreting old runs: before delivery
+# modes existed, every recorded run used full-history delivery.
+if [ "$(head -n 1 "$OUT/RUNS.tsv" | awk -F'\t' '{print NF}')" -eq 10 ]; then
+  ledger_tmp=$(mktemp)
+  awk -F'\t' 'BEGIN { OFS = FS } { print $0, (NR == 1 ? "delivery" : "full") }' \
+    "$OUT/RUNS.tsv" > "$ledger_tmp" && mv "$ledger_tmp" "$OUT/RUNS.tsv"
+fi
+
 [ -f "$OUT/FAILURES.md" ] || {
   echo "# Deterministic simulation failures"
   echo
@@ -64,14 +73,16 @@ git -C "$REPO_ROOT" diff HEAD > "$OUT/tree.diff"
 # how deep a schedule gets before the run ends. A single fixed shape would keep
 # re-searching the same corner of the space all night.
 #
-# profile:seeds:rounds:width:target
+# profile:seeds:rounds:width:target:delivery
 CONFIGS=(
-  "sparse:8:40:2:"
-  "mixed:6:120:2:"
-  "mixed:4:200:2:test/dst/dst_cross_space_test.dart"
-  "populated:3:200:3:"
-  "sparse:12:40:3:test/dst/dst_convergence_test.dart"
-  "mixed:8:80:2:"
+  "sparse:8:40:2::full"
+  "sparse:8:40:2::delta"
+  "mixed:4:200:2:test/dst/dst_cross_space_test.dart:full"
+  "mixed:4:200:2:test/dst/dst_cross_space_test.dart:delta"
+  "populated:3:200:3::full"
+  "populated:3:200:3::delta"
+  "mixed:6:120:2:test/dst/dst_convergence_test.dart:full"
+  "mixed:6:120:2:test/dst/dst_convergence_test.dart:delta"
 )
 # Space-separated entries in the same shape, to steer or test the hunt.
 [ -z "${DST_SOAK_CONFIGS:-}" ] || read -r -a CONFIGS <<< "$DST_SOAK_CONFIGS"
@@ -87,24 +98,29 @@ index=0
 suspicious=0
 
 while [ "$(date +%s)" -lt "$UNTIL" ]; do
-  IFS=':' read -r profile seeds rounds width target <<< "${CONFIGS[index % ${#CONFIGS[@]}]}"
+  IFS=':' read -r profile seeds rounds width target delivery <<< "${CONFIGS[index % ${#CONFIGS[@]}]}"
+  delivery=${delivery:-${DST_DELIVERY:-full}}
+  case "$delivery" in
+    full|delta) ;;
+    *) echo "invalid delivery mode: $delivery" >&2; exit 2 ;;
+  esac
   index=$((index + 1))
 
   # The index keeps two runs that start in the same second from sharing a log.
-  id="$(date +%Y%m%d-%H%M%S)-$index-$profile-$rounds"
+  id="$(date +%Y%m%d-%H%M%S)-$index-$profile-$rounds-$delivery"
   log="$OUT/runs/$id.log"
   seed_base=$cursor
   cursor=$((cursor + seeds))
 
   replay="DST_SEED_BASE=$seed_base DST_SEEDS=$seeds DST_ROUNDS=$rounds"
-  replay="$replay DST_PROFILE=$profile DST_GRAPH_WIDTH=$width"
+  replay="$replay DST_PROFILE=$profile DST_GRAPH_WIDTH=$width DST_DELIVERY=$delivery"
   replay="$replay dart test -P dst --concurrency=1 ${target:+$target}"
 
   # The command is written down before the run, so a kill -9 mid-run still
   # leaves the seed behind.
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$(date -Is)" "$id" "$profile" "$seed_base" "$seeds" "$rounds" "$width" \
-    "${target:-all}" "started" "" >> "$OUT/RUNS.tsv"
+    "${target:-all}" "started" "" "$delivery" >> "$OUT/RUNS.tsv"
 
   started=$(date +%s)
   (
@@ -114,6 +130,7 @@ while [ "$(date +%s)" -lt "$UNTIL" ]; do
     DST_ROUNDS=$rounds \
     DST_PROFILE=$profile \
     DST_GRAPH_WIDTH=$width \
+    DST_DELIVERY=$delivery \
       timeout "$RUN_TIMEOUT" dart test -P dst --concurrency=1 \
         --reporter=expanded ${target:+"$target"}
   ) > "$log" 2>&1
@@ -128,9 +145,12 @@ while [ "$(date +%s)" -lt "$UNTIL" ]; do
     exit 4
   fi
 
+  # Preserve actual coverage before deleting bulky passing-run output.
+  sed -n "s/^.*DST_METRICS {/\{\"runId\":\"$id\",/p" "$log" >> "$OUT/METRICS.jsonl"
+
   if [ $status -eq 0 ]; then
-    # A passing run proves the seeds were searched; its output proves nothing,
-    # and a night of them fills the disk.
+    # Metrics above retain coverage evidence; keep bulky per-test output only
+    # for failures so an overnight hunt does not fill the disk.
     rm -f "$log"
     result="passed"
     suspicious=0
@@ -157,7 +177,7 @@ while [ "$(date +%s)" -lt "$UNTIL" ]; do
       echo
       # The suite prints its own single-seed replay line for each failure. It is
       # narrower than the sweep command above, so it is kept when present.
-      sed -n 's/.*\(Replay: DST_SEED_BASE=[^ ]* DST_SEEDS=[^ ]* DST_ROUNDS=[^ ]* DST_PROFILE=[^ ]* DST_GRAPH_WIDTH=[0-9]*\).*/- \1/p' \
+      sed -n 's/.*\(Replay: DST_SEED_BASE=[^ ]* DST_SEEDS=[^ ]* DST_ROUNDS=[^ ]* DST_PROFILE=[^ ]* DST_GRAPH_WIDTH=[0-9]* DST_DELIVERY=[^ ]*\).*/- \1/p' \
         "$log" | sort -u
       sed -n 's/^\s*\(test\/dst\/[a-z_]*\.dart:.*\)$/- \1/p' "$log" | sort -u | head -20
       echo

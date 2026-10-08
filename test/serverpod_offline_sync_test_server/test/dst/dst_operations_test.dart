@@ -8,65 +8,23 @@ import 'framework/dst_snapshot.dart';
 import 'framework/dst_world.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
-  test(
-    'Given a person referenced by a required set-null child, '
-    'when the DST deletes the person in a batch, '
-    'then the operation is rejected and both rows remain unchanged.',
-    () async {
-      final random = DstRandom(114);
-      final ids = DstIds(random);
-      final space = ids.next();
-      final replica = await _replica(ids, space);
-      final operations = DstOperations(random, ids);
-      final parent = Person(id: ids.next(), name: 'parent');
-      final child = RequiredSetNullChild(
-        id: ids.next(),
-        name: 'child',
-        parentId: parent.id!,
-      );
-      await replica.withReplicaClock(
-        () => replica.session.db.transactionForUser(space, (tx) async {
-          await Person.db.insertRow(replica.session, parent, transaction: tx);
-          await RequiredSetNullChild.db.insertRow(
-            replica.session,
-            child,
-            transaction: tx,
-          );
-        }),
-      );
-      final before = (await replica.collect(space)).map(dstChangeKey).toSet();
+  group('Given a deleted unique claimant and a newer claimant of the same name,', () {
+    late UuidValue space;
+    late DstReplica replica;
+    late DstOperations operations;
+    late Unique original;
+    late Unique peer;
 
-      final outcome = await operations.apply(
-        replica,
-        space,
-        table: DstTable.person,
-        action: DstAction.deleteBatch,
-      );
-
-      expect(outcome, DstOperationOutcome.rejected);
-      expect(await Person.db.findById(replica.session, parent.id!), isNotNull);
-      expect(
-        (await RequiredSetNullChild.db.findById(replica.session, child.id!))!.parentId,
-        parent.id,
-      );
-      expect((await replica.collect(space)).map(dstChangeKey).toSet(), before);
-    },
-  );
-
-  test(
-    'Given a deleted unique claimant and a newer claimant of the same name, '
-    'when the DST restores the deleted identity, '
-    'then the renewed claim yields the name to its earlier peer.',
-    () async {
+    setUpAll(() async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final space = ids.next();
-      final replica = await _replica(ids, space);
-      final operations = DstOperations(random, ids);
-      final original = Unique(id: ids.next(), name: 'shared');
-      final peer = Unique(id: ids.next(), name: 'shared');
+      space = ids.next();
+      replica = await _replica(ids, space);
+      operations = DstOperations(random, ids);
+      original = Unique(id: ids.next(), name: 'shared');
+      peer = Unique(id: ids.next(), name: 'shared');
       await replica.withReplicaClock(
         () => replica.session.db.transactionForUser(space, (tx) async {
           await Unique.db.insertRow(replica.session, original, transaction: tx);
@@ -78,27 +36,44 @@ void main() {
           await Unique.db.insertRow(replica.session, peer, transaction: tx);
         }),
       );
+    });
 
-      final outcome = await operations.apply(
-        replica,
-        space,
-        table: DstTable.unique,
-        action: _action('restore'),
-      );
+    group('when the DST restores the deleted identity,', () {
+      late DstOperationOutcome outcome;
+      late Unique? restored;
+      late Unique? other;
+      late DstSnapshot snapshot;
 
-      expect(outcome, DstOperationOutcome.applied);
-      final restored = await Unique.db.findById(replica.session, original.id!);
-      final other = await Unique.db.findById(replica.session, peer.id!);
-      expect(restored?.name, 'shared__conflict__${original.id}');
-      expect(other?.name, 'shared');
-      final snapshot = await DstSnapshot.capture(replica);
-      expect(snapshot.authoredValue(('unique', original.id!, 'name')), 'shared');
-      expect(
-        snapshot.fieldHlc(('unique', original.id!, 'name')),
-        snapshot.rowHlcs['unique/${original.id}'],
-      );
-    },
-  );
+      setUpAll(() async {
+        outcome = await operations.apply(
+          replica,
+          space,
+          table: DstTable.unique,
+          action: _action('restore'),
+        );
+        restored = await Unique.db.findById(replica.session, original.id!);
+        other = await Unique.db.findById(replica.session, peer.id!);
+        snapshot = await DstSnapshot.capture(replica);
+      });
+
+      test('then the restoration is applied.', () {
+        expect(outcome, DstOperationOutcome.applied);
+      });
+
+      test('then the renewed claim yields the name to its earlier peer.', () {
+        expect(restored?.name, 'shared__conflict__${original.id}');
+        expect(other?.name, 'shared');
+      });
+
+      test('then the authored name is renewed at the restored row clock.', () {
+        expect(snapshot.authoredValue(('unique', original.id!, 'name')), 'shared');
+        expect(
+          snapshot.fieldHlc(('unique', original.id!, 'name')),
+          snapshot.rowHlcs['unique/${original.id}'],
+        );
+      });
+    });
+  });
 
   test(
     'Given an empty city table, '
@@ -391,19 +366,22 @@ void main() {
     },
   );
 
-  test(
-    'Given a town with a set-null projection after a remote mayor deletion, '
-    'when the DST performs a full-row update of an unrelated field, '
-    'then the town changes name while preserving the authored mayor in its export.',
-    () async {
+  group('Given a town with a set-null projection after a remote mayor deletion,', () {
+    late UuidValue space;
+    late DstReplica replica;
+    late DstOperations operations;
+    late Person mayor;
+    late Town town;
+
+    setUpAll(() async {
       final random = DstRandom(4);
       final ids = DstIds(random);
-      final space = ids.next();
-      final replica = await _replica(ids, space);
-      final operations = DstOperations(random, ids);
+      space = ids.next();
+      replica = await _replica(ids, space);
+      operations = DstOperations(random, ids);
       final source = await _replica(ids, space);
-      final mayor = Person(id: ids.next(), name: 'mayor');
-      final town = Town(id: ids.next(), name: 'original-town', mayorId: mayor.id);
+      mayor = Person(id: ids.next(), name: 'mayor');
+      town = Town(id: ids.next(), name: 'original-town', mayorId: mayor.id);
       await source.withReplicaClock(
         () => source.session.db.transactionForUser(space, (tx) async {
           await Person.db.insertRow(source.session, mayor, transaction: tx);
@@ -421,51 +399,141 @@ void main() {
         }),
       );
       await replica.merge(await source.collect(space), space);
+    });
 
-      final outcome = await operations.apply(
-        replica,
-        space,
-        table: DstTable.town,
-        action: _action('fullRowUpdate'),
+    group('when the DST performs a full-row update of an unrelated field,', () {
+      late DstOperationOutcome outcome;
+      late Town visible;
+      late CrdtMergeSet changes;
+
+      setUpAll(() async {
+        outcome = await operations.apply(
+          replica,
+          space,
+          table: DstTable.town,
+          action: _action('fullRowUpdate'),
+        );
+        visible = (await Town.db.findById(replica.session, town.id!))!;
+        changes = await replica.collect(space);
+      });
+
+      test('then the update is applied.', () {
+        expect(outcome, DstOperationOutcome.applied);
+      });
+
+      test('then the town changes name and retains its projected null mayor.', () {
+        expect(visible.name, isNot(town.name));
+        expect(visible.mayorId, isNull);
+      });
+
+      test('then the exported insert preserves the authored mayor.', () {
+        final insert = changes.whereType<CrdtMergeInsert>().singleWhere(
+          (change) => change.uuidRowId == town.id,
+        );
+        expect((insert.data as Town).mayorId, mayor.id);
+      });
+    });
+  });
+
+  group('Given a detached defaulted FK with a local parent and no default target,', () {
+    late UuidValue space;
+    late DstReplica replica;
+    late Town parent;
+    late UniqueSetDefaultChild child;
+    late DstOperations operations;
+
+    setUpAll(() async {
+      final ids = DstIds(DstRandom(910));
+      space = ids.next();
+      final otherSpace = ids.next();
+      replica = await DstReplica.create(
+        name: 'replica',
+        spaceUuids: [space, otherSpace],
+        nodeUuid: ids.next(),
+        clock: DstClock().clock,
       );
-
-      expect(outcome, DstOperationOutcome.applied);
-      final visible = (await Town.db.findById(replica.session, town.id!))!;
-      expect(visible.name, isNot(town.name));
-      expect(visible.mayorId, isNull);
-      final changes = await replica.collect(space);
-      final insert = changes.whereType<CrdtMergeInsert>().singleWhere(
-        (change) => change.uuidRowId == town.id,
+      parent = Town(id: ids.next(), name: 'available-parent');
+      child = UniqueSetDefaultChild(
+        id: ids.next(),
+        name: 'original',
+        parentId: parent.id,
       );
-      expect((insert.data as Town).mayorId, mayor.id);
-    },
-  );
+      await replica.withReplicaClock(
+        () => replica.session.db.transactionForUser(space, (tx) async {
+          await Town.db.insertRow(replica.session, parent, transaction: tx);
+          await UniqueSetDefaultChild.db.insertRow(
+            replica.session,
+            child,
+            transaction: tx,
+          );
+          await UniqueSetDefaultChild.db.updateRow(
+            replica.session,
+            child.copyWith(parentId: null),
+            columns: (t) => [t.parentId],
+            transaction: tx,
+          );
+        }),
+      );
+      // This seed changes only the name during the full-row upsert.
+      operations = DstOperations(DstRandom(5), ids);
+    });
 
-  for (final defaultLocation in ['missing', 'another space', 'the acting space']) {
-    final defaultDescription = defaultLocation == 'missing'
-        ? 'no default target'
-        : 'a default target in $defaultLocation';
-    test(
-      'Given a detached defaulted FK with a local parent and $defaultDescription, '
-      'when the DST upserts an unrelated field, '
-      'then the submitted reference resolves to a visible parent in the acting space.',
-      () async {
+    group('when the DST upserts an unrelated field,', () {
+      late DstOperationOutcome outcome;
+      late UniqueSetDefaultChild updated;
+      late List<String> rejections;
+
+      setUpAll(() async {
+        outcome = await operations.apply(
+          replica,
+          space,
+          table: DstTable.uniqueSetDefaultChild,
+          action: DstAction.upsert,
+        );
+        updated = (await UniqueSetDefaultChild.db.findById(
+          replica.session,
+          child.id!,
+        ))!;
+        rejections = List.of(operations.rejections);
+      });
+
+      test('then the upsert is applied without a rejection.', () {
+        expect(outcome, DstOperationOutcome.applied);
+        expect(rejections, isEmpty);
+      });
+
+      test('then the unrelated name changes.', () {
+        expect(updated.name, isNot(child.name));
+      });
+
+      test('then the reference resolves to a visible parent in the acting space.', () {
+        expect(updated.parentId, parent.id);
+      });
+    });
+  });
+
+  group(
+    'Given a detached defaulted FK with a local parent and a default target in another space,',
+    () {
+      late UuidValue space;
+      late DstReplica replica;
+      late Town parent;
+      late UniqueSetDefaultChild child;
+      late DstOperations operations;
+
+      setUpAll(() async {
         final ids = DstIds(DstRandom(910));
-        final space = ids.next();
+        space = ids.next();
         final otherSpace = ids.next();
-        final replica = await DstReplica.create(
+        replica = await DstReplica.create(
           name: 'replica',
           spaceUuids: [space, otherSpace],
           nodeUuid: ids.next(),
           clock: DstClock().clock,
         );
-        if (defaultLocation != 'missing') {
-          await replica.seedDefaultTown(
-            defaultLocation == 'the acting space' ? space : otherSpace,
-          );
-        }
-        final parent = Town(id: ids.next(), name: 'available-parent');
-        final child = UniqueSetDefaultChild(
+        await replica.seedDefaultTown(otherSpace);
+        parent = Town(id: ids.next(), name: 'available-parent');
+        child = UniqueSetDefaultChild(
           id: ids.next(),
           name: 'original',
           parentId: parent.id,
@@ -486,42 +554,145 @@ void main() {
             );
           }),
         );
-        // This seed changes only name, leaving the full-row upsert to apply
-        // the unchanged null FK's persisted default.
-        final operations = DstOperations(DstRandom(5), ids);
+        // This seed changes only the name during the full-row upsert.
+        operations = DstOperations(DstRandom(5), ids);
+      });
 
-        final outcome = await operations.apply(
-          replica,
-          space,
-          table: DstTable.uniqueSetDefaultChild,
-          action: DstAction.upsert,
+      group('when the DST upserts an unrelated field,', () {
+        late DstOperationOutcome outcome;
+        late UniqueSetDefaultChild updated;
+        late List<String> rejections;
+
+        setUpAll(() async {
+          outcome = await operations.apply(
+            replica,
+            space,
+            table: DstTable.uniqueSetDefaultChild,
+            action: DstAction.upsert,
+          );
+          updated = (await UniqueSetDefaultChild.db.findById(
+            replica.session,
+            child.id!,
+          ))!;
+          rejections = List.of(operations.rejections);
+        });
+
+        test('then the upsert is applied without a rejection.', () {
+          expect(outcome, DstOperationOutcome.applied);
+          expect(rejections, isEmpty);
+        });
+
+        test('then the unrelated name changes.', () {
+          expect(updated.name, isNot(child.name));
+        });
+
+        test(
+          'then the reference resolves to a visible parent in the acting space.',
+          () {
+            expect(updated.parentId, parent.id);
+          },
         );
+      });
+    },
+  );
 
-        expect(outcome, DstOperationOutcome.applied);
-        final updated = (await UniqueSetDefaultChild.db.findById(
-          replica.session,
-          child.id!,
-        ))!;
-        expect(updated.name, isNot(child.name));
-        expect(
-          updated.parentId,
-          defaultLocation == 'the acting space' ? dstDefaultTownId : parent.id,
+  group(
+    'Given a detached defaulted FK with a local parent and a default target in the acting space,',
+    () {
+      late UuidValue space;
+      late DstReplica replica;
+      late Town parent;
+      late UniqueSetDefaultChild child;
+      late DstOperations operations;
+
+      setUpAll(() async {
+        final ids = DstIds(DstRandom(910));
+        space = ids.next();
+        final otherSpace = ids.next();
+        replica = await DstReplica.create(
+          name: 'replica',
+          spaceUuids: [space, otherSpace],
+          nodeUuid: ids.next(),
+          clock: DstClock().clock,
         );
-        expect(operations.rejections, isEmpty);
-      },
-    );
-  }
+        await replica.seedDefaultTown(space);
+        parent = Town(id: ids.next(), name: 'available-parent');
+        child = UniqueSetDefaultChild(
+          id: ids.next(),
+          name: 'original',
+          parentId: parent.id,
+        );
+        await replica.withReplicaClock(
+          () => replica.session.db.transactionForUser(space, (tx) async {
+            await Town.db.insertRow(replica.session, parent, transaction: tx);
+            await UniqueSetDefaultChild.db.insertRow(
+              replica.session,
+              child,
+              transaction: tx,
+            );
+            await UniqueSetDefaultChild.db.updateRow(
+              replica.session,
+              child.copyWith(parentId: null),
+              columns: (t) => [t.parentId],
+              transaction: tx,
+            );
+          }),
+        );
+        // This seed changes only the name during the full-row upsert.
+        operations = DstOperations(DstRandom(5), ids);
+      });
 
-  test(
-    'Given a detached defaulted FK with no visible parent or default target, '
-    'when the DST tries to upsert an unrelated field, '
-    'then it skips the unavailable reference without changing authored facts.',
-    () async {
+      group('when the DST upserts an unrelated field,', () {
+        late DstOperationOutcome outcome;
+        late UniqueSetDefaultChild updated;
+        late List<String> rejections;
+
+        setUpAll(() async {
+          outcome = await operations.apply(
+            replica,
+            space,
+            table: DstTable.uniqueSetDefaultChild,
+            action: DstAction.upsert,
+          );
+          updated = (await UniqueSetDefaultChild.db.findById(
+            replica.session,
+            child.id!,
+          ))!;
+          rejections = List.of(operations.rejections);
+        });
+
+        test('then the upsert is applied without a rejection.', () {
+          expect(outcome, DstOperationOutcome.applied);
+          expect(rejections, isEmpty);
+        });
+
+        test('then the unrelated name changes.', () {
+          expect(updated.name, isNot(child.name));
+        });
+
+        test(
+          'then the reference resolves to a visible parent in the acting space.',
+          () {
+            expect(updated.parentId, dstDefaultTownId);
+          },
+        );
+      });
+    },
+  );
+
+  group('Given a detached defaulted FK with no visible parent or default target,', () {
+    late UuidValue space;
+    late DstReplica replica;
+    late UniqueSetDefaultChild child;
+    late Set<String> before;
+    late DstOperations operations;
+
+    setUpAll(() async {
       final ids = DstIds(DstRandom(910));
-      final space = ids.next();
-      final replica = await _replica(ids, space);
+      space = ids.next();
+      replica = await _replica(ids, space);
       final parent = Town(id: ids.next(), name: 'removed-parent');
-      final child = UniqueSetDefaultChild(
+      child = UniqueSetDefaultChild(
         id: ids.next(),
         name: 'original',
         parentId: parent.id,
@@ -543,26 +714,43 @@ void main() {
           await Town.db.deleteRow(replica.session, parent, transaction: tx);
         }),
       );
-      final before = (await replica.collect(space)).map(dstChangeKey).toSet();
-      final operations = DstOperations(DstRandom(5), ids);
+      before = (await replica.collect(space)).map(dstChangeKey).toSet();
+      operations = DstOperations(DstRandom(5), ids);
+    });
 
-      final outcome = await operations.apply(
-        replica,
-        space,
-        table: DstTable.uniqueSetDefaultChild,
-        action: DstAction.upsert,
-      );
+    group('when the DST tries to upsert an unrelated field,', () {
+      late DstOperationOutcome outcome;
+      late Set<String> after;
+      late UniqueSetDefaultChild retained;
 
-      expect(outcome, DstOperationOutcome.skipped);
-      expect((await replica.collect(space)).map(dstChangeKey).toSet(), before);
-      final retained = (await UniqueSetDefaultChild.db.findById(
-        replica.session,
-        child.id!,
-      ))!;
-      expect(retained.name, child.name);
-      expect(retained.parentId, isNull);
-    },
-  );
+      setUpAll(() async {
+        outcome = await operations.apply(
+          replica,
+          space,
+          table: DstTable.uniqueSetDefaultChild,
+          action: DstAction.upsert,
+        );
+        after = (await replica.collect(space)).map(dstChangeKey).toSet();
+        retained = (await UniqueSetDefaultChild.db.findById(
+          replica.session,
+          child.id!,
+        ))!;
+      });
+
+      test('then it skips the unavailable reference.', () {
+        expect(outcome, DstOperationOutcome.skipped);
+      });
+
+      test('then the authored facts remain unchanged.', () {
+        expect(after, before);
+      });
+
+      test('then the child retains its name and null reference.', () {
+        expect(retained.name, child.name);
+        expect(retained.parentId, isNull);
+      });
+    });
+  });
 }
 
 DstAction _action(String name) =>

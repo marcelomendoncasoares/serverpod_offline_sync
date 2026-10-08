@@ -195,8 +195,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         in maxIncomingHlcByNode.entries) {
       final remoteNode = remoteNodes.spaceNodesByUuid[nodeId];
       if (remoteNode == null) continue;
+      final previous = remoteNode.lastReceivedHlc;
       final updatedSpaceNode = remoteNode.copyWith(
-        lastReceivedHlc: incomingHlc.maxBetween(remoteNode.lastReceivedHlc),
+        lastReceivedHlc: incomingHlc.maxBetween(
+          previous?.nodeId == nodeId ? previous : null,
+        ),
       );
       if (updatedSpaceNode.lastReceivedHlc == remoteNode.lastReceivedHlc) {
         continue;

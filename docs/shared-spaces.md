@@ -52,8 +52,8 @@ membership relation and a sync protocol that iterates spaces.
 2. **Smallest protocol delta.** The exchanged frames are today's, plus a
    per-cycle space-set exchange and a space tag on each frame. `collectNextBatch`
    demultiplexes a cycle's combined batch, `collectPendingChanges` collects every
-   active space in one pass, and the per-space merge plus `recordSyncCheckpoint`
-   run once per inbound space group.
+   active space in one pass, and `mergeInboundBatch` applies each inbound space
+   group while atomically persisting received progress for every author.
 3. **Chunked streaming.** Outbound changes are collected in a single pass over
    the active spaces and streamed in `syncBatchSize` chunks, so the wire payload
    stays bounded regardless of space count. The collection step itself
@@ -128,7 +128,7 @@ They do not map one-to-one and neither replaces the other. One member may have
 many nodes (one per replica/database install). The **server is a node** in every
 space it syncs but is not a member row. A freshly invited member has **zero
 space-node rows** until their first device syncs. Nodes and space-node rows are
-created implicitly by sync (`getOrCreate`, `recordSyncCheckpoint`); membership
+created implicitly by space initialization and inbound merge; membership
 rows are managed through `session.offlineSync.spaces` from application endpoints.
 Removing the `nodes` list would break checkpointing and causal filtering — it is
 the chain topology, not the access list.
@@ -316,10 +316,11 @@ The shared establishment exchanges the space set so a follower never acts before
 it knows the agreed set. Both cadences handshake initial and newly added spaces
 through the loop's own `SinceHlc` exchange.
 
-`collectPendingChanges`, `mergeInboundBatch`, `recordSyncCheckpoint`, and the
+`collectPendingChanges`, `mergeInboundBatch`, and the
 ownership-violation internals (`_streamInserts`/`Updates`/`Deletes`,
 `_fetchDomainRow`, the durable-violation path) are space-parameterized and merge
-each inbound space group in its own `transactionForUser`/lock; any space's merge
+each inbound space group in its own `transactionForUser`/lock, including its
+per-author checkpoints; any space's merge
 failure (for example an ownership collision or unauthorized role write) records
 the durable violation and fails the session, preserving today's fail-fast
 semantics.

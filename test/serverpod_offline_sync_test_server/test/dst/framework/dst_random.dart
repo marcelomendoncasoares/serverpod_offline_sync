@@ -5,6 +5,15 @@ import 'dart:typed_data';
 import 'package:clock/clock.dart';
 import 'package:serverpod/serverpod.dart';
 
+/// The causal facts supplied by each simulated collection.
+enum DstDeliveryMode {
+  /// Preserve the original full-history merge convergence experiment.
+  full,
+
+  /// Collect against the receiver's committed production checkpoint vector.
+  delta,
+}
+
 /// Seeded randomness for the deterministic simulation harness.
 ///
 /// Every choice a simulation makes - which replica acts, which operation it
@@ -144,6 +153,7 @@ class DstConfig {
     required this.seedBase,
     this.profile = DstProfile.sparse,
     this.graphWidth = 2,
+    this.delivery = DstDeliveryMode.full,
   });
 
   /// Reads the sweep configuration from the environment.
@@ -156,9 +166,13 @@ class DstConfig {
         Platform.environment['DST_PROFILE'] ?? 'sparse',
       ),
       graphWidth: _readInt('DST_GRAPH_WIDTH', 2),
+      delivery: DstDeliveryMode.values.byName(
+        Platform.environment['DST_DELIVERY'] ?? 'full',
+      ),
     );
   }
 
+  final DstDeliveryMode delivery;
   final DstProfile profile;
   final int graphWidth;
 
