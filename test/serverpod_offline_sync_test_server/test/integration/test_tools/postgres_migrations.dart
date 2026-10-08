@@ -6,6 +6,8 @@ import 'dart:io';
 import 'package:serverpod_cli/src/database/dialects/postgres.dart';
 import 'package:serverpod_database/serverpod_database.dart' show DatabaseDefinition;
 
+// # TODO Remove this workaround once the server uses Postgres properly.
+
 /// Renders the generated schema for an isolated PostgreSQL test database.
 /// The committed SQL targets SQLite; use Serverpod's generator for PostgreSQL.
 Future<void> preparePostgresMigrations(Directory serverDirectory) async {

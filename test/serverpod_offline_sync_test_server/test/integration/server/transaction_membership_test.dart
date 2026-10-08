@@ -22,6 +22,15 @@ void main() {
 
   withServerpod(
     'PostgreSQL membership visibility',
+    rollbackDatabase: RollbackDatabase.disabled,
+    serverDirectory: serverDirectory,
+    configOverride: (config) => config.copyWith(
+      database: PostgresDatabaseConfig.embedded(
+        dataPath: '${serverDirectory.path}/postgres',
+        name: 'serverpod_test',
+        maxConnectionCount: 6,
+      ),
+    ),
     (sessionBuilder, _) {
       late Session otherSession;
       late OfflineSyncDatabaseSession session;
@@ -140,14 +149,5 @@ void main() {
         });
       });
     },
-    rollbackDatabase: RollbackDatabase.disabled,
-    serverDirectory: serverDirectory,
-    configOverride: (config) => config.copyWith(
-      database: PostgresDatabaseConfig.embedded(
-        dataPath: '${serverDirectory.path}/postgres',
-        name: 'serverpod_test',
-        maxConnectionCount: 6,
-      ),
-    ),
   );
 }
