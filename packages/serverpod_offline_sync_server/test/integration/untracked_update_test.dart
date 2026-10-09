@@ -24,7 +24,22 @@ void main() {
   });
 
   withServerpod(
-    'PostgreSQL untracked updates with the database interceptor',
+    '[PostgreSQL untracked updates with the database interceptor]',
+    databaseInterceptor: offlineSyncDatabaseInterceptor,
+    serverDirectory: serverDirectory,
+    configOverride: (config) => config.copyWith(
+      apiServer: ServerConfig(
+        port: 0,
+        publicHost: 'localhost',
+        publicPort: 0,
+        publicScheme: 'http',
+      ),
+      database: PostgresDatabaseConfig.embedded(
+        dataPath: '${Directory.systemTemp.path}/offline_sync_updates_postgres_$pid',
+        name: 'serverpod_test',
+        maxConnectionCount: 5,
+      ),
+    ),
     (sessionBuilder, _) {
       late Session session;
 
@@ -65,21 +80,6 @@ void main() {
         });
       });
     },
-    databaseInterceptor: offlineSyncDatabaseInterceptor,
-    serverDirectory: serverDirectory,
-    configOverride: (config) => config.copyWith(
-      apiServer: ServerConfig(
-        port: 0,
-        publicHost: 'localhost',
-        publicPort: 0,
-        publicScheme: 'http',
-      ),
-      database: PostgresDatabaseConfig.embedded(
-        dataPath: '${Directory.systemTemp.path}/offline_sync_updates_postgres_$pid',
-        name: 'serverpod_test',
-        maxConnectionCount: 5,
-      ),
-    ),
   );
 }
 

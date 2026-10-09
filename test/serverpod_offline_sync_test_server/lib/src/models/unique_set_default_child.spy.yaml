@@ -6,3 +6,7 @@ fields:
   # Keep the database default without replacing explicit nulls on model reads.
   parentId: UuidValue?, defaultPersist='550e8400-e29b-41d4-a716-446655440000', unique
   parent: Town?, relation(field=parentId, onDelete=SetDefault, deferred)
+indexes:
+  unique_set_default_child_name:
+    fields: spaceId, name
+    unique: true

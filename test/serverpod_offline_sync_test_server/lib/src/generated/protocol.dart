@@ -2123,6 +2123,23 @@ class Protocol extends _is.DatabaseSerializationManager {
           isUnique: true,
           isPrimary: false,
         ),
+        _isp.IndexDefinition(
+          indexName: 'unique_set_default_child_name',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'name',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
       ],
       managed: true,
     ),
