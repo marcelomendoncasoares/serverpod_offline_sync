@@ -499,9 +499,7 @@ class OfflineSyncDatabase implements Database {
                   conflictColumns: conflictColumns,
                 )
               : const {},
-          upsertConflictColumns: {
-            for (final column in conflictColumns) column.columnName,
-          },
+          upsertConflictColumns: conflictColumns.map((c) => c.columnName).toSet(),
         );
         if (noReturn) return <T>[];
         _stripStampedRows(result, prepared);

@@ -1023,9 +1023,7 @@ class CrdtMutationRecorder {
           (upsertConflictColumns.isEmpty
               ? null
               : updatedRows.first.table.managedColumns
-                    .where(
-                      (column) => !upsertConflictColumns.contains(column.columnName),
-                    )
+                    .where((c) => !upsertConflictColumns.contains(c.columnName))
                     .toList());
       final crdtDataRows = await _context.findRequiredCrdtRows(
         tableName,

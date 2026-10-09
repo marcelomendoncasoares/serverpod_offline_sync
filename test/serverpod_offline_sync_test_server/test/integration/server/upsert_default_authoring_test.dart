@@ -22,7 +22,7 @@ void main() {
   });
 
   withServerpod(
-    'PostgreSQL upsert default authoring',
+    '[PostgreSQL upsert default authoring]',
     rollbackDatabase: RollbackDatabase.disabled,
     serverDirectory: serverDirectory,
     configOverride: (config) => config.copyWith(
@@ -59,16 +59,19 @@ void main() {
           parent = server.Town(id: const Uuid().v7obj(), name: 'parent');
           otherParent = server.Town(id: const Uuid().v7obj(), name: 'other');
           insertParent = server.Town(id: const Uuid().v7obj(), name: 'insert parent');
+
           child = server.UniqueSetDefaultChild(
             id: const Uuid().v7obj(),
             name: 'child',
             parentId: parent.id,
           );
+
           skipped = server.UniqueSetDefaultChild(
             id: const Uuid().v7obj(),
             name: 'skipped',
             parentId: otherParent.id,
           );
+
           await session.db.transactionForUser(space, (tx) async {
             await server.Town.db.insert(session, [
               parent,
@@ -82,7 +85,9 @@ void main() {
               transaction: tx,
             );
           });
+
           originalClock = await rowHlc(child.id!, databaseSession: session);
+
           await session.db.mergeChanges([
             CrdtMergeDelete(
               uuidSpaceId: space,
@@ -128,25 +133,30 @@ void main() {
                 transaction: tx,
               ),
             );
+
             attempt = await attemptedValue(
               rowId: child.id!,
               columnName: 'parentId',
               databaseSession: session,
             );
+
             field = await CrdtDataField.db.findFirstRow(
               session,
               where: (t) =>
                   t.row.uuidRowId.equals(child.id) & t.column.name.equals('parentId'),
               include: CrdtDataField.include(node: CrdtNode.include()),
             );
+
             unchanged = await server.UniqueSetDefaultChild.db.findById(
               session,
               skipped.id!,
             );
+
             await session.db.transactionForUser(
               space,
               (tx) => server.Town.db.insertRow(session, parent, transaction: tx),
             );
+
             restored = await server.UniqueSetDefaultChild.db.findById(
               session,
               child.id!,

@@ -21,7 +21,7 @@ void main() {
   });
 
   withServerpod(
-    'PostgreSQL membership visibility',
+    '[PostgreSQL membership visibility]',
     rollbackDatabase: RollbackDatabase.disabled,
     serverDirectory: serverDirectory,
     configOverride: (config) => config.copyWith(

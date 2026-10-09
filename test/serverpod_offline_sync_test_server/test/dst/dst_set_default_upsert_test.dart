@@ -48,6 +48,7 @@ void main() {
           name: 'child',
           parentId: parent.id,
         );
+
         await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insert(node.offlineSync, [
             parent,
@@ -59,6 +60,7 @@ void main() {
             transaction: tx,
           );
         });
+
         // A peer deleted the parent after this replica authored the reference,
         // so the repair is projected rather than authored locally.
         final childHlc = await rowHlc(child.id!, databaseSession: node.offlineSync);
@@ -76,20 +78,25 @@ void main() {
         ], spaceId: testCrdtUserId);
       });
 
-      test('then the repair displays the default over the authored parent.', () async {
-        final repaired = await UniqueSetDefaultChild.db.findById(
-          node.offlineSync,
-          child.id!,
-        );
-        final attempt = await attemptedValue(
-          rowId: child.id!,
-          columnName: 'parentId',
-          databaseSession: node.offlineSync,
-        );
-        expect(repaired!.parentId, defaultTownId);
-        expect(attempt?.value.toString(), parent.id.toString());
-        expect(attempt?.projectionReason, CrdtProjectionReason.foreignKeySetDefault);
-      });
+      test(
+        'when reading the repaired child, '
+        'then the repair displays the default over the authored parent.',
+        () async {
+          final repaired = await UniqueSetDefaultChild.db.findById(
+            node.offlineSync,
+            child.id!,
+          );
+          final attempt = await attemptedValue(
+            rowId: child.id!,
+            columnName: 'parentId',
+            databaseSession: node.offlineSync,
+          );
+
+          expect(repaired!.parentId, defaultTownId);
+          expect(attempt?.value.toString(), parent.id.toString());
+          expect(attempt?.projectionReason, CrdtProjectionReason.foreignKeySetDefault);
+        },
+      );
 
       group('when a full-row upsert supplies null for the parent,', () {
         late Hlc before;
@@ -110,15 +117,18 @@ void main() {
               transaction: tx,
             ),
           );
+
           stored = await UniqueSetDefaultChild.db.findById(
             node.offlineSync,
             child.id!,
           );
+
           attempt = await attemptedValue(
             rowId: child.id!,
             columnName: 'parentId',
             databaseSession: node.offlineSync,
           );
+
           after = await parentIdHlc();
           changes = await node.sync
               .collectPendingChanges(
@@ -126,10 +136,12 @@ void main() {
                 checkpointsBySpaceUuid: {testCrdtUserId: const []},
               )
               .toList();
+
           await node.offlineSync.db.transactionForUser(
             testCrdtUserId,
             (tx) => Town.db.insertRow(node.offlineSync, parent, transaction: tx),
           );
+
           restored = await UniqueSetDefaultChild.db.findById(
             node.offlineSync,
             child.id!,

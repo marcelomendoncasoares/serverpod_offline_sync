@@ -27,18 +27,22 @@ void main() {
         name: 'child',
         parentId: parent.id,
       );
+
       await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
         await Town.db.insert(node.offlineSync, [
           parent,
           Town(id: defaultTownId, name: 'default'),
         ], transaction: tx);
+
         await UniqueSetDefaultChild.db.insertRow(
           node.offlineSync,
           child,
           transaction: tx,
         );
       });
+
       originalClock = await _parentIdHlc(node, child.id!);
+
       await node.offlineSync.db.mergeChanges([
         CrdtMergeDelete(
           uuidSpaceId: testCrdtUserId,
@@ -51,7 +55,9 @@ void main() {
           reason: CrdtDataDeletedReason.userDelete,
         ),
       ], spaceId: testCrdtUserId);
+
       before = await UniqueSetDefaultChild.db.findById(node.offlineSync, child.id!);
+
       originalAttempt = await attemptedValue(
         rowId: child.id!,
         columnName: 'parentId',
@@ -79,22 +85,26 @@ void main() {
               transaction: tx,
             ),
           );
+
           attempt = await attemptedValue(
             rowId: child.id!,
             columnName: 'parentId',
             databaseSession: node.offlineSync,
           );
+
           updatedClock = await _parentIdHlc(node, child.id!);
 
           final peer = await syncNode(
             await createAdditionalTestSession(),
             testSyncTables,
           );
+
           await pushChanges(node, peer);
           peerChild = await UniqueSetDefaultChild.db.findById(
             peer.offlineSync,
             child.id!,
           );
+
           peerAttempt = await attemptedValue(
             rowId: child.id!,
             columnName: 'parentId',
@@ -105,6 +115,7 @@ void main() {
             testCrdtUserId,
             (tx) => Town.db.insertRow(node.offlineSync, parent, transaction: tx),
           );
+
           restored = await UniqueSetDefaultChild.db.findById(
             node.offlineSync,
             child.id!,
@@ -156,16 +167,20 @@ void main() {
             transaction: tx,
           ),
         );
+
         attempt = await attemptedValue(
           rowId: child.id!,
           columnName: 'parentId',
           databaseSession: node.offlineSync,
         );
+
         updatedClock = await _parentIdHlc(node, child.id!);
+
         await node.offlineSync.db.transactionForUser(
           testCrdtUserId,
           (tx) => Town.db.insertRow(node.offlineSync, parent, transaction: tx),
         );
+
         restored = await UniqueSetDefaultChild.db.findById(node.offlineSync, child.id!);
       });
 
@@ -196,16 +211,20 @@ void main() {
               transaction: tx,
             ),
           );
+
           attempt = await attemptedValue(
             rowId: child.id!,
             columnName: 'parentId',
             databaseSession: node.offlineSync,
           );
+
           updatedClock = await _parentIdHlc(node, child.id!);
+
           await node.offlineSync.db.transactionForUser(
             testCrdtUserId,
             (tx) => Town.db.insertRow(node.offlineSync, parent, transaction: tx),
           );
+
           restored = await UniqueSetDefaultChild.db.findById(
             node.offlineSync,
             child.id!,
@@ -236,18 +255,21 @@ void main() {
           name: 'skipped',
           parentId: otherParent.id,
         );
+
         inputId = const Uuid().v7obj();
         await node.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Town.db.insert(node.offlineSync, [
             otherParent,
             insertParent,
           ], transaction: tx);
+
           await UniqueSetDefaultChild.db.insertRow(
             node.offlineSync,
             skipped,
             transaction: tx,
           );
         });
+
         skippedClock = await _parentIdHlc(node, skipped.id!);
       });
 
@@ -276,19 +298,23 @@ void main() {
                 transaction: tx,
               ),
             );
+
             attempt = await attemptedValue(
               rowId: child.id!,
               columnName: 'parentId',
               databaseSession: node.offlineSync,
             );
+
             stored = await UniqueSetDefaultChild.db.findById(
               node.offlineSync,
               child.id!,
             );
+
             unchanged = await UniqueSetDefaultChild.db.findById(
               node.offlineSync,
               skipped.id!,
             );
+
             updatedClock = await _parentIdHlc(node, child.id!);
             unchangedClock = await _parentIdHlc(node, skipped.id!);
           });
@@ -339,10 +365,12 @@ void main() {
                 transaction: tx,
               ),
             );
+
             stored = await UniqueSetDefaultChild.db.findById(
               node.offlineSync,
               child.id!,
             );
+
             attempt = await attemptedValue(
               rowId: child.id!,
               columnName: 'parentId',
