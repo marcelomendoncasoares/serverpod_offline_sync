@@ -1,18 +1,19 @@
-## Unreleased
+## 0.0.10
 
-- fix: Keep membership reads inside the caller's transaction, preventing web
-  deadlocks and reflecting uncommitted membership grants and revocations.
-- fix: Include the persisted local logical clock in resume checkpoints so
-  reconnecting within the same millisecond or after clock rollback settles.
-- fix: Keep relay checkpoints tagged with their actual author and recover
-  incorrectly tagged stored progress without repeated transfers on reconnect.
-- fix: Require `recordSyncCheckpoint` to receive an HLC authored by its
-  `otherNodeId`, throwing `ArgumentError` on a mismatch. Valid checkpoints
-  replace incorrectly tagged stored progress.
-- fix: Reconsider released unique claims after local updates and upserts so
-  the author and peers receiving checkpoint deltas keep the same projection.
-- test: Add checkpoint-based deterministic delivery alongside full-history
-  convergence, with replayable batches and separate coverage metrics.
+- fix: Prevents concurrent edits from being skipped during sync.
+- fix: Prevents database operations on the web from hanging inside transactions.
+- fix: Respects space access changes made in the same transaction.
+- fix: Prevents sync from stalling after reconnects, including when the device
+  clock moves backward.
+- fix: Prevents previously synced data from being repeatedly resent after reconnects.
+- fix: Rejects checkpoints attributed to the wrong node with `ArgumentError`.
+- fix: Keeps unique-conflict results consistent across devices after updates
+  and upserts.
+- fix: Keeps foreign key defaults consistent across devices when an upsert
+  supplies null, including after a previously referenced record is restored.
+- perf: Improves performance when applying synced changes.
+- perf: Improves conflict resolution performance.
+- chore: Requires Serverpod `>=4.0.4 <4.1.0`.
 
 ## 0.0.9
 
