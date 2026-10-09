@@ -58,7 +58,8 @@ export 'sync/violation.dart';
 export 'sync/violation_operation.dart';
 export 'sync/violation_type.dart';
 
-class Protocol extends _isd.DatabaseSerializationManager {
+class Protocol extends _isd.DatabaseSerializationManager
+    implements _isd.DatabaseProtocolDeserializationProvider {
   Protocol._();
 
   factory Protocol() => _instance;
@@ -66,6 +67,83 @@ class Protocol extends _isd.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._();
 
   final Set<_iss.SerializationManager> _hostProtocols = {};
+
+  @override
+  _iss.ProtocolDeserialization get deserializationMetadata =>
+      _iss.ProtocolDeserialization.cached(
+        this,
+        types: const [
+          _iss.getType<_ikikkl0e.CrdtDataAttemptedValue>,
+          _iss.getType<_ixchaeer.CrdtDataDeleted>,
+          _iss.getType<_i9ghhf3z.CrdtDataDeletedReason>,
+          _iss.getType<_iwcj1b8j.CrdtDataField>,
+          _iss.getType<_ijcw1c9t.CrdtProjectionReason>,
+          _iss.getType<_iokmrb1h.CrdtDataRow>,
+          _iss.getType<_ibzh2k8m.CrdtDataRowVisibility>,
+          _iss.getType<_i0vvt7eq.CrdtMergeDelete>,
+          _iss.getType<_i0vvt7eq.CrdtMergeInsert>,
+          _iss.getType<_i0vvt7eq.CrdtMergeUpdate>,
+          _iss.getType<_ipogc60q.BaseHlc>,
+          _iss.getType<_iyfv8jet.CrdtNode>,
+          _iss.getType<_ifj6lhq8.OfflineSyncSpace>,
+          _iss.getType<_i75umry7.OfflineSyncSpaceMember>,
+          _iss.getType<_it7grqg6.OfflineSyncSpaceNode>,
+          _iss.getType<_ivdq6jvj.OfflineSyncSpaceRole>,
+          _iss.getType<_iy534gq7.CrdtSchemaColumn>,
+          _iss.getType<_ik8xyqdv.CrdtSchemaTable>,
+          _iss.getType<_iimdylh8.OfflineSyncClose>,
+          _iss.getType<_iimdylh8.OfflineSyncConnect>,
+          _iss.getType<_iimdylh8.OfflineSyncEndOfBatch>,
+          _iss.getType<_iimdylh8.OfflineSyncMergeChunk>,
+          _iss.getType<_iimdylh8.OfflineSyncSinceHlc>,
+          _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant>,
+          _iss.getType<_iimdylh8.OfflineSyncSpaceSet>,
+          _iss.getType<_iimdylh8.OfflineSyncIdleTimeout>,
+          _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation>,
+          _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation>,
+          _iss.getType<_itf31ci3.OfflineSyncViolationType>,
+          _iss.getType<_ikikkl0e.CrdtDataAttemptedValue?>,
+          _iss.getType<_ixchaeer.CrdtDataDeleted?>,
+          _iss.getType<_i9ghhf3z.CrdtDataDeletedReason?>,
+          _iss.getType<_iwcj1b8j.CrdtDataField?>,
+          _iss.getType<_ijcw1c9t.CrdtProjectionReason?>,
+          _iss.getType<_iokmrb1h.CrdtDataRow?>,
+          _iss.getType<_ibzh2k8m.CrdtDataRowVisibility?>,
+          _iss.getType<_i0vvt7eq.CrdtMergeDelete?>,
+          _iss.getType<_i0vvt7eq.CrdtMergeInsert?>,
+          _iss.getType<_i0vvt7eq.CrdtMergeUpdate?>,
+          _iss.getType<_ipogc60q.BaseHlc?>,
+          _iss.getType<_iyfv8jet.CrdtNode?>,
+          _iss.getType<_ifj6lhq8.OfflineSyncSpace?>,
+          _iss.getType<_i75umry7.OfflineSyncSpaceMember?>,
+          _iss.getType<_it7grqg6.OfflineSyncSpaceNode?>,
+          _iss.getType<_ivdq6jvj.OfflineSyncSpaceRole?>,
+          _iss.getType<_iy534gq7.CrdtSchemaColumn?>,
+          _iss.getType<_ik8xyqdv.CrdtSchemaTable?>,
+          _iss.getType<_iimdylh8.OfflineSyncClose?>,
+          _iss.getType<_iimdylh8.OfflineSyncConnect?>,
+          _iss.getType<_iimdylh8.OfflineSyncEndOfBatch?>,
+          _iss.getType<_iimdylh8.OfflineSyncMergeChunk?>,
+          _iss.getType<_iimdylh8.OfflineSyncSinceHlc?>,
+          _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant?>,
+          _iss.getType<_iimdylh8.OfflineSyncSpaceSet?>,
+          _iss.getType<_iimdylh8.OfflineSyncIdleTimeout?>,
+          _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation?>,
+          _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation?>,
+          _iss.getType<_itf31ci3.OfflineSyncViolationType?>,
+          _iss.getType<dynamic>,
+          _iss.getType<List<_icw2tu00.CrdtDataField>>,
+          _iss.getType<List<_icw2tu00.CrdtDataField>?>,
+          _iss.getType<_icw2tu00.Hlc?>,
+          _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>>,
+          _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>?>,
+          _iss.getType<List<_icw2tu00.CrdtMergeChange>>,
+          _iss.getType<List<_icw2tu00.Hlc>>,
+          _iss.getType<_icw2tu00.Hlc>,
+          _iss.getType<List<_icw2tu00.OfflineSyncSpaceGrant>>,
+        ],
+        modules: const [],
+      );
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
     _isd.TableDefinition(

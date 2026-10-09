@@ -1,3 +1,11 @@
+## 0.0.11
+
+- feat: Supports Serverpod 4.1 typed SQLite `watch` API with CRDT visibility
+  and live space membership, including nested included lists.
+- fix: Preserves caller include graphs across queries and keep nested object
+  visibility predicates inside their containing list query.
+- chore: Requires Serverpod `^4.1.0-beta.3`.
+
 ## 0.0.10
 
 - fix: Prevents concurrent edits from being skipped during sync.

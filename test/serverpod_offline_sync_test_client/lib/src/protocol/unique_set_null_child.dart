@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
@@ -76,11 +77,11 @@ abstract class UniqueSetNullChild
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
   UniqueSetNullChild copyWith({
-    _isc.UuidValue? id,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     int? spaceId,
     String? name,
-    _isc.UuidValue? parentId,
-    _iensfz4m.Person? parent,
+    _isc.UuidValue? parentId = const _isc.$UndefinedUuidValue(),
+    _iensfz4m.Person? parent = const _UndefinedUniqueSetNullChild$parent(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -136,6 +137,11 @@ abstract class UniqueSetNullChild
 
 class _Undefined {}
 
+class _UndefinedUniqueSetNullChild$parent extends _isc.UndefinedSentinel
+    implements _iensfz4m.Person {
+  const _UndefinedUniqueSetNullChild$parent();
+}
+
 class _UniqueSetNullChildImpl extends UniqueSetNullChild {
   _UniqueSetNullChildImpl({
     _isc.UuidValue? id,
@@ -156,18 +162,20 @@ class _UniqueSetNullChildImpl extends UniqueSetNullChild {
   @_isc.useResult
   @override
   UniqueSetNullChild copyWith({
-    Object? id = _Undefined,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     Object? spaceId = _Undefined,
     String? name,
-    Object? parentId = _Undefined,
-    Object? parent = _Undefined,
+    _isc.UuidValue? parentId = const _isc.$UndefinedUuidValue(),
+    _iensfz4m.Person? parent = const _UndefinedUniqueSetNullChild$parent(),
   }) {
     return UniqueSetNullChild(
-      id: id is _isc.UuidValue? ? id : this.id,
+      id: id is _isc.UndefinedSentinel ? this.id : id,
       spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
-      parentId: parentId is _isc.UuidValue? ? parentId : this.parentId,
-      parent: parent is _iensfz4m.Person? ? parent : this.parent?.copyWith(),
+      parentId: parentId is _isc.UndefinedSentinel ? this.parentId : parentId,
+      parent: parent is _isc.UndefinedSentinel
+          ? this.parent?.copyWith()
+          : parent,
     );
   }
 }
@@ -337,6 +345,71 @@ class UniqueSetNullChildRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [UniqueSetNullChild]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `UniqueSetNullChild.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<UniqueSetNullChild>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueSetNullChildTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<UniqueSetNullChildTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueSetNullChildTable>? orderByList,
+    UniqueSetNullChildInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<UniqueSetNullChild>(
+      where: where?.call(UniqueSetNullChild.t),
+      orderBy: orderBy?.call(UniqueSetNullChild.t),
+      orderByList: orderByList?.call(UniqueSetNullChild.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

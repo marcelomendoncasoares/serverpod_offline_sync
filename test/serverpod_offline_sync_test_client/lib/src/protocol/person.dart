@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
@@ -129,17 +130,18 @@ abstract class Person
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
   Person copyWith({
-    _isc.UuidValue? id,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     int? spaceId,
     String? name,
     String? surname,
-    _ilb4pipw.Address? address,
-    _isc.UuidValue? organizationId,
-    _irjtvpke.Organization? organization,
-    _isc.UuidValue? oldCompanyId,
-    _i6pnc270.Company? oldCompany,
-    _isc.UuidValue? cityId,
-    _ior3absd.City? city,
+    _ilb4pipw.Address? address = const _UndefinedPerson$address(),
+    _isc.UuidValue? organizationId = const _isc.$UndefinedUuidValue(),
+    _irjtvpke.Organization? organization =
+        const _UndefinedPerson$organization(),
+    _isc.UuidValue? oldCompanyId = const _isc.$UndefinedUuidValue(),
+    _i6pnc270.Company? oldCompany = const _UndefinedPerson$oldCompany(),
+    _isc.UuidValue? cityId = const _isc.$UndefinedUuidValue(),
+    _ior3absd.City? city = const _UndefinedPerson$city(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -218,6 +220,26 @@ abstract class Person
 
 class _Undefined {}
 
+class _UndefinedPerson$address extends _isc.UndefinedSentinel
+    implements _ilb4pipw.Address {
+  const _UndefinedPerson$address();
+}
+
+class _UndefinedPerson$organization extends _isc.UndefinedSentinel
+    implements _irjtvpke.Organization {
+  const _UndefinedPerson$organization();
+}
+
+class _UndefinedPerson$oldCompany extends _isc.UndefinedSentinel
+    implements _i6pnc270.Company {
+  const _UndefinedPerson$oldCompany();
+}
+
+class _UndefinedPerson$city extends _isc.UndefinedSentinel
+    implements _ior3absd.City {
+  const _UndefinedPerson$city();
+}
+
 class _PersonImpl extends Person {
   _PersonImpl({
     _isc.UuidValue? id,
@@ -250,40 +272,41 @@ class _PersonImpl extends Person {
   @_isc.useResult
   @override
   Person copyWith({
-    Object? id = _Undefined,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     Object? spaceId = _Undefined,
     String? name,
     Object? surname = _Undefined,
-    Object? address = _Undefined,
-    Object? organizationId = _Undefined,
-    Object? organization = _Undefined,
-    Object? oldCompanyId = _Undefined,
-    Object? oldCompany = _Undefined,
-    Object? cityId = _Undefined,
-    Object? city = _Undefined,
+    _ilb4pipw.Address? address = const _UndefinedPerson$address(),
+    _isc.UuidValue? organizationId = const _isc.$UndefinedUuidValue(),
+    _irjtvpke.Organization? organization =
+        const _UndefinedPerson$organization(),
+    _isc.UuidValue? oldCompanyId = const _isc.$UndefinedUuidValue(),
+    _i6pnc270.Company? oldCompany = const _UndefinedPerson$oldCompany(),
+    _isc.UuidValue? cityId = const _isc.$UndefinedUuidValue(),
+    _ior3absd.City? city = const _UndefinedPerson$city(),
   }) {
     return Person(
-      id: id is _isc.UuidValue? ? id : this.id,
+      id: id is _isc.UndefinedSentinel ? this.id : id,
       spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
       surname: surname is String? ? surname : this.surname,
-      address: address is _ilb4pipw.Address?
-          ? address
-          : this.address?.copyWith(),
-      organizationId: organizationId is _isc.UuidValue?
-          ? organizationId
-          : this.organizationId,
-      organization: organization is _irjtvpke.Organization?
-          ? organization
-          : this.organization?.copyWith(),
-      oldCompanyId: oldCompanyId is _isc.UuidValue?
-          ? oldCompanyId
-          : this.oldCompanyId,
-      oldCompany: oldCompany is _i6pnc270.Company?
-          ? oldCompany
-          : this.oldCompany?.copyWith(),
-      cityId: cityId is _isc.UuidValue? ? cityId : this.cityId,
-      city: city is _ior3absd.City? ? city : this.city?.copyWith(),
+      address: address is _isc.UndefinedSentinel
+          ? this.address?.copyWith()
+          : address,
+      organizationId: organizationId is _isc.UndefinedSentinel
+          ? this.organizationId
+          : organizationId,
+      organization: organization is _isc.UndefinedSentinel
+          ? this.organization?.copyWith()
+          : organization,
+      oldCompanyId: oldCompanyId is _isc.UndefinedSentinel
+          ? this.oldCompanyId
+          : oldCompanyId,
+      oldCompany: oldCompany is _isc.UndefinedSentinel
+          ? this.oldCompany?.copyWith()
+          : oldCompany,
+      cityId: cityId is _isc.UndefinedSentinel ? this.cityId : cityId,
+      city: city is _isc.UndefinedSentinel ? this.city?.copyWith() : city,
     );
   }
 }
@@ -564,6 +587,71 @@ class PersonRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [Person]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `Person.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<Person>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<PersonTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<PersonTable>? orderBy,
+    _isd.OrderByListBuilder<PersonTable>? orderByList,
+    PersonInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<Person>(
+      where: where?.call(Person.t),
+      orderBy: orderBy?.call(Person.t),
+      orderByList: orderByList?.call(Person.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

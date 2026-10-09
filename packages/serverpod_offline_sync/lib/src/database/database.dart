@@ -15,12 +15,14 @@ import '../spaces/membership.dart';
 import '../sync/engine.dart';
 import '../sync/exceptions.dart';
 import '../sync/integrity_violation.dart';
+import 'includes.dart';
 import 'merge_utils/database_helpers.dart';
 import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
 
 part 'space.dart';
+part 'watch.dart';
 
 /// Map of transaction hashes to the space they are associated with.
 final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
@@ -220,6 +222,54 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
+  /// Watches committed SQLite rows with the same visibility as [find].
+  ///
+  /// Call [initialize] first to reconcile schema and rebuild projections if
+  /// needed. Unlike [find], a watch does not perform initialization itself.
+  ///
+  /// Membership is evaluated by SQL on every execution, including nested list
+  /// queries. The caller's include graph is never modified. Watches use the
+  /// persistent user, or admin visibility when no persistent user is configured;
+  /// they do not inherit a transaction's user or acting space.
+  ///
+  /// Like Serverpod's watch, this is unsupported on PostgreSQL. Raw SQL in caller
+  /// expressions still requires [alsoTriggerOnTables] for its dependencies.
+  @override
+  Stream<List<T>> watch<T extends TableRow>({
+    Expression? where,
+    int? limit,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+    Include? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<Table>? alsoTriggerOnTables,
+  }) => _watch<T>(
+    where: where,
+    limit: limit,
+    offset: offset,
+    orderBy: orderBy,
+    orderByList: orderByList,
+    include: include,
+    throttle: throttle,
+    alsoTriggerOnTables: alsoTriggerOnTables,
+  );
+
+  /// Delegates raw watches without adding CRDT visibility or membership filters.
+  /// Callers own the SQL and its [triggerOnTables] dependencies.
+  @override
+  Stream<DatabaseResult> unsafeWatch(
+    String query, {
+    QueryParameters? parameters,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<String>? triggerOnTables,
+  }) => _delegate.unsafeWatch(
+    query,
+    parameters: parameters,
+    throttle: throttle,
+    triggerOnTables: triggerOnTables,
+  );
+
   @override
   Future<List<T>> find<T extends TableRow>({
     Expression? where,
@@ -233,11 +283,12 @@ class OfflineSyncDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
+    final queryInclude = copyInclude(include);
     await _ensureInitialized();
     final result = await _delegate.find<T>(
       where: await _whereVisibleWithTombstone<T>(
         where,
-        include,
+        queryInclude,
         transaction,
         membershipWide: true,
       ),
@@ -246,11 +297,11 @@ class OfflineSyncDatabase implements Database {
       orderBy: orderBy,
       orderByList: orderByList,
       transaction: transaction,
-      include: include,
+      include: queryInclude,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
-    return _stripSpaceIdFromSpaceScopedRead(result, include, transaction);
+    return _stripSpaceIdFromSpaceScopedRead(result, queryInclude, transaction);
   }
 
   @override
@@ -261,23 +312,24 @@ class OfflineSyncDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
+    final queryInclude = copyInclude(include);
     await _ensureInitialized();
     final table = serializationManager.getTableForType(T);
     final where = table?.id.equals(id);
     final result = await _delegate.findFirstRow<T>(
       where: await _whereVisibleWithTombstone<T>(
         where,
-        include,
+        queryInclude,
         transaction,
         membershipWide: true,
       ),
       transaction: transaction,
-      include: include,
+      include: queryInclude,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
     if (result == null) return null;
-    return _stripSpaceIdFromSpaceScopedRead([result], include, transaction).single;
+    return _stripSpaceIdFromSpaceScopedRead([result], queryInclude, transaction).single;
   }
 
   @override
@@ -292,11 +344,12 @@ class OfflineSyncDatabase implements Database {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) async {
+    final queryInclude = copyInclude(include);
     await _ensureInitialized();
     final result = await _delegate.findFirstRow<T>(
       where: await _whereVisibleWithTombstone<T>(
         where,
-        include,
+        queryInclude,
         transaction,
         membershipWide: true,
       ),
@@ -304,12 +357,12 @@ class OfflineSyncDatabase implements Database {
       orderBy: orderBy,
       orderByList: orderByList,
       transaction: transaction,
-      include: include,
+      include: queryInclude,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
     if (result == null) return null;
-    return _stripSpaceIdFromSpaceScopedRead([result], include, transaction).single;
+    return _stripSpaceIdFromSpaceScopedRead([result], queryInclude, transaction).single;
   }
 
   Future<R> _runTrackedWrite<R>(

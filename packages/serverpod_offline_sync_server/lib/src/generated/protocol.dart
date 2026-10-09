@@ -18,7 +18,8 @@ import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
 export 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     hide Protocol;
 
-class Protocol extends _is.DatabaseSerializationManager {
+class Protocol extends _is.DatabaseSerializationManager
+    implements _is.DatabaseProtocolDeserializationProvider {
   Protocol._();
 
   factory Protocol() => _instance;
@@ -26,6 +27,20 @@ class Protocol extends _is.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._();
 
   final Set<_is.SerializationManager> _hostProtocols = {};
+
+  @override
+  _is.ProtocolDeserialization get deserializationMetadata =>
+      _is.ProtocolDeserialization.cached(
+        this,
+        types: const [
+          _is.getType<_icw2tu00.Hlc>,
+          _is.getType<_icw2tu00.Hlc?>,
+        ],
+        modules: const [
+          _icw2tu00.Protocol.new,
+          _isp.Protocol.new,
+        ],
+      );
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
     ..._icw2tu00.Protocol() is _is.DatabaseSerializationManager
@@ -77,12 +92,15 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_icw2tu00.Hlc?>()) {
       return (data != null ? _icw2tu00.Hlc.fromJson(data) : null) as T;
     }
-    try {
-      return _icw2tu00.Protocol().deserialize<T>(data, t);
-    } on _is.DeserializationTypeNotFoundException catch (_) {}
-    try {
-      return _isp.Protocol().deserialize<T>(data, t);
-    } on _is.DeserializationTypeNotFoundException catch (_) {}
+    final modules = dataClassName == null
+        ? deserializationMetadata.modulesForType(t)
+        : deserializationMetadata.modules;
+    for (final module in modules) {
+      try {
+        return module.deserialize<T>(data, t);
+      } on _is.DeserializationTypeNotFoundException catch (_) {}
+    }
+
     return super.deserialize<T>(data, t);
   }
 

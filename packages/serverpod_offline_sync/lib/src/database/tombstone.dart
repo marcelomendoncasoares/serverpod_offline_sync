@@ -85,81 +85,76 @@ Expression? mergeWhereWithTombstone<T extends TableRow>(
   required CrdtTableIdResolver tableIdForName,
   required OfflineSyncSpaceIdsResolver spaceIds,
 }) {
-  final includeObjectPredicates = _walkIncludeGraphForTombstone(
+  return mergeWhereWithVisibility<T>(
+    serializationManager,
+    where,
     include,
-    null,
-    tableIdForName: tableIdForName,
-    spaceIds: spaceIds,
+    whereVisible: (table) => table.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
   );
-
-  final rootTable = serializationManager.getTableForType(T);
-  var merged = _includesHiddenSentinel(where)
-      ? where
-      : _mergeWhereOptional(
-          where,
-          rootTable?.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
-        );
-  merged = _mergeWhereOptional(merged, includeObjectPredicates);
-  return merged;
 }
 
-/// Walks [inc], mutating each [IncludeList.where] and returning predicates to
-/// `AND` into the main query for [IncludeObject] joins.
-Expression? _walkIncludeGraphForTombstone(
-  Include? inc,
-  Expression? includeObjectPredicates, {
-  required CrdtTableIdResolver tableIdForName,
-  required OfflineSyncSpaceIdsResolver spaceIds,
+/// Adds visibility predicates to a query-owned include graph and root filter.
+@internal
+Expression? mergeWhereWithVisibility<T extends TableRow>(
+  DatabaseSerializationManager serializationManager,
+  Expression? where,
+  Include? include, {
+  required Expression? Function(Table) whereVisible,
 }) {
-  if (inc == null) return includeObjectPredicates;
+  final includeObjectPredicates = _walkIncludeGraphForTombstone(
+    include,
+    whereVisible: whereVisible,
+  );
+  final rootTable = serializationManager.getTableForType(T);
+  final rootPredicate = rootTable == null || _includesHiddenSentinel(where)
+      ? null
+      : whereVisible(rootTable);
+
+  return _mergeWhereOptional(
+    _mergeWhereOptional(where, rootPredicate),
+    includeObjectPredicates,
+  );
+}
+
+/// List predicates belong to their own SELECT, including object joins beneath
+/// that list. Only object joins in the current SELECT contribute to its WHERE.
+Expression? _walkIncludeGraphForTombstone(
+  Include? inc, {
+  required Expression? Function(Table) whereVisible,
+  Table? joinedTable,
+}) {
+  if (inc == null) return null;
   if (inc is IncludeList) {
-    // List relation: filter inside the list subquery only.
     if (!_includesHiddenSentinel(inc.where)) {
-      inc.where = _mergeWhereOptional(
-        inc.where,
-        inc.table.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
-      );
+      inc.where = _mergeWhereOptional(inc.where, whereVisible(inc.table));
     }
-    return _walkIncludeGraphForTombstone(
-      inc.include,
-      includeObjectPredicates,
-      tableIdForName: tableIdForName,
-      spaceIds: spaceIds,
+    inc.where = _mergeWhereOptional(
+      inc.where,
+      _walkIncludeGraphForTombstone(inc.include, whereVisible: whereVisible),
+    );
+    return null;
+  }
+
+  Expression? predicates;
+  for (final entry in inc.includes.entries) {
+    final nested = entry.value;
+    Table? childTable;
+    if (nested is IncludeObject) {
+      childTable = (joinedTable ?? inc.table).getRelationTable(entry.key);
+      if (childTable != null) {
+        predicates = _mergeWhereOptional(predicates, whereVisible(childTable));
+      }
+    }
+    predicates = _mergeWhereOptional(
+      predicates,
+      _walkIncludeGraphForTombstone(
+        nested,
+        whereVisible: whereVisible,
+        joinedTable: childTable,
+      ),
     );
   }
-  var acc = includeObjectPredicates;
-  final obj = inc;
-  final selfTable = obj.table;
-  for (final entry in obj.includes.entries) {
-    final nested = entry.value;
-    if (nested is IncludeList) {
-      // e.g. one-to-many: visibility applies via IncludeList.where, not the main WHERE.
-      acc = _walkIncludeGraphForTombstone(
-        nested,
-        acc,
-        tableIdForName: tableIdForName,
-        spaceIds: spaceIds,
-      );
-      continue;
-    }
-    if (nested is IncludeObject) {
-      // one-to-one / optional object: joined on the main SELECT, constrain via root WHERE.
-      final childTable = selfTable.getRelationTable(entry.key);
-      if (childTable != null) {
-        acc = _mergeWhereOptional(
-          acc,
-          childTable.whereVisibleOnCrdtRow(tableIdForName, spaceIds),
-        );
-      }
-      acc = _walkIncludeGraphForTombstone(
-        nested,
-        acc,
-        tableIdForName: tableIdForName,
-        spaceIds: spaceIds,
-      );
-    }
-  }
-  return acc;
+  return predicates;
 }
 
 Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
@@ -178,6 +173,31 @@ Expression? _mergeWhereOptional(Expression? where, Expression? addition) {
 bool _includesHiddenSentinel(Expression? where) {
   if (where == null) return false;
   return where.depthFirst.any((e) => e is _IncludeHiddenSentinel);
+}
+
+/// Filters a synced table by CRDT visibility, preserving unmatched object joins.
+///
+/// [tableId] may be a resolved ID or a scalar subquery. [crdtSpaceFilter] scopes
+/// the hidden-row lookup; [domainSpaceFilter] optionally restricts domain rows
+/// to the caller's spaces. Watches supply SQL subqueries so these filters stay
+/// current without rebuilding the subscription.
+@internal
+Expression crdtRowVisibilityPredicate(
+  Table table, {
+  required Expression tableId,
+  required Expression crdtSpaceFilter,
+  Expression? domainSpaceFilter,
+}) {
+  final crdtRow = CrdtDataRow.t;
+  final visible = Expression(
+    'NOT EXISTS (SELECT 1 FROM "${crdtRow.tableName}" '
+    'WHERE $crdtSpaceFilter '
+    'AND ${crdtRow.tblId} = $tableId '
+    'AND ${crdtRow.uuidRowId} = ${table.id} '
+    'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+  );
+
+  return table.id.equals(null) | _mergeWhereOptional(domainSpaceFilter, visible)!;
 }
 
 extension on Table {
@@ -217,21 +237,17 @@ extension on Table {
       return id.equals(null) | const Expression('FALSE');
     }
 
-    final spaceFilter = effectiveSpaceIds == null
-        ? '${crdtRow.spaceId} = $spaceColumn'
-        : '${crdtRow.spaceId} IN (${effectiveSpaceIds.sqlLiteralList()})';
-    final notExistsExpr = Expression(
-      'NOT EXISTS '
-      '(SELECT 1 FROM "${crdtRow.tableName}" '
-      'WHERE $spaceFilter '
-      'AND ${crdtRow.tblId} = $tableId '
-      'AND ${crdtRow.uuidRowId} = $id '
-      'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+    return crdtRowVisibilityPredicate(
+      this,
+      tableId: Expression(tableId.sqlLiteral()),
+      crdtSpaceFilter: Expression(
+        effectiveSpaceIds == null
+            ? '${crdtRow.spaceId} = $spaceColumn'
+            : '${crdtRow.spaceId} IN (${effectiveSpaceIds.sqlLiteralList()})',
+      ),
+      domainSpaceFilter: effectiveSpaceIds == null
+          ? null
+          : spaceColumn.inSet(effectiveSpaceIds.toSet()),
     );
-
-    return id.equals(null) |
-        ((effectiveSpaceIds != null)
-            ? (spaceColumn.inSet(effectiveSpaceIds.toSet()) & notExistsExpr)
-            : notExistsExpr);
   }
 }

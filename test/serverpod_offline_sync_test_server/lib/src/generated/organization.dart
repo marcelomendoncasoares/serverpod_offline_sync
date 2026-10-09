@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as _ixxccm81;
@@ -85,12 +86,13 @@ abstract class Organization
   /// with some or all fields replaced by the given arguments.
   @_is.useResult
   Organization copyWith({
-    _is.UuidValue? id,
+    _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     int? spaceId,
     String? name,
-    List<_iensfz4m.Person>? people,
-    _is.UuidValue? cityId,
-    _ior3absd.City? city,
+    List<_iensfz4m.Person>? people =
+        const _is.$UndefinedList<_iensfz4m.Person>(),
+    _is.UuidValue? cityId = const _is.$UndefinedUuidValue(),
+    _ior3absd.City? city = const _UndefinedOrganization$city(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -156,6 +158,11 @@ abstract class Organization
 
 class _Undefined {}
 
+class _UndefinedOrganization$city extends _is.UndefinedSentinel
+    implements _ior3absd.City {
+  const _UndefinedOrganization$city();
+}
+
 class _OrganizationImpl extends Organization {
   _OrganizationImpl({
     _is.UuidValue? id,
@@ -178,22 +185,23 @@ class _OrganizationImpl extends Organization {
   @_is.useResult
   @override
   Organization copyWith({
-    Object? id = _Undefined,
+    _is.UuidValue? id = const _is.$UndefinedUuidValue(),
     Object? spaceId = _Undefined,
     String? name,
-    Object? people = _Undefined,
-    Object? cityId = _Undefined,
-    Object? city = _Undefined,
+    List<_iensfz4m.Person>? people =
+        const _is.$UndefinedList<_iensfz4m.Person>(),
+    _is.UuidValue? cityId = const _is.$UndefinedUuidValue(),
+    _ior3absd.City? city = const _UndefinedOrganization$city(),
   }) {
     return Organization(
-      id: id is _is.UuidValue? ? id : this.id,
+      id: id is _is.UndefinedSentinel ? this.id : id,
       spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
-      people: people is List<_iensfz4m.Person>?
-          ? people
-          : this.people?.map((e0) => e0.copyWith()).toList(),
-      cityId: cityId is _is.UuidValue? ? cityId : this.cityId,
-      city: city is _ior3absd.City? ? city : this.city?.copyWith(),
+      people: people is _is.UndefinedSentinel
+          ? this.people?.map((e0) => e0.copyWith()).toList()
+          : people,
+      cityId: cityId is _is.UndefinedSentinel ? this.cityId : cityId,
+      city: city is _is.UndefinedSentinel ? this.city?.copyWith() : city,
     );
   }
 }
@@ -412,6 +420,71 @@ class OrganizationRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [Organization]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `Organization.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<Organization>> watch(
+    _is.DatabaseSession session, {
+    _is.WhereExpressionBuilder<OrganizationTable>? where,
+    int? limit,
+    int? offset,
+    _is.OrderByBuilder<OrganizationTable>? orderBy,
+    _is.OrderByListBuilder<OrganizationTable>? orderByList,
+    OrganizationInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_is.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<Organization>(
+      where: where?.call(Organization.t),
+      orderBy: orderBy?.call(Organization.t),
+      orderByList: orderByList?.call(Organization.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

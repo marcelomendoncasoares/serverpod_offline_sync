@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
@@ -89,8 +90,10 @@ abstract class OfflineSyncSpace
     int? id,
     _iss.UuidValue? uuidSpaceId,
     int? currentNodeId,
-    _icw2tu00.CrdtNode? currentNode,
-    List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
+    _icw2tu00.CrdtNode? currentNode =
+        const _UndefinedOfflineSyncSpace$currentNode(),
+    List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
+        const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -153,6 +156,11 @@ abstract class OfflineSyncSpace
 
 class _Undefined {}
 
+class _UndefinedOfflineSyncSpace$currentNode extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtNode {
+  const _UndefinedOfflineSyncSpace$currentNode();
+}
+
 class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
   _OfflineSyncSpaceImpl({
     int? id,
@@ -176,19 +184,21 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
     Object? id = _Undefined,
     _iss.UuidValue? uuidSpaceId,
     Object? currentNodeId = _Undefined,
-    Object? currentNode = _Undefined,
-    Object? nodes = _Undefined,
+    _icw2tu00.CrdtNode? currentNode =
+        const _UndefinedOfflineSyncSpace$currentNode(),
+    List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
+        const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   }) {
     return OfflineSyncSpace(
       id: id is int? ? id : this.id,
       uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
       currentNodeId: currentNodeId is int? ? currentNodeId : this.currentNodeId,
-      currentNode: currentNode is _icw2tu00.CrdtNode?
-          ? currentNode
-          : this.currentNode?.copyWith(),
-      nodes: nodes is List<_icw2tu00.OfflineSyncSpaceNode>?
-          ? nodes
-          : this.nodes?.map((e0) => e0.copyWith()).toList(),
+      currentNode: currentNode is _iss.UndefinedSentinel
+          ? this.currentNode?.copyWith()
+          : currentNode,
+      nodes: nodes is _iss.UndefinedSentinel
+          ? this.nodes?.map((e0) => e0.copyWith()).toList()
+          : nodes,
     );
   }
 }
@@ -404,6 +414,71 @@ class OfflineSyncSpaceRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [OfflineSyncSpace]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `OfflineSyncSpace.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<OfflineSyncSpace>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<OfflineSyncSpaceTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<OfflineSyncSpaceTable>? orderBy,
+    _isd.OrderByListBuilder<OfflineSyncSpaceTable>? orderByList,
+    OfflineSyncSpaceInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<OfflineSyncSpace>(
+      where: where?.call(OfflineSyncSpace.t),
+      orderBy: orderBy?.call(OfflineSyncSpace.t),
+      orderByList: orderByList?.call(OfflineSyncSpace.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

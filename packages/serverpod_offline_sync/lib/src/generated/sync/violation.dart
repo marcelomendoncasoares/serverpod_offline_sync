@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
@@ -161,12 +162,12 @@ abstract class OfflineSyncIntegrityViolation
     _icw2tu00.OfflineSyncViolationType? type,
     String? domainTableName,
     _iss.UuidValue? uuidRowId,
-    _iss.UuidValue? ownerSpaceUuid,
+    _iss.UuidValue? ownerSpaceUuid = const _iss.$UndefinedUuidValue(),
     _iss.UuidValue? incomingSpaceUuid,
     _icw2tu00.OfflineSyncViolationOperation? operation,
-    _iss.UuidValue? uuidNodeId,
+    _iss.UuidValue? uuidNodeId = const _iss.$UndefinedUuidValue(),
     int? crdtDataRowId,
-    DateTime? hlcDatetime,
+    DateTime? hlcDatetime = const _iss.$UndefinedDateTime(),
     int? hlcCounter,
     DateTime? firstSeenAt,
     DateTime? lastSeenAt,
@@ -286,12 +287,12 @@ class _OfflineSyncIntegrityViolationImpl extends OfflineSyncIntegrityViolation {
     _icw2tu00.OfflineSyncViolationType? type,
     String? domainTableName,
     _iss.UuidValue? uuidRowId,
-    Object? ownerSpaceUuid = _Undefined,
+    _iss.UuidValue? ownerSpaceUuid = const _iss.$UndefinedUuidValue(),
     _iss.UuidValue? incomingSpaceUuid,
     _icw2tu00.OfflineSyncViolationOperation? operation,
-    Object? uuidNodeId = _Undefined,
+    _iss.UuidValue? uuidNodeId = const _iss.$UndefinedUuidValue(),
     Object? crdtDataRowId = _Undefined,
-    Object? hlcDatetime = _Undefined,
+    DateTime? hlcDatetime = const _iss.$UndefinedDateTime(),
     Object? hlcCounter = _Undefined,
     DateTime? firstSeenAt,
     DateTime? lastSeenAt,
@@ -302,14 +303,18 @@ class _OfflineSyncIntegrityViolationImpl extends OfflineSyncIntegrityViolation {
       type: type ?? this.type,
       domainTableName: domainTableName ?? this.domainTableName,
       uuidRowId: uuidRowId ?? this.uuidRowId,
-      ownerSpaceUuid: ownerSpaceUuid is _iss.UuidValue?
-          ? ownerSpaceUuid
-          : this.ownerSpaceUuid,
+      ownerSpaceUuid: ownerSpaceUuid is _iss.UndefinedSentinel
+          ? this.ownerSpaceUuid
+          : ownerSpaceUuid,
       incomingSpaceUuid: incomingSpaceUuid ?? this.incomingSpaceUuid,
       operation: operation ?? this.operation,
-      uuidNodeId: uuidNodeId is _iss.UuidValue? ? uuidNodeId : this.uuidNodeId,
+      uuidNodeId: uuidNodeId is _iss.UndefinedSentinel
+          ? this.uuidNodeId
+          : uuidNodeId,
       crdtDataRowId: crdtDataRowId is int? ? crdtDataRowId : this.crdtDataRowId,
-      hlcDatetime: hlcDatetime is DateTime? ? hlcDatetime : this.hlcDatetime,
+      hlcDatetime: hlcDatetime is _iss.UndefinedSentinel
+          ? this.hlcDatetime
+          : hlcDatetime,
       hlcCounter: hlcCounter is int? ? hlcCounter : this.hlcCounter,
       firstSeenAt: firstSeenAt ?? this.firstSeenAt,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
@@ -602,6 +607,69 @@ class OfflineSyncIntegrityViolationRepository {
       transaction: transaction,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [OfflineSyncIntegrityViolation]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `OfflineSyncIntegrityViolation.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<OfflineSyncIntegrityViolation>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<OfflineSyncIntegrityViolationTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<OfflineSyncIntegrityViolationTable>? orderBy,
+    _isd.OrderByListBuilder<OfflineSyncIntegrityViolationTable>? orderByList,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<OfflineSyncIntegrityViolation>(
+      where: where?.call(OfflineSyncIntegrityViolation.t),
+      orderBy: orderBy?.call(OfflineSyncIntegrityViolation.t),
+      orderByList: orderByList?.call(OfflineSyncIntegrityViolation.t),
+      limit: limit,
+      offset: offset,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

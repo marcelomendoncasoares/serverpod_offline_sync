@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
@@ -106,10 +107,10 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
-    _icw2tu00.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataDeleted$row(),
     int? rowId,
     int? nodeId,
-    _icw2tu00.CrdtNode? node,
+    _icw2tu00.CrdtNode? node = const _UndefinedCrdtDataDeleted$node(),
     int? clFlag,
     _icw2tu00.CrdtDataDeletedReason? reason,
   });
@@ -181,6 +182,16 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
 
 class _Undefined {}
 
+class _UndefinedCrdtDataDeleted$row extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtDataRow {
+  const _UndefinedCrdtDataDeleted$row();
+}
+
+class _UndefinedCrdtDataDeleted$node extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtNode {
+  const _UndefinedCrdtDataDeleted$node();
+}
+
 class _CrdtDataDeletedImpl extends CrdtDataDeleted {
   _CrdtDataDeletedImpl({
     int? id,
@@ -212,10 +223,10 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     Object? id = _Undefined,
     DateTime? hlcDatetime,
     int? hlcCounter,
-    Object? row = _Undefined,
+    _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataDeleted$row(),
     int? rowId,
     int? nodeId,
-    Object? node = _Undefined,
+    _icw2tu00.CrdtNode? node = const _UndefinedCrdtDataDeleted$node(),
     int? clFlag,
     _icw2tu00.CrdtDataDeletedReason? reason,
   }) {
@@ -223,10 +234,10 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
-      row: row is _icw2tu00.CrdtDataRow? ? row : this.row?.copyWith(),
+      row: row is _iss.UndefinedSentinel ? this.row?.copyWith() : row,
       rowId: rowId ?? this.rowId,
       nodeId: nodeId ?? this.nodeId,
-      node: node is _icw2tu00.CrdtNode? ? node : this.node?.copyWith(),
+      node: node is _iss.UndefinedSentinel ? this.node?.copyWith() : node,
       clFlag: clFlag ?? this.clFlag,
       reason: reason ?? this.reason,
     );
@@ -468,6 +479,71 @@ class CrdtDataDeletedRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [CrdtDataDeleted]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `CrdtDataDeleted.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<CrdtDataDeleted>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataDeletedTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<CrdtDataDeletedTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataDeletedTable>? orderByList,
+    CrdtDataDeletedInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<CrdtDataDeleted>(
+      where: where?.call(CrdtDataDeleted.t),
+      orderBy: orderBy?.call(CrdtDataDeleted.t),
+      orderByList: orderByList?.call(CrdtDataDeleted.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

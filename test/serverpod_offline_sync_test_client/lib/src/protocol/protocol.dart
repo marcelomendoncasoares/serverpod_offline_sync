@@ -90,12 +90,102 @@ export 'unique_uuid.dart';
 export 'client.dart';
 export 'sync_tables.dart';
 
-class Protocol extends _isd.DatabaseSerializationManager {
+class Protocol extends _isd.DatabaseSerializationManager
+    implements _isd.DatabaseProtocolDeserializationProvider {
   Protocol._();
 
   factory Protocol() => _instance;
 
   static final Protocol _instance = Protocol._().._registerHostProtocols();
+
+  @override
+  _isc.ProtocolDeserialization get deserializationMetadata =>
+      _isc.ProtocolDeserialization.cached(
+        this,
+        types: const [
+          _isc.getType<_ilb4pipw.Address>,
+          _isc.getType<_ior3absd.City>,
+          _isc.getType<_i6pnc270.Company>,
+          _isc.getType<_ivwxm81w.FkChainCascadeMiddle>,
+          _isc.getType<_ih0wcufc.FkChainMiddleCascadeChild>,
+          _isc.getType<_ifjezkfx.FkChainMiddleSetNullChild>,
+          _isc.getType<_i4k28i3g.FkChainRestrictBlocker>,
+          _isc.getType<_ifk56fcw.FkChainRoot>,
+          _isc.getType<_ideurard.FkChainSetNullCascadeChild>,
+          _isc.getType<_icv70ksq.FkChainSetNullMiddle>,
+          _isc.getType<_ix62gjf0.FkChainSetNullRestrictChild>,
+          _isc.getType<_ihkyqxiw.FkChainSetNullSetNullChild>,
+          _isc.getType<_irjtvpke.Organization>,
+          _isc.getType<_iensfz4m.Person>,
+          _isc.getType<_ivx9jyda.RequiredCascadeChild>,
+          _isc.getType<_itlfbi2f.RequiredNoActionChild>,
+          _isc.getType<_isrf0aof.RestrictChild>,
+          _isc.getType<_ix6xayzv.SyncDocument>,
+          _isc.getType<_iytblq2r.Town>,
+          _isc.getType<_iwxwszsz.Types>,
+          _isc.getType<_ire5m5mj.TypesEnum>,
+          _isc.getType<_ivpwn84u.Unique>,
+          _isc.getType<_ixnh46zn.UniqueCascadeChild>,
+          _isc.getType<_i0zcsmnb.UniqueCascadeReference>,
+          _isc.getType<_iv4klbbv.UniqueComposite>,
+          _isc.getType<_ixfoa5hm.UniqueDiscriminator>,
+          _isc.getType<_i5m48tdh.UniqueFkPair>,
+          _isc.getType<_iokqgjqx.UniqueMixedFk>,
+          _isc.getType<_i91ey4jd.UniqueNoRelease>,
+          _isc.getType<_idc55xas.UniqueNullable>,
+          _isc.getType<_ippyxdoe.UniqueOverlapping>,
+          _isc.getType<_imetod6b.UniqueSetDefaultChild>,
+          _isc.getType<_iy3qfphx.UniqueSetNullChild>,
+          _isc.getType<_i5jtfsbn.UniqueUuid>,
+          _isc.getType<_ilb4pipw.Address?>,
+          _isc.getType<_ior3absd.City?>,
+          _isc.getType<_i6pnc270.Company?>,
+          _isc.getType<_ivwxm81w.FkChainCascadeMiddle?>,
+          _isc.getType<_ih0wcufc.FkChainMiddleCascadeChild?>,
+          _isc.getType<_ifjezkfx.FkChainMiddleSetNullChild?>,
+          _isc.getType<_i4k28i3g.FkChainRestrictBlocker?>,
+          _isc.getType<_ifk56fcw.FkChainRoot?>,
+          _isc.getType<_ideurard.FkChainSetNullCascadeChild?>,
+          _isc.getType<_icv70ksq.FkChainSetNullMiddle?>,
+          _isc.getType<_ix62gjf0.FkChainSetNullRestrictChild?>,
+          _isc.getType<_ihkyqxiw.FkChainSetNullSetNullChild?>,
+          _isc.getType<_irjtvpke.Organization?>,
+          _isc.getType<_iensfz4m.Person?>,
+          _isc.getType<_ivx9jyda.RequiredCascadeChild?>,
+          _isc.getType<_itlfbi2f.RequiredNoActionChild?>,
+          _isc.getType<_isrf0aof.RestrictChild?>,
+          _isc.getType<_ix6xayzv.SyncDocument?>,
+          _isc.getType<_iytblq2r.Town?>,
+          _isc.getType<_iwxwszsz.Types?>,
+          _isc.getType<_ire5m5mj.TypesEnum?>,
+          _isc.getType<_ivpwn84u.Unique?>,
+          _isc.getType<_ixnh46zn.UniqueCascadeChild?>,
+          _isc.getType<_i0zcsmnb.UniqueCascadeReference?>,
+          _isc.getType<_iv4klbbv.UniqueComposite?>,
+          _isc.getType<_ixfoa5hm.UniqueDiscriminator?>,
+          _isc.getType<_i5m48tdh.UniqueFkPair?>,
+          _isc.getType<_iokqgjqx.UniqueMixedFk?>,
+          _isc.getType<_i91ey4jd.UniqueNoRelease?>,
+          _isc.getType<_idc55xas.UniqueNullable?>,
+          _isc.getType<_ippyxdoe.UniqueOverlapping?>,
+          _isc.getType<_imetod6b.UniqueSetDefaultChild?>,
+          _isc.getType<_iy3qfphx.UniqueSetNullChild?>,
+          _isc.getType<_i5jtfsbn.UniqueUuid?>,
+          _isc.getType<List<_iensfz4m.Person>>,
+          _isc.getType<List<_iensfz4m.Person>?>,
+          _isc.getType<List<_irjtvpke.Organization>>,
+          _isc.getType<List<_irjtvpke.Organization>?>,
+          _isc.getType<List<int>>,
+          _isc.getType<List<int>?>,
+          _isc.getType<List<dynamic>>,
+          _isc.getType<dynamic>,
+        ],
+        modules: const [
+          _iacc.Protocol.new,
+          _ipulbpi2.Protocol.new,
+          _i2ap9bqs.Protocol.new,
+        ],
+      );
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
     _isd.TableDefinition(
@@ -2610,15 +2700,15 @@ class Protocol extends _isd.DatabaseSerializationManager {
     if (t == dynamic) {
       return deserializeDynamicFieldValue(data) as T;
     }
-    try {
-      return _iacc.Protocol().deserialize<T>(data, t);
-    } on _isc.DeserializationTypeNotFoundException catch (_) {}
-    try {
-      return _ipulbpi2.Protocol().deserialize<T>(data, t);
-    } on _isc.DeserializationTypeNotFoundException catch (_) {}
-    try {
-      return _i2ap9bqs.Protocol().deserialize<T>(data, t);
-    } on _isc.DeserializationTypeNotFoundException catch (_) {}
+    final modules = dataClassName == null
+        ? deserializationMetadata.modulesForType(t)
+        : deserializationMetadata.modules;
+    for (final module in modules) {
+      try {
+        return module.deserialize<T>(data, t);
+      } on _isc.DeserializationTypeNotFoundException catch (_) {}
+    }
+
     return super.deserialize<T>(data, t);
   }
 

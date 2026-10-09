@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 
@@ -56,7 +57,7 @@ abstract class UniqueNoRelease
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
   UniqueNoRelease copyWith({
-    _isc.UuidValue? id,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     int? spaceId,
     int? categoryId,
   });
@@ -126,12 +127,12 @@ class _UniqueNoReleaseImpl extends UniqueNoRelease {
   @_isc.useResult
   @override
   UniqueNoRelease copyWith({
-    Object? id = _Undefined,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     Object? spaceId = _Undefined,
     int? categoryId,
   }) {
     return UniqueNoRelease(
-      id: id is _isc.UuidValue? ? id : this.id,
+      id: id is _isc.UndefinedSentinel ? this.id : id,
       spaceId: spaceId is int? ? spaceId : this.spaceId,
       categoryId: categoryId ?? this.categoryId,
     );
@@ -256,6 +257,69 @@ class UniqueNoReleaseRepository {
       transaction: transaction,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [UniqueNoRelease]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `UniqueNoRelease.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<UniqueNoRelease>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<UniqueNoReleaseTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<UniqueNoReleaseTable>? orderBy,
+    _isd.OrderByListBuilder<UniqueNoReleaseTable>? orderByList,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<UniqueNoRelease>(
+      where: where?.call(UniqueNoRelease.t),
+      orderBy: orderBy?.call(UniqueNoRelease.t),
+      orderByList: orderByList?.call(UniqueNoRelease.t),
+      limit: limit,
+      offset: offset,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 
