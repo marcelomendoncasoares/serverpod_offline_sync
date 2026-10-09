@@ -111,6 +111,7 @@ dependencies:
 ```
 
 > [!NOTE]
+> The next release requires Serverpod `^4.1.0-beta.3` for all packages.
 > Version `0.0.10` requires Serverpod `>=4.0.4 <4.1.0`.
 
 After adding the dependencies, list the `serverpod_offline_sync` module on the
@@ -190,6 +191,54 @@ Once wired up, use normal generated-model CRUD against the `session` instance,
 like `Person.db.insertRow(session, person)`, `Person.db.find(session)`, etc.
 The sync layer tracks every operation atomically; you never touch conflict
 resolution.
+
+### Watching local queries
+
+With Serverpod 4.1, generated repositories expose SQLite query streams:
+
+```dart
+await session.db.initialize();
+
+final subscription = City.db.watch(
+  session,
+  include: City.include(citizens: Person.includeList()),
+).listen((cities) {
+  // Render the latest visible cities and citizens.
+});
+
+// Cancel before closing the local database session.
+await subscription.cancel();
+```
+
+Initialize the sync database before starting watches so schema reconciliation
+and any required projection rebuild finish first. `watch` itself is read-only
+and does not perform initialization.
+
+Typed watches apply the same tombstone and space-membership visibility as
+`find`. Changes to CRDT visibility metadata and space memberships refresh an
+existing subscription, even when no domain row changes. Nested `IncludeList`
+queries evaluate membership from the database on every execution; they do not
+retain a snapshot of space IDs. Include graphs can be reused across reads and
+subscriptions without accumulating filters. `includeHiddenRows` retains its
+explicit visibility-bypass behavior.
+
+Watches read committed state outside transactions. They use the wrapper's
+`persistentUserId`; without one they use admin visibility, just like `find`
+outside a user transaction. Creating a watch inside `transactionForUser` does
+not bind it to that transaction's user or acting space. Configure a persistent
+user for a user-scoped client watch. Server sessions wrapped by
+`offlineSyncDatabaseInterceptor` have no persistent user: on a SQLite server,
+their watches use admin visibility across all spaces. Do not expose those admin
+streams to end users as user-scoped results.
+
+Serverpod currently supports these streams on SQLite only; PostgreSQL throws
+`UnsupportedError`. `unsafeWatch` delegates raw SQL without adding visibility
+filters. Pass dependencies referenced only in caller-written SQL through
+`alsoTriggerOnTables` for typed watches or `triggerOnTables` for raw watches.
+The wrapper adds its own CRDT and membership dependencies automatically.
+Because CRDT metadata tables are shared, writes to other synced tables can also
+refresh a watch and emit identical results. The default 30 ms throttle bounds
+query frequency; a watch does not suppress equal consecutive results.
 
 ### Spaces and sharing
 

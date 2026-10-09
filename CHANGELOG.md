@@ -1,3 +1,11 @@
+## Unreleased
+
+- feat: Support Serverpod 4.1 typed SQLite watches with CRDT visibility and live
+  space membership, including nested included lists; delegate raw `unsafeWatch`.
+- fix: Preserve caller include graphs across queries and keep nested object
+  visibility predicates inside their containing list query.
+- chore: Require Serverpod `^4.1.0-beta.3` and regenerate repository watch APIs.
+
 ## 0.0.10
 
 - fix: Prevents concurrent edits from being skipped during sync.
