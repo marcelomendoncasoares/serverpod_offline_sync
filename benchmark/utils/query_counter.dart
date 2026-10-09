@@ -38,6 +38,54 @@ class QueryCountingDatabase implements Database {
   DatabaseSerializationManager get serializationManager =>
       _delegate.serializationManager;
 
+  // Stream queries execute inside Serverpod; count each emitted result rather
+  // than claiming to measure its internal SQL statements.
+  @override
+  Stream<List<T>> watch<T extends TableRow>({
+    Expression? where,
+    int? limit,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+    Include? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<Table>? alsoTriggerOnTables,
+  }) => _delegate
+      .watch<T>(
+        where: where,
+        limit: limit,
+        offset: offset,
+        orderBy: orderBy,
+        orderByList: orderByList,
+        include: include,
+        throttle: throttle,
+        alsoTriggerOnTables: alsoTriggerOnTables,
+      )
+      .map((rows) {
+        queryCount++;
+        _recordRows(T.toString(), rows.length);
+        return rows;
+      });
+
+  @override
+  Stream<DatabaseResult> unsafeWatch(
+    String query, {
+    QueryParameters? parameters,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<String>? triggerOnTables,
+  }) => _delegate
+      .unsafeWatch(
+        query,
+        parameters: parameters,
+        throttle: throttle,
+        triggerOnTables: triggerOnTables,
+      )
+      .map((rows) {
+        queryCount++;
+        _recordRows('sql', rows.length);
+        return rows;
+      });
+
   @override
   Future<List<T>> find<T extends TableRow>({
     Expression? where,

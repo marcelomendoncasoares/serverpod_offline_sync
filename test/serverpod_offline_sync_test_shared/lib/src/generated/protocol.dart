@@ -22,7 +22,8 @@ export 'shared_child.dart';
 export 'shared_flavor.dart';
 export 'shared_parent.dart';
 
-class Protocol extends _isd.DatabaseSerializationManager {
+class Protocol extends _isd.DatabaseSerializationManager
+    implements _isd.DatabaseProtocolDeserializationProvider {
   Protocol._();
 
   factory Protocol() => _instance;
@@ -30,6 +31,23 @@ class Protocol extends _isd.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._();
 
   final Set<_iss.SerializationManager> _hostProtocols = {};
+
+  @override
+  _iss.ProtocolDeserialization get deserializationMetadata =>
+      _iss.ProtocolDeserialization.cached(
+        this,
+        types: const [
+          _iss.getType<_ipnbm8e1.SharedChild>,
+          _iss.getType<_ig8q940r.SharedFlavor>,
+          _iss.getType<_ikuzrwo6.SharedParent>,
+          _iss.getType<_ipnbm8e1.SharedChild?>,
+          _iss.getType<_ig8q940r.SharedFlavor?>,
+          _iss.getType<_ikuzrwo6.SharedParent?>,
+          _iss.getType<List<_i2ap9bqs.SharedChild>>,
+          _iss.getType<List<_i2ap9bqs.SharedChild>?>,
+        ],
+        modules: const [],
+      );
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
     _isd.TableDefinition(

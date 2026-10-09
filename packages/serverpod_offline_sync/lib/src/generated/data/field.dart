@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
@@ -119,12 +120,13 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? rowId,
-    _icw2tu00.CrdtDataRow? row,
+    _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataField$row(),
     int? columnId,
-    _icw2tu00.CrdtSchemaColumn? column,
+    _icw2tu00.CrdtSchemaColumn? column = const _UndefinedCrdtDataField$column(),
     int? nodeId,
-    _icw2tu00.CrdtNode? node,
-    _icw2tu00.CrdtDataAttemptedValue? attemptedValue,
+    _icw2tu00.CrdtNode? node = const _UndefinedCrdtDataField$node(),
+    _icw2tu00.CrdtDataAttemptedValue? attemptedValue =
+        const _UndefinedCrdtDataField$attemptedValue(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -201,6 +203,26 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
 
 class _Undefined {}
 
+class _UndefinedCrdtDataField$row extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtDataRow {
+  const _UndefinedCrdtDataField$row();
+}
+
+class _UndefinedCrdtDataField$column extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtSchemaColumn {
+  const _UndefinedCrdtDataField$column();
+}
+
+class _UndefinedCrdtDataField$node extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtNode {
+  const _UndefinedCrdtDataField$node();
+}
+
+class _UndefinedCrdtDataField$attemptedValue extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtDataAttemptedValue {
+  const _UndefinedCrdtDataField$attemptedValue();
+}
+
 class _CrdtDataFieldImpl extends CrdtDataField {
   _CrdtDataFieldImpl({
     int? id,
@@ -235,28 +257,29 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? rowId,
-    Object? row = _Undefined,
+    _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataField$row(),
     int? columnId,
-    Object? column = _Undefined,
+    _icw2tu00.CrdtSchemaColumn? column = const _UndefinedCrdtDataField$column(),
     int? nodeId,
-    Object? node = _Undefined,
-    Object? attemptedValue = _Undefined,
+    _icw2tu00.CrdtNode? node = const _UndefinedCrdtDataField$node(),
+    _icw2tu00.CrdtDataAttemptedValue? attemptedValue =
+        const _UndefinedCrdtDataField$attemptedValue(),
   }) {
     return CrdtDataField(
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
       rowId: rowId ?? this.rowId,
-      row: row is _icw2tu00.CrdtDataRow? ? row : this.row?.copyWith(),
+      row: row is _iss.UndefinedSentinel ? this.row?.copyWith() : row,
       columnId: columnId ?? this.columnId,
-      column: column is _icw2tu00.CrdtSchemaColumn?
-          ? column
-          : this.column?.copyWith(),
+      column: column is _iss.UndefinedSentinel
+          ? this.column?.copyWith()
+          : column,
       nodeId: nodeId ?? this.nodeId,
-      node: node is _icw2tu00.CrdtNode? ? node : this.node?.copyWith(),
-      attemptedValue: attemptedValue is _icw2tu00.CrdtDataAttemptedValue?
-          ? attemptedValue
-          : this.attemptedValue?.copyWith(),
+      node: node is _iss.UndefinedSentinel ? this.node?.copyWith() : node,
+      attemptedValue: attemptedValue is _iss.UndefinedSentinel
+          ? this.attemptedValue?.copyWith()
+          : attemptedValue,
     );
   }
 }
@@ -527,6 +550,71 @@ class CrdtDataFieldRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [CrdtDataField]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `CrdtDataField.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<CrdtDataField>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataFieldTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<CrdtDataFieldTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataFieldTable>? orderByList,
+    CrdtDataFieldInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<CrdtDataField>(
+      where: where?.call(CrdtDataField.t),
+      orderBy: orderBy?.call(CrdtDataField.t),
+      orderByList: orderByList?.call(CrdtDataField.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

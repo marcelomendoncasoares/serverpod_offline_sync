@@ -884,7 +884,8 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     final user = effectiveSpaceFor(transaction);
     final currentNode = _currentNodeFor(user, transaction);
     return currentNode.managers[user.id!] ??= HlcManager.forSpace(
-      user.copyWith(currentNode: currentNode.node),
+      user,
+      currentNode: currentNode.node,
     );
   }
 

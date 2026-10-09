@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync_test_client/src/protocol/protocol.dart'
@@ -93,13 +94,13 @@ abstract class Town
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
   Town copyWith({
-    _isc.UuidValue? id,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     int? spaceId,
     String? name,
-    _isc.UuidValue? cityId,
-    _ior3absd.City? city,
-    _isc.UuidValue? mayorId,
-    _iensfz4m.Person? mayor,
+    _isc.UuidValue? cityId = const _isc.$UndefinedUuidValue(),
+    _ior3absd.City? city = const _UndefinedTown$city(),
+    _isc.UuidValue? mayorId = const _isc.$UndefinedUuidValue(),
+    _iensfz4m.Person? mayor = const _UndefinedTown$mayor(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -165,6 +166,16 @@ abstract class Town
 
 class _Undefined {}
 
+class _UndefinedTown$city extends _isc.UndefinedSentinel
+    implements _ior3absd.City {
+  const _UndefinedTown$city();
+}
+
+class _UndefinedTown$mayor extends _isc.UndefinedSentinel
+    implements _iensfz4m.Person {
+  const _UndefinedTown$mayor();
+}
+
 class _TownImpl extends Town {
   _TownImpl({
     _isc.UuidValue? id,
@@ -189,22 +200,22 @@ class _TownImpl extends Town {
   @_isc.useResult
   @override
   Town copyWith({
-    Object? id = _Undefined,
+    _isc.UuidValue? id = const _isc.$UndefinedUuidValue(),
     Object? spaceId = _Undefined,
     String? name,
-    Object? cityId = _Undefined,
-    Object? city = _Undefined,
-    Object? mayorId = _Undefined,
-    Object? mayor = _Undefined,
+    _isc.UuidValue? cityId = const _isc.$UndefinedUuidValue(),
+    _ior3absd.City? city = const _UndefinedTown$city(),
+    _isc.UuidValue? mayorId = const _isc.$UndefinedUuidValue(),
+    _iensfz4m.Person? mayor = const _UndefinedTown$mayor(),
   }) {
     return Town(
-      id: id is _isc.UuidValue? ? id : this.id,
+      id: id is _isc.UndefinedSentinel ? this.id : id,
       spaceId: spaceId is int? ? spaceId : this.spaceId,
       name: name ?? this.name,
-      cityId: cityId is _isc.UuidValue? ? cityId : this.cityId,
-      city: city is _ior3absd.City? ? city : this.city?.copyWith(),
-      mayorId: mayorId is _isc.UuidValue? ? mayorId : this.mayorId,
-      mayor: mayor is _iensfz4m.Person? ? mayor : this.mayor?.copyWith(),
+      cityId: cityId is _isc.UndefinedSentinel ? this.cityId : cityId,
+      city: city is _isc.UndefinedSentinel ? this.city?.copyWith() : city,
+      mayorId: mayorId is _isc.UndefinedSentinel ? this.mayorId : mayorId,
+      mayor: mayor is _isc.UndefinedSentinel ? this.mayor?.copyWith() : mayor,
     );
   }
 }
@@ -413,6 +424,71 @@ class TownRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [Town]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `Town.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<Town>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<TownTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<TownTable>? orderBy,
+    _isd.OrderByListBuilder<TownTable>? orderByList,
+    TownInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<Town>(
+      where: where?.call(Town.t),
+      orderBy: orderBy?.call(Town.t),
+      orderByList: orderByList?.call(Town.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

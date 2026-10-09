@@ -11,6 +11,7 @@
 // ignore_for_file: dead_code, unnecessary_null_comparison
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'dart:async' as _ida;
 import 'package:serverpod_database/serverpod_database.dart' as _isd;
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
@@ -155,15 +156,16 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? spaceId,
-    _icw2tu00.OfflineSyncSpace? space,
+    _icw2tu00.OfflineSyncSpace? space = const _UndefinedCrdtDataRow$space(),
     int? tblId,
-    _icw2tu00.CrdtSchemaTable? tbl,
+    _icw2tu00.CrdtSchemaTable? tbl = const _UndefinedCrdtDataRow$tbl(),
     _iss.UuidValue? uuidRowId,
     int? nodeId,
-    _icw2tu00.CrdtNode? node,
+    _icw2tu00.CrdtNode? node = const _UndefinedCrdtDataRow$node(),
     _icw2tu00.CrdtDataRowVisibility? visibility,
-    _icw2tu00.CrdtDataDeleted? deleted,
-    List<_icw2tu00.CrdtDataField>? fields,
+    _icw2tu00.CrdtDataDeleted? deleted = const _UndefinedCrdtDataRow$deleted(),
+    List<_icw2tu00.CrdtDataField>? fields =
+        const _iss.$UndefinedList<_icw2tu00.CrdtDataField>(),
   });
   @override
   Map<String, dynamic> toJson() {
@@ -249,6 +251,26 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
 
 class _Undefined {}
 
+class _UndefinedCrdtDataRow$space extends _iss.UndefinedSentinel
+    implements _icw2tu00.OfflineSyncSpace {
+  const _UndefinedCrdtDataRow$space();
+}
+
+class _UndefinedCrdtDataRow$tbl extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtSchemaTable {
+  const _UndefinedCrdtDataRow$tbl();
+}
+
+class _UndefinedCrdtDataRow$node extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtNode {
+  const _UndefinedCrdtDataRow$node();
+}
+
+class _UndefinedCrdtDataRow$deleted extends _iss.UndefinedSentinel
+    implements _icw2tu00.CrdtDataDeleted {
+  const _UndefinedCrdtDataRow$deleted();
+}
+
 class _CrdtDataRowImpl extends CrdtDataRow {
   _CrdtDataRowImpl({
     int? id,
@@ -289,36 +311,35 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     DateTime? hlcDatetime,
     int? hlcCounter,
     int? spaceId,
-    Object? space = _Undefined,
+    _icw2tu00.OfflineSyncSpace? space = const _UndefinedCrdtDataRow$space(),
     int? tblId,
-    Object? tbl = _Undefined,
+    _icw2tu00.CrdtSchemaTable? tbl = const _UndefinedCrdtDataRow$tbl(),
     _iss.UuidValue? uuidRowId,
     int? nodeId,
-    Object? node = _Undefined,
+    _icw2tu00.CrdtNode? node = const _UndefinedCrdtDataRow$node(),
     _icw2tu00.CrdtDataRowVisibility? visibility,
-    Object? deleted = _Undefined,
-    Object? fields = _Undefined,
+    _icw2tu00.CrdtDataDeleted? deleted = const _UndefinedCrdtDataRow$deleted(),
+    List<_icw2tu00.CrdtDataField>? fields =
+        const _iss.$UndefinedList<_icw2tu00.CrdtDataField>(),
   }) {
     return CrdtDataRow(
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
       spaceId: spaceId ?? this.spaceId,
-      space: space is _icw2tu00.OfflineSyncSpace?
-          ? space
-          : this.space?.copyWith(),
+      space: space is _iss.UndefinedSentinel ? this.space?.copyWith() : space,
       tblId: tblId ?? this.tblId,
-      tbl: tbl is _icw2tu00.CrdtSchemaTable? ? tbl : this.tbl?.copyWith(),
+      tbl: tbl is _iss.UndefinedSentinel ? this.tbl?.copyWith() : tbl,
       uuidRowId: uuidRowId ?? this.uuidRowId,
       nodeId: nodeId ?? this.nodeId,
-      node: node is _icw2tu00.CrdtNode? ? node : this.node?.copyWith(),
+      node: node is _iss.UndefinedSentinel ? this.node?.copyWith() : node,
       visibility: visibility ?? this.visibility,
-      deleted: deleted is _icw2tu00.CrdtDataDeleted?
-          ? deleted
-          : this.deleted?.copyWith(),
-      fields: fields is List<_icw2tu00.CrdtDataField>?
-          ? fields
-          : this.fields?.map((e0) => e0.copyWith()).toList(),
+      deleted: deleted is _iss.UndefinedSentinel
+          ? this.deleted?.copyWith()
+          : deleted,
+      fields: fields is _iss.UndefinedSentinel
+          ? this.fields?.map((e0) => e0.copyWith()).toList()
+          : fields,
     );
   }
 }
@@ -673,6 +694,71 @@ class CrdtDataRowRepository {
       include: include,
       lockMode: lockMode,
       lockBehavior: lockBehavior,
+    );
+  }
+
+  /// Emits [CrdtDataRow]s matching the given query parameters every time the
+  /// source tables are modified.
+  ///
+  /// Use [where] to specify which items to include in the return value.
+  /// If none is specified, all items will be returned.
+  ///
+  /// To specify the order of the items use [orderBy] or [orderByList]
+  /// when sorting by multiple columns.
+  ///
+  /// The maximum number of items can be set by [limit]. If no limit is set,
+  /// all items matching the query will be returned.
+  ///
+  /// [offset] defines how many items to skip, after which [limit] (or all)
+  /// items are read from the database.
+  ///
+  /// Use [throttle] to specify the minimum interval between queries. It can
+  /// also be set to `null`, in which case the stream will only be throttled
+  /// when its subscription is paused.
+  ///
+  /// Source tables are collected from the queried table, [where], [orderBy],
+  /// [orderByList], and the [include] graph. [alsoTriggerOnTables] is added
+  /// to that set. Pass [Table] instances such as `CrdtDataRow.t`.
+  ///
+  /// Raw [Expression] SQL is not inspected. Tables referenced only in raw
+  /// SQL must be passed via [alsoTriggerOnTables].
+  ///
+  /// The stream always reads committed state and never joins an ambient
+  /// [Transaction]. Emissions for a write fire after that write commits.
+  ///
+  /// Currently only supported on SQLite. Calling this method on PostgreSQL
+  /// throws an [UnsupportedError].
+  ///
+  /// ```dart
+  /// var subscription = Persons.db.watch(
+  ///   session,
+  ///   where: (t) => t.lastName.equals('Jones'),
+  ///   orderBy: (t) => t.firstName,
+  ///   limit: 100,
+  /// ).listen((persons) {
+  ///   // Handle the latest matching rows.
+  /// });
+  /// ```
+  _ida.Stream<List<CrdtDataRow>> watch(
+    _isd.DatabaseSession session, {
+    _isd.WhereExpressionBuilder<CrdtDataRowTable>? where,
+    int? limit,
+    int? offset,
+    _isd.OrderByBuilder<CrdtDataRowTable>? orderBy,
+    _isd.OrderByListBuilder<CrdtDataRowTable>? orderByList,
+    CrdtDataRowInclude? include,
+    Duration? throttle = const Duration(milliseconds: 30),
+    Iterable<_isd.Table>? alsoTriggerOnTables,
+  }) {
+    return session.db.watch<CrdtDataRow>(
+      where: where?.call(CrdtDataRow.t),
+      orderBy: orderBy?.call(CrdtDataRow.t),
+      orderByList: orderByList?.call(CrdtDataRow.t),
+      limit: limit,
+      offset: offset,
+      include: include,
+      throttle: throttle,
+      alsoTriggerOnTables: alsoTriggerOnTables,
     );
   }
 

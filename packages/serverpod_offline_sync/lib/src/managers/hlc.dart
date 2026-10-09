@@ -14,12 +14,15 @@ class HlcManager {
   );
 
   /// Creates a new [HlcManager] for the current node of [space].
-  factory HlcManager.forSpace(OfflineSyncSpace space) {
+  ///
+  /// [currentNode] shares a refreshed node without copying the space or its
+  /// included relations.
+  factory HlcManager.forSpace(OfflineSyncSpace space, {CrdtNode? currentNode}) {
     return HlcManager._(
       space.uuidSpaceId,
       space.id!,
       space.currentNodeId!,
-      space.currentNode!,
+      currentNode ?? space.currentNode!,
     );
   }
 
