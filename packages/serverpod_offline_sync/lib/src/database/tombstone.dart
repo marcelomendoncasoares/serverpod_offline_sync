@@ -175,6 +175,31 @@ bool _includesHiddenSentinel(Expression? where) {
   return where.depthFirst.any((e) => e is _IncludeHiddenSentinel);
 }
 
+/// Filters a synced table by CRDT visibility, preserving unmatched object joins.
+///
+/// [tableId] may be a resolved ID or a scalar subquery. [crdtSpaceFilter] scopes
+/// the hidden-row lookup; [domainSpaceFilter] optionally restricts domain rows
+/// to the caller's spaces. Watches supply SQL subqueries so these filters stay
+/// current without rebuilding the subscription.
+@internal
+Expression crdtRowVisibilityPredicate(
+  Table table, {
+  required Expression tableId,
+  required Expression crdtSpaceFilter,
+  Expression? domainSpaceFilter,
+}) {
+  final crdtRow = CrdtDataRow.t;
+  final visible = Expression(
+    'NOT EXISTS (SELECT 1 FROM "${crdtRow.tableName}" '
+    'WHERE $crdtSpaceFilter '
+    'AND ${crdtRow.tblId} = $tableId '
+    'AND ${crdtRow.uuidRowId} = ${table.id} '
+    'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+  );
+
+  return table.id.equals(null) | _mergeWhereOptional(domainSpaceFilter, visible)!;
+}
+
 extension on Table {
   /// Creates a predicate that filters out hidden rows for the given [Table]
   /// using materialized [CrdtDataRow.visibility] metadata.
@@ -212,21 +237,17 @@ extension on Table {
       return id.equals(null) | const Expression('FALSE');
     }
 
-    final spaceFilter = effectiveSpaceIds == null
-        ? '${crdtRow.spaceId} = $spaceColumn'
-        : '${crdtRow.spaceId} IN (${effectiveSpaceIds.sqlLiteralList()})';
-    final notExistsExpr = Expression(
-      'NOT EXISTS '
-      '(SELECT 1 FROM "${crdtRow.tableName}" '
-      'WHERE $spaceFilter '
-      'AND ${crdtRow.tblId} = $tableId '
-      'AND ${crdtRow.uuidRowId} = $id '
-      'AND ${crdtRow.visibility} > $crdtRowLastVisibleVisibilityIndex)',
+    return crdtRowVisibilityPredicate(
+      this,
+      tableId: Expression(tableId.sqlLiteral()),
+      crdtSpaceFilter: Expression(
+        effectiveSpaceIds == null
+            ? '${crdtRow.spaceId} = $spaceColumn'
+            : '${crdtRow.spaceId} IN (${effectiveSpaceIds.sqlLiteralList()})',
+      ),
+      domainSpaceFilter: effectiveSpaceIds == null
+          ? null
+          : spaceColumn.inSet(effectiveSpaceIds.toSet()),
     );
-
-    return id.equals(null) |
-        ((effectiveSpaceIds != null)
-            ? (spaceColumn.inSet(effectiveSpaceIds.toSet()) & notExistsExpr)
-            : notExistsExpr);
   }
 }

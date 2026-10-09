@@ -74,27 +74,28 @@ extension _OfflineSyncDatabaseWatch on OfflineSyncDatabase {
         (throw StateError('Synced table "${table.tableName}" has no spaceId column.'));
     final row = CrdtDataRow.t;
     final schema = CrdtSchemaTable.t;
-    final visible = Expression(
-      'NOT EXISTS (SELECT 1 FROM "${row.tableName}" '
-      'WHERE ${row.spaceId} = $spaceColumn '
-      'AND ${row.tblId} = (SELECT ${schema.id} FROM "${schema.tableName}" '
-      'WHERE ${schema.name.equals(table.tableName)}) '
-      'AND ${row.uuidRowId} = ${table.id} '
-      'AND ${row.visibility} > $crdtRowLastVisibleVisibilityIndex)',
-    );
-
     final userId = _recorder.persistentUserId;
-    if (userId == null) return table.id.equals(null) | visible;
+    Expression? memberSpaces;
+    if (userId != null) {
+      final space = OfflineSyncSpace.t;
+      final member = OfflineSyncSpaceMember.t;
+      memberSpaces = Expression(
+        '$spaceColumn IN ( '
+        'SELECT ${space.id} FROM "${space.tableName}" '
+        'WHERE ${space.uuidSpaceId.equals(userId)} '
+        'UNION SELECT ${member.spaceId} FROM "${member.tableName}" '
+        'WHERE ${member.userUuid.equals(userId)})',
+      );
+    }
 
-    final space = OfflineSyncSpace.t;
-    final member = OfflineSyncSpaceMember.t;
-    final memberSpaces = Expression(
-      '$spaceColumn IN ( '
-      'SELECT ${space.id} FROM "${space.tableName}" '
-      'WHERE ${space.uuidSpaceId.equals(userId)} '
-      'UNION SELECT ${member.spaceId} FROM "${member.tableName}" '
-      'WHERE ${member.userUuid.equals(userId)})',
+    return crdtRowVisibilityPredicate(
+      table,
+      tableId: Expression(
+        '(SELECT ${schema.id} FROM "${schema.tableName}" '
+        'WHERE ${schema.name.equals(table.tableName)})',
+      ),
+      crdtSpaceFilter: Expression('${row.spaceId} = $spaceColumn'),
+      domainSpaceFilter: memberSpaces,
     );
-    return table.id.equals(null) | (memberSpaces & visible);
   }
 }
