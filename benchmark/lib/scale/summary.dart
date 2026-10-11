@@ -256,7 +256,8 @@ class SummaryBuilder {
         'peakThreads': peak['threads'],
         'baselineRssBytes': baselines[entry.key]?['rssBytes'],
         'baselineOpenFds': baselines[entry.key]?['openFds'],
-        // Marginal cost: peak minus the process before any device opened.
+        // Peak minus the process before any device opened, per device. With
+        // few devices this includes one-time runtime (and JIT) growth.
         'rssBytesPerDevice': _perDevice(
           peak['rssBytes'],
           baselines[entry.key]?['rssBytes'],

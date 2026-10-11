@@ -194,9 +194,12 @@ earlier retained runs; compare boundaries rather than absolute values.
 
 Each device runs real engine and ORM code on its worker's single Dart isolate,
 plus a SQLite writer and reader pool. On Linux x64 with native bundles, a device
-has measured roughly 25 open files and about 6 MiB of worker memory; the runner
-warns when the open-file soft limit or available memory look too small (raise
-`ulimit -n` or add workers). These are estimates from small runs.
+has measured roughly 25 open files, and each additional device about 6 MiB of
+worker memory; the runner warns when the open-file soft limit or available
+memory look too small (raise `ulimit -n` or add workers). These are estimates
+from small runs. The summary's per-device figures divide growth since the
+worker started by its device count, so with only a few devices they also carry
+one-time runtime growth (tens of MiB), and under `dart run` the JIT as well.
 
 Calibrate before trusting latencies: increase devices per worker step by step
 and keep the largest load where `generator.assessment` stays at
@@ -265,8 +268,23 @@ and PostgreSQL connection variables.
 ## Local validation
 
 Only short functional segments were run during implementation, never a capacity
-run or Cloud deployment. See `.scale-benchmark/review/` for the review rounds
-and their evidence. Run the harness tests from the repository root with
+run or Cloud deployment, each with at most eight devices and about ten seconds of
+scheduled work. See `.scale-benchmark/review/` for the review rounds and their
+evidence:
+
+- SQLite (`scripts/scale-server.sh`, `dart run` client): two workers with all four
+  device states, network ramp and seeded churn; and one-byte payloads with
+  `--setup-concurrency 2`, where every rename was verified exactly and the
+  permit peak stayed at two.
+- PostgreSQL 16: stamped native client and server bundles against a fresh
+  export, two workers and five devices with 4 KiB payloads. Periodic samples
+  used estimates, boundaries exact counts, and the town relation outgrew its
+  raw live payload, so compression did not hide storage.
+- A native server restarted mid-workload: devices reconnected with backoff and
+  converged; the strict defaults failed the run on the counted stream ends and
+  missed samples, and raised limits passed it.
+- Invalid credentials failed at preflight before workers started; SIGTERM
+  during the workload stopped both workers and still wrote a failed summary. Run the harness tests from the repository root with
 `dart test benchmark/test/scale --concurrency=1`; CI runs them through
 `melos test`. They cover topology and churn scheduling, token classification,
 the verification oracle (including compensating and stale-value errors), worker
