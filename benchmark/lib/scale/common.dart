@@ -2,6 +2,7 @@
 // ignore_for_file: public_member_api_docs, type_annotate_public_apis
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -303,18 +304,59 @@ int mixSeed(Iterable<int> parts) {
 const _payloadAlphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
-/// Seeded ASCII text of exactly [length] characters. The readable prefix makes
-/// rows traceable; the uniformly random remainder (6 bits per character) is not
-/// meaningfully compressible, so PostgreSQL TOAST cannot shrink it.
+/// Seeded ASCII text of exactly [length] characters. The uniformly random
+/// characters (6 bits each) are not meaningfully compressible, so PostgreSQL
+/// TOAST cannot shrink them. The readable [prefix] is kept only when at least
+/// 16 random characters follow it, so short payloads stay random too.
 String seededPayload(int seed, int length, String prefix) {
   final random = Random(seed);
-  final buffer = StringBuffer(
-    prefix.length > length ? prefix.substring(0, length) : prefix,
-  );
+  final buffer = StringBuffer(length >= prefix.length + 16 ? prefix : '');
   while (buffer.length < length) {
     buffer.writeCharCode(_payloadAlphabet.codeUnitAt(random.nextInt(64)));
   }
   return buffer.toString();
+}
+
+/// [candidate], or, when it equals [previous], the same text with its last
+/// character advanced. A rename therefore changes the value at any length.
+String distinctFrom(String? previous, String candidate) {
+  if (candidate != previous || candidate.isEmpty) return candidate;
+  final last = _payloadAlphabet.indexOf(candidate[candidate.length - 1]);
+  return candidate.substring(0, candidate.length - 1) +
+      _payloadAlphabet[(last + 1) % _payloadAlphabet.length];
+}
+
+/// A single pool of permits. Every leaf operation takes one permit directly, so
+/// the cap holds however callers group their work; nothing holds a permit
+/// while waiting for another, so it cannot deadlock.
+class Semaphore {
+  Semaphore(this.permits) : assert(permits > 0);
+
+  final int permits;
+  var _inUse = 0;
+  var peak = 0;
+  final _waiting = Queue<Completer<void>>();
+
+  Future<T> run<T>(Future<T> Function() action) async {
+    if (_inUse >= permits) {
+      final turn = Completer<void>();
+      _waiting.add(turn);
+      await turn.future;
+    } else {
+      _inUse++;
+    }
+    peak = max(peak, _inUse);
+    try {
+      return await action();
+    } finally {
+      // Hand the permit straight to the next waiter, keeping _inUse unchanged.
+      if (_waiting.isNotEmpty) {
+        _waiting.removeFirst().complete();
+      } else {
+        _inUse--;
+      }
+    }
+  }
 }
 
 /// Runs [action] for every item with at most [concurrency] in flight. After a

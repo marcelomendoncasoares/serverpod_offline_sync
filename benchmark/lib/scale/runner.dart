@@ -204,6 +204,7 @@ Future<void> runScale(ScaleOptions options) async {
   Timer? sampler;
   Future<void>? sampleInFlight;
   var interrupted = false;
+  var preflightOk = false;
   final signals = <StreamSubscription<ProcessSignal>>[];
 
   void record(Map<String, dynamic> event) {
@@ -252,6 +253,7 @@ Future<void> runScale(ScaleOptions options) async {
       stderr.writeln('Warning: $warning');
     }
     final preflight = await sample(boundary: true);
+    preflightOk = preflight != null;
     if (preflight == null) {
       throw StateError(
         'Preflight metrics failed; check --target and BENCHMARK_SECRET: '
@@ -319,6 +321,7 @@ Future<void> runScale(ScaleOptions options) async {
         '$next: ${options.number('users')} users, ${options.number('workers')} workers',
       );
       record({'type': 'phaseStart'});
+      if (next == 'exercise') lag.marks['exercise'] = Latencies();
       await Future.wait(
         workers.map(
           (w) => w.command(next, {
@@ -328,6 +331,12 @@ Future<void> runScale(ScaleOptions options) async {
         eagerError: true,
       );
       record({'type': 'phaseEnd', 'micros': timer.elapsedMicroseconds});
+      if (next == 'exercise') {
+        record({
+          'type': 'coordinatorExerciseLoopLag',
+          'loopLag': lag.marks.remove('exercise')!.toJson(),
+        });
+      }
       await sample(boundary: true);
     }
     for (final worker in workers) {
@@ -346,7 +355,13 @@ Future<void> runScale(ScaleOptions options) async {
     }
     await sampleInFlight;
     phase = 'afterClose';
-    await sample(boundary: true);
+    if (preflightOk) {
+      // Streams of abruptly stopped workers take a moment to close server-side.
+      if (workers.any((w) => !w.closed)) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+      await sample(boundary: true);
+    }
     lag.stop();
     record({'type': 'coordinatorLoopLag', 'loopLag': lag.marks['run']!.toJson()});
     admin.close();

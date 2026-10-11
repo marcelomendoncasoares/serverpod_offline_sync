@@ -45,6 +45,9 @@ class SummaryBuilder {
   final peaks = <int, Map<String, int>>{};
   final baselines = <int, Map<String, dynamic>>{};
   Map<String, dynamic>? coordinatorLoopLag;
+  Map<String, dynamic>? coordinatorExerciseLoopLag;
+
+  void _count(String key) => streamCounts.update(key, (v) => v + 1);
 
   int get writes => writesByState.values.fold(0, (a, b) => a + b);
 
@@ -94,15 +97,17 @@ class SummaryBuilder {
             ifAbsent: () => (entry.value as num).toDouble(),
           );
         }
-        streamCounts['unexpectedEnds'] =
-            unexpectedStreamEnds + (event['unexpectedStreamEnds'] as int);
-        streamCounts['errors'] =
-            streamCounts['errors']! + (event['streamErrors'] as int);
-        streamCounts['reconnectsScheduled'] =
-            streamCounts['reconnectsScheduled']! +
-            (event['reconnectsScheduled'] as int);
-        streamCounts['reconnects'] =
-            streamCounts['reconnects']! + (event['reconnects'] as int);
+      // Stream counts come from the individual events, which exist even when
+      // a device never reaches its residency report.
+      case 'streamError':
+        _count('errors');
+        _count('unexpectedEnds');
+      case 'streamEnded' when event['expected'] == false:
+        _count('unexpectedEnds');
+      case 'streamReconnectScheduled':
+        _count('reconnectsScheduled');
+      case 'streamStarted' when event['reconnect'] == true:
+        _count('reconnects');
       case 'serverSample':
         samplesOk.update(event['sampleKind'] as String, (v) => v + 1);
         if (event['sampleKind'] == 'boundary') {
@@ -135,6 +140,8 @@ class SummaryBuilder {
         generator[event['worker'] as int] = event;
       case 'coordinatorLoopLag':
         coordinatorLoopLag = event['loopLag'] as Map<String, dynamic>;
+      case 'coordinatorExerciseLoopLag':
+        coordinatorExerciseLoopLag = event['loopLag'] as Map<String, dynamic>;
     }
   }
 
@@ -176,7 +183,13 @@ class SummaryBuilder {
         'note': 'Boundary samples came from different server instances.',
       };
     }
-    final seconds = _seconds(to);
+    // Rates use the samples' own interval: boundary samples are taken after
+    // each phase ends, not at its start.
+    final seconds =
+        DateTime.parse(
+          b['time'] as String,
+        ).difference(DateTime.parse(a['time'] as String)).inMicroseconds /
+        1e6;
     Map<String, num> diff(String key) {
       final before = a[key] as Map<String, dynamic>;
       final after = b[key] as Map<String, dynamic>;
@@ -197,16 +210,19 @@ class SummaryBuilder {
       'sameInstance': true,
       'seconds': seconds,
       'streams': streams,
-      'inboundChangesPerSecond': seconds == null
+      'inboundChangesPerSecond': seconds <= 0
           ? null
           : (streams['inboundChanges'] ?? 0) / seconds,
-      'outboundChangesPerSecond': seconds == null
+      'outboundChangesPerSecond': seconds <= 0
           ? null
           : (streams['outboundChanges'] ?? 0) / seconds,
       'rowsAdded': diff('tables'),
       'storageBytesDelta': diff('storage'),
     };
   }
+
+  Map<String, dynamic>? _lagSummary(Map<String, dynamic>? lag) =>
+      lag == null ? null : {'p99Upper': lag['p99UpperMicros'], 'max': lag['maxMicros']};
 
   double? _perDevice(int? peak, Object? baseline, int devices) =>
       peak == null || baseline is! int ? null : (peak - baseline) / max(1, devices);
@@ -253,14 +269,24 @@ class SummaryBuilder {
         ),
       });
     }
-    final coordinatorP99 = coordinatorLoopLag?['p99UpperMicros'] as int?;
+    // Only the workload window is saturation evidence; whole-run lag also
+    // covers setup, verification and report writing.
+    final coordinatorP99 = coordinatorExerciseLoopLag?['p99UpperMicros'] as int?;
     if (coordinatorP99 != null && coordinatorP99 > lagSaturationMicros) {
       reasons.add('coordinator event-loop lag p99 <= ${coordinatorP99 ~/ 1000} ms');
+    }
+    final lagged = reasons.isNotEmpty;
+    final expected = options.number('workers');
+    final missing = expected - generator.length;
+    if (missing > 0) {
+      reasons.add('$missing of $expected workers reported no workload measurements');
     }
     final ratio = nominal == null || nominal == 0 ? null : attempts / nominal;
     final shortfall = ratio != null && ratio < shortfallRatio;
     return {
-      'assessment': reasons.isNotEmpty
+      'assessment': missing > 0
+          ? 'insufficient measurements'
+          : lagged
           ? 'possible generator saturation'
           : shortfall
           ? 'offered load shortfall'
@@ -275,16 +301,15 @@ class SummaryBuilder {
         'achievedRatio': shortfallRatio,
       },
       'note':
-          'Heuristic. Lag means the isolate driving devices was busy; a shortfall '
-          'without lag usually means slow operations or state transitions in the '
-          'closed loop. Calibrate devices per worker before trusting latencies.',
+          'Heuristic. Event-loop lag means the isolate running device logic was '
+          'busy. cpuCores is whole-process CPU, including SQLite helper isolates '
+          'and VM threads, so it is not saturation evidence by itself. A shortfall '
+          'without lag usually means slow operations in the closed loop. '
+          'Calibrate devices per worker before trusting latencies.',
       'workers': workers,
-      'coordinatorLoopLagMicros': coordinatorLoopLag == null
-          ? null
-          : {
-              'p99Upper': coordinatorP99,
-              'max': coordinatorLoopLag!['maxMicros'],
-            },
+      'coordinatorWorkloadLoopLagMicros': _lagSummary(coordinatorExerciseLoopLag),
+      // Informational: includes setup, verification and report writing.
+      'coordinatorRunLoopLagMicros': _lagSummary(coordinatorLoopLag),
     };
   }
 

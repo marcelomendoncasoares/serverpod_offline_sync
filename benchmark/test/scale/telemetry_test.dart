@@ -7,6 +7,7 @@ import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/options.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/summary.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/worker.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:test/test.dart';
 
@@ -42,23 +43,29 @@ void main() {
       'when storage is sampled repeatedly, '
       'then missing files count as zero bytes instead of failing.', () async {
     final directory = await Directory.systemTemp.createTemp('scale-race-');
-    addTearDown(() => directory.delete(recursive: true));
     final database = '${directory.path}/device.sqlite';
     final ready = ReceivePort();
-    final isolate = await Isolate.spawn(churnFile, ['$database-wal', ready.sendPort]);
+    final exited = ReceivePort();
+    await Isolate.spawn(
+      churnFile,
+      ['$database-wal', ready.sendPort],
+      onExit: exited.sendPort,
+    );
     final stop = await ready.first as SendPort;
-    addTearDown(isolate.kill);
+    addTearDown(() async {
+      // Isolate.kill is asynchronous: wait for the exit before deleting.
+      stop.send(null);
+      await exited.first;
+      await directory.delete(recursive: true);
+    });
 
-    final watch = Stopwatch()..start();
-    var samples = 0;
-    while (watch.elapsedMilliseconds < 400) {
+    // A fixed number of samples: the old exists-then-length check failed about
+    // 3% of the time here, independent of host speed.
+    for (var i = 0; i < 3000; i++) {
       expect(sqliteFiles(database)['walBytes'], anyOf(0, 3));
-      samples++;
       await Future<void>.delayed(Duration.zero);
     }
-    stop.send(null);
 
-    expect(samples, greaterThan(100));
     expect(sqliteFiles('${directory.path}/missing'), {
       'databaseBytes': 0,
       'walBytes': 0,
@@ -144,10 +151,59 @@ void main() {
     expect(first, again);
     expect(first, isNot(next));
     expect(first.length, 8192);
-    expect(seededPayload(1, 4, 'u0.d0.s7:'), 'u0.d');
+    expect(seededPayload(1, 20, 'u0.d0.s7:'), isNot(startsWith('u0.')));
+    expect(seededPayload(1, 25, 'u0.d0.s7:'), startsWith('u0.d0.s7:'));
     expect(gzip.encode(first.codeUnits).length, greaterThan(8192 * 0.7));
     expect(gzip.encode(('x' * 8192).codeUnits).length, lessThan(100));
   });
+
+  test('Given one-byte town names, '
+      'when a town is renamed to a seeded payload equal to its current name, '
+      'then the rename still changes the stored value.', () {
+    for (var seq = 0; seq < 200; seq++) {
+      final previous = seededPayload(mixSeed([1, 0, 0, seq]), 1, 'u0.d0.s$seq:');
+      final renamed = distinctFrom(previous, previous);
+
+      expect(renamed, hasLength(1));
+      expect(renamed, isNot(previous));
+      expect(distinctFrom(previous, 'Q'), previous == 'Q' ? isNot('Q') : 'Q');
+    }
+  });
+
+  test(
+    'Given many users with many devices sharing one permit pool, '
+    'when seed syncs are scheduled, '
+    'then in-flight syncs never exceed the worker cap and each first device syncs first.',
+    () async {
+      final permits = Semaphore(3);
+      var running = 0;
+      var peak = 0;
+      final order = <(int, int)>[];
+
+      await seedGroups<(int, int)>(
+        [
+          for (var user = 0; user < 6; user++) [for (var d = 0; d < 5; d++) (user, d)],
+        ],
+        permits,
+        seedLocal: (_) async {},
+        sync: (device) async {
+          running++;
+          peak = running > peak ? running : peak;
+          order.add(device);
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+          running--;
+        },
+      );
+
+      expect(order, hasLength(30));
+      expect(peak, 3);
+      expect(permits.peak, 3);
+      for (var user = 0; user < 6; user++) {
+        final mine = order.where((d) => d.$1 == user).toList();
+        expect(mine.first, (user, 0));
+      }
+    },
+  );
 
   test('Given bounded concurrency, '
       'when one item fails, '
@@ -184,10 +240,16 @@ void main() {
       '1',
     ]);
 
-    Map<String, dynamic> boundary(String phase, String instance, int inbound) => {
+    Map<String, dynamic> boundary(
+      String phase,
+      String instance,
+      int inbound, {
+      int second = 0,
+    }) => {
       'type': 'serverSample',
       'sampleKind': 'boundary',
       'phase': phase,
+      'time': DateTime.utc(2026, 1, 1, 0, 0, second).toIso8601String(),
       'server': {'instanceId': instance},
       'streams': {'inboundChanges': inbound, 'outboundChanges': 0, 'open': 3},
       'tables': {'person': inbound},
@@ -201,8 +263,8 @@ void main() {
         ..add({'type': 'operation', 'kind': 'insert', 'state': 'offline'})
         ..add({'type': 'operation', 'kind': 'read', 'state': 'offline'})
         ..add({'type': 'phaseEnd', 'phase': 'exercise', 'micros': 2000000})
-        ..add(boundary('exercise', 'a', 5))
-        ..add(boundary('verify', 'a', 77));
+        ..add(boundary('exercise', 'a', 5, second: 4))
+        ..add(boundary('verify', 'a', 77, second: 6));
 
       final report = summary.build(
         status: 'passed',
@@ -219,6 +281,8 @@ void main() {
         'outboundChanges': 0,
       });
       expect((server['verificationDrain'] as Map)['rowsAdded'], {'person': 72});
+      expect((server['verificationDrain'] as Map)['seconds'], 2);
+      expect((server['verificationDrain'] as Map)['inboundChangesPerSecond'], 36);
     });
 
     test('when the workload phase never finished, '
@@ -251,13 +315,19 @@ void main() {
     test('when stream ends and sample failures exceed their limits, '
         'then each policy fails the run.', () {
       final summary = SummaryBuilder(options)
+        ..add({'type': 'streamError', 'error': 'lost'})
+        ..add({'type': 'streamReconnectScheduled', 'attempt': 1})
+        ..add({'type': 'streamStarted', 'reconnect': true})
+        ..add({'type': 'streamEnded', 'expected': false})
+        ..add({'type': 'streamEnded', 'expected': true})
+        // Residency repeats per-device totals; it must not be counted again.
         ..add({
           'type': 'residency',
           'seconds': {'active': 1.0},
           'unexpectedStreamEnds': 2,
           'streamErrors': 1,
-          'reconnectsScheduled': 2,
-          'reconnects': 2,
+          'reconnectsScheduled': 1,
+          'reconnects': 1,
         })
         ..add({
           'type': 'serverSampleError',
@@ -270,6 +340,27 @@ void main() {
         contains('2 unexpected stream ends'),
         contains('2 failed samples'),
       ]);
+      expect(summary.streamCounts, {
+        'unexpectedEnds': 2,
+        'errors': 1,
+        'reconnectsScheduled': 1,
+        'reconnects': 1,
+      });
+    });
+
+    test('when a worker stopped before reporting workload measurements, '
+        'then the generator assessment says so instead of reporting no signal.', () {
+      final summary = SummaryBuilder(options)
+        ..add({'type': 'streamError', 'error': 'lost before residency'});
+
+      final report = summary.build(
+        status: 'failed',
+        failures: [],
+        started: DateTime.now(),
+      );
+
+      expect((report['generator'] as Map)['assessment'], 'insufficient measurements');
+      expect((report['streams'] as Map)['errors'], 1);
     });
 
     test('when worker device logic lagged, '

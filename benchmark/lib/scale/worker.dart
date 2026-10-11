@@ -59,6 +59,7 @@ class Device {
   OfflineSyncSubscription? subscription;
   Future<void>? observedDone;
   String state = 'closed';
+  var transitioning = false;
   var sequence = 0;
   var stopping = false;
 
@@ -224,10 +225,11 @@ class Device {
     });
   }
 
-  void _account() {
+  /// Credits time since the last call to [as], or to the current state.
+  void _account([String? as]) {
     if (!_residency.isRunning) return;
     residencyMicros.update(
-      state,
+      as ?? state,
       (v) => v + _residency.elapsedMicroseconds,
       ifAbsent: () => _residency.elapsedMicroseconds,
     );
@@ -243,21 +245,28 @@ class Device {
     _residency.stop();
   }
 
+  /// Stopping streams and opening or closing databases is its own residency
+  /// state: the device neither writes nor serves the old or new state then.
   Future<void> setState(String next, String secret) async {
     if (next == state) return;
     _account();
-    if (next == 'closed' || next == 'offline') await stopStream();
-    if (next == 'closed') {
-      await session?.close();
-      session = null;
-      client?.close();
-      client = null;
-    } else {
-      await open(secret);
+    transitioning = true;
+    try {
+      if (next == 'closed' || next == 'offline') await stopStream();
+      if (next == 'closed') {
+        await session?.close();
+        session = null;
+        client?.close();
+        client = null;
+      } else {
+        await open(secret);
+      }
+    } finally {
+      transitioning = false;
+      _account('transition');
     }
     state = next;
     if (streamingStates.contains(next) && subscription == null) startStream();
-    _account();
     event('state', {'state': state});
   }
 
@@ -315,7 +324,12 @@ class Device {
     final townId = kind == 'insert'
         ? benchmarkId('${options.runId}/user/$user/device/$index/town/$seq').toString()
         : chosenTown;
-    final name = kind == 'insert' || kind == 'update' ? payload(seq) : null;
+    // A rename must change the stored value, even for one-byte payloads.
+    final name = switch (kind) {
+      'insert' => payload(seq),
+      'update' => distinctFrom(towns[townId]!['name'] as String?, payload(seq)),
+      _ => null,
+    };
     final cityName = 'Edited $index/$seq';
     final receiptName = 'receipt:$user:$index:$seq';
     await measure(kind, () async {
@@ -430,6 +444,21 @@ class DeviceSnapshot {
   final List<Map<String, dynamic>> towns;
 }
 
+/// Seeds each user from its first device, which syncs before the others, with
+/// every sync taking its own permit from the worker-wide [permits].
+Future<void> seedGroups<D>(
+  Iterable<List<D>> groups,
+  Semaphore permits, {
+  required Future<void> Function(D device) seedLocal,
+  required Future<void> Function(D device) sync,
+}) => Future.wait(
+  groups.map((group) async {
+    await seedLocal(group.first);
+    await permits.run(() => sync(group.first));
+    await Future.wait(group.skip(1).map((d) => permits.run(() => sync(d))));
+  }),
+);
+
 class ScaleWorker {
   ScaleWorker(this.options, this.worker, this.emit, this.secret)
     : admin = Client(options.target)..authKeyProvider = BenchmarkAuth(secret);
@@ -449,6 +478,10 @@ class ScaleWorker {
 
   int get concurrency => options.number('setup-concurrency');
 
+  /// One pool for every network call made during setup and verification, so
+  /// the per-worker cap holds across users and their devices.
+  late final syncPermits = Semaphore(concurrency);
+
   List<Device> devicesFor(int user) => devices.where((d) => d.user == user).toList();
 
   void sample() {
@@ -459,7 +492,8 @@ class ScaleWorker {
         'loopLag': lag.takeWindow(),
         'states': {
           for (final state in states)
-            state: devices.where((d) => d.state == state).length,
+            state: devices.where((d) => !d.transitioning && d.state == state).length,
+          'transition': devices.where((d) => d.transitioning).length,
         },
         'storage': {
           for (final key in ['databaseBytes', 'walBytes', 'shmBytes'])
@@ -480,12 +514,16 @@ class ScaleWorker {
         devices.add(Device(options, user, index, emit, ordinal: devices.length));
       }
     }
-    await forEachBounded(users, concurrency, (user) async {
-      await control(admin, {
-        'action': 'provision',
-        'userId': benchmarkId('${options.runId}/user/$user').toString(),
-      });
-    });
+    await Future.wait(
+      users.map(
+        (user) => syncPermits.run(
+          () => control(admin, {
+            'action': 'provision',
+            'userId': benchmarkId('${options.runId}/user/$user').toString(),
+          }),
+        ),
+      ),
+    );
     await forEachBounded(devices, concurrency, (device) async {
       await device.open(secret);
       device.state = 'offline';
@@ -507,11 +545,16 @@ class ScaleWorker {
   }
 
   Future<void> seed() async {
-    await forEachBounded(users, concurrency, (user) async {
-      final group = devicesFor(user);
-      await group.first.seed();
-      await group.first.once(secret);
-      await Future.wait(group.skip(1).map((d) => d.once(secret)));
+    await seedGroups(
+      [for (final user in users) devicesFor(user)],
+      syncPermits,
+      seedLocal: (device) => device.seed(),
+      sync: (device) => device.once(secret),
+    );
+    emit({
+      'type': 'syncPermits',
+      'permits': syncPermits.permits,
+      'peak': syncPermits.peak,
     });
   }
 
@@ -601,7 +644,12 @@ class ScaleWorker {
     final deadline = DateTime.now().add(
       Duration(seconds: options.number('timeout-seconds')),
     );
-    await forEachBounded(users, concurrency, (user) => _verifyUser(user, deadline));
+    await Future.wait(users.map((user) => _verifyUser(user, deadline)));
+    emit({
+      'type': 'syncPermits',
+      'permits': syncPermits.permits,
+      'peak': syncPermits.peak,
+    });
   }
 
   UserExpectation expectationFor(List<Device> group) {
@@ -630,11 +678,13 @@ class ScaleWorker {
     var rounds = 0;
     while (true) {
       rounds++;
-      await Future.wait(group.map((d) => d.once(secret)));
-      final server = await control(admin, {
-        'action': 'snapshot',
-        'userId': group.first.userId.toString(),
-      });
+      await Future.wait(group.map((d) => syncPermits.run(() => d.once(secret))));
+      final server = await syncPermits.run(
+        () => control(admin, {
+          'action': 'snapshot',
+          'userId': group.first.userId.toString(),
+        }),
+      );
       final snapshots = await Future.wait(group.map((d) => d.snapshot()));
       final problems = expectation.mismatches(
         server: server,
