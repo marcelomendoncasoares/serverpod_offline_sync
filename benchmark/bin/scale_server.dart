@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server.dart';
@@ -17,13 +15,9 @@ Future<void> main(List<String> args) async {
     authenticationHandler: benchmarkAuthentication(secret),
     databaseInterceptor: offlineSyncDatabaseInterceptor,
   )..initializeOfflineSync(syncTables: syncTables);
-  await pod.start();
-
-  Future<void> stop() async {
-    await pod.shutdown();
-    exit(0);
+  if (pod.runMode == 'production' &&
+      pod.config.database?.dialect != DatabaseDialect.postgres) {
+    throw StateError('Production benchmarks require PostgreSQL.');
   }
-
-  ProcessSignal.sigterm.watch().listen((_) => stop());
-  ProcessSignal.sigint.watch().listen((_) => stop());
+  await pod.start();
 }

@@ -100,7 +100,13 @@ class Device {
   void startStream() {
     final stream = client!.offlineSync.syncContinuously(
       session!,
-      onMergeSuccess: (_, _) => event('merge', {}),
+      onMergeSuccess: (_, hlc) => event('merge', {
+        'hlc': hlc.toString(),
+        'newestChangeAgeMs': DateTime.now()
+            .toUtc()
+            .difference(hlc.datetime)
+            .inMilliseconds,
+      }),
     );
     subscription = stream;
     observedDone = stream.done.then<void>(
@@ -253,6 +259,7 @@ class ScaleWorker {
   final devices = <Device>[];
   String phase = 'init';
   Timer? sampler;
+  bool closed = false;
 
   Iterable<int> get users sync* {
     for (
@@ -415,6 +422,8 @@ class ScaleWorker {
   }
 
   Future<void> close() async {
+    if (closed) return;
+    closed = true;
     sampler?.cancel();
     await Future.wait(devices.map((d) => d.close()));
     sample();
