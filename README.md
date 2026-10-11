@@ -320,6 +320,11 @@ For a deeper dive, see the design docs in [`docs/`](docs):
 
 ## Performance
 
+For live multi-user and multi-device load against a deployed Serverpod API, see
+the [Dart-only scale benchmark](benchmark/SCALE.md). It includes isolated device
+databases, connection churn, convergence checks, storage metrics, and a separate
+PostgreSQL deployment preparation step.
+
 Since all operations are tracked, a CRDT layer can weigh heavily on storage and
 speed. This package was built to keep that penalty minimal. The benchmark below
 uses 1,000 rows to measure the impact against a baseline of the same operations

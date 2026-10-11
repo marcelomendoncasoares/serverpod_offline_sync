@@ -156,3 +156,25 @@ The `merge` events also report the age of the newest merged HLC. This is a
 wall-clock diagnostic affected by clock skew, not per-operation replication
 latency or acknowledgement latency. Negative values are retained. The final
 convergence duration measures drain time after scheduled activity stops.
+
+## Local validation
+
+Only short functional segments were run during implementation, never a capacity
+run or Cloud deployment:
+
+- SQLite: two users/four devices, then two workers/seven devices with all four
+  device states and reconnects. Both runs converged with their complete receipts.
+- PostgreSQL 16: native server and client bundles, two workers/four devices,
+  six seconds of scheduled activity. All users converged; observed streams
+  returned to zero and database/relation metrics were populated.
+- Invalid credentials failed before worker creation. A one-second startup
+  deadline and a SIGTERM during activity each produced a failed report and an
+  exit event for both workers. The temporary server exited cleanly and its
+  isolated PostgreSQL process stopped.
+- Nine Dart tests cover topology/configuration, token substitution, snapshot
+  comparison and missing receipts, latency summaries, and SQLite device
+  isolation plus persistence across close/reopen. Run them with
+  `dart test benchmark/test/scale --concurrency=1` from the repository root.
+
+These checks establish operation of the harness on small inputs. They do not
+establish throughput, memory limits, or reliability at thousands of devices.

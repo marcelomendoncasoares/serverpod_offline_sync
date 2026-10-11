@@ -146,12 +146,11 @@ void main() {
   test('Given one slow failed operation among faster successful operations, '
       'when latency statistics are summarized, '
       'then the failure and tail latency remain visible.', () {
-    final latency = Latencies();
-
-    latency
+    final latency = Latencies()
       ..add(100, ok: true)
       ..add(200, ok: true)
       ..add(1000000, ok: false);
+
     final result = latency.toJson();
 
     expect(result['count'], 3);
