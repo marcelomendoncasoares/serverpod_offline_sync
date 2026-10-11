@@ -1,0 +1,22 @@
+# Cloud supplies SERVERPOD_* connection settings. Never deploy SQLite.
+apiServer:
+  port: 8080
+  publicHost: localhost
+  publicPort: 443
+  publicScheme: https
+webServer:
+  port: 8082
+  publicHost: localhost
+  publicPort: 443
+  publicScheme: https
+database:
+  dialect: postgres
+  host: localhost
+  port: 5432
+  name: benchmark
+  user: postgres
+  requireSsl: true
+  maxConnectionCount: 10
+sessionLogs:
+  persistentEnabled: false
+  consoleEnabled: false
