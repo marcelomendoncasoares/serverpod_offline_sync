@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 // ignore: implementation_imports
 import 'package:serverpod_cli/src/database/dialects/postgres.dart';
 import 'package:serverpod_database/serverpod_database.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 
 /// Produces a self-contained source workspace with a conventional bin/main.dart
 /// and a PostgreSQL baseline, suitable for a fresh dedicated Cloud database.
@@ -87,18 +88,22 @@ ${packages.map((path) => '  - $path').join('\n')}
   await File(
     p.join(server.path, 'migrations/migration_registry.txt'),
   ).writeAsString('$version\n');
-  await File(p.join(output.path, 'PREPARED.json')).writeAsString(
-    jsonEncode({
-      'schemaVersion': version,
-      'backend': 'postgres',
-      'freshDatabaseRequired': true,
-      'serverDirectory': 'benchmark',
-      'sourceRevision': (await Process.run('git', [
-        'rev-parse',
-        'HEAD',
-      ], workingDirectory: root)).stdout.toString().trim(),
-    }),
-  );
+  final checkout = await gitMetadata(root);
+  final prepared = {
+    'schemaVersion': version,
+    'backend': 'postgres',
+    'freshDatabaseRequired': true,
+    'serverDirectory': 'benchmark',
+    'preparedAt': DateTime.now().toUtc().toIso8601String(),
+    'sourceRevision': checkout['revision'],
+    'sourceDirty': checkout['dirty'],
+  };
+  await File(p.join(output.path, 'PREPARED.json')).writeAsString(jsonEncode(prepared));
+  // The server reports this from its working directory as non-secret
+  // provenance, because Cloud builds the executable itself.
+  await File(
+    p.join(server.path, 'config', 'benchmark_build.json'),
+  ).writeAsString(jsonEncode(prepared));
   stdout
     ..writeln('Prepared ${server.path} for a fresh PostgreSQL database.')
     ..writeln(
