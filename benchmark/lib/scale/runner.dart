@@ -78,6 +78,12 @@ class WorkerProcess {
         .forEach((text) => diagnostics.write('worker $index stderr: $text'));
     exit = process.exitCode.then((code) async {
       await stdoutDone;
+      record({
+        'type': 'workerExit',
+        'worker': index,
+        'pid': process.pid,
+        'exitCode': code,
+      });
       if (pending?.isCompleted == false) {
         fail(StateError('Worker $index exited with $code during $pendingPhase.'));
       }
@@ -144,6 +150,8 @@ Future<void> runScale(ScaleOptions options) async {
     );
   }
   await directory.create(recursive: true);
+  // Exclusive ownership also rejects simultaneous invocations of the same ID.
+  await File(p.join(directory.path, 'owner')).create(exclusive: true);
   final events = File(p.join(directory.path, 'events.jsonl')).openWrite();
   final diagnostics = File(p.join(directory.path, 'workers.log')).openWrite();
   final latencies = <String, Latencies>{};
@@ -161,6 +169,7 @@ Future<void> runScale(ScaleOptions options) async {
   Timer? sampler;
   Future<void>? sampleInFlight;
   Object? sampleError;
+  var interrupted = false;
   final signals = <StreamSubscription<ProcessSignal>>[];
 
   void record(Map<String, dynamic> event) {
@@ -226,17 +235,10 @@ Future<void> runScale(ScaleOptions options) async {
     await sample();
     if (sampleError != null) throw StateError(sampleError.toString());
 
-    for (var index = 0; index < options.number('workers'); index++) {
-      final args = Platform.script.path.endsWith('.dart')
-          ? [...Platform.executableArguments, Platform.script.toFilePath(), '--worker']
-          : ['--worker'];
-      final process = await Process.start(Platform.resolvedExecutable, args);
-      workers.add(WorkerProcess(index, process, record, diagnostics));
-      record({'type': 'workerStarted', 'worker': index, 'pid': process.pid});
-    }
     for (final signal in [ProcessSignal.sigint, ProcessSignal.sigterm]) {
       signals.add(
         signal.watch().listen((_) {
+          interrupted = true;
           for (final worker in workers) {
             worker.fail(StateError('Interrupted by $signal'));
             worker.process.kill(ProcessSignal.sigterm);
@@ -244,12 +246,22 @@ Future<void> runScale(ScaleOptions options) async {
         }),
       );
     }
+    for (var index = 0; index < options.number('workers'); index++) {
+      if (interrupted) throw StateError('Interrupted during worker startup.');
+      final args = Platform.script.path.endsWith('.dart')
+          ? [...Platform.executableArguments, Platform.script.toFilePath(), '--worker']
+          : ['--worker'];
+      final process = await Process.start(Platform.resolvedExecutable, args);
+      workers.add(WorkerProcess(index, process, record, diagnostics));
+      record({'type': 'workerStarted', 'worker': index, 'pid': process.pid});
+    }
     sampler = Timer.periodic(Duration(seconds: options.number('sample-seconds')), (_) {
       if (sampleInFlight != null) return;
       sampleInFlight = sample().whenComplete(() => sampleInFlight = null);
     });
 
     for (final next in ['init', 'seed', 'exercise', 'verify', 'close']) {
+      if (interrupted) throw StateError('Interrupted.');
       phase = next;
       final timer = Stopwatch()..start();
       stdout.writeln(

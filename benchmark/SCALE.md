@@ -95,3 +95,64 @@ and file descriptor limits based on the load-generator host. Thousands of device
 are supported by the topology parameters, not claimed as locally validated capacity.
 The current local validation is only a small functional probe. Cloud deployment
 and a real capacity benchmark are separate work.
+
+## Preparing the Cloud server
+
+The test project's checked-in SQL targets SQLite. Prepare a separate, complete
+Dart workspace whose server entry point and SQL target PostgreSQL:
+
+```sh
+dart run benchmark/tool/prepare_cloud.dart --output /tmp/offline-sync-cloud
+cd /tmp/offline-sync-cloud
+dart pub get
+```
+
+The server project directory is `/tmp/offline-sync-cloud/benchmark`, with a
+conventional `bin/main.dart`, production config, generated models and the
+workspace's package implementations. The exporter copies source and records the
+source revision; it never rewrites the original test packages. It refuses an
+existing output directory. Prepare again into a new directory after changing
+source. Only the latest schema is exported as a fresh PostgreSQL baseline; use
+an empty dedicated Cloud database. This exporter is not an upgrade migration
+for an existing test or production database.
+
+Once Cloud is configured, link that exported `benchmark` directory to a dedicated
+project with managed PostgreSQL. Configure `BENCHMARK_SECRET` as an environment
+secret before starting the server. Cloud supplies the `SERVERPOD_DATABASE_*`
+connection settings; the production config explicitly selects PostgreSQL. The
+benchmark server exposes only the standard sync module and an authenticated
+benchmark control endpoint. Passwordless demo auth/debug endpoints are absent.
+
+Follow the current [Cloud deployment guide](https://docs.serverpod.dev/cloud/concepts/deployments)
+for project setup and deployment, and the
+[secret configuration guide](https://docs.serverpod.dev/cloud/concepts/passwords-secrets-env-vars)
+for `BENCHMARK_SECRET`. Use the API domain as the runner's `--target`. Preview the
+packaged file tree before deploying. Cloud deployment is intentionally not run as
+part of this implementation; account/project configuration is still required.
+With multiple server replicas, sampled process and stream metrics represent only
+the responding instance. They are not cluster totals; collect per-instance Cloud
+telemetry as well, or use a single replica when studying connection populations.
+
+For a native client build, including the SQLite native libraries:
+
+```sh
+cd benchmark
+dart build cli --target bin/scale.dart --output ../.scale-benchmark/client-build
+cd ..
+.scale-benchmark/client-build/bundle/bin/scale --target https://YOUR-API/ \
+  --users 1000 --devices 2:4 --workers 8 --duration 300 --ramp-ms 100 \
+  --sample-seconds 15 --timeout-seconds 1800
+```
+
+This is an example for a later deliberate capacity run, not a validated capacity
+claim. Keep the entire `bundle` directory together. Serverpod's native hooks
+require [`dart build cli`](https://docs.serverpod.dev/upgrading/upgrade-to-four),
+not a bare executable compilation. To validate the exported server locally,
+run `dart build cli --target bin/main.dart` from its `benchmark` directory and
+start the bundled executable from that same directory with
+`--mode=production --apply-migrations` and PostgreSQL connection variables.
+
+The `merge` events also report the age of the newest merged HLC. This is a
+wall-clock diagnostic affected by clock skew, not per-operation replication
+latency or acknowledgement latency. Negative values are retained. The final
+convergence duration measures drain time after scheduled activity stops.
