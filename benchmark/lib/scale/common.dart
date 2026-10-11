@@ -1,10 +1,13 @@
 // Internal benchmark tooling, not a published library API.
 // ignore_for_file: public_member_api_docs, type_annotate_public_apis
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as p;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
 const benchmarkScope = 'offline-sync-benchmark-admin';
@@ -35,6 +38,35 @@ bool constantTimeEqual(String left, String right) {
   return difference == 0;
 }
 
+/// Who a bearer token represents. Database checks (provisioned, not blocked)
+/// happen afterwards on the server.
+sealed class TokenIdentity {
+  const TokenIdentity();
+}
+
+class AdminToken extends TokenIdentity {
+  const AdminToken();
+}
+
+class UserTokenIdentity extends TokenIdentity {
+  const UserTokenIdentity(this.userId);
+
+  final UuidValue userId;
+}
+
+TokenIdentity? classifyToken(String secret, String token) {
+  if (constantTimeEqual(token, secret)) return const AdminToken();
+  final parts = token.split('.');
+  if (parts.length != 2 || !constantTimeEqual(token, userToken(secret, parts.first))) {
+    return null;
+  }
+  try {
+    return UserTokenIdentity(UuidValue.withValidation(parts.first));
+  } on FormatException {
+    return null;
+  }
+}
+
 class BenchmarkAuth implements ClientAuthKeyProvider {
   BenchmarkAuth(this.token);
 
@@ -61,36 +93,25 @@ String digestStrings(Iterable<String> values) {
   return sha256.convert(utf8.encode(jsonEncode(sorted))).toString();
 }
 
-/// Domain values only: spaceId is a database-local surrogate, not synced data.
-Map<String, dynamic> snapshotOf(Map<String, List<Map<String, dynamic>>> tables) {
-  final canonical = <String>[];
-  final counts = <String, int>{};
-  for (final entry in tables.entries) {
-    counts[entry.key] = entry.value.length;
-    for (final row in entry.value) {
-      final keys =
-          row.keys.where((k) => k != 'spaceId' && k != '__className__').toList()
-            ..sort();
-      canonical.add(
-        jsonEncode([
-          entry.key,
-          {for (final key in keys) key: row[key]},
-        ]),
-      );
-    }
+/// SQLite removes WAL/SHM files on checkpoint or close, so a file can vanish
+/// between any two calls. Only a missing file means zero bytes.
+int fileBytes(String path) {
+  try {
+    return File(path).lengthSync();
+  } on PathNotFoundException {
+    return 0;
   }
-  return {
-    'digest': digestStrings(canonical),
-    'rows': counts,
-    'receiptsDigest': digestStrings(tables['person']!.map((r) => r['id'].toString())),
-  };
 }
 
 Map<String, int> sqliteFiles(String path) => {
-  for (final suffix in ['', '-wal', '-shm'])
-    suffix.isEmpty ? 'databaseBytes' : '${suffix.substring(1)}Bytes':
-        File('$path$suffix').existsSync() ? File('$path$suffix').lengthSync() : 0,
+  'databaseBytes': fileBytes(path),
+  'walBytes': fileBytes('$path-wal'),
+  'shmBytes': fileBytes('$path-shm'),
 };
+
+/// Linux reports CPU time in USER_HZ clock ticks, which the kernel ABI fixes
+/// at 100 per second on the supported architectures.
+const linuxTicksPerSecond = 100;
 
 Map<String, dynamic> processSample() {
   final result = <String, dynamic>{
@@ -103,6 +124,218 @@ Map<String, dynamic> processSample() {
     final fields = stat.substring(stat.lastIndexOf(')') + 2).split(' ');
     result['cpuUserTicks'] = int.parse(fields[11]);
     result['cpuSystemTicks'] = int.parse(fields[12]);
+    result['openFds'] = Directory('/proc/self/fd').listSync().length;
+    final threads = RegExp(
+      r'^Threads:\s+(\d+)',
+      multiLine: true,
+    ).firstMatch(File('/proc/self/status').readAsStringSync());
+    if (threads != null) result['threads'] = int.parse(threads.group(1)!);
   }
   return result;
+}
+
+/// CPU seconds consumed by this process, or null off Linux.
+double? cpuSeconds() {
+  if (!Platform.isLinux) return null;
+  final sample = processSample();
+  return ((sample['cpuUserTicks'] as int) + (sample['cpuSystemTicks'] as int)) /
+      linuxTicksPerSecond;
+}
+
+/// Bounded logarithmic histogram of successful durations. Quantiles are bucket
+/// upper bounds, not exact sample quantiles; failures are counted separately so
+/// a fast rejection cannot hide a slow tail. Raw values remain in events.jsonl.
+class Latencies {
+  int count = 0;
+  int failures = 0;
+  int okTotal = 0;
+  int okMaximum = 0;
+  int failureMaximum = 0;
+  final buckets = <int, int>{};
+
+  int get ok => count - failures;
+
+  void add(int micros, {required bool ok}) {
+    count++;
+    if (!ok) {
+      failures++;
+      failureMaximum = max(failureMaximum, micros);
+      return;
+    }
+    okTotal += micros;
+    okMaximum = max(okMaximum, micros);
+    final bucket = micros <= 1 ? 1 : pow(1.1, (log(micros) / log(1.1)).ceil()).ceil();
+    buckets.update(bucket, (v) => v + 1, ifAbsent: () => 1);
+  }
+
+  int? quantile(double fraction) {
+    if (ok == 0) return null;
+    final target = max(1, (ok * fraction).ceil());
+    var accumulated = 0;
+    for (final bucket in buckets.keys.toList()..sort()) {
+      accumulated += buckets[bucket]!;
+      if (accumulated >= target) return bucket;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'count': count,
+    'ok': ok,
+    'failures': failures,
+    'meanMicros': ok == 0 ? null : okTotal / ok,
+    'maxMicros': ok == 0 ? null : okMaximum,
+    'failureMaxMicros': failures == 0 ? null : failureMaximum,
+    'p50UpperMicros': quantile(0.50),
+    'p95UpperMicros': quantile(0.95),
+    'p99UpperMicros': quantile(0.99),
+  };
+}
+
+/// Measures how late a periodic timer fires. Sustained lag means the isolate
+/// running device logic is saturated, so client-side measurements and offered
+/// load reflect the load generator rather than the server.
+class LoopLag {
+  LoopLag({this.interval = const Duration(milliseconds: 100)});
+
+  final Duration interval;
+  final _watch = Stopwatch();
+  Timer? _timer;
+  int _previous = 0;
+  var window = Latencies();
+  final marks = <String, Latencies>{};
+
+  void start() {
+    _watch.start();
+    _previous = _watch.elapsedMicroseconds;
+    _timer = Timer.periodic(interval, (_) {
+      final now = _watch.elapsedMicroseconds;
+      final lag = max(0, now - _previous - interval.inMicroseconds);
+      _previous = now;
+      window.add(lag, ok: true);
+      for (final mark in marks.values) {
+        mark.add(lag, ok: true);
+      }
+    });
+  }
+
+  /// Returns and resets the samples since the previous call.
+  Map<String, dynamic> takeWindow() {
+    final result = window.toJson();
+    window = Latencies();
+    return result;
+  }
+
+  void stop() => _timer?.cancel();
+}
+
+/// Git checkout facts for [directory]. This describes a checkout, which is not
+/// necessarily the code an executable was built from.
+Future<Map<String, dynamic>> gitMetadata(String directory) async {
+  try {
+    final revision = await Process.run('git', ['-C', directory, 'rev-parse', 'HEAD']);
+    if (revision.exitCode != 0) return {'directory': directory, 'revision': null};
+    final status = await Process.run('git', [
+      '-C',
+      directory,
+      'status',
+      '--porcelain',
+    ]);
+    return {
+      'directory': directory,
+      'revision': revision.stdout.toString().trim(),
+      'dirty': status.exitCode == 0 ? status.stdout.toString().isNotEmpty : null,
+    };
+  } on ProcessException {
+    return {'directory': directory, 'revision': null, 'gitAvailable': false};
+  }
+}
+
+Future<String> sha256OfFile(String path) async =>
+    (await sha256.bind(File(path).openRead()).first).toString();
+
+/// Identity of the code this process runs. JIT runs execute source, described
+/// by the script's checkout. Native bundles are identified by their executable
+/// hash; `build-info.json` from tool/build_native.dart adds the build revision
+/// only when its recorded hash matches the running executable.
+Future<Map<String, dynamic>> executableIdentity() async {
+  final script = Platform.script;
+  if (script.path.endsWith('.dart')) {
+    final path = script.toFilePath();
+    return {
+      'mode': 'jit',
+      'script': path,
+      'dartVersion': Platform.version,
+      'source': await gitMetadata(p.dirname(path)),
+    };
+  }
+  final executable = Platform.resolvedExecutable;
+  final hash = await sha256OfFile(executable);
+  final stampFile = File(p.join(p.dirname(p.dirname(executable)), 'build-info.json'));
+  Map<String, dynamic>? stamp;
+  if (stampFile.existsSync()) {
+    stamp = jsonDecode(stampFile.readAsStringSync()) as Map<String, dynamic>;
+  }
+  return {
+    'mode': 'aot',
+    'executable': executable,
+    'executableSha256': hash,
+    'dartVersion': Platform.version,
+    'buildStamp': stamp,
+    'buildStampMatches': stamp == null ? null : stamp['executableSha256'] == hash,
+  };
+}
+
+/// Deterministic 32-bit FNV-1a over integers. Unlike Object.hash, the result
+/// is stable across processes, which keeps seeded workloads reproducible.
+int mixSeed(Iterable<int> parts) {
+  var hash = 0x811c9dc5;
+  for (final part in parts) {
+    var value = part;
+    for (var i = 0; i < 8; i++) {
+      hash = ((hash ^ (value & 0xff)) * 0x01000193) & 0xffffffff;
+      value >>= 8;
+    }
+  }
+  return hash;
+}
+
+const _payloadAlphabet =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+/// Seeded ASCII text of exactly [length] characters. The readable prefix makes
+/// rows traceable; the uniformly random remainder (6 bits per character) is not
+/// meaningfully compressible, so PostgreSQL TOAST cannot shrink it.
+String seededPayload(int seed, int length, String prefix) {
+  final random = Random(seed);
+  final buffer = StringBuffer(
+    prefix.length > length ? prefix.substring(0, length) : prefix,
+  );
+  while (buffer.length < length) {
+    buffer.writeCharCode(_payloadAlphabet.codeUnitAt(random.nextInt(64)));
+  }
+  return buffer.toString();
+}
+
+/// Runs [action] for every item with at most [concurrency] in flight. After a
+/// failure no new items start; the first error is rethrown once lanes drain.
+Future<void> forEachBounded<T>(
+  Iterable<T> items,
+  int concurrency,
+  Future<void> Function(T item) action,
+) async {
+  final iterator = items.iterator;
+  var failed = false;
+  Future<void> lane() async {
+    while (!failed && iterator.moveNext()) {
+      try {
+        await action(iterator.current);
+      } catch (_) {
+        failed = true;
+        rethrow;
+      }
+    }
+  }
+
+  await Future.wait([for (var i = 0; i < max(1, concurrency); i++) lane()]);
 }

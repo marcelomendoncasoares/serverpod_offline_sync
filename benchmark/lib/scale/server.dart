@@ -15,16 +15,21 @@ import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart';
 
 import 'common.dart'
     show
+        AdminToken,
+        UserTokenIdentity,
         benchmarkScope,
-        constantTimeEqual,
+        classifyToken,
+        executableIdentity,
         processSample,
-        snapshotOf,
-        sqliteFiles,
-        userToken;
+        sqliteFiles;
+import 'verification.dart' show snapshotOf;
 
 /// Observation around the unmodified module's public endpoint dispatch. Events
 /// and errors pass through unchanged; no engine state or merge code is accessed.
 class StreamMetrics {
+  StreamMetrics({DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
   final _open = <int, DateTime?>{};
   var opened = 0;
   var closed = 0;
@@ -32,10 +37,10 @@ class StreamMetrics {
   var inboundChanges = 0;
   var outboundChanges = 0;
 
+  /// Runs [start] with an inbound stream that counts merge chunks, and counts
+  /// the chunks it emits.
   Stream<dynamic> observe(
-    MethodStreamConnector original,
-    Session session,
-    Map<String, dynamic> params,
+    Stream<dynamic> Function(Map<String, Stream<dynamic>> streams) start,
     Map<String, Stream<dynamic>> streams,
   ) async* {
     final id = ++opened;
@@ -43,7 +48,7 @@ class StreamMetrics {
     try {
       void inspect(dynamic event, {required bool inbound}) {
         if (event is sync.OfflineSyncMergeChunk && event.changes.isNotEmpty) {
-          _open[id] = DateTime.now().toUtc();
+          _open[id] = _now().toUtc();
           if (inbound) {
             inboundChanges += event.changes.length;
           } else {
@@ -56,9 +61,7 @@ class StreamMetrics {
         inspect(event, inbound: true);
         return event;
       });
-      final output =
-          original.call(session, params, {...streams, 'changes': inbound}) as Stream;
-      await for (final event in output) {
+      await for (final event in start({...streams, 'changes': inbound})) {
         inspect(event, inbound: false);
         yield event;
       }
@@ -72,7 +75,7 @@ class StreamMetrics {
   }
 
   Map<String, dynamic> sample() {
-    final cutoff = DateTime.now().toUtc().subtract(const Duration(seconds: 2));
+    final cutoff = _now().toUtc().subtract(const Duration(seconds: 2));
     final active = _open.values
         .where((time) => time != null && time.isAfter(cutoff))
         .length;
@@ -90,6 +93,42 @@ class StreamMetrics {
   }
 }
 
+const countedTables = [
+  'serverpod_auth_core_user',
+  'person',
+  'city',
+  'town',
+  'offline_sync_spaces',
+  'crdt_nodes',
+  'crdt_data_rows',
+  'crdt_data_fields',
+  'crdt_data_tombstone',
+];
+
+final _startedAt = DateTime.now().toUtc();
+Future<Map<String, dynamic>>? _identity;
+
+/// Non-secret facts about this server process, computed once. Connection
+/// settings other than dialect and pool size are deliberately omitted.
+Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () async {
+  final prepared = File('config/benchmark_build.json');
+  final database = pod.config.database;
+  return <String, dynamic>{
+    'instanceId': '${Platform.localHostname}/$pid/${_startedAt.microsecondsSinceEpoch}',
+    'hostname': Platform.localHostname,
+    'pid': pid,
+    'startedAt': _startedAt.toIso8601String(),
+    'runMode': pod.runMode,
+    'dialect': database?.dialect.name,
+    'maxConnectionCount': database?.maxConnectionCount,
+    'processors': Platform.numberOfProcessors,
+    'executable': await executableIdentity(),
+    'preparedSource': prepared.existsSync()
+        ? jsonDecode(prepared.readAsStringSync())
+        : null,
+  };
+}();
+
 class BenchmarkEndpoint extends Endpoint {
   BenchmarkEndpoint(this.metrics);
 
@@ -106,7 +145,7 @@ class BenchmarkEndpoint extends Endpoint {
     final result = switch (input['action']) {
       'provision' => await _provision(session, input),
       'snapshot' => await _snapshot(session, input),
-      'metrics' => await _metrics(session),
+      'metrics' => await _metrics(session, exact: input['exact'] == true),
       _ => throw ArgumentError('Unknown benchmark action'),
     };
     return jsonEncode(result);
@@ -149,28 +188,29 @@ class BenchmarkEndpoint extends Endpoint {
     });
   }
 
-  Future<Map<String, dynamic>> _metrics(Session session) async {
+  /// Exact counts scan whole tables, which competes with the workload on large
+  /// PostgreSQL databases, so periodic samples use statistics estimates.
+  Future<Map<String, dynamic>> _metrics(Session session, {required bool exact}) async {
     final timer = Stopwatch()..start();
     final db = session.db;
+    final postgres = db.dialect == DatabaseDialect.postgres;
     final tables = <String, dynamic>{};
-    // Read-only storage inspection outside the workload; exact counts can be
-    // costly. The sample reports its own duration so this overhead is visible.
-    for (final table in [
-      'serverpod_auth_core_user',
-      'person',
-      'city',
-      'town',
-      'offline_sync_spaces',
-      'crdt_nodes',
-      'crdt_data_rows',
-      'crdt_data_fields',
-      'crdt_data_tombstone',
-    ]) {
-      final rows = await db.unsafeQuery('SELECT COUNT(*) FROM "$table"');
-      tables[table] = rows.single.single;
+    if (exact || !postgres) {
+      for (final table in countedTables) {
+        final rows = await db.unsafeQuery('SELECT COUNT(*) FROM "$table"');
+        tables[table] = rows.single.single;
+      }
+    } else {
+      final names = countedTables.map((t) => "'$t'").join(', ');
+      final rows = await db.unsafeQuery(
+        'SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE relname IN ($names)',
+      );
+      for (final row in rows) {
+        tables[row[0] as String] = row[1];
+      }
     }
     final storage = <String, dynamic>{};
-    if (db.dialect == DatabaseDialect.postgres) {
+    if (postgres) {
       storage['databaseBytes'] = (await db.unsafeQuery(
         'SELECT pg_database_size(current_database())',
       )).single.single;
@@ -199,13 +239,15 @@ WHERE datname = current_database() GROUP BY state, wait_event_type
       final config = session.serverpod.config.database! as SqliteDatabaseConfig;
       storage.addAll(sqliteFiles(config.filePath));
     }
+    final identity = await serverIdentity(session.serverpod);
     return {
-      'instance': Platform.localHostname,
+      'server': exact ? identity : {'instanceId': identity['instanceId']},
       'time': DateTime.now().toUtc().toIso8601String(),
       'backend': db.dialect.name,
       'process': processSample(),
       'streams': metrics.sample(),
       'tables': tables,
+      'tableCountsExact': exact || !postgres,
       'storage': storage,
       'collectionMicros': timer.elapsedMicroseconds,
     };
@@ -247,29 +289,27 @@ class BenchmarkEndpoints extends EndpointDispatch {
       params: original.params,
       streamParams: original.streamParams,
       returnType: original.returnType,
-      call: (session, params, streams) =>
-          metrics.observe(original, session, params, streams),
+      call: (session, params, streams) => metrics.observe(
+        (observed) => original.call(session, params, observed) as Stream<dynamic>,
+        streams,
+      ),
     );
   }
 }
 
+/// Admin tokens carry the benchmark scope; user tokens must name a provisioned,
+/// unblocked user. Each user authentication costs one AuthUser lookup.
 AuthenticationHandler benchmarkAuthentication(String secret) => (session, token) async {
-  if (constantTimeEqual(token, secret)) {
-    return AuthenticationInfo('benchmark-admin', {
-      const Scope(benchmarkScope),
-    }, authId: 'benchmark-admin');
+  switch (classifyToken(secret, token)) {
+    case AdminToken():
+      return AuthenticationInfo('benchmark-admin', {
+        const Scope(benchmarkScope),
+      }, authId: 'benchmark-admin');
+    case UserTokenIdentity(:final userId):
+      final user = await AuthUser.db.findById(session, userId);
+      if (user == null || user.blocked) return null;
+      return AuthenticationInfo(userId.toString(), {}, authId: userId.toString());
+    case null:
+      return null;
   }
-  final parts = token.split('.');
-  if (parts.length != 2 || !constantTimeEqual(token, userToken(secret, parts.first))) {
-    return null;
-  }
-  final UuidValue id;
-  try {
-    id = UuidValue.withValidation(parts.first);
-  } on FormatException {
-    return null;
-  }
-  final user = await AuthUser.db.findById(session, id);
-  if (user == null || user.blocked) return null;
-  return AuthenticationInfo(id.toString(), {}, authId: id.toString());
 };
