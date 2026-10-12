@@ -352,6 +352,14 @@ class CrdtMutationRecorder {
     TransactionFunction<R> action,
   ) => _context.withUserClock(transaction, action);
 
+  /// Whether an enclosing scope already shares the acting user's clock.
+  bool hasActiveUserClock(Transaction transaction) =>
+      _context.hasActiveUserClock(transaction);
+
+  /// Stores the acting user's clock now, inside the caller's savepoint.
+  Future<void> persistUserClock(Transaction transaction) =>
+      _context.persistUserClock(transaction);
+
   /// Locks the acting user's clock and the acting space, refreshing the clock.
   Future<void> lockUserClock(Transaction transaction) =>
       _context.lockUserClock(transaction);

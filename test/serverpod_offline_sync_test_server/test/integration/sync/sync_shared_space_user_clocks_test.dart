@@ -10,6 +10,7 @@ import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
 import '../test_tools/serverpod_test_tools.dart';
+import '../test_tools/sync_streams.dart';
 
 /// Round trips through a shared space whose facts come from several local user
 /// clocks: the server's clock for each user that writes there, and each
@@ -52,13 +53,17 @@ void main() {
             return session;
           }
 
-          Future<_SyncRound> syncOnce(
+          Future<SyncRound> syncOnce(
             OfflineSyncDatabaseSession clientSession,
             UuidValue user, {
             List<CrdtMergeChange> splice = const [],
-          }) => _syncOnce(
+          }) => syncOnceOverStreams(
             serverSync: rawServerSession.offlineSync,
-            clientSession: clientSession,
+            follower: (inbound) => clientSession.db.sync(
+              inbound: inbound,
+              once: true,
+              mode: OfflineSyncPeerMode.follower,
+            ),
             userUuid: user,
             splice: splice,
           );
@@ -170,7 +175,7 @@ void main() {
           );
 
           group('when the read-only member syncs,', () {
-            late _SyncRound round;
+            late SyncRound round;
 
             setUpAll(() async {
               round = await syncOnce(readerClient, reader);
@@ -219,8 +224,8 @@ void main() {
           });
 
           group('when the writer reconnects,', () {
-            late _SyncRound round;
-            late _SyncRound idleRound;
+            late SyncRound round;
+            late SyncRound idleRound;
 
             setUpAll(() async {
               round = await syncOnce(writerClient, writer);
@@ -255,7 +260,7 @@ void main() {
 
           group('when the read-only member uploads a write to the shared space,', () {
             late UuidValue deniedId;
-            late _SyncRound round;
+            late SyncRound round;
 
             setUpAll(() async {
               deniedId = const Uuid().v7obj();
@@ -289,97 +294,4 @@ void main() {
       );
     },
   );
-}
-
-/// What one `once` session exchanged.
-typedef _SyncRound = ({
-  List<CrdtMergeChange> toClient,
-  List<CrdtMergeChange> toServer,
-  Object? serverError,
-});
-
-/// Runs a real follower and a real authoritative `once` session over
-/// in-memory streams, recording the merge changes each side sent.
-///
-/// [splice] is added to the follower's first batch, as a stale or hostile
-/// client would send it.
-Future<_SyncRound> _syncOnce({
-  required OfflineSyncSession serverSync,
-  required OfflineSyncDatabaseSession clientSession,
-  required UuidValue userUuid,
-  List<CrdtMergeChange> splice = const [],
-}) async {
-  final clientToServer = StreamController<OfflineSyncStreamEvent>();
-  final serverToClient = StreamController<OfflineSyncStreamEvent>();
-  final serverCompletion = Completer<Object?>();
-  final clientCompletion = Completer<void>();
-  final toClient = <CrdtMergeChange>[];
-  final toServer = <CrdtMergeChange>[];
-  var spliced = splice.isEmpty;
-
-  void addIfOpen(
-    StreamController<OfflineSyncStreamEvent> controller,
-    OfflineSyncStreamEvent event,
-  ) {
-    if (!controller.isClosed) controller.add(event);
-  }
-
-  final clientSubscription = clientSession.db
-      .sync(
-        inbound: serverToClient.stream,
-        once: true,
-        mode: OfflineSyncPeerMode.follower,
-      )
-      .listen(
-        (event) {
-          if (!spliced && event is OfflineSyncEndOfBatch) {
-            spliced = true;
-            addIfOpen(clientToServer, OfflineSyncMergeChunk(changes: splice));
-          }
-          if (event is OfflineSyncMergeChunk) toServer.addAll(event.changes);
-          addIfOpen(clientToServer, event);
-        },
-        onError: (Object _) {
-          if (!clientCompletion.isCompleted) clientCompletion.complete();
-          unawaited(clientToServer.close());
-        },
-        onDone: () {
-          if (!clientCompletion.isCompleted) clientCompletion.complete();
-          unawaited(clientToServer.close());
-        },
-      );
-
-  final serverSubscription = serverSync
-      .sync(
-        userId: userUuid,
-        inbound: clientToServer.stream,
-        once: true,
-        mode: OfflineSyncPeerMode.authoritative,
-      )
-      .listen(
-        (event) {
-          if (event is OfflineSyncMergeChunk) toClient.addAll(event.changes);
-          addIfOpen(serverToClient, event);
-        },
-        onError: (Object error) {
-          if (!serverCompletion.isCompleted) serverCompletion.complete(error);
-          unawaited(serverToClient.close());
-        },
-        onDone: () {
-          if (!serverCompletion.isCompleted) serverCompletion.complete(null);
-          unawaited(serverToClient.close());
-        },
-      );
-
-  try {
-    const timeout = Duration(seconds: 10);
-    final serverError = await serverCompletion.future.timeout(timeout);
-    await clientCompletion.future.timeout(timeout);
-    return (toClient: toClient, toServer: toServer, serverError: serverError);
-  } finally {
-    await clientSubscription.cancel();
-    await serverSubscription.cancel();
-    if (!clientToServer.isClosed) unawaited(clientToServer.close());
-    if (!serverToClient.isClosed) unawaited(serverToClient.close());
-  }
 }

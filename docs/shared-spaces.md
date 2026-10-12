@@ -146,9 +146,12 @@ transaction binds both:
   `FOR NO KEY UPDATE` row lock and advanced in memory by each write. It is
   stored once, together with the high-water mark of each space it wrote to,
   when the transaction's clock scope completes, so it commits atomically with
-  the facts that used it. Nothing can read either row before that commit, since
-  both stay locked, and a transaction that only reads stores neither. Users
-  acting in different spaces never wait for each other.
+  the facts that used it. Other writers lock both rows before reading them, so
+  they wait for that commit; plain reads see the previously committed values.
+  A write in a transaction its caller owns stores the clock inside its own
+  savepoint instead, because the caller may catch its failure and still
+  commit. A transaction that only reads stores neither. Users acting in
+  different spaces never wait for each other.
 - The space row is locked after the clock, with the same lock mode, so every
   write and merge in one shared space serializes on it. Its `lastHlc` is the
   greatest HLC any local clock wrote or merged there. A clock observes it under

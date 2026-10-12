@@ -413,14 +413,30 @@ class OfflineSyncDatabase implements Database {
     Transaction? transaction,
     TransactionFunction<R> action,
   ) {
-    Future<R> lockedWrite(Transaction tx) => _recorder.withUserClock(tx, (tx) async {
-      await _recorder.lockUserClock(tx);
-      return DatabaseUtil.runInTransactionOrSavepoint(_delegate, tx, action);
-    });
+    if (transaction == null) {
+      // The write owns its transaction, so its clock scope stores the clock
+      // when it completes and a failure rolls back both.
+      return _delegate.transaction(
+        (tx) => _recorder.withUserClock(tx, (tx) async {
+          await _recorder.lockUserClock(tx);
+          return action(tx);
+        }),
+      );
+    }
 
-    return transaction == null
-        ? _delegate.transaction(lockedWrite)
-        : lockedWrite(transaction);
+    // Inside `transactionForUser`, a persistent wrapper's `transaction`, or
+    // another write, the enclosing scope stores the clock once at its end.
+    // Otherwise the caller owns the transaction and may catch a failure and
+    // still commit, so the clock is stored inside the write's own savepoint.
+    final storesOwnClock = !_recorder.hasActiveUserClock(transaction);
+    return _recorder.withUserClock(transaction, (tx) async {
+      await _recorder.lockUserClock(tx);
+      return DatabaseUtil.runInTransactionOrSavepoint(_delegate, tx, (tx) async {
+        final result = await action(tx);
+        if (storesOwnClock) await _recorder.persistUserClock(tx);
+        return result;
+      });
+    });
   }
 
   @override

@@ -100,14 +100,26 @@ class CrdtRecorderContext {
     return spaceManager.getCachedUserNode(userId);
   }
 
+  /// Whether an enclosing [withUserClock] scope already shares the acting
+  /// user's clock in [transaction], and will store it when it completes.
+  bool hasActiveUserClock(Transaction transaction) {
+    final nodeId = clockNodeFor(transaction).id!;
+    return _userClocks[transaction]?[nodeId]?.active ?? false;
+  }
+
   /// Shares the acting user's clock within an atomic scope without reading it yet.
   ///
   /// Writes inside the scope advance the clock in memory only. When the
   /// outermost scope completes, still inside the transaction, the clock and the
-  /// high-water mark of every space it wrote to are stored once. Nothing else
-  /// can read those rows before the transaction commits, because they stay
-  /// locked, and a failed scope stores nothing because its transaction or
-  /// savepoint rolls back with the facts.
+  /// high-water mark of every space it wrote to are stored once, unless
+  /// [persistUserClock] already stored them. Other writers lock both rows
+  /// before reading them, so they wait for the commit, while plain reads see
+  /// the previously committed values. A failed scope stores nothing.
+  ///
+  /// The scope must be undone together with its writes. That holds when its
+  /// transaction rolls back on failure. A scope opened inside a transaction
+  /// its caller owns, which may catch a failure and still commit, must call
+  /// [persistUserClock] within the same savepoint as its writes instead.
   Future<R> withUserClock<R>(
     Transaction transaction,
     TransactionFunction<R> action,
@@ -180,6 +192,11 @@ class CrdtRecorderContext {
     }
   }
 
+  /// Stores the acting user's clock now, inside the caller's rollback boundary,
+  /// so the enclosing scope has nothing left to store when it completes.
+  Future<void> persistUserClock(Transaction transaction) =>
+      _persistUserClock(_userClockFor(transaction), transaction);
+
   /// Stores the clock and the high-water mark of each space it was used in.
   ///
   /// A transaction that only reads stores nothing, even though locking may
@@ -212,7 +229,11 @@ class CrdtRecorderContext {
         transaction: transaction,
         noReturn: true,
       );
+      userClock.spaceHighWater[spaceId] = lastHlc;
     }
+    userClock
+      ..persisted = lastHlc
+      ..usedInSpaces.clear();
   }
 
   /// CRDT schema ids by table name: `tableName -> (tableId, columnsByName)`.
