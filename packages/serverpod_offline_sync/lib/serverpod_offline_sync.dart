@@ -1,6 +1,6 @@
 export 'src/crdt/extensions.dart';
 export 'src/crdt/merge.dart';
-export 'src/database/database.dart';
+export 'src/database/database.dart' hide clockNodeForTransaction;
 export 'src/database/exceptions.dart';
 export 'src/database/recorder.dart';
 export 'src/database/schema.dart';

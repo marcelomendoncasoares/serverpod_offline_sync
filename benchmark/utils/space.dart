@@ -140,14 +140,16 @@ class TombstoneSpaceBenchmark {
       orderBy: (t) => t.id,
     );
     final benchUserId = benchSpace!.id!;
+    final benchNode = await CrdtNode.db.findFirstRow(
+      _plainSession,
+      where: (t) => t.localUserUuid.equals(_userId),
+    );
     await db.unsafeExecute('''
 WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < $noiseUsers - 1)
-INSERT INTO "offline_sync_spaces" ("currentNodeId") SELECT NULL FROM n
+INSERT INTO "offline_sync_spaces" ("lastHlc") SELECT NULL FROM n
 ''');
     await db.unsafeExecute('''
-WITH local_node(id) AS (
-  SELECT "currentNodeId" FROM "offline_sync_spaces" WHERE "id" = $benchUserId
-)
+WITH local_node(id) AS (SELECT ${benchNode?.id ?? 'NULL'})
 INSERT INTO "offline_sync_space_nodes" ("spaceId", "nodeId")
 SELECT u."id", local_node.id
 FROM "offline_sync_spaces" u

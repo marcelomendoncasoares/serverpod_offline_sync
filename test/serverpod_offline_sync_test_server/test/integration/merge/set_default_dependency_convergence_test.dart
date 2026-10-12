@@ -2929,7 +2929,7 @@ Future<CrdtMergeSet> _collect(SyncNode node) => node.sync
     .toList();
 
 Future<void> _merge(SyncNode node, CrdtMergeSet facts) =>
-    node.offlineSync.db.mergeChanges(facts, spaceId: testCrdtUserId);
+    node.offlineSync.db.mergeChanges(facts, userId: testCrdtUserId);
 
 // Compare full payloads, including HLCs, independently of collection order.
 // A row/column can appear at several HLCs in the supplied author histories;

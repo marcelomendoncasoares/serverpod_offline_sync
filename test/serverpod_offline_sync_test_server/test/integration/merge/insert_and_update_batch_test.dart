@@ -72,7 +72,7 @@ void main() {
         setUp(() async {
           await peerSession.db.mergeChanges(
             await collectAuthoredChanges(),
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -119,7 +119,7 @@ void main() {
         setUp(() async {
           await peerSession.db.mergeChanges(
             await collectAuthoredChanges(),
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 

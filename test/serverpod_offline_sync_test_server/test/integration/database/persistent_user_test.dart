@@ -29,9 +29,20 @@ void main() {
         final crdtSpace = await OfflineSyncSpace.db.findFirstRow(
           session,
           where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
         );
         expect(crdtSpace, isNotNull);
+      });
+
+      test('then the persistent user owns the clock that authored the row.', () async {
+        final userNode = await CrdtNode.db.findFirstRow(
+          session,
+          where: (t) => t.localUserUuid.equals(testCrdtUserId),
+        );
+        final crdtRow = await CrdtDataRow.db.findFirstRow(
+          session,
+          where: (t) => t.uuidRowId.equals(person.id),
+        );
+        expect(crdtRow?.nodeId, userNode?.id);
       });
 
       test('then the CRDT metadata is written.', () async {

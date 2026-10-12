@@ -5,33 +5,72 @@ import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
 void main() {
-  group('Given an HlcManager,', () {
-    final userId = const Uuid().v7obj();
+  group('Given an HlcManager for a space and a user clock,', () {
     final nodeId = const Uuid().v7obj();
     final lastHlc = Hlc(DateTime.utc(2026, 5, 10, 12), 7, nodeId);
 
-    final manager = HlcManager.forSpace(
-      OfflineSyncSpace(
-        id: 42,
-        uuidSpaceId: userId,
-        currentNodeId: 9,
-        currentNode: CrdtNode(
-          id: 9,
-          uuidNodeId: nodeId,
-          lastHlc: lastHlc,
-        ),
-      ),
+    HlcManager manager() => HlcManager(
+      42,
+      CrdtNode(id: 9, uuidNodeId: nodeId, lastHlc: lastHlc),
     );
 
     test(
       'when getting the node, '
       'then the persisted node shape is preserved.',
       () {
-        final node = manager.getNode();
+        final node = manager().getNode();
 
         expect(node.id, 9);
         expect(node.uuidNodeId, nodeId);
         expect(node.lastHlc, lastHlc);
+      },
+    );
+
+    test(
+      'when observing a newer timestamp of another node, '
+      'then the clock adopts it under its own node.',
+      () {
+        final other = Hlc(DateTime.utc(2026, 5, 10, 13), 2, const Uuid().v7obj());
+        final hlcManager = manager()..observe(other);
+
+        expect(hlcManager.lastHlc, other.copyWith(nodeId: nodeId));
+      },
+    );
+
+    test(
+      'when observing a newer timestamp of its own node, '
+      'then the clock adopts it.',
+      () {
+        final own = Hlc(DateTime.utc(2026, 5, 10, 13), 2, nodeId);
+        final hlcManager = manager()..observe(own);
+
+        expect(hlcManager.lastHlc, own);
+      },
+    );
+
+    test(
+      'when observing an older timestamp, '
+      'then the clock does not move backward.',
+      () {
+        final hlcManager = manager()
+          ..observe(Hlc(DateTime.utc(2026, 5, 10, 11), 9, const Uuid().v7obj()));
+
+        expect(hlcManager.lastHlc, lastHlc);
+      },
+    );
+
+    test(
+      'when two managers share a clock, '
+      'then a timestamp from one advances the other.',
+      () {
+        final node = CrdtNode(id: 9, uuidNodeId: nodeId, lastHlc: lastHlc);
+        final personal = HlcManager(1, node);
+        final shared = HlcManager(2, node);
+
+        final first = personal.increment();
+
+        expect(shared.lastHlc, first);
+        expect(shared.increment().compareTo(first), greaterThan(0));
       },
     );
   });

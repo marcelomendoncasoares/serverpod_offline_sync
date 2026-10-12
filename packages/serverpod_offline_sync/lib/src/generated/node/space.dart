@@ -26,16 +26,14 @@ abstract class OfflineSyncSpace
   OfflineSyncSpace._({
     this.id,
     _iss.UuidValue? uuidSpaceId,
-    this.currentNodeId,
-    this.currentNode,
+    this.lastHlc,
     this.nodes,
   }) : uuidSpaceId = uuidSpaceId ?? const _iss.Uuid().v7obj();
 
   factory OfflineSyncSpace({
     int? id,
     _iss.UuidValue? uuidSpaceId,
-    int? currentNodeId,
-    _icw2tu00.CrdtNode? currentNode,
+    _icw2tu00.Hlc? lastHlc,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
   }) = _OfflineSyncSpaceImpl;
 
@@ -47,12 +45,9 @@ abstract class OfflineSyncSpace
           : _iss.UuidValueJsonExtension.fromJson(
               jsonSerialization['uuidSpaceId'],
             ),
-      currentNodeId: jsonSerialization['currentNodeId'] as int?,
-      currentNode: jsonSerialization['currentNode'] == null
+      lastHlc: jsonSerialization['lastHlc'] == null
           ? null
-          : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtNode>(
-              jsonSerialization['currentNode'],
-            ),
+          : _icw2tu00.Hlc.fromJson(jsonSerialization['lastHlc']),
       nodes: jsonSerialization['nodes'] == null
           ? null
           : _icw2tu00.Protocol()
@@ -72,10 +67,13 @@ abstract class OfflineSyncSpace
   /// Space identifier string.
   _iss.UuidValue uuidSpaceId;
 
-  int? currentNodeId;
-
-  /// The current node id of the space.
-  _icw2tu00.CrdtNode? currentNode;
+  /// Greatest HLC a local clock has written or merged into this space.
+  ///
+  /// Clocks are owned per user, so a user's clock can lag a fact another user
+  /// committed to a shared space. Each write or merge observes this value
+  /// under the space row lock before allocating timestamps, which orders a
+  /// dependent write after every fact committed to the space before it.
+  _icw2tu00.Hlc? lastHlc;
 
   /// The nodes associated with the space and their per-space checkpoints.
   List<_icw2tu00.OfflineSyncSpaceNode>? nodes;
@@ -89,9 +87,7 @@ abstract class OfflineSyncSpace
   OfflineSyncSpace copyWith({
     int? id,
     _iss.UuidValue? uuidSpaceId,
-    int? currentNodeId,
-    _icw2tu00.CrdtNode? currentNode =
-        const _UndefinedOfflineSyncSpace$currentNode(),
+    _icw2tu00.Hlc? lastHlc,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
         const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   });
@@ -101,8 +97,7 @@ abstract class OfflineSyncSpace
       '__className__': 'serverpod_offline_sync.OfflineSyncSpace',
       if (id != null) 'id': id,
       'uuidSpaceId': uuidSpaceId.toJson(),
-      if (currentNodeId != null) 'currentNodeId': currentNodeId,
-      if (currentNode != null) 'currentNode': currentNode?.toJson(),
+      if (lastHlc != null) 'lastHlc': lastHlc?.toJson(),
       if (nodes != null) 'nodes': nodes?.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -113,21 +108,23 @@ abstract class OfflineSyncSpace
       '__className__': 'serverpod_offline_sync.OfflineSyncSpace',
       if (id != null) 'id': id,
       'uuidSpaceId': uuidSpaceId.toJson(),
-      if (currentNodeId != null) 'currentNodeId': currentNodeId,
-      if (currentNode != null) 'currentNode': currentNode?.toJsonForProtocol(),
+      if (lastHlc != null)
+        'lastHlc':
+            // ignore: unnecessary_type_check
+            lastHlc is _iss.ProtocolSerialization
+            ? (lastHlc as _iss.ProtocolSerialization).toJsonForProtocol()
+            :
+              // ignore: dead_code
+              lastHlc?.toJson(),
       if (nodes != null)
         'nodes': nodes?.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
   }
 
   static OfflineSyncSpaceInclude include({
-    _icw2tu00.CrdtNodeInclude? currentNode,
     _icw2tu00.OfflineSyncSpaceNodeIncludeList? nodes,
   }) {
-    return OfflineSyncSpaceInclude._(
-      currentNode: currentNode,
-      nodes: nodes,
-    );
+    return OfflineSyncSpaceInclude._(nodes: nodes);
   }
 
   static OfflineSyncSpaceIncludeList includeList({
@@ -156,23 +153,16 @@ abstract class OfflineSyncSpace
 
 class _Undefined {}
 
-class _UndefinedOfflineSyncSpace$currentNode extends _iss.UndefinedSentinel
-    implements _icw2tu00.CrdtNode {
-  const _UndefinedOfflineSyncSpace$currentNode();
-}
-
 class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
   _OfflineSyncSpaceImpl({
     int? id,
     _iss.UuidValue? uuidSpaceId,
-    int? currentNodeId,
-    _icw2tu00.CrdtNode? currentNode,
+    _icw2tu00.Hlc? lastHlc,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
   }) : super._(
          id: id,
          uuidSpaceId: uuidSpaceId,
-         currentNodeId: currentNodeId,
-         currentNode: currentNode,
+         lastHlc: lastHlc,
          nodes: nodes,
        );
 
@@ -183,19 +173,14 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
   OfflineSyncSpace copyWith({
     Object? id = _Undefined,
     _iss.UuidValue? uuidSpaceId,
-    Object? currentNodeId = _Undefined,
-    _icw2tu00.CrdtNode? currentNode =
-        const _UndefinedOfflineSyncSpace$currentNode(),
+    Object? lastHlc = _Undefined,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
         const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   }) {
     return OfflineSyncSpace(
       id: id is int? ? id : this.id,
       uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
-      currentNodeId: currentNodeId is int? ? currentNodeId : this.currentNodeId,
-      currentNode: currentNode is _iss.UndefinedSentinel
-          ? this.currentNode?.copyWith()
-          : currentNode,
+      lastHlc: lastHlc is _icw2tu00.Hlc? ? lastHlc : this.lastHlc?.copyWith(),
       nodes: nodes is _iss.UndefinedSentinel
           ? this.nodes?.map((e0) => e0.copyWith()).toList()
           : nodes,
@@ -214,8 +199,10 @@ class OfflineSyncSpaceUpdateTable
     value,
   );
 
-  _isd.ColumnValue<int, int> currentNodeId(int? value) => _isd.ColumnValue(
-    table.currentNodeId,
+  _isd.ColumnValue<_icw2tu00.Hlc, _icw2tu00.Hlc> lastHlc(
+    _icw2tu00.Hlc? value,
+  ) => _isd.ColumnValue(
+    table.lastHlc,
     value,
   );
 }
@@ -229,8 +216,8 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
       this,
       hasDefault: true,
     );
-    currentNodeId = _isd.ColumnInt(
-      'currentNodeId',
+    lastHlc = _isd.ColumnStructured<_icw2tu00.Hlc>(
+      'lastHlc',
       this,
     );
   }
@@ -240,29 +227,19 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
   /// Space identifier string.
   late final _isd.ColumnUuid uuidSpaceId;
 
-  late final _isd.ColumnInt currentNodeId;
-
-  /// The current node id of the space.
-  _icw2tu00.CrdtNodeTable? _currentNode;
+  /// Greatest HLC a local clock has written or merged into this space.
+  ///
+  /// Clocks are owned per user, so a user's clock can lag a fact another user
+  /// committed to a shared space. Each write or merge observes this value
+  /// under the space row lock before allocating timestamps, which orders a
+  /// dependent write after every fact committed to the space before it.
+  late final _isd.ColumnStructured<_icw2tu00.Hlc> lastHlc;
 
   /// The nodes associated with the space and their per-space checkpoints.
   _icw2tu00.OfflineSyncSpaceNodeTable? ___nodes;
 
   /// The nodes associated with the space and their per-space checkpoints.
   _isd.ManyRelation<_icw2tu00.OfflineSyncSpaceNodeTable>? _nodes;
-
-  _icw2tu00.CrdtNodeTable get currentNode {
-    if (_currentNode != null) return _currentNode!;
-    _currentNode = _isd.createRelationTable(
-      relationFieldName: 'currentNode',
-      field: OfflineSyncSpace.t.currentNodeId,
-      foreignField: _icw2tu00.CrdtNode.t.id,
-      tableRelation: tableRelation,
-      createTable: (foreignTableRelation) =>
-          _icw2tu00.CrdtNodeTable(tableRelation: foreignTableRelation),
-    );
-    return _currentNode!;
-  }
 
   _icw2tu00.OfflineSyncSpaceNodeTable get __nodes {
     if (___nodes != null) return ___nodes!;
@@ -304,14 +281,11 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
   List<_isd.Column> get columns => [
     id,
     uuidSpaceId,
-    currentNodeId,
+    lastHlc,
   ];
 
   @override
   _isd.Table? getRelationTable(String relationField) {
-    if (relationField == 'currentNode') {
-      return currentNode;
-    }
     if (relationField == 'nodes') {
       return __nodes;
     }
@@ -321,22 +295,15 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
 
 class OfflineSyncSpaceInclude extends _isd.IncludeObject {
   OfflineSyncSpaceInclude._({
-    _icw2tu00.CrdtNodeInclude? currentNode,
     _icw2tu00.OfflineSyncSpaceNodeIncludeList? nodes,
   }) {
-    _currentNode = currentNode;
     _nodes = nodes;
   }
-
-  _icw2tu00.CrdtNodeInclude? _currentNode;
 
   _icw2tu00.OfflineSyncSpaceNodeIncludeList? _nodes;
 
   @override
-  Map<String, _isd.Include?> get includes => {
-    'currentNode': _currentNode,
-    'nodes': _nodes,
-  };
+  Map<String, _isd.Include?> get includes => {'nodes': _nodes};
 
   @override
   _isd.Table<int?> get table => OfflineSyncSpace.t;
@@ -367,8 +334,6 @@ class OfflineSyncSpaceRepository {
   final attach = const OfflineSyncSpaceAttachRepository._();
 
   final attachRow = const OfflineSyncSpaceAttachRowRepository._();
-
-  final detachRow = const OfflineSyncSpaceDetachRowRepository._();
 
   /// Returns a list of [OfflineSyncSpace]s matching the given query parameters.
   ///
@@ -867,31 +832,6 @@ class OfflineSyncSpaceAttachRepository {
 class OfflineSyncSpaceAttachRowRepository {
   const OfflineSyncSpaceAttachRowRepository._();
 
-  /// Creates a relation between the given [OfflineSyncSpace] and [CrdtNode]
-  /// by setting the [OfflineSyncSpace]'s foreign key `currentNodeId` to refer to the [CrdtNode].
-  Future<void> currentNode(
-    _isd.DatabaseSession session,
-    OfflineSyncSpace offlineSyncSpace,
-    _icw2tu00.CrdtNode currentNode, {
-    _isd.Transaction? transaction,
-  }) async {
-    if (offlineSyncSpace.id == null) {
-      throw ArgumentError.notNull('offlineSyncSpace.id');
-    }
-    if (currentNode.id == null) {
-      throw ArgumentError.notNull('currentNode.id');
-    }
-
-    var $offlineSyncSpace = offlineSyncSpace.copyWith(
-      currentNodeId: currentNode.id,
-    );
-    await session.db.updateRow<OfflineSyncSpace>(
-      $offlineSyncSpace,
-      columns: [OfflineSyncSpace.t.currentNodeId],
-      transaction: transaction,
-    );
-  }
-
   /// Creates a relation between this [OfflineSyncSpace] and the given [OfflineSyncSpaceNode]
   /// by setting the [OfflineSyncSpaceNode]'s foreign key `spaceId` to refer to this [OfflineSyncSpace].
   Future<void> nodes(
@@ -913,32 +853,6 @@ class OfflineSyncSpaceAttachRowRepository {
     await session.db.updateRow<_icw2tu00.OfflineSyncSpaceNode>(
       $offlineSyncSpaceNode,
       columns: [_icw2tu00.OfflineSyncSpaceNode.t.spaceId],
-      transaction: transaction,
-    );
-  }
-}
-
-class OfflineSyncSpaceDetachRowRepository {
-  const OfflineSyncSpaceDetachRowRepository._();
-
-  /// Detaches the relation between this [OfflineSyncSpace] and the [CrdtNode] set in `currentNode`
-  /// by setting the [OfflineSyncSpace]'s foreign key `currentNodeId` to `null`.
-  ///
-  /// This removes the association between the two models without deleting
-  /// the related record.
-  Future<void> currentNode(
-    _isd.DatabaseSession session,
-    OfflineSyncSpace offlineSyncSpace, {
-    _isd.Transaction? transaction,
-  }) async {
-    if (offlineSyncSpace.id == null) {
-      throw ArgumentError.notNull('offlineSyncSpace.id');
-    }
-
-    var $offlineSyncSpace = offlineSyncSpace.copyWith(currentNodeId: null);
-    await session.db.updateRow<OfflineSyncSpace>(
-      $offlineSyncSpace,
-      columns: [OfflineSyncSpace.t.currentNodeId],
       transaction: transaction,
     );
   }

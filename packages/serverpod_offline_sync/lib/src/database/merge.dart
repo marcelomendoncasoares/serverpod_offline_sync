@@ -40,9 +40,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       operations,
     );
     final authoredOverlays = <MergeFieldKey, Object?>{};
-    final currentUser = _context.effectiveSpaceFor(transaction);
     final remoteNodes = await _findOrCreateNodesForMerge(
-      currentUser.id!,
+      _context.spaceIdFor(transaction),
       {for (final change in operations) change.uuidNodeId},
       transaction,
     );
@@ -172,16 +171,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final spaceNodesToUpdate = <OfflineSyncSpaceNode>[];
 
     if (maxIncomingHlc != null) {
+      // Incoming facts keep their source node. They only advance the clock of
+      // the user applying them, so that user's next write follows them.
       final hlcManager = _context.hlcManagerFor(transaction);
       if (maxIncomingHlc.nodeId == hlcManager.uuidNodeId) {
-        if (maxIncomingHlc > hlcManager.lastHlc) {
-          hlcManager.lastHlc = maxIncomingHlc;
-        }
+        hlcManager.observe(maxIncomingHlc);
       } else {
         hlcManager.merge(maxIncomingHlc);
       }
 
-      await _context.persistCurrentNodeHlc(hlcManager, transaction);
+      await _context.persistUserClock(transaction);
     }
 
     final maxIncomingHlcByNode = <UuidValue, Hlc>{};
@@ -220,7 +219,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   }
 
   Future<MergeNodes> _findOrCreateNodesForMerge(
-    int userId,
+    int spaceId,
     Set<UuidValue> nodeIds,
     Transaction transaction,
   ) async {
@@ -239,7 +238,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final spaceNodesByUuid = {
       for (final entry in nodesByUuid.entries)
         entry.key: await _context.findOrCreateSpaceNode(
-          userId,
+          spaceId,
           entry.value.id!,
           transaction,
         ),
@@ -660,7 +659,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       final insertedRow = await CrdtDataRow.db.insertRow(
         _session,
         CrdtDataRow(
-          spaceId: _context.hlcManagerFor(transaction).normalizedSpaceId,
+          spaceId: _context.spaceIdFor(transaction),
           tblId: tableId,
           uuidRowId: rowId,
           nodeId: remoteNode.id!,
@@ -812,7 +811,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   ) async {
     final tableRow = _requireMergeInsertTableRow(insert);
     final patchedRow = _withPlannedDomainValues(tableRow, data);
-    final mergingSpaceId = _context.hlcManagerFor(transaction).normalizedSpaceId;
+    final mergingSpaceId = _context.spaceIdFor(transaction);
     final spaceScopedRow = patchedRow.copyWithSpaceId(mergingSpaceId);
     try {
       // Domain insert first. A CRDT tracker row for this id, written before

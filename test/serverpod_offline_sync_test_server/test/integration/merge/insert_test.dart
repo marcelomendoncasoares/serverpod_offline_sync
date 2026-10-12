@@ -36,7 +36,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -102,7 +102,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -197,7 +197,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -335,7 +335,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
 
           final row = await Person.db.findById(session, person.id!);
@@ -412,7 +412,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -489,7 +489,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -559,7 +559,7 @@ void main() {
 
         await session.db.mergeChanges(
           mergeSet,
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
 
         final row = await CrdtDataRow.db.findFirstRow(
@@ -582,7 +582,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -672,7 +672,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -732,7 +732,7 @@ void main() {
               data: Person(id: person.id, name: 'after recovery'),
             ),
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 

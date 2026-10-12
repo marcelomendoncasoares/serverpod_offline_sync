@@ -54,7 +54,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -138,7 +138,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -193,7 +193,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -253,7 +253,7 @@ void main() {
         );
         await session.db.mergeChanges(
           [remoteDelete],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
 
         remoteUpdate = CrdtMergeUpdate(
@@ -272,7 +272,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -315,7 +315,7 @@ void main() {
 
           await session.db.mergeChanges(
             [remoteUpdate, remoteRestore],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -384,7 +384,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -478,7 +478,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -559,7 +559,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 

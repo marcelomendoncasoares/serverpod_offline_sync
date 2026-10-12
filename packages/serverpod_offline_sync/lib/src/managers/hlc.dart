@@ -5,42 +5,32 @@ import '../hlc/hlc.dart';
 
 /// A manager for [Hlc] instances that is used to generate unique timestamps
 /// for CRDT operations.
+///
+/// Pairs the space being written ([normalizedSpaceId]) with the local clock of
+/// the acting user. The clock is owned by the user, not the space, so every
+/// space a user acts in shares one clock, and users sharing a space keep their
+/// own clocks.
 class HlcManager {
-  HlcManager._(
-    this.uuidSpaceId,
-    this.normalizedSpaceId,
-    this.normalizedNodeId,
-    this._node,
-  );
-
-  /// Creates a new [HlcManager] for the current node of [space].
+  /// Creates a manager writing to [normalizedSpaceId] with the clock of [node].
   ///
-  /// [currentNode] shares a refreshed node without copying the space or its
-  /// included relations.
-  factory HlcManager.forSpace(OfflineSyncSpace space, {CrdtNode? currentNode}) {
-    return HlcManager._(
-      space.uuidSpaceId,
-      space.id!,
-      space.currentNodeId!,
-      currentNode ?? space.currentNode!,
-    );
-  }
+  /// [node] is shared, not copied: managers for other spaces of the same
+  /// acting user advance the same clock.
+  HlcManager(this.normalizedSpaceId, CrdtNode node)
+    : normalizedNodeId = node.id!,
+      _node = node;
 
-  /// The UUID of the space this manager is for.
-  final UuidValue uuidSpaceId;
-
-  /// The normalized space ID of the space this manager is for.
+  /// The normalized space ID of the space this manager writes to.
   final int normalizedSpaceId;
 
-  /// The node ID of the current node.
-  UuidValue get uuidNodeId => lastHlc.nodeId;
+  /// The node ID of the acting user's local clock.
+  UuidValue get uuidNodeId => _node.uuidNodeId;
 
-  /// The normalized node ID of the current node.
+  /// The normalized node ID of the acting user's local clock.
   final int normalizedNodeId;
 
   final CrdtNode _node;
 
-  /// The last HLC timestamp for the current node.
+  /// The last HLC timestamp of the acting user's clock.
   Hlc get lastHlc => _node.lastHlc ?? Hlc.zero(_node.uuidNodeId);
 
   set lastHlc(Hlc value) => _node.lastHlc = value;
@@ -61,6 +51,15 @@ class HlcManager {
   /// Merges another [Hlc] instance into the current one.
   void merge(Hlc other) {
     lastHlc = lastHlc.merge(other);
+  }
+
+  /// Advances the clock to at least [other] without the remote merge checks.
+  ///
+  /// For timestamps another local clock already committed to this database:
+  /// they passed those checks when they were produced or merged, and may carry
+  /// this clock's own node after a relay.
+  void observe(Hlc other) {
+    if (other > lastHlc) lastHlc = other.copyWith(nodeId: uuidNodeId);
   }
 
   /// Converts this manager state to the persisted current-node model.

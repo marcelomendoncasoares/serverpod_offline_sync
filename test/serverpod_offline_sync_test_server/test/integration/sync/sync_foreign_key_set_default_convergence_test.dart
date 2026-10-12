@@ -157,7 +157,7 @@ void main() {
             checkpointsBySpaceUuid: {space: const []},
           )
           .toList();
-      await to.offlineSync.db.mergeChanges(changes, spaceId: space);
+      await to.offlineSync.db.mergeChanges(changes, userId: space);
     }
 
     Future<void> syncBothSpaces() async {

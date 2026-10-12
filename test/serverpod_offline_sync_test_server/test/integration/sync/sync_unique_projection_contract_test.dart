@@ -143,7 +143,7 @@ void main() {
               data: loser,
             ),
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 

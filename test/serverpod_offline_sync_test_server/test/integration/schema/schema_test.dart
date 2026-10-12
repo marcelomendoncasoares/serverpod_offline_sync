@@ -1273,7 +1273,7 @@ Future<CrdtDataField> _insertFieldMetadata({
   );
   final space = await OfflineSyncSpace.db.insertRow(
     session,
-    OfflineSyncSpace(uuidSpaceId: testCrdtUserId, currentNodeId: node.id),
+    OfflineSyncSpace(uuidSpaceId: testCrdtUserId),
   );
   final row = await CrdtDataRow.db.insertRow(
     session,

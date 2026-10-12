@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 
 import '../../../../../benchmark/utils/query_counter.dart';
 import '../test_tools/client_session.dart';
+import '../test_tools/crdt_probes.dart';
 
 void main() {
   initTestClientSession(createSessionPerTest: false);
@@ -74,8 +75,19 @@ void main() {
       late Unique? found;
       late int queries;
       late int rowsRead;
+      late Hlc clockBefore;
+      late Hlc clockAfter;
+      late int metadataBefore;
+      late int metadataAfter;
+
+      Future<int> metadataRows() async =>
+          await CrdtDataRow.db.count(app) +
+          await CrdtDataField.db.count(app) +
+          await CrdtDataDeleted.db.count(app);
 
       setUpAll(() async {
+        clockBefore = await persistedUserClock(app, testCrdtUserId);
+        metadataBefore = await metadataRows();
         final queriesBefore = database.queryCount;
         final rowsBefore = database.rowsRead;
 
@@ -86,12 +98,23 @@ void main() {
 
         queries = database.queryCount - queriesBefore;
         rowsRead = database.rowsRead - rowsBefore;
+        clockAfter = await persistedUserClock(app, testCrdtUserId);
+        metadataAfter = await metadataRows();
       });
 
-      test('then the read uses only membership and domain queries.', () {
-        expect(found?.name, 'space read');
-        expect(queries, 3);
-        expect(rowsRead, 2);
+      test(
+        'then the read adds only the clock and space locks to membership and '
+        'domain queries.',
+        () {
+          expect(found?.name, 'space read');
+          expect(queries, 5);
+          expect(rowsRead, 4);
+        },
+      );
+
+      test('then the locks neither advance the clock nor record CRDT changes.', () {
+        expect(clockAfter, clockBefore);
+        expect(metadataAfter, metadataBefore);
       });
     });
   });

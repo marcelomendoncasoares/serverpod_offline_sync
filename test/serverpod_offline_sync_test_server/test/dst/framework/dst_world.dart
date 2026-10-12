@@ -52,11 +52,12 @@ class DstReplica {
   /// adversary collects from and delivers to - which is exactly the subscription
   /// set the observer-independence property varies.
   ///
-  /// [nodeUuid] is seeded rather than left to the engine. `OfflineSyncSpaceManager`
-  /// mints `CrdtNode()` without an explicit id, which falls back to a
-  /// wall-clock v7 UUID, and `Hlc.compareTo` breaks ties on the node UUID - so
-  /// leaving it to the engine would make concurrent merge winners
-  /// nondeterministic and seeds would not replay.
+  /// The replica acts in each space as the user whose personal space it is, so
+  /// every space is clocked by its own local node. [nodeUuid] seeds those nodes
+  /// rather than leaving them to the engine. `OfflineSyncSpaceManager` mints
+  /// a wall-clock v7 UUID for a new user clock, and `Hlc.compareTo` breaks ties
+  /// on the node UUID - so leaving it to the engine would make concurrent
+  /// merge winners nondeterministic and seeds would not replay.
   static Future<DstReplica> create({
     required String name,
     required List<UuidValue> spaceUuids,
@@ -70,19 +71,19 @@ class DstReplica {
     );
     await session.db.initialize();
 
-    // Seed the replica identity before the engine can mint one. The manager
-    // adopts the current node of the first space that already has one
-    // (`OfflineSyncSpaceManager._getOrCreateCurrentNode`), so pre-creating the node
-    // and attaching it to every space keeps one stable identity per replica -
-    // which is the engine's own model of a node.
-    final node = await CrdtNode.db.insertRow(
-      rawSession,
-      CrdtNode(uuidNodeId: nodeUuid),
-    );
+    // Seed each acting user's clock before the engine can mint one. The
+    // manager adopts the node a user already owns
+    // (`OfflineSyncSpaceManager.getOrCreateUserNode`), so pre-creating them
+    // keeps one stable identity per replica and user.
     for (final spaceUuid in spaceUuids) {
-      await OfflineSyncSpace.db.insertRow(
+      final userNodeUuid = _userNodeUuid(nodeUuid, spaceUuid);
+      await CrdtNode.db.insertRow(
         rawSession,
-        OfflineSyncSpace(uuidSpaceId: spaceUuid, currentNodeId: node.id),
+        CrdtNode(
+          uuidNodeId: userNodeUuid,
+          localUserUuid: spaceUuid,
+          lastHlc: Hlc.zero(userNodeUuid),
+        ),
       );
     }
 
@@ -154,8 +155,21 @@ class DstReplica {
   /// The spaces the adversary exchanges for this replica.
   final List<UuidValue> spaceUuids;
 
-  /// This replica's seeded node identity. Breaks HLC ties, so it is pinned.
+  /// The seed of this replica's node identities.
+  ///
+  /// Node identities break HLC ties, so they are pinned: see [nodeUuidFor].
   final UuidValue nodeUuid;
+
+  /// The node that clocks this replica's writes in [spaceUuid].
+  UuidValue nodeUuidFor(UuidValue spaceUuid) => _userNodeUuid(nodeUuid, spaceUuid);
+
+  /// Every node this replica authors with.
+  Set<UuidValue> get ownNodeUuids => {
+    for (final spaceUuid in spaceUuids) nodeUuidFor(spaceUuid),
+  };
+
+  static UuidValue _userNodeUuid(UuidValue nodeUuid, UuidValue spaceUuid) =>
+      UuidValue.withValidation(const Uuid().v5(nodeUuid.uuid, spaceUuid.uuid));
 
   /// This replica's view of time, skewed from the shared simulation clock.
   final Clock clock;
@@ -163,20 +177,22 @@ class DstReplica {
   /// Runs [body] with this replica's clock installed.
   Future<T> withReplicaClock<T>(Future<T> Function() body) => withClock(clock, body);
 
-  /// Fails loudly if the engine did not adopt the seeded node identity.
+  /// Fails loudly if the engine did not adopt the seeded node identities.
   ///
-  /// Seeding relies on how `OfflineSyncSpaceManager` resolves a current node, which is
-  /// an internal detail. If that strategy changes, the simulation would
-  /// silently lose determinism and seeds would stop replaying; this turns that
-  /// into an immediate, explanatory failure instead.
+  /// Seeding relies on how `OfflineSyncSpaceManager` resolves a user clock,
+  /// which is an internal detail. If that strategy changes, the simulation
+  /// would silently lose determinism and seeds would stop replaying; this
+  /// turns that into an immediate, explanatory failure instead.
   Future<void> _assertSeededNodeIdentity() async {
     final nodes = await CrdtNode.db.find(rawSession);
     final adopted = nodes.map((node) => node.uuidNodeId).toSet();
-    if (adopted.length == 1 && adopted.single == nodeUuid) return;
+    if (adopted.length == spaceUuids.length && adopted.containsAll(ownNodeUuids)) {
+      return;
+    }
     throw StateError(
-      'Replica $name did not adopt its seeded node identity $nodeUuid '
-      '(found $adopted). OfflineSyncSpaceManager likely changed how it resolves the '
-      'current node, so the simulation can no longer pin node identity and '
+      'Replica $name did not adopt its seeded node identities $ownNodeUuids '
+      '(found $adopted). OfflineSyncSpaceManager likely changed how it resolves '
+      'user clocks, so the simulation can no longer pin node identity and '
       'seeds will not replay. Give the engine an injectable node id instead.',
     );
   }
@@ -251,6 +267,7 @@ class DstReplica {
     await withReplicaClock(
       () => sync.mergeInboundBatch(
         rawSession,
+        userId: spaceUuid,
         spaceId: spaceUuid,
         mergeSet: changes,
       ),

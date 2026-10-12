@@ -56,10 +56,10 @@ void main() {
           );
           await existingPeer.offlineSync.db.mergeChanges([
             insertion,
-          ], spaceId: testCrdtUserId);
+          ], userId: testCrdtUserId);
           await app.sync.wrapDatabase(app.raw.db).mergeChanges([
             insertion,
-          ], spaceId: testCrdtUserId);
+          ], userId: testCrdtUserId);
         });
 
         insertionClock = await rowHlc(remote.id!, databaseSession: app.offlineSync);
@@ -102,12 +102,7 @@ void main() {
               ))!;
               newRowClock = await rowHlc(fresh.id!, databaseSession: app.offlineSync);
 
-              final space = (await OfflineSyncSpace.db.findFirstRow(
-                app.raw,
-                where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-                include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-              ))!;
-              persistedClock = space.currentNode!.lastHlc!;
+              persistedClock = await persistedUserClock(app.raw, testCrdtUserId);
 
               await pushChanges(app, existingPeer);
               await pushChanges(app, emptyPeer);
@@ -172,7 +167,7 @@ void main() {
     },
   );
 
-  group('Given two spaces sharing a node and a cached app clock,', () {
+  group('Given a user acting in two spaces with a cached app clock,', () {
     late SyncNode app;
     late DateTime start;
     late Unique local;
@@ -197,26 +192,48 @@ void main() {
         remoteNode,
       );
 
+      final sharedSpace = await OfflineSyncSpaceManager(
+        app.raw,
+      ).getOrCreate(otherSpace);
+      await OfflineSyncSpaceMember.db.insertRow(
+        app.raw,
+        OfflineSyncSpaceMember(
+          spaceId: sharedSpace.id!,
+          userUuid: testCrdtUserId,
+          role: OfflineSyncSpaceRole.readWrite,
+        ),
+      );
+
       await withClock(Clock.fixed(start), () async {
         await app.offlineSync.db.transactionForUser(testCrdtUserId, (tx) async {
           await Unique.db.insertRow(app.offlineSync, local, transaction: tx);
         });
-        await app.offlineSync.db.transactionForUser(otherSpace, (tx) async {
-          await Unique.db.insertRow(app.offlineSync, otherRow, transaction: tx);
-        });
+        await app.offlineSync.db.transactionForUser(
+          testCrdtUserId,
+          spaceId: otherSpace,
+          (tx) async {
+            await Unique.db.insertRow(app.offlineSync, otherRow, transaction: tx);
+          },
+        );
 
-        await app.sync.wrapDatabase(app.raw.db).mergeChanges([
-          CrdtMergeUpdate(
-            uuidSpaceId: otherSpace,
-            tableName: Unique.t.tableName,
-            uuidRowId: otherRow.id!,
-            uuidNodeId: remoteNode,
-            hlcDatetime: receivedFieldClock.datetime,
-            hlcCounter: receivedFieldClock.counter,
-            columnName: 'name',
-            value: 'remote second space',
-          ),
-        ], spaceId: otherSpace);
+        await app.sync
+            .wrapDatabase(app.raw.db)
+            .mergeChanges(
+              [
+                CrdtMergeUpdate(
+                  uuidSpaceId: otherSpace,
+                  tableName: Unique.t.tableName,
+                  uuidRowId: otherRow.id!,
+                  uuidNodeId: remoteNode,
+                  hlcDatetime: receivedFieldClock.datetime,
+                  hlcCounter: receivedFieldClock.counter,
+                  columnName: 'name',
+                  value: 'remote second space',
+                ),
+              ],
+              userId: testCrdtUserId,
+              spaceId: otherSpace,
+            );
       });
     });
 
@@ -245,16 +262,11 @@ void main() {
             include: CrdtDataField.include(node: CrdtNode.include()),
           ))!;
 
-          final space = (await OfflineSyncSpace.db.findFirstRow(
-            app.raw,
-            where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-            include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-          ))!;
-          persistedClock = space.currentNode!.lastHlc!;
+          persistedClock = await persistedUserClock(app.raw, testCrdtUserId);
         });
 
         test(
-          'then the local field and persisted node observe the other space clock.',
+          "then the local field and the user's persisted clock observe the other space.",
           () {
             expect(authored.hlc.compareTo(receivedFieldClock), greaterThan(0));
             expect(persistedClock.compareTo(authored.hlc), greaterThanOrEqualTo(0));
@@ -342,12 +354,7 @@ void main() {
             ))!.hlc;
           });
 
-          final space = (await OfflineSyncSpace.db.findFirstRow(
-            app.raw,
-            where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-            include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-          ))!;
-          persistedClock = space.currentNode!.lastHlc!;
+          persistedClock = await persistedUserClock(app.raw, testCrdtUserId);
         });
 
         test(
@@ -388,11 +395,7 @@ void main() {
         where: (t) => t.row.uuidRowId.equals(row.id),
         include: CrdtDataDeleted.include(node: CrdtNode.include()),
       ))!.hlc;
-      persistedDeletionClock = (await OfflineSyncSpace.db.findFirstRow(
-        app.raw,
-        where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-        include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-      ))!.currentNode!.lastHlc!;
+      persistedDeletionClock = await persistedUserClock(app.raw, testCrdtUserId);
     });
 
     group('when a new wrapper inserts another row at the same wall time,', () {
@@ -493,12 +496,7 @@ void main() {
           nextClock = await rowHlc(next.id!, databaseSession: app);
           rolledBackRow = await Unique.db.findById(app, rolledBack.id!);
 
-          final space = (await OfflineSyncSpace.db.findFirstRow(
-            app,
-            where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-            include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-          ))!;
-          persistedClock = space.currentNode!.lastHlc!;
+          persistedClock = await persistedUserClock(app, testCrdtUserId);
         });
 
         test(
@@ -569,11 +567,7 @@ void main() {
             }
 
             cancelledRow = await Unique.db.findById(app, cancelled.id!);
-            persistedAfterCancel = (await OfflineSyncSpace.db.findFirstRow(
-              app,
-              where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-              include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-            ))!.currentNode!.lastHlc!;
+            persistedAfterCancel = await persistedUserClock(app, testCrdtUserId);
 
             await withClock(Clock.fixed(start), () async {
               expectedNext = committedClock.increment();
@@ -645,12 +639,7 @@ void main() {
           failure = error;
         }
 
-        final space = (await OfflineSyncSpace.db.findFirstRow(
-          app.raw,
-          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-        ))!;
-        afterRollback = space.currentNode!.lastHlc!;
+        afterRollback = await persistedUserClock(app.raw, testCrdtUserId);
         rolledBackRow = await Unique.db.findById(app.offlineSync, rolledBack.id!);
 
         await withClock(Clock.fixed(start), () async {

@@ -119,7 +119,7 @@ void main() {
       setUp(() async {
         mergeError = null;
         try {
-          await session.db.mergeChanges([otherUserInsert], spaceId: otherUserId);
+          await session.db.mergeChanges([otherUserInsert], userId: otherUserId);
         } on Exception catch (e) {
           mergeError = e;
         }
@@ -201,7 +201,7 @@ void main() {
       () async {
         for (var i = 0; i < 2; i++) {
           await expectLater(
-            session.db.mergeChanges([otherUserInsert], spaceId: otherUserId),
+            session.db.mergeChanges([otherUserInsert], userId: otherUserId),
             throwsA(isA<OfflineSyncIntegrityViolationException>()),
           );
         }
@@ -227,6 +227,7 @@ void main() {
       late UuidValue rowId;
       late UuidValue otherUserId;
       late OfflineSyncSpace otherSpace;
+      late CrdtNode otherNode;
       late CrdtDataRow staleTracker;
 
       setUp(() async {
@@ -255,7 +256,7 @@ void main() {
         );
 
         await expectLater(
-          session.db.mergeChanges([otherUserInsert], spaceId: otherUserId),
+          session.db.mergeChanges([otherUserInsert], userId: otherUserId),
           throwsA(isA<OfflineSyncIntegrityViolationException>()),
         );
 
@@ -265,13 +266,16 @@ void main() {
         );
 
         otherSpace = await OfflineSyncSpaceManager(session).getOrCreate(otherUserId);
+        otherNode = await OfflineSyncSpaceManager(
+          session,
+        ).getOrCreateUserNode(otherUserId);
         staleTracker = await CrdtDataRow.db.insertRow(
           session,
           CrdtDataRow(
             spaceId: otherSpace.id!,
             tblId: table!.id!,
             uuidRowId: rowId,
-            nodeId: otherSpace.currentNode!.id!,
+            nodeId: otherNode.id!,
             hlcDatetime: otherUserInsertHlc.datetime,
             hlcCounter: otherUserInsertHlc.counter,
           ),
@@ -336,7 +340,7 @@ void main() {
           expect(violation.incomingSpaceUuid, otherUserId);
           expect(violation.crdtDataRowId, staleTracker.id);
           expect(violation.uuidRowId, rowId);
-          expect(violation.uuidNodeId, otherSpace.currentNode!.uuidNodeId);
+          expect(violation.uuidNodeId, otherNode.uuidNodeId);
           expect(violation.occurrences, 1);
         },
       );

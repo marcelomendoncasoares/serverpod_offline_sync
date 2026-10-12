@@ -99,7 +99,7 @@ void main() {
               clFlag: 2,
               reason: CrdtDataDeletedReason.userDelete,
             ),
-          ], spaceId: space);
+          ], userId: space);
         });
 
         group('when a mixed-ID batch skips, updates by name, and inserts rows,', () {

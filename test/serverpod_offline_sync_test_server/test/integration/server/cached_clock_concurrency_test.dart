@@ -8,6 +8,7 @@ import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
+import '../test_tools/crdt_probes.dart';
 import '../test_tools/serverpod_test_tools.dart';
 
 void main() {
@@ -110,11 +111,7 @@ void main() {
               include: CrdtDataRow.include(node: CrdtNode.include()),
             ))!.hlc;
 
-            persistedClock = (await OfflineSyncSpace.db.findFirstRow(
-              raw,
-              where: (t) => t.uuidSpaceId.equals(space),
-              include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-            ))!.currentNode!.lastHlc!;
+            persistedClock = await persistedUserClock(raw, space);
           });
 
           test(

@@ -94,7 +94,7 @@ void main() {
                   protocol.decodeWithType(protocol.encodeWithTypeForProtocol(change))!
                       as CrdtMergeChange,
               ],
-              spaceId: testCrdtUserId,
+              userId: testCrdtUserId,
             );
 
             merged = (await Types.db.findById(target.offlineSync, inserted.id!))!;
@@ -203,7 +203,7 @@ void main() {
               protocol.decodeWithType(protocol.encodeWithTypeForProtocol(change))!
                   as CrdtMergeChange,
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -251,7 +251,7 @@ void main() {
                 protocol.decodeWithType(protocol.encodeWithTypeForProtocol(change))!
                     as CrdtMergeChange,
             ],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
 
           merged = (await Types.db.findById(target.offlineSync, inserted.id!))!;
@@ -348,7 +348,7 @@ void main() {
               protocol.decodeWithType(protocol.encodeWithTypeForProtocol(change))!
                   as CrdtMergeChange,
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -388,7 +388,7 @@ void main() {
                 protocol.decodeWithType(protocol.encodeWithTypeForProtocol(change))!
                     as CrdtMergeChange,
             ],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
 
           merged = (await Types.db.findById(target.offlineSync, inserted.id!))!;

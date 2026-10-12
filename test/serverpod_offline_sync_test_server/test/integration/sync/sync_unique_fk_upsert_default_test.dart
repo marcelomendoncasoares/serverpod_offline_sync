@@ -53,7 +53,7 @@ void main() {
           hlcCounter: 0,
           data: loser,
         ),
-      ], spaceId: testCrdtUserId);
+      ], userId: testCrdtUserId);
       loser = (await UniqueSetDefaultChild.db.findById(node.offlineSync, loser.id!))!;
     });
 

@@ -1032,7 +1032,7 @@ class CrdtForeignKeyProjector {
       rows[key] = (
         key: key,
         crdtRow: CrdtDataRow(
-          spaceId: _context.hlcManagerFor(transaction).normalizedSpaceId,
+          spaceId: _context.spaceIdFor(transaction),
           tblId: tableId,
           uuidRowId: pending.rowId,
           nodeId: pending.node.id!,
@@ -1636,11 +1636,11 @@ class CrdtForeignKeyProjector {
     if (rowIds.isEmpty || columnNames.isEmpty) return const [];
 
     final (tableId, _) = _context.schema[tableName]!;
-    final userId = _context.hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = _context.spaceIdFor(transaction);
     return CrdtDataField.db.find(
       _context.databaseSession,
       where: (t) =>
-          t.row.spaceId.equals(userId) &
+          t.row.spaceId.equals(spaceId) &
           t.row.tblId.equals(tableId) &
           t.row.uuidRowId.inSet(rowIds) &
           t.column.name.inSet(columnNames),
@@ -1663,11 +1663,11 @@ class CrdtForeignKeyProjector {
     if (rowIds.isEmpty || columnNames.isEmpty) return {};
 
     final (tableId, _) = _context.schema[tableName]!;
-    final userId = _context.hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = _context.spaceIdFor(transaction);
     final fields = await CrdtDataField.db.find(
       _context.databaseSession,
       where: (t) =>
-          t.row.spaceId.equals(userId) &
+          t.row.spaceId.equals(spaceId) &
           t.row.tblId.equals(tableId) &
           t.row.uuidRowId.inSet(rowIds) &
           t.column.name.inSet(columnNames),

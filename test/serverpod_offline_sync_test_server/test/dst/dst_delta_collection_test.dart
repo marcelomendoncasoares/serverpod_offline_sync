@@ -214,7 +214,7 @@ void main() {
         () {
           expect(pending, hasLength(1));
           expect(pending.single.uuidRowId, olderRow);
-          expect(pending.single.uuidNodeId, older.nodeUuid);
+          expect(pending.single.uuidNodeId, older.nodeUuidFor(space));
           expect(actual, expected);
         },
       );

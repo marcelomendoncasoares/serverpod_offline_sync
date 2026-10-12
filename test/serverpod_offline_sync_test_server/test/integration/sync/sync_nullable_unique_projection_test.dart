@@ -57,7 +57,7 @@ void main() {
               data: loser,
             ),
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
         insertionHlc = await rowHlc(loser.id!);
         final projected = await UniqueMixedFk.db.findById(testSession, loser.id!);
@@ -79,7 +79,7 @@ void main() {
 
       group('when a remote write detaches its parent,', () {
         setUp(() async {
-          await session.db.mergeChanges([detach], spaceId: testCrdtUserId);
+          await session.db.mergeChanges([detach], userId: testCrdtUserId);
         });
 
         test(
@@ -217,7 +217,7 @@ void main() {
               reason: CrdtDataDeletedReason.userDelete,
             ),
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
         insertionHlc = await rowHlc(loser.id!);
         final projected = await UniqueMixedFk.db.findById(testSession, loser.id!);
@@ -239,7 +239,7 @@ void main() {
 
       group('when a remote write detaches its parent,', () {
         setUp(() async {
-          await session.db.mergeChanges([detach], spaceId: testCrdtUserId);
+          await session.db.mergeChanges([detach], userId: testCrdtUserId);
         });
 
         test(

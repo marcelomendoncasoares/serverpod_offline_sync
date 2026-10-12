@@ -54,7 +54,7 @@ void main() {
           clFlag: 2,
           reason: CrdtDataDeletedReason.userDelete,
         ),
-      ], spaceId: testCrdtUserId);
+      ], userId: testCrdtUserId);
 
       before = await UniqueSetDefaultChild.db.findById(node.offlineSync, child.id!);
 

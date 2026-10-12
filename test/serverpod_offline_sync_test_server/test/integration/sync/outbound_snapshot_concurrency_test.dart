@@ -77,6 +77,7 @@ void main() {
         await write;
         await peer.sync.mergeInboundBatch(
           peer.raw,
+          userId: testCrdtUserId,
           spaceId: testCrdtUserId,
           mergeSet: firstPass,
         );
@@ -92,6 +93,7 @@ void main() {
             .toList();
         await peer.sync.mergeInboundBatch(
           peer.raw,
+          userId: testCrdtUserId,
           spaceId: testCrdtUserId,
           mergeSet: nextPass,
         );

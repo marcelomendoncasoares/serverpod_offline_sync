@@ -52,7 +52,7 @@ void main() {
             clFlag: 2,
             reason: CrdtDataDeletedReason.userDelete,
           ),
-        ], spaceId: testCrdtUserId);
+        ], userId: testCrdtUserId);
       });
 
       group('when the restrict child is detached locally,', () {

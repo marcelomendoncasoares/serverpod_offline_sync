@@ -60,7 +60,7 @@ void main() {
             hlcCounter: authored.counter + 1,
             data: organization,
           ),
-        ], spaceId: testCrdtUserId);
+        ], userId: testCrdtUserId);
         originalClocks = await _dependentClocks(author, sharedId);
       });
 
@@ -103,7 +103,7 @@ void main() {
               hlcCounter: authored.counter + 3,
               data: mayor,
             ),
-          ], spaceId: testCrdtUserId);
+          ], userId: testCrdtUserId);
           await syncWithServer(author, observer);
 
           authorTown = await Town.db.findById(author.offlineSync, sharedId);

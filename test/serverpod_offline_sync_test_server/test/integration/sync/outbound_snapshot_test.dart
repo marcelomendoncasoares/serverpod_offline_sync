@@ -64,6 +64,7 @@ void main() {
 
           await peer.sync.mergeInboundBatch(
             peer.raw,
+            userId: testCrdtUserId,
             spaceId: testCrdtUserId,
             mergeSet: firstPass,
           );
@@ -160,6 +161,7 @@ void main() {
 
           await peer.sync.mergeInboundBatch(
             peer.raw,
+            userId: testCrdtUserId,
             spaceId: testCrdtUserId,
             mergeSet: firstPass,
           );
@@ -259,6 +261,7 @@ Future<List<CrdtMergeChange>> _deliverPending(SyncNode author, SyncNode peer) as
       .toList();
   await peer.sync.mergeInboundBatch(
     peer.raw,
+    userId: testCrdtUserId,
     spaceId: testCrdtUserId,
     mergeSet: changes,
   );

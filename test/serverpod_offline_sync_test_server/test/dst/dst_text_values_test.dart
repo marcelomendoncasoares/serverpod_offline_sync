@@ -31,7 +31,7 @@ void main() {
             checkpointsBySpaceUuid: {space: const []},
           )
           .toList();
-      await target.session.db.mergeChanges(changes, spaceId: space);
+      await target.session.db.mergeChanges(changes, userId: space);
 
       expect((await Unique.db.findById(target.session, row.id!))!.name, row.name);
     },
@@ -110,8 +110,8 @@ void main() {
             checkpointsBySpaceUuid: {space: const []},
           )
           .toList();
-      await right.session.db.mergeChanges(fromLeft, spaceId: space);
-      await left.session.db.mergeChanges(fromRight, spaceId: space);
+      await right.session.db.mergeChanges(fromLeft, userId: space);
+      await left.session.db.mergeChanges(fromRight, userId: space);
 
       for (final replica in [left, right]) {
         expect(

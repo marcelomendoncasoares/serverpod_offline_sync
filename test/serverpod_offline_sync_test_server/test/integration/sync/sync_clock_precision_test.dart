@@ -38,8 +38,8 @@ void main() {
       );
 
       await withClock(Clock.fixed(start), () async {
-        await app.offlineSync.db.mergeChanges([insertion], spaceId: testCrdtUserId);
-        await peer.offlineSync.db.mergeChanges([insertion], spaceId: testCrdtUserId);
+        await app.offlineSync.db.mergeChanges([insertion], userId: testCrdtUserId);
+        await peer.offlineSync.db.mergeChanges([insertion], userId: testCrdtUserId);
       });
 
       insertionClock = await rowHlc(row.id!, databaseSession: app.offlineSync);
@@ -70,11 +70,7 @@ void main() {
                   t.row.uuidRowId.equals(row.id) & t.column.name.equals('name'),
               include: CrdtDataField.include(node: CrdtNode.include()),
             ))!.hlc;
-            persistedClock = (await OfflineSyncSpace.db.findFirstRow(
-              app.raw,
-              where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-              include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-            ))!.currentNode!.lastHlc!;
+            persistedClock = await persistedUserClock(app.raw, testCrdtUserId);
 
             await pushChanges(app, peer);
             peerValue = await Unique.db.findById(peer.offlineSync, row.id!);

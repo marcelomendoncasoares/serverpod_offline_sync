@@ -51,7 +51,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -125,7 +125,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -196,7 +196,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -263,7 +263,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -341,7 +341,7 @@ void main() {
       setUp(() async {
         await session.db.mergeChanges(
           mergeSet,
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
       });
 
@@ -418,7 +418,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -484,7 +484,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -537,7 +537,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             mergeSet,
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
