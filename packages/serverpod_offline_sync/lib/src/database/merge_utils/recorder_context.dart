@@ -33,11 +33,14 @@ class _UserClock {
   Future<void>? nodeLocked;
   final spacesLocked = <int, Future<void>>{};
 
-  /// The clock value last stored on the node row by this transaction.
+  /// The clock value read from the node row when it was locked.
   Hlc? persisted;
 
-  /// The high-water mark last read or stored on each locked space row.
+  /// The high-water mark read from each locked space row.
   final spaceHighWater = <int, Hlc?>{};
+
+  /// Spaces whose timestamps this transaction allocated, merged, or observed.
+  final usedInSpaces = <int>{};
 }
 
 /// Shared state and database access for the CRDT recorder and its helpers.
@@ -98,6 +101,13 @@ class CrdtRecorderContext {
   }
 
   /// Shares the acting user's clock within an atomic scope without reading it yet.
+  ///
+  /// Writes inside the scope advance the clock in memory only. When the
+  /// outermost scope completes, still inside the transaction, the clock and the
+  /// high-water mark of every space it wrote to are stored once. Nothing else
+  /// can read those rows before the transaction commits, because they stay
+  /// locked, and a failed scope stores nothing because its transaction or
+  /// savepoint rolls back with the facts.
   Future<R> withUserClock<R>(
     Transaction transaction,
     TransactionFunction<R> action,
@@ -108,7 +118,9 @@ class CrdtRecorderContext {
 
     userClock.active = true;
     try {
-      return await action(transaction);
+      final result = await action(transaction);
+      await _persistUserClock(userClock, transaction);
+      return result;
     } finally {
       final clocks = _userClocks[transaction]!..remove(nodeId);
       if (clocks.isEmpty) _userClocks[transaction] = null;
@@ -168,15 +180,17 @@ class CrdtRecorderContext {
     }
   }
 
-  /// Stores the acting user's clock and the acting space's high-water mark.
+  /// Stores the clock and the high-water mark of each space it was used in.
   ///
-  /// Called after timestamps are allocated or observed, so both land atomically
-  /// with the facts that used them. Rows are only written when the clock moved
-  /// past what this transaction already stored.
-  Future<void> persistUserClock(Transaction transaction) async {
-    final userClock = _userClockFor(transaction);
+  /// A transaction that only reads stores nothing, even though locking may
+  /// have advanced its in-memory clock to a space's high-water mark. Rows are
+  /// only written when the clock moved past their stored value.
+  Future<void> _persistUserClock(
+    _UserClock userClock,
+    Transaction transaction,
+  ) async {
     final lastHlc = userClock.node.lastHlc;
-    if (lastHlc == null) return;
+    if (userClock.usedInSpaces.isEmpty || lastHlc == null) return;
 
     if (lastHlc != userClock.persisted) {
       await CrdtNode.db.updateWhere(
@@ -186,12 +200,11 @@ class CrdtRecorderContext {
         transaction: transaction,
         noReturn: true,
       );
-      userClock.persisted = lastHlc;
     }
 
-    final spaceId = spaceIdFor(transaction);
-    final highWater = userClock.spaceHighWater[spaceId];
-    if (highWater == null || lastHlc > highWater) {
+    for (final spaceId in userClock.usedInSpaces) {
+      final highWater = userClock.spaceHighWater[spaceId];
+      if (highWater != null && lastHlc <= highWater) continue;
       await OfflineSyncSpace.db.updateWhere(
         databaseSession,
         columnValues: (t) => [t.lastHlc(lastHlc)],
@@ -199,7 +212,6 @@ class CrdtRecorderContext {
         transaction: transaction,
         noReturn: true,
       );
-      userClock.spaceHighWater[spaceId] = lastHlc;
     }
   }
 
@@ -977,11 +989,15 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
   HlcManager hlcManagerFor(Transaction transaction) {
     final userClock = _userClockFor(transaction);
     assert(
-      userClock.nodeLocked != null,
-      'Lock the user clock before allocating timestamps.',
+      userClock.active && userClock.nodeLocked != null,
+      'Lock the user clock inside withUserClock before allocating timestamps.',
     );
     final spaceId = spaceIdFor(transaction);
-    return userClock.managers[spaceId] ??= HlcManager(spaceId, userClock.node);
+    return userClock.managers[spaceId] ??= HlcManager(
+      spaceId,
+      userClock.node,
+      onUse: () => userClock.usedInSpaces.add(spaceId),
+    );
   }
 
   /// The normalized id of the space [transaction] acts in.

@@ -179,8 +179,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       } else {
         hlcManager.merge(maxIncomingHlc);
       }
-
-      await _context.persistUserClock(transaction);
     }
 
     final maxIncomingHlcByNode = <UuidValue, Hlc>{};

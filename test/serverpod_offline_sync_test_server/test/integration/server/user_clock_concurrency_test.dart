@@ -556,54 +556,182 @@ void main() {
         );
       });
 
-      group('Given a wrapper counting the rows it locks,', () {
+      group('Given a wrapper counting clock locks and clock writes,', () {
+        late UuidValue user;
+        late _CountClockAccess counter;
+        late OfflineSyncDatabaseSession session;
+
+        setUpAll(() async {
+          user = const Uuid().v7obj();
+          counter = _CountClockAccess(sessionBuilder.build().db);
+          session = OfflineSyncDatabaseSession(counter, syncTables: server.syncTables);
+          await session.db.initialize();
+          await session.db.transactionForUser(
+            user,
+            (tx) => server.Unique.db.insertRow(
+              session,
+              server.Unique(name: 'prime'),
+              transaction: tx,
+            ),
+          );
+        });
+
+        Future<Hlc> rowClock(UuidValue rowId) async =>
+            (await CrdtDataRow.db.findFirstRow(
+              raw,
+              where: (t) => t.uuidRowId.equals(rowId),
+              include: CrdtDataRow.include(node: CrdtNode.include()),
+            ))!.hlc;
+
+        Future<Hlc?> spaceClock() async => (await OfflineSyncSpace.db.findFirstRow(
+          raw,
+          where: (t) => t.uuidSpaceId.equals(user),
+        ))!.lastHlc;
+
         group('when one callback writes three times,', () {
-          late UuidValue user;
           late int lockReads;
+          late int clockWrites;
           late List<Hlc> rowClocks;
           late Hlc persistedClock;
+          late Hlc? persistedSpaceClock;
 
           setUpAll(() async {
-            user = const Uuid().v7obj();
-            final locks = _CountLockReads(sessionBuilder.build().db);
-            final session = OfflineSyncDatabaseSession(
-              locks,
-              syncTables: server.syncTables,
-            );
-            await session.db.initialize();
-            await session.db.transactionForUser(user, (_) async {});
-
             final rows = [
               for (var i = 0; i < 3; i++)
                 server.Unique(id: const Uuid().v7obj(), name: 'write $i'),
             ];
-            final before = locks.lockReads;
+            final locksBefore = counter.lockReads;
+            final writesBefore = counter.clockWrites;
             await session.db.transactionForUser(user, (tx) async {
               for (final row in rows) {
                 await server.Unique.db.insertRow(session, row, transaction: tx);
               }
             });
-            lockReads = locks.lockReads - before;
+            lockReads = counter.lockReads - locksBefore;
+            clockWrites = counter.clockWrites - writesBefore;
 
-            rowClocks = [
-              for (final row in rows)
-                (await CrdtDataRow.db.findFirstRow(
-                  raw,
-                  where: (t) => t.uuidRowId.equals(row.id),
-                  include: CrdtDataRow.include(node: CrdtNode.include()),
-                ))!.hlc,
-            ];
+            rowClocks = [for (final row in rows) await rowClock(row.id!)];
             persistedClock = await persistedUserClock(raw, user);
+            persistedSpaceClock = await spaceClock();
           });
 
           test('then it locks the clock and the space only once.', () {
             expect(lockReads, 2);
           });
 
+          test('then it stores the clock and the space high-water mark once.', () {
+            expect(clockWrites, 2);
+          });
+
           test('then the writes advance one clock monotonically.', () {
             expect(rowClocks[1].compareTo(rowClocks[0]), greaterThan(0));
             expect(rowClocks[2].compareTo(rowClocks[1]), greaterThan(0));
+          });
+
+          test('then the stored clocks cover the last write.', () {
             expect(persistedClock, rowClocks[2]);
+            expect(persistedSpaceClock, rowClocks[2]);
+          });
+        });
+
+        group('when a callback only reads,', () {
+          late int clockWrites;
+          late Hlc clockBefore;
+          late Hlc clockAfter;
+
+          setUpAll(() async {
+            clockBefore = await persistedUserClock(raw, user);
+            final writesBefore = counter.clockWrites;
+            await session.db.transactionForUser(
+              user,
+              (tx) => server.Unique.db.find(session, transaction: tx),
+            );
+            clockWrites = counter.clockWrites - writesBefore;
+            clockAfter = await persistedUserClock(raw, user);
+          });
+
+          test('then it stores no clock.', () {
+            expect(clockWrites, 0);
+            expect(clockAfter, clockBefore);
+          });
+        });
+
+        group('when a callback catches a failed write and then writes again,', () {
+          late Object? caught;
+          late server.Unique kept;
+          late Hlc keptClock;
+          late Hlc persistedClock;
+          late Hlc? persistedSpaceClock;
+
+          setUpAll(() async {
+            final taken = server.Unique(id: const Uuid().v7obj(), name: 'taken');
+            kept = server.Unique(id: const Uuid().v7obj(), name: 'kept');
+            await session.db.transactionForUser(user, (tx) async {
+              await server.Unique.db.insertRow(session, taken, transaction: tx);
+              try {
+                await server.Unique.db.insertRow(
+                  session,
+                  server.Unique(name: 'taken'),
+                  transaction: tx,
+                );
+                caught = null;
+              } on Object catch (error) {
+                caught = error;
+              }
+              await server.Unique.db.insertRow(session, kept, transaction: tx);
+            });
+
+            keptClock = await rowClock(kept.id!);
+            persistedClock = await persistedUserClock(raw, user);
+            persistedSpaceClock = await spaceClock();
+          });
+
+          test('then the failed write is rejected.', () {
+            expect(caught, isA<DatabaseQueryException>());
+          });
+
+          test('then the stored clocks cover the write that followed it.', () {
+            expect(persistedClock.compareTo(keptClock), greaterThanOrEqualTo(0));
+            expect(persistedSpaceClock!.compareTo(keptClock), greaterThanOrEqualTo(0));
+          });
+        });
+
+        group('when a callback writes and then fails,', () {
+          late Object? failure;
+          late int clockWrites;
+          late Hlc clockBefore;
+          late Hlc clockAfter;
+          late server.Unique rolledBack;
+
+          setUpAll(() async {
+            clockBefore = await persistedUserClock(raw, user);
+            rolledBack = server.Unique(id: const Uuid().v7obj(), name: 'rolled back');
+            final writesBefore = counter.clockWrites;
+            failure = await session.db
+                .transactionForUser(user, (tx) async {
+                  await server.Unique.db.insertRow(
+                    session,
+                    rolledBack,
+                    transaction: tx,
+                  );
+                  throw StateError('fail after writing');
+                })
+                .then<Object?>((_) => null, onError: (Object error) => error);
+            clockWrites = counter.clockWrites - writesBefore;
+            clockAfter = await persistedUserClock(raw, user);
+          });
+
+          test('then neither the write nor any clock is stored.', () async {
+            expect(failure, isA<StateError>());
+            expect(clockWrites, 0);
+            expect(clockAfter, clockBefore);
+            expect(
+              await CrdtDataRow.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidRowId.equals(rolledBack.id),
+              ),
+              isNull,
+            );
           });
         });
       });
@@ -1340,13 +1468,42 @@ class _PauseInMergeTransaction extends QueryCountingDatabase {
   }
 }
 
-/// Counts row-locking reads, which only clock and space locks perform here.
-class _CountLockReads extends QueryCountingDatabase {
+/// Counts row-locking reads, which only clock and space locks perform here,
+/// and writes to the clock and space rows.
+class _CountClockAccess extends QueryCountingDatabase {
   // The proxy's own parameter is private to its library.
   // ignore: matching_super_parameters
-  _CountLockReads(super.database);
+  _CountClockAccess(super.database);
 
   int lockReads = 0;
+
+  int clockWrites = 0;
+
+  @override
+  Future<List<T>> updateWhere<T extends TableRow>({
+    required List<ColumnValue> columnValues,
+    required Expression where,
+    int? limit,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+    bool orderDescending = false,
+    Transaction? transaction,
+    bool noReturn = false,
+  }) {
+    if (T == CrdtNode || T == OfflineSyncSpace) clockWrites++;
+    return super.updateWhere<T>(
+      columnValues: columnValues,
+      where: where,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      orderDescending: orderDescending,
+      transaction: transaction,
+      noReturn: noReturn,
+    );
+  }
 
   @override
   Future<T?> findById<T extends TableRow>(

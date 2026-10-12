@@ -60,6 +60,28 @@ void main() {
     );
 
     test(
+      'when the clock is used, '
+      'then every increment, merge, and observation reports the use.',
+      () {
+        var uses = 0;
+        final hlcManager = HlcManager(
+          42,
+          CrdtNode(id: 9, uuidNodeId: nodeId, lastHlc: lastHlc),
+          onUse: () => uses++,
+        );
+
+        expect(hlcManager.peekNext(), isNotNull);
+        expect(uses, 0);
+
+        hlcManager
+          ..increment()
+          ..merge(Hlc(DateTime.utc(2026, 5, 10, 12), 1, const Uuid().v7obj()))
+          ..observe(Hlc(DateTime.utc(2026, 5, 10, 11), 1, const Uuid().v7obj()));
+        expect(uses, 3);
+      },
+    );
+
+    test(
       'when two managers share a clock, '
       'then a timestamp from one advances the other.',
       () {

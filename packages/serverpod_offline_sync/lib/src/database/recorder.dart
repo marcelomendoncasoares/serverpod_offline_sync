@@ -1161,7 +1161,6 @@ class CrdtMutationRecorder {
       rows.uuidRowIds,
       hlcManager,
     );
-    await _context.persistUserClock(transaction);
   }
 
   CrdtDataRow _newCrdtDataRow(
@@ -1256,7 +1255,6 @@ class CrdtMutationRecorder {
       null,
       transaction,
     );
-    await _context.persistUserClock(transaction);
   }
 
   Future<void> _softDeleteRowsByTable(
