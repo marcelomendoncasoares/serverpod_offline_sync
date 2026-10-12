@@ -1065,6 +1065,101 @@ void main() {
         );
       });
 
+      group("Given a user whose clock runs ahead of a shared space's facts,", () {
+        group(
+          'when the user merges an older remote fact into the space and another '
+          'user edits it,',
+          () {
+            late Hlc mergedFact;
+            late Hlc clockBeforeMerge;
+            late Hlc clockAfterMerge;
+            late Hlc? spaceClock;
+            late Hlc edit;
+
+            setUpAll(() async {
+              final ahead = const Uuid().v7obj();
+              final editor = const Uuid().v7obj();
+              final shared = await OfflineSyncSpaces(raw).create(
+                grants: {
+                  ahead: OfflineSyncSpaceRole.readWrite,
+                  editor: OfflineSyncSpaceRole.readWrite,
+                },
+              );
+              final aheadWrapper = await wrapper();
+              final editorWrapper = await wrapper();
+              final row = server.Unique(id: const Uuid().v7obj(), name: 'merged');
+
+              CrdtMergeInsert remoteInsert(
+                UuidValue spaceId,
+                server.Unique data,
+                Duration offset,
+              ) => CrdtMergeInsert(
+                uuidSpaceId: spaceId,
+                tableName: server.Unique.t.tableName,
+                uuidRowId: data.id!,
+                uuidNodeId: const Uuid().v7obj(),
+                hlcDatetime: start.add(offset),
+                hlcCounter: 0,
+                data: data,
+              );
+
+              await withClock(Clock.fixed(start), () async {
+                // A fact 30 seconds ahead in another space advances the clock.
+                await aheadWrapper.db.mergeChanges([
+                  remoteInsert(
+                    ahead,
+                    server.Unique(id: const Uuid().v7obj(), name: 'elsewhere'),
+                    const Duration(seconds: 30),
+                  ),
+                ], userId: ahead);
+                clockBeforeMerge = await persistedUserClock(raw, ahead);
+
+                await aheadWrapper.db.mergeChanges(
+                  [remoteInsert(shared, row, const Duration(seconds: 10))],
+                  userId: ahead,
+                  spaceId: shared,
+                );
+                clockAfterMerge = await persistedUserClock(raw, ahead);
+
+                await editorWrapper.db.transactionForUser(
+                  editor,
+                  spaceId: shared,
+                  (tx) => server.Unique.db.updateRow(
+                    editorWrapper,
+                    row.copyWith(name: 'edited'),
+                    columns: (t) => [t.name],
+                    transaction: tx,
+                  ),
+                );
+              });
+
+              mergedFact = (await CrdtDataRow.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidRowId.equals(row.id),
+                include: CrdtDataRow.include(node: CrdtNode.include()),
+              ))!.hlc;
+              spaceClock = (await OfflineSyncSpace.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidSpaceId.equals(shared),
+              ))!.lastHlc;
+              edit = await fieldHlc(row.id!, 'name');
+            });
+
+            test('then the merge does not advance the clock.', () {
+              expect(clockAfterMerge, clockBeforeMerge);
+            });
+
+            test('then the space high-water mark still covers the merged fact.', () {
+              expect(spaceClock!.compareTo(mergedFact), greaterThan(0));
+            });
+
+            test('then the edit is timestamped after the merged fact.', () {
+              expect(edit.compareTo(mergedFact), greaterThan(0));
+            });
+          },
+        );
+      });
+
       group('Given a user with read access to a shared space,', () {
         late UuidValue user;
         late UuidValue shared;
