@@ -230,8 +230,12 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       );
     }
 
+    // `OfflineSyncDatabase.mergeChanges` committed these nodes already. A
+    // node is still created here if it went missing, in UUID order so that
+    // concurrent merges never wait on each other's new nodes in a cycle.
     final nodesByUuid = {
-      for (final uuidNodeId in nodeIds)
+      for (final uuidNodeId
+          in nodeIds.toList()..sort((a, b) => a.uuid.compareTo(b.uuid)))
         uuidNodeId: await _context.findOrCreateNode(uuidNodeId, transaction),
     };
 

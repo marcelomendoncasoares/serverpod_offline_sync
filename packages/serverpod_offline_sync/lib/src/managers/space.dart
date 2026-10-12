@@ -22,6 +22,8 @@ class OfflineSyncSpaceManager {
 
   final Set<(int, int)> _participations = {};
 
+  final Set<UuidValue> _knownNodes = {};
+
   /// Returns the cached [OfflineSyncSpace] for the given space ID.
   OfflineSyncSpace getCached(UuidValue uuidSpaceId) =>
       _instances[uuidSpaceId] ??
@@ -44,6 +46,7 @@ class OfflineSyncSpaceManager {
     _instances.clear();
     _userNodes.clear();
     _participations.clear();
+    _knownNodes.clear();
   }
 
   /// Returns the [OfflineSyncSpace] for the given space ID.
@@ -109,6 +112,41 @@ class OfflineSyncSpaceManager {
     );
     _participations.add(key);
   }
+
+  /// Makes sure a node row exists for each source in [uuidNodeIds].
+  ///
+  /// Nodes are shared by every space, so creating them inside a merge would
+  /// make merges into unrelated spaces wait on each other's uncommitted node
+  /// rows, and deadlock when they discover the same new sources in opposite
+  /// orders. This commits them before the merge transaction instead, in one
+  /// statement ordered by UUID, so concurrent preparations also never wait on
+  /// each other in a cycle. A node created for a merge that later fails is
+  /// only an identity, so keeping it is harmless.
+  Future<void> ensureNodes(Set<UuidValue> uuidNodeIds) async {
+    final unknown = uuidNodeIds.difference(_knownNodes);
+    if (unknown.isEmpty) return;
+
+    final existing = await CrdtNode.db.find(
+      _session,
+      where: (t) => t.uuidNodeId.inSet(unknown),
+    );
+    final missing = unknown.difference({
+      for (final node in existing) node.uuidNodeId,
+    });
+    if (missing.isNotEmpty) {
+      await CrdtNode.db.insert(
+        _session,
+        [
+          for (final uuidNodeId in missing.toList()..sort(_byUuid))
+            CrdtNode(uuidNodeId: uuidNodeId),
+        ],
+        ignoreConflicts: true,
+      );
+    }
+    _knownNodes.addAll(unknown);
+  }
+
+  static int _byUuid(UuidValue a, UuidValue b) => a.uuid.compareTo(b.uuid);
 
   /// The greatest clock of local nodes no user owns.
   ///

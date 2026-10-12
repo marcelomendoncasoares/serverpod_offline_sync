@@ -206,6 +206,10 @@ class OfflineSyncDatabase implements Database {
         (throw StateError(
           'A user ID is required when merging changes without a persistent user.',
         ));
+    // Source nodes are shared by every space; commit them before locking.
+    await _recorder.ensureSourceNodes({
+      for (final change in mergeSet) change.uuidNodeId,
+    });
     try {
       await _transactionAs<void>(
         effectiveUserId,

@@ -332,6 +332,11 @@ class CrdtMutationRecorder {
     return _context.spaceManager.getOrCreateUserNode(userId);
   }
 
+  /// Commits a node row for each source in [uuidNodeIds] before a merge.
+  Future<void> ensureSourceNodes(Set<UuidValue> uuidNodeIds) {
+    return _context.spaceManager.ensureNodes(uuidNodeIds);
+  }
+
   /// Records that [node] may author facts in [space], so sync handshakes
   /// report it as a local node of the space.
   Future<void> ensureParticipation(OfflineSyncSpace space, CrdtNode node) {

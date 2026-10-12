@@ -8,6 +8,7 @@ import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as server;
 import 'package:test/test.dart';
 
+import '../../../../../benchmark/utils/query_counter.dart';
 import '../test_tools/crdt_probes.dart';
 import '../test_tools/postgres_migrations.dart';
 import '../test_tools/serverpod_test_tools.dart';
@@ -933,6 +934,109 @@ void main() {
         });
       });
 
+      group(
+        'Given two users receiving the same new source nodes in disjoint spaces,',
+        () {
+          group(
+            'when their merges discover the sources in opposite orders and overlap,',
+            () {
+              late List<UuidValue> sources;
+              late List<Object?> outcomes;
+              late List<CrdtNode> sourceNodes;
+
+              setUpAll(() async {
+                final users = [const Uuid().v7obj(), const Uuid().v7obj()];
+                sources = [const Uuid().v7obj(), const Uuid().v7obj()];
+                final paused = [Completer<void>(), Completer<void>()];
+                final release = _releasedOnTearDown();
+                final sessions = <OfflineSyncDatabaseSession>[];
+                for (final (index, user) in users.indexed) {
+                  final session = OfflineSyncDatabaseSession(
+                    _PauseInMergeTransaction(
+                      sessionBuilder.build().db,
+                      paused[index],
+                      release,
+                    ),
+                    syncTables: server.syncTables,
+                  );
+                  await session.db.initialize();
+                  // Prepare the space and clock, so the merges only discover sources.
+                  await session.db.transactionForUser(user, (_) async {});
+                  sessions.add(session);
+                }
+
+                final time = DateTime.now().toUtc().subtract(
+                  const Duration(seconds: 5),
+                );
+                CrdtMergeInsert insert(UuidValue space, UuidValue source, int second) {
+                  final row = server.Person(
+                    id: const Uuid().v7obj(),
+                    name: 'from $source',
+                  );
+                  return CrdtMergeInsert(
+                    uuidSpaceId: space,
+                    tableName: server.Person.t.tableName,
+                    uuidRowId: row.id!,
+                    uuidNodeId: source,
+                    hlcDatetime: time.add(Duration(seconds: second)),
+                    hlcCounter: 0,
+                    data: row,
+                  );
+                }
+
+                // Causal order applies the first batch's sources as 0, 1 and the
+                // second batch's as 1, 0.
+                final merges = [
+                  sessions[0].db.mergeChanges([
+                    insert(users[0], sources[0], 0),
+                    insert(users[0], sources[1], 3),
+                  ], userId: users[0]),
+                  sessions[1].db.mergeChanges([
+                    insert(users[1], sources[1], 1),
+                    insert(users[1], sources[0], 2),
+                  ], userId: users[1]),
+                ];
+                final settled = [
+                  for (final merge in merges)
+                    merge.then<Object?>((_) => null, onError: (Object error) => error),
+                ];
+
+                // Both merges hold their transactions open at the first metadata
+                // they write there before either continues.
+                await Future.wait([
+                  for (final barrier in paused) barrier.future,
+                ]).timeout(const Duration(seconds: 15));
+                release.complete();
+                outcomes = await Future.wait(
+                  settled,
+                ).timeout(const Duration(seconds: 20));
+
+                sourceNodes = await CrdtNode.db.find(
+                  raw,
+                  where: (t) => t.uuidNodeId.inSet(sources.toSet()),
+                );
+              });
+
+              test('then both merges commit without a deadlock.', () {
+                expect(outcomes, [null, null]);
+              });
+
+              test('then each source is recorded once as a remote node.', () {
+                expect(
+                  sourceNodes.map((node) => node.uuidNodeId),
+                  unorderedEquals(sources),
+                );
+                expect(
+                  sourceNodes.map((node) => node.localUserUuid),
+                  everyElement(isNull),
+                );
+                expect(sourceNodes.map((node) => node.lastHlc), everyElement(isNull));
+              });
+            },
+          );
+        },
+      );
+
       group('Given users acting across two shared spaces,', () {
         group(
           'when every user and space pair writes and merges concurrently while '
@@ -1078,6 +1182,51 @@ Future<void> _untilLockWait(Session observer) async {
       throw TimeoutException('No transaction waited for a lock.');
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+}
+
+/// Pauses the first node or row metadata insert inside a merge transaction.
+///
+/// A merge that discovered new source nodes in its own transaction would hold
+/// their uncommitted rows at that point, so two overlapping merges expose any
+/// wait between them.
+class _PauseInMergeTransaction extends QueryCountingDatabase {
+  // The proxy's own parameter is private to its library.
+  // ignore: matching_super_parameters
+  _PauseInMergeTransaction(super.database, this._paused, this._release);
+
+  final Completer<void> _paused;
+  final Completer<void> _release;
+
+  Future<void> _pauseOnce(Iterable<TableRow> rows, Transaction? transaction) async {
+    if (transaction == null || _paused.isCompleted) return;
+    if (!rows.any((row) => row is CrdtNode || row is CrdtDataRow)) return;
+    _paused.complete();
+    await _release.future;
+  }
+
+  @override
+  Future<List<T>> insert<T extends TableRow>(
+    List<T> rows, {
+    Transaction? transaction,
+    bool ignoreConflicts = false,
+    bool noReturn = false,
+  }) async {
+    final result = await super.insert<T>(
+      rows,
+      transaction: transaction,
+      ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
+    );
+    await _pauseOnce(rows, transaction);
+    return result;
+  }
+
+  @override
+  Future<T> insertRow<T extends TableRow>(T row, {Transaction? transaction}) async {
+    final result = await super.insertRow<T>(row, transaction: transaction);
+    await _pauseOnce([row], transaction);
+    return result;
   }
 }
 
