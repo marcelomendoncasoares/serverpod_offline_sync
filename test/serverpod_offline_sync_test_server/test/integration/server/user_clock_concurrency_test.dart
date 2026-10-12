@@ -112,7 +112,7 @@ void main() {
               final resolvers = [for (var i = 0; i < 4; i++) await wrapper()];
 
               final claimed = Completer<void>();
-              final release = Completer<void>();
+              final release = _releasedOnTearDown();
               final claimant = raw.db.transaction((tx) async {
                 await CrdtNode.db.insertRow(
                   raw,
@@ -214,7 +214,7 @@ void main() {
                   mergedRow = server.Unique(id: const Uuid().v7obj(), name: 'merged');
 
                   final entered = Completer<void>();
-                  final release = Completer<void>();
+                  final release = _releasedOnTearDown();
                   var holdingCompleted = false;
                   final holding = firstWrapper.db
                       .transactionForUser(first, (tx) async {
@@ -339,7 +339,7 @@ void main() {
 
             setUpAll(() async {
               final entered = Completer<void>();
-              final release = Completer<void>();
+              final release = _releasedOnTearDown();
               final firstTransaction = withClock(
                 Clock.fixed(start.add(const Duration(seconds: 10))),
                 () => firstWrapper.db.transactionForUser(user, (tx) async {
@@ -404,7 +404,7 @@ void main() {
           setUpAll(() async {
             clockBefore = await persistedUserClock(raw, user);
             final written = Completer<void>();
-            final release = Completer<void>();
+            final release = _releasedOnTearDown();
             final firstTransaction = withClock(
               Clock.fixed(start.add(const Duration(seconds: 30))),
               () => firstWrapper.db.transactionForUser(user, (tx) async {
@@ -458,7 +458,7 @@ void main() {
 
             setUpAll(() async {
               final entered = Completer<void>();
-              final release = Completer<void>();
+              final release = _releasedOnTearDown();
               final holding = firstWrapper.db.transactionForUser(user, (tx) async {
                 await readCounter(firstWrapper, tx);
                 entered.complete();
@@ -525,6 +525,7 @@ void main() {
             late server.Unique secondRow;
             late bool secondEnteredWhileHeld;
             late bool thirdFinishedWhileHeld;
+            late bool grantFinishedWhileHeld;
             late bool sharedStillHeld;
 
             setUpAll(() async {
@@ -535,7 +536,7 @@ void main() {
               );
 
               final entered = Completer<void>();
-              final release = Completer<void>();
+              final release = _releasedOnTearDown();
               var holdingCompleted = false;
               final holding = firstWrapper.db
                   .transactionForUser(
@@ -583,6 +584,17 @@ void main() {
                   )
                   .timeout(const Duration(seconds: 10));
               thirdFinishedWhileHeld = true;
+
+              // Space and clock locks do not block rows that only reference
+              // them, such as a new membership in the held space.
+              await OfflineSyncSpaces(raw)
+                  .grant(
+                    space: shared,
+                    user: const Uuid().v7obj(),
+                    role: OfflineSyncSpaceRole.readOnly,
+                  )
+                  .timeout(const Duration(seconds: 10));
+              grantFinishedWhileHeld = true;
               sharedStillHeld = !holdingCompleted;
 
               release.complete();
@@ -595,6 +607,11 @@ void main() {
 
             test('then a user in another space does not wait for them.', () {
               expect(thirdFinishedWhileHeld, isTrue);
+              expect(sharedStillHeld, isTrue);
+            });
+
+            test('then granting membership in the space does not wait for them.', () {
+              expect(grantFinishedWhileHeld, isTrue);
               expect(sharedStillHeld, isTrue);
             });
 
@@ -701,7 +718,7 @@ void main() {
               );
 
               final entered = Completer<void>();
-              final release = Completer<void>();
+              final release = _releasedOnTearDown();
               final holding = firstWrapper.db.transactionForUser(
                 first,
                 spaceId: shared,
@@ -939,7 +956,7 @@ void main() {
               // share neither a clock nor a space, so both must be inside their
               // callbacks at the same time.
               final entered = [Completer<void>(), Completer<void>()];
-              final release = Completer<void>();
+              final release = _releasedOnTearDown();
               final holders = [
                 for (var i = 0; i < 2; i++)
                   (await wrapper()).let(
@@ -1027,6 +1044,19 @@ void main() {
       });
     },
   );
+}
+
+/// A barrier that the enclosing group releases when it ends.
+///
+/// A held transaction waits on it. If the arrangement fails before releasing
+/// it, the group teardown still does, so the transaction cannot stay open and
+/// block the server from stopping.
+Completer<void> _releasedOnTearDown() {
+  final release = Completer<void>();
+  addTearDown(() {
+    if (!release.isCompleted) release.complete();
+  });
+  return release;
 }
 
 /// Backends of this database other than [observer] waiting for a lock.
