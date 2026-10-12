@@ -275,8 +275,7 @@ class CrdtMutationRecorder {
     _isInitialized = true;
   }
 
-  /// Projection is derived state: it reads authored facts and allocates no
-  /// timestamps, so it binds a space without any user clock.
+  /// Projection allocates no timestamps, so it binds a space without a clock.
   Future<void> _rebuildProjectionsForAllSpaces() async {
     final spaces = await OfflineSyncSpace.db.find(_session);
     for (final space in spaces) {
@@ -337,8 +336,7 @@ class CrdtMutationRecorder {
     return _context.spaceManager.ensureNodes(uuidNodeIds);
   }
 
-  /// Records that [node] may author facts in [space], so sync handshakes
-  /// report it as a local node of the space.
+  /// Records that [node] authors in [space], so handshakes report it as local.
   Future<void> ensureParticipation(OfflineSyncSpace space, CrdtNode node) {
     return _context.spaceManager.ensureParticipation(space, node);
   }
@@ -364,11 +362,10 @@ class CrdtMutationRecorder {
   Future<void> lockUserClock(Transaction transaction) =>
       _context.lockUserClock(transaction);
 
-  /// Records per-author progress, rejecting an HLC not tagged with [otherNodeId].
+  /// Records per-author progress in [spaceId], rejecting an HLC not tagged with
+  /// [otherNodeId].
   ///
-  /// Progress is stored per space and source node, so [spaceId] selects the
-  /// space whose checkpoint advances. Replaces mis-tagged stored progress;
-  /// correctly tagged progress only advances.
+  /// Replaces mis-tagged stored progress; correctly tagged progress only advances.
   Future<void> recordSyncCheckpoint(
     UuidValue spaceId,
     UuidValue otherNodeId,

@@ -26,20 +26,20 @@ enum ForeignKeyTargetPresence {
 class _UserClock {
   _UserClock(this.node);
 
-  /// The user's local node, advanced in memory as timestamps are allocated.
+  /// Advanced in memory as timestamps are allocated.
   final CrdtNode node;
   final managers = <int, HlcManager>{};
   bool active = false;
   Future<void>? nodeLocked;
   final spacesLocked = <int, Future<void>>{};
 
-  /// The clock value read from the node row when it was locked.
+  /// The stored clock, as read when locked.
   Hlc? persisted;
 
-  /// The high-water mark read from each locked space row.
+  /// The stored high-water mark of each locked space.
   final spaceHighWater = <int, Hlc?>{};
 
-  /// Spaces whose timestamps this transaction allocated, merged, or observed.
+  /// Spaces whose clock must be stored.
   final usedInSpaces = <int>{};
 }
 
@@ -85,11 +85,7 @@ class CrdtRecorderContext {
     return (_userClocks[transaction] ??= {})[node.id!] ??= _UserClock(node.copyWith());
   }
 
-  /// The local node whose clock timestamps writes in [transaction].
-  ///
-  /// This is the clock of the transaction's acting user, or of the persistent
-  /// user. The space being written is resolved separately by
-  /// [effectiveSpaceFor].
+  /// The acting or persistent user's local clock node in [transaction].
   CrdtNode clockNodeFor(Transaction transaction) {
     final node = clockNodeForTransaction[transaction];
     if (node != null) return node;
@@ -100,8 +96,7 @@ class CrdtRecorderContext {
     return spaceManager.getCachedUserNode(userId);
   }
 
-  /// Whether an enclosing [withUserClock] scope already shares the acting
-  /// user's clock in [transaction], and will store it when it completes.
+  /// Whether an enclosing [withUserClock] scope will store the clock.
   bool hasActiveUserClock(Transaction transaction) {
     final nodeId = clockNodeFor(transaction).id!;
     return _userClocks[transaction]?[nodeId]?.active ?? false;
@@ -109,17 +104,9 @@ class CrdtRecorderContext {
 
   /// Shares the acting user's clock within an atomic scope without reading it yet.
   ///
-  /// Writes inside the scope advance the clock in memory only. When the
-  /// outermost scope completes, still inside the transaction, the clock and the
-  /// high-water mark of every space it wrote to are stored once, unless
-  /// [persistUserClock] already stored them. Other writers lock both rows
-  /// before reading them, so they wait for the commit, while plain reads see
-  /// the previously committed values. A failed scope stores nothing.
-  ///
-  /// The scope must be undone together with its writes. That holds when its
-  /// transaction rolls back on failure. A scope opened inside a transaction
-  /// its caller owns, which may catch a failure and still commit, must call
-  /// [persistUserClock] within the same savepoint as its writes instead.
+  /// The outermost scope stores the clock and its spaces' high-water marks once
+  /// on success. In a transaction the caller owns, which may commit after a
+  /// failure, call [persistUserClock] in the writes' savepoint instead.
   Future<R> withUserClock<R>(
     Transaction transaction,
     TransactionFunction<R> action,
@@ -139,19 +126,10 @@ class CrdtRecorderContext {
     }
   }
 
-  /// Locks the acting user's clock and the acting space, then refreshes the
-  /// clock from both.
+  /// Locks the acting user's clock, then the acting space, once per transaction
+  /// and space, and observes the space's high-water mark.
   ///
-  /// Runs once per transaction and space. The clock row is locked first and
-  /// space rows after it, so every entry point takes locks in the same order.
-  /// Users acting in disjoint spaces never wait for each other, while writes
-  /// and merges in one shared space serialize on its row. Both are `FOR NO KEY
-  /// UPDATE` locks, so they do not block foreign keys that only reference the
-  /// rows.
-  ///
-  /// The clock then observes the space's high-water mark, so a timestamp
-  /// allocated in this transaction follows every fact any user committed to
-  /// the space before it.
+  /// Both are `FOR NO KEY UPDATE`, so rows referencing them are not blocked.
   Future<void> lockUserClock(Transaction transaction) {
     final userClock = _userClockFor(transaction);
     final spaceId = spaceIdFor(transaction);
@@ -192,16 +170,12 @@ class CrdtRecorderContext {
     }
   }
 
-  /// Stores the acting user's clock now, inside the caller's rollback boundary,
-  /// so the enclosing scope has nothing left to store when it completes.
+  /// Stores the acting user's clock now, inside the caller's savepoint.
   Future<void> persistUserClock(Transaction transaction) =>
       _persistUserClock(_userClockFor(transaction), transaction);
 
-  /// Stores the clock and the high-water mark of each space it was used in.
-  ///
-  /// A transaction that only reads stores nothing, even though locking may
-  /// have advanced its in-memory clock to a space's high-water mark. Rows are
-  /// only written when the clock moved past their stored value.
+  /// Stores the clock and the high-water mark of each space it was used in,
+  /// when they moved. A transaction that only read stores nothing.
   Future<void> _persistUserClock(
     _UserClock userClock,
     Transaction transaction,
@@ -1003,10 +977,7 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     );
   }
 
-  /// The acting user's clock writing to the acting space of [transaction].
-  ///
-  /// Allocate timestamps only after [lockUserClock], which refreshes the clock
-  /// from its row and the space it writes to.
+  /// The acting user's clock for the acting space. Call [lockUserClock] first.
   HlcManager hlcManagerFor(Transaction transaction) {
     final userClock = _userClockFor(transaction);
     assert(

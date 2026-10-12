@@ -1,8 +1,7 @@
 ### Session handshake sent once by each peer before any space work.
 ###
-### [localNodeId] is the local clock node of the user this session syncs, in
-### this peer's database. It is announced once on connect rather than per space
-### and is informational: each space's checkpoints carry every node's progress.
+### [localNodeId] is the syncing user's local clock node on this peer. It is
+### announced once on connect and is informational.
 ### [syncTablesHash] is the deterministic schema hash both sides must agree on
 ### before merging data.
 class: OfflineSyncConnect

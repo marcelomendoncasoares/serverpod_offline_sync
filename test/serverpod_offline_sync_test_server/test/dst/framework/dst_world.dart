@@ -52,12 +52,10 @@ class DstReplica {
   /// adversary collects from and delivers to - which is exactly the subscription
   /// set the observer-independence property varies.
   ///
-  /// The replica acts in each space as the user whose personal space it is, so
-  /// every space is clocked by its own local node. [nodeUuid] seeds those nodes
-  /// rather than leaving them to the engine. `OfflineSyncSpaceManager` mints
-  /// a wall-clock v7 UUID for a new user clock, and `Hlc.compareTo` breaks ties
-  /// on the node UUID - so leaving it to the engine would make concurrent
-  /// merge winners nondeterministic and seeds would not replay.
+  /// [nodeUuid] seeds the replica's user clock nodes rather than leaving them to
+  /// the engine, which mints wall-clock v7 UUIDs. `Hlc.compareTo` breaks ties on
+  /// the node UUID, so unseeded nodes would make merge winners nondeterministic
+  /// and seeds would not replay.
   static Future<DstReplica> create({
     required String name,
     required List<UuidValue> spaceUuids,
@@ -71,10 +69,7 @@ class DstReplica {
     );
     await session.db.initialize();
 
-    // Seed each acting user's clock before the engine can mint one. The
-    // manager adopts the node a user already owns
-    // (`OfflineSyncSpaceManager.getOrCreateUserNode`), so pre-creating them
-    // keeps one stable identity per replica and user.
+    // The engine adopts the node a user already owns, so seed one per space user.
     for (final spaceUuid in spaceUuids) {
       final userNodeUuid = _userNodeUuid(nodeUuid, spaceUuid);
       await CrdtNode.db.insertRow(
@@ -155,9 +150,7 @@ class DstReplica {
   /// The spaces the adversary exchanges for this replica.
   final List<UuidValue> spaceUuids;
 
-  /// The seed of this replica's node identities.
-  ///
-  /// Node identities break HLC ties, so they are pinned: see [nodeUuidFor].
+  /// Seeds this replica's node identities, which break HLC ties.
   final UuidValue nodeUuid;
 
   /// The node that clocks this replica's writes in [spaceUuid].

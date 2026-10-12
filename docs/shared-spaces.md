@@ -127,54 +127,32 @@ both stay:
 
 They do not map one-to-one and neither replaces the other. Each database owns
 **one local node per user** (`crdt_nodes.localUserUuid`), shared by every space
-that user acts in, so one member has a node in every database where they write:
-one per device, plus one on the server when server code writes on their behalf.
-Nodes received through sync are remote and have no owner. A freshly invited
-member has **zero space-node rows** until they write. Local space-node rows are
-created when a user first opens a write transaction in a space; remote ones by
-inbound merge. Membership rows are managed through `session.offlineSync.spaces`
-from application endpoints. Removing the `nodes` list would break checkpointing
-and causal filtering — it is the chain topology, not the access list.
+that user acts in. Nodes received through sync are remote. A freshly invited
+member has **zero space-node rows** until they write. Membership rows are
+managed through `session.offlineSync.spaces` from application endpoints.
+Removing the `nodes` list would break checkpointing and causal filtering — it is
+the chain topology, not the access list.
 
 ### Clocks and locking
 
-A write has two identities: the **space** it changes and the **user** whose
-clock timestamps it. They differ whenever a user acts in a shared space, so a
-transaction binds both:
+A transaction binds the **space** it changes and the **user** whose clock
+timestamps it:
 
-- The clock is the acting user's local node. Its `lastHlc` is refreshed under a
-  `FOR NO KEY UPDATE` row lock and advanced in memory by each write. It is
-  stored once, together with the high-water mark of each space it wrote to,
-  when the transaction's clock scope completes, so it commits atomically with
-  the facts that used it. Other writers lock both rows before reading them, so
-  they wait for that commit; plain reads see the previously committed values.
-  A write in a transaction its caller owns stores the clock inside its own
-  savepoint instead, because the caller may catch its failure and still
-  commit. A transaction that only reads stores neither. Users acting in
-  different spaces never wait for each other.
-- The space row is locked after the clock, with the same lock mode, so every
-  write and merge in one shared space serializes on it. Its `lastHlc` is the
-  greatest HLC any local clock wrote or merged there. A clock observes it under
-  the lock, so a dependent write follows every fact already committed to the
-  space even when another user's clock ran ahead.
-- `transactionForUser` takes both locks before running its callback, including
-  for reads. Inbound merges take the same locks, so a callback never computes a
-  write from data a concurrent merge is about to replace. Plain transactions on a
-  persistent client still lock at their first tracked write.
-- Locks are always taken clock first, then spaces in ascending id order, and
-  `FOR NO KEY UPDATE` never blocks rows that only reference the locked ones (such
-  as new memberships or facts by that node), so overlapping transactions cannot
-  deadlock on them.
+- It locks the user's node row, then the space row, both `FOR NO KEY UPDATE`.
+  Writes and merges in one space serialize, users in different spaces never
+  wait, and rows that only reference the locked ones are not blocked.
+- The clock observes the space's `lastHlc` under the lock, so a write follows
+  every fact already committed to the space, even from a clock that ran ahead.
+- The clock and the space's `lastHlc` are stored once, when the transaction
+  completes. A write in a caller-owned transaction stores them inside its own
+  savepoint instead.
+- `transactionForUser` locks before its callback, even for reads. Plain
+  transactions on a persistent client lock at their first tracked write.
 
-An inbound merge runs as the local user that syncs it: it locks and advances that
-user's clock, and stores each fact under its original source node. It is trusted
-replication rather than an authored write, so a follower can apply the server's
-updates to a space where its user can only read; the authoritative server checks
-write access before merging an upload.
-
-Databases from before per-user clocks keep their database-wide node: its facts,
-checkpoints, and `lastHlc` are untouched, it is still reported as local in
-handshakes, and each user's new clock starts after its `lastHlc`.
+An inbound merge runs as the syncing user and keeps each fact's source node. It
+skips the write-role check, because the authoritative server checks it before
+merging an upload. A database from before per-user clocks keeps its old node as
+a local node, and each new user clock starts after it.
 
 ### The client membership table
 
@@ -295,10 +273,9 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per space;
 (regenerated models + a migration on both client and server schemas):
 
 - `OfflineSyncConnect { syncTablesHash, localNodeId }` — sent once by each peer. The
-  schema hash is validated once, before any space work. `localNodeId` identifies
-  the syncing user's local clock in this peer's database. It is informational:
-  every node's progress travels in the per-space checkpoints. The space list is
-  dynamic and exchanged per cycle.
+  schema hash is validated once, before any space work. `localNodeId` is the
+  syncing user's local clock and is informational. The space list is dynamic
+  and exchanged per cycle.
 - `OfflineSyncSpaceSet { spaces: List<OfflineSyncSpaceGrant> }` (each grant a
   `uuidSpaceId` + `role`) — the server's content is authoritative (resolved from
   `offline_sync_space_members`, roles included). Followers send an empty set because the
@@ -434,11 +411,9 @@ propagation of access changes.
 Checkpoint rows stay per `(space, node)` in `offline_sync_space_nodes`, while
 `crdt_nodes` stores the stable clock identity. The same local user node can
 participate in multiple spaces, with separate `lastReceivedHlc` values per
-space. A handshake reports every local node of the space — the clocks of all
-users that wrote there and any legacy database-wide node — as complete up to
-now, since this database authored all their facts, and every remote node up to
-the progress actually received. `SinceHlc` is exchanged once per space on first visit; later cycles reuse
-the in-memory
+space. A handshake reports local nodes as complete and remote nodes up to the
+progress received. `SinceHlc` is exchanged once per space on first visit; later
+cycles reuse the in-memory
 `nodeCheckpoints[space]`, advanced as chunks are sent and as inbound batches
 merge — the multi-space analogue of today's single-space continuous loop, which
 already keeps checkpoints in memory across rounds.

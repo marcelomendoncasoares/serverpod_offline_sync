@@ -197,14 +197,8 @@ class OfflineSyncEngine {
   /// Creates the [OfflineSyncSinceHlc] checkpoint for a space handshake.
   ///
   /// [OfflineSyncSinceHlc.nodeCheckpoints] reflects the latest change this
-  /// database has from each node participating in the space, tagged with the
-  /// source node id.
-  ///
-  /// Every local node is complete here: its facts were authored in this
-  /// database, whichever user's clock it is or was. That includes the clocks of
-  /// other users sharing the space and the legacy database-wide node. Reporting
-  /// them as current keeps peers from echoing those facts back, while remote
-  /// nodes report only the progress actually received.
+  /// database has from each node in the space, tagged with the source node id.
+  /// Local nodes, including other users' clocks, are reported as complete.
   Future<OfflineSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
     required UuidValue spaceId,
@@ -222,9 +216,8 @@ class OfflineSyncEngine {
       final node = spaceNode.node!;
       final nodeId = node.uuidNodeId;
       if (node.lastHlc case final lastHlc?) {
-        // Only local clocks persist a last HLC. Cover committed logical ticks
-        // as well as wall time: a clock that has not advanced (or moved
-        // backward) must not make peers echo our facts.
+        // Only local nodes store a last HLC. Cover committed logical ticks as
+        // well as wall time, so a lagging clock never makes peers echo facts.
         checkpoints[nodeId] = Hlc.now(nodeId).maxBetween(lastHlc);
         continue;
       }
@@ -243,10 +236,9 @@ class OfflineSyncEngine {
 
   /// Merges a remote [mergeSet] and atomically records its per-author progress.
   ///
-  /// [userId] is the local user this session syncs for, and [spaceId] the space
-  /// the changes belong to. Inbound merge applies each remote change as that
-  /// user in that space, then materializes foreign-key projection into domain
-  /// tables via [OfflineSyncDatabase.mergeChanges].
+  /// Inbound merge applies each remote change as [userId] in [spaceId], then
+  /// materializes foreign-key projection into domain tables via
+  /// [OfflineSyncDatabase.mergeChanges].
   ///
   /// Throws if the merge fails. The sync stream should be closed so the next
   /// attempt resumes from the last persisted checkpoint.
@@ -304,8 +296,7 @@ class OfflineSyncEngine {
 
     var sessionCompleted = false;
     try {
-      // The user's own clock in this database. Peers do not filter by it; the
-      // per-space checkpoints carry every node's progress.
+      // Informational: the per-space checkpoints carry every node's progress.
       final localNode = await OfflineSyncSpaceManager(
         session,
       ).getOrCreateUserNode(userId);

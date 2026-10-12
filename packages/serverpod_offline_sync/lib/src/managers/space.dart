@@ -5,11 +5,6 @@ import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 
 /// A manager for [OfflineSyncSpace] rows and the local user clocks acting in them.
-///
-/// A space is the data scope of a write. The clock that timestamps the write is
-/// owned by the acting user, so the two are resolved separately: a shared space
-/// has no clock of its own, and one user's clock is shared by every space they
-/// act in.
 class OfflineSyncSpaceManager {
   /// Creates a [OfflineSyncSpaceManager] bound to a database session.
   OfflineSyncSpaceManager(this._session);
@@ -51,8 +46,7 @@ class OfflineSyncSpaceManager {
 
   /// Returns the [OfflineSyncSpace] for the given space ID.
   ///
-  /// Will create a new [OfflineSyncSpace] if no space is found. Creation commits
-  /// on its own, and concurrent first uses resolve the same row.
+  /// Will create a new [OfflineSyncSpace] if no space is found.
   Future<OfflineSyncSpace> getOrCreate(UuidValue uuidSpaceId) async {
     return _instances[uuidSpaceId] ??= await _findOrInsert(
       find: () => OfflineSyncSpace.db.findFirstRow(
@@ -66,14 +60,7 @@ class OfflineSyncSpaceManager {
 
   /// Returns the local node whose clock timestamps the writes of [userId].
   ///
-  /// The node is created on first use with a new identity, so every database
-  /// gives the same user a distinct node. Creation commits on its own, and the
-  /// unique owner index makes concurrent first uses resolve one node. Every
-  /// instance sharing this database then resolves that same node.
-  ///
-  /// A new clock starts after the legacy database-wide clock that authored
-  /// local writes before clocks were owned per user, so a user's first write
-  /// still follows the facts that clock produced for them.
+  /// A new node starts after the legacy database-wide clock.
   Future<CrdtNode> getOrCreateUserNode(UuidValue userId) async {
     return _userNodes[userId] ??= await _findOrInsert(
       find: () => CrdtNode.db.findFirstRow(
@@ -93,12 +80,8 @@ class OfflineSyncSpaceManager {
     );
   }
 
-  /// Records that the local [node] may author facts in [space].
-  ///
-  /// The participation row is how a sync handshake finds the local nodes of a
-  /// space and reports them as complete, so peers do not echo their facts
-  /// back. It is written before any write transaction opens, so a rollback
-  /// cannot remove it after this manager cached it.
+  /// Records that the local [node] authors in [space], before any write
+  /// transaction opens so a rollback cannot undo it.
   Future<void> ensureParticipation(OfflineSyncSpace space, CrdtNode node) async {
     final key = (space.id!, node.id!);
     if (_participations.contains(key)) return;
@@ -113,15 +96,10 @@ class OfflineSyncSpaceManager {
     _participations.add(key);
   }
 
-  /// Makes sure a node row exists for each source in [uuidNodeIds].
+  /// Commits a node row for each source in [uuidNodeIds] before a merge.
   ///
-  /// Nodes are shared by every space, so creating them inside a merge would
-  /// make merges into unrelated spaces wait on each other's uncommitted node
-  /// rows, and deadlock when they discover the same new sources in opposite
-  /// orders. This commits them before the merge transaction instead, in one
-  /// statement ordered by UUID, so concurrent preparations also never wait on
-  /// each other in a cycle. A node created for a merge that later fails is
-  /// only an identity, so keeping it is harmless.
+  /// Creating them inside merges into different spaces could deadlock, so they
+  /// are inserted up front in one statement, in UUID order.
   Future<void> ensureNodes(Set<UuidValue> uuidNodeIds) async {
     final unknown = uuidNodeIds.difference(_knownNodes);
     if (unknown.isEmpty) return;
@@ -148,12 +126,7 @@ class OfflineSyncSpaceManager {
 
   static int _byUuid(UuidValue a, UuidValue b) => a.uuid.compareTo(b.uuid);
 
-  /// The greatest clock of local nodes no user owns.
-  ///
-  /// Only local clocks persist a [CrdtNode.lastHlc], so an unowned node with
-  /// one is the database-wide node that clocked every user before ownership
-  /// moved to users. It is never advanced again, so reading it once per new
-  /// user is enough.
+  /// The greatest clock of unowned local nodes, from before per-user clocks.
   Future<Hlc?> _legacyClock() async {
     final legacyNodes = await CrdtNode.db.find(
       _session,
@@ -168,11 +141,9 @@ class OfflineSyncSpaceManager {
         );
   }
 
-  /// Finds a row, or inserts one and finds it again.
+  /// Finds a row, or inserts it ignoring conflicts and finds it again.
   ///
-  /// The insert ignores conflicts, so a concurrent first use waits for the
-  /// winning insert and then reads its row instead of failing. Both statements
-  /// run outside any transaction, so the second read sees that commit.
+  /// Runs outside any transaction, so a concurrent winner's row is visible.
   Future<T> _findOrInsert<T extends TableRow>({
     required Future<T?> Function() find,
     required Future<T> Function() insert,

@@ -38,8 +38,7 @@ Future<CrdtDataAttemptedValue?> attemptedValue({
   return field?.attemptedValue;
 }
 
-/// The clock last persisted by the local node of [userId] in the database of
-/// [databaseSession].
+/// The stored clock of [userId]'s local node.
 Future<Hlc> persistedUserClock(
   DatabaseSession databaseSession,
   UuidValue userId,

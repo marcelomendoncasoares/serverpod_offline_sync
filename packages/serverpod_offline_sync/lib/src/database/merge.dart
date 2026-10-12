@@ -171,8 +171,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final spaceNodesToUpdate = <OfflineSyncSpaceNode>[];
 
     if (maxIncomingHlc != null) {
-      // Incoming facts keep their source node. They only advance the clock of
-      // the user applying them, so that user's next write follows them.
+      // Incoming facts keep their source node and advance the applying clock.
       final hlcManager = _context.hlcManagerFor(transaction);
       if (maxIncomingHlc.nodeId == hlcManager.uuidNodeId) {
         hlcManager.observe(maxIncomingHlc);
@@ -228,9 +227,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       );
     }
 
-    // `OfflineSyncDatabase.mergeChanges` committed these nodes already. A
-    // node is still created here if it went missing, in UUID order so that
-    // concurrent merges never wait on each other's new nodes in a cycle.
+    // `mergeChanges` committed these already; a missing one is created in UUID
+    // order, so concurrent merges cannot deadlock on it.
     final nodesByUuid = {
       for (final uuidNodeId
           in nodeIds.toList()..sort((a, b) => a.uuid.compareTo(b.uuid)))

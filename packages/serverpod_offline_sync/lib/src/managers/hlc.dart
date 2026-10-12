@@ -5,18 +5,11 @@ import '../hlc/hlc.dart';
 
 /// A manager for [Hlc] instances that is used to generate unique timestamps
 /// for CRDT operations.
-///
-/// Pairs the space being written ([normalizedSpaceId]) with the local clock of
-/// the acting user. The clock is owned by the user, not the space, so every
-/// space a user acts in shares one clock, and users sharing a space keep their
-/// own clocks.
 class HlcManager {
   /// Creates a manager writing to [normalizedSpaceId] with the clock of [node].
   ///
-  /// [node] is shared, not copied: managers for other spaces of the same
-  /// acting user advance the same clock. [onUse] runs after every [increment],
-  /// [merge], or [observe], which is how the owner learns that the clock must
-  /// be stored with the facts that used it.
+  /// [node] is shared, not copied. [onUse] runs after every [increment],
+  /// [merge], or [observe], so the owner knows to store the clock.
   HlcManager(this.normalizedSpaceId, CrdtNode node, {void Function()? onUse})
     : normalizedNodeId = node.id!,
       _node = node,
@@ -62,11 +55,8 @@ class HlcManager {
     _onUse?.call();
   }
 
-  /// Advances the clock to at least [other] without the remote merge checks.
-  ///
-  /// For timestamps another local clock already committed to this database:
-  /// they passed those checks when they were produced or merged, and may carry
-  /// this clock's own node after a relay.
+  /// Advances the clock to at least [other], a timestamp already committed to
+  /// this database, without the remote merge checks.
   void observe(Hlc other) {
     if (other > lastHlc) lastHlc = other.copyWith(nodeId: uuidNodeId);
     _onUse?.call();

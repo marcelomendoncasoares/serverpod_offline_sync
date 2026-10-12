@@ -11,18 +11,12 @@ typedef SyncRound = ({
   Object? serverError,
 });
 
-/// Runs a real follower and a real authoritative `once` session over
-/// in-memory streams, recording the merge changes each side sent.
+/// Runs [follower] against an authoritative `once` session over in-memory
+/// streams, recording the merge changes each side sent.
 ///
-/// [follower] starts the client side's production sync state machine on the
-/// server-to-client stream it receives. [splice] is added to the follower's
-/// first batch as an extra [OfflineSyncMergeChunk], right before its first
-/// [OfflineSyncEndOfBatch], as a stale or malicious client would send it; it
-/// is the only frame a production client would not send.
-///
-/// The returned `serverError` is the error that ended the authoritative session,
-/// or null when it closed cleanly. When the server aborts, the follower fails
-/// with a truncated stream; that error is not the one under test.
+/// [splice] is sent as an extra [OfflineSyncMergeChunk] before the follower's
+/// first [OfflineSyncEndOfBatch]. `serverError` is the error that ended the
+/// server session, or null.
 Future<SyncRound> syncOnceOverStreams({
   required OfflineSyncSession serverSync,
   required Stream<OfflineSyncStreamEvent> Function(

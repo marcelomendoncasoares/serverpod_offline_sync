@@ -32,10 +32,6 @@ final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
 final userForTransaction = <Transaction, UuidValue>{};
 
 /// Map of transactions to the local clock node of their acting user.
-///
-/// The space a transaction writes to is [spaceForTransaction]; this is the
-/// clock that timestamps those writes. They differ whenever a user acts in a
-/// shared space.
 @internal
 final clockNodeForTransaction = <Transaction, CrdtNode>{};
 
@@ -116,10 +112,7 @@ class OfflineSyncDatabase implements Database {
   /// The hash describing the synchronized schema configured for this database.
   String get syncTablesHash => _sync.currentSyncTablesHash;
 
-  /// Returns the identifier of the local node clocking the effective user.
-  ///
-  /// Each user owns one local node per database, shared by every space the
-  /// user acts in. Another database gives the same user a different node.
+  /// Returns the identifier of the effective user's local clock node.
   Future<UuidValue> currentNodeId({UuidValue? userId}) async {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
@@ -149,8 +142,7 @@ class OfflineSyncDatabase implements Database {
 
   /// Records acknowledged per-author progress for [otherNodeId] in [spaceId].
   ///
-  /// Progress is kept per space and source node. When [spaceId] is omitted,
-  /// this uses the persistent user's personal space.
+  /// When [spaceId] is omitted, this uses the persistent user's personal space.
   ///
   /// [syncedHlc] must carry [otherNodeId] as its author. Throws [ArgumentError]
   /// otherwise. A correctly tagged checkpoint replaces previously stored
@@ -175,23 +167,12 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Applies remote CRDT changes to [spaceId] on behalf of [userId].
+  /// Merges remote CRDT changes into [spaceId] as the local [userId].
   ///
-  /// [userId] is the local user replicating the changes: the authenticated
-  /// user on a server, or the configured user on a persistent client. When
-  /// omitted, this uses the persistent user; an unbound database requires one.
-  /// [spaceId] defaults to that user's personal space.
-  ///
-  /// The merge runs in one transaction bound to that user and space. It locks
-  /// the user's clock and then the space, advances that clock past the incoming
-  /// timestamps, and stores every fact under its original source node: the
-  /// replicating user is not necessarily the author.
-  ///
-  /// This is trusted replication, not an authored write, so it does not check
-  /// the user's write role. Authorize the source of [mergeSet] first, as
-  /// [sync] does: an authoritative peer rejects uploads without write access,
-  /// and a follower applies the authoritative peer's updates even to spaces
-  /// where its user can only read.
+  /// [userId] defaults to the persistent user and [spaceId] to that user's
+  /// personal space. The merge advances [userId]'s clock and keeps each fact's
+  /// source node. It skips the write-role check, so authorize the source of
+  /// [mergeSet] first, as [sync] does.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
     UuidValue? userId,
@@ -405,17 +386,14 @@ class OfflineSyncDatabase implements Database {
     return _stripSpaceIdFromSpaceScopedRead([result], queryInclude, transaction).single;
   }
 
-  /// Runs a tracked write under the acting user's clock lock.
-  ///
-  /// The lock is taken in the transaction itself, before the write's savepoint,
-  /// so rolling the write back to its savepoint keeps the lock held.
+  /// Runs a tracked write under the acting user's clock lock, taken before the
+  /// write's savepoint so rolling it back keeps the lock.
   Future<R> _runTrackedWrite<R>(
     Transaction? transaction,
     TransactionFunction<R> action,
   ) {
     if (transaction == null) {
-      // The write owns its transaction, so its clock scope stores the clock
-      // when it completes and a failure rolls back both.
+      // The write owns its transaction, so its scope stores the clock.
       return _delegate.transaction(
         (tx) => _recorder.withUserClock(tx, (tx) async {
           await _recorder.lockUserClock(tx);
@@ -424,10 +402,8 @@ class OfflineSyncDatabase implements Database {
       );
     }
 
-    // Inside `transactionForUser`, a persistent wrapper's `transaction`, or
-    // another write, the enclosing scope stores the clock once at its end.
-    // Otherwise the caller owns the transaction and may catch a failure and
-    // still commit, so the clock is stored inside the write's own savepoint.
+    // An enclosing scope stores the clock at its end. Otherwise the caller may
+    // catch a failure and still commit, so store it inside the savepoint.
     final storesOwnClock = !_recorder.hasActiveUserClock(transaction);
     return _recorder.withUserClock(transaction, (tx) async {
       await _recorder.lockUserClock(tx);
@@ -1116,17 +1092,13 @@ class OfflineSyncDatabase implements Database {
   /// [userId] stays the authenticated identity and [spaceId] is the space being
   /// acted in; the pair is checked before the transaction starts.
   ///
-  /// Writes are timestamped by [userId]'s own clock, whatever the space. The
-  /// transaction locks that clock and then the space before the callback runs,
-  /// and holds both until it completes, even when the callback only reads.
-  /// Other transactions of the same user, and any write or merge in the same
-  /// space, wait for it; users acting in other spaces do not. Under the default
-  /// READ COMMITTED isolation, a callback that waited reads what the earlier
-  /// transaction committed. Under REPEATABLE READ, PostgreSQL instead fails
-  /// that transaction with a serialization error, which the caller retries.
+  /// The transaction locks [userId]'s clock and then the space before the
+  /// callback runs, even for reads, so other transactions of that user and
+  /// writes in that space wait for it. Under REPEATABLE READ, one that waited
+  /// may fail with a serialization error instead.
   ///
   /// Do not await another transaction for the same user or space inside the
-  /// callback: it waits for these locks, so the two transactions deadlock.
+  /// callback: the two would deadlock.
   Future<R> transactionForUser<R>(
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
@@ -1146,12 +1118,10 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Runs [action] in a transaction acting as [userId] in [spaceId].
+  /// Runs [action] as [userId] in [spaceId], locking both before it starts.
   ///
-  /// The space, the user's clock and, when [authoring], the clock's
-  /// participation in the space are prepared first. Preparation commits on its
-  /// own, so a rollback keeps it. The transaction then binds both identities and
-  /// locks the user's clock and the space before [action] starts.
+  /// The space, clock and participation rows commit beforehand, so a rollback
+  /// keeps them.
   Future<R> _transactionAs<R>(
     UuidValue userId,
     UuidValue spaceId,

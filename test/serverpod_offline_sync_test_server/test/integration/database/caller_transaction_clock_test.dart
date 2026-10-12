@@ -6,12 +6,8 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 import '../test_tools/crdt_probes.dart';
 
-/// Tracked writes in a transaction the caller owns, which may catch a failed
-/// write and still commit.
-///
-/// Storing the clock is part of each such write, so a write whose clock cannot
-/// be stored must leave nothing behind. The clock updates are rejected here by
-/// a SQLite trigger, standing in for any database failure at that point.
+/// Tracked writes in a caller-owned transaction, which may catch a failed write
+/// and still commit. A trigger stands in for a failed clock update.
 void main() {
   initTestClientSession(createSessionPerTest: false);
 

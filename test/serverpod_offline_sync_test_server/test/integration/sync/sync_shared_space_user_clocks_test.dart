@@ -12,13 +12,8 @@ import '../test_tools/client_session.dart';
 import '../test_tools/serverpod_test_tools.dart';
 import '../test_tools/sync_streams.dart';
 
-/// Round trips through a shared space whose facts come from several local user
-/// clocks: the server's clock for each user that writes there, and each
-/// client's clock for its own user.
-///
-/// The server and each client use their own database. Both peers run the
-/// production sync state machine end to end. Concurrency between server
-/// transactions is covered on PostgreSQL by `user_clock_concurrency_test.dart`.
+/// Round trips through a shared space written by several users' clocks, on
+/// the server and on clients.
 void main() {
   initTestClientSession(createSessionPerTest: false);
 

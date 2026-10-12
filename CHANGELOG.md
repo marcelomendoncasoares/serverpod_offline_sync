@@ -4,23 +4,15 @@
   and live space membership, including nested included lists.
 - fix: Preserves caller include graphs across queries and keep nested object
   visibility predicates inside their containing list query.
-- fix: BREAKING. Each user now has their own clock in each database instead of
-  sharing one database-wide clock, so users writing in different spaces no
-  longer wait on each other. Existing data, sync progress, and timestamps carry
-  over: each user's new clock continues after the old shared one. Requires a
-  migration that adds `CrdtNode.localUserUuid` and replaces
-  `OfflineSyncSpace.currentNode` with `OfflineSyncSpace.lastHlc`.
-  `HlcManager.forSpace` is replaced by `HlcManager(spaceId, node)`.
-- fix: BREAKING. `mergeChanges` takes the syncing `userId` separately from the
-  `spaceId`, and requires a `userId` without a persistent user. Synced changes
-  in a shared space now advance the syncing user's clock instead of treating
-  the space as a user.
-- fix: BREAKING. `recordSyncCheckpoint` takes `spaceId` instead of `userId`.
-- fix: `transactionForUser` now locks the user's clock and the space before its
-  callback runs, even for reads, so incoming sync or another transaction for
-  the same user or space cannot change data the callback already read.
-- fix: Orders a write after changes other users already made in the same
-  shared space, even when their clocks run ahead.
+- fix: BREAKING. Each user has their own clock per database, so users writing in
+  different spaces no longer wait on each other. Requires a migration that adds
+  `CrdtNode.localUserUuid` and replaces `OfflineSyncSpace.currentNode` with
+  `lastHlc`. `HlcManager.forSpace` is replaced by `HlcManager(spaceId, node)`.
+- fix: BREAKING. `mergeChanges` takes the syncing `userId` separately from
+  `spaceId`. `recordSyncCheckpoint` takes `spaceId` instead of `userId`.
+- fix: `transactionForUser` locks the user's clock and the space before its
+  callback runs, even for reads.
+- fix: Orders writes after facts other users committed to the same space.
 - chore: Requires Serverpod `^4.1.0-beta.3`.
 
 ## 0.0.10

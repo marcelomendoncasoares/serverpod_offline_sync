@@ -13,12 +13,9 @@ import '../test_tools/crdt_probes.dart';
 import '../test_tools/postgres_migrations.dart';
 import '../test_tools/serverpod_test_tools.dart';
 
-/// Per-user clock ownership on PostgreSQL, where server sessions run real
-/// concurrent transactions on separate connections.
+/// Per-user clock ownership under real concurrent PostgreSQL transactions.
 ///
-/// Every wait asserted here is observed in `pg_stat_activity` while explicit
-/// barriers hold the competing transaction open; no assertion relies on a
-/// sleep winning a race.
+/// Waits are observed in `pg_stat_activity` while barriers hold transactions open.
 void main() {
   final serverDirectory = Directory(
     '${Directory.systemTemp.path}/offline_sync_user_clock_${const Uuid().v4()}',
@@ -46,8 +43,7 @@ void main() {
       late Session observer;
       late DateTime start;
 
-      /// A new wrapper on its own session, so it shares no cached space or
-      /// clock with any other wrapper.
+      /// A new wrapper on its own session, sharing no cache with the others.
       Future<OfflineSyncDatabaseSession> wrapper() async {
         final session = OfflineSyncDatabaseSession.wraps(
           sessionBuilder.build(),
@@ -1388,11 +1384,8 @@ void main() {
   );
 }
 
-/// A barrier that the enclosing group releases when it ends.
-///
-/// A held transaction waits on it. If the arrangement fails before releasing
-/// it, the group teardown still does, so the transaction cannot stay open and
-/// block the server from stopping.
+/// A barrier released at group teardown too, so a failed arrangement cannot
+/// leave a held transaction blocking the server from stopping.
 Completer<void> _releasedOnTearDown() {
   final release = Completer<void>();
   addTearDown(() {
@@ -1424,10 +1417,6 @@ Future<void> _untilLockWait(Session observer) async {
 }
 
 /// Pauses the first node or row metadata insert inside a merge transaction.
-///
-/// A merge that discovered new source nodes in its own transaction would hold
-/// their uncommitted rows at that point, so two overlapping merges expose any
-/// wait between them.
 class _PauseInMergeTransaction extends QueryCountingDatabase {
   // The proxy's own parameter is private to its library.
   // ignore: matching_super_parameters
@@ -1468,8 +1457,7 @@ class _PauseInMergeTransaction extends QueryCountingDatabase {
   }
 }
 
-/// Counts row-locking reads, which only clock and space locks perform here,
-/// and writes to the clock and space rows.
+/// Counts clock and space lock reads and clock and space writes.
 class _CountClockAccess extends QueryCountingDatabase {
   // The proxy's own parameter is private to its library.
   // ignore: matching_super_parameters

@@ -69,10 +69,8 @@ abstract class OfflineSyncSpace
 
   /// Greatest HLC a local clock has written or merged into this space.
   ///
-  /// Clocks are owned per user, so a user's clock can lag a fact another user
-  /// committed to a shared space. Each write or merge observes this value
-  /// under the space row lock before allocating timestamps, which orders a
-  /// dependent write after every fact committed to the space before it.
+  /// Writes observe it under the space lock, so they follow facts committed by
+  /// other users' clocks.
   _icw2tu00.Hlc? lastHlc;
 
   /// The nodes associated with the space and their per-space checkpoints.
@@ -229,10 +227,8 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
 
   /// Greatest HLC a local clock has written or merged into this space.
   ///
-  /// Clocks are owned per user, so a user's clock can lag a fact another user
-  /// committed to a shared space. Each write or merge observes this value
-  /// under the space row lock before allocating timestamps, which orders a
-  /// dependent write after every fact committed to the space before it.
+  /// Writes observe it under the space lock, so they follow facts committed by
+  /// other users' clocks.
   late final _isd.ColumnStructured<_icw2tu00.Hlc> lastHlc;
 
   /// The nodes associated with the space and their per-space checkpoints.
