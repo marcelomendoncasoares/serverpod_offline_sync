@@ -452,6 +452,64 @@ void main() {
         });
 
         group(
+          'when a transaction starts while an inbound merge for the same user is held,',
+          () {
+            late bool callbackEnteredWhileHeld;
+            late String? readInCallback;
+
+            setUpAll(() async {
+              final paused = Completer<void>();
+              final release = _releasedOnTearDown();
+              final merger = OfflineSyncDatabaseSession(
+                _PauseInMergeTransaction(sessionBuilder.build().db, paused, release),
+                syncTables: server.syncTables,
+              );
+              await merger.db.initialize();
+
+              final merged = server.Unique(
+                id: const Uuid().v7obj(),
+                name: 'merged first',
+              );
+              final merging = merger.db.mergeChanges([
+                CrdtMergeInsert(
+                  uuidSpaceId: user,
+                  tableName: server.Unique.t.tableName,
+                  uuidRowId: merged.id!,
+                  uuidNodeId: const Uuid().v7obj(),
+                  hlcDatetime: clock.now().toUtc(),
+                  hlcCounter: 0,
+                  data: merged,
+                ),
+              ], userId: user);
+              await paused.future.timeout(const Duration(seconds: 10));
+
+              var callbackEntered = false;
+              final reading = firstWrapper.db.transactionForUser(user, (tx) async {
+                callbackEntered = true;
+                readInCallback = (await server.Unique.db.findById(
+                  firstWrapper,
+                  merged.id!,
+                  transaction: tx,
+                ))?.name;
+              });
+              await _untilLockWait(observer);
+              callbackEnteredWhileHeld = callbackEntered;
+
+              release.complete();
+              await Future.wait([merging, reading]);
+            });
+
+            test('then the callback waits for the merge to commit.', () {
+              expect(callbackEnteredWhileHeld, isFalse);
+            });
+
+            test('then its first read sees the merged row.', () {
+              expect(readInCallback, 'merged first');
+            });
+          },
+        );
+
+        group(
           'when an inbound merge for the same user starts during a transaction,',
           () {
             late bool mergeFinishedWhileHeld;
@@ -496,6 +554,58 @@ void main() {
             });
           },
         );
+      });
+
+      group('Given a wrapper counting the rows it locks,', () {
+        group('when one callback writes three times,', () {
+          late UuidValue user;
+          late int lockReads;
+          late List<Hlc> rowClocks;
+          late Hlc persistedClock;
+
+          setUpAll(() async {
+            user = const Uuid().v7obj();
+            final locks = _CountLockReads(sessionBuilder.build().db);
+            final session = OfflineSyncDatabaseSession(
+              locks,
+              syncTables: server.syncTables,
+            );
+            await session.db.initialize();
+            await session.db.transactionForUser(user, (_) async {});
+
+            final rows = [
+              for (var i = 0; i < 3; i++)
+                server.Unique(id: const Uuid().v7obj(), name: 'write $i'),
+            ];
+            final before = locks.lockReads;
+            await session.db.transactionForUser(user, (tx) async {
+              for (final row in rows) {
+                await server.Unique.db.insertRow(session, row, transaction: tx);
+              }
+            });
+            lockReads = locks.lockReads - before;
+
+            rowClocks = [
+              for (final row in rows)
+                (await CrdtDataRow.db.findFirstRow(
+                  raw,
+                  where: (t) => t.uuidRowId.equals(row.id),
+                  include: CrdtDataRow.include(node: CrdtNode.include()),
+                ))!.hlc,
+            ];
+            persistedClock = await persistedUserClock(raw, user);
+          });
+
+          test('then it locks the clock and the space only once.', () {
+            expect(lockReads, 2);
+          });
+
+          test('then the writes advance one clock monotonically.', () {
+            expect(rowClocks[1].compareTo(rowClocks[0]), greaterThan(0));
+            expect(rowClocks[2].compareTo(rowClocks[1]), greaterThan(0));
+            expect(persistedClock, rowClocks[2]);
+          });
+        });
       });
 
       group('Given two users with write access to one shared space,', () {
@@ -1227,6 +1337,87 @@ class _PauseInMergeTransaction extends QueryCountingDatabase {
     final result = await super.insertRow<T>(row, transaction: transaction);
     await _pauseOnce([row], transaction);
     return result;
+  }
+}
+
+/// Counts row-locking reads, which only clock and space locks perform here.
+class _CountLockReads extends QueryCountingDatabase {
+  // The proxy's own parameter is private to its library.
+  // ignore: matching_super_parameters
+  _CountLockReads(super.database);
+
+  int lockReads = 0;
+
+  @override
+  Future<T?> findById<T extends TableRow>(
+    Object id, {
+    Transaction? transaction,
+    Include? include,
+    LockMode? lockMode,
+    LockBehavior? lockBehavior,
+  }) {
+    if (lockMode != null) lockReads++;
+    return super.findById<T>(
+      id,
+      transaction: transaction,
+      include: include,
+      lockMode: lockMode,
+      lockBehavior: lockBehavior,
+    );
+  }
+
+  @override
+  Future<T?> findFirstRow<T extends TableRow>({
+    Expression? where,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+    bool orderDescending = false,
+    Transaction? transaction,
+    Include? include,
+    LockMode? lockMode,
+    LockBehavior? lockBehavior,
+  }) {
+    if (lockMode != null) lockReads++;
+    return super.findFirstRow<T>(
+      where: where,
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      orderDescending: orderDescending,
+      transaction: transaction,
+      include: include,
+      lockMode: lockMode,
+      lockBehavior: lockBehavior,
+    );
+  }
+
+  @override
+  Future<List<T>> find<T extends TableRow>({
+    Expression? where,
+    int? limit,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+    bool orderDescending = false,
+    Transaction? transaction,
+    Include? include,
+    LockMode? lockMode,
+    LockBehavior? lockBehavior,
+  }) {
+    if (lockMode != null) lockReads++;
+    return super.find<T>(
+      where: where,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      orderDescending: orderDescending,
+      transaction: transaction,
+      include: include,
+      lockMode: lockMode,
+      lockBehavior: lockBehavior,
+    );
   }
 }
 
