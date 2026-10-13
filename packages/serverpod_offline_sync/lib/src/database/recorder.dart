@@ -362,6 +362,16 @@ class CrdtMutationRecorder {
   Future<void> lockUserClock(Transaction transaction) =>
       _context.lockUserClock(transaction);
 
+  /// Locks the user clock followed by all declared spaces in ID order.
+  Future<void> lockUserClockInSpaces(Transaction transaction, Iterable<int> spaceIds) =>
+      _context.lockUserClockInSpaces(transaction, spaceIds);
+
+  /// Restores the in-memory clock when a nested savepoint action fails.
+  Future<R> withUserClockSavepoint<R>(
+    Transaction transaction,
+    TransactionFunction<R> action,
+  ) => _context.withUserClockSavepoint(transaction, action);
+
   /// Records per-author progress in [spaceId], rejecting an HLC not tagged with
   /// [otherNodeId].
   ///

@@ -3,6 +3,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
@@ -23,19 +24,20 @@ import 'session.dart';
 import 'tombstone.dart';
 
 part 'space.dart';
+part 'space_transaction.dart';
 part 'watch.dart';
 
 /// Map of transaction hashes to the space they are associated with.
 @internal
-final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
+final spaceForTransaction = _ScopedTransactionBindings<OfflineSyncSpace>();
 
 /// Map of transaction hashes to the authenticated user associated with them.
 @internal
-final userForTransaction = <Transaction, UuidValue>{};
+final userForTransaction = _ScopedTransactionBindings<UuidValue>();
 
 /// Map of transactions to the local clock node of their acting user.
 @internal
-final clockNodeForTransaction = <Transaction, CrdtNode>{};
+final clockNodeForTransaction = _ScopedTransactionBindings<CrdtNode>();
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -394,6 +396,9 @@ class OfflineSyncDatabase implements Database {
     Transaction? transaction,
     TransactionFunction<R> action,
   ) {
+    if (transaction != null) {
+      _spaceTransactionContexts[transaction]?._assertScopeAccess();
+    }
     if (transaction == null) {
       // The write owns its transaction, so its scope stores the clock.
       return _delegate.transaction(
@@ -1155,7 +1160,97 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  Future<void> _assertCanActInSpace(UuidValue userId, UuidValue spaceId) async {
+  /// Executes [action] as [userId] in one local transaction across [spaceIds].
+  ///
+  /// Prepares the declared spaces and their user-clock participation before
+  /// opening the transaction. Preparation survives a domain rollback. Locks the
+  /// user's clock and then all declared spaces in ID order before [action].
+  /// Do not await another transaction for this user or these spaces inside it.
+  ///
+  /// Tracked reads and writes require an active, awaited [OfflineSyncSpacesTransaction.runForSpace]
+  /// callback. Nested scopes use savepoints; membership is rechecked in each
+  /// scope. Remote replicas sync spaces independently, so atomicity is local.
+  Future<R> transactionForSpaces<R>(
+    UuidValue userId,
+    Set<UuidValue> spaceIds,
+    Future<R> Function(OfflineSyncSpacesTransaction spaces) action, {
+    TransactionSettings? settings,
+  }) async {
+    final declaredSpaceIds = Set<UuidValue>.of(spaceIds);
+    await _ensureInitialized();
+    final preparedSpaces = <UuidValue, OfflineSyncSpace>{};
+    for (final spaceId in declaredSpaceIds) {
+      await _assertCanActInSpace(userId, spaceId);
+      preparedSpaces[spaceId] = await _recorder.getOrCreateSpace(spaceId);
+    }
+    final clockNode = await _recorder.getOrCreateUserNode(userId);
+    for (final space in preparedSpaces.values) {
+      await _recorder.ensureParticipation(space, clockNode);
+    }
+
+    return _delegate.transaction((tx) async {
+      OfflineSyncSpacesTransaction? spaces;
+      userForTransaction[tx] = userId;
+      clockNodeForTransaction[tx] = clockNode;
+      try {
+        return await _recorder.withUserClock(tx, (tx) async {
+          await _recorder.lockUserClockInSpaces(
+            tx,
+            preparedSpaces.values.map((space) => space.id!),
+          );
+          final context = spaces = OfflineSyncSpacesTransaction._(
+            this,
+            userId,
+            tx,
+            preparedSpaces,
+          );
+          final result = await action(context);
+          context._assertActive();
+          if (context._activeScopes.isNotEmpty) {
+            throw StateError('Await every runForSpace call before returning.');
+          }
+          return result;
+        });
+      } finally {
+        spaces?._close();
+        spaceForTransaction.remove(tx);
+        userForTransaction.remove(tx);
+        clockNodeForTransaction.remove(tx);
+      }
+    }, settings: settings);
+  }
+
+  Future<R> _runBound<R>(
+    Transaction tx,
+    OfflineSyncSpace space,
+    UuidValue userId,
+    TransactionFunction<R> action,
+  ) async {
+    final previousSpace = spaceForTransaction[tx];
+    final previousUser = userForTransaction[tx];
+    spaceForTransaction[tx] = space;
+    userForTransaction[tx] = userId;
+    try {
+      return await action(tx);
+    } finally {
+      if (previousSpace != null) {
+        spaceForTransaction[tx] = previousSpace;
+      } else {
+        spaceForTransaction.remove(tx);
+      }
+      if (previousUser != null) {
+        userForTransaction[tx] = previousUser;
+      } else {
+        userForTransaction.remove(tx);
+      }
+    }
+  }
+
+  Future<void> _assertCanActInSpace(
+    UuidValue userId,
+    UuidValue spaceId, {
+    Transaction? transaction,
+  }) async {
     if (userId == spaceId) return;
 
     // Authoritative membership: the source of truth on the server, the
@@ -1166,6 +1261,7 @@ class OfflineSyncDatabase implements Database {
       _delegate.session,
       userUuid: userId,
       spaceUuid: spaceId,
+      transaction: transaction,
     );
     if (role == null) {
       throw OfflineSyncSpaceMembershipException(userId: userId, spaceId: spaceId);
@@ -1217,6 +1313,7 @@ class OfflineSyncDatabase implements Database {
 
   UuidValue? _userIdForQueries(Transaction? transaction) {
     if (transaction != null) {
+      _spaceTransactionContexts[transaction]?._assertScopeAccess();
       final userId = userForTransaction[transaction];
       if (userId != null) return userId;
     }
