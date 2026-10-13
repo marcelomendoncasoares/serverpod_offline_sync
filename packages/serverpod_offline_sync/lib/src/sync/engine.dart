@@ -215,10 +215,10 @@ class OfflineSyncEngine {
     for (final spaceNode in spaceNodes) {
       final node = spaceNode.node!;
       final nodeId = node.uuidNodeId;
-      if (node.lastHlc case final lastHlc?) {
-        // Only local nodes store a last HLC. Cover committed logical ticks as
-        // well as wall time, so a lagging clock never makes peers echo facts.
-        checkpoints[nodeId] = Hlc.now(nodeId).maxBetween(lastHlc);
+      if (node.localUserUuid != null) {
+        // This database authored every fact of a local clock. Cover committed
+        // logical ticks as well as wall time, so peers never echo them back.
+        checkpoints[nodeId] = Hlc.now(nodeId).maxBetween(node.lastHlc);
         continue;
       }
       final received = spaceNode.lastReceivedHlc;

@@ -53,29 +53,19 @@ class OfflineSyncSpaceManager {
         _session,
         where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
       ),
-      insert: () async => OfflineSyncSpace(uuidSpaceId: uuidSpaceId),
+      row: OfflineSyncSpace(uuidSpaceId: uuidSpaceId),
       label: 'space $uuidSpaceId',
     );
   }
 
   /// Returns the local node whose clock timestamps the writes of [userId].
-  ///
-  /// A new node starts after the legacy database-wide clock.
   Future<CrdtNode> getOrCreateUserNode(UuidValue userId) async {
     return _userNodes[userId] ??= await _findOrInsert(
       find: () => CrdtNode.db.findFirstRow(
         _session,
         where: (t) => t.localUserUuid.equals(userId),
       ),
-      insert: () async {
-        final uuidNodeId = const Uuid().v7obj();
-        final legacy = await _legacyClock();
-        return CrdtNode(
-          uuidNodeId: uuidNodeId,
-          localUserUuid: userId,
-          lastHlc: legacy?.copyWith(nodeId: uuidNodeId) ?? Hlc.zero(uuidNodeId),
-        );
-      },
+      row: _newUserNode(userId),
       label: 'local clock of user $userId',
     );
   }
@@ -90,7 +80,7 @@ class OfflineSyncSpaceManager {
         _session,
         where: (t) => t.spaceId.equals(space.id) & t.nodeId.equals(node.id),
       ),
-      insert: () async => OfflineSyncSpaceNode(spaceId: space.id!, nodeId: node.id!),
+      row: OfflineSyncSpaceNode(spaceId: space.id!, nodeId: node.id!),
       label: 'participation of node ${node.uuidNodeId} in space ${space.uuidSpaceId}',
     );
     _participations.add(key);
@@ -126,34 +116,28 @@ class OfflineSyncSpaceManager {
 
   static int _byUuid(UuidValue a, UuidValue b) => a.uuid.compareTo(b.uuid);
 
-  /// The greatest clock of unowned local nodes, from before per-user clocks.
-  Future<Hlc?> _legacyClock() async {
-    final legacyNodes = await CrdtNode.db.find(
-      _session,
-      where: (t) =>
-          t.localUserUuid.equals(null) & Expression('${t.lastHlc} IS NOT NULL'),
+  static CrdtNode _newUserNode(UuidValue userId) {
+    final uuidNodeId = const Uuid().v7obj();
+    return CrdtNode(
+      uuidNodeId: uuidNodeId,
+      localUserUuid: userId,
+      lastHlc: Hlc.zero(uuidNodeId),
     );
-    return legacyNodes
-        .map((node) => node.lastHlc!)
-        .fold<Hlc?>(
-          null,
-          (latest, hlc) => hlc.maxBetween(latest),
-        );
   }
 
-  /// Finds a row, or inserts it ignoring conflicts and finds it again.
+  /// Finds a row, or inserts [row] ignoring conflicts and finds it again.
   ///
   /// Runs outside any transaction, so a concurrent winner's row is visible.
   Future<T> _findOrInsert<T extends TableRow>({
     required Future<T?> Function() find,
-    required Future<T> Function() insert,
+    required T row,
     required String label,
   }) async {
     final existing = await find();
     if (existing != null) return existing;
 
     await _session.db.insert<T>(
-      [await insert()],
+      [row],
       ignoreConflicts: true,
       noReturn: true,
     );

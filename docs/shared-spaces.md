@@ -151,8 +151,7 @@ timestamps it:
 
 An inbound merge runs as the syncing user and keeps each fact's source node. It
 skips the write-role check, because the authoritative server checks it before
-merging an upload. A database from before per-user clocks keeps its old node as
-a local node, and each new user clock starts after it.
+merging an upload.
 
 ### The client membership table
 

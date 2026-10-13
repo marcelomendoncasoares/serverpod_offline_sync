@@ -7,7 +7,8 @@
 - fix: BREAKING. Each user has their own clock per database, so users writing in
   different spaces no longer wait on each other. Requires a migration that adds
   `CrdtNode.localUserUuid` and replaces `OfflineSyncSpace.currentNode` with
-  `lastHlc`. `HlcManager.forSpace` is replaced by `HlcManager(spaceId, node)`.
+  `lastHlc`. Existing local clocks are not carried over, so recreate existing
+  databases. `HlcManager.forSpace` is replaced by `HlcManager(spaceId, node)`.
 - fix: BREAKING. `mergeChanges` takes the syncing `userId` separately from
   `spaceId`. `recordSyncCheckpoint` takes `spaceId` instead of `userId`.
 - fix: `transactionForUser` locks the user's clock and the space before its
