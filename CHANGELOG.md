@@ -13,6 +13,12 @@
 
 ## 0.0.11
 
+- feat: Add `transactionForSpaces(userId, spaceIds, fn)` and awaited
+  `spaces.runForSpace(spaceId, fn)` scopes for atomic local writes across
+  declared spaces, using the acting user's clock. Nested failures roll back
+  their domain, CRDT, and in-memory clock changes.
+- fix: Reject tracked reads and writes between multi-space scopes, including
+  through persistent-user wrappers, and recheck membership within each scope.
 - feat: Supports Serverpod 4.1 typed SQLite `watch` API with CRDT visibility
   and live space membership, including nested included lists.
 - fix: Preserves caller include graphs across queries and keep nested object
