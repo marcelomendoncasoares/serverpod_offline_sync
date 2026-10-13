@@ -664,6 +664,10 @@ class CrdtMutationRecorder {
       transaction,
       authoredOverlays: overlays,
       localWrite: true,
+      // Leave visibility for the projection that follows the physical write.
+      // This plan can hide a row it is about to update; doing that first makes
+      // the visibility-filtered update match nothing.
+      materializeVisibility: false,
       restoringRows: {
         if (restoring)
           for (final row in rows) (tableName, row.id as UuidValue),
