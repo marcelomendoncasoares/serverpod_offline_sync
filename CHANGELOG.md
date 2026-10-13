@@ -19,6 +19,8 @@
   their domain, CRDT, and in-memory clock changes.
 - fix: Reject tracked reads and writes between multi-space scopes, including
   through persistent-user wrappers, and recheck membership within each scope.
+- fix: Reload persistent-user clocks after caller savepoint rollbacks so
+  concurrent commits cannot cause later writes to be skipped by sync.
 - feat: Supports Serverpod 4.1 typed SQLite `watch` API with CRDT visibility
   and live space membership, including nested included lists.
 - fix: Preserves caller include graphs across queries and keep nested object

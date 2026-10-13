@@ -1085,12 +1085,10 @@ class OfflineSyncDatabase implements Database {
     // Do not initialize CRDT here. Serverpod runs database migrations inside
     // [transaction] before CRDT tables exist. Callers that need CRDT state
     // ([transactionForUser], mutating ORM methods) initialize explicitly.
-    return _delegate.transaction(
-      _recorder.hasPersistentSpace
-          ? (tx) => _recorder.withUserClock(tx, transactionFunction)
-          : transactionFunction,
-      settings: settings,
-    );
+    // Callers can roll back savepoints created before the first tracked write,
+    // releasing its locks. Each write must reload and store its own clock;
+    // only the explicitly bound APIs can safely share prelocked clock state.
+    return _delegate.transaction(transactionFunction, settings: settings);
   }
 
   /// Executes the [transactionFunction] in a transaction with the provided [userId].

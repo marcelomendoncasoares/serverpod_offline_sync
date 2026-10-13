@@ -144,9 +144,10 @@ timestamps it:
   wait, and rows that only reference the locked ones are not blocked.
 - The clock observes the space's `lastHlc` under the lock, so a write follows
   every fact already committed to the space, even from a clock that ran ahead.
-- The clock and the space's `lastHlc` are stored once, when the transaction
-  completes. A write in a caller-owned transaction stores them inside its own
-  savepoint instead.
+- `transactionForUser` and `transactionForSpaces` store the clock and affected
+  spaces' `lastHlc` once, when the transaction completes. Writes in plain or
+  caller-owned transactions reload and store clocks inside each write's
+  savepoint, because a caller rollback can release their lazily acquired locks.
 - `transactionForUser` locks before its callback, even for reads. Plain
   transactions on a persistent client lock at their first tracked write.
 

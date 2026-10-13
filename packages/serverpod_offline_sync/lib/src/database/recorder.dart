@@ -341,9 +341,6 @@ class CrdtMutationRecorder {
     return _context.spaceManager.ensureParticipation(space, node);
   }
 
-  /// Whether a plain transaction can share an already initialized client clock.
-  bool get hasPersistentSpace => _isInitialized && persistentUserId != null;
-
   /// Shares the acting user's clock within an atomic scope without reading it yet.
   Future<R> withUserClock<R>(
     Transaction transaction,
