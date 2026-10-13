@@ -7,6 +7,7 @@ import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart';
 import 'package:test/test.dart';
 
+import '../test_tools/crdt_probes.dart';
 import '../test_tools/postgres_migrations.dart';
 import '../test_tools/serverpod_test_tools.dart';
 
@@ -48,7 +49,7 @@ void main() {
         late Person competing;
         late Clock now;
 
-        setUpAll(() async {
+        setUp(() async {
           user = const Uuid().v7obj();
           first = OfflineSyncDatabaseSession.wraps(
             raw,
@@ -79,7 +80,7 @@ void main() {
             late Person? discardedRow;
             late List<CrdtMergeChange> pending;
 
-            setUpAll(() async {
+            setUp(() async {
               final rolledBack = Completer<void>();
               final resume = Completer<void>();
 
@@ -127,8 +128,11 @@ void main() {
                   .singleWhere((row) => row.uuidRowId == competing.id)
                   .hlc;
               laterClock = records.singleWhere((row) => row.uuidRowId == later.id).hlc;
-              storedClock = (await CrdtNode.db.find(raw)).single.lastHlc!;
-              spaceClock = (await OfflineSyncSpace.db.find(raw)).single.lastHlc;
+              storedClock = await persistedUserClock(raw, user);
+              spaceClock = (await OfflineSyncSpace.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidSpaceId.equals(user),
+              ))!.lastHlc;
               discardedRow = await Person.db.findById(raw, discarded.id!);
               pending =
                   await OfflineSyncEngine(
@@ -157,6 +161,106 @@ void main() {
             test(
               'then outbound sync includes the later row after the competing checkpoint.',
               () {
+                expect(pending.map((change) => change.uuidRowId), [later.id]);
+                expect(pending.single.uuidSpaceId, user);
+              },
+            );
+          },
+        );
+
+        group(
+          'when its caller savepoint rolls back and the callback returns after a competing commit without writing again,',
+          () {
+            late Hlc checkpoint;
+            late Hlc storedAfterReturn;
+            late Hlc? spaceAfterReturn;
+            late Hlc nextClock;
+            late List<CrdtMergeChange> pending;
+            late Person? discardedRow;
+
+            setUp(() async {
+              final rolledBack = Completer<void>();
+              final resume = Completer<void>();
+
+              final outer = withClock(now, () {
+                return first.db.transaction<void>((tx) async {
+                  final savepoint = await tx.createSavepoint();
+                  await Person.db.insertRow(first, discarded, transaction: tx);
+                  await savepoint.rollback();
+
+                  rolledBack.complete();
+                  await resume.future;
+                });
+              });
+
+              try {
+                await rolledBack.future.timeout(const Duration(seconds: 10));
+                await withClock(now, () {
+                  return second.db.transaction<void>((tx) async {
+                    await Person.db.insertRow(
+                      second,
+                      Person(name: 'competing 1'),
+                      transaction: tx,
+                    );
+                    await Person.db.insertRow(
+                      second,
+                      Person(name: 'competing 2'),
+                      transaction: tx,
+                    );
+                    await Person.db.insertRow(second, competing, transaction: tx);
+                  });
+                }).timeout(const Duration(seconds: 10));
+              } finally {
+                resume.complete();
+                await outer;
+              }
+
+              checkpoint = (await CrdtDataRow.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidRowId.equals(competing.id),
+                include: CrdtDataRow.include(node: CrdtNode.include()),
+              ))!.hlc;
+              storedAfterReturn = await persistedUserClock(raw, user);
+              spaceAfterReturn = (await OfflineSyncSpace.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidSpaceId.equals(user),
+              ))!.lastHlc;
+              discardedRow = await Person.db.findById(raw, discarded.id!);
+
+              await withClock(now, () {
+                return first.db.transactionForUser(user, (tx) {
+                  return Person.db.insertRow(first, later, transaction: tx);
+                });
+              });
+              nextClock = (await CrdtDataRow.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidRowId.equals(later.id),
+                include: CrdtDataRow.include(node: CrdtNode.include()),
+              ))!.hlc;
+              pending =
+                  await OfflineSyncEngine(
+                        syncTables: syncTables,
+                        serializationManager: raw.db.serializationManager,
+                      )
+                      .collectPendingChanges(
+                        raw,
+                        checkpointsBySpaceUuid: {
+                          user: [checkpoint],
+                        },
+                      )
+                      .toList();
+            });
+
+            test('then returning preserves the competing user and space clocks.', () {
+              expect(discardedRow, isNull);
+              expect(storedAfterReturn, checkpoint);
+              expect(spaceAfterReturn, checkpoint);
+            });
+
+            test(
+              'then the next transaction advances the clock and remains sendable.',
+              () {
+                expect(nextClock.compareTo(checkpoint), greaterThan(0));
                 expect(pending.map((change) => change.uuidRowId), [later.id]);
                 expect(pending.single.uuidSpaceId, user);
               },
