@@ -418,6 +418,76 @@ void main() {
           },
         );
 
+        group('and another user owns an unrelated row,', () {
+          late Person unrelated;
+
+          setUp(() async {
+            unrelated = await session.db.transactionForUser(
+              const Uuid().v7obj(),
+              (tx) => Person.db.insertRow(
+                session,
+                Person(name: 'unrelated'),
+                transaction: tx,
+              ),
+            );
+          });
+
+          group('when an unbound transaction attempts to lock that row,', () {
+            Object? lockError;
+            Object? observerError;
+            late List<Person> observed;
+
+            setUp(() async {
+              lockError = null;
+              observerError = null;
+              observed = [];
+
+              await session.db.transactionForSpaces(user, {user}, (spaces) async {
+                final tx = await spaces.runForSpace(user, (tx) async => tx);
+
+                try {
+                  await Person.db.lockRows(
+                    secondSession,
+                    where: (t) => t.id.equals(unrelated.id),
+                    lockMode: LockMode.forUpdate,
+                    transaction: tx,
+                  );
+                } on Object catch (error) {
+                  lockError = error;
+                }
+
+                try {
+                  await raw.db.transaction((observer) async {
+                    await Person.db.lockRows(
+                      raw,
+                      where: (t) => t.id.equals(unrelated.id),
+                      lockMode: LockMode.forUpdate,
+                      lockBehavior: LockBehavior.noWait,
+                      transaction: observer,
+                    );
+                    observed = await Person.db.find(
+                      raw,
+                      where: (t) => t.id.equals(unrelated.id),
+                      transaction: observer,
+                    );
+                  });
+                } on Object catch (error) {
+                  observerError = error;
+                }
+              });
+            });
+
+            test('then the tracked lock is rejected through another wrapper.', () {
+              expect(lockError, isA<StateError>());
+            });
+
+            test('then an independent transaction can lock that row immediately.', () {
+              expect(observerError, isNull);
+              expect(observed.map((row) => row.id), [unrelated.id]);
+            });
+          });
+        });
+
         group('when a parent writes through another wrapper while its child runs,', () {
           Object? writeError;
           Object? transactionError;

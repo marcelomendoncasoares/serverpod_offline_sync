@@ -1311,6 +1311,10 @@ class OfflineSyncDatabase implements Database {
   }
 
   List<int>? _actingSpaceIdsForQueries(Transaction? transaction) {
+    if (transaction != null) {
+      _spaceTransactionContexts[transaction]?._assertScopeAccess();
+    }
+
     final spaceId = _recorder.spaceForQueries(transaction)?.id;
     return spaceId == null ? null : [spaceId];
   }

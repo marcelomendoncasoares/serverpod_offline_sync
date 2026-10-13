@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:serverpod/serverpod.dart' show Transaction;
+import 'package:serverpod/serverpod.dart' show LockMode, Transaction;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -235,6 +235,7 @@ void main() {
         Object? byIdError;
         Object? firstError;
         Object? countError;
+        Object? lockError;
         Object? wrappedReadError;
         Object? persistentReadError;
         Object? afterFailureReadError;
@@ -271,6 +272,14 @@ void main() {
                 Person.db.findFirstRow(session, transaction: tx),
               );
               countError = await _errorOf(Person.db.count(session, transaction: tx));
+              lockError = await _errorOf(
+                Person.db.lockRows(
+                  session,
+                  where: (t) => t.id.equals(unrelated.id),
+                  lockMode: LockMode.forUpdate,
+                  transaction: tx,
+                ),
+              );
               wrappedReadError = await _errorOf(
                 Person.db.find(otherWrapper, transaction: tx),
               );
@@ -318,6 +327,7 @@ void main() {
             expect(byIdError, isA<StateError>());
             expect(firstError, isA<StateError>());
             expect(countError, isA<StateError>());
+            expect(lockError, isA<StateError>());
           },
         );
 
