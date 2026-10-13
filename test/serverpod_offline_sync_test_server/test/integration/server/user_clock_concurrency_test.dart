@@ -348,50 +348,59 @@ void main() {
         );
       });
 
+      Future<String> readCounter(
+        OfflineSyncDatabaseSession session,
+        server.Unique counter,
+        Transaction tx,
+      ) async => (await server.Unique.db.findById(
+        session,
+        counter.id!,
+        transaction: tx,
+      ))!.name;
+
+      Future<void> writeCounter(
+        OfflineSyncDatabaseSession session,
+        server.Unique counter,
+        Transaction tx,
+        String value,
+      ) => server.Unique.db.updateRow(
+        session,
+        counter.copyWith(name: value),
+        columns: (t) => [t.name],
+        transaction: tx,
+      );
+
+      /// A new user with a counter named [counter] that the first of two new
+      /// wrappers inserts and the second reads at [start], so both cache the
+      /// user's clock and space from then.
+      Future<_StaleWrappers> staleWrappers({required String counter}) async {
+        final user = const Uuid().v7obj();
+        final first = await wrapper();
+        final second = await wrapper();
+        final row = server.Unique(id: const Uuid().v7obj(), name: counter);
+
+        await withClock(Clock.fixed(start), () async {
+          await first.db.transactionForUser(
+            user,
+            (tx) => server.Unique.db.insertRow(first, row, transaction: tx),
+          );
+          await second.db.transactionForUser(
+            user,
+            (tx) => readCounter(second, row, tx),
+          );
+        });
+        return (user: user, first: first, second: second, counter: row);
+      }
+
       group('Given one user with two wrappers holding stale cached clocks,', () {
         late UuidValue user;
         late OfflineSyncDatabaseSession firstWrapper;
         late OfflineSyncDatabaseSession secondWrapper;
         late server.Unique counter;
 
-        Future<String> readCounter(
-          OfflineSyncDatabaseSession session,
-          Transaction tx,
-        ) async => (await server.Unique.db.findById(
-          session,
-          counter.id!,
-          transaction: tx,
-        ))!.name;
-
-        Future<void> writeCounter(
-          OfflineSyncDatabaseSession session,
-          Transaction tx,
-          String value,
-        ) => server.Unique.db.updateRow(
-          session,
-          counter.copyWith(name: value),
-          columns: (t) => [t.name],
-          transaction: tx,
-        );
-
         setUpAll(() async {
-          user = const Uuid().v7obj();
-          firstWrapper = await wrapper();
-          secondWrapper = await wrapper();
-          counter = server.Unique(id: const Uuid().v7obj(), name: '10');
-
-          await withClock(Clock.fixed(start), () async {
-            await firstWrapper.db.transactionForUser(
-              user,
-              (tx) =>
-                  server.Unique.db.insertRow(firstWrapper, counter, transaction: tx),
-            );
-            // Warm the second wrapper's cached space and clock at the same time.
-            await secondWrapper.db.transactionForUser(
-              user,
-              (tx) => readCounter(secondWrapper, tx),
-            );
-          });
+          (user: user, first: firstWrapper, second: secondWrapper, counter: counter) =
+              await staleWrappers(counter: '10');
         });
 
         group(
@@ -411,10 +420,15 @@ void main() {
               final firstTransaction = withClock(
                 Clock.fixed(start.add(const Duration(seconds: 10))),
                 () => firstWrapper.db.transactionForUser(user, (tx) async {
-                  firstRead = await readCounter(firstWrapper, tx);
+                  firstRead = await readCounter(firstWrapper, counter, tx);
                   entered.complete();
                   await release.future;
-                  await writeCounter(firstWrapper, tx, '${int.parse(firstRead) + 1}');
+                  await writeCounter(
+                    firstWrapper,
+                    counter,
+                    tx,
+                    '${int.parse(firstRead) + 1}',
+                  );
                   firstClock = await fieldHlc(counter.id!, 'name', transaction: tx);
                 }),
               );
@@ -425,8 +439,13 @@ void main() {
                 Clock.fixed(start),
                 () => secondWrapper.db.transactionForUser(user, (tx) async {
                   secondEntered = true;
-                  secondRead = await readCounter(secondWrapper, tx);
-                  await writeCounter(secondWrapper, tx, '${int.parse(secondRead) + 1}');
+                  secondRead = await readCounter(secondWrapper, counter, tx);
+                  await writeCounter(
+                    secondWrapper,
+                    counter,
+                    tx,
+                    '${int.parse(secondRead) + 1}',
+                  );
                 }),
               );
               await _untilLockWait(observer);
@@ -438,7 +457,7 @@ void main() {
               persistedClock = await persistedUserClock(raw, user);
               committed = await firstWrapper.db.transactionForUser(
                 user,
-                (tx) => readCounter(firstWrapper, tx),
+                (tx) => readCounter(firstWrapper, counter, tx),
               );
             });
 
@@ -461,6 +480,18 @@ void main() {
             );
           },
         );
+      });
+
+      group('Given one user with two wrappers holding stale cached clocks,', () {
+        late UuidValue user;
+        late OfflineSyncDatabaseSession firstWrapper;
+        late OfflineSyncDatabaseSession secondWrapper;
+        late server.Unique counter;
+
+        setUpAll(() async {
+          (user: user, first: firstWrapper, second: secondWrapper, counter: counter) =
+              await staleWrappers(counter: '10');
+        });
 
         group('when the first allocates a newer clock and rolls back,', () {
           late Hlc clockBefore;
@@ -476,7 +507,7 @@ void main() {
             final firstTransaction = withClock(
               Clock.fixed(start.add(const Duration(seconds: 30))),
               () => firstWrapper.db.transactionForUser(user, (tx) async {
-                await writeCounter(firstWrapper, tx, 'rolled back');
+                await writeCounter(firstWrapper, counter, tx, 'rolled back');
                 written.complete();
                 await release.future;
                 throw StateError('roll back');
@@ -487,7 +518,7 @@ void main() {
             final secondTransaction = withClock(
               Clock.fixed(start),
               () => secondWrapper.db.transactionForUser(user, (tx) async {
-                await writeCounter(secondWrapper, tx, 'after rollback');
+                await writeCounter(secondWrapper, counter, tx, 'after rollback');
               }),
             );
             await _untilLockWait(observer);
@@ -499,7 +530,7 @@ void main() {
             persistedClock = await persistedUserClock(raw, user);
             committed = await firstWrapper.db.transactionForUser(
               user,
-              (tx) => readCounter(firstWrapper, tx),
+              (tx) => readCounter(firstWrapper, counter, tx),
             );
           });
 
@@ -516,6 +547,18 @@ void main() {
             );
             expect(persistedClock, secondClock);
           });
+        });
+      });
+
+      group('Given one user with two wrappers holding stale cached clocks,', () {
+        late UuidValue user;
+        late OfflineSyncDatabaseSession firstWrapper;
+        late OfflineSyncDatabaseSession secondWrapper;
+        late server.Unique counter;
+
+        setUpAll(() async {
+          (user: user, first: firstWrapper, second: secondWrapper, counter: counter) =
+              await staleWrappers(counter: '10');
         });
 
         group(
@@ -586,7 +629,7 @@ void main() {
               final entered = Completer<void>();
               final release = _releasedOnTearDown();
               final holding = firstWrapper.db.transactionForUser(user, (tx) async {
-                await readCounter(firstWrapper, tx);
+                await readCounter(firstWrapper, counter, tx);
                 entered.complete();
                 await release.future;
               });
@@ -951,66 +994,6 @@ void main() {
         );
 
         group(
-          "when one user's clock runs ahead and the other edits that user's row,",
-          () {
-            late server.Unique row;
-            late Hlc aheadClock;
-            late Hlc dependentClock;
-
-            setUpAll(() async {
-              row = server.Unique(id: const Uuid().v7obj(), name: 'ahead');
-              final remote = server.Unique(id: const Uuid().v7obj(), name: 'remote');
-
-              await withClock(Clock.fixed(start), () async {
-                // A remote fact 30 seconds ahead advances only the first clock.
-                await firstWrapper.db.mergeChanges([
-                  CrdtMergeInsert(
-                    uuidSpaceId: first,
-                    tableName: server.Unique.t.tableName,
-                    uuidRowId: remote.id!,
-                    uuidNodeId: const Uuid().v7obj(),
-                    hlcDatetime: start.add(const Duration(seconds: 30)),
-                    hlcCounter: 0,
-                    data: remote,
-                  ),
-                ], userId: first);
-                await firstWrapper.db.transactionForUser(
-                  first,
-                  spaceId: shared,
-                  (tx) =>
-                      server.Unique.db.insertRow(firstWrapper, row, transaction: tx),
-                );
-                await secondWrapper.db.transactionForUser(
-                  second,
-                  spaceId: shared,
-                  (tx) => server.Unique.db.updateRow(
-                    secondWrapper,
-                    row.copyWith(name: 'dependent'),
-                    columns: (t) => [t.name],
-                    transaction: tx,
-                  ),
-                );
-              });
-
-              aheadClock = (await CrdtDataRow.db.findFirstRow(
-                raw,
-                where: (t) => t.uuidRowId.equals(row.id),
-                include: CrdtDataRow.include(node: CrdtNode.include()),
-              ))!.hlc;
-              dependentClock = await fieldHlc(row.id!, 'name');
-            });
-
-            test(
-              'then the dependent write is timestamped after the fact it observed.',
-              () {
-                expect(aheadClock.datetime, start.add(const Duration(seconds: 30)));
-                expect(dependentClock.compareTo(aheadClock), greaterThan(0));
-              },
-            );
-          },
-        );
-
-        group(
           'when a merge claims a unique value and a parent that a held transaction claims and deletes,',
           () {
             late server.Unique localClaim;
@@ -1149,6 +1132,87 @@ void main() {
               expect(town!.mayorId, isNull);
               expect(releasedMayor?.value, mayor.id);
             });
+          },
+        );
+      });
+
+      group('Given two users with write access to one shared space,', () {
+        late UuidValue first;
+        late UuidValue second;
+        late UuidValue shared;
+        late OfflineSyncDatabaseSession firstWrapper;
+        late OfflineSyncDatabaseSession secondWrapper;
+
+        setUpAll(() async {
+          first = const Uuid().v7obj();
+          second = const Uuid().v7obj();
+          shared = await OfflineSyncSpaces(raw).create(
+            grants: {
+              first: OfflineSyncSpaceRole.readWrite,
+              second: OfflineSyncSpaceRole.readWrite,
+            },
+          );
+          firstWrapper = await wrapper();
+          secondWrapper = await wrapper();
+        });
+
+        group(
+          "when one user's clock runs ahead and the other edits that user's row,",
+          () {
+            late server.Unique row;
+            late Hlc aheadClock;
+            late Hlc dependentClock;
+
+            setUpAll(() async {
+              row = server.Unique(id: const Uuid().v7obj(), name: 'ahead');
+              final remote = server.Unique(id: const Uuid().v7obj(), name: 'remote');
+
+              await withClock(Clock.fixed(start), () async {
+                // A remote fact 30 seconds ahead advances only the first clock.
+                await firstWrapper.db.mergeChanges([
+                  CrdtMergeInsert(
+                    uuidSpaceId: first,
+                    tableName: server.Unique.t.tableName,
+                    uuidRowId: remote.id!,
+                    uuidNodeId: const Uuid().v7obj(),
+                    hlcDatetime: start.add(const Duration(seconds: 30)),
+                    hlcCounter: 0,
+                    data: remote,
+                  ),
+                ], userId: first);
+                await firstWrapper.db.transactionForUser(
+                  first,
+                  spaceId: shared,
+                  (tx) =>
+                      server.Unique.db.insertRow(firstWrapper, row, transaction: tx),
+                );
+                await secondWrapper.db.transactionForUser(
+                  second,
+                  spaceId: shared,
+                  (tx) => server.Unique.db.updateRow(
+                    secondWrapper,
+                    row.copyWith(name: 'dependent'),
+                    columns: (t) => [t.name],
+                    transaction: tx,
+                  ),
+                );
+              });
+
+              aheadClock = (await CrdtDataRow.db.findFirstRow(
+                raw,
+                where: (t) => t.uuidRowId.equals(row.id),
+                include: CrdtDataRow.include(node: CrdtNode.include()),
+              ))!.hlc;
+              dependentClock = await fieldHlc(row.id!, 'name');
+            });
+
+            test(
+              'then the dependent write is timestamped after the fact it observed.',
+              () {
+                expect(aheadClock.datetime, start.add(const Duration(seconds: 30)));
+                expect(dependentClock.compareTo(aheadClock), greaterThan(0));
+              },
+            );
           },
         );
       });
@@ -1784,4 +1848,13 @@ typedef _DisjointRun = ({
   int secondAuthor,
   int firstClock,
   int secondClock,
+});
+
+/// One user's counter and two wrappers that cached the user's clock and space
+/// when it was written.
+typedef _StaleWrappers = ({
+  UuidValue user,
+  OfflineSyncDatabaseSession first,
+  OfflineSyncDatabaseSession second,
+  server.Unique counter,
 });
