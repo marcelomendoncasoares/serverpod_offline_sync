@@ -1202,12 +1202,18 @@ class OfflineSyncDatabase implements Database {
             tx,
             preparedSpaces,
           );
-          final result = await action(context);
-          context._assertActive();
-          if (context._activeScopes.isNotEmpty) {
-            throw StateError('Await every runForSpace call before returning.');
+          try {
+            final result = await action(context);
+            context._assertActive();
+            if (context._activeScopes.isNotEmpty) {
+              throw StateError('Await every runForSpace call before returning.');
+            }
+            return result;
+          } finally {
+            // Clock storage can yield after the callback returns. Expire the
+            // context before that work so late scopes cannot outlive its clock.
+            context._close();
           }
-          return result;
         });
       } finally {
         spaces?._close();

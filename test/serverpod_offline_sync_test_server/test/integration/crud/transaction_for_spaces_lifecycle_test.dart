@@ -1,13 +1,113 @@
 import 'dart:async';
 
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
 
+import '../../../../../benchmark/utils/query_counter.dart';
 import '../test_tools/client_session.dart';
 
 void main() {
   initTestClientSession();
+
+  group(
+    'Given a wrapper that pauses its transaction while storing the user clock,',
+    () {
+      late _ClockStorageBarrier database;
+      late OfflineSyncDatabaseSession app;
+
+      setUp(() async {
+        database = _ClockStorageBarrier(testSession.db);
+        app = OfflineSyncDatabaseSession(database, syncTables: testSyncTables);
+        await app.db.initialize();
+      });
+
+      group('when the callback has returned and escaped references try to write,', () {
+        late Object? scopeError;
+        late Object? writeError;
+        late bool lateCallbackRan;
+        late List<Person> rows;
+        late List<CrdtDataRow> records;
+        late Hlc? storedClock;
+
+        setUp(() async {
+          late OfflineSyncSpacesTransaction captured;
+          late Transaction capturedTx;
+          lateCallbackRan = false;
+          scopeError = null;
+          writeError = null;
+
+          final transaction = app.db.transactionForSpaces(
+            testCrdtUserId,
+            {testCrdtUserId},
+            (spaces) async {
+              captured = spaces;
+              await spaces.runForSpace(testCrdtUserId, (tx) async {
+                capturedTx = tx;
+                await Person.db.insertRow(
+                  app,
+                  Person(name: 'committed'),
+                  transaction: tx,
+                );
+              });
+            },
+          );
+
+          try {
+            await database.storing.future.timeout(const Duration(seconds: 10));
+            try {
+              await captured.runForSpace(testCrdtUserId, (tx) async {
+                lateCallbackRan = true;
+                await Person.db.insertRow(
+                  app,
+                  Person(name: 'late scope'),
+                  transaction: tx,
+                );
+              });
+            } on Object catch (error) {
+              scopeError = error;
+            }
+
+            try {
+              await Person.db.insertRow(
+                app,
+                Person(name: 'escaped transaction'),
+                transaction: capturedTx,
+              );
+            } on Object catch (error) {
+              writeError = error;
+            }
+          } finally {
+            database.resume.complete();
+            await transaction;
+          }
+
+          rows = await Person.db.find(testSession);
+          records = await CrdtDataRow.db.find(
+            testSession,
+            include: CrdtDataRow.include(node: CrdtNode.include()),
+          );
+          storedClock = (await CrdtNode.db.find(testSession)).single.lastHlc;
+        });
+
+        test('then the context rejects a new scope before invoking its callback.', () {
+          expect(scopeError, isA<StateError>());
+          expect(lateCallbackRan, isFalse);
+        });
+
+        test('then the escaped transaction rejects tracked writes.', () {
+          expect(writeError, isA<StateError>());
+        });
+
+        test('then only the original row commits and its clock covers every fact.', () {
+          expect(rows.map((row) => row.name), ['committed']);
+          expect(records.map((record) => record.uuidRowId), [rows.single.id]);
+          expect(storedClock, records.single.hlc);
+        });
+      });
+    },
+  );
 
   group('Given a space row without prepared replica metadata,', () {
     setUp(() async {
@@ -351,4 +451,40 @@ void main() {
       },
     );
   });
+}
+
+class _ClockStorageBarrier extends QueryCountingDatabase {
+  _ClockStorageBarrier(super._delegate);
+
+  final storing = Completer<void>();
+  final resume = Completer<void>();
+
+  @override
+  Future<List<T>> updateWhere<T extends TableRow>({
+    required List<ColumnValue> columnValues,
+    required Expression where,
+    int? limit,
+    int? offset,
+    Column? orderBy,
+    List<Column>? orderByList,
+    bool orderDescending = false,
+    Transaction? transaction,
+    bool noReturn = false,
+  }) async {
+    if (T == CrdtNode && !storing.isCompleted) {
+      storing.complete();
+      await resume.future;
+    }
+    return super.updateWhere<T>(
+      columnValues: columnValues,
+      where: where,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      orderByList: orderByList,
+      orderDescending: orderDescending,
+      transaction: transaction,
+      noReturn: noReturn,
+    );
+  }
 }
