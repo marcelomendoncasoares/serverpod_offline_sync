@@ -418,6 +418,196 @@ void main() {
           },
         );
 
+        group(
+          'when a caller savepoint inside a scope rolls back while another transaction waits,',
+          () {
+            late bool competitorEnteredBeforeCommit;
+            late Hlc outerClock;
+            late Hlc competingClock;
+            late Hlc storedClock;
+            late List<CrdtMergeChange> pending;
+            late List<Person> rows;
+
+            setUp(() async {
+              final rolledBack = Completer<void>();
+              final release = Completer<void>();
+              var competitorEntered = false;
+              final outerRow = Person(id: const Uuid().v7obj(), name: 'outer');
+              final competingRow = Person(id: const Uuid().v7obj(), name: 'competing');
+              final now = Clock.fixed(DateTime.utc(2030));
+
+              await session.db.transactionForSpaces<void>(user, {
+                user,
+                shared.uuidSpaceId,
+              }, (_) async {});
+              await secondSession.db.transactionForUser<void>(user, (_) async {});
+
+              final outer = withClock(now, () {
+                return session.db.transactionForSpaces<void>(
+                  user,
+                  {user, shared.uuidSpaceId},
+                  (spaces) => spaces.runForSpace(user, (tx) async {
+                    final savepoint = await tx.createSavepoint();
+                    await Person.db.insertRow(
+                      session,
+                      Person(name: 'discard'),
+                      transaction: tx,
+                    );
+                    await savepoint.rollback();
+
+                    rolledBack.complete();
+                    await release.future;
+                    await Person.db.insertRow(session, outerRow, transaction: tx);
+                  }),
+                );
+              });
+              await rolledBack.future;
+
+              final competing = withClock(now, () {
+                return secondSession.db.transactionForUser<void>(user, (tx) async {
+                  competitorEntered = true;
+                  await Person.db.insertRow(
+                    secondSession,
+                    competingRow,
+                    transaction: tx,
+                  );
+                });
+              });
+
+              try {
+                await _waitForBlockedTransactions(raw, 1);
+                competitorEnteredBeforeCommit = competitorEntered;
+              } finally {
+                release.complete();
+                await Future.wait([outer, competing]);
+              }
+
+              final records = await CrdtDataRow.db.find(
+                raw,
+                include: CrdtDataRow.include(node: CrdtNode.include()),
+              );
+              outerClock = records
+                  .singleWhere((row) => row.uuidRowId == outerRow.id)
+                  .hlc;
+              competingClock = records
+                  .singleWhere((row) => row.uuidRowId == competingRow.id)
+                  .hlc;
+              storedClock = (await CrdtNode.db.find(raw)).single.lastHlc!;
+              rows = await Person.db.find(raw);
+              pending =
+                  await OfflineSyncEngine(
+                        syncTables: syncTables,
+                        serializationManager: raw.db.serializationManager,
+                      )
+                      .collectPendingChanges(
+                        raw,
+                        checkpointsBySpaceUuid: {
+                          user: [outerClock],
+                        },
+                      )
+                      .toList();
+            });
+
+            test('then the user lock survives the caller savepoint rollback.', () {
+              expect(competitorEnteredBeforeCommit, isFalse);
+              expect(rows.map((row) => row.name).toSet(), {'outer', 'competing'});
+            });
+
+            test(
+              'then the competing commit remains sendable after the outer commit.',
+              () {
+                expect(competingClock.compareTo(outerClock), greaterThan(0));
+                expect(storedClock, competingClock);
+                expect(pending, hasLength(1));
+                expect(
+                  (pending.single as CrdtMergeInsert).data.toJson()['name'],
+                  'competing',
+                );
+              },
+            );
+          },
+        );
+
+        group('when a parent fails after a nested scope succeeds,', () {
+          late List<Person> rows;
+          late List<CrdtDataRow> records;
+          late Hlc storedClock;
+          late Hlc? sharedClock;
+          late StateError failure;
+          Object? caught;
+
+          setUp(() async {
+            failure = StateError('parent failure');
+            caught = null;
+
+            await withClock(Clock.fixed(DateTime.utc(2030)), () {
+              return session.db.transactionForSpaces<void>(
+                user,
+                {
+                  user,
+                  shared.uuidSpaceId,
+                },
+                (spaces) async {
+                  try {
+                    await spaces.runForSpace(user, (tx) async {
+                      await Person.db.insertRow(
+                        session,
+                        Person(name: 'discard parent'),
+                        transaction: tx,
+                      );
+                      await spaces.runForSpace(shared.uuidSpaceId, (tx) async {
+                        await Person.db.insertRow(
+                          session,
+                          Person(name: 'discard child'),
+                          transaction: tx,
+                        );
+                      });
+
+                      throw failure;
+                    });
+                  } on Object catch (error) {
+                    caught = error;
+                  }
+
+                  await spaces.runForSpace(user, (tx) async {
+                    await Person.db.insertRow(
+                      session,
+                      Person(name: 'kept'),
+                      transaction: tx,
+                    );
+                  });
+                },
+              );
+            });
+
+            rows = await Person.db.find(raw);
+            records = await CrdtDataRow.db.find(
+              raw,
+              include: CrdtDataRow.include(node: CrdtNode.include()),
+            );
+            storedClock = (await CrdtNode.db.find(raw)).single.lastHlc!;
+            sharedClock = (await OfflineSyncSpace.db.findById(
+              raw,
+              shared.id!,
+            ))!.lastHlc;
+          });
+
+          test('then both scopes roll back their domain and CRDT writes.', () {
+            expect(caught, same(failure));
+            expect(rows.map((row) => row.name), ['kept']);
+            expect(records.map((record) => record.uuidRowId), [rows.single.id]);
+          });
+
+          test(
+            'then the user clock and shared space high-water discard both scopes.',
+            () {
+              expect(records.single.hlc.counter, 0);
+              expect(storedClock, records.single.hlc);
+              expect(sharedClock, isNull);
+            },
+          );
+        });
+
         group('and another user owns an unrelated row,', () {
           late Person unrelated;
 
