@@ -35,11 +35,78 @@ void main() {
     include: CrdtDataRow.include(node: CrdtNode.include()),
   );
 
-  for (final (rowName, table) in [
-    ('the user clock', 'crdt_nodes'),
-    ('the space high-water mark', 'offline_sync_spaces'),
-  ]) {
-    group('Given a caller-owned transaction where storing $rowName fails,', () {
+  Future<void> rejectClockUpdates(String table) => raw.db.unsafeExecute('''
+CREATE TRIGGER reject_clock BEFORE UPDATE OF "lastHlc" ON "$table"
+BEGIN
+  SELECT RAISE(ABORT, 'rejected clock update');
+END;
+''');
+
+  /// Inserts [rowId] in a caller-owned transaction that catches the insert's
+  /// failure and commits, returning the caught error.
+  Future<Object?> insertCatchingFailure(UuidValue rowId) async {
+    Object? caught;
+    await raw.db.transaction((tx) async {
+      try {
+        await Unique.db.insertRow(
+          app,
+          Unique(id: rowId, name: 'unstored clock'),
+          transaction: tx,
+        );
+      } on Object catch (error) {
+        caught = error;
+      }
+    });
+    return caught;
+  }
+
+  group('Given a persistent-user wrapper whose user clock cannot be stored,', () {
+    late Hlc clockBefore;
+    late Hlc? spaceClockBefore;
+
+    setUpAll(() async {
+      await openApp();
+      clockBefore = await persistedUserClock(raw, testCrdtUserId);
+      spaceClockBefore = await spaceClock();
+      await rejectClockUpdates('crdt_nodes');
+    });
+
+    group('when a caller-owned transaction catches the failed insert and commits,', () {
+      late Object? caught;
+      late Unique? row;
+      late CrdtDataRow? fact;
+      late Hlc clockAfter;
+      late Hlc? spaceClockAfter;
+
+      setUpAll(() async {
+        final rowId = const Uuid().v7obj();
+        caught = await insertCatchingFailure(rowId);
+
+        row = await Unique.db.findById(app, rowId);
+        fact = await factOf(rowId);
+        clockAfter = await persistedUserClock(raw, testCrdtUserId);
+        spaceClockAfter = await spaceClock();
+      });
+
+      test('then the insert fails.', () {
+        expect(caught, isNotNull);
+      });
+
+      test('then neither the row nor its CRDT metadata is committed.', () {
+        expect(row, isNull);
+        expect(fact, isNull);
+      });
+
+      test('then both clocks keep their committed values.', () {
+        expect(clockAfter, clockBefore);
+        expect(spaceClockAfter, spaceClockBefore);
+      });
+    });
+  });
+
+  group(
+    'Given a persistent-user wrapper whose space high-water mark cannot be stored,',
+    () {
       late Hlc clockBefore;
       late Hlc? spaceClockBefore;
 
@@ -47,62 +114,56 @@ void main() {
         await openApp();
         clockBefore = await persistedUserClock(raw, testCrdtUserId);
         spaceClockBefore = await spaceClock();
-        await raw.db.unsafeExecute('''
-CREATE TRIGGER reject_clock BEFORE UPDATE OF "lastHlc" ON "$table"
-BEGIN
-  SELECT RAISE(ABORT, 'rejected clock update');
-END;
-''');
+        await rejectClockUpdates('offline_sync_spaces');
       });
 
-      group('when the caller catches the failed insert and commits,', () {
-        late UuidValue rowId;
-        late Object? caught;
+      group(
+        'when a caller-owned transaction catches the failed insert and commits,',
+        () {
+          late Object? caught;
+          late Unique? row;
+          late CrdtDataRow? fact;
+          late Hlc clockAfter;
+          late Hlc? spaceClockAfter;
 
-        setUpAll(() async {
-          rowId = const Uuid().v7obj();
-          await raw.db.transaction((tx) async {
-            try {
-              await Unique.db.insertRow(
-                app,
-                Unique(id: rowId, name: 'unstored clock'),
-                transaction: tx,
-              );
-              caught = null;
-            } on Object catch (error) {
-              caught = error;
-            }
+          setUpAll(() async {
+            final rowId = const Uuid().v7obj();
+            caught = await insertCatchingFailure(rowId);
+
+            row = await Unique.db.findById(app, rowId);
+            fact = await factOf(rowId);
+            clockAfter = await persistedUserClock(raw, testCrdtUserId);
+            spaceClockAfter = await spaceClock();
           });
-        });
 
-        test('then the insert fails.', () {
-          expect(caught, isNotNull);
-        });
+          test('then the insert fails.', () {
+            expect(caught, isNotNull);
+          });
 
-        test('then neither the row nor its CRDT metadata is committed.', () async {
-          expect(await Unique.db.findById(app, rowId), isNull);
-          expect(await factOf(rowId), isNull);
-        });
+          test('then neither the row nor its CRDT metadata is committed.', () {
+            expect(row, isNull);
+            expect(fact, isNull);
+          });
 
-        test('then both clocks keep their committed values.', () async {
-          expect(await persistedUserClock(raw, testCrdtUserId), clockBefore);
-          expect(await spaceClock(), spaceClockBefore);
-        });
-      });
-    });
-  }
+          test('then both clocks keep their committed values.', () {
+            expect(clockAfter, clockBefore);
+            expect(spaceClockAfter, spaceClockBefore);
+          });
+        },
+      );
+    },
+  );
 
-  group('Given a caller-owned transaction,', () {
+  group('Given a persistent-user wrapper,', () {
     setUpAll(openApp);
 
-    group('when the caller writes twice and commits,', () {
-      late List<UuidValue> rowIds;
+    group('when a caller-owned transaction writes twice through it and commits,', () {
       late List<Hlc> factClocks;
       late Hlc persistedClock;
       late Hlc? persistedSpaceClock;
 
       setUpAll(() async {
-        rowIds = [const Uuid().v7obj(), const Uuid().v7obj()];
+        final rowIds = [const Uuid().v7obj(), const Uuid().v7obj()];
         await raw.db.transaction((tx) async {
           for (final (index, rowId) in rowIds.indexed) {
             await Unique.db.insertRow(

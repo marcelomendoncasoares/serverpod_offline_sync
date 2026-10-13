@@ -28,7 +28,7 @@ void main() {
       rawServerSession.serverpod.initializeOfflineSync(syncTables: serverSyncTables);
 
       group(
-        'Given a writer and a read-only member sharing a space with a server user,',
+        'Given a shared space with a read-only member and facts written by a writer device, a server user, and the writer on the server,',
         () {
           late UuidValue writer;
           late UuidValue reader;
@@ -37,6 +37,9 @@ void main() {
           late OfflineSyncDatabaseSession serverSession;
           late OfflineSyncDatabaseSession writerClient;
           late OfflineSyncDatabaseSession readerClient;
+          late client.Person writerPerson;
+          late server.Person serverUserPerson;
+          late server.Person serverWriterPerson;
 
           Future<OfflineSyncDatabaseSession> clientFor(UuidValue user) async {
             final session = OfflineSyncDatabaseSession.wraps(
@@ -63,21 +66,12 @@ void main() {
             splice: splice,
           );
 
-          Future<UuidValue> serverAuthor(UuidValue rowId) async {
-            final row = await CrdtDataRow.db.findFirstRow(
-              rawServerSession,
-              where: (t) => t.uuidRowId.equals(rowId),
-              include: CrdtDataRow.include(node: CrdtNode.include()),
-            );
-            return row!.node!.uuidNodeId;
-          }
-
-          Future<UuidValue?> clientAuthor(
-            OfflineSyncDatabaseSession clientSession,
+          Future<UuidValue?> authorIn(
+            DatabaseSession databaseSession,
             UuidValue rowId,
           ) async {
             final row = await CrdtDataRow.db.findFirstRow(
-              clientSession,
+              databaseSession,
               where: (t) => t.uuidRowId.equals(rowId),
               include: CrdtDataRow.include(node: CrdtNode.include()),
             );
@@ -87,10 +81,6 @@ void main() {
           Set<UuidValue> rowIds(List<CrdtMergeChange> changes) => {
             for (final change in changes) change.uuidRowId,
           };
-
-          late client.Person writerPerson;
-          late server.Person serverUserPerson;
-          late server.Person serverWriterPerson;
 
           setUpAll(() async {
             writer = const Uuid().v7obj();
@@ -148,8 +138,8 @@ void main() {
           });
 
           test(
-            'then each fact on the server keeps the clock of the user and database '
-            'that authored it.',
+            "when reading each fact's author on the server, "
+            'then it is the clock of the user and database that wrote it.',
             () async {
               final writerDevice = await writerClient.db.currentNodeId();
               final writerOnServer = await serverSession.db.currentNodeId(
@@ -158,10 +148,13 @@ void main() {
               final serverUserOnServer = await serverSession.db.currentNodeId(
                 userId: serverUser,
               );
+              final authors = [
+                await authorIn(rawServerSession, writerPerson.id!),
+                await authorIn(rawServerSession, serverUserPerson.id!),
+                await authorIn(rawServerSession, serverWriterPerson.id!),
+              ];
 
-              expect(await serverAuthor(writerPerson.id!), writerDevice);
-              expect(await serverAuthor(serverUserPerson.id!), serverUserOnServer);
-              expect(await serverAuthor(serverWriterPerson.id!), writerOnServer);
+              expect(authors, [writerDevice, serverUserOnServer, writerOnServer]);
               expect(
                 {writerDevice, writerOnServer, serverUserOnServer},
                 hasLength(3),
@@ -171,12 +164,32 @@ void main() {
 
           group('when the read-only member syncs,', () {
             late SyncRound round;
+            late List<client.Person> people;
+            late Map<UuidValue, UuidValue?> readerAuthors;
+            late Map<UuidValue, UuidValue?> serverAuthors;
 
             setUpAll(() async {
               round = await syncOnce(readerClient, reader);
+
+              people = await client.Person.db.find(
+                readerClient,
+                where: (t) => t.spaceEquals(shared),
+              );
+              final written = [
+                writerPerson.id!,
+                serverUserPerson.id!,
+                serverWriterPerson.id!,
+              ];
+              readerAuthors = {
+                for (final rowId in written) rowId: await authorIn(readerClient, rowId),
+              };
+              serverAuthors = {
+                for (final rowId in written)
+                  rowId: await authorIn(rawServerSession, rowId),
+              };
             });
 
-            test('then it downloads every fact in the shared space.', () async {
+            test('then it downloads every fact in the shared space.', () {
               expect(round.serverError, isNull);
               expect(
                 rowIds(round.toClient),
@@ -185,10 +198,6 @@ void main() {
                   serverUserPerson.id,
                   serverWriterPerson.id,
                 ]),
-              );
-              final people = await client.Person.db.find(
-                readerClient,
-                where: (t) => t.spaceEquals(shared),
               );
               expect(
                 people.map((person) => person.id),
@@ -200,17 +209,8 @@ void main() {
               );
             });
 
-            test('then the downloaded facts keep their source nodes.', () async {
-              for (final rowId in [
-                writerPerson.id!,
-                serverUserPerson.id!,
-                serverWriterPerson.id!,
-              ]) {
-                expect(
-                  await clientAuthor(readerClient, rowId),
-                  await serverAuthor(rowId),
-                );
-              }
+            test('then the downloaded facts keep their source nodes.', () {
+              expect(readerAuthors, serverAuthors);
             });
 
             test('then it uploads nothing.', () {
@@ -218,47 +218,51 @@ void main() {
             });
           });
 
-          group('when the writer reconnects,', () {
-            late SyncRound round;
-            late SyncRound idleRound;
+          group('when the writer reconnects twice,', () {
+            late SyncRound firstRound;
+            late SyncRound secondRound;
+            late UuidValue? downloadedServerWriterAuthor;
+            late UuidValue writerOnServer;
 
             setUpAll(() async {
-              round = await syncOnce(writerClient, writer);
-              idleRound = await syncOnce(writerClient, writer);
+              firstRound = await syncOnce(writerClient, writer);
+              secondRound = await syncOnce(writerClient, writer);
+
+              downloadedServerWriterAuthor = await authorIn(
+                writerClient,
+                serverWriterPerson.id!,
+              );
+              writerOnServer = await serverSession.db.currentNodeId(userId: writer);
             });
 
             test(
-              "then it receives the server's facts, including its own user's server "
-              'clock, but not its own device facts.',
-              () async {
-                expect(round.serverError, isNull);
-                expect(rowIds(round.toClient), {
+              "then the first reconnect receives the server's facts, including its own user's server clock, but not its own device facts.",
+              () {
+                expect(firstRound.serverError, isNull);
+                expect(rowIds(firstRound.toClient), {
                   serverUserPerson.id,
                   serverWriterPerson.id,
                 });
-                expect(
-                  await clientAuthor(writerClient, serverWriterPerson.id!),
-                  await serverSession.db.currentNodeId(userId: writer),
-                );
+                expect(downloadedServerWriterAuthor, writerOnServer);
               },
             );
 
-            test('then it echoes nothing back to the server.', () {
-              expect(round.toServer, isEmpty);
+            test('then the first reconnect echoes nothing back to the server.', () {
+              expect(firstRound.toServer, isEmpty);
             });
 
-            test('then the persisted checkpoints leave nothing to resend.', () {
-              expect(idleRound.toClient, isEmpty);
-              expect(idleRound.toServer, isEmpty);
+            test('then the second reconnect has nothing left to exchange.', () {
+              expect(secondRound.toClient, isEmpty);
+              expect(secondRound.toServer, isEmpty);
             });
           });
 
           group('when the read-only member uploads a write to the shared space,', () {
-            late UuidValue deniedId;
             late SyncRound round;
+            late server.Person? stored;
 
             setUpAll(() async {
-              deniedId = const Uuid().v7obj();
+              final deniedId = const Uuid().v7obj();
               final readerDevice = await readerClient.db.currentNodeId();
               round = await syncOnce(
                 readerClient,
@@ -275,14 +279,12 @@ void main() {
                   ),
                 ],
               );
+              stored = await server.Person.db.findById(rawServerSession, deniedId);
             });
 
-            test('then the server rejects it as an unauthorized write.', () async {
+            test('then the server rejects it as an unauthorized write.', () {
               expect(round.serverError, isA<OfflineSyncIntegrityViolationException>());
-              expect(
-                await server.Person.db.findById(rawServerSession, deniedId),
-                isNull,
-              );
+              expect(stored, isNull);
             });
           });
         },

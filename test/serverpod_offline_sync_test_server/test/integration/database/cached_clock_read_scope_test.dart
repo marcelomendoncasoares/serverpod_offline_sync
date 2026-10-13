@@ -103,8 +103,7 @@ void main() {
       });
 
       test(
-        'then the read adds only the clock and space locks to membership and '
-        'domain queries.',
+        'then the read adds only the clock and space locks to membership and domain queries.',
         () {
           expect(found?.name, 'space read');
           expect(queries, 5);

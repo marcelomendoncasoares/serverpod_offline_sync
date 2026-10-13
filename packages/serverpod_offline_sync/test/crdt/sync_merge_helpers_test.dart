@@ -60,23 +60,34 @@ void main() {
     );
 
     test(
-      'when the clock is used, '
-      'then every increment, merge, and observation reports the use.',
+      'when peeking the next timestamp, '
+      'then no use is reported.',
       () {
         var uses = 0;
-        final hlcManager = HlcManager(
+        HlcManager(
           42,
           CrdtNode(id: 9, uuidNodeId: nodeId, lastHlc: lastHlc),
           onUse: () => uses++,
-        );
+        ).peekNext();
 
-        expect(hlcManager.peekNext(), isNotNull);
         expect(uses, 0);
+      },
+    );
 
-        hlcManager
+    test(
+      'when incrementing, merging an older timestamp, and observing an older timestamp, '
+      'then each call reports a use.',
+      () {
+        var uses = 0;
+        HlcManager(
+            42,
+            CrdtNode(id: 9, uuidNodeId: nodeId, lastHlc: lastHlc),
+            onUse: () => uses++,
+          )
           ..increment()
           ..merge(Hlc(DateTime.utc(2026, 5, 10, 12), 1, const Uuid().v7obj()))
           ..observe(Hlc(DateTime.utc(2026, 5, 10, 11), 1, const Uuid().v7obj()));
+
         expect(uses, 3);
       },
     );
