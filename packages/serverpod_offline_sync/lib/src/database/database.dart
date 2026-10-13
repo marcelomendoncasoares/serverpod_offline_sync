@@ -26,9 +26,11 @@ part 'space.dart';
 part 'watch.dart';
 
 /// Map of transaction hashes to the space they are associated with.
+@internal
 final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
 
 /// Map of transaction hashes to the authenticated user associated with them.
+@internal
 final userForTransaction = <Transaction, UuidValue>{};
 
 /// Map of transactions to the local clock node of their acting user.
