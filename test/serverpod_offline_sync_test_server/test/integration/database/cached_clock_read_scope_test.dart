@@ -77,17 +77,29 @@ void main() {
       late int rowsRead;
       late Hlc clockBefore;
       late Hlc clockAfter;
-      late int metadataBefore;
-      late int metadataAfter;
+      late Hlc? spaceBefore;
+      late Hlc? spaceAfter;
+      late List<Object?> metadataBefore;
+      late List<Object?> metadataAfter;
 
-      Future<int> metadataRows() async =>
-          await CrdtDataRow.db.count(app) +
-          await CrdtDataField.db.count(app) +
-          await CrdtDataDeleted.db.count(app);
+      Future<Hlc?> spaceClock() async => (await OfflineSyncSpace.db.findFirstRow(
+        app,
+        where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
+      ))!.lastHlc;
+
+      Future<List<Object?>> metadata() async => [
+        for (final row in await CrdtDataRow.db.find(app, orderBy: (t) => t.id))
+          row.toJson(),
+        for (final field in await CrdtDataField.db.find(app, orderBy: (t) => t.id))
+          field.toJson(),
+        for (final deleted in await CrdtDataDeleted.db.find(app, orderBy: (t) => t.id))
+          deleted.toJson(),
+      ];
 
       setUpAll(() async {
         clockBefore = await persistedUserClock(app, testCrdtUserId);
-        metadataBefore = await metadataRows();
+        spaceBefore = await spaceClock();
+        metadataBefore = await metadata();
         final queriesBefore = database.queryCount;
         final rowsBefore = database.rowsRead;
 
@@ -99,7 +111,8 @@ void main() {
         queries = database.queryCount - queriesBefore;
         rowsRead = database.rowsRead - rowsBefore;
         clockAfter = await persistedUserClock(app, testCrdtUserId);
-        metadataAfter = await metadataRows();
+        spaceAfter = await spaceClock();
+        metadataAfter = await metadata();
       });
 
       test(
@@ -111,8 +124,10 @@ void main() {
         },
       );
 
-      test('then the locks neither advance the clock nor record CRDT changes.', () {
+      test('then the read leaves both clocks and the CRDT metadata unchanged.', () {
         expect(clockAfter, clockBefore);
+        expect(spaceAfter, spaceBefore);
+        expect(metadataBefore, isNotEmpty);
         expect(metadataAfter, metadataBefore);
       });
     });

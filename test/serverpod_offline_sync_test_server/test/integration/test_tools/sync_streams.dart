@@ -16,7 +16,8 @@ typedef SyncRound = ({
 ///
 /// [splice] is sent as an extra [OfflineSyncMergeChunk] before the follower's
 /// first [OfflineSyncEndOfBatch]. `serverError` is the error that ended the
-/// server session, or null.
+/// server session, or null. A follower error is rethrown if the server did not
+/// reject the session, so a broken follower cannot look like an empty round.
 Future<SyncRound> syncOnceOverStreams({
   required OfflineSyncSession serverSync,
   required Stream<OfflineSyncStreamEvent> Function(
@@ -33,6 +34,8 @@ Future<SyncRound> syncOnceOverStreams({
   final clientCompletion = Completer<void>();
   final toClient = <CrdtMergeChange>[];
   final toServer = <CrdtMergeChange>[];
+  Object? clientError;
+  StackTrace? clientStack;
   var spliced = splice.isEmpty;
 
   void addIfOpen(
@@ -46,12 +49,15 @@ Future<SyncRound> syncOnceOverStreams({
     (event) {
       if (!spliced && event is OfflineSyncEndOfBatch) {
         spliced = true;
+        toServer.addAll(splice);
         addIfOpen(clientToServer, OfflineSyncMergeChunk(changes: splice));
       }
       if (event is OfflineSyncMergeChunk) toServer.addAll(event.changes);
       addIfOpen(clientToServer, event);
     },
-    onError: (Object _) {
+    onError: (Object error, StackTrace stack) {
+      clientError = error;
+      clientStack = stack;
       if (!clientCompletion.isCompleted) clientCompletion.complete();
       unawaited(clientToServer.close());
     },
@@ -86,6 +92,10 @@ Future<SyncRound> syncOnceOverStreams({
   try {
     final serverError = await serverCompletion.future.timeout(timeout);
     await clientCompletion.future.timeout(timeout);
+    if (serverError == null && clientError != null) {
+      Error.throwWithStackTrace(clientError!, clientStack!);
+    }
+    if (!spliced) throw StateError('The follower never sent the batch to splice.');
     return (toClient: toClient, toServer: toServer, serverError: serverError);
   } finally {
     await clientSubscription.cancel();

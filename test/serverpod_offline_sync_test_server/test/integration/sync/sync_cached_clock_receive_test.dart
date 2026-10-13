@@ -167,7 +167,7 @@ void main() {
     },
   );
 
-  group('Given a user acting in two spaces with a cached app clock,', () {
+  group('Given a cached user clock and a newer fact in another space,', () {
     late SyncNode app;
     late DateTime start;
     late Unique local;
@@ -238,7 +238,7 @@ void main() {
     });
 
     group(
-      'when the app edits its row after the other space receives a newer field,',
+      'when the app edits its personal row at the older wall time,',
       () {
         late CrdtDataField authored;
         late Hlc persistedClock;
@@ -540,7 +540,7 @@ void main() {
       });
 
       group(
-        'when the caller cancels a future-dated transaction and then writes again,',
+        'when the caller cancels a future-dated transaction and writes again,',
         () {
           String? returned;
           Object? failure;

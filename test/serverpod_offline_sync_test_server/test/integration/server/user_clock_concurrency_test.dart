@@ -41,7 +41,6 @@ void main() {
     (sessionBuilder, _) {
       late Session raw;
       late Session observer;
-      late DateTime start;
 
       /// A new wrapper on its own session, sharing no cache with the others.
       Future<OfflineSyncDatabaseSession> wrapper() async {
@@ -56,11 +55,7 @@ void main() {
       setUpAll(() async {
         raw = sessionBuilder.build();
         observer = sessionBuilder.build();
-        start = DateTime.fromMillisecondsSinceEpoch(
-          DateTime.now().millisecondsSinceEpoch,
-          isUtc: true,
-        );
-        await (await wrapper()).db.initialize();
+        await wrapper();
       });
 
       Future<Hlc> fieldHlc(
@@ -105,7 +100,6 @@ void main() {
             late bool resolversWaited;
             late List<UuidValue> resolved;
             late List<CrdtNode> owned;
-            late UuidValue reopened;
 
             setUpAll(() async {
               claimedNodeId = const Uuid().v7obj();
@@ -132,7 +126,7 @@ void main() {
                 for (final resolver in resolvers)
                   resolver.db.currentNodeId(userId: user),
               ];
-              await _untilLockWait(observer);
+              await _untilLockWait(observer, atLeast: resolvers.length);
               resolversWaited = true;
 
               release.complete();
@@ -143,7 +137,6 @@ void main() {
                 raw,
                 where: (t) => t.localUserUuid.equals(user),
               );
-              reopened = await (await wrapper()).db.currentNodeId(userId: user);
             });
 
             test('then the later first uses wait for the uncommitted one.', () {
@@ -154,10 +147,31 @@ void main() {
               expect(resolved.toSet(), {claimedNodeId});
               expect(owned.map((node) => node.uuidNodeId), [claimedNodeId]);
             });
+          },
+        );
+      });
 
-            test('then a reopened wrapper resolves the same node.', () {
-              expect(reopened, claimedNodeId);
-            });
+      group('Given a user with a persisted local clock,', () {
+        late UuidValue user;
+        late UuidValue persistedNode;
+
+        setUpAll(() async {
+          user = const Uuid().v7obj();
+          persistedNode = await (await wrapper()).db.currentNodeId(userId: user);
+        });
+
+        test(
+          'when a fresh wrapper resolves the clock, '
+          'then it reuses the persisted node.',
+          () async {
+            final reopened = await (await wrapper()).db.currentNodeId(userId: user);
+            final owned = await CrdtNode.db.find(
+              raw,
+              where: (t) => t.localUserUuid.equals(user),
+            );
+
+            expect(reopened, persistedNode);
+            expect(owned.map((node) => node.uuidNodeId), [persistedNode]);
           },
         );
       });
@@ -195,6 +209,7 @@ void main() {
         final firstRow = server.Unique(id: const Uuid().v7obj(), name: 'held');
         final secondRow = server.Unique(id: const Uuid().v7obj(), name: 'free');
         final mergedRow = server.Unique(id: const Uuid().v7obj(), name: 'merged');
+        final source = const Uuid().v7obj();
 
         final entered = Completer<void>();
         final release = _releasedOnTearDown();
@@ -221,7 +236,7 @@ void main() {
                 uuidSpaceId: second,
                 tableName: server.Unique.t.tableName,
                 uuidRowId: mergedRow.id!,
-                uuidNodeId: const Uuid().v7obj(),
+                uuidNodeId: source,
                 hlcDatetime: clock.now().toUtc(),
                 hlcCounter: 0,
                 data: mergedRow,
@@ -241,6 +256,9 @@ void main() {
           secondAuthor: (await authorOf(secondRow.id!)).id!,
           firstClock: (await userNode(first))!.id!,
           secondClock: (await userNode(second))!.id!,
+          mergedValue: (await server.Unique.db.findById(raw, mergedRow.id!))?.name,
+          mergedAuthor: (await authorOf(mergedRow.id!)).uuidNodeId,
+          source: source,
         );
       }
 
@@ -276,6 +294,8 @@ void main() {
               () {
                 expect(run.firstStillOpen, isTrue);
                 expect(run.waitersWhileHeld, 0);
+                expect(run.mergedValue, 'merged');
+                expect(run.mergedAuthor, run.source);
               },
             );
 
@@ -336,6 +356,8 @@ void main() {
               () {
                 expect(run.firstStillOpen, isTrue);
                 expect(run.waitersWhileHeld, 0);
+                expect(run.mergedValue, 'merged');
+                expect(run.mergedAuthor, run.source);
               },
             );
 
@@ -371,15 +393,18 @@ void main() {
       );
 
       /// A new user with a counter named [counter] that the first of two new
-      /// wrappers inserts and the second reads at [start], so both cache the
+      /// wrappers inserts and the second reads at [at], so both cache the
       /// user's clock and space from then.
-      Future<_StaleWrappers> staleWrappers({required String counter}) async {
+      Future<_StaleWrappers> staleWrappers({
+        required String counter,
+        required DateTime at,
+      }) async {
         final user = const Uuid().v7obj();
         final first = await wrapper();
         final second = await wrapper();
         final row = server.Unique(id: const Uuid().v7obj(), name: counter);
 
-        await withClock(Clock.fixed(start), () async {
+        await withClock(Clock.fixed(at), () async {
           await first.db.transactionForUser(
             user,
             (tx) => server.Unique.db.insertRow(first, row, transaction: tx),
@@ -392,15 +417,17 @@ void main() {
         return (user: user, first: first, second: second, counter: row);
       }
 
-      group('Given one user with two wrappers holding stale cached clocks,', () {
+      group('Given a user with a counter and two wrappers caching its clock,', () {
         late UuidValue user;
+        late DateTime start;
         late OfflineSyncDatabaseSession firstWrapper;
         late OfflineSyncDatabaseSession secondWrapper;
         late server.Unique counter;
 
-        setUpAll(() async {
+        setUp(() async {
+          start = _wallTime();
           (user: user, first: firstWrapper, second: secondWrapper, counter: counter) =
-              await staleWrappers(counter: '10');
+              await staleWrappers(counter: '10', at: start);
         });
 
         group(
@@ -414,7 +441,7 @@ void main() {
             late Hlc persistedClock;
             late String committed;
 
-            setUpAll(() async {
+            setUp(() async {
               final entered = Completer<void>();
               final release = _releasedOnTearDown();
               final firstTransaction = withClock(
@@ -480,27 +507,16 @@ void main() {
             );
           },
         );
-      });
 
-      group('Given one user with two wrappers holding stale cached clocks,', () {
-        late UuidValue user;
-        late OfflineSyncDatabaseSession firstWrapper;
-        late OfflineSyncDatabaseSession secondWrapper;
-        late server.Unique counter;
-
-        setUpAll(() async {
-          (user: user, first: firstWrapper, second: secondWrapper, counter: counter) =
-              await staleWrappers(counter: '10');
-        });
-
-        group('when the first allocates a newer clock and rolls back,', () {
+        group('when a newer write rolls back while a second writer waits,', () {
           late Hlc clockBefore;
           late Object? rollbackError;
+          late String afterRollback;
           late Hlc secondClock;
           late Hlc persistedClock;
           late String committed;
 
-          setUpAll(() async {
+          setUp(() async {
             clockBefore = await persistedUserClock(raw, user);
             final written = Completer<void>();
             final release = _releasedOnTearDown();
@@ -518,6 +534,7 @@ void main() {
             final secondTransaction = withClock(
               Clock.fixed(start),
               () => secondWrapper.db.transactionForUser(user, (tx) async {
+                afterRollback = await readCounter(secondWrapper, counter, tx);
                 await writeCounter(secondWrapper, counter, tx, 'after rollback');
               }),
             );
@@ -536,6 +553,7 @@ void main() {
 
           test('then the rolled back write leaves no value behind.', () {
             expect(rollbackError, isA<StateError>());
+            expect(afterRollback, '10');
             expect(committed, 'after rollback');
           });
 
@@ -548,18 +566,6 @@ void main() {
             expect(persistedClock, secondClock);
           });
         });
-      });
-
-      group('Given one user with two wrappers holding stale cached clocks,', () {
-        late UuidValue user;
-        late OfflineSyncDatabaseSession firstWrapper;
-        late OfflineSyncDatabaseSession secondWrapper;
-        late server.Unique counter;
-
-        setUpAll(() async {
-          (user: user, first: firstWrapper, second: secondWrapper, counter: counter) =
-              await staleWrappers(counter: '10');
-        });
 
         group(
           'when a transaction starts while an inbound merge for the same user is held,',
@@ -567,7 +573,7 @@ void main() {
             late bool callbackEnteredWhileHeld;
             late String? readInCallback;
 
-            setUpAll(() async {
+            setUp(() async {
               final paused = Completer<void>();
               final release = _releasedOnTearDown();
               final merger = OfflineSyncDatabaseSession(
@@ -624,8 +630,9 @@ void main() {
           () {
             late bool mergeFinishedWhileHeld;
             late bool waited;
+            late String? mergedValue;
 
-            setUpAll(() async {
+            setUp(() async {
               final entered = Completer<void>();
               final release = _releasedOnTearDown();
               final holding = firstWrapper.db.transactionForUser(user, (tx) async {
@@ -656,24 +663,26 @@ void main() {
 
               release.complete();
               await Future.wait([holding, merging]);
+              mergedValue = (await server.Unique.db.findById(raw, merged.id!))?.name;
             });
 
             test('then the merge waits for the transaction to finish.', () {
               expect(waited, isTrue);
               expect(mergeFinishedWhileHeld, isFalse);
+              expect(mergedValue, 'merged');
             });
           },
         );
       });
 
       group(
-        'Given a user who already wrote through a wrapper counting clock access,',
+        'Given a user with a committed write in its personal space,',
         () {
           late UuidValue user;
           late _CountClockAccess counter;
           late OfflineSyncDatabaseSession session;
 
-          setUpAll(() async {
+          setUp(() async {
             user = const Uuid().v7obj();
             counter = _CountClockAccess(sessionBuilder.build().db);
             session = OfflineSyncDatabaseSession(
@@ -704,13 +713,13 @@ void main() {
           ))!.lastHlc;
 
           group('when one callback writes three times,', () {
-            late int lockReads;
-            late int clockWrites;
+            late ({int user, int space}) lockReads;
+            late ({int user, int space}) clockWrites;
             late List<Hlc> rowClocks;
             late Hlc persistedClock;
             late Hlc? persistedSpaceClock;
 
-            setUpAll(() async {
+            setUp(() async {
               final rows = [
                 for (var i = 0; i < 3; i++)
                   server.Unique(id: const Uuid().v7obj(), name: 'write $i'),
@@ -722,21 +731,32 @@ void main() {
                   await server.Unique.db.insertRow(session, row, transaction: tx);
                 }
               });
-              lockReads = counter.lockReads - locksBefore;
-              clockWrites = counter.clockWrites - writesBefore;
+              lockReads = (
+                user: counter.userLockReads - locksBefore.user,
+                space: counter.spaceLockReads - locksBefore.space,
+              );
+              clockWrites = (
+                user: counter.userClockWrites - writesBefore.user,
+                space: counter.spaceClockWrites - writesBefore.space,
+              );
 
               rowClocks = [for (final row in rows) await rowClock(row.id!)];
               persistedClock = await persistedUserClock(raw, user);
               persistedSpaceClock = await spaceClock();
             });
 
-            test('then it locks the clock and the space only once.', () {
-              expect(lockReads, 2);
+            test('then it locks the user clock and the space once each.', () {
+              expect(lockReads.user, 1);
+              expect(lockReads.space, 1);
             });
 
-            test('then it stores the clock and the space high-water mark once.', () {
-              expect(clockWrites, 2);
-            });
+            test(
+              'then it stores the user clock and the space high-water mark once each.',
+              () {
+                expect(clockWrites.user, 1);
+                expect(clockWrites.space, 1);
+              },
+            );
 
             test('then the writes advance one clock monotonically.', () {
               expect(rowClocks[1].compareTo(rowClocks[0]), greaterThan(0));
@@ -750,24 +770,33 @@ void main() {
           });
 
           group('when a callback only reads,', () {
-            late int clockWrites;
+            late ({int user, int space}) clockWrites;
             late Hlc clockBefore;
             late Hlc clockAfter;
+            late Hlc? spaceBefore;
+            late Hlc? spaceAfter;
 
-            setUpAll(() async {
+            setUp(() async {
               clockBefore = await persistedUserClock(raw, user);
+              spaceBefore = await spaceClock();
               final writesBefore = counter.clockWrites;
               await session.db.transactionForUser(
                 user,
                 (tx) => server.Unique.db.find(session, transaction: tx),
               );
-              clockWrites = counter.clockWrites - writesBefore;
+              clockWrites = (
+                user: counter.userClockWrites - writesBefore.user,
+                space: counter.spaceClockWrites - writesBefore.space,
+              );
               clockAfter = await persistedUserClock(raw, user);
+              spaceAfter = await spaceClock();
             });
 
             test('then it stores no clock.', () {
-              expect(clockWrites, 0);
+              expect(clockWrites.user, 0);
+              expect(clockWrites.space, 0);
               expect(clockAfter, clockBefore);
+              expect(spaceAfter, spaceBefore);
             });
           });
 
@@ -778,7 +807,7 @@ void main() {
             late Hlc persistedClock;
             late Hlc? persistedSpaceClock;
 
-            setUpAll(() async {
+            setUp(() async {
               final taken = server.Unique(id: const Uuid().v7obj(), name: 'taken');
               kept = server.Unique(id: const Uuid().v7obj(), name: 'kept');
               await session.db.transactionForUser(user, (tx) async {
@@ -816,13 +845,17 @@ void main() {
 
           group('when a callback fails after writing,', () {
             late Object? failure;
-            late int clockWrites;
+            late ({int user, int space}) clockWrites;
             late Hlc clockBefore;
             late Hlc clockAfter;
+            late Hlc? spaceBefore;
+            late Hlc? spaceAfter;
             late CrdtDataRow? rolledBackFact;
+            late server.Unique? rolledBackRow;
 
-            setUpAll(() async {
+            setUp(() async {
               clockBefore = await persistedUserClock(raw, user);
+              spaceBefore = await spaceClock();
               final rolledBack = server.Unique(
                 id: const Uuid().v7obj(),
                 name: 'rolled back',
@@ -838,8 +871,13 @@ void main() {
                     throw StateError('fail after writing');
                   })
                   .then<Object?>((_) => null, onError: (Object error) => error);
-              clockWrites = counter.clockWrites - writesBefore;
+              clockWrites = (
+                user: counter.userClockWrites - writesBefore.user,
+                space: counter.spaceClockWrites - writesBefore.space,
+              );
               clockAfter = await persistedUserClock(raw, user);
+              spaceAfter = await spaceClock();
+              rolledBackRow = await server.Unique.db.findById(raw, rolledBack.id!);
               rolledBackFact = await CrdtDataRow.db.findFirstRow(
                 raw,
                 where: (t) => t.uuidRowId.equals(rolledBack.id),
@@ -848,12 +886,33 @@ void main() {
 
             test('then neither the write nor any clock is stored.', () {
               expect(failure, isA<StateError>());
-              expect(clockWrites, 0);
+              expect(clockWrites.user, 0);
+              expect(clockWrites.space, 0);
               expect(clockAfter, clockBefore);
+              expect(spaceAfter, spaceBefore);
               expect(rolledBackFact, isNull);
+              expect(rolledBackRow, isNull);
             });
           });
         },
+      );
+
+      Future<
+        ({
+          UuidValue space,
+          OfflineSyncDatabaseSession first,
+          OfflineSyncDatabaseSession second,
+        })
+      >
+      sharedWriterWrappers(UuidValue first, UuidValue second) async => (
+        space: await OfflineSyncSpaces(raw).create(
+          grants: {
+            first: OfflineSyncSpaceRole.readWrite,
+            second: OfflineSyncSpaceRole.readWrite,
+          },
+        ),
+        first: await wrapper(),
+        second: await wrapper(),
       );
 
       group('Given two users with write access to one shared space,', () {
@@ -866,18 +925,12 @@ void main() {
         setUpAll(() async {
           first = const Uuid().v7obj();
           second = const Uuid().v7obj();
-          shared = await OfflineSyncSpaces(raw).create(
-            grants: {
-              first: OfflineSyncSpaceRole.readWrite,
-              second: OfflineSyncSpaceRole.readWrite,
-            },
-          );
-          firstWrapper = await wrapper();
-          secondWrapper = await wrapper();
+          (space: shared, first: firstWrapper, second: secondWrapper) =
+              await sharedWriterWrappers(first, second);
         });
 
         group(
-          'when one writes the space while the other writes it and a third user writes elsewhere,',
+          'when one holds a shared write while another writes there, a third writes elsewhere, and a reader joins,',
           () {
             late server.Unique firstRow;
             late server.Unique secondRow;
@@ -992,15 +1045,36 @@ void main() {
             });
           },
         );
+      });
+
+      group('Given two shared-space writers and a persisted mayor,', () {
+        late UuidValue first;
+        late UuidValue second;
+        late UuidValue shared;
+        late OfflineSyncDatabaseSession firstWrapper;
+        late OfflineSyncDatabaseSession secondWrapper;
+        late server.Person mayor;
+
+        setUpAll(() async {
+          first = const Uuid().v7obj();
+          second = const Uuid().v7obj();
+          (space: shared, first: firstWrapper, second: secondWrapper) =
+              await sharedWriterWrappers(first, second);
+          mayor = server.Person(id: const Uuid().v7obj(), name: 'mayor');
+          await firstWrapper.db.transactionForUser(
+            first,
+            spaceId: shared,
+            (tx) => server.Person.db.insertRow(firstWrapper, mayor, transaction: tx),
+          );
+        });
 
         group(
           'when a merge claims a unique value and a parent that a held transaction claims and deletes,',
           () {
             late server.Unique localClaim;
             late server.Unique mergedClaim;
-            late server.Person mayor;
             late server.Town mergedTown;
-            late bool mergeEnteredWhileHeld;
+            late bool mergeFinishedWhileHeld;
             late List<server.Unique> claims;
             late CrdtDataAttemptedValue? releasedClaim;
             late server.Town? town;
@@ -1009,18 +1083,10 @@ void main() {
             setUpAll(() async {
               localClaim = server.Unique(id: const Uuid().v7obj(), name: 'claimed');
               mergedClaim = server.Unique(id: const Uuid().v7obj(), name: 'claimed');
-              mayor = server.Person(id: const Uuid().v7obj(), name: 'mayor');
               mergedTown = server.Town(
                 id: const Uuid().v7obj(),
                 name: 'town',
                 mayorId: mayor.id,
-              );
-
-              await firstWrapper.db.transactionForUser(
-                first,
-                spaceId: shared,
-                (tx) =>
-                    server.Person.db.insertRow(firstWrapper, mayor, transaction: tx),
               );
 
               final entered = Completer<void>();
@@ -1074,7 +1140,7 @@ void main() {
                   )
                   .whenComplete(() => mergeFinished = true);
               await _untilLockWait(observer);
-              mergeEnteredWhileHeld = mergeFinished;
+              mergeFinishedWhileHeld = mergeFinished;
 
               release.complete();
               await Future.wait([holding, merging]);
@@ -1118,7 +1184,7 @@ void main() {
             });
 
             test('then the merge waits for the held transaction.', () {
-              expect(mergeEnteredWhileHeld, isFalse);
+              expect(mergeFinishedWhileHeld, isFalse);
             });
 
             test('then exactly one row holds the unique value.', () {
@@ -1136,192 +1202,198 @@ void main() {
         );
       });
 
-      group('Given two users with write access to one shared space,', () {
-        late UuidValue first;
-        late UuidValue second;
-        late UuidValue shared;
-        late OfflineSyncDatabaseSession firstWrapper;
-        late OfflineSyncDatabaseSession secondWrapper;
+      group(
+        'Given a shared row authored by a user whose clock is ahead of another writer,',
+        () {
+          late UuidValue first;
+          late DateTime start;
+          late UuidValue second;
+          late UuidValue shared;
+          late OfflineSyncDatabaseSession firstWrapper;
+          late OfflineSyncDatabaseSession secondWrapper;
+          late server.Unique row;
+          late Hlc aheadClock;
 
-        setUpAll(() async {
-          first = const Uuid().v7obj();
-          second = const Uuid().v7obj();
-          shared = await OfflineSyncSpaces(raw).create(
-            grants: {
-              first: OfflineSyncSpaceRole.readWrite,
-              second: OfflineSyncSpaceRole.readWrite,
-            },
-          );
-          firstWrapper = await wrapper();
-          secondWrapper = await wrapper();
-        });
+          setUpAll(() async {
+            start = _wallTime();
+            first = const Uuid().v7obj();
+            second = const Uuid().v7obj();
+            (space: shared, first: firstWrapper, second: secondWrapper) =
+                await sharedWriterWrappers(first, second);
+            row = server.Unique(id: const Uuid().v7obj(), name: 'ahead');
+            final remote = server.Unique(id: const Uuid().v7obj(), name: 'remote');
 
-        group(
-          "when one user's clock runs ahead and the other edits that user's row,",
-          () {
-            late server.Unique row;
-            late Hlc aheadClock;
-            late Hlc dependentClock;
+            await withClock(Clock.fixed(start), () async {
+              // A remote fact 30 seconds ahead advances only the first clock.
+              await firstWrapper.db.mergeChanges([
+                CrdtMergeInsert(
+                  uuidSpaceId: first,
+                  tableName: server.Unique.t.tableName,
+                  uuidRowId: remote.id!,
+                  uuidNodeId: const Uuid().v7obj(),
+                  hlcDatetime: start.add(const Duration(seconds: 30)),
+                  hlcCounter: 0,
+                  data: remote,
+                ),
+              ], userId: first);
+              await firstWrapper.db.transactionForUser(
+                first,
+                spaceId: shared,
+                (tx) => server.Unique.db.insertRow(firstWrapper, row, transaction: tx),
+              );
+            });
+            aheadClock = (await CrdtDataRow.db.findFirstRow(
+              raw,
+              where: (t) => t.uuidRowId.equals(row.id),
+              include: CrdtDataRow.include(node: CrdtNode.include()),
+            ))!.hlc;
+          });
 
-            setUpAll(() async {
-              row = server.Unique(id: const Uuid().v7obj(), name: 'ahead');
-              final remote = server.Unique(id: const Uuid().v7obj(), name: 'remote');
+          group(
+            'when the other writer edits the row with an older wall clock,',
+            () {
+              late Hlc dependentClock;
 
-              await withClock(Clock.fixed(start), () async {
-                // A remote fact 30 seconds ahead advances only the first clock.
-                await firstWrapper.db.mergeChanges([
-                  CrdtMergeInsert(
-                    uuidSpaceId: first,
-                    tableName: server.Unique.t.tableName,
-                    uuidRowId: remote.id!,
-                    uuidNodeId: const Uuid().v7obj(),
-                    hlcDatetime: start.add(const Duration(seconds: 30)),
-                    hlcCounter: 0,
-                    data: remote,
-                  ),
-                ], userId: first);
-                await firstWrapper.db.transactionForUser(
-                  first,
-                  spaceId: shared,
-                  (tx) =>
-                      server.Unique.db.insertRow(firstWrapper, row, transaction: tx),
-                );
-                await secondWrapper.db.transactionForUser(
-                  second,
-                  spaceId: shared,
-                  (tx) => server.Unique.db.updateRow(
-                    secondWrapper,
-                    row.copyWith(name: 'dependent'),
-                    columns: (t) => [t.name],
-                    transaction: tx,
-                  ),
-                );
+              setUpAll(() async {
+                await withClock(Clock.fixed(start), () async {
+                  await secondWrapper.db.transactionForUser(
+                    second,
+                    spaceId: shared,
+                    (tx) => server.Unique.db.updateRow(
+                      secondWrapper,
+                      row.copyWith(name: 'dependent'),
+                      columns: (t) => [t.name],
+                      transaction: tx,
+                    ),
+                  );
+                });
+
+                dependentClock = await fieldHlc(row.id!, 'name');
               });
 
-              aheadClock = (await CrdtDataRow.db.findFirstRow(
-                raw,
-                where: (t) => t.uuidRowId.equals(row.id),
-                include: CrdtDataRow.include(node: CrdtNode.include()),
-              ))!.hlc;
-              dependentClock = await fieldHlc(row.id!, 'name');
-            });
+              test(
+                'then the dependent write is timestamped after the fact it observed.',
+                () {
+                  expect(aheadClock.datetime, start.add(const Duration(seconds: 30)));
+                  expect(dependentClock.compareTo(aheadClock), greaterThan(0));
+                },
+              );
+            },
+          );
+        },
+      );
 
-            test(
-              'then the dependent write is timestamped after the fact it observed.',
-              () {
-                expect(aheadClock.datetime, start.add(const Duration(seconds: 30)));
-                expect(dependentClock.compareTo(aheadClock), greaterThan(0));
+      group(
+        'Given an empty shared space and a member whose clock is ahead of an incoming fact,',
+        () {
+          late UuidValue ahead;
+          late DateTime start;
+          late UuidValue editor;
+          late UuidValue shared;
+          late OfflineSyncDatabaseSession aheadWrapper;
+          late OfflineSyncDatabaseSession editorWrapper;
+          late Hlc clockBeforeMerge;
+
+          CrdtMergeInsert remoteInsert(
+            UuidValue spaceId,
+            server.Unique data,
+            Duration offset,
+          ) => CrdtMergeInsert(
+            uuidSpaceId: spaceId,
+            tableName: server.Unique.t.tableName,
+            uuidRowId: data.id!,
+            uuidNodeId: const Uuid().v7obj(),
+            hlcDatetime: start.add(offset),
+            hlcCounter: 0,
+            data: data,
+          );
+
+          setUpAll(() async {
+            start = _wallTime();
+            ahead = const Uuid().v7obj();
+            editor = const Uuid().v7obj();
+            shared = await OfflineSyncSpaces(raw).create(
+              grants: {
+                ahead: OfflineSyncSpaceRole.readWrite,
+                editor: OfflineSyncSpaceRole.readWrite,
               },
             );
-          },
-        );
-      });
+            aheadWrapper = await wrapper();
+            editorWrapper = await wrapper();
 
-      group("Given a user whose clock runs ahead of a shared space's facts,", () {
-        late UuidValue ahead;
-        late UuidValue editor;
-        late UuidValue shared;
-        late OfflineSyncDatabaseSession aheadWrapper;
-        late OfflineSyncDatabaseSession editorWrapper;
-        late Hlc clockBeforeMerge;
+            // A fact 30 seconds ahead in the user's own space advances the clock.
+            await withClock(
+              Clock.fixed(start),
+              () => aheadWrapper.db.mergeChanges([
+                remoteInsert(
+                  ahead,
+                  server.Unique(id: const Uuid().v7obj(), name: 'elsewhere'),
+                  const Duration(seconds: 30),
+                ),
+              ], userId: ahead),
+            );
+            clockBeforeMerge = await persistedUserClock(raw, ahead);
+          });
 
-        CrdtMergeInsert remoteInsert(
-          UuidValue spaceId,
-          server.Unique data,
-          Duration offset,
-        ) => CrdtMergeInsert(
-          uuidSpaceId: spaceId,
-          tableName: server.Unique.t.tableName,
-          uuidRowId: data.id!,
-          uuidNodeId: const Uuid().v7obj(),
-          hlcDatetime: start.add(offset),
-          hlcCounter: 0,
-          data: data,
-        );
+          group(
+            'when the user merges an older remote fact into the space and another user edits it,',
+            () {
+              late Hlc mergedFact;
+              late Hlc clockAfterMerge;
+              late Hlc? spaceClock;
+              late Hlc edit;
 
-        setUpAll(() async {
-          ahead = const Uuid().v7obj();
-          editor = const Uuid().v7obj();
-          shared = await OfflineSyncSpaces(raw).create(
-            grants: {
-              ahead: OfflineSyncSpaceRole.readWrite,
-              editor: OfflineSyncSpaceRole.readWrite,
-            },
-          );
-          aheadWrapper = await wrapper();
-          editorWrapper = await wrapper();
+              setUpAll(() async {
+                final row = server.Unique(id: const Uuid().v7obj(), name: 'merged');
 
-          // A fact 30 seconds ahead in the user's own space advances the clock.
-          await withClock(
-            Clock.fixed(start),
-            () => aheadWrapper.db.mergeChanges([
-              remoteInsert(
-                ahead,
-                server.Unique(id: const Uuid().v7obj(), name: 'elsewhere'),
-                const Duration(seconds: 30),
-              ),
-            ], userId: ahead),
-          );
-          clockBeforeMerge = await persistedUserClock(raw, ahead);
-        });
+                await withClock(Clock.fixed(start), () async {
+                  await aheadWrapper.db.mergeChanges(
+                    [remoteInsert(shared, row, const Duration(seconds: 10))],
+                    userId: ahead,
+                    spaceId: shared,
+                  );
+                  clockAfterMerge = await persistedUserClock(raw, ahead);
+                  spaceClock = (await OfflineSyncSpace.db.findFirstRow(
+                    raw,
+                    where: (t) => t.uuidSpaceId.equals(shared),
+                  ))!.lastHlc;
 
-        group(
-          'when the user merges an older remote fact into the space and another user edits it,',
-          () {
-            late Hlc mergedFact;
-            late Hlc clockAfterMerge;
-            late Hlc? spaceClock;
-            late Hlc edit;
+                  await editorWrapper.db.transactionForUser(
+                    editor,
+                    spaceId: shared,
+                    (tx) => server.Unique.db.updateRow(
+                      editorWrapper,
+                      row.copyWith(name: 'edited'),
+                      columns: (t) => [t.name],
+                      transaction: tx,
+                    ),
+                  );
+                });
 
-            setUpAll(() async {
-              final row = server.Unique(id: const Uuid().v7obj(), name: 'merged');
-
-              await withClock(Clock.fixed(start), () async {
-                await aheadWrapper.db.mergeChanges(
-                  [remoteInsert(shared, row, const Duration(seconds: 10))],
-                  userId: ahead,
-                  spaceId: shared,
-                );
-                clockAfterMerge = await persistedUserClock(raw, ahead);
-
-                await editorWrapper.db.transactionForUser(
-                  editor,
-                  spaceId: shared,
-                  (tx) => server.Unique.db.updateRow(
-                    editorWrapper,
-                    row.copyWith(name: 'edited'),
-                    columns: (t) => [t.name],
-                    transaction: tx,
-                  ),
-                );
+                mergedFact = (await CrdtDataRow.db.findFirstRow(
+                  raw,
+                  where: (t) => t.uuidRowId.equals(row.id),
+                  include: CrdtDataRow.include(node: CrdtNode.include()),
+                ))!.hlc;
+                edit = await fieldHlc(row.id!, 'name');
               });
 
-              mergedFact = (await CrdtDataRow.db.findFirstRow(
-                raw,
-                where: (t) => t.uuidRowId.equals(row.id),
-                include: CrdtDataRow.include(node: CrdtNode.include()),
-              ))!.hlc;
-              spaceClock = (await OfflineSyncSpace.db.findFirstRow(
-                raw,
-                where: (t) => t.uuidSpaceId.equals(shared),
-              ))!.lastHlc;
-              edit = await fieldHlc(row.id!, 'name');
-            });
+              test('then the merge does not advance the clock.', () {
+                expect(clockAfterMerge, clockBeforeMerge);
+              });
 
-            test('then the merge does not advance the clock.', () {
-              expect(clockAfterMerge, clockBeforeMerge);
-            });
+              test('then the space high-water mark still covers the merged fact.', () {
+                expect(spaceClock, clockBeforeMerge);
+                expect(spaceClock!.compareTo(mergedFact), greaterThan(0));
+              });
 
-            test('then the space high-water mark still covers the merged fact.', () {
-              expect(spaceClock!.compareTo(mergedFact), greaterThan(0));
-            });
-
-            test('then the edit is timestamped after the merged fact.', () {
-              expect(edit.compareTo(mergedFact), greaterThan(0));
-            });
-          },
-        );
-      });
+              test('then the edit is timestamped after the merged fact.', () {
+                expect(edit.compareTo(mergedFact), greaterThan(0));
+              });
+            },
+          );
+        },
+      );
 
       group('Given a user with read access to a shared space,', () {
         late UuidValue user;
@@ -1347,6 +1419,7 @@ void main() {
           late OfflineSyncSpaceNode? checkpoint;
 
           setUpAll(() async {
+            final start = _wallTime();
             remoteNode = const Uuid().v7obj();
             incoming = Hlc(start.add(const Duration(seconds: 20)), 3, remoteNode);
             row = server.Unique(id: const Uuid().v7obj(), name: 'replicated');
@@ -1390,7 +1463,7 @@ void main() {
 
           test("then the user's clock advances past the fact.", () {
             expect(clockOfUser, isNotNull);
-            expect(clockOfUser!.lastHlc!.compareTo(incoming), greaterThanOrEqualTo(0));
+            expect(clockOfUser!.lastHlc!.compareTo(incoming), greaterThan(0));
           });
 
           test('then the space is never treated as a user with its own clock.', () {
@@ -1427,7 +1500,7 @@ void main() {
       });
 
       group(
-        'Given two users receiving the same new source nodes in disjoint spaces,',
+        'Given two prepared disjoint user spaces and two unknown source nodes,',
         () {
           late List<UuidValue> users;
           late List<UuidValue> sources;
@@ -1462,8 +1535,14 @@ void main() {
             () {
               late List<Object?> outcomes;
               late List<CrdtNode> sourceNodes;
+              late Set<UuidValue> expectedRows;
+              late List<server.Person> storedRows;
+              late Map<UuidValue, UuidValue> expectedAuthors;
+              late Map<UuidValue, UuidValue> storedAuthors;
 
               setUpAll(() async {
+                expectedRows = {};
+                expectedAuthors = {};
                 final time = DateTime.now().toUtc().subtract(
                   const Duration(seconds: 5),
                 );
@@ -1472,6 +1551,8 @@ void main() {
                     id: const Uuid().v7obj(),
                     name: 'from $source',
                   );
+                  expectedRows.add(row.id!);
+                  expectedAuthors[row.id!] = source;
                   return CrdtMergeInsert(
                     uuidSpaceId: space,
                     tableName: server.Person.t.tableName,
@@ -1510,6 +1591,14 @@ void main() {
                   settled,
                 ).timeout(const Duration(seconds: 20));
 
+                storedRows = await server.Person.db.find(
+                  raw,
+                  where: (t) => t.id.inSet(expectedRows),
+                );
+                storedAuthors = {
+                  for (final row in storedRows)
+                    row.id!: (await authorOf(row.id!)).uuidNodeId,
+                };
                 sourceNodes = await CrdtNode.db.find(
                   raw,
                   where: (t) => t.uuidNodeId.inSet(sources.toSet()),
@@ -1518,6 +1607,8 @@ void main() {
 
               test('then both merges commit without a deadlock.', () {
                 expect(outcomes, [null, null]);
+                expect(storedRows.map((row) => row.id), unorderedEquals(expectedRows));
+                expect(storedAuthors, expectedAuthors);
               });
 
               test('then each source is recorded once as a remote node.', () {
@@ -1557,8 +1648,12 @@ void main() {
           () {
             late Object? failure;
             late bool disjointOverlapped;
+            late List<server.Unique> committedRows;
+            late List<CrdtDataRow> committedFacts;
+            late Set<UuidValue> writtenIds;
 
             setUpAll(() async {
+              writtenIds = {};
               // Hold (user 0, space 0) and (user 1, space 1) open together: they
               // share neither a clock nor a space, so both must be inside their
               // callbacks at the same time.
@@ -1571,9 +1666,11 @@ void main() {
                       users[i],
                       spaceId: spaces[i],
                       (tx) async {
+                        final rowId = const Uuid().v7obj();
+                        writtenIds.add(rowId);
                         await server.Unique.db.insertRow(
                           session,
-                          server.Unique(name: 'holder $i'),
+                          server.Unique(id: rowId, name: 'holder $i'),
                           transaction: tx,
                         );
                         entered[i].complete();
@@ -1591,6 +1688,9 @@ void main() {
               final crossing = <Future<void>>[];
               for (final (userIndex, spaceIndex) in [(0, 1), (1, 0), (0, 0), (1, 1)]) {
                 final session = await wrapper();
+                final writtenId = const Uuid().v7obj();
+                final mergedId = const Uuid().v7obj();
+                writtenIds.addAll([writtenId, mergedId]);
                 crossing
                   ..add(
                     session.db.transactionForUser(
@@ -1598,7 +1698,10 @@ void main() {
                       spaceId: spaces[spaceIndex],
                       (tx) => server.Unique.db.insertRow(
                         session,
-                        server.Unique(name: 'write $userIndex $spaceIndex'),
+                        server.Unique(
+                          id: writtenId,
+                          name: 'write $userIndex $spaceIndex',
+                        ),
                         transaction: tx,
                       ),
                     ),
@@ -1609,11 +1712,14 @@ void main() {
                         CrdtMergeInsert(
                           uuidSpaceId: spaces[spaceIndex],
                           tableName: server.Unique.t.tableName,
-                          uuidRowId: const Uuid().v7obj(),
+                          uuidRowId: mergedId,
                           uuidNodeId: const Uuid().v7obj(),
                           hlcDatetime: clock.now().toUtc(),
                           hlcCounter: 0,
-                          data: server.Unique(name: 'merge $userIndex $spaceIndex'),
+                          data: server.Unique(
+                            id: mergedId,
+                            name: 'merge $userIndex $spaceIndex',
+                          ),
                         ),
                       ],
                       userId: users[userIndex],
@@ -1621,7 +1727,7 @@ void main() {
                     ),
                   );
               }
-              await _untilLockWait(observer);
+              await _untilLockWait(observer, atLeast: crossing.length);
 
               release.complete();
               failure =
@@ -1634,6 +1740,14 @@ void main() {
                         (_) => null,
                         onError: (Object error) => error,
                       );
+              committedRows = await server.Unique.db.find(
+                raw,
+                where: (t) => t.id.inSet(writtenIds),
+              );
+              committedFacts = await CrdtDataRow.db.find(
+                raw,
+                where: (t) => t.uuidRowId.inSet(writtenIds),
+              );
             });
 
             test('then disjoint user and space pairs run at the same time.', () {
@@ -1644,6 +1758,12 @@ void main() {
               'then every overlapping transaction completes without a deadlock.',
               () {
                 expect(failure, isNull);
+                expect(writtenIds, hasLength(10));
+                expect(committedRows.map((row) => row.id), unorderedEquals(writtenIds));
+                expect(
+                  committedFacts.map((fact) => fact.uuidRowId),
+                  unorderedEquals(writtenIds),
+                );
               },
             );
           },
@@ -1652,6 +1772,11 @@ void main() {
     },
   );
 }
+
+DateTime _wallTime() => DateTime.fromMillisecondsSinceEpoch(
+  DateTime.now().millisecondsSinceEpoch,
+  isUtc: true,
+);
 
 /// A barrier released at group teardown too, so a failed arrangement cannot
 /// leave a held transaction blocking the server from stopping.
@@ -1675,10 +1800,10 @@ WHERE datname = current_database()
 }
 
 /// Completes once another backend is observed waiting for a lock.
-Future<void> _untilLockWait(Session observer) async {
-  final deadline = clock.now().add(const Duration(seconds: 10));
-  while (await _lockWaiters(observer) == 0) {
-    if (clock.now().isAfter(deadline)) {
+Future<void> _untilLockWait(Session observer, {int atLeast = 1}) async {
+  final elapsed = Stopwatch()..start();
+  while (await _lockWaiters(observer) < atLeast) {
+    if (elapsed.elapsed > const Duration(seconds: 10)) {
       throw TimeoutException('No transaction waited for a lock.');
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -1732,9 +1857,21 @@ class _CountClockAccess extends QueryCountingDatabase {
   // ignore: matching_super_parameters
   _CountClockAccess(super.database);
 
-  int lockReads = 0;
+  int userLockReads = 0;
+  int spaceLockReads = 0;
+  int userClockWrites = 0;
+  int spaceClockWrites = 0;
 
-  int clockWrites = 0;
+  ({int user, int space}) get lockReads => (user: userLockReads, space: spaceLockReads);
+
+  ({int user, int space}) get clockWrites =>
+      (user: userClockWrites, space: spaceClockWrites);
+
+  void _countLock<T extends TableRow>(LockMode? lockMode) {
+    if (lockMode == null) return;
+    if (T == CrdtNode) userLockReads++;
+    if (T == OfflineSyncSpace) spaceLockReads++;
+  }
 
   @override
   Future<List<T>> updateWhere<T extends TableRow>({
@@ -1748,7 +1885,8 @@ class _CountClockAccess extends QueryCountingDatabase {
     Transaction? transaction,
     bool noReturn = false,
   }) {
-    if (T == CrdtNode || T == OfflineSyncSpace) clockWrites++;
+    if (T == CrdtNode) userClockWrites++;
+    if (T == OfflineSyncSpace) spaceClockWrites++;
     return super.updateWhere<T>(
       columnValues: columnValues,
       where: where,
@@ -1770,7 +1908,7 @@ class _CountClockAccess extends QueryCountingDatabase {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) {
-    if (lockMode != null) lockReads++;
+    _countLock<T>(lockMode);
     return super.findById<T>(
       id,
       transaction: transaction,
@@ -1792,7 +1930,7 @@ class _CountClockAccess extends QueryCountingDatabase {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) {
-    if (lockMode != null) lockReads++;
+    _countLock<T>(lockMode);
     return super.findFirstRow<T>(
       where: where,
       offset: offset,
@@ -1819,7 +1957,7 @@ class _CountClockAccess extends QueryCountingDatabase {
     LockMode? lockMode,
     LockBehavior? lockBehavior,
   }) {
-    if (lockMode != null) lockReads++;
+    _countLock<T>(lockMode);
     return super.find<T>(
       where: where,
       limit: limit,
@@ -1848,6 +1986,9 @@ typedef _DisjointRun = ({
   int secondAuthor,
   int firstClock,
   int secondClock,
+  String? mergedValue,
+  UuidValue mergedAuthor,
+  UuidValue source,
 });
 
 /// One user's counter and two wrappers that cached the user's clock and space

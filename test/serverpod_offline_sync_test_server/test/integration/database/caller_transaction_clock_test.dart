@@ -1,4 +1,5 @@
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
+import 'package:serverpod_database/serverpod_database.dart'
+    show DatabaseQueryException, DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';
@@ -89,7 +90,8 @@ END;
       });
 
       test('then the insert fails.', () {
-        expect(caught, isNotNull);
+        expect(caught, isA<DatabaseQueryException>());
+        expect(caught.toString(), contains('rejected clock update'));
       });
 
       test('then neither the row nor its CRDT metadata is committed.', () {
@@ -137,7 +139,8 @@ END;
           });
 
           test('then the insert fails.', () {
-            expect(caught, isNotNull);
+            expect(caught, isA<DatabaseQueryException>());
+            expect(caught.toString(), contains('rejected clock update'));
           });
 
           test('then neither the row nor its CRDT metadata is committed.', () {

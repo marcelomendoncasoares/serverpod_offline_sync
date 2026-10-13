@@ -5,53 +5,62 @@ import 'package:test/test.dart';
 import '../test_tools/client_session.dart';
 
 void main() {
-  initTestClientSession(withPersistentUser: true);
+  initTestClientSession(createSessionPerTest: false);
 
-  group(
-    'Given an empty local database configured with a persistent CRDT user id, '
-    'when a Person is inserted without a transaction ',
-    () {
-      late Person person;
+  group('Given an empty local database configured with a persistent CRDT user id,', () {
+    late OfflineSyncDatabaseSession app;
 
-      setUp(() async {
-        person = await Person.db.insertRow(
-          session,
-          Person(name: 'local-only'),
+    setUpAll(() async {
+      app = OfflineSyncDatabaseSession.wraps(
+        await createAdditionalTestSession(),
+        syncTables: testSyncTables,
+        persistentUserId: testCrdtUserId,
+      );
+      await app.db.initialize();
+    });
+
+    group('when a Person is inserted without a transaction,', () {
+      late Person? loaded;
+      late OfflineSyncSpace? space;
+      late CrdtNode? userNode;
+      late CrdtDataRow? fact;
+
+      setUpAll(() async {
+        final person = await Person.db.insertRow(app, Person(name: 'local-only'));
+
+        loaded = await Person.db.findById(app, person.id!);
+        space = await OfflineSyncSpace.db.findFirstRow(
+          app,
+          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
+        );
+        userNode = await CrdtNode.db.findFirstRow(
+          app,
+          where: (t) => t.localUserUuid.equals(testCrdtUserId),
+        );
+        fact = await CrdtDataRow.db.findFirstRow(
+          app,
+          where: (t) => t.uuidRowId.equals(person.id),
         );
       });
 
-      test('then the row is persisted.', () async {
-        final loaded = await Person.db.findById(session, person.id!);
+      test('then the row is persisted.', () {
         expect(loaded?.name, 'local-only');
       });
 
-      test('then the CRDT space exists.', () async {
-        final crdtSpace = await OfflineSyncSpace.db.findFirstRow(
-          session,
-          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-        );
-        expect(crdtSpace, isNotNull);
+      test('then the CRDT space exists.', () {
+        expect(space, isNotNull);
       });
 
-      test('then the persistent user owns the clock that authored the row.', () async {
-        final userNode = await CrdtNode.db.findFirstRow(
-          session,
-          where: (t) => t.localUserUuid.equals(testCrdtUserId),
-        );
-        final crdtRow = await CrdtDataRow.db.findFirstRow(
-          session,
-          where: (t) => t.uuidRowId.equals(person.id),
-        );
-        expect(crdtRow?.nodeId, userNode?.id);
+      test('then the persistent user owns the clock that authored the row.', () {
+        expect(userNode, isNotNull);
+        expect(fact, isNotNull);
+        expect(fact!.nodeId, userNode!.id);
       });
 
-      test('then the CRDT metadata is written.', () async {
-        final crdtRow = await CrdtDataRow.db.findFirstRow(
-          session,
-          where: (t) => t.uuidRowId.equals(person.id),
-        );
-        expect(crdtRow, isNotNull);
+      test('then the CRDT metadata is written.', () {
+        expect(fact, isNotNull);
+        expect(fact!.spaceId, space!.id);
       });
-    },
-  );
+    });
+  });
 }
