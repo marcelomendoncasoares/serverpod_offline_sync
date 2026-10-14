@@ -6,7 +6,7 @@ import '../test_tools/client_session.dart';
 import '../test_tools/crdt_probes.dart';
 
 void main() {
-  initTestClientSession();
+  initTestClientSession(createSessionPerTest: false);
 
   group(
     'Given a user-deleted cascade root kept visible by a restrict descendant,',
@@ -21,20 +21,31 @@ void main() {
       // The merged root delete cannot hide the blocking middle while the
       // restrict row references it, so the root stays visible. A later batch
       // may detach that chain and point the other middle at the same root.
+      late OfflineSyncDatabaseSession scenario;
       late FkChainRoot root;
       late FkChainCascadeMiddle blockingMiddle;
       late FkChainCascadeMiddle retargetedMiddle;
       late FkChainRestrictBlocker blocker;
 
-      setUp(() async {
-        await session.db.transactionForUser(testCrdtUserId, (tx) async {
+      late FkChainRoot? rootBeforeBatch;
+      late FkChainCascadeMiddle? blockingMiddleBeforeBatch;
+      late FkChainCascadeMiddle? retargetedMiddleBeforeBatch;
+
+      setUpAll(() async {
+        scenario = OfflineSyncDatabaseSession.wraps(
+          await createAdditionalTestSession(),
+          syncTables: testSyncTables,
+        );
+        await scenario.db.initialize();
+
+        await scenario.db.transactionForUser(testCrdtUserId, (tx) async {
           root = await FkChainRoot.db.insertRow(
-            session,
+            scenario,
             FkChainRoot(id: const Uuid().v7obj(), name: 'blocked root'),
             transaction: tx,
           );
           blockingMiddle = await FkChainCascadeMiddle.db.insertRow(
-            session,
+            scenario,
             FkChainCascadeMiddle(
               id: const Uuid().v7obj(),
               name: 'blocking middle',
@@ -43,7 +54,7 @@ void main() {
             transaction: tx,
           );
           retargetedMiddle = await FkChainCascadeMiddle.db.insertRow(
-            session,
+            scenario,
             FkChainCascadeMiddle(
               id: const Uuid().v7obj(),
               name: 'retargeted middle',
@@ -51,7 +62,7 @@ void main() {
             transaction: tx,
           );
           blocker = await FkChainRestrictBlocker.db.insertRow(
-            session,
+            scenario,
             FkChainRestrictBlocker(
               id: const Uuid().v7obj(),
               name: 'restrict blocker',
@@ -61,8 +72,8 @@ void main() {
           );
         });
 
-        final rootHlc = await rowHlc(root.id!);
-        await session.db.mergeChanges(
+        final rootHlc = await rowHlc(root.id!, databaseSession: scenario);
+        await scenario.db.mergeChanges(
           [
             CrdtMergeDelete(
               uuidSpaceId: testCrdtUserId,
@@ -77,59 +88,83 @@ void main() {
           ],
           spaceId: testCrdtUserId,
         );
-      });
 
-      test('then the root and both middles are visible.', () async {
-        expect(await FkChainRoot.db.findById(session, root.id!), isNotNull);
-        expect(
-          await FkChainCascadeMiddle.db.findById(session, blockingMiddle.id!),
-          isNotNull,
+        rootBeforeBatch = await FkChainRoot.db.findById(scenario, root.id!);
+        blockingMiddleBeforeBatch = await FkChainCascadeMiddle.db.findById(
+          scenario,
+          blockingMiddle.id!,
         );
-        expect(
-          await FkChainCascadeMiddle.db.findById(session, retargetedMiddle.id!),
-          isNotNull,
+        retargetedMiddleBeforeBatch = await FkChainCascadeMiddle.db.findById(
+          scenario,
+          retargetedMiddle.id!,
         );
       });
 
-      test(
-        'when one batch detaches the blocking middle and points the other '
-        'middle at that root, then the delete takes effect and the retargeted '
-        'middle stays cascade-hidden with the authored root.',
-        () async {
-          await session.db.transactionForUser(testCrdtUserId, (tx) async {
-            await FkChainCascadeMiddle.db.update(
-              session,
-              [
-                retargetedMiddle.copyWith(rootId: root.id),
-                blockingMiddle.copyWith(rootId: null),
-              ],
-              columns: (t) => [t.rootId],
-              transaction: tx,
+      group(
+        'when one batch detaches the blocking middle and retargets the other to that root,',
+        () {
+          late FkChainRoot? visibleRoot;
+          late FkChainCascadeMiddle? visibleRetargetedMiddle;
+          late FkChainCascadeMiddle? hiddenMiddle;
+          late FkChainCascadeMiddle? detachedMiddle;
+          late FkChainRestrictBlocker? visibleBlocker;
+
+          setUpAll(() async {
+            await scenario.db.transactionForUser(testCrdtUserId, (tx) async {
+              await FkChainCascadeMiddle.db.update(
+                scenario,
+                [
+                  retargetedMiddle.copyWith(rootId: root.id),
+                  blockingMiddle.copyWith(rootId: null),
+                ],
+                columns: (t) => [t.rootId],
+                transaction: tx,
+              );
+            });
+
+            visibleRoot = await FkChainRoot.db.findById(scenario, root.id!);
+            visibleRetargetedMiddle = await FkChainCascadeMiddle.db.findById(
+              scenario,
+              retargetedMiddle.id!,
+            );
+            hiddenMiddle = await FkChainCascadeMiddle.db.findFirstRow(
+              scenario,
+              where: (t) => t.id.equals(retargetedMiddle.id) & t.includeHiddenRows,
+            );
+            detachedMiddle = await FkChainCascadeMiddle.db.findById(
+              scenario,
+              blockingMiddle.id!,
+            );
+            visibleBlocker = await FkChainRestrictBlocker.db.findById(
+              scenario,
+              blocker.id!,
             );
           });
 
-          expect(await FkChainRoot.db.findById(session, root.id!), isNull);
-          expect(
-            await FkChainCascadeMiddle.db.findById(session, retargetedMiddle.id!),
-            isNull,
-          );
-          final hiddenMiddle = await FkChainCascadeMiddle.db.findFirstRow(
-            session,
-            where: (t) => t.id.equals(retargetedMiddle.id) & t.includeHiddenRows,
-          );
-          expect(hiddenMiddle, isNotNull);
-          expect(hiddenMiddle!.rootId, root.id);
+          test('then the root and both middles were visible before the batch.', () {
+            expect(rootBeforeBatch, isNotNull);
+            expect(blockingMiddleBeforeBatch, isNotNull);
+            expect(retargetedMiddleBeforeBatch, isNotNull);
+          });
 
-          final detached = await FkChainCascadeMiddle.db.findById(
-            session,
-            blockingMiddle.id!,
-          );
-          expect(detached, isNotNull);
-          expect(detached!.rootId, isNull);
-          expect(
-            await FkChainRestrictBlocker.db.findById(session, blocker.id!),
-            isNotNull,
-          );
+          test('then the root is hidden.', () {
+            expect(visibleRoot, isNull);
+          });
+
+          test('then the retargeted middle is hidden with its authored root.', () {
+            expect(visibleRetargetedMiddle, isNull);
+            expect(hiddenMiddle, isNotNull);
+            expect(hiddenMiddle!.rootId, root.id);
+          });
+
+          test('then the detached middle stays visible without a root.', () {
+            expect(detachedMiddle, isNotNull);
+            expect(detachedMiddle!.rootId, isNull);
+          });
+
+          test('then the restrict blocker stays visible.', () {
+            expect(visibleBlocker, isNotNull);
+          });
         },
       );
     },
