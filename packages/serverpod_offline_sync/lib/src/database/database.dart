@@ -538,9 +538,9 @@ class OfflineSyncDatabase implements Database {
       transaction,
       (tx) async {
         final prepared = _prepareRowsForInsert(rows, tx);
-        final values = _recorder.withForeignKeyInsertDefaults(prepared.rows);
+        final planningRows = _recorder.withForeignKeyInsertDefaults(prepared.rows);
         final projection = await _recorder.prepareLocalUpsert(
-          values,
+          planningRows,
           conflictColumns,
           updateColumns,
           tx,
@@ -549,7 +549,7 @@ class OfflineSyncDatabase implements Database {
         // CRDT metadata needs the affected rows even when the public call uses
         // noReturn, because inserted rows may have database-generated ids.
         final result = await _delegate.upsert<T>(
-          values,
+          prepared.rows,
           conflictColumns: conflictColumns,
           updateColumns: updateColumns,
           updateWhere: await _whereVisibleWithTombstone<T>(
@@ -587,7 +587,7 @@ class OfflineSyncDatabase implements Database {
           upsertInputs: updateColumns == null && projection.domain.isNotEmpty
               ? _recorder.upsertInputsByRow(
                   suppliedRows: prepared.rows,
-                  databaseRows: values,
+                  databaseRows: planningRows,
                   updatedRows: updatedRows,
                   conflictColumns: conflictColumns,
                 )

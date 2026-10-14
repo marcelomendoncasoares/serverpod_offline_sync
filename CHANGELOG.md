@@ -1,5 +1,7 @@
 ## Unreleased
 
+- perf: Keeps SQLite inserts batched when projected nulls and database defaults
+  differ between rows.
 - fix: BREAKING. Each user has their own clock per database, so users writing
   in different spaces no longer wait on each other. Existing local clocks will
   be reset with this change. Several interfaces have changed:

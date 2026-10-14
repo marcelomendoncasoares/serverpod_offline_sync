@@ -86,7 +86,7 @@ void main() {
               reason: CrdtDataDeletedReason.userDelete,
             ),
           ],
-          spaceId: testCrdtUserId,
+          userId: testCrdtUserId,
         );
 
         rootBeforeBatch = await FkChainRoot.db.findById(scenario, root.id!);
