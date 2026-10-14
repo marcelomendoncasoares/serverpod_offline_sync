@@ -790,9 +790,8 @@ class CrdtMutationRecorder {
         as T;
   }
 
-  /// Supplies fixed UUID FK defaults before building a local upsert. SQLite's
-  /// upsert builder cannot emit DEFAULT inside VALUES. Resolve the same schema
-  /// default that an insert would use, leaving other fields to the ORM.
+  /// Resolves fixed UUID FK defaults for projection planning and conflict keys.
+  /// The adapter receives the original rows and applies its database defaults.
   List<T> withForeignKeyInsertDefaults<T extends TableRow>(List<T> rows) => [
     for (final row in rows)
       _withPlannedDomainValues(row, {
