@@ -114,24 +114,11 @@ Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
     );
   }
 
-  if (database.dialect == DatabaseDialect.sqlite) {
-    final result = await database.insert<TableRow<UuidValue?>>(
-      [
-        for (final row in rows)
-          withExplicitInsertNulls(row, explicitNulls[row.id] ?? const {}),
-      ],
-      transaction: transaction,
-      ignoreConflicts: ignoreConflicts,
-      noReturn: noReturn,
-    );
-    return result.cast<T>();
-  }
-
   final inserted = <T>[];
   var start = 0;
   while (start < rows.length) {
     final columns = explicitNulls[rows[start].id] ?? const <String>{};
-    var end = start + 1;
+    var end = database.dialect == DatabaseDialect.sqlite ? rows.length : start + 1;
     while (end < rows.length) {
       final next = explicitNulls[rows[end].id] ?? const <String>{};
       if (columns.length != next.length || !columns.containsAll(next)) break;
@@ -141,7 +128,10 @@ Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
     final result = await database.insert<TableRow<UuidValue?>>(
       [
         for (var index = start; index < end; index++)
-          withExplicitInsertNulls(rows[index], columns),
+          withExplicitInsertNulls(
+            rows[index],
+            explicitNulls[rows[index].id] ?? const {},
+          ),
       ],
       transaction: transaction,
       ignoreConflicts: ignoreConflicts,
