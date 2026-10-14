@@ -20,7 +20,7 @@ class _ProjectionReader {
   /// A false result lets the closure skip attempted-claim queries, but is
   /// valid only until the next write phase; each projection checks again.
   Future<bool> hasAttemptedClaims(Set<String> tablesToLoad) async {
-    final spaceId = _context.hlcManagerFor(_transaction).normalizedSpaceId;
+    final spaceId = _context.spaceIdFor(_transaction);
     return tablesToLoad.isNotEmpty &&
         await CrdtDataAttemptedValue.db.findFirstRow(
               _context.databaseSession,
@@ -47,7 +47,7 @@ class _ProjectionReader {
     };
     if (tablesById.isEmpty) return {};
 
-    final spaceId = _context.hlcManagerFor(_transaction).normalizedSpaceId;
+    final spaceId = _context.spaceIdFor(_transaction);
     final crdtRows = await CrdtDataRow.db.find(
       _context.databaseSession,
       where: (t) =>

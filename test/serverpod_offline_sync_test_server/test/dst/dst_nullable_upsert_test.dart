@@ -211,7 +211,7 @@ void main() {
             checkpointsBySpaceUuid: {space: const []},
           )
           .toList();
-      await mirror.session.db.mergeChanges(changes, spaceId: space);
+      await mirror.session.db.mergeChanges(changes, userId: space);
 
       expect(
         await valueOf(mirror.session, loser),

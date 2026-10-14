@@ -42,7 +42,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -71,13 +71,13 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
           loserRowHlcAfterFirstMerge = await rowHlc(loser.id!);
 
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -136,7 +136,7 @@ void main() {
               data: incoming,
             ),
           ],
-          spaceId: otherUserId,
+          userId: otherUserId,
         );
       });
 
@@ -187,7 +187,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -275,7 +275,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteUpdate],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -351,7 +351,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -429,15 +429,15 @@ void main() {
           setUp(() async {
             await singleBatchSession.db.mergeChanges(
               [newerClaimInsert, olderClaimInsert],
-              spaceId: testCrdtUserId,
+              userId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [newerClaimInsert],
-              spaceId: testCrdtUserId,
+              userId: testCrdtUserId,
             );
             await splitBatchSession.db.mergeChanges(
               [olderClaimInsert],
-              spaceId: testCrdtUserId,
+              userId: testCrdtUserId,
             );
           });
 
@@ -503,7 +503,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 
@@ -574,7 +574,7 @@ void main() {
         setUp(() async {
           await session.db.mergeChanges(
             [remoteInsert],
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         });
 

@@ -40,7 +40,7 @@ Future<void> pushChanges(SyncNode from, SyncNode to) async {
         checkpointsBySpaceUuid: {testCrdtUserId: const []},
       )
       .toList();
-  await to.offlineSync.db.mergeChanges(changes, spaceId: testCrdtUserId);
+  await to.offlineSync.db.mergeChanges(changes, userId: testCrdtUserId);
 }
 
 /// Authors a row on a disconnected peer and merges its complete export.
@@ -63,7 +63,7 @@ Future<void> mergeIndependentInsert<T extends TableRow>(
         checkpointsBySpaceUuid: {space: const []},
       )
       .toList();
-  await target.db.mergeChanges(changes, spaceId: space);
+  await target.db.mergeChanges(changes, userId: space);
 }
 
 /// One client sync cycle: push local changes up, then merge the server's.

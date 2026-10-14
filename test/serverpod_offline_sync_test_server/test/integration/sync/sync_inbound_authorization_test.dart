@@ -10,6 +10,7 @@ import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
 import '../test_tools/serverpod_test_tools.dart';
+import '../test_tools/sync_streams.dart';
 
 /// Proves the authoritative server rejects inbound merge writes for spaces the
 /// user cannot write to, independently of the client-side prevention that
@@ -105,13 +106,19 @@ void main() {
                 .toList();
             expect(changes, isNotEmpty);
 
-            sessionError = await _syncOnceWithSplicedMergeChunk(
+            sessionError = (await syncOnceOverStreams(
               serverSync: rawServerSession.offlineSync,
-              clientSync: clientSync,
-              clientSession: clientSession,
+              follower: (inbound) => clientSync.sync(
+                clientSession,
+                userId: testCrdtUserId,
+                inbound: inbound,
+                once: true,
+                mode: OfflineSyncPeerMode.follower,
+              ),
               userUuid: testCrdtUserId,
-              splicedChanges: changes,
-            );
+              splice: changes,
+              timeout: const Duration(seconds: 5),
+            )).serverError;
           });
 
           test('then the session completes without an error.', () {
@@ -198,13 +205,19 @@ void main() {
               hasLength(2),
             );
 
-            sessionError = await _syncOnceWithSplicedMergeChunk(
+            sessionError = (await syncOnceOverStreams(
               serverSync: rawServerSession.offlineSync,
-              clientSync: clientSync,
-              clientSession: clientSession,
+              follower: (inbound) => clientSync.sync(
+                clientSession,
+                userId: testCrdtUserId,
+                inbound: inbound,
+                once: true,
+                mode: OfflineSyncPeerMode.follower,
+              ),
               userUuid: testCrdtUserId,
-              splicedChanges: orderedChanges,
-            );
+              splice: orderedChanges,
+              timeout: const Duration(seconds: 5),
+            )).serverError;
           });
 
           test('then the sync session fails with an integrity violation.', () {
@@ -244,98 +257,6 @@ void main() {
       );
     },
   );
-}
-
-/// Runs a real follower and a real authoritative `once` sync pair over
-/// in-memory streams, splicing [splicedChanges] into the client-to-server
-/// stream as an extra [OfflineSyncMergeChunk] right before the follower's first
-/// [OfflineSyncEndOfBatch], so the chunk lands inside a well-formed batch.
-///
-/// Both peers run the production [OfflineSyncEngine.sync] state machine end to end;
-/// the spliced chunk is the only frame the production client would not send.
-///
-/// Returns the error that ended the authoritative session, or null when it
-/// closed cleanly.
-Future<Object?> _syncOnceWithSplicedMergeChunk({
-  required OfflineSyncSession serverSync,
-  required OfflineSyncEngine clientSync,
-  required DatabaseSession clientSession,
-  required UuidValue userUuid,
-  required List<CrdtMergeChange> splicedChanges,
-}) async {
-  final clientToServer = StreamController<OfflineSyncStreamEvent>();
-  final serverToClient = StreamController<OfflineSyncStreamEvent>();
-  final serverCompletion = Completer<Object?>();
-  final clientCompletion = Completer<void>();
-  var spliced = false;
-
-  void addIfOpen(
-    StreamController<OfflineSyncStreamEvent> controller,
-    OfflineSyncStreamEvent event,
-  ) {
-    if (!controller.isClosed) {
-      controller.add(event);
-    }
-  }
-
-  final clientSubscription = clientSync
-      .sync(
-        clientSession,
-        userId: userUuid,
-        inbound: serverToClient.stream,
-        once: true,
-        mode: OfflineSyncPeerMode.follower,
-      )
-      .listen(
-        (event) {
-          if (!spliced && event is OfflineSyncEndOfBatch) {
-            spliced = true;
-            addIfOpen(clientToServer, OfflineSyncMergeChunk(changes: splicedChanges));
-          }
-          addIfOpen(clientToServer, event);
-        },
-        // When the server aborts the session, the follower fails with a
-        // truncated stream; the error under test is the authoritative one.
-        onError: (Object _) {
-          if (!clientCompletion.isCompleted) clientCompletion.complete();
-          unawaited(clientToServer.close());
-        },
-        onDone: () {
-          if (!clientCompletion.isCompleted) clientCompletion.complete();
-          unawaited(clientToServer.close());
-        },
-      );
-
-  final serverSubscription = serverSync
-      .sync(
-        userId: userUuid,
-        inbound: clientToServer.stream,
-        once: true,
-        mode: OfflineSyncPeerMode.authoritative,
-      )
-      .listen(
-        (event) => addIfOpen(serverToClient, event),
-        onError: (Object error) {
-          if (!serverCompletion.isCompleted) serverCompletion.complete(error);
-          unawaited(serverToClient.close());
-        },
-        onDone: () {
-          if (!serverCompletion.isCompleted) serverCompletion.complete(null);
-          unawaited(serverToClient.close());
-        },
-      );
-
-  try {
-    const timeout = Duration(seconds: 5);
-    final sessionError = await serverCompletion.future.timeout(timeout);
-    await clientCompletion.future.timeout(timeout);
-    return sessionError;
-  } finally {
-    await clientSubscription.cancel();
-    await serverSubscription.cancel();
-    if (!clientToServer.isClosed) unawaited(clientToServer.close());
-    if (!serverToClient.isClosed) unawaited(serverToClient.close());
-  }
 }
 
 /// Upserts a projected `offline_sync_space_members` row for stale or adversarial client

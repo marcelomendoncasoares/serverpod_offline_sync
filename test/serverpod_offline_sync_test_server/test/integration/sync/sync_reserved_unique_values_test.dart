@@ -777,7 +777,7 @@ void main() {
 
       setUpAll(() async {
         try {
-          await target.offlineSync.db.mergeChanges(invalid, spaceId: testCrdtUserId);
+          await target.offlineSync.db.mergeChanges(invalid, userId: testCrdtUserId);
         } on Object catch (error) {
           firstFailure = error;
         }
@@ -786,7 +786,7 @@ void main() {
         try {
           await target.offlineSync.db.mergeChanges(
             invalid.reversed.toList(),
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         } on Object catch (error) {
           reversedFailure = error;
@@ -794,7 +794,7 @@ void main() {
         afterReversed = await _export(target);
 
         try {
-          await target.offlineSync.db.mergeChanges(invalid, spaceId: testCrdtUserId);
+          await target.offlineSync.db.mergeChanges(invalid, userId: testCrdtUserId);
         } on Object catch (error) {
           repeatedFailure = error;
         }
@@ -866,7 +866,7 @@ void main() {
 
       setUpAll(() async {
         try {
-          await target.offlineSync.db.mergeChanges(invalid, spaceId: testCrdtUserId);
+          await target.offlineSync.db.mergeChanges(invalid, userId: testCrdtUserId);
         } on Object catch (error) {
           firstFailure = error;
         }
@@ -875,7 +875,7 @@ void main() {
         try {
           await target.offlineSync.db.mergeChanges(
             invalid.reversed.toList(),
-            spaceId: testCrdtUserId,
+            userId: testCrdtUserId,
           );
         } on Object catch (error) {
           reversedFailure = error;
@@ -883,7 +883,7 @@ void main() {
         afterReversed = await _export(target);
 
         try {
-          await target.offlineSync.db.mergeChanges(invalid, spaceId: testCrdtUserId);
+          await target.offlineSync.db.mergeChanges(invalid, userId: testCrdtUserId);
         } on Object catch (error) {
           repeatedFailure = error;
         }

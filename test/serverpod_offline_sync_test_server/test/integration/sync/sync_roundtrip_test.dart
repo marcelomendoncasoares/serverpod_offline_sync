@@ -233,7 +233,7 @@ void main() {
             reason: CrdtDataDeletedReason.userDelete,
           ),
         ],
-        spaceId: testCrdtUserId,
+        userId: testCrdtUserId,
       );
 
       final visibleChild = await Town.db.findById(offlineSyncSession, child.id!);
@@ -290,7 +290,7 @@ void main() {
             value: missingParentId,
           ),
         ],
-        spaceId: testCrdtUserId,
+        userId: testCrdtUserId,
       );
 
       final visibleChild = await Town.db.findById(offlineSyncSession, child.id!);
@@ -323,7 +323,7 @@ void main() {
     );
   });
 
-  group('Given personal and shared space rows authored by the same local node,', () {
+  group('Given personal and shared space rows written by the same user,', () {
     late UuidValue sharedSpaceId;
     late Person sharedPerson;
     late Person personalPerson;
@@ -367,15 +367,14 @@ void main() {
       'when only the personal space checkpoint has advanced, '
       'then only the shared space row is collected.',
       () async {
-        final personalSpace = await OfflineSyncSpace.db.findFirstRow(
+        final userNode = await CrdtNode.db.findFirstRow(
           testSession,
-          where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
-          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
+          where: (t) => t.localUserUuid.equals(testCrdtUserId),
         );
-        final sharedSpace = await OfflineSyncSpace.db.findFirstRow(
+        final sharedTracker = await CrdtDataRow.db.findFirstRow(
           testSession,
-          where: (t) => t.uuidSpaceId.equals(sharedSpaceId),
-          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
+          where: (t) => t.uuidRowId.equals(sharedPerson.id),
+          include: CrdtDataRow.include(node: CrdtNode.include()),
         );
         final personalTracker = await CrdtDataRow.db.findFirstRow(
           testSession,
@@ -383,10 +382,8 @@ void main() {
           include: CrdtDataRow.include(node: CrdtNode.include()),
         );
 
-        expect(
-          personalSpace!.currentNode!.uuidNodeId,
-          sharedSpace!.currentNode!.uuidNodeId,
-        );
+        expect(personalTracker!.nodeId, userNode!.id);
+        expect(sharedTracker!.nodeId, userNode.id);
 
         final changes = await offlineSync
             .collectPendingChanges(
@@ -394,7 +391,7 @@ void main() {
               checkpointsBySpaceUuid: {
                 // Simulate the personal space checkpoint advancing by passing
                 // the personal tracker's HLC and not the shared space's HLC.
-                testCrdtUserId: [personalTracker!.hlc],
+                testCrdtUserId: [personalTracker.hlc],
                 sharedSpaceId: const [],
               },
             )
@@ -407,84 +404,15 @@ void main() {
     );
   });
 
-  group('Given existing spaces with different current CRDT nodes,', () {
-    late UuidValue firstSpaceId;
-    late UuidValue secondSpaceId;
-    late CrdtNode firstNode;
-    late Hlc newerSecondNodeHlc;
-    late OfflineSyncSpace secondSpace;
-
-    setUp(() async {
-      firstSpaceId = const Uuid().v7obj();
-      secondSpaceId = const Uuid().v7obj();
-
-      // First space: already on this replica's stable current node (older clock).
-      final firstNodeId = const Uuid().v7obj();
-      firstNode = await CrdtNode.db.insertRow(
-        testSession,
-        CrdtNode(
-          uuidNodeId: firstNodeId,
-          lastHlc: Hlc(DateTime.utc(2026, 5, 8), 1, firstNodeId),
-        ),
-      );
-      await OfflineSyncSpace.db.insertRow(
-        testSession,
-        OfflineSyncSpace(uuidSpaceId: firstSpaceId, currentNodeId: firstNode.id),
-      );
-
-      // Second space: opened on a different node with a newer clock.
-      final secondNodeId = const Uuid().v7obj();
-      newerSecondNodeHlc = Hlc(DateTime.utc(2026, 5, 9), 1, secondNodeId);
-      final secondNode = await CrdtNode.db.insertRow(
-        testSession,
-        CrdtNode(uuidNodeId: secondNodeId, lastHlc: newerSecondNodeHlc),
-      );
-      secondSpace = await OfflineSyncSpace.db.insertRow(
-        testSession,
-        OfflineSyncSpace(uuidSpaceId: secondSpaceId, currentNodeId: secondNode.id),
-      );
-    });
-
-    test(
-      'when getOrCreate reopens the second space, '
-      'then it reuses the first space node with the second space HLC instead of creating a new node.',
-      () async {
-        final adoptedSpace = await OfflineSyncSpaceManager(
-          testSession,
-        ).getOrCreate(secondSpaceId);
-        final expectedHlc = newerSecondNodeHlc.copyWith(
-          nodeId: firstNode.uuidNodeId,
-        );
-
-        expect(adoptedSpace.currentNodeId, firstNode.id);
-        expect(adoptedSpace.currentNode!.lastHlc, expectedHlc);
-
-        final persistedSecondSpace = await OfflineSyncSpace.db.findById(
-          testSession,
-          secondSpace.id!,
-          include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-        );
-        final spaceNode = await OfflineSyncSpaceNode.db.findFirstRow(
-          testSession,
-          where: (t) =>
-              t.spaceId.equals(secondSpace.id) & t.nodeId.equals(firstNode.id),
-        );
-
-        expect(persistedSecondSpace!.currentNodeId, firstNode.id);
-        expect(persistedSecondSpace.currentNode!.lastHlc, expectedHlc);
-        expect(spaceNode, isNotNull);
-      },
-    );
-  });
-
   test(
-    'Given a CRDT node without local changes, '
+    'Given a user that may write a space but has no local changes, '
     'when synchronization checkpoints are created, '
-    'then one fresh checkpoint for the local node is included.',
+    "then one fresh checkpoint for the user's clock is included.",
     () async {
-      final space = await OfflineSyncSpaceManager(
-        testSession,
-      ).getOrCreate(testCrdtUserId);
+      await offlineSyncSession.db.transactionForUser(testCrdtUserId, (_) async {});
+      final userNodeId = await offlineSyncSession.db.currentNodeId(
+        userId: testCrdtUserId,
+      );
       final sinceHlc = await offlineSync.createSyncSinceHlc(
         testSession,
         spaceId: testCrdtUserId,
@@ -492,7 +420,7 @@ void main() {
 
       expect(sinceHlc.uuidSpaceId, testCrdtUserId);
       expect(sinceHlc.nodeCheckpoints, hasLength(1));
-      expect(sinceHlc.nodeCheckpoints.single.nodeId, space.currentNode!.uuidNodeId);
+      expect(sinceHlc.nodeCheckpoints.single.nodeId, userNodeId);
       expect(
         sinceHlc.nodeCheckpoints.single,
         greaterThan(Hlc.zero(sinceHlc.nodeCheckpoints.single.nodeId)),

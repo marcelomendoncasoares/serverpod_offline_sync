@@ -149,7 +149,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
   Future<void> mergeSeedRows(List<TableRow<UuidValue?>> rows) {
     return _offlineSyncSession.db.mergeChanges(
       [for (final row in rows) insertChangeFor(row)],
-      spaceId: _userId,
+      userId: _userId,
     );
   }
 
@@ -223,7 +223,7 @@ abstract class MergeScenarioBenchmark extends AsyncBenchmarkBase {
     final queriesBefore = _countingDb.queryCount;
     final rowsBefore = _countingDb.rowsRead;
     final rowsByTypeBefore = Map.of(_countingDb.rowsReadByType);
-    await _offlineSyncSession.db.mergeChanges(_mergeSet, spaceId: _userId);
+    await _offlineSyncSession.db.mergeChanges(_mergeSet, userId: _userId);
     _timedQueries += _countingDb.queryCount - queriesBefore;
     _timedRowsRead += _countingDb.rowsRead - rowsBefore;
     for (final entry in _countingDb.rowsReadByType.entries) {

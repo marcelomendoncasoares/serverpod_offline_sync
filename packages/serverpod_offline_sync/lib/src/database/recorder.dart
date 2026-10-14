@@ -267,19 +267,18 @@ class CrdtMutationRecorder {
     if (_databaseContext.registryChanged) {
       await _rebuildProjectionsForAllSpaces();
     }
-    if (persistentUserId != null) {
-      await _context.spaceManager.getOrCreate(persistentUserId!);
+    if (persistentUserId case final userId?) {
+      final space = await _context.spaceManager.getOrCreate(userId);
+      final node = await _context.spaceManager.getOrCreateUserNode(userId);
+      await _context.spaceManager.ensureParticipation(space, node);
     }
     _isInitialized = true;
   }
 
+  /// Projection allocates no timestamps, so it binds a space without a clock.
   Future<void> _rebuildProjectionsForAllSpaces() async {
-    final spaces = await OfflineSyncSpace.db.find(
-      _session,
-      include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-    );
+    final spaces = await OfflineSyncSpace.db.find(_session);
     for (final space in spaces) {
-      if (space.currentNode == null || space.currentNodeId == null) continue;
       await _db.transaction((tx) async {
         spaceForTransaction[tx] = space;
         try {
@@ -322,29 +321,53 @@ class CrdtMutationRecorder {
     return _context.spaceManager.getCached(userId);
   }
 
-  /// Returns the [OfflineSyncSpace] for the given user ID, creating it when needed.
-  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue userId) {
-    return _context.spaceManager.getOrCreate(userId);
+  /// Returns the [OfflineSyncSpace] for the given space ID, creating it when needed.
+  Future<OfflineSyncSpace> getOrCreateSpace(UuidValue spaceId) {
+    return _context.spaceManager.getOrCreate(spaceId);
   }
 
-  /// Whether a plain transaction can share an already initialized client node.
+  /// Returns the local node clocking [userId]'s writes, creating it when needed.
+  Future<CrdtNode> getOrCreateUserNode(UuidValue userId) {
+    return _context.spaceManager.getOrCreateUserNode(userId);
+  }
+
+  /// Commits a node row for each source in [uuidNodeIds] before a merge.
+  Future<void> ensureSourceNodes(Set<UuidValue> uuidNodeIds) {
+    return _context.spaceManager.ensureNodes(uuidNodeIds);
+  }
+
+  /// Records that [node] authors in [space], so handshakes report it as local.
+  Future<void> ensureParticipation(OfflineSyncSpace space, CrdtNode node) {
+    return _context.spaceManager.ensureParticipation(space, node);
+  }
+
+  /// Whether a plain transaction can share an already initialized client clock.
   bool get hasPersistentSpace => _isInitialized && persistentUserId != null;
 
-  /// Shares the current-node clock within an atomic scope without reading it yet.
-  Future<R> withCurrentNodeHlc<R>(
+  /// Shares the acting user's clock within an atomic scope without reading it yet.
+  Future<R> withUserClock<R>(
     Transaction transaction,
     TransactionFunction<R> action,
-  ) => _context.withCurrentNodeHlc(transaction, action);
+  ) => _context.withUserClock(transaction, action);
 
-  /// Locks the node and refreshes its clock before the first tracked write or merge.
-  Future<void> lockAndRefreshCurrentNodeHlc(Transaction transaction) =>
-      _context.lockAndRefreshCurrentNodeHlc(transaction);
+  /// Whether an enclosing scope already shares the acting user's clock.
+  bool hasActiveUserClock(Transaction transaction) =>
+      _context.hasActiveUserClock(transaction);
 
-  /// Records per-author progress, rejecting an HLC not tagged with [otherNodeId].
+  /// Stores the acting user's clock now, inside the caller's savepoint.
+  Future<void> persistUserClock(Transaction transaction) =>
+      _context.persistUserClock(transaction);
+
+  /// Locks the acting user's clock and the acting space, refreshing the clock.
+  Future<void> lockUserClock(Transaction transaction) =>
+      _context.lockUserClock(transaction);
+
+  /// Records per-author progress in [spaceId], rejecting an HLC not tagged with
+  /// [otherNodeId].
   ///
   /// Replaces mis-tagged stored progress; correctly tagged progress only advances.
   Future<void> recordSyncCheckpoint(
-    UuidValue userId,
+    UuidValue spaceId,
     UuidValue otherNodeId,
     Hlc syncedHlc,
   ) async {
@@ -356,7 +379,7 @@ class CrdtMutationRecorder {
       );
     }
 
-    final space = await _context.spaceManager.getOrCreate(userId);
+    final space = await _context.spaceManager.getOrCreate(spaceId);
     await _db.transaction((transaction) async {
       final node = await _context.findOrCreateNode(otherNodeId, transaction);
       final spaceNode = await _context.findOrCreateSpaceNode(
@@ -1143,7 +1166,6 @@ class CrdtMutationRecorder {
       rows.uuidRowIds,
       hlcManager,
     );
-    await _context.persistCurrentNodeHlc(hlcManager, transaction);
   }
 
   CrdtDataRow _newCrdtDataRow(
@@ -1236,10 +1258,6 @@ class CrdtMutationRecorder {
       tableName,
       deletedRows.uuidRowIds,
       null,
-      transaction,
-    );
-    await _context.persistCurrentNodeHlc(
-      _context.hlcManagerFor(transaction),
       transaction,
     );
   }

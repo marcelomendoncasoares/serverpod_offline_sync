@@ -408,7 +408,7 @@ void main() {
           hlcCounter: hlc.counter,
           data: town,
         ),
-      ], spaceId: testCrdtUserId);
+      ], userId: testCrdtUserId);
       expect((await Town.db.findById(node.offlineSync, town.id!))!.mayorId, isNull);
       expect(
         (await attemptedValue(
@@ -483,7 +483,7 @@ void main() {
           hlcCounter: hlc.counter,
           data: town,
         ),
-      ], spaceId: testCrdtUserId);
+      ], userId: testCrdtUserId);
     });
 
     group('when a set-based write clears the mayor,', () {
@@ -570,7 +570,7 @@ void main() {
               hlcCounter: hlc.counter,
               data: child,
             ),
-        ], spaceId: testCrdtUserId);
+        ], userId: testCrdtUserId);
         expect(
           (await UniqueSetDefaultChild.db.find(
             node.offlineSync,
@@ -621,7 +621,7 @@ void main() {
                 checkpointsBySpaceUuid: {testCrdtUserId: const []},
               )
               .toList();
-          await node.offlineSync.db.mergeChanges(peerFacts, spaceId: testCrdtUserId);
+          await node.offlineSync.db.mergeChanges(peerFacts, userId: testCrdtUserId);
 
           rows = await UniqueSetDefaultChild.db.find(node.offlineSync);
           final facts = await node.sync

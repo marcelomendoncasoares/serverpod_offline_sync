@@ -244,7 +244,7 @@ class DstAdversary {
     _count('checkpointCollections');
     final advanced = checkpoints.any(
       (checkpoint) =>
-          checkpoint.nodeId != target.nodeUuid &&
+          !target.ownNodeUuids.contains(checkpoint.nodeId) &&
           checkpoint > Hlc.zero(checkpoint.nodeId),
     );
     if (advanced) _count('advancedCheckpointCollections');

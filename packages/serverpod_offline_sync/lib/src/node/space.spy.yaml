@@ -9,8 +9,11 @@ fields:
   ### Space identifier string.
   uuidSpaceId: UuidValue, default=random_v7, unique
 
-  ### The current node id of the space.
-  currentNode: CrdtNode?, relation(optional)
+  ### Greatest HLC a local clock has written or merged into this space.
+  ###
+  ### Writes observe it under the space lock, so they follow facts committed by
+  ### other users' clocks.
+  lastHlc: Hlc?
 
   ### The nodes associated with the space and their per-space checkpoints.
   nodes: List<OfflineSyncSpaceNode>?, relation(name=space_nodes)

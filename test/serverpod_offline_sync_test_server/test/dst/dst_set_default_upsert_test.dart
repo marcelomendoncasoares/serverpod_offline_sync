@@ -75,7 +75,7 @@ void main() {
             clFlag: 2,
             reason: CrdtDataDeletedReason.userDelete,
           ),
-        ], spaceId: testCrdtUserId);
+        ], userId: testCrdtUserId);
       });
 
       test(

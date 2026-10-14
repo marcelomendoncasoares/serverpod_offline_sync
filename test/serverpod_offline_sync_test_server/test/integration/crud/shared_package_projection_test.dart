@@ -87,7 +87,7 @@ void main() {
             clFlag: 2,
             reason: CrdtDataDeletedReason.userDelete,
           ),
-        ], spaceId: testCrdtUserId);
+        ], userId: testCrdtUserId);
       });
 
       test('then the reference is projected away.', () async {

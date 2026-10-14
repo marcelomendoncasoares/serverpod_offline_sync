@@ -196,29 +196,31 @@ class OfflineSyncEngine {
 
   /// Creates the [OfflineSyncSinceHlc] checkpoint for a space handshake.
   ///
-  /// [OfflineSyncSinceHlc.nodeCheckpoints] reflects the latest change this node
-  /// has received from each known node, tagged with the source node id.
+  /// [OfflineSyncSinceHlc.nodeCheckpoints] reflects the latest change this
+  /// database has from each node in the space, tagged with the source node id.
+  /// Local nodes, including other users' clocks, are reported as complete.
   Future<OfflineSyncSinceHlc> createSyncSinceHlc(
     DatabaseSession session, {
     required UuidValue spaceId,
   }) async {
     final space = await OfflineSyncSpaceManager(session).getOrCreate(spaceId);
-    final localNodeId = space.currentNode!.uuidNodeId;
 
     final spaceNodes = await OfflineSyncSpaceNode.db.find(
       session,
-      where: (t) =>
-          t.spaceId.equals(space.id) & t.nodeId.notEquals(space.currentNodeId),
+      where: (t) => t.spaceId.equals(space.id),
       include: OfflineSyncSpaceNode.include(node: CrdtNode.include()),
     );
 
-    final checkpoints = <UuidValue, Hlc>{
-      // Cover committed logical ticks as well as wall time. A clock that has
-      // not advanced (or moved backward) must not make peers echo our facts.
-      localNodeId: Hlc.now(localNodeId).maxBetween(space.currentNode!.lastHlc),
-    };
+    final checkpoints = <UuidValue, Hlc>{};
     for (final spaceNode in spaceNodes) {
-      final nodeId = spaceNode.node!.uuidNodeId;
+      final node = spaceNode.node!;
+      final nodeId = node.uuidNodeId;
+      if (node.localUserUuid != null) {
+        // This database authored every fact of a local clock. Cover committed
+        // logical ticks as well as wall time, so peers never echo them back.
+        checkpoints[nodeId] = Hlc.now(nodeId).maxBetween(node.lastHlc);
+        continue;
+      }
       final received = spaceNode.lastReceivedHlc;
       // Older inbound bookkeeping could store a relayed author's clock under
       // its direct peer. It proves no per-author progress for that peer.
@@ -234,8 +236,9 @@ class OfflineSyncEngine {
 
   /// Merges a remote [mergeSet] and atomically records its per-author progress.
   ///
-  /// Inbound merge applies each remote change, then materializes foreign-key
-  /// projection into domain tables via [OfflineSyncDatabase.mergeChanges].
+  /// Inbound merge applies each remote change as [userId] in [spaceId], then
+  /// materializes foreign-key projection into domain tables via
+  /// [OfflineSyncDatabase.mergeChanges].
   ///
   /// Throws if the merge fails. The sync stream should be closed so the next
   /// attempt resumes from the last persisted checkpoint.
@@ -245,13 +248,14 @@ class OfflineSyncEngine {
   @visibleForTesting
   Future<Hlc?> mergeInboundBatch(
     DatabaseSession session, {
+    required UuidValue userId,
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final offlineSyncDb = _openOfflineSyncDatabase(session);
-    await offlineSyncDb.mergeChanges(mergeSet, spaceId: spaceId);
+    await offlineSyncDb.mergeChanges(mergeSet, userId: userId, spaceId: spaceId);
     return maxSyncedHlc;
   }
 
@@ -292,10 +296,12 @@ class OfflineSyncEngine {
 
     var sessionCompleted = false;
     try {
-      final space = await OfflineSyncSpaceManager(session).getOrCreate(userId);
-      final localNodeId = space.currentNode!.uuidNodeId;
+      // Informational: the per-space checkpoints carry every node's progress.
+      final localNode = await OfflineSyncSpaceManager(
+        session,
+      ).getOrCreateUserNode(userId);
       yield OfflineSyncConnect(
-        localNodeId: localNodeId,
+        localNodeId: localNode.uuidNodeId,
         syncTablesHash: currentSyncTablesHash,
       );
 
@@ -458,6 +464,7 @@ class OfflineSyncEngine {
       }
       final receivedHlc = await mergeInboundBatch(
         session,
+        userId: spaces.userId,
         spaceId: spaceId,
         mergeSet: entry.value,
       );

@@ -4,6 +4,7 @@ import 'package:serverpod_serialization/serverpod_serialization.dart';
 
 import '../../crdt/extensions.dart';
 import '../../generated/protocol.dart';
+import '../../hlc/hlc.dart';
 import '../../managers/hlc.dart';
 import '../../managers/space.dart';
 import '../database.dart';
@@ -21,13 +22,25 @@ enum ForeignKeyTargetPresence {
   hidden,
 }
 
-class _CurrentNodeHlc {
-  _CurrentNodeHlc(this.node);
+/// The acting user's clock within one transaction.
+class _UserClock {
+  _UserClock(this.node);
 
+  /// Advanced in memory as timestamps are allocated.
   final CrdtNode node;
   final managers = <int, HlcManager>{};
   bool active = false;
-  Future<void>? observed;
+  Future<void>? nodeLocked;
+  final spacesLocked = <int, Future<void>>{};
+
+  /// The stored clock, as read when locked.
+  Hlc? persisted;
+
+  /// The stored high-water mark of each locked space.
+  final spaceHighWater = <int, Hlc?>{};
+
+  /// Spaces whose clock must be stored.
+  final usedInSpaces = <int>{};
 }
 
 /// Shared state and database access for the CRDT recorder and its helpers.
@@ -63,54 +76,138 @@ class CrdtRecorderContext {
     databaseSession,
   );
 
-  // A node clock belongs to the active transaction, not a wrapper or a space.
+  // A user clock belongs to the active transaction, not a wrapper or a space.
   // Nested wrappers share it; completing or rolling back the scope drops it.
-  static final _currentNodes = Expando<Map<int, _CurrentNodeHlc>>();
+  static final _userClocks = Expando<Map<int, _UserClock>>();
 
-  _CurrentNodeHlc _currentNodeFor(OfflineSyncSpace space, Transaction transaction) =>
-      (_currentNodes[transaction] ??= {})[space.currentNodeId!] ??= _CurrentNodeHlc(
-        space.currentNode!.copyWith(),
-      );
+  _UserClock _userClockFor(Transaction transaction) {
+    final node = clockNodeFor(transaction);
+    return (_userClocks[transaction] ??= {})[node.id!] ??= _UserClock(node.copyWith());
+  }
 
-  Future<R> withCurrentNodeHlc<R>(
+  /// The acting or persistent user's local clock node in [transaction].
+  CrdtNode clockNodeFor(Transaction transaction) {
+    final node = clockNodeForTransaction[transaction];
+    if (node != null) return node;
+    final userId = persistentUserId;
+    if (userId == null) {
+      throw StateError('No user clock found for transaction or persistent user ID.');
+    }
+    return spaceManager.getCachedUserNode(userId);
+  }
+
+  /// Whether an enclosing [withUserClock] scope will store the clock.
+  bool hasActiveUserClock(Transaction transaction) {
+    final nodeId = clockNodeFor(transaction).id!;
+    return _userClocks[transaction]?[nodeId]?.active ?? false;
+  }
+
+  /// Shares the acting user's clock within an atomic scope without reading it yet.
+  ///
+  /// The outermost scope stores the clock and its spaces' high-water marks once
+  /// on success. In a transaction the caller owns, which may commit after a
+  /// failure, call [persistUserClock] in the writes' savepoint instead.
+  Future<R> withUserClock<R>(
     Transaction transaction,
     TransactionFunction<R> action,
   ) async {
-    final space = effectiveSpaceFor(transaction);
-    final nodeId = space.currentNodeId!;
-    final currentNode = _currentNodeFor(space, transaction);
-    if (currentNode.active) return action(transaction);
+    final nodeId = clockNodeFor(transaction).id!;
+    final userClock = _userClockFor(transaction);
+    if (userClock.active) return action(transaction);
 
-    currentNode.active = true;
+    userClock.active = true;
     try {
-      return await action(transaction);
+      final result = await action(transaction);
+      await _persistUserClock(userClock, transaction);
+      return result;
     } finally {
-      final nodes = _currentNodes[transaction]!..remove(nodeId);
-      if (nodes.isEmpty) _currentNodes[transaction] = null;
+      final clocks = _userClocks[transaction]!..remove(nodeId);
+      if (clocks.isEmpty) _userClocks[transaction] = null;
     }
   }
 
-  Future<void> lockAndRefreshCurrentNodeHlc(Transaction transaction) {
-    final currentNode = _currentNodeFor(effectiveSpaceFor(transaction), transaction);
-    return currentNode.observed ??= _lockAndRefreshCurrentNodeHlc(
-      currentNode,
-      transaction,
-    );
+  /// Locks the acting user's clock, then the acting space, once per transaction
+  /// and space, and observes the space's high-water mark.
+  ///
+  /// Both are `FOR NO KEY UPDATE`, so rows referencing them are not blocked.
+  Future<void> lockUserClock(Transaction transaction) {
+    final userClock = _userClockFor(transaction);
+    final spaceId = spaceIdFor(transaction);
+    return userClock.spacesLocked[spaceId] ??= () async {
+      await (userClock.nodeLocked ??= _lockClockNode(userClock, transaction));
+      await _lockSpace(userClock, spaceId, transaction);
+    }();
   }
 
-  Future<void> _lockAndRefreshCurrentNodeHlc(
-    _CurrentNodeHlc currentNode,
-    Transaction transaction,
-  ) async {
-    final nodeId = currentNode.node.id!;
+  Future<void> _lockClockNode(_UserClock userClock, Transaction transaction) async {
+    final nodeId = userClock.node.id!;
     final node = await CrdtNode.db.findById(
       databaseSession,
       nodeId,
       transaction: transaction,
-      lockMode: LockMode.forUpdate,
+      lockMode: LockMode.forNoKeyUpdate,
     );
-    if (node == null) throw StateError('Current CRDT node $nodeId is missing.');
-    currentNode.node.lastHlc = node.lastHlc;
+    if (node == null) throw StateError('Local clock node $nodeId is missing.');
+    userClock.node.lastHlc = node.lastHlc;
+    userClock.persisted = node.lastHlc;
+  }
+
+  Future<void> _lockSpace(
+    _UserClock userClock,
+    int spaceId,
+    Transaction transaction,
+  ) async {
+    final space = await OfflineSyncSpace.db.findById(
+      databaseSession,
+      spaceId,
+      transaction: transaction,
+      lockMode: LockMode.forNoKeyUpdate,
+    );
+    if (space == null) throw StateError('Space $spaceId is missing.');
+    userClock.spaceHighWater[spaceId] = space.lastHlc;
+    if (space.lastHlc case final highWater?) {
+      HlcManager(spaceId, userClock.node).observe(highWater);
+    }
+  }
+
+  /// Stores the acting user's clock now, inside the caller's savepoint.
+  Future<void> persistUserClock(Transaction transaction) =>
+      _persistUserClock(_userClockFor(transaction), transaction);
+
+  /// Stores the clock and the high-water mark of each space it was used in,
+  /// when they moved. A transaction that only read stores nothing.
+  Future<void> _persistUserClock(
+    _UserClock userClock,
+    Transaction transaction,
+  ) async {
+    final lastHlc = userClock.node.lastHlc;
+    if (userClock.usedInSpaces.isEmpty || lastHlc == null) return;
+
+    if (lastHlc != userClock.persisted) {
+      await CrdtNode.db.updateWhere(
+        databaseSession,
+        columnValues: (t) => [t.lastHlc(lastHlc)],
+        where: (t) => t.id.equals(userClock.node.id),
+        transaction: transaction,
+        noReturn: true,
+      );
+    }
+
+    for (final spaceId in userClock.usedInSpaces) {
+      final highWater = userClock.spaceHighWater[spaceId];
+      if (highWater != null && lastHlc <= highWater) continue;
+      await OfflineSyncSpace.db.updateWhere(
+        databaseSession,
+        columnValues: (t) => [t.lastHlc(lastHlc)],
+        where: (t) => t.id.equals(spaceId),
+        transaction: transaction,
+        noReturn: true,
+      );
+      userClock.spaceHighWater[spaceId] = lastHlc;
+    }
+    userClock
+      ..persisted = lastHlc
+      ..usedInSpaces.clear();
   }
 
   /// CRDT schema ids by table name: `tableName -> (tableId, columnsByName)`.
@@ -166,7 +263,7 @@ class CrdtRecorderContext {
     CrdtDataRowInclude? include,
   }) {
     final (tableId, _) = schema[tableName]!;
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     return CrdtDataRow.db.find(
       databaseSession,
       where: (t) =>
@@ -215,7 +312,7 @@ class CrdtRecorderContext {
     required Transaction transaction,
   }) async {
     final (tableId, _) = schema[tableName]!;
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     final ids = rowIds.sqlLiteralList();
     final rowPredicate =
         'r."spaceId" = $spaceId AND r."tblId" = $tableId '
@@ -569,7 +666,7 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
     }
     if (predicates.isEmpty) return const {};
 
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     final result = await database.unsafeQuery(
       '''
 SELECT DISTINCT r."uuidRowId"
@@ -604,7 +701,7 @@ WHERE r."spaceId" = $spaceId
     };
     final (childTableId, columns) = schema[childTableName]!;
     final columnId = columns[childColumn]!.id!;
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     final result = await database.unsafeQuery(
       '''SELECT r."tblId", r."uuidRowId"
 FROM "crdt_data_rows" r
@@ -701,7 +798,7 @@ WHERE (${predicates.join(') AND (')})
   /// reads that pair as one boolean.
   String _visibilityJoin(String tableName, Transaction transaction) {
     final (tableId, _) = schema[tableName]!;
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     return '''
 FROM "${tableName.escapeIdentifier()}" d
 LEFT JOIN "crdt_data_rows" r
@@ -747,7 +844,7 @@ LEFT JOIN "crdt_data_rows" r
   }) async {
     if (values.isEmpty) return const {};
 
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     final result = await database.unsafeQuery(
       '''
 SELECT d."${parentColumn.escapeIdentifier()}",
@@ -880,27 +977,23 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     );
   }
 
+  /// The acting user's clock for the acting space. Call [lockUserClock] first.
   HlcManager hlcManagerFor(Transaction transaction) {
-    final user = effectiveSpaceFor(transaction);
-    final currentNode = _currentNodeFor(user, transaction);
-    return currentNode.managers[user.id!] ??= HlcManager.forSpace(
-      user,
-      currentNode: currentNode.node,
+    final userClock = _userClockFor(transaction);
+    assert(
+      userClock.active && userClock.nodeLocked != null,
+      'Lock the user clock inside withUserClock before allocating timestamps.',
+    );
+    final spaceId = spaceIdFor(transaction);
+    return userClock.managers[spaceId] ??= HlcManager(
+      spaceId,
+      userClock.node,
+      onUse: () => userClock.usedInSpaces.add(spaceId),
     );
   }
 
-  Future<void> persistCurrentNodeHlc(
-    HlcManager hlcManager,
-    Transaction transaction,
-  ) async {
-    await CrdtNode.db.update(
-      databaseSession,
-      [hlcManager.getNode()],
-      columns: (t) => [t.lastHlc],
-      transaction: transaction,
-      noReturn: true,
-    );
-  }
+  /// The normalized id of the space [transaction] acts in.
+  int spaceIdFor(Transaction transaction) => effectiveSpaceFor(transaction).id!;
 
   Future<T> _findOrCreate<T>({
     required Future<T?> Function() find,
@@ -970,7 +1063,7 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
   }) async {
     if (foreignKeys.isEmpty) return null;
 
-    final spaceId = hlcManagerFor(transaction).normalizedSpaceId;
+    final spaceId = spaceIdFor(transaction);
     final escapedChildTable = childTableName.escapeIdentifier();
     final whereRowIds = childRowIds.sqlLiteralList();
 

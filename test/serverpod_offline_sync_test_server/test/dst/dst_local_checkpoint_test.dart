@@ -57,13 +57,13 @@ void main() {
         setUpAll(() async {
           var checkpoints = await author.checkpoints(space);
           sameMillisecond = checkpoints.singleWhere(
-            (hlc) => hlc.nodeId == author.nodeUuid,
+            (hlc) => hlc.nodeId == author.nodeUuidFor(space),
           );
           sameMillisecondEcho = await peer.collect(space, checkpoints: checkpoints);
           clock.advance(const Duration(seconds: -1));
           checkpoints = await author.checkpoints(space);
           backwardClock = checkpoints.singleWhere(
-            (hlc) => hlc.nodeId == author.nodeUuid,
+            (hlc) => hlc.nodeId == author.nodeUuidFor(space),
           );
           backwardClockEcho = await peer.collect(space, checkpoints: checkpoints);
         });

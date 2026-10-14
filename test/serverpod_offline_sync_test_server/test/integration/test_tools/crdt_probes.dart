@@ -1,3 +1,4 @@
+import 'package:serverpod_database/serverpod_database.dart' show DatabaseSession;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -35,4 +36,16 @@ Future<CrdtDataAttemptedValue?> attemptedValue({
     ),
   );
   return field?.attemptedValue;
+}
+
+/// The stored clock of [userId]'s local node.
+Future<Hlc> persistedUserClock(
+  DatabaseSession databaseSession,
+  UuidValue userId,
+) async {
+  final node = await CrdtNode.db.findFirstRow(
+    databaseSession,
+    where: (t) => t.localUserUuid.equals(userId),
+  );
+  return node!.lastHlc!;
 }

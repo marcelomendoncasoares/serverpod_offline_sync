@@ -2,8 +2,9 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../generated/protocol.dart';
+import '../hlc/hlc.dart';
 
-/// A manager for [OfflineSyncSpace] instances.
+/// A manager for [OfflineSyncSpace] rows and the local user clocks acting in them.
 class OfflineSyncSpaceManager {
   /// Creates a [OfflineSyncSpaceManager] bound to a database session.
   OfflineSyncSpaceManager(this._session);
@@ -12,8 +13,11 @@ class OfflineSyncSpaceManager {
 
   final Map<UuidValue, OfflineSyncSpace> _instances = {};
 
-  /// Canonical [CrdtNode] shared across all spaces on this database.
-  CrdtNode? _cachedCurrentNode;
+  final Map<UuidValue, CrdtNode> _userNodes = {};
+
+  final Set<(int, int)> _participations = {};
+
+  final Set<UuidValue> _knownNodes = {};
 
   /// Returns the cached [OfflineSyncSpace] for the given space ID.
   OfflineSyncSpace getCached(UuidValue uuidSpaceId) =>
@@ -23,133 +27,120 @@ class OfflineSyncSpaceManager {
         'Ensure OfflineSyncSpaceManager.getOrCreate() is called before getCached().',
       ));
 
+  /// Returns the cached local clock node of [userId].
+  CrdtNode getCachedUserNode(UuidValue userId) =>
+      _userNodes[userId] ??
+      (throw StateError(
+        'Local clock of user $userId not found in cache. Ensure '
+        'OfflineSyncSpaceManager.getOrCreateUserNode() is called before '
+        'getCachedUserNode().',
+      ));
+
   /// Clears the in-memory cache so state is reloaded from the store.
   void clearCache() {
     _instances.clear();
-    _cachedCurrentNode = null;
+    _userNodes.clear();
+    _participations.clear();
+    _knownNodes.clear();
   }
 
   /// Returns the [OfflineSyncSpace] for the given space ID.
   ///
   /// Will create a new [OfflineSyncSpace] if no space is found.
   Future<OfflineSyncSpace> getOrCreate(UuidValue uuidSpaceId) async {
-    return _instances[uuidSpaceId] ??= await _session.db.transaction(
-      (transaction) => _getOrCreate(uuidSpaceId, transaction),
+    return _instances[uuidSpaceId] ??= await _findOrInsert(
+      find: () => OfflineSyncSpace.db.findFirstRow(
+        _session,
+        where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
+      ),
+      row: OfflineSyncSpace(uuidSpaceId: uuidSpaceId),
+      label: 'space $uuidSpaceId',
     );
   }
 
-  Future<OfflineSyncSpace> _getOrCreate(
-    UuidValue uuidSpaceId,
-    Transaction transaction,
-  ) async {
-    var space = await OfflineSyncSpace.db.findFirstRow(
-      _session,
-      where: (t) => t.uuidSpaceId.equals(uuidSpaceId),
-      include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-      transaction: transaction,
-    );
-
-    space ??= await OfflineSyncSpace.db.insertRow(
-      _session,
-      OfflineSyncSpace(uuidSpaceId: uuidSpaceId),
-      transaction: transaction,
-    );
-
-    var currentNode = await _getOrCreateCurrentNode(transaction);
-
-    currentNode = await _preserveLatestCurrentNodeHlc(
-      currentNode,
-      space.currentNode,
-      transaction,
-    );
-    if (space.currentNodeId != currentNode.id) {
-      await OfflineSyncSpace.db.attachRow.currentNode(
+  /// Returns the local node whose clock timestamps the writes of [userId].
+  Future<CrdtNode> getOrCreateUserNode(UuidValue userId) async {
+    return _userNodes[userId] ??= await _findOrInsert(
+      find: () => CrdtNode.db.findFirstRow(
         _session,
-        space,
-        currentNode,
-        transaction: transaction,
+        where: (t) => t.localUserUuid.equals(userId),
+      ),
+      row: _newUserNode(userId),
+      label: 'local clock of user $userId',
+    );
+  }
+
+  /// Records that the local [node] authors in [space], before any write
+  /// transaction opens so a rollback cannot undo it.
+  Future<void> ensureParticipation(OfflineSyncSpace space, CrdtNode node) async {
+    final key = (space.id!, node.id!);
+    if (_participations.contains(key)) return;
+    await _findOrInsert(
+      find: () => OfflineSyncSpaceNode.db.findFirstRow(
+        _session,
+        where: (t) => t.spaceId.equals(space.id) & t.nodeId.equals(node.id),
+      ),
+      row: OfflineSyncSpaceNode(spaceId: space.id!, nodeId: node.id!),
+      label: 'participation of node ${node.uuidNodeId} in space ${space.uuidSpaceId}',
+    );
+    _participations.add(key);
+  }
+
+  /// Commits a node row for each source in [uuidNodeIds] before a merge.
+  ///
+  /// Creating them inside merges into different spaces could deadlock, so they
+  /// are inserted up front in one statement, in UUID order.
+  Future<void> ensureNodes(Set<UuidValue> uuidNodeIds) async {
+    final unknown = uuidNodeIds.difference(_knownNodes);
+    if (unknown.isEmpty) return;
+
+    final existing = await CrdtNode.db.find(
+      _session,
+      where: (t) => t.uuidNodeId.inSet(unknown),
+    );
+    final missing = unknown.difference({
+      for (final node in existing) node.uuidNodeId,
+    });
+    if (missing.isNotEmpty) {
+      await CrdtNode.db.insert(
+        _session,
+        [
+          for (final uuidNodeId in missing.toList()..sort(_byUuid))
+            CrdtNode(uuidNodeId: uuidNodeId),
+        ],
+        ignoreConflicts: true,
       );
     }
+    _knownNodes.addAll(unknown);
+  }
 
-    await _ensureSpaceNode(space.id!, currentNode.id!, transaction);
+  static int _byUuid(UuidValue a, UuidValue b) => a.uuid.compareTo(b.uuid);
 
-    _cachedCurrentNode = currentNode;
-
-    return space.copyWith(
-      currentNodeId: currentNode.id,
-      currentNode: currentNode,
+  static CrdtNode _newUserNode(UuidValue userId) {
+    final uuidNodeId = const Uuid().v7obj();
+    return CrdtNode(
+      uuidNodeId: uuidNodeId,
+      localUserUuid: userId,
+      lastHlc: Hlc.zero(uuidNodeId),
     );
   }
 
-  Future<CrdtNode> _getOrCreateCurrentNode(Transaction transaction) async {
-    final cachedId = _cachedCurrentNode?.id;
-    if (cachedId != null) {
-      final node = await CrdtNode.db.findById(
-        _session,
-        cachedId,
-        transaction: transaction,
-      );
-      if (node != null) return node;
-      _cachedCurrentNode = null;
-    }
+  /// Finds a row, or inserts [row] ignoring conflicts and finds it again.
+  ///
+  /// Runs outside any transaction, so a concurrent winner's row is visible.
+  Future<T> _findOrInsert<T extends TableRow>({
+    required Future<T?> Function() find,
+    required T row,
+    required String label,
+  }) async {
+    final existing = await find();
+    if (existing != null) return existing;
 
-    final existingSpace = await OfflineSyncSpace.db.findFirstRow(
-      _session,
-      where: (t) => t.currentNodeId.notEquals(null),
-      orderBy: (t) => t.id,
-      include: OfflineSyncSpace.include(currentNode: CrdtNode.include()),
-      transaction: transaction,
-    );
-
-    final existingNode = existingSpace?.currentNode;
-    if (existingNode != null) {
-      return _cachedCurrentNode = existingNode;
-    }
-
-    return _cachedCurrentNode = await CrdtNode.db.insertRow(
-      _session,
-      CrdtNode(),
-      transaction: transaction,
-    );
-  }
-
-  Future<CrdtNode> _preserveLatestCurrentNodeHlc(
-    CrdtNode currentNode,
-    CrdtNode? spaceCurrentNode,
-    Transaction transaction,
-  ) async {
-    final spaceLastHlc = spaceCurrentNode?.lastHlc;
-    if (spaceLastHlc == null || spaceCurrentNode?.id == currentNode.id) {
-      return currentNode;
-    }
-
-    final currentLastHlc = currentNode.lastHlc;
-    if (currentLastHlc != null && currentLastHlc >= spaceLastHlc) {
-      return currentNode;
-    }
-
-    final updatedNode = currentNode.copyWith(
-      lastHlc: spaceLastHlc.copyWith(nodeId: currentNode.uuidNodeId),
-    );
-    await CrdtNode.db.updateRow(
-      _session,
-      updatedNode,
-      columns: (t) => [t.lastHlc],
-      transaction: transaction,
-    );
-    return updatedNode;
-  }
-
-  Future<void> _ensureSpaceNode(
-    int spaceId,
-    int nodeId,
-    Transaction transaction,
-  ) async {
-    await OfflineSyncSpaceNode.db.insert(
-      _session,
-      [OfflineSyncSpaceNode(spaceId: spaceId, nodeId: nodeId)],
-      transaction: transaction,
+    await _session.db.insert<T>(
+      [row],
       ignoreConflicts: true,
+      noReturn: true,
     );
+    return await find() ?? (throw StateError('Could not create $label.'));
   }
 }

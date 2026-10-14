@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 
 import '../../../../../benchmark/utils/query_counter.dart';
 import '../test_tools/client_session.dart';
+import '../test_tools/crdt_probes.dart';
 
 void main() {
   initTestClientSession(createSessionPerTest: false);
@@ -74,8 +75,31 @@ void main() {
       late Unique? found;
       late int queries;
       late int rowsRead;
+      late Hlc clockBefore;
+      late Hlc clockAfter;
+      late Hlc? spaceBefore;
+      late Hlc? spaceAfter;
+      late List<Object?> metadataBefore;
+      late List<Object?> metadataAfter;
+
+      Future<Hlc?> spaceClock() async => (await OfflineSyncSpace.db.findFirstRow(
+        app,
+        where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
+      ))!.lastHlc;
+
+      Future<List<Object?>> metadata() async => [
+        for (final row in await CrdtDataRow.db.find(app, orderBy: (t) => t.id))
+          row.toJson(),
+        for (final field in await CrdtDataField.db.find(app, orderBy: (t) => t.id))
+          field.toJson(),
+        for (final deleted in await CrdtDataDeleted.db.find(app, orderBy: (t) => t.id))
+          deleted.toJson(),
+      ];
 
       setUpAll(() async {
+        clockBefore = await persistedUserClock(app, testCrdtUserId);
+        spaceBefore = await spaceClock();
+        metadataBefore = await metadata();
         final queriesBefore = database.queryCount;
         final rowsBefore = database.rowsRead;
 
@@ -86,12 +110,25 @@ void main() {
 
         queries = database.queryCount - queriesBefore;
         rowsRead = database.rowsRead - rowsBefore;
+        clockAfter = await persistedUserClock(app, testCrdtUserId);
+        spaceAfter = await spaceClock();
+        metadataAfter = await metadata();
       });
 
-      test('then the read uses only membership and domain queries.', () {
-        expect(found?.name, 'space read');
-        expect(queries, 3);
-        expect(rowsRead, 2);
+      test(
+        'then the read adds only the clock and space locks to membership and domain queries.',
+        () {
+          expect(found?.name, 'space read');
+          expect(queries, 5);
+          expect(rowsRead, 4);
+        },
+      );
+
+      test('then the read leaves both clocks and the CRDT metadata unchanged.', () {
+        expect(clockAfter, clockBefore);
+        expect(spaceAfter, spaceBefore);
+        expect(metadataBefore, isNotEmpty);
+        expect(metadataAfter, metadataBefore);
       });
     });
   });

@@ -528,6 +528,12 @@ class Protocol extends _isd.DatabaseSerializationManager
           columnDefault: 'random_v7',
         ),
         _isd.ColumnDefinition(
+          name: 'localUserUuid',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+        _isd.ColumnDefinition(
           name: 'lastHlc',
           columnType: _isd.ColumnType.jsonb,
           isNullable: true,
@@ -544,6 +550,19 @@ class Protocol extends _isd.DatabaseSerializationManager
             _isd.IndexElementDefinition(
               type: _isd.IndexElementDefinitionType.column,
               definition: 'uuidNodeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isd.IndexDefinition(
+          indexName: 'crdt_nodes__localUserUuid__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'localUserUuid',
             ),
           ],
           type: 'btree',
@@ -960,24 +979,14 @@ class Protocol extends _isd.DatabaseSerializationManager
           columnDefault: 'random_v7',
         ),
         _isd.ColumnDefinition(
-          name: 'currentNodeId',
-          columnType: _isd.ColumnType.bigint,
+          name: 'lastHlc',
+          columnType: _isd.ColumnType.jsonb,
           isNullable: true,
-          dartType: 'int?',
+          dartType:
+              'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
       ],
-      foreignKeys: [
-        _isd.ForeignKeyDefinition(
-          constraintName: 'offline_sync_spaces_fk_0',
-          columns: ['currentNodeId'],
-          referenceTable: 'crdt_nodes',
-          referenceTableSchema: 'public',
-          referenceColumns: ['id'],
-          onUpdate: _isd.ForeignKeyAction.noAction,
-          onDelete: _isd.ForeignKeyAction.noAction,
-          matchType: null,
-        ),
-      ],
+      foreignKeys: [],
       indexes: [
         _isd.IndexDefinition(
           indexName: 'offline_sync_spaces__uuidSpaceId__unique_idx',

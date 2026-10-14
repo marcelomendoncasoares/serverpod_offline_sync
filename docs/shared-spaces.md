@@ -119,20 +119,39 @@ both stay:
 
 - A **member** is an authorization fact: a user identity allowed to access a
   space. It answers *who may sync, read, and write*.
-- A **node** (`crdt_nodes`) is a stable CRDT replica identity. A space's
-  `nodes` relation points at `offline_sync_space_nodes`, which records that replica's
+- A **node** (`crdt_nodes`) is a stable CRDT clock identity. A space's `nodes`
+  relation points at `offline_sync_space_nodes`, which records that node's
   participation and checkpoint state in that space. Together they answer
   *whose changes, up to which HLC* and are what per-`(space, node)` checkpoints
   key on.
 
-They do not map one-to-one and neither replaces the other. One member may have
-many nodes (one per replica/database install). The **server is a node** in every
-space it syncs but is not a member row. A freshly invited member has **zero
-space-node rows** until their first device syncs. Nodes and space-node rows are
-created implicitly by space initialization and inbound merge; membership
-rows are managed through `session.offlineSync.spaces` from application endpoints.
+They do not map one-to-one and neither replaces the other. Each database owns
+**one local node per user** (`crdt_nodes.localUserUuid`), shared by every space
+that user acts in. Nodes received through sync are remote. A freshly invited
+member has **zero space-node rows** until they write. Membership rows are
+managed through `session.offlineSync.spaces` from application endpoints.
 Removing the `nodes` list would break checkpointing and causal filtering — it is
 the chain topology, not the access list.
+
+### Clocks and locking
+
+A transaction binds the **space** it changes and the **user** whose clock
+timestamps it:
+
+- It locks the user's node row, then the space row, both `FOR NO KEY UPDATE`.
+  Writes and merges in one space serialize, users in different spaces never
+  wait, and rows that only reference the locked ones are not blocked.
+- The clock observes the space's `lastHlc` under the lock, so a write follows
+  every fact already committed to the space, even from a clock that ran ahead.
+- The clock and the space's `lastHlc` are stored once, when the transaction
+  completes. A write in a caller-owned transaction stores them inside its own
+  savepoint instead.
+- `transactionForUser` locks before its callback, even for reads. Plain
+  transactions on a persistent client lock at their first tracked write.
+
+An inbound merge runs as the syncing user and keeps each fact's source node. It
+skips the write-role check, because the authoritative server checks it before
+merging an upload.
 
 ### The client membership table
 
@@ -253,9 +272,9 @@ cadences; only *when* they are sent differs (`once`: a fixed sequence per space;
 (regenerated models + a migration on both client and server schemas):
 
 - `OfflineSyncConnect { syncTablesHash, localNodeId }` — sent once by each peer. The
-  schema hash is validated once, before any space work. `localNodeId` identifies
-  this peer's CRDT node for the whole session. The space list is dynamic and
-  exchanged per cycle.
+  schema hash is validated once, before any space work. `localNodeId` is the
+  syncing user's local clock and is informational. The space list is dynamic
+  and exchanged per cycle.
 - `OfflineSyncSpaceSet { spaces: List<OfflineSyncSpaceGrant> }` (each grant a
   `uuidSpaceId` + `role`) — the server's content is authoritative (resolved from
   `offline_sync_space_members`, roles included). Followers send an empty set because the
@@ -389,10 +408,11 @@ propagation of access changes.
 ### Checkpoints, once vs. continuous
 
 Checkpoint rows stay per `(space, node)` in `offline_sync_space_nodes`, while
-`crdt_nodes` stores the stable replica identity. The same local replica node can
+`crdt_nodes` stores the stable clock identity. The same local user node can
 participate in multiple spaces, with separate `lastReceivedHlc` values per
-space. `SinceHlc` is exchanged once per space on first visit; later cycles reuse
-the in-memory
+space. A handshake reports local nodes as complete and remote nodes up to the
+progress received. `SinceHlc` is exchanged once per space on first visit; later
+cycles reuse the in-memory
 `nodeCheckpoints[space]`, advanced as chunks are sent and as inbound batches
 merge — the multi-space analogue of today's single-space continuous loop, which
 already keeps checkpoints in memory across rounds.

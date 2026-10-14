@@ -73,7 +73,7 @@ void main() {
             clFlag: 2,
             reason: CrdtDataDeletedReason.userDelete,
           ),
-        ], spaceId: testCrdtUserId);
+        ], userId: testCrdtUserId);
       });
 
       group('when an address is detached from the deleted town mayor locally,', () {

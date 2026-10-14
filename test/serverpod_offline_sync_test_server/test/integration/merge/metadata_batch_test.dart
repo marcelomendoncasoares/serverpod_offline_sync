@@ -101,7 +101,7 @@ void main() {
         late String replayedExport;
 
         setUpAll(() async {
-          await node.offlineSync.db.mergeChanges(changes, spaceId: testCrdtUserId);
+          await node.offlineSync.db.mergeChanges(changes, userId: testCrdtUserId);
           mergedCity = await City.db.findById(node.offlineSync, replacementParent.id!);
           deletedParent = await City.db.findById(node.offlineSync, originalParent.id!);
           mergedTown = await Town.db.findById(node.offlineSync, town.id!);
@@ -109,7 +109,7 @@ void main() {
           parentClock = await _fieldClock(node, 'town', town.id!, 'cityId');
           firstExport = await _export(node);
 
-          await node.offlineSync.db.mergeChanges(changes, spaceId: testCrdtUserId);
+          await node.offlineSync.db.mergeChanges(changes, userId: testCrdtUserId);
           replayedExport = await _export(node);
         });
 
@@ -186,7 +186,7 @@ void main() {
               hlcCounter: reinsertClock.counter,
               data: city.copyWith(name: 'reinserted'),
             ),
-          ], spaceId: testCrdtUserId);
+          ], userId: testCrdtUserId);
           merged = await City.db.findById(node.offlineSync, city.id!);
           mergedClock = await _fieldClock(node, 'city', city.id!, 'name');
 
@@ -198,7 +198,7 @@ void main() {
               'late edit',
               Hlc(editClock.datetime, 1, editClock.nodeId),
             ),
-          ], spaceId: testCrdtUserId);
+          ], userId: testCrdtUserId);
           afterLateEdit = await City.db.findById(node.offlineSync, city.id!);
           afterLateClock = await _fieldClock(node, 'city', city.id!, 'name');
         });
@@ -277,7 +277,7 @@ void main() {
               null,
               Hlc(incoming.datetime, 3, incoming.nodeId),
             ),
-          ], spaceId: testCrdtUserId);
+          ], userId: testCrdtUserId);
         } on Exception catch (error) {
           failure = error;
         }
@@ -291,7 +291,7 @@ void main() {
         ];
 
         recovery = _update('city', first.id!, 'name', 'recovered', incoming);
-        await node.offlineSync.db.mergeChanges([recovery], spaceId: testCrdtUserId);
+        await node.offlineSync.db.mergeChanges([recovery], userId: testCrdtUserId);
         recoveredCity = await City.db.findById(node.offlineSync, first.id!);
         recoveredClock = await _fieldClock(node, 'city', first.id!, 'name');
       });

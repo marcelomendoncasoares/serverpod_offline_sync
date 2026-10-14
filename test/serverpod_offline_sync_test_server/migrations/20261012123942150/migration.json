@@ -1,0 +1,121 @@
+{
+  "__className__": "serverpod.DatabaseMigration",
+  "actions": [
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "alterTable",
+      "alterTable": {
+        "__className__": "serverpod.TableMigration",
+        "name": "crdt_nodes",
+        "schema": "public",
+        "addColumns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "localUserUuid",
+            "fieldName": "localUserUuid",
+            "columnType": 7,
+            "isNullable": true,
+            "dartType": "UuidValue?"
+          }
+        ],
+        "deleteColumns": [],
+        "modifyColumns": [],
+        "addIndexes": [
+          {
+            "__className__": "serverpod.IndexDefinition",
+            "indexName": "crdt_nodes__localUserUuid__unique_idx",
+            "elements": [
+              {
+                "__className__": "serverpod.IndexElementDefinition",
+                "type": 0,
+                "definition": "localUserUuid"
+              }
+            ],
+            "type": "btree",
+            "isUnique": true,
+            "isPrimary": false
+          }
+        ],
+        "deleteIndexes": [],
+        "addForeignKeys": [],
+        "deleteForeignKeys": [],
+        "warnings": [
+          {
+            "__className__": "serverpod.DatabaseMigrationWarning",
+            "type": "uniqueIndexCreated",
+            "message": "Unique index \"crdt_nodes__localUserUuid__unique_idx\" is added to table \"crdt_nodes\". If there are existing rows with duplicate values, this migration will fail.",
+            "table": "crdt_nodes",
+            "columns": [
+              "localUserUuid"
+            ],
+            "destrucive": false
+          }
+        ]
+      }
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationAction",
+      "type": "alterTable",
+      "alterTable": {
+        "__className__": "serverpod.TableMigration",
+        "name": "offline_sync_spaces",
+        "schema": "public",
+        "addColumns": [
+          {
+            "__className__": "serverpod.ColumnDefinition",
+            "name": "lastHlc",
+            "fieldName": "lastHlc",
+            "columnType": 14,
+            "isNullable": true,
+            "dartType": "package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?"
+          }
+        ],
+        "deleteColumns": [
+          "currentNodeId"
+        ],
+        "modifyColumns": [],
+        "addIndexes": [],
+        "deleteIndexes": [],
+        "addForeignKeys": [],
+        "deleteForeignKeys": [
+          "offline_sync_spaces_fk_0"
+        ],
+        "warnings": [
+          {
+            "__className__": "serverpod.DatabaseMigrationWarning",
+            "type": "columnDropped",
+            "message": "Column \"currentNodeId\" of table \"offline_sync_spaces\" will be dropped.",
+            "table": "offline_sync_spaces",
+            "columns": [
+              "currentNodeId"
+            ],
+            "destrucive": true
+          }
+        ]
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "uniqueIndexCreated",
+      "message": "Unique index \"crdt_nodes__localUserUuid__unique_idx\" is added to table \"crdt_nodes\". If there are existing rows with duplicate values, this migration will fail.",
+      "table": "crdt_nodes",
+      "columns": [
+        "localUserUuid"
+      ],
+      "destrucive": false
+    },
+    {
+      "__className__": "serverpod.DatabaseMigrationWarning",
+      "type": "columnDropped",
+      "message": "Column \"currentNodeId\" of table \"offline_sync_spaces\" will be dropped.",
+      "table": "offline_sync_spaces",
+      "columns": [
+        "currentNodeId"
+      ],
+      "destrucive": true
+    }
+  ],
+  "migrationApiVersion": 1
+}

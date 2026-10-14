@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
@@ -25,10 +26,16 @@ part 'space.dart';
 part 'watch.dart';
 
 /// Map of transaction hashes to the space they are associated with.
+@internal
 final spaceForTransaction = <Transaction, OfflineSyncSpace>{};
 
 /// Map of transaction hashes to the authenticated user associated with them.
+@internal
 final userForTransaction = <Transaction, UuidValue>{};
+
+/// Map of transactions to the local clock node of their acting user.
+@internal
+final clockNodeForTransaction = <Transaction, CrdtNode>{};
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -107,12 +114,12 @@ class OfflineSyncDatabase implements Database {
   /// The hash describing the synchronized schema configured for this database.
   String get syncTablesHash => _sync.currentSyncTablesHash;
 
-  /// Returns the current node identifier for the effective user.
+  /// Returns the identifier of the effective user's local clock node.
   Future<UuidValue> currentNodeId({UuidValue? userId}) async {
     await _ensureInitialized();
     final effectiveUserId = await _requireUserId(userId);
-    final user = await _recorder.getOrCreateSpace(effectiveUserId);
-    return user.currentNode!.uuidNodeId;
+    final node = await _recorder.getOrCreateUserNode(effectiveUserId);
+    return node.uuidNodeId;
   }
 
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
@@ -135,7 +142,9 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Records acknowledged per-author progress for [otherNodeId].
+  /// Records acknowledged per-author progress for [otherNodeId] in [spaceId].
+  ///
+  /// When [spaceId] is omitted, this uses the persistent user's personal space.
   ///
   /// [syncedHlc] must carry [otherNodeId] as its author. Throws [ArgumentError]
   /// otherwise. A correctly tagged checkpoint replaces previously stored
@@ -143,40 +152,54 @@ class OfflineSyncDatabase implements Database {
   Future<void> recordSyncCheckpoint(
     UuidValue otherNodeId,
     Hlc syncedHlc, {
-    UuidValue? userId,
+    UuidValue? spaceId,
   }) async {
     await _ensureInitialized();
-    final effectiveUserId = await _requireUserId(userId);
+    final effectiveSpaceId =
+        spaceId ??
+        _recorder.persistentUserId ??
+        (throw StateError(
+          'A space ID is required when recording a checkpoint without a '
+          'persistent user.',
+        ));
     await _recorder.recordSyncCheckpoint(
-      effectiveUserId,
+      effectiveSpaceId,
       otherNodeId,
       syncedHlc,
     );
   }
 
-  /// Merges remote CRDT changes into the local database for the given space.
+  /// Merges remote CRDT changes into [spaceId] as the local [userId].
   ///
-  /// When [spaceId] is omitted, this uses the recorder's persistent user id.
-  /// The merge locks the current space's CRDT tables and executes atomically
-  /// inside [transactionForUser].
+  /// [userId] defaults to the persistent user and [spaceId] to that user's
+  /// personal space. The merge advances [userId]'s clock and keeps each fact's
+  /// source node. It skips the write-role check, so authorize the source of
+  /// [mergeSet] first, as [sync] does.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
+    UuidValue? userId,
     UuidValue? spaceId,
   }) async {
     if (mergeSet.isEmpty) return;
     await _ensureInitialized();
 
-    final effectiveSpaceId =
-        spaceId ??
+    final effectiveUserId =
+        userId ??
         _recorder.persistentUserId ??
         (throw StateError(
-          'A space ID is required when merging changes without a persistent user.',
+          'A user ID is required when merging changes without a persistent user.',
         ));
+    // Source nodes are shared by every space; commit them before locking.
+    await _recorder.ensureSourceNodes({
+      for (final change in mergeSet) change.uuidNodeId,
+    });
     try {
-      await transactionForUser<void>(effectiveSpaceId, (tx) async {
-        await _recorder.lockAndRefreshCurrentNodeHlc(tx);
-        await _recorder.mergeChanges(mergeSet, tx);
-      });
+      await _transactionAs<void>(
+        effectiveUserId,
+        spaceId ?? effectiveUserId,
+        (tx) => _recorder.mergeChanges(mergeSet, tx),
+        authoring: false,
+      );
     } on OfflineSyncIntegrityViolationException catch (exception) {
       final persistedViolation = await recordOfflineSyncIntegrityViolation(
         _delegate.session,
@@ -365,17 +388,34 @@ class OfflineSyncDatabase implements Database {
     return _stripSpaceIdFromSpaceScopedRead([result], queryInclude, transaction).single;
   }
 
+  /// Runs a tracked write under the acting user's clock lock, taken before the
+  /// write's savepoint so rolling it back keeps the lock.
   Future<R> _runTrackedWrite<R>(
     Transaction? transaction,
     TransactionFunction<R> action,
-  ) => DatabaseUtil.runInTransactionOrSavepoint(
-    _delegate,
-    transaction,
-    (tx) => _recorder.withCurrentNodeHlc(tx, (tx) async {
-      await _recorder.lockAndRefreshCurrentNodeHlc(tx);
-      return action(tx);
-    }),
-  );
+  ) {
+    if (transaction == null) {
+      // The write owns its transaction, so its scope stores the clock.
+      return _delegate.transaction(
+        (tx) => _recorder.withUserClock(tx, (tx) async {
+          await _recorder.lockUserClock(tx);
+          return action(tx);
+        }),
+      );
+    }
+
+    // An enclosing scope stores the clock at its end. Otherwise the caller may
+    // catch a failure and still commit, so store it inside the savepoint.
+    final storesOwnClock = !_recorder.hasActiveUserClock(transaction);
+    return _recorder.withUserClock(transaction, (tx) async {
+      await _recorder.lockUserClock(tx);
+      return DatabaseUtil.runInTransactionOrSavepoint(_delegate, tx, (tx) async {
+        final result = await action(tx);
+        if (storesOwnClock) await _recorder.persistUserClock(tx);
+        return result;
+      });
+    });
+  }
 
   @override
   Future<List<T>> insert<T extends TableRow>(
@@ -1042,7 +1082,7 @@ class OfflineSyncDatabase implements Database {
     // ([transactionForUser], mutating ORM methods) initialize explicitly.
     return _delegate.transaction(
       _recorder.hasPersistentSpace
-          ? (tx) => _recorder.withCurrentNodeHlc(tx, transactionFunction)
+          ? (tx) => _recorder.withUserClock(tx, transactionFunction)
           : transactionFunction,
       settings: settings,
     );
@@ -1053,6 +1093,14 @@ class OfflineSyncDatabase implements Database {
   /// Without [spaceId], writes act in the user's personal space. With [spaceId],
   /// [userId] stays the authenticated identity and [spaceId] is the space being
   /// acted in; the pair is checked before the transaction starts.
+  ///
+  /// The transaction locks [userId]'s clock and then the space before the
+  /// callback runs, even for reads, so other transactions of that user and
+  /// writes in that space wait for it. Under REPEATABLE READ, one that waited
+  /// may fail with a serialization error instead.
+  ///
+  /// Do not await another transaction for the same user or space inside the
+  /// callback: the two would deadlock.
   Future<R> transactionForUser<R>(
     UuidValue userId,
     TransactionFunction<R> transactionFunction, {
@@ -1063,18 +1111,44 @@ class OfflineSyncDatabase implements Database {
     final effectiveSpaceId = spaceId ?? userId;
     await _assertCanActInSpace(userId, effectiveSpaceId);
 
-    // Ensure that the space exists with a node before starting the transaction.
-    final space = await _recorder.getOrCreateSpace(effectiveSpaceId);
+    return _transactionAs(
+      userId,
+      effectiveSpaceId,
+      transactionFunction,
+      authoring: true,
+      settings: settings,
+    );
+  }
 
-    return transaction<R>(
+  /// Runs [action] as [userId] in [spaceId], locking both before it starts.
+  ///
+  /// The space, clock and participation rows commit beforehand, so a rollback
+  /// keeps them.
+  Future<R> _transactionAs<R>(
+    UuidValue userId,
+    UuidValue spaceId,
+    TransactionFunction<R> action, {
+    required bool authoring,
+    TransactionSettings? settings,
+  }) async {
+    final space = await _recorder.getOrCreateSpace(spaceId);
+    final clockNode = await _recorder.getOrCreateUserNode(userId);
+    if (authoring) await _recorder.ensureParticipation(space, clockNode);
+
+    return _delegate.transaction<R>(
       (tx) async {
         try {
           spaceForTransaction[tx] = space;
           userForTransaction[tx] = userId;
-          return await _recorder.withCurrentNodeHlc(tx, transactionFunction);
+          clockNodeForTransaction[tx] = clockNode;
+          return await _recorder.withUserClock(tx, (tx) async {
+            await _recorder.lockUserClock(tx);
+            return action(tx);
+          });
         } finally {
           spaceForTransaction.remove(tx);
           userForTransaction.remove(tx);
+          clockNodeForTransaction.remove(tx);
         }
       },
       settings: settings,

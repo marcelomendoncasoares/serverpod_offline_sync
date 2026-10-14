@@ -13,8 +13,8 @@ part of 'stream_event.dart';
 
 /// Session handshake sent once by each peer before any space work.
 ///
-/// [localNodeId] is this peer's persistent CRDT replica identity, shared
-/// across all spaces. It is announced once on connect rather than per space.
+/// [localNodeId] is the syncing user's local clock node on this peer. It is
+/// announced once on connect and is informational.
 /// [syncTablesHash] is the deterministic schema hash both sides must agree on
 /// before merging data.
 abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
@@ -38,7 +38,7 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
     );
   }
 
-  /// This peer's node identifier.
+  /// The syncing user's local node identifier on this peer.
   _iss.UuidValue localNodeId;
 
   /// The hash of the synchronized schema configured on this peer.

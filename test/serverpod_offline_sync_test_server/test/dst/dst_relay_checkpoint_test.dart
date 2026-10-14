@@ -71,12 +71,14 @@ void main() {
         'then each author has its own checkpoint and the relay has nothing to resend.',
         () {
           expect(initial, hasLength(2));
-          expect(initial.maxHlc!.nodeId, author.nodeUuid);
+          expect(initial.maxHlc!.nodeId, author.nodeUuidFor(space));
           expect(vector.map((hlc) => hlc.nodeId).toSet(), hasLength(3));
           expect(vector, hasLength(3));
           expect(
-            vector.singleWhere((hlc) => hlc.nodeId == relay.nodeUuid),
-            initial.singleWhere((change) => change.uuidNodeId == relay.nodeUuid).hlc,
+            vector.singleWhere((hlc) => hlc.nodeId == relay.nodeUuidFor(space)),
+            initial
+                .singleWhere((change) => change.uuidNodeId == relay.nodeUuidFor(space))
+                .hlc,
           );
           expect(pending, isEmpty);
         },
@@ -112,7 +114,7 @@ void main() {
         'then reconnecting neither resends the relay fact nor echoes either local fact.',
         () {
           expect(echo, hasLength(1));
-          expect(echo.single.uuidNodeId, receiver.nodeUuid);
+          expect(echo.single.uuidNodeId, receiver.nodeUuidFor(space));
           expect(vector, hasLength(3));
           expect(vector.map((hlc) => hlc.nodeId).toSet(), hasLength(3));
           expect(pending, isEmpty);
@@ -128,7 +130,11 @@ void main() {
       setUp(() async {
         before = await receiver.checkpoints(space);
         failure = await receiver.session.db
-            .recordSyncCheckpoint(relay.nodeUuid, initial.maxHlc!, userId: space)
+            .recordSyncCheckpoint(
+              relay.nodeUuidFor(space),
+              initial.maxHlc!,
+              spaceId: space,
+            )
             .then<Object>(
               (_) => 'unexpected success',
               onError: (Object error) => error,
@@ -137,7 +143,7 @@ void main() {
       });
 
       test('then the invalid checkpoint is rejected without changing progress.', () {
-        expect(initial.maxHlc!.nodeId, author.nodeUuid);
+        expect(initial.maxHlc!.nodeId, author.nodeUuidFor(space));
         expect(failure, isA<ArgumentError>());
         expect(after, before);
       });
@@ -158,7 +164,7 @@ void main() {
             include: OfflineSyncSpaceNode.include(node: CrdtNode.include()),
           );
           final relayNode = nodes.singleWhere(
-            (node) => node.node!.uuidNodeId == relay.nodeUuid,
+            (node) => node.node!.uuidNodeId == relay.nodeUuidFor(space),
           );
           await OfflineSyncSpaceNode.db.updateRow(
             receiver.rawSession,
@@ -180,19 +186,19 @@ void main() {
           'then one safe retransmission repairs the persisted author tag and settles.',
           () {
             final relayHlc = initial
-                .singleWhere((change) => change.uuidNodeId == relay.nodeUuid)
+                .singleWhere((change) => change.uuidNodeId == relay.nodeUuidFor(space))
                 .hlc;
             expect(initial.maxHlc, greaterThan(relayHlc));
             expect(beforeRepair, hasLength(3));
             expect(
-              beforeRepair.singleWhere((hlc) => hlc.nodeId == relay.nodeUuid),
-              Hlc.zero(relay.nodeUuid),
+              beforeRepair.singleWhere((hlc) => hlc.nodeId == relay.nodeUuidFor(space)),
+              Hlc.zero(relay.nodeUuidFor(space)),
             );
             expect(repair, hasLength(1));
-            expect(repair.single.uuidNodeId, relay.nodeUuid);
+            expect(repair.single.uuidNodeId, relay.nodeUuidFor(space));
             expect(persisted, relayHlc);
             expect(
-              afterRepair.singleWhere((hlc) => hlc.nodeId == relay.nodeUuid),
+              afterRepair.singleWhere((hlc) => hlc.nodeId == relay.nodeUuidFor(space)),
               relayHlc,
             );
             expect(pending, isEmpty);
