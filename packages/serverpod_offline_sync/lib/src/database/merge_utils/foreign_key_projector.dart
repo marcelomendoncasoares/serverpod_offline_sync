@@ -756,7 +756,9 @@ class CrdtForeignKeyProjector {
   /// map contains their planned domain values. [authoredOverlays] replace the
   /// authored value of existing rows before planning. When [materialize] is
   /// false, only the in-memory plan is computed so a later physical insert is
-  /// not blocked by this rebuild.
+  /// not blocked by this rebuild. [materializeVisibility] can stay false while
+  /// domain values are still written, so a following visibility-filtered update
+  /// still matches rows this plan will hide.
   /// Local writes preserve proposed visible unique values for database
   /// constraint enforcement; only merge/rebuild passes arbitrate new conflicts.
   ///
@@ -771,6 +773,7 @@ class CrdtForeignKeyProjector {
     Set<String>? seedTables,
     Set<MergeRowKey>? seedRows,
     bool materialize = true,
+    bool materializeVisibility = true,
     bool localWrite = false,
     Set<MergeRowKey> restoringRows = const {},
   }) async {
@@ -803,7 +806,12 @@ class CrdtForeignKeyProjector {
     };
     final finalHidden = _computeHiddenRows(state, userHidden);
 
-    if (materialize) {
+    // A local update applies this plan before its own visibility-filtered
+    // write. Hiding one of those rows here makes that write match nothing
+    // when the plan itself is what hides it (a batch can release a blocked
+    // cascade and retarget another visible row onto that parent together).
+    // The projection after the physical write materializes visibility.
+    if (materialize && materializeVisibility) {
       await _materializeVisibility(
         state: state,
         currentHidden: currentHidden,
