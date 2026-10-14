@@ -232,7 +232,22 @@ production database.
 
 Once Cloud is configured, link that exported `benchmark` directory to a dedicated
 project with managed PostgreSQL. Configure `BENCHMARK_SECRET` as an environment
-secret before starting the server. Cloud supplies the `SERVERPOD_DATABASE_*`
+secret before starting the server. Launch from the exported server directory
+with automatic pre-deploy scripts disabled:
+
+```sh
+cd /tmp/offline-sync-cloud/benchmark
+scloud launch --no-pre-deploy-scripts
+```
+
+The export already contains generated code and does not include the original
+code-generation configuration. Do not run `serverpod generate` in it. A default
+`scloud launch` can add that command as a pre-deploy hook. If a previous launch
+already created `scloud.yaml`, remove `serverpod generate` from
+`project.scripts.pre_deploy` there (use `pre_deploy: []` if it is the only hook);
+`--no-pre-deploy-scripts` does not remove hooks from an existing configuration.
+
+Cloud supplies the `SERVERPOD_DATABASE_*`
 connection settings; the production config explicitly selects PostgreSQL. Its
 pool of 10 connections can be changed with `SERVERPOD_DATABASE_MAX_CONNECTION_COUNT`,
 and the server reports the effective value. The benchmark server exposes only the

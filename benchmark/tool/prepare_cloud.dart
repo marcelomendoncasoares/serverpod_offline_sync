@@ -108,6 +108,11 @@ ${packages.map((path) => '  - $path').join('\n')}
     ..writeln('Prepared ${server.path} for a fresh PostgreSQL database.')
     ..writeln(
       'Run dart pub get in ${output.path}; Cloud server directory: ${server.path}',
+    )
+    ..writeln('In the server directory, use scloud launch --no-pre-deploy-scripts.')
+    ..writeln(
+      'Generated code is already included. Remove any existing serverpod generate '
+      'pre-deploy hook from scloud.yaml before deploying.',
     );
 }
 
