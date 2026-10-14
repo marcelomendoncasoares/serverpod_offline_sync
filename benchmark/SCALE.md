@@ -120,9 +120,9 @@ information, resource warnings, and provenance:
 - `server`: the server's instance ID, run mode, dialect, connection pool size,
   executable identity, and prepared source revision. No connection secrets.
 
-The runner reads its secret from the environment; the server also accepts the
-standard Serverpod password setting. Secrets are not written into manifests or
-process arguments. Over `http`, the secret travels unencrypted; the runner warns
+The runner reads its secret from the environment. The server prefers its
+Serverpod password and falls back to the environment. Secrets are not written
+into manifests or process arguments. Over `http`, the secret travels unencrypted; the runner warns
 for non-loopback targets. Use `https` for deployed servers.
 
 `events.jsonl` contains per-device operation journals, epoch `assignment`s and
@@ -211,7 +211,9 @@ calibrate, not as a capacity figure.
 
 ## Preparing the Cloud server
 
-With Dart and the Serverpod and Cloud CLIs installed, deployment takes two steps:
+Install Dart, the Cloud CLI, and the Serverpod CLI at the version the project
+resolves (currently `dart pub global activate serverpod_cli 4.1.0-beta.3`).
+Deployment then takes two steps:
 
 ```sh
 dart run benchmark/tool/prepare_cloud.dart --output /tmp/offline-sync-cloud
@@ -219,16 +221,27 @@ dart run benchmark/tool/prepare_cloud.dart --output /tmp/offline-sync-cloud
 ```
 
 `prepare` creates a complete PostgreSQL workspace, resolves its dependencies,
-and runs code generation. Plain `scloud launch` can run its normal
-`serverpod generate` hook. Follow the launch wizard to select a dedicated Cloud
-project with managed PostgreSQL; keep the preselected `benchmarkSecret` password
-import. Preparation generates that password in `benchmark/config/passwords.yaml`,
-which is excluded from the upload. No separate dependency, configuration, or
-password command is required.
+and runs code generation. Plain `scloud launch` adds and runs its normal
+`serverpod generate` hook with the `serverpod` command on your `PATH`. Serverpod
+only warns when that CLI's version differs from the project's, so `prepare`
+fails before reporting ready unless the two match. On failure or interruption,
+`prepare` removes the incomplete output so the same command can be retried.
 
-Use the generated `production.benchmarkSecret` value as the load generator's
-`BENCHMARK_SECRET`, and the deployed API domain as its `--target`. The server reads
-Cloud's standard password setting; local runs can still use `BENCHMARK_SECRET`.
+Follow the launch wizard to select a dedicated Cloud project with managed
+PostgreSQL, and keep the preselected password import. Each preparation generates
+a secret under its own password name, `benchmarkSecret_<id>`, in
+`benchmark/config/passwords.yaml`, which is excluded from the upload. The wizard
+only imports passwords a project lacks. A new name therefore also reaches an
+existing project: launching a new export there imports its password, and the
+server reads the name recorded in `benchmark/config/benchmark_build.json`.
+Passwords from earlier exports stay in the project unused. They do not affect
+launches, and `scloud password unset <name>` removes them if you want. No
+separate dependency, configuration, or password command is required.
+
+Use the generated password value as the load generator's `BENCHMARK_SECRET`, and
+the deployed API domain as its `--target`. The server's password takes precedence
+over a `BENCHMARK_SECRET` variable, which it ignores with a log message; local
+runs without the password use `BENCHMARK_SECRET`.
 
 The exported `benchmark` directory contains a conventional `bin/main.dart`,
 PostgreSQL configs, generator configuration, model sources, and the workspace's
@@ -279,10 +292,12 @@ evidence:
   device states, network ramp and seeded churn; and one-byte payloads with
   `--setup-concurrency 2`, where every rename was verified exactly and the
   permit peak stayed at two.
-- Cloud preparation: a fresh export resolved dependencies, passed the standard
-  generation hook, and was packaged with the Cloud CLI. The filtered upload
-  resolved its lockfile and built a native server; four devices across two users
-  converged against PostgreSQL 16 with only the standard Cloud password setting.
+- Cloud preparation: a fresh export verified the installed Serverpod CLI,
+  resolved dependencies, passed the standard generation hook, and was packaged
+  with the Cloud CLI without its password file. The filtered upload resolved its
+  lockfile and built a native server. Given only the export's Cloud password and
+  a stale `BENCHMARK_SECRET`, the server used the password: the stale secret was
+  rejected, and four devices across two users converged against PostgreSQL 16.
 - PostgreSQL 16: stamped native client and server bundles against a fresh
   export, two workers and five devices with 4 KiB payloads. Periodic samples
   used estimates, boundaries exact counts, and the town relation outgrew its

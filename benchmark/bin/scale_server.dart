@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server.dart';
@@ -15,8 +17,14 @@ Future<void> main(List<String> args) async {
     authenticationHandler: (session, token) => authenticate(session, token),
     databaseInterceptor: offlineSyncDatabaseInterceptor,
   )..initializeOfflineSync(syncTables: syncTables);
-  final secret = requireSecret(password: pod.getPassword('benchmarkSecret'));
-  authenticate = benchmarkAuthentication(secret);
+  final passwordName = benchmarkPasswordName();
+  final password = pod.getPassword(passwordName);
+  if (password != null && Platform.environment.containsKey('BENCHMARK_SECRET')) {
+    stderr.writeln('Using the $passwordName password; BENCHMARK_SECRET is ignored.');
+  }
+  authenticate = benchmarkAuthentication(
+    requireSecret(password: password, passwordName: passwordName),
+  );
   if (pod.runMode == 'production' &&
       pod.config.database?.dialect != DatabaseDialect.postgres) {
     throw StateError('Production benchmarks require PostgreSQL.');

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -26,9 +27,32 @@ Future<void> main(List<String> args) async {
   if (options.rest.isNotEmpty) throw ArgumentError('Unexpected arguments.');
   final root = p.normalize(p.join(File.fromUri(Platform.script).parent.path, '../..'));
   final output = Directory(p.absolute(options['output'] as String));
-  if (output.existsSync()) throw StateError('Refusing to overwrite ${output.path}');
-  await output.create(recursive: true);
+  if (FileSystemEntity.typeSync(output.path, followLinks: false) !=
+      FileSystemEntityType.notFound) {
+    throw StateError('Refusing to overwrite ${output.path}');
+  }
 
+  final processes = Subprocesses();
+  final signals = [
+    ProcessSignal.sigint,
+    if (!Platform.isWindows) ProcessSignal.sigterm,
+  ].map((signal) => signal.watch().listen(processes.interrupt)).toList();
+  await output.create(recursive: true);
+  try {
+    await prepare(root, output, processes);
+  } catch (_) {
+    // Remove the incomplete export so the same command can be retried. It is
+    // built in place because package configs record absolute paths.
+    await removeIncomplete(output);
+    rethrow;
+  } finally {
+    for (final signal in signals) {
+      await signal.cancel();
+    }
+  }
+}
+
+Future<void> prepare(String root, Directory output, Subprocesses processes) async {
   if (!Platform.isWindows) {
     final permissions = await Process.run('chmod', ['700', output.path]);
     if (permissions.exitCode != 0) {
@@ -164,11 +188,18 @@ Future<void> main(List<String> args) async {
   await production.copy(p.join(server.path, 'config/production.yaml'));
   await production.copy(p.join(server.path, 'config/development.yaml'));
   // The launch wizard imports custom production passwords through its normal
-  // password flow. The file is excluded from the deployment archive.
+  // password flow, but only those the project lacks. A fresh name per export
+  // keeps a relaunch to an existing project from retaining an older secret.
+  // The file is excluded from the deployment archive.
   final random = Random.secure();
-  final secret = base64Url.encode(List.generate(32, (_) => random.nextInt(256)));
+  List<int> randomBytes(int length) =>
+      List.generate(length, (_) => random.nextInt(256));
+  final secret = base64Url.encode(randomBytes(32));
+  final passwordName =
+      'benchmarkSecret_'
+      '${randomBytes(16).map((b) => b.toRadixString(16).padLeft(2, '0')).join()}';
   await writeYaml(File(p.join(server.path, 'config/passwords.yaml')), {
-    'production': {'benchmarkSecret': secret},
+    'production': {passwordName: secret},
   });
   await File(p.join(output.path, '.gitignore')).writeAsString(
     '**/.dart_tool/\n**/.scloud/\n**/config/passwords.yaml\n',
@@ -179,14 +210,20 @@ Future<void> main(List<String> args) async {
   final lock = File(p.join(root, 'pubspec.lock'));
   if (lock.existsSync()) await lock.copy(p.join(output.path, 'pubspec.lock'));
 
-  await runDart(['pub', 'get'], output.path);
-  await runDart([
+  await processes.dart(['pub', 'get'], output.path);
+  await requireServerpodCli(processes, output.path, server.path);
+  await processes.dart([
     'run',
     'serverpod_cli',
     '--no-analytics',
     'generate',
   ], p.join(output.path, 'packages/serverpod_offline_sync_server'));
-  await runDart(['run', 'serverpod_cli', '--no-analytics', 'generate'], server.path);
+  await processes.dart([
+    'run',
+    'serverpod_cli',
+    '--no-analytics',
+    'generate',
+  ], server.path);
 
   final sourceMigrations = p.join(
     root,
@@ -215,52 +252,143 @@ Future<void> main(List<String> args) async {
     'backend': 'postgres',
     'freshDatabaseRequired': true,
     'serverDirectory': 'benchmark',
+    'passwordName': passwordName,
     'preparedAt': DateTime.now().toUtc().toIso8601String(),
     'sourceRevision': checkout['revision'],
     'sourceDirty': checkout['dirty'],
   };
   await File(p.join(output.path, 'PREPARED.json')).writeAsString(jsonEncode(prepared));
   // The server reports this from its working directory as non-secret
-  // provenance, because Cloud builds the executable itself.
+  // provenance, because Cloud builds the executable itself. It also names the
+  // password the server reads.
   await File(
     p.join(server.path, 'config', 'benchmark_build.json'),
   ).writeAsString(jsonEncode(prepared));
+  processes.checkInterrupt();
   stdout
     ..writeln('Prepared ${server.path} for a fresh PostgreSQL database.')
     ..writeln('Dependencies and generated code are ready.')
     ..writeln('Next: cd ${server.path} && scloud launch')
     ..writeln(
-      'The launch wizard will import benchmarkSecret from config/passwords.yaml.',
+      'The launch wizard will import $passwordName from config/passwords.yaml; '
+      "its value is the load generator's BENCHMARK_SECRET.",
     );
+}
+
+/// `scloud launch` regenerates code with the `serverpod` command on PATH, and
+/// Serverpod only warns when that CLI differs from the project's version.
+/// Requiring the resolved version keeps the hook's output equal to this one.
+Future<void> requireServerpodCli(
+  Subprocesses processes,
+  String workspace,
+  String server,
+) async {
+  final lock = loadYaml(await File(p.join(workspace, 'pubspec.lock')).readAsString());
+  final required =
+      (((lock as Map)['packages'] as Map)['serverpod_cli'] as Map)['version'] as String;
+  String? found;
+  try {
+    final result = await processes.run(
+      'serverpod',
+      ['--no-analytics', 'version'],
+      server,
+      capture: true,
+      shell: Platform.isWindows,
+    );
+    if (result.exitCode == 0) {
+      found = RegExp(r'Serverpod version: (\S+)').firstMatch(result.output)?.group(1);
+    }
+  } on ProcessException {
+    // Not installed.
+  }
+  if (found != required) {
+    throw StateError(
+      'scloud launch runs `serverpod generate` with the Serverpod CLI on PATH, '
+      'which is ${found ?? 'not available'}. This export requires $required: '
+      'dart pub global activate serverpod_cli $required',
+    );
+  }
+  stdout.writeln('Serverpod CLI $found matches the export.');
+}
+
+/// Runs preparation subprocesses one at a time. An interrupt is forwarded to
+/// the running process and fails preparation before its next step.
+class Subprocesses {
+  Process? _running;
+  ProcessSignal? _interrupt;
+
+  void interrupt(ProcessSignal signal) {
+    _interrupt = signal;
+    _running?.kill(signal);
+  }
+
+  void checkInterrupt() {
+    if (_interrupt case final signal?) {
+      throw StateError('Preparation interrupted by $signal.');
+    }
+  }
+
+  /// Puts the preparing SDK first on PATH, so tools started by Serverpod use
+  /// the same SDK. Output is inherited unless [capture] is set.
+  Future<({int exitCode, String output})> run(
+    String executable,
+    List<String> arguments,
+    String directory, {
+    bool capture = false,
+    bool shell = false,
+  }) async {
+    checkInterrupt();
+    final process = _running = await Process.start(
+      executable,
+      arguments,
+      workingDirectory: directory,
+      environment: {
+        'PATH':
+            '${p.dirname(Platform.resolvedExecutable)}${Platform.isWindows ? ';' : ':'}${Platform.environment['PATH'] ?? ''}',
+      },
+      runInShell: shell,
+      mode: capture ? ProcessStartMode.normal : ProcessStartMode.inheritStdio,
+    );
+    // An interrupt during the start had no process to stop yet.
+    if (_interrupt case final signal?) process.kill(signal);
+    final output = capture
+        ? process.stdout.transform(utf8.decoder).join()
+        : Future.value('');
+    if (capture) unawaited(process.stderr.drain<void>());
+    final exitCode = await process.exitCode;
+    _running = null;
+    checkInterrupt();
+    return (exitCode: exitCode, output: await output);
+  }
+
+  Future<void> dart(List<String> arguments, String directory) async {
+    final result = await run(Platform.resolvedExecutable, arguments, directory);
+    if (result.exitCode != 0) {
+      throw ProcessException(
+        Platform.resolvedExecutable,
+        arguments,
+        'Deployment preparation failed in $directory.',
+        result.exitCode,
+      );
+    }
+  }
+}
+
+Future<void> removeIncomplete(Directory output) async {
+  try {
+    if (output.existsSync()) await output.delete(recursive: true);
+  } on FileSystemException catch (error) {
+    stderr.writeln(
+      'Could not remove the incomplete ${output.path}; '
+      'delete it before retrying: ${error.message}',
+    );
+  }
 }
 
 /// JSON is also YAML, and preserves arbitrary package/config values faithfully.
 Future<void> writeYaml(File file, Map<String, dynamic> value) async {
   await file.parent.create(recursive: true);
   await file.writeAsString('${const JsonEncoder.withIndent('  ').convert(value)}\n');
-}
-
-Future<void> runDart(List<String> arguments, String directory) async {
-  final process = await Process.start(
-    Platform.resolvedExecutable,
-    arguments,
-    workingDirectory: directory,
-    environment: {
-      // Use the same SDK as prepare for subprocesses started by Serverpod.
-      'PATH':
-          '${p.dirname(Platform.resolvedExecutable)}${Platform.isWindows ? ';' : ':'}${Platform.environment['PATH'] ?? ''}',
-    },
-    mode: ProcessStartMode.inheritStdio,
-  );
-  final result = await process.exitCode;
-  if (result != 0) {
-    throw ProcessException(
-      Platform.resolvedExecutable,
-      arguments,
-      'Deployment preparation failed in $directory.',
-      result,
-    );
-  }
 }
 
 Future<void> copyDirectory(Directory source, Directory destination) async {

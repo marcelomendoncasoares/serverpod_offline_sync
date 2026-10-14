@@ -13,11 +13,21 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 const benchmarkScope = 'offline-sync-benchmark-admin';
 
-String requireSecret({String? password}) {
-  final secret = Platform.environment['BENCHMARK_SECRET'] ?? password;
+/// Password name of servers that were not prepared for Cloud.
+const defaultPasswordName = 'benchmarkSecret';
+
+/// An explicit Serverpod [password] wins over `BENCHMARK_SECRET`, which a
+/// deployed project may still carry from earlier instructions. Local servers
+/// and clients use the environment.
+String requireSecret({
+  String? password,
+  String passwordName = defaultPasswordName,
+  Map<String, String>? environment,
+}) {
+  final secret = password ?? (environment ?? Platform.environment)['BENCHMARK_SECRET'];
   if (secret == null || secret.length < 24) {
     throw StateError(
-      'Set BENCHMARK_SECRET or the benchmarkSecret Serverpod password '
+      'Set the $passwordName Serverpod password or BENCHMARK_SECRET '
       'to at least 24 characters.',
     );
   }

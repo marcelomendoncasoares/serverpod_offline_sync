@@ -19,6 +19,7 @@ import 'common.dart'
         UserTokenIdentity,
         benchmarkScope,
         classifyToken,
+        defaultPasswordName,
         executableIdentity,
         processSample,
         sqliteFiles;
@@ -108,10 +109,23 @@ const countedTables = [
 final _startedAt = DateTime.now().toUtc();
 Future<Map<String, dynamic>>? _identity;
 
+/// Non-secret provenance written by tool/prepare_cloud.dart into a prepared
+/// server [directory], or null when the server was not prepared.
+Map<String, dynamic>? preparedBuild([String directory = '.']) {
+  final file = File('$directory/config/benchmark_build.json');
+  if (!file.existsSync()) return null;
+  return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+}
+
+/// Each prepared export names its own secret password. Cloud's launch wizard
+/// only imports passwords a project lacks, so a fixed name would keep an
+/// earlier export's secret.
+String benchmarkPasswordName([String directory = '.']) =>
+    preparedBuild(directory)?['passwordName'] as String? ?? defaultPasswordName;
+
 /// Non-secret facts about this server process, computed once. Connection
 /// settings other than dialect and pool size are deliberately omitted.
 Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () async {
-  final prepared = File('config/benchmark_build.json');
   final database = pod.config.database;
   return <String, dynamic>{
     'instanceId': '${Platform.localHostname}/$pid/${_startedAt.microsecondsSinceEpoch}',
@@ -123,9 +137,7 @@ Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () a
     'maxConnectionCount': database?.maxConnectionCount,
     'processors': Platform.numberOfProcessors,
     'executable': await executableIdentity(),
-    'preparedSource': prepared.existsSync()
-        ? jsonDecode(prepared.readAsStringSync())
-        : null,
+    'preparedSource': preparedBuild(),
   };
 }();
 
