@@ -521,7 +521,7 @@
         },
         {
           "__className__": "serverpod.IndexDefinition",
-          "indexName": "crdt_nodes_local_user_idx",
+          "indexName": "crdt_nodes__localUserUuid__unique_idx",
           "elements": [
             {
               "__className__": "serverpod.IndexElementDefinition",

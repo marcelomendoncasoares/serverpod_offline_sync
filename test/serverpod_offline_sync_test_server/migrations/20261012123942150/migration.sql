@@ -18,7 +18,7 @@ ALTER TABLE "new_crdt_nodes" RENAME TO "crdt_nodes";
 CREATE UNIQUE INDEX "crdt_nodes__uuidNodeId__unique_idx" ON "crdt_nodes" ("uuidNodeId");
 
 -- Indexes
-CREATE UNIQUE INDEX "crdt_nodes_local_user_idx" ON "crdt_nodes" ("localUserUuid");
+CREATE UNIQUE INDEX "crdt_nodes__localUserUuid__unique_idx" ON "crdt_nodes" ("localUserUuid");
 
 --
 -- ACTION ALTER TABLE

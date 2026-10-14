@@ -472,9 +472,7 @@ actually key — spaces:
   `spaceId` parameter is reserved for shared spaces (see *Future*).
 - **`persistentUserId`** remains the way to pin a default space outside
   explicit transactions — the standard single-user client configuration.
-- **`mergeChanges(spaceId: …)`** keys the chain being merged — the parameter
-  is renamed from `userId` to what it always was. (Per-user clocks later added
-  a separate `userId` for the replicating user.)
+- **`mergeChanges(userId: …, spaceId: …)`** keys the chain being merged.
 - **Internals and storage** adopt space naming in one sweep: `crdt_users` →
   `offline_sync_spaces` (`CrdtUser` → `OfflineSyncSpace`, `uuidUserId` → `uuidSpaceId`),
   `crdt_data_rows.userId` → `spaceId` (matching the domain column),

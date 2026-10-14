@@ -119,8 +119,8 @@ both stay:
 
 - A **member** is an authorization fact: a user identity allowed to access a
   space. It answers *who may sync, read, and write*.
-- A **node** (`crdt_nodes`) is a stable CRDT clock identity. A space's
-  `nodes` relation points at `offline_sync_space_nodes`, which records that node's
+- A **node** (`crdt_nodes`) is a stable CRDT clock identity. A space's `nodes`
+  relation points at `offline_sync_space_nodes`, which records that node's
   participation and checkpoint state in that space. Together they answer
   *whose changes, up to which HLC* and are what per-`(space, node)` checkpoints
   key on.

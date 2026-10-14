@@ -557,7 +557,7 @@ class Protocol extends _isd.DatabaseSerializationManager
           isPrimary: false,
         ),
         _isd.IndexDefinition(
-          indexName: 'crdt_nodes_local_user_idx',
+          indexName: 'crdt_nodes__localUserUuid__unique_idx',
           tableSpace: null,
           elements: [
             _isd.IndexElementDefinition(

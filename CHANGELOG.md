@@ -1,19 +1,20 @@
+## Unreleased
+
+- fix: BREAKING. Each user has their own clock per database, so users writing
+  in different spaces no longer wait on each other. Existing local clocks will
+  be reset with this change. Several interfaces have changed:
+  - `HlcManager.forSpace` is replaced by `HlcManager(spaceId, node)`.
+  - `mergeChanges` takes the syncing `userId` separately from `spaceId`.
+  - `recordSyncCheckpoint` takes `spaceId` instead of `userId`.
+  - `transactionForUser` locks the user's clock and the space for read and write.
+  - Orders writes after facts other users committed to the same space.
+
 ## 0.0.11
 
 - feat: Supports Serverpod 4.1 typed SQLite `watch` API with CRDT visibility
   and live space membership, including nested included lists.
 - fix: Preserves caller include graphs across queries and keep nested object
   visibility predicates inside their containing list query.
-- fix: BREAKING. Each user has their own clock per database, so users writing in
-  different spaces no longer wait on each other. Requires a migration that adds
-  `CrdtNode.localUserUuid` and replaces `OfflineSyncSpace.currentNode` with
-  `lastHlc`. Existing local clocks are not carried over, so recreate existing
-  databases. `HlcManager.forSpace` is replaced by `HlcManager(spaceId, node)`.
-- fix: BREAKING. `mergeChanges` takes the syncing `userId` separately from
-  `spaceId`. `recordSyncCheckpoint` takes `spaceId` instead of `userId`.
-- fix: `transactionForUser` locks the user's clock and the space before its
-  callback runs, even for reads.
-- fix: Orders writes after facts other users committed to the same space.
 - chore: Requires Serverpod `^4.1.0-beta.3`.
 
 ## 0.0.10
