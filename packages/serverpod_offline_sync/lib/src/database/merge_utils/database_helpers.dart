@@ -93,8 +93,9 @@ TableRow<UuidValue?> withExplicitInsertNulls(
 ) => columns.isEmpty ? row as TableRow<UuidValue?> : _ExplicitNullRow(row, columns);
 
 /// Keeps per-row default semantics when a batch contains projected nulls.
-/// PostgreSQL builds a batch using the first row's table, so rows with different
-/// null overrides use separate consecutive batches in the caller's transaction.
+/// SQLite handles each row's defaults within one ordered adapter batch.
+/// PostgreSQL uses the first row's table, so different null overrides require
+/// separate consecutive batches in the caller's transaction.
 @internal
 Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
   Database database,
@@ -112,6 +113,20 @@ Future<List<T>> insertWithExplicitNulls<T extends TableRow>(
       noReturn: noReturn,
     );
   }
+
+  if (database.dialect == DatabaseDialect.sqlite) {
+    final result = await database.insert<TableRow<UuidValue?>>(
+      [
+        for (final row in rows)
+          withExplicitInsertNulls(row, explicitNulls[row.id] ?? const {}),
+      ],
+      transaction: transaction,
+      ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
+    );
+    return result.cast<T>();
+  }
+
   final inserted = <T>[];
   var start = 0;
   while (start < rows.length) {
