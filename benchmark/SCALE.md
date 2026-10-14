@@ -120,7 +120,8 @@ information, resource warnings, and provenance:
 - `server`: the server's instance ID, run mode, dialect, connection pool size,
   executable identity, and prepared source revision. No connection secrets.
 
-Secrets are read from the environment and are not written into manifests or
+The runner reads its secret from the environment; the server also accepts the
+standard Serverpod password setting. Secrets are not written into manifests or
 process arguments. Over `http`, the secret travels unencrypted; the runner warns
 for non-loopback targets. Use `https` for deployed servers.
 
@@ -210,56 +211,43 @@ calibrate, not as a capacity figure.
 
 ## Preparing the Cloud server
 
-The test project's checked-in SQL targets SQLite. Prepare a separate, complete
-Dart workspace whose server entry point and SQL target PostgreSQL:
+With Dart and the Serverpod and Cloud CLIs installed, deployment takes two steps:
 
 ```sh
 dart run benchmark/tool/prepare_cloud.dart --output /tmp/offline-sync-cloud
-cd /tmp/offline-sync-cloud
-dart pub get
+(cd /tmp/offline-sync-cloud/benchmark && scloud launch)
 ```
 
-The server project directory is `/tmp/offline-sync-cloud/benchmark`, with a
-conventional `bin/main.dart`, production config, generated models and the
-workspace's package implementations. The exporter copies source and records the
-source revision and dirty state in `PREPARED.json` and in
-`benchmark/config/benchmark_build.json`, which the server reports. It never
-rewrites the original test packages. It refuses an existing output directory.
-Prepare again into a new directory after changing source. Only the latest schema
-is exported as a fresh PostgreSQL baseline; use an empty dedicated Cloud
-database. This exporter is not an upgrade migration for an existing test or
-production database.
+`prepare` creates a complete PostgreSQL workspace, resolves its dependencies,
+and runs code generation. Plain `scloud launch` can run its normal
+`serverpod generate` hook. Follow the launch wizard to select a dedicated Cloud
+project with managed PostgreSQL; keep the preselected `benchmarkSecret` password
+import. Preparation generates that password in `benchmark/config/passwords.yaml`,
+which is excluded from the upload. No separate dependency, configuration, or
+password command is required.
 
-Once Cloud is configured, link that exported `benchmark` directory to a dedicated
-project with managed PostgreSQL. Configure `BENCHMARK_SECRET` as an environment
-secret before starting the server. Launch from the exported server directory
-with automatic pre-deploy scripts disabled:
+Use the generated `production.benchmarkSecret` value as the load generator's
+`BENCHMARK_SECRET`, and the deployed API domain as its `--target`. The server reads
+Cloud's standard password setting; local runs can still use `BENCHMARK_SECRET`.
 
-```sh
-cd /tmp/offline-sync-cloud/benchmark
-scloud launch --no-pre-deploy-scripts
-```
+The exported `benchmark` directory contains a conventional `bin/main.dart`,
+PostgreSQL configs, generator configuration, model sources, and the workspace's
+package implementations. Preparation records the source revision and dirty state
+in `PREPARED.json` and `benchmark/config/benchmark_build.json`, which the server
+reports. It never rewrites the original test packages and refuses an existing
+output directory. Prepare into a new directory after changing source.
 
-The export already contains generated code and does not include the original
-code-generation configuration. Do not run `serverpod generate` in it. A default
-`scloud launch` can add that command as a pre-deploy hook. If a previous launch
-already created `scloud.yaml`, remove `serverpod generate` from
-`project.scripts.pre_deploy` there (use `pre_deploy: []` if it is the only hook);
-`--no-pre-deploy-scripts` does not remove hooks from an existing configuration.
+Only the latest schema is exported as a fresh PostgreSQL baseline. Use an empty,
+dedicated Cloud database; this is not an upgrade migration for an existing test
+or production database. Cloud supplies the database connection settings. The
+production connection pool defaults to 10, and the server reports its effective
+value. Only the standard sync module and authenticated benchmark control endpoint
+are exposed; demo auth/debug endpoints are absent.
 
-Cloud supplies the `SERVERPOD_DATABASE_*`
-connection settings; the production config explicitly selects PostgreSQL. Its
-pool of 10 connections can be changed with `SERVERPOD_DATABASE_MAX_CONNECTION_COUNT`,
-and the server reports the effective value. The benchmark server exposes only the
-standard sync module and an authenticated benchmark control endpoint.
-Passwordless demo auth/debug endpoints are absent.
-
-Follow the current [Cloud deployment guide](https://docs.serverpod.dev/cloud/concepts/deployments)
-for project setup and deployment, and the
-[secret configuration guide](https://docs.serverpod.dev/cloud/concepts/passwords-secrets-env-vars)
-for `BENCHMARK_SECRET`. Use the API domain as the runner's `--target`. Preview the
-packaged file tree before deploying. Cloud deployment is intentionally not run as
-part of this implementation; account/project configuration is still required.
+Cloud account access is required for the launch wizard. See the
+[Cloud deployment guide](https://docs.serverpod.dev/cloud/concepts/deployments)
+for the standard launch flow. Local preparation, packaging, and startup checks
+do not establish that a hosted deployment has completed.
 
 For native bundles, including the SQLite native libraries, build with the
 stamping wrapper around `dart build cli`:
@@ -291,6 +279,10 @@ evidence:
   device states, network ramp and seeded churn; and one-byte payloads with
   `--setup-concurrency 2`, where every rename was verified exactly and the
   permit peak stayed at two.
+- Cloud preparation: a fresh export resolved dependencies, passed the standard
+  generation hook, and was packaged with the Cloud CLI. The filtered upload
+  resolved its lockfile and built a native server; four devices across two users
+  converged against PostgreSQL 16 with only the standard Cloud password setting.
 - PostgreSQL 16: stamped native client and server bundles against a fresh
   export, two workers and five devices with 4 KiB payloads. Periodic samples
   used estimates, boundaries exact counts, and the town relation outgrew its

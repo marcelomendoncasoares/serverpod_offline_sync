@@ -7,14 +7,16 @@ import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
 import 'package:serverpod_offline_sync_test_server/src/generated/sync_tables.dart';
 
 Future<void> main(List<String> args) async {
-  final secret = requireSecret();
+  late AuthenticationHandler authenticate;
   final pod = Serverpod(
     args,
     model.Protocol(),
     BenchmarkEndpoints(),
-    authenticationHandler: benchmarkAuthentication(secret),
+    authenticationHandler: (session, token) => authenticate(session, token),
     databaseInterceptor: offlineSyncDatabaseInterceptor,
   )..initializeOfflineSync(syncTables: syncTables);
+  final secret = requireSecret(password: pod.getPassword('benchmarkSecret'));
+  authenticate = benchmarkAuthentication(secret);
   if (pod.runMode == 'production' &&
       pod.config.database?.dialect != DatabaseDialect.postgres) {
     throw StateError('Production benchmarks require PostgreSQL.');

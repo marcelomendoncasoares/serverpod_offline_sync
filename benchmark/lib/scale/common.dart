@@ -13,10 +13,13 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 
 const benchmarkScope = 'offline-sync-benchmark-admin';
 
-String requireSecret() {
-  final secret = Platform.environment['BENCHMARK_SECRET'];
+String requireSecret({String? password}) {
+  final secret = Platform.environment['BENCHMARK_SECRET'] ?? password;
   if (secret == null || secret.length < 24) {
-    throw StateError('Set BENCHMARK_SECRET to at least 24 characters.');
+    throw StateError(
+      'Set BENCHMARK_SECRET or the benchmarkSecret Serverpod password '
+      'to at least 24 characters.',
+    );
   }
   return secret;
 }

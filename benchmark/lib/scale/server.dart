@@ -130,7 +130,7 @@ Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () a
 }();
 
 class BenchmarkEndpoint extends Endpoint {
-  BenchmarkEndpoint(this.metrics);
+  BenchmarkEndpoint([StreamMetrics? metrics]) : metrics = metrics ?? StreamMetrics();
 
   final StreamMetrics metrics;
 
