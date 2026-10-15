@@ -1,6 +1,7 @@
 // Internal benchmark tooling, not a published library API.
 // ignore_for_file: public_member_api_docs, type_annotate_public_apis
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -46,6 +47,14 @@ class StreamMetrics {
   ) async* {
     final id = ++opened;
     _open[id] = null;
+    var finished = false;
+    void finish() {
+      if (finished) return;
+      finished = true;
+      _open.remove(id);
+      closed++;
+    }
+
     try {
       void inspect(dynamic event, {required bool inbound}) {
         if (event is sync.OfflineSyncMergeChunk && event.changes.isNotEmpty) {
@@ -62,16 +71,28 @@ class StreamMetrics {
         inspect(event, inbound: true);
         return event;
       });
-      await for (final event in start({...streams, 'changes': inbound})) {
-        inspect(event, inbound: false);
-        yield event;
-      }
+      // Delegate cancellation even while sync is waiting on database work.
+      yield* start({...streams, 'changes': inbound})
+          .map((event) {
+            inspect(event, inbound: false);
+            return event;
+          })
+          .transform(
+            StreamTransformer<dynamic, dynamic>.fromHandlers(
+              handleError: (error, stack, sink) {
+                failed++;
+                finish();
+                sink
+                  ..addError(error, stack)
+                  ..close();
+              },
+            ),
+          );
     } catch (_) {
       failed++;
       rethrow;
     } finally {
-      _open.remove(id);
-      closed++;
+      finish();
     }
   }
 

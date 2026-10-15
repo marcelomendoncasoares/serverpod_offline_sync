@@ -39,6 +39,42 @@ CrdtMergeChange change() => CrdtMergeDelete(
 );
 
 void main() {
+  test(
+    'Given an observed sync stream awaiting its next event, '
+    'when the subscription is cancelled before any new output, '
+    'then cancellation reaches the upstream stream and closes its metrics.',
+    () async {
+      final metrics = StreamMetrics();
+      final listening = Completer<void>();
+      final cancelled = Completer<void>();
+      final upstream = StreamController<dynamic>(
+        onListen: listening.complete,
+        onCancel: cancelled.complete,
+      );
+      final subscription = metrics
+          .observe(
+            (_) => upstream.stream,
+            {'changes': const Stream<dynamic>.empty()},
+          )
+          .listen((_) {});
+      await listening.future;
+
+      final cancellation = subscription.cancel();
+      try {
+        await cancelled.future.timeout(const Duration(seconds: 1));
+      } finally {
+        // Release the old await-for wrapper too when this regression fails.
+        if (!cancelled.isCompleted) upstream.add(null);
+        await cancellation;
+        await upstream.close();
+      }
+
+      expect(metrics.sample()['open'], 0);
+      expect(metrics.sample()['closedTotal'], 1);
+      expect(metrics.sample()['failedTotal'], 0);
+    },
+  );
+
   test('Given SQLite WAL files that appear and vanish concurrently, '
       'when storage is sampled repeatedly, '
       'then missing files count as zero bytes instead of failing.', () async {
