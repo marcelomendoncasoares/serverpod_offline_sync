@@ -175,12 +175,24 @@ class OfflineSyncDatabase implements Database {
   /// personal space. The merge advances [userId]'s clock and keeps each fact's
   /// source node. It skips the write-role check, so authorize the source of
   /// [mergeSet] first, as [sync] does.
+  ///
+  /// If cancellation is observed through [isCancelled] before commit, the merge
+  /// throws [OfflineSyncCancelledException] and rolls back. Cancellation is checked
+  /// between merge operations; it does not interrupt an executing SQL statement.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
     UuidValue? userId,
     UuidValue? spaceId,
+    bool Function()? isCancelled,
   }) async {
     if (mergeSet.isEmpty) return;
+    void checkCancelled() {
+      if (isCancelled?.call() ?? false) {
+        throw const OfflineSyncCancelledException();
+      }
+    }
+
+    checkCancelled();
     await _ensureInitialized();
 
     final effectiveUserId =
@@ -191,16 +203,19 @@ class OfflineSyncDatabase implements Database {
         ));
     final effectiveSpaceId = spaceId ?? effectiveUserId;
     await _context.runMerge(effectiveUserId, effectiveSpaceId, () async {
+      checkCancelled();
       // Source nodes are shared by every space; commit them before locking.
       await _recorder.ensureSourceNodes({
         for (final change in mergeSet) change.uuidNodeId,
       });
+      checkCancelled();
       try {
         await _transactionAs<void>(
           effectiveUserId,
           effectiveSpaceId,
-          (tx) => _recorder.mergeChanges(mergeSet, tx),
+          (tx) => _recorder.mergeChanges(mergeSet, tx, checkCancelled: checkCancelled),
           authoring: false,
+          beforeCommit: checkCancelled,
         );
       } on OfflineSyncIntegrityViolationException catch (exception) {
         final persistedViolation = await recordOfflineSyncIntegrityViolation(
@@ -1133,6 +1148,7 @@ class OfflineSyncDatabase implements Database {
     TransactionFunction<R> action, {
     required bool authoring,
     TransactionSettings? settings,
+    void Function()? beforeCommit,
   }) async {
     final space = await _recorder.getOrCreateSpace(spaceId);
     final clockNode = await _recorder.getOrCreateUserNode(userId);
@@ -1144,10 +1160,12 @@ class OfflineSyncDatabase implements Database {
           spaceForTransaction[tx] = space;
           userForTransaction[tx] = userId;
           clockNodeForTransaction[tx] = clockNode;
-          return await _recorder.withUserClock(tx, (tx) async {
+          final result = await _recorder.withUserClock(tx, (tx) async {
             await _recorder.lockUserClock(tx);
             return action(tx);
           });
+          beforeCommit?.call();
+          return result;
         } finally {
           spaceForTransaction.remove(tx);
           userForTransaction.remove(tx);

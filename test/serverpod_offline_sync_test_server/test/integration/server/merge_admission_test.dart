@@ -239,6 +239,213 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
         });
       });
 
+      group('Given a sync stream paused after writing merge metadata,', () {
+        late UuidValue user;
+        late UuidValue source;
+        late OfflineSyncDatabaseSession session;
+        late Completer<void> release;
+        late Completer<void> inboundCancelled;
+        late StreamController<OfflineSyncStreamEvent> inbound;
+        late StreamSubscription<OfflineSyncStreamEvent> subscription;
+        late List<CrdtMergeChange> changes;
+        late Hlc? clockBefore;
+        late List<Object> streamErrors;
+
+        setUpAll(() async {
+          user = const Uuid().v7obj();
+          source = const Uuid().v7obj();
+          final shared = context(1);
+          release = Completer<void>();
+          final entered = Completer<void>();
+          session = await wrapper(
+            shared,
+            database: _HoldMerge(sessions.build().db, entered, release),
+          );
+          await session.db.currentNodeId(userId: user);
+          clockBefore = (await CrdtNode.db.findFirstRow(
+            observer,
+            where: (t) => t.localUserUuid.equals(user),
+          ))!.lastHlc;
+          final rows = [
+            server.Unique(id: const Uuid().v7obj(), name: const Uuid().v4()),
+            server.Unique(id: const Uuid().v7obj(), name: const Uuid().v4()),
+          ];
+          changes = [
+            for (final (index, row) in rows.indexed)
+              CrdtMergeInsert(
+                uuidSpaceId: user,
+                tableName: server.Unique.t.tableName,
+                uuidRowId: row.id!,
+                uuidNodeId: source,
+                hlcDatetime: DateTime.now().toUtc(),
+                hlcCounter: index,
+                data: row,
+              ),
+          ];
+          final engine = OfflineSyncEngine(
+            syncTables: server.syncTables,
+            serializationManager: observer.db.serializationManager,
+            databaseContext: shared,
+          );
+          inboundCancelled = Completer<void>();
+          inbound = StreamController<OfflineSyncStreamEvent>(
+            onCancel: () => inboundCancelled.complete(),
+          );
+          streamErrors = [];
+          subscription = engine
+              .sync(
+                session,
+                userId: user,
+                inbound: inbound.stream,
+                mode: OfflineSyncPeerMode.authoritative,
+              )
+              .listen(
+                (_) {},
+                onError: (Object error) => streamErrors.add(error),
+              );
+          addTearDown(() async {
+            if (!release.isCompleted) release.complete();
+            await subscription.cancel();
+            await inbound.close();
+          });
+          inbound
+            ..add(
+              OfflineSyncConnect(
+                localNodeId: source,
+                syncTablesHash: engine.currentSyncTablesHash,
+              ),
+            )
+            ..add(
+              OfflineSyncSpaceSet(
+                spaces: [
+                  OfflineSyncSpaceGrant(
+                    uuidSpaceId: user,
+                    role: OfflineSyncSpaceRole.readWrite,
+                  ),
+                ],
+              ),
+            )
+            ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(OfflineSyncMergeChunk(changes: changes))
+            ..add(OfflineSyncEndOfBatch());
+          await entered.future.timeout(const Duration(seconds: 10));
+        });
+
+        group(
+          'when the stream is cancelled and its pending database call returns,',
+          () {
+            late bool completedBeforeRelease;
+            late List<server.Unique> rowsAfterCancel;
+            late List<CrdtDataRow> metadataAfterCancel;
+            late Hlc? clockAfterCancel;
+            late Hlc? checkpointAfterCancel;
+            late List<server.Unique> rowsAfterRetry;
+
+            setUpAll(() async {
+              var completed = false;
+              final cancellation = subscription.cancel().then((_) {
+                completed = true;
+              });
+              await inboundCancelled.future.timeout(const Duration(seconds: 10));
+              completedBeforeRelease = completed;
+              release.complete();
+              await cancellation.timeout(const Duration(seconds: 10));
+
+              final ids = changes.map((change) => change.uuidRowId).toSet();
+              rowsAfterCancel = await server.Unique.db.find(
+                observer,
+                where: (t) => t.id.inSet(ids),
+              );
+              metadataAfterCancel = await CrdtDataRow.db.find(
+                observer,
+                where: (t) => t.uuidRowId.inSet(ids),
+              );
+              clockAfterCancel = (await CrdtNode.db.findFirstRow(
+                observer,
+                where: (t) => t.localUserUuid.equals(user),
+              ))!.lastHlc;
+              checkpointAfterCancel = (await OfflineSyncSpaceNode.db.findFirstRow(
+                observer,
+                where: (t) => t.node.uuidNodeId.equals(source),
+              ))?.lastReceivedHlc;
+
+              await session.db.mergeChanges(changes, userId: user);
+              rowsAfterRetry = await server.Unique.db.find(
+                observer,
+                where: (t) => t.id.inSet(ids),
+              );
+            });
+
+            test('then cancellation waits for the transaction to settle.', () {
+              expect(completedBeforeRelease, isFalse);
+              expect(streamErrors, isEmpty);
+            });
+
+            test(
+              'then domain writes, metadata, clock and checkpoint roll back together.',
+              () {
+                expect(rowsAfterCancel, isEmpty);
+                expect(metadataAfterCancel, isEmpty);
+                expect(clockAfterCancel, clockBefore);
+                expect(checkpointAfterCancel, isNull);
+              },
+            );
+
+            test('then retrying the same batch commits every row.', () {
+              expect(rowsAfterRetry, hasLength(2));
+            });
+          },
+        );
+      });
+
+      test(
+        'Given a queued merge behind a held transaction, '
+        'when that merge is cancelled before admission, '
+        'then it makes no database calls and releases its queue position.',
+        () async {
+          final user = const Uuid().v7obj();
+          final shared = context(1);
+          final entered = Completer<void>();
+          final release = Completer<void>();
+          final holdingSession = await wrapper(
+            shared,
+            database: _HoldMerge(sessions.build().db, entered, release),
+          );
+          final counting = QueryCountingDatabase(sessions.build().db);
+          final queuedSession = await wrapper(shared, database: counting);
+          final holding = _merge(holdingSession, user: user);
+          addTearDown(() async {
+            if (!release.isCompleted) release.complete();
+            await holding;
+          });
+          await entered.future;
+          counting.queryCount = 0;
+
+          var cancelled = false;
+          final queued =
+              _merge(
+                queuedSession,
+                user: user,
+                isCancelled: () => cancelled,
+              ).then<Object?>(
+                (_) => null,
+                onError: (Object error) => error,
+              );
+          await observer.db.unsafeQuery('SELECT 1');
+          cancelled = true;
+          release.complete();
+          await holding;
+          final error = await queued;
+          final cancelledCalls = counting.queryCount;
+          final retried = await _merge(queuedSession, user: user);
+          final persisted = await server.Unique.db.findById(observer, retried.id!);
+
+          expect(error, isA<OfflineSyncCancelledException>());
+          expect(cancelledCalls, 0);
+          expect(persisted, isNotNull);
+        },
+      );
+
       test(
         'Given independent admission contexts sharing a database, '
         'when they merge for the same user, '
@@ -290,6 +497,7 @@ Future<server.Unique> _merge(
   required UuidValue user,
   UuidValue? space,
   server.Unique? row,
+  bool Function()? isCancelled,
 }) async {
   row ??= server.Unique(id: const Uuid().v7obj(), name: const Uuid().v4());
   await session.db.mergeChanges(
@@ -306,6 +514,7 @@ Future<server.Unique> _merge(
     ],
     userId: user,
     spaceId: space,
+    isCancelled: isCancelled,
   );
   return row;
 }
