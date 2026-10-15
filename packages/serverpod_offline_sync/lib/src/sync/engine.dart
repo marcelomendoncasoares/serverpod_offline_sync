@@ -17,6 +17,7 @@ import '../hlc/hlc.dart';
 import '../managers/space.dart';
 import '../spaces/membership.dart';
 import '../utils/case_when.dart' show Case;
+import 'cancellation.dart';
 import 'exceptions.dart';
 import 'integrity_violation.dart';
 import 'space_state.dart';
@@ -251,7 +252,7 @@ class OfflineSyncEngine {
     required UuidValue userId,
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
-    bool Function()? isCancelled,
+    OfflineSyncCancellation? cancellation,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
@@ -260,7 +261,7 @@ class OfflineSyncEngine {
       mergeSet,
       userId: userId,
       spaceId: spaceId,
-      isCancelled: isCancelled,
+      cancellation: cancellation,
     );
     return maxSyncedHlc;
   }
@@ -286,7 +287,7 @@ class OfflineSyncEngine {
     bool once = false,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
   }) {
-    var cancelled = false;
+    final cancellation = OfflineSyncCancellation();
     var completed = false;
     late StreamIterator<OfflineSyncStreamEvent> inboundIterator;
     late StreamSubscription<OfflineSyncStreamEvent> subscription;
@@ -314,7 +315,7 @@ class OfflineSyncEngine {
               mode: mode,
               once: once,
               onMergeSuccess: onMergeSuccess,
-              isCancelled: () => cancelled,
+              cancellation: cancellation,
             ).listen(
               controller.add,
               onError: controller.addError,
@@ -330,7 +331,7 @@ class OfflineSyncEngine {
         if (completed) return;
         // An async generator alone cannot observe cancellation while awaiting
         // admission or a database call. Signal it before awaiting its cleanup.
-        cancelled = true;
+        cancellation.cancel();
         try {
           await inboundIterator.cancel().timeout(
             const Duration(milliseconds: 200),
@@ -350,7 +351,7 @@ class OfflineSyncEngine {
     required StreamIterator<OfflineSyncStreamEvent> inboundIterator,
     required OfflineSyncPeerMode mode,
     required bool once,
-    required bool Function() isCancelled,
+    required OfflineSyncCancellation cancellation,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
     var sessionCompleted = false;
@@ -382,7 +383,7 @@ class OfflineSyncEngine {
       await spaces.adoptPeerGrants(peerSpaceSet.spaces);
 
       while (true) {
-        if (isCancelled()) return;
+        if (cancellation.isCancelled) return;
         await spaces.reconcile();
 
         final hadSendableCheckpoints = spaces.sendableCheckpoints.isNotEmpty;
@@ -435,7 +436,7 @@ class OfflineSyncEngine {
           batch,
           outboundSpaces,
           onMergeSuccess,
-          isCancelled,
+          cancellation,
         );
 
         if (once) {
@@ -500,7 +501,7 @@ class OfflineSyncEngine {
     OfflineSyncCycleBatch batch,
     Set<UuidValue> outboundSpaces,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
-    bool Function() isCancelled,
+    OfflineSyncCancellation cancellation,
   ) async {
     if (batch.spaceSet != null) {
       await spaces.adoptPeerGrants(batch.spaceSet!.spaces);
@@ -533,7 +534,7 @@ class OfflineSyncEngine {
         userId: spaces.userId,
         spaceId: spaceId,
         mergeSet: entry.value,
-        isCancelled: isCancelled,
+        cancellation: cancellation,
       );
       await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
     }

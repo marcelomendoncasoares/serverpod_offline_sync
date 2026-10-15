@@ -421,18 +421,18 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
           await entered.future;
           counting.queryCount = 0;
 
-          var cancelled = false;
+          final cancellation = OfflineSyncCancellation();
           final queued =
               _merge(
                 queuedSession,
                 user: user,
-                isCancelled: () => cancelled,
+                cancellation: cancellation,
               ).then<Object?>(
                 (_) => null,
                 onError: (Object error) => error,
               );
           await observer.db.unsafeQuery('SELECT 1');
-          cancelled = true;
+          cancellation.cancel();
           release.complete();
           await holding;
           final error = await queued;
@@ -497,7 +497,7 @@ Future<server.Unique> _merge(
   required UuidValue user,
   UuidValue? space,
   server.Unique? row,
-  bool Function()? isCancelled,
+  OfflineSyncCancellation? cancellation,
 }) async {
   row ??= server.Unique(id: const Uuid().v7obj(), name: const Uuid().v4());
   await session.db.mergeChanges(
@@ -514,7 +514,7 @@ Future<server.Unique> _merge(
     ],
     userId: user,
     spaceId: space,
-    isCancelled: isCancelled,
+    cancellation: cancellation,
   );
   return row;
 }

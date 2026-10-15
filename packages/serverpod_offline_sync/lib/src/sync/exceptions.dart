@@ -9,7 +9,7 @@ sealed class OfflineSyncException implements Exception {
   const OfflineSyncException();
 }
 
-/// Thrown when cooperative cancellation stops a merge before it commits.
+/// Thrown when cancellation stops a merge before it commits.
 final class OfflineSyncCancelledException extends OfflineSyncException {
   /// Creates a cancellation exception.
   const OfflineSyncCancelledException();

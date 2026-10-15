@@ -5,11 +5,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   /// Merges remote CRDT changes into the current database.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet,
-    Transaction transaction, {
-    void Function()? checkCancelled,
-  }) async {
+    Transaction transaction,
+  ) async {
     if (mergeSet.isEmpty) return;
-    checkCancelled?.call();
 
     final operations = mergeSet.causallyOrderedChanges;
     // Validate remote facts before touching rows or progress, including stale
@@ -93,7 +91,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         (operation) => _context.isCrdtTrackedTableName(operation.tableName),
       ),
       (operation) async {
-        checkCancelled?.call();
         switch (operation) {
           case final CrdtMergeInsert insert:
             await _applyMergeInsert(
@@ -137,11 +134,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
 
     for (final delete in deferredDeletes) {
-      checkCancelled?.call();
       await _applyMergeDelete(delete, nodesByUuid, context, transaction);
     }
 
-    checkCancelled?.call();
     if (mayAffectProjection) {
       await _foreignKeyProjector.project(
         transaction,
@@ -157,7 +152,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
     }
-    checkCancelled?.call();
     await _updateHlcFromIncomingOperations(
       operations,
       remoteNodes,
