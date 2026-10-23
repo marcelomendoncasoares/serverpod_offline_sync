@@ -17,7 +17,7 @@ class FramedSyncPeer {
   final _events = StreamController<OfflineSyncStreamEvent>.broadcast();
   final stages = <String>[];
   final spaces = <UuidValue>{};
-  int idlePolls = 0;
+  int recoveryWakeups = 0;
   int nextBatchId = 1;
   final _rowWaiters = <UuidValue, Completer<void>>{};
   final _acknowledged = <int, Completer<void>>{};
@@ -26,12 +26,17 @@ class FramedSyncPeer {
   int _passes = 0;
   bool _closed = false;
 
-  Future<T> waitForEvent<T extends OfflineSyncStreamEvent>() async {
+  Future<T> waitForEvent<T extends OfflineSyncStreamEvent>({
+    bool Function(T)? where,
+  }) async {
+    bool matches(OfflineSyncStreamEvent event) =>
+        event is T && (where?.call(event) ?? true);
+
     for (final event in events) {
-      if (event is T) return event;
+      if (matches(event)) return event as T;
     }
     return await _events.stream
-            .firstWhere((event) => event is T)
+            .firstWhere(matches)
             .timeout(
               const Duration(seconds: 10),
             )
@@ -57,7 +62,7 @@ class FramedSyncPeer {
     OfflineSyncDiagnostics.run(
       (event) {
         onDiagnostic?.call(event);
-        if (event['name'] == 'sync.idlePoll') peer.idlePolls++;
+        if (event['name'] == 'sync.recoveryWakeup') peer.recoveryWakeups++;
         if (event['name'] == 'sync.outboundCapture' && event['kind'] == 'start') {
           peer.stages.add('outbound.capture');
         }
