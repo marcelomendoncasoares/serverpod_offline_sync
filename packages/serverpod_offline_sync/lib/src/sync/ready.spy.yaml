@@ -1,0 +1,3 @@
+### Completes initial grant and resume-vector announcements.
+class: OfflineSyncReady
+extends: OfflineSyncStreamEvent

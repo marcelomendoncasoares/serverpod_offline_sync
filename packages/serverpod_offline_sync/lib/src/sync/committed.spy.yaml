@@ -1,0 +1,5 @@
+### Confirms that every accepted space in the batch committed durably.
+class: OfflineSyncCommitted
+extends: OfflineSyncStreamEvent
+fields:
+  batchId: int

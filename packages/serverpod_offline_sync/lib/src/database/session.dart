@@ -21,7 +21,7 @@ class OfflineSyncDatabaseSession implements DatabaseSession {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = OfflineSyncEngine.defaultSyncBatchSize,
 
-    /// Delay between continuous sync rounds.
+    /// Optional throttle between continuous sync rounds.
     Duration continuousSyncInterval = OfflineSyncEngine.defaultContinuousSyncInterval,
 
     /// The user ID to use for all CRDT operations. This should only be used for
@@ -52,7 +52,7 @@ class OfflineSyncDatabaseSession implements DatabaseSession {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = OfflineSyncEngine.defaultSyncBatchSize,
 
-    /// Delay between continuous sync rounds.
+    /// Optional throttle between continuous sync rounds.
     Duration continuousSyncInterval = OfflineSyncEngine.defaultContinuousSyncInterval,
 
     /// The user ID to use for all CRDT operations. This should only be used for

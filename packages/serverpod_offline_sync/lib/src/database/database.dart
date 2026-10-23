@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:clock/clock.dart';
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
@@ -57,7 +58,7 @@ class OfflineSyncDatabase implements Database {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = OfflineSyncEngine.defaultSyncBatchSize,
 
-    /// Delay between continuous sync rounds.
+    /// Optional throttle between continuous sync rounds.
     Duration continuousSyncInterval = OfflineSyncEngine.defaultContinuousSyncInterval,
 
     /// The user ID to use for all CRDT operations. This should only be used for
@@ -177,8 +178,9 @@ class OfflineSyncDatabase implements Database {
   ///
   /// [userId] defaults to the persistent user and [spaceId] to that user's
   /// personal space. The merge advances [userId]'s clock and keeps each fact's
-  /// source node. It skips the write-role check, so authorize the source of
-  /// [mergeSet] first, as [sync] does.
+  /// source node. Set [requireWriteAccess] when accepting a follower upload.
+  /// The role is checked after admission and locked until the merge commits.
+  /// Trusted replication into a follower can write its read-only spaces.
   ///
   /// If [cancellation] is requested before the merge callback finishes, the merge
   /// rolls back and throws [OfflineSyncCancelledException]. The transaction
@@ -189,6 +191,7 @@ class OfflineSyncDatabase implements Database {
     UuidValue? userId,
     UuidValue? spaceId,
     OfflineSyncCancellation? cancellation,
+    bool requireWriteAccess = false,
   }) async {
     if (mergeSet.isEmpty) return;
     cancellation?.throwIfCancelled();
@@ -217,7 +220,17 @@ class OfflineSyncDatabase implements Database {
           await _transactionAs<void>(
             effectiveUserId,
             effectiveSpaceId,
-            (tx) => _recorder.mergeChanges(mergeSet, tx),
+            (tx) async {
+              if (requireWriteAccess) {
+                await _assertMergeWriteAccess(
+                  mergeSet.first,
+                  effectiveUserId,
+                  effectiveSpaceId,
+                  tx,
+                );
+              }
+              await _recorder.mergeChanges(mergeSet, tx);
+            },
             authoring: false,
             cancellation: cancellation,
           );
@@ -237,6 +250,47 @@ class OfflineSyncDatabase implements Database {
           for (final change in mergeSet) (change.tableName, change.uuidRowId),
         }.length,
       },
+    );
+  }
+
+  Future<void> _assertMergeWriteAccess(
+    CrdtMergeChange change,
+    UuidValue userId,
+    UuidValue spaceId,
+    Transaction transaction,
+  ) async {
+    if (userId == spaceId) return;
+    final membership = await OfflineSyncSpaceMember.db.findFirstRow(
+      _delegate.session,
+      where: (t) =>
+          t.userUuid.equals(userId) &
+          t.spaceId.equals(spaceForTransaction[transaction]!.id),
+      transaction: transaction,
+      lockMode: LockMode.forNoKeyUpdate,
+    );
+    if (membership?.role.canWrite ?? false) return;
+
+    final now = clock.now().toUtc();
+    throw OfflineSyncIntegrityViolationException(
+      OfflineSyncIntegrityViolation(
+        type: OfflineSyncViolationType.unauthorizedWrite,
+        domainTableName: change.tableName,
+        uuidRowId: change.uuidRowId,
+        ownerSpaceUuid: null,
+        incomingSpaceUuid: spaceId,
+        operation: switch (change) {
+          CrdtMergeInsert() => OfflineSyncViolationOperation.mergeInsert,
+          CrdtMergeUpdate() => OfflineSyncViolationOperation.mergeUpdate,
+          CrdtMergeDelete() => OfflineSyncViolationOperation.mergeDelete,
+        },
+        uuidNodeId: change.uuidNodeId,
+        crdtDataRowId: null,
+        hlcDatetime: change.hlcDatetime,
+        hlcCounter: change.hlcCounter,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        occurrences: 1,
+      ),
     );
   }
 
@@ -430,7 +484,8 @@ class OfflineSyncDatabase implements Database {
     }
     if (transaction == null) {
       // The write owns its transaction, so its scope stores the clock.
-      return _delegate.transaction(
+      return _context.runTransaction(
+        _delegate,
         (tx) => _recorder.withUserClock(tx, (tx) async {
           await _recorder.lockUserClock(tx);
           return action(tx);
@@ -1117,7 +1172,7 @@ class OfflineSyncDatabase implements Database {
     // Callers can roll back savepoints created before the first tracked write,
     // releasing its locks. Each write must reload and store its own clock;
     // only the explicitly bound APIs can safely share prelocked clock state.
-    return OfflineSyncDiagnostics.transaction(
+    return _context.runTransaction(
       _delegate,
       transactionFunction,
       settings: settings,
@@ -1173,7 +1228,7 @@ class OfflineSyncDatabase implements Database {
     final clockNode = await _recorder.getOrCreateUserNode(userId);
     if (authoring) await _recorder.ensureParticipation(space, clockNode);
 
-    return OfflineSyncDiagnostics.transaction<R>(
+    return _context.runTransaction<R>(
       _delegate,
       (tx) async {
         Future<R> run() async {
@@ -1235,7 +1290,7 @@ class OfflineSyncDatabase implements Database {
       await _recorder.ensureParticipation(space, clockNode);
     }
 
-    return OfflineSyncDiagnostics.transaction(_delegate, (tx) async {
+    return _context.runTransaction(_delegate, (tx) async {
       OfflineSyncSpacesTransaction? spaces;
       userForTransaction[tx] = userId;
       clockNodeForTransaction[tx] = clockNode;

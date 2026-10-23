@@ -1,0 +1,131 @@
+import 'dart:async';
+
+import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart'
+    show Uuid, UuidValue;
+import 'package:test/test.dart';
+
+import 'client_session.dart';
+import 'sync_topology.dart';
+
+/// A current-protocol peer against the public engine and a real database.
+/// Commit acknowledgements and capture diagnostics provide explicit barriers.
+class FramedSyncPeer {
+  final inbound = StreamController<OfflineSyncStreamEvent>();
+  final outbound = <CrdtMergeChange>[];
+  final stages = <String>[];
+  int idlePolls = 0;
+  int nextBatchId = 1;
+  final _rowWaiters = <UuidValue, Completer<void>>{};
+  final _acknowledged = <int, Completer<void>>{};
+  final _waiting = <int, Completer<void>>{};
+  final _done = Completer<void>();
+  int _passes = 0;
+  bool _closed = false;
+
+  Future<void> waitForRow(UuidValue id) async {
+    if (outbound.any((change) => change.uuidRowId == id)) return;
+    await (_rowWaiters[id] ??= Completer<void>()).future.timeout(
+      const Duration(seconds: 5),
+    );
+  }
+
+  static Future<FramedSyncPeer> open(SyncNode node, {UuidValue? userId}) async {
+    final actingUser = userId ?? testCrdtUserId;
+    final peer = FramedSyncPeer();
+    addTearDown(peer.close);
+    OfflineSyncDiagnostics.run(
+      (event) {
+        if (event['name'] == 'sync.idlePoll') peer.idlePolls++;
+        if (event['name'] == 'sync.outboundCapture' && event['kind'] == 'start') {
+          peer.stages.add('outbound.capture');
+        }
+        if (event['name'] == 'sync.outboundIdle') {
+          peer._passes++;
+          peer._waiting.remove(peer._passes)?.complete();
+        }
+      },
+      () => node.sync
+          .sync(
+            node.raw,
+            userId: actingUser,
+            inbound: peer.inbound.stream,
+            mode: OfflineSyncPeerMode.authoritative,
+          )
+          .listen(
+            (event) {
+              if (event is OfflineSyncConnect) {
+                peer.inbound
+                  ..add(
+                    OfflineSyncConnect(
+                      localNodeId: const Uuid().v7obj(),
+                      syncTablesHash: event.syncTablesHash,
+                      spaces: const [],
+                    ),
+                  )
+                  ..add(
+                    OfflineSyncSinceHlc(uuidSpaceId: actingUser, nodeCheckpoints: []),
+                  )
+                  ..add(OfflineSyncReady());
+              } else if (event is OfflineSyncMergeChunk) {
+                peer.outbound.addAll(event.changes);
+                for (final change in event.changes) {
+                  peer._rowWaiters.remove(change.uuidRowId)?.complete();
+                }
+              } else if (event is OfflineSyncEndOfBatch) {
+                peer.inbound.add(OfflineSyncCommitted(batchId: event.batchId));
+              } else if (event is OfflineSyncCommitted) {
+                peer._acknowledged.remove(event.batchId)?.complete();
+              }
+            },
+            onError: (Object error, StackTrace stack) {
+              for (final waiting in [
+                ...peer._waiting.values,
+                ...peer._acknowledged.values,
+              ]) {
+                waiting.completeError(error, stack);
+              }
+              peer._waiting.clear();
+              peer._acknowledged.clear();
+              if (!peer._done.isCompleted) peer._done.completeError(error, stack);
+            },
+            onDone: () {
+              if (!peer._done.isCompleted) peer._done.complete();
+            },
+          ),
+    );
+    await peer._waitForPass(1);
+    return peer;
+  }
+
+  Future<void> _waitForPass(int pass) async {
+    if (_passes >= pass) return;
+    await (_waiting[pass] ??= Completer<void>()).future.timeout(
+      const Duration(seconds: 10),
+    );
+  }
+
+  Future<void> endBatch() async {
+    final id = nextBatchId++;
+    final acknowledged = _acknowledged[id] = Completer<void>();
+    inbound.add(OfflineSyncEndOfBatch(batchId: id, finalForOnce: false));
+    await acknowledged.future.timeout(const Duration(seconds: 10));
+  }
+
+  Future<List<CrdtMergeChange>> sendBatch(List<CrdtMergeChange> changes) async {
+    final nextPass = _passes + 1;
+    outbound.clear();
+    inbound.add(OfflineSyncMergeChunk(batchId: nextBatchId, changes: changes));
+    await endBatch();
+    await _waitForPass(nextPass);
+    return List.of(outbound);
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    if (!_done.isCompleted) inbound.add(OfflineSyncClose());
+    await _done.future.timeout(const Duration(seconds: 10));
+    unawaited(inbound.close());
+  }
+}
