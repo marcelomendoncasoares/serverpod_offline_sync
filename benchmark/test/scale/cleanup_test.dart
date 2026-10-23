@@ -274,18 +274,26 @@ Future<_ScaleResult> _runScaleFixture(
         '--no-sync-diagnostics',
       ],
       workingDirectory: root,
-      environment: {'BENCHMARK_SECRET': 'cleanup-fixture-secret'},
+      environment: {'BENCHMARK_SECRET': 'cleanup-fixture-secret-for-testing'},
     );
     final output = process.stdout.transform(utf8.decoder).join();
     final errors = process.stderr.transform(utf8.decoder).join();
     final code = await process.exitCode.timeout(const Duration(minutes: 1));
     exited = true;
     final directory = p.join(scratch.path, runId);
+    final processOutput = '${await output}\n${await errors}';
+    final summary = File(p.join(directory, 'summary.json'));
+    if (!await summary.exists()) {
+      throw StateError(
+        'Coordinator exited with code $code before writing summary.json:\n'
+        '$processOutput',
+      );
+    }
+
     return _ScaleResult(
       code,
-      '${await output}\n${await errors}',
-      jsonDecode(await File(p.join(directory, 'summary.json')).readAsString())
-          as Map<String, dynamic>,
+      processOutput,
+      jsonDecode(await summary.readAsString()) as Map<String, dynamic>,
       (await File(
         p.join(directory, 'events.jsonl'),
       ).readAsLines()).map((line) => jsonDecode(line) as Map<String, dynamic>).toList(),
