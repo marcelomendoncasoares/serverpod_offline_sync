@@ -14,12 +14,13 @@ import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 part 'close.dart';
+part 'committed.dart';
 part 'connect.dart';
 part 'end_of_batch.dart';
 part 'merge_chunk.dart';
+part 'ready.dart';
 part 'since_hlc.dart';
 part 'space_set.dart';
-part 'timeout.dart';
 
 /// A CRDT sync event sent over a bidirectional stream.
 ///

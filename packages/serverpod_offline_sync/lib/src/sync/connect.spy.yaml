@@ -1,4 +1,4 @@
-### Session handshake sent once by each peer before any space work.
+### Session identity and initial grants sent together before any space work.
 ###
 ### [localNodeId] is the syncing user's local clock node on this peer. It is
 ### announced once on connect and is informational.
@@ -12,3 +12,6 @@ fields:
 
   ### The hash of the synchronized schema configured on this peer.
   syncTablesHash: String
+
+  ### Initial authoritative grants. A follower announces an empty list.
+  spaces: List<OfflineSyncSpaceGrant>

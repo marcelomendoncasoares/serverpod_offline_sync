@@ -92,13 +92,14 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_iy534gq7.CrdtSchemaColumn>,
           _iss.getType<_ik8xyqdv.CrdtSchemaTable>,
           _iss.getType<_iimdylh8.OfflineSyncClose>,
+          _iss.getType<_iimdylh8.OfflineSyncCommitted>,
           _iss.getType<_iimdylh8.OfflineSyncConnect>,
           _iss.getType<_iimdylh8.OfflineSyncEndOfBatch>,
           _iss.getType<_iimdylh8.OfflineSyncMergeChunk>,
+          _iss.getType<_iimdylh8.OfflineSyncReady>,
           _iss.getType<_iimdylh8.OfflineSyncSinceHlc>,
           _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant>,
           _iss.getType<_iimdylh8.OfflineSyncSpaceSet>,
-          _iss.getType<_iimdylh8.OfflineSyncIdleTimeout>,
           _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation>,
           _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation>,
           _iss.getType<_itf31ci3.OfflineSyncViolationType>,
@@ -121,13 +122,14 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_iy534gq7.CrdtSchemaColumn?>,
           _iss.getType<_ik8xyqdv.CrdtSchemaTable?>,
           _iss.getType<_iimdylh8.OfflineSyncClose?>,
+          _iss.getType<_iimdylh8.OfflineSyncCommitted?>,
           _iss.getType<_iimdylh8.OfflineSyncConnect?>,
           _iss.getType<_iimdylh8.OfflineSyncEndOfBatch?>,
           _iss.getType<_iimdylh8.OfflineSyncMergeChunk?>,
+          _iss.getType<_iimdylh8.OfflineSyncReady?>,
           _iss.getType<_iimdylh8.OfflineSyncSinceHlc?>,
           _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant?>,
           _iss.getType<_iimdylh8.OfflineSyncSpaceSet?>,
-          _iss.getType<_iimdylh8.OfflineSyncIdleTimeout?>,
           _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation?>,
           _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation?>,
           _iss.getType<_itf31ci3.OfflineSyncViolationType?>,
@@ -137,10 +139,10 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_icw2tu00.Hlc?>,
           _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>>,
           _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>?>,
+          _iss.getType<List<_icw2tu00.OfflineSyncSpaceGrant>>,
           _iss.getType<List<_icw2tu00.CrdtMergeChange>>,
           _iss.getType<List<_icw2tu00.Hlc>>,
           _iss.getType<_icw2tu00.Hlc>,
-          _iss.getType<List<_icw2tu00.OfflineSyncSpaceGrant>>,
         ],
         modules: const [],
       );
@@ -1099,6 +1101,9 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iimdylh8.OfflineSyncClose) {
       return _iimdylh8.OfflineSyncClose.fromJson(data) as T;
     }
+    if (t == _iimdylh8.OfflineSyncCommitted) {
+      return _iimdylh8.OfflineSyncCommitted.fromJson(data) as T;
+    }
     if (t == _iimdylh8.OfflineSyncConnect) {
       return _iimdylh8.OfflineSyncConnect.fromJson(data) as T;
     }
@@ -1108,6 +1113,9 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iimdylh8.OfflineSyncMergeChunk) {
       return _iimdylh8.OfflineSyncMergeChunk.fromJson(data) as T;
     }
+    if (t == _iimdylh8.OfflineSyncReady) {
+      return _iimdylh8.OfflineSyncReady.fromJson(data) as T;
+    }
     if (t == _iimdylh8.OfflineSyncSinceHlc) {
       return _iimdylh8.OfflineSyncSinceHlc.fromJson(data) as T;
     }
@@ -1116,9 +1124,6 @@ class Protocol extends _isd.DatabaseSerializationManager
     }
     if (t == _iimdylh8.OfflineSyncSpaceSet) {
       return _iimdylh8.OfflineSyncSpaceSet.fromJson(data) as T;
-    }
-    if (t == _iimdylh8.OfflineSyncIdleTimeout) {
-      return _iimdylh8.OfflineSyncIdleTimeout.fromJson(data) as T;
     }
     if (t == _iucor0s6.OfflineSyncIntegrityViolation) {
       return _iucor0s6.OfflineSyncIntegrityViolation.fromJson(data) as T;
@@ -1216,6 +1221,12 @@ class Protocol extends _isd.DatabaseSerializationManager
       return (data != null ? _iimdylh8.OfflineSyncClose.fromJson(data) : null)
           as T;
     }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncCommitted?>()) {
+      return (data != null
+              ? _iimdylh8.OfflineSyncCommitted.fromJson(data)
+              : null)
+          as T;
+    }
     if (t == _iss.getType<_iimdylh8.OfflineSyncConnect?>()) {
       return (data != null ? _iimdylh8.OfflineSyncConnect.fromJson(data) : null)
           as T;
@@ -1230,6 +1241,10 @@ class Protocol extends _isd.DatabaseSerializationManager
       return (data != null
               ? _iimdylh8.OfflineSyncMergeChunk.fromJson(data)
               : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncReady?>()) {
+      return (data != null ? _iimdylh8.OfflineSyncReady.fromJson(data) : null)
           as T;
     }
     if (t == _iss.getType<_iimdylh8.OfflineSyncSinceHlc?>()) {
@@ -1247,12 +1262,6 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iss.getType<_iimdylh8.OfflineSyncSpaceSet?>()) {
       return (data != null
               ? _iimdylh8.OfflineSyncSpaceSet.fromJson(data)
-              : null)
-          as T;
-    }
-    if (t == _iss.getType<_iimdylh8.OfflineSyncIdleTimeout?>()) {
-      return (data != null
-              ? _iimdylh8.OfflineSyncIdleTimeout.fromJson(data)
               : null)
           as T;
     }
@@ -1308,6 +1317,12 @@ class Protocol extends _isd.DatabaseSerializationManager
               : null)
           as T;
     }
+    if (t == List<_icw2tu00.OfflineSyncSpaceGrant>) {
+      return (data as List)
+              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceGrant>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_icw2tu00.CrdtMergeChange>) {
       return (data as List)
               .map((e) => deserialize<_icw2tu00.CrdtMergeChange>(e))
@@ -1320,12 +1335,6 @@ class Protocol extends _isd.DatabaseSerializationManager
     }
     if (t == _icw2tu00.Hlc) {
       return _icw2tu00.Hlc.fromJson(data) as T;
-    }
-    if (t == List<_icw2tu00.OfflineSyncSpaceGrant>) {
-      return (data as List)
-              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceGrant>(e))
-              .toList()
-          as T;
     }
     return super.deserialize<T>(data, t);
   }
@@ -1351,13 +1360,14 @@ class Protocol extends _isd.DatabaseSerializationManager
       _iy534gq7.CrdtSchemaColumn => 'CrdtSchemaColumn',
       _ik8xyqdv.CrdtSchemaTable => 'CrdtSchemaTable',
       _iimdylh8.OfflineSyncClose => 'OfflineSyncClose',
+      _iimdylh8.OfflineSyncCommitted => 'OfflineSyncCommitted',
       _iimdylh8.OfflineSyncConnect => 'OfflineSyncConnect',
       _iimdylh8.OfflineSyncEndOfBatch => 'OfflineSyncEndOfBatch',
       _iimdylh8.OfflineSyncMergeChunk => 'OfflineSyncMergeChunk',
+      _iimdylh8.OfflineSyncReady => 'OfflineSyncReady',
       _iimdylh8.OfflineSyncSinceHlc => 'OfflineSyncSinceHlc',
       _ijw89gb9.OfflineSyncSpaceGrant => 'OfflineSyncSpaceGrant',
       _iimdylh8.OfflineSyncSpaceSet => 'OfflineSyncSpaceSet',
-      _iimdylh8.OfflineSyncIdleTimeout => 'OfflineSyncIdleTimeout',
       _iucor0s6.OfflineSyncIntegrityViolation =>
         'OfflineSyncIntegrityViolation',
       _ijw2vw1z.OfflineSyncViolationOperation =>
@@ -1418,20 +1428,22 @@ class Protocol extends _isd.DatabaseSerializationManager
         return 'CrdtSchemaTable';
       case _iimdylh8.OfflineSyncClose():
         return 'OfflineSyncClose';
+      case _iimdylh8.OfflineSyncCommitted():
+        return 'OfflineSyncCommitted';
       case _iimdylh8.OfflineSyncConnect():
         return 'OfflineSyncConnect';
       case _iimdylh8.OfflineSyncEndOfBatch():
         return 'OfflineSyncEndOfBatch';
       case _iimdylh8.OfflineSyncMergeChunk():
         return 'OfflineSyncMergeChunk';
+      case _iimdylh8.OfflineSyncReady():
+        return 'OfflineSyncReady';
       case _iimdylh8.OfflineSyncSinceHlc():
         return 'OfflineSyncSinceHlc';
       case _ijw89gb9.OfflineSyncSpaceGrant():
         return 'OfflineSyncSpaceGrant';
       case _iimdylh8.OfflineSyncSpaceSet():
         return 'OfflineSyncSpaceSet';
-      case _iimdylh8.OfflineSyncIdleTimeout():
-        return 'OfflineSyncIdleTimeout';
       case _iucor0s6.OfflineSyncIntegrityViolation():
         return 'OfflineSyncIntegrityViolation';
       case _ijw2vw1z.OfflineSyncViolationOperation():
@@ -1505,6 +1517,9 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (dataClassName == 'OfflineSyncClose') {
       return deserialize<_iimdylh8.OfflineSyncClose>(data['data']);
     }
+    if (dataClassName == 'OfflineSyncCommitted') {
+      return deserialize<_iimdylh8.OfflineSyncCommitted>(data['data']);
+    }
     if (dataClassName == 'OfflineSyncConnect') {
       return deserialize<_iimdylh8.OfflineSyncConnect>(data['data']);
     }
@@ -1514,6 +1529,9 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (dataClassName == 'OfflineSyncMergeChunk') {
       return deserialize<_iimdylh8.OfflineSyncMergeChunk>(data['data']);
     }
+    if (dataClassName == 'OfflineSyncReady') {
+      return deserialize<_iimdylh8.OfflineSyncReady>(data['data']);
+    }
     if (dataClassName == 'OfflineSyncSinceHlc') {
       return deserialize<_iimdylh8.OfflineSyncSinceHlc>(data['data']);
     }
@@ -1522,9 +1540,6 @@ class Protocol extends _isd.DatabaseSerializationManager
     }
     if (dataClassName == 'OfflineSyncSpaceSet') {
       return deserialize<_iimdylh8.OfflineSyncSpaceSet>(data['data']);
-    }
-    if (dataClassName == 'OfflineSyncIdleTimeout') {
-      return deserialize<_iimdylh8.OfflineSyncIdleTimeout>(data['data']);
     }
     if (dataClassName == 'OfflineSyncIntegrityViolation') {
       return deserialize<_iucor0s6.OfflineSyncIntegrityViolation>(data['data']);
