@@ -290,8 +290,10 @@ class _SyncSession {
         if (!peerReady || batch == null || batch.id != event.batchId) {
           _unexpected(event, 'the acknowledgement for the outstanding batch');
         }
-        for (final change in batch.changes) {
-          spaces.advanceCheckpoint(change.uuidSpaceId, change);
+        for (final entry in batch.checkpoints.entries) {
+          for (final checkpoint in entry.value.values) {
+            spaces.advanceCheckpoint(entry.key, checkpoint);
+          }
         }
         inFlight = null;
         lastCapture = clock.now();
@@ -490,7 +492,7 @@ class _SyncSession {
         // Only exact received facts were omitted, and the complete consistent
         // snapshot has now been enumerated. No unknown older fact is skipped.
         for (final change in changes) {
-          spaces.advanceCheckpoint(change.uuidSpaceId, change);
+          spaces.advanceCheckpoint(change.uuidSpaceId, change.hlc);
         }
       }
       OfflineSyncDiagnostics.event('sync.outboundIdle', {'pass': passId});
@@ -499,10 +501,24 @@ class _SyncSession {
 }
 
 class _SentBatch {
-  _SentBatch(this.id, this.changes, this.sentSpaces, {required this.finalForOnce});
+  _SentBatch(
+    this.id,
+    Iterable<CrdtMergeChange> changes,
+    this.sentSpaces, {
+    required this.finalForOnce,
+  }) {
+    // Capture is complete before this vector is built. Retain only the facts
+    // needed after acknowledgement, so consumed frames can release payloads.
+    // Echo-suppressed facts belong to the same complete snapshot and are
+    // included here too. No checkpoint advances until the peer commits.
+    for (final change in changes) {
+      final nodes = checkpoints.putIfAbsent(change.uuidSpaceId, () => {});
+      nodes[change.uuidNodeId] = change.hlc.maxBetween(nodes[change.uuidNodeId]);
+    }
+  }
 
   final int id;
-  final List<CrdtMergeChange> changes;
+  final checkpoints = <UuidValue, Map<UuidValue, Hlc>>{};
   final Set<UuidValue> sentSpaces;
   final bool finalForOnce;
 }

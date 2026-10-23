@@ -2,7 +2,6 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../crdt/extensions.dart';
-import '../crdt/merge.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/space.dart';
@@ -210,14 +209,12 @@ class OfflineSyncSpaceState {
     (spaceId) => _checkpointsBySpace[spaceId] == null,
   );
 
-  /// Advances the in-session checkpoint for [spaceId] past a committed [change],
+  /// Advances the in-session checkpoint for [spaceId] past a committed [hlc],
   /// so the next collection does not resend it.
-  void advanceCheckpoint(UuidValue spaceId, CrdtMergeChange change) {
+  void advanceCheckpoint(UuidValue spaceId, Hlc hlc) {
     final checkpoints = _checkpointsBySpace[spaceId];
     if (checkpoints == null) return;
-    checkpoints[change.uuidNodeId] = change.hlc.maxBetween(
-      checkpoints[change.uuidNodeId],
-    );
+    checkpoints[hlc.nodeId] = hlc.maxBetween(checkpoints[hlc.nodeId]);
   }
 
   /// Whether this peer authorizes acting in [spaceId]: an authoritative peer

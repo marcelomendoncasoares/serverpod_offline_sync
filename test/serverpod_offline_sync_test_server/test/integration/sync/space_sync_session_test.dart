@@ -253,7 +253,7 @@ void main() {
             data: CrdtNode(uuidNodeId: _uuid(67)),
           );
 
-          authoritative.advanceCheckpoint(spaceUuid, change);
+          authoritative.advanceCheckpoint(spaceUuid, change.hlc);
 
           expect(
             authoritative.checkpointMaxOf(spaceUuid),
