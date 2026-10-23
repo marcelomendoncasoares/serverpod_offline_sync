@@ -207,10 +207,31 @@ class _HoldMerge extends QueryCountingDatabase {
   @override
   Future<T> insertRow<T extends TableRow>(T row, {Transaction? transaction}) async {
     final result = await super.insertRow(row, transaction: transaction);
-    if (row is CrdtDataRow && transaction != null && !entered.isCompleted) {
+    await _hold(row is CrdtDataRow, transaction);
+    return result;
+  }
+
+  @override
+  Future<List<T>> insert<T extends TableRow>(
+    List<T> rows, {
+    Transaction? transaction,
+    bool ignoreConflicts = false,
+    bool noReturn = false,
+  }) async {
+    final result = await super.insert(
+      rows,
+      transaction: transaction,
+      ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
+    );
+    await _hold(rows.any((row) => row is CrdtDataRow), transaction);
+    return result;
+  }
+
+  Future<void> _hold(bool wroteMetadata, Transaction? transaction) async {
+    if (wroteMetadata && transaction != null && !entered.isCompleted) {
       entered.complete();
       await release.future;
     }
-    return result;
   }
 }
