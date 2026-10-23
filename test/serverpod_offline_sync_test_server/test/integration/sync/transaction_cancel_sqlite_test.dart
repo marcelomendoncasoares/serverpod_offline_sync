@@ -109,10 +109,6 @@ void main() {
           OfflineSyncConnect(
             localNodeId: source,
             syncTablesHash: engine.currentSyncTablesHash,
-          ),
-        )
-        ..add(
-          OfflineSyncSpaceSet(
             spaces: [
               OfflineSyncSpaceGrant(
                 uuidSpaceId: user,
@@ -122,8 +118,9 @@ void main() {
           ),
         )
         ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
-        ..add(OfflineSyncMergeChunk(changes: changes))
-        ..add(OfflineSyncEndOfBatch());
+        ..add(OfflineSyncReady())
+        ..add(OfflineSyncMergeChunk(batchId: 1, changes: changes))
+        ..add(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
       await entered.future.timeout(const Duration(seconds: 10));
     });
 

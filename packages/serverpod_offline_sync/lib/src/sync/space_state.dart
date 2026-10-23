@@ -57,20 +57,15 @@ bool _grantsEqual(List<OfflineSyncSpaceGrant>? a, List<OfflineSyncSpaceGrant> b)
 /// the membership helpers, so it carries no protocol or transport concerns.
 class OfflineSyncSpaceState {
   /// Creates a space session for [_userId] acting in [_mode] against [_session].
-  ///
-  /// [_peerNodeId] is the remote peer's CRDT node, learned from its connect
-  /// handshake before this session is constructed.
   OfflineSyncSpaceState(
     this._session, {
     required this._userId,
     required this._mode,
-    required this._peerNodeId,
   });
 
   final DatabaseSession _session;
   final UuidValue _userId;
   final OfflineSyncPeerMode _mode;
-  final UuidValue _peerNodeId;
 
   /// Session-lived space manager. Reused across cycles so its in-memory cache
   /// of already-materialized spaces survives, sparing a follower a per-cycle
@@ -99,10 +94,7 @@ class OfflineSyncSpaceState {
   /// Spaces for which this peer has already sent its [OfflineSyncSinceHlc].
   final Set<String> _sinceHlcSent = {};
 
-  /// The peer's node id from its connect handshake.
-  UuidValue get peerNodeId => _peerNodeId;
-
-  /// What the peer has seen per space (advances as we send), seeded from its
+  /// What the peer has committed per space (advances on acknowledgement), seeded from its
   /// [OfflineSyncSinceHlc] — presence means the space's handshake completed both
   /// ways, so it can stream changes.
   final Map<UuidValue, Map<UuidValue, Hlc>> _checkpointsBySpace = {};
@@ -218,7 +210,7 @@ class OfflineSyncSpaceState {
     (spaceId) => _checkpointsBySpace[spaceId] == null,
   );
 
-  /// Advances the in-session checkpoint for [spaceId] past a just-sent [change],
+  /// Advances the in-session checkpoint for [spaceId] past a committed [change],
   /// so the next collection does not resend it.
   void advanceCheckpoint(UuidValue spaceId, CrdtMergeChange change) {
     final checkpoints = _checkpointsBySpace[spaceId];
@@ -258,7 +250,7 @@ class OfflineSyncSpaceState {
     }
   }
 
-  /// Resolves the ordered lockstep spaces cycled this round.
+  /// Resolves the ordered active spaces for this session.
   ///
   /// Authoritative peers dictate their own set; followers adopt the peer's
   /// announced set, materializing each space locally.

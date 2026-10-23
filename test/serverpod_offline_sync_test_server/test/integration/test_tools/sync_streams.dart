@@ -50,7 +50,10 @@ Future<SyncRound> syncOnceOverStreams({
       if (!spliced && event is OfflineSyncEndOfBatch) {
         spliced = true;
         toServer.addAll(splice);
-        addIfOpen(clientToServer, OfflineSyncMergeChunk(changes: splice));
+        addIfOpen(
+          clientToServer,
+          OfflineSyncMergeChunk(batchId: event.batchId, changes: splice),
+        );
       }
       if (event is OfflineSyncMergeChunk) toServer.addAll(event.changes);
       addIfOpen(clientToServer, event);

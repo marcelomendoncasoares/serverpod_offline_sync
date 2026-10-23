@@ -27,7 +27,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.authoritative,
-            peerNodeId: _uuid(90),
           );
 
           await authoritative.reconcile();
@@ -50,7 +49,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.follower,
-            peerNodeId: _uuid(91),
           );
           await follower.reconcile();
 
@@ -77,7 +75,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.authoritative,
-            peerNodeId: _uuid(92),
           );
 
           await authoritative.reconcile();
@@ -100,7 +97,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.authoritative,
-            peerNodeId: _uuid(93),
           );
 
           await authoritative.reconcile();
@@ -150,7 +146,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.follower,
-            peerNodeId: _uuid(94),
           );
 
           await follower.adoptPeerGrants([
@@ -193,7 +188,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.follower,
-            peerNodeId: _uuid(95),
           );
 
           await follower.adoptPeerGrants([
@@ -239,7 +233,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.authoritative,
-            peerNodeId: _uuid(98),
           );
 
           final spaceUuid = await session.offlineSync.spaces.createFor(userUuid);
@@ -282,7 +275,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.follower,
-            peerNodeId: _uuid(96),
           );
 
           await follower.adoptPeerGrants([
@@ -333,7 +325,6 @@ void main() {
             session,
             userId: userUuid,
             mode: OfflineSyncPeerMode.follower,
-            peerNodeId: _uuid(97),
           );
 
           await follower.adoptPeerGrants([

@@ -11,12 +11,16 @@
 
 part of 'stream_event.dart';
 
-/// A chunk of merge changes carried inside a framed sync batch.
+/// Changes belonging to one numbered batch. Chunks do not imply commit.
 abstract class OfflineSyncMergeChunk extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  OfflineSyncMergeChunk._({required this.changes});
+  OfflineSyncMergeChunk._({
+    required this.batchId,
+    required this.changes,
+  });
 
   factory OfflineSyncMergeChunk({
+    required int batchId,
     required List<_icw2tu00.CrdtMergeChange> changes,
   }) = _OfflineSyncMergeChunkImpl;
 
@@ -24,6 +28,7 @@ abstract class OfflineSyncMergeChunk extends _icw2tu00.OfflineSyncStreamEvent
     Map<String, dynamic> jsonSerialization,
   ) {
     return OfflineSyncMergeChunk(
+      batchId: jsonSerialization['batchId'] as int,
       changes: _icw2tu00.Protocol()
           .deserialize<List<_icw2tu00.CrdtMergeChange>>(
             jsonSerialization['changes'],
@@ -31,18 +36,23 @@ abstract class OfflineSyncMergeChunk extends _icw2tu00.OfflineSyncStreamEvent
     );
   }
 
-  /// The merge changes to apply.
+  int batchId;
+
   List<_icw2tu00.CrdtMergeChange> changes;
 
   /// Returns a shallow copy of this [OfflineSyncMergeChunk]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  OfflineSyncMergeChunk copyWith({List<_icw2tu00.CrdtMergeChange>? changes});
+  OfflineSyncMergeChunk copyWith({
+    int? batchId,
+    List<_icw2tu00.CrdtMergeChange>? changes,
+  });
   @override
   Map<String, dynamic> toJson() {
     return {
       '__className__': 'serverpod_offline_sync.OfflineSyncMergeChunk',
+      'batchId': batchId,
       'changes': changes.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -51,6 +61,7 @@ abstract class OfflineSyncMergeChunk extends _icw2tu00.OfflineSyncStreamEvent
   Map<String, dynamic> toJsonForProtocol() {
     return {
       '__className__': 'serverpod_offline_sync.OfflineSyncMergeChunk',
+      'batchId': batchId,
       'changes': changes.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
   }
@@ -62,15 +73,24 @@ abstract class OfflineSyncMergeChunk extends _icw2tu00.OfflineSyncStreamEvent
 }
 
 class _OfflineSyncMergeChunkImpl extends OfflineSyncMergeChunk {
-  _OfflineSyncMergeChunkImpl({required List<_icw2tu00.CrdtMergeChange> changes})
-    : super._(changes: changes);
+  _OfflineSyncMergeChunkImpl({
+    required int batchId,
+    required List<_icw2tu00.CrdtMergeChange> changes,
+  }) : super._(
+         batchId: batchId,
+         changes: changes,
+       );
 
   /// Returns a shallow copy of this [OfflineSyncMergeChunk]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  OfflineSyncMergeChunk copyWith({List<_icw2tu00.CrdtMergeChange>? changes}) {
+  OfflineSyncMergeChunk copyWith({
+    int? batchId,
+    List<_icw2tu00.CrdtMergeChange>? changes,
+  }) {
     return OfflineSyncMergeChunk(
+      batchId: batchId ?? this.batchId,
       changes: changes ?? this.changes.map((e0) => e0.copyWith()).toList(),
     );
   }

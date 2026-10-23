@@ -11,11 +11,7 @@
 
 part of 'stream_event.dart';
 
-/// Marks a graceful end of a one-shot sync session.
-///
-/// Both peers send [OfflineSyncClose] after merging the final batch in a
-/// one-shot session so each side can shut down without closing the transport
-/// early.
+/// Requests cancellation of a continuous stream, discarding partial input.
 abstract class OfflineSyncClose extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
   OfflineSyncClose._();
