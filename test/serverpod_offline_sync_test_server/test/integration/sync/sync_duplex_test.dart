@@ -198,6 +198,87 @@ void main() {
     });
   });
 
+  group(
+    'Given a continuous follower whose peer advertised an empty checkpoint vector,',
+    () {
+      late _Peer peer;
+      late CrdtMergeInsert downloaded;
+      late List<(UuidValue, Hlc)> reports;
+      late List<Unique?> callbackRows;
+      late List<Hlc> callbackCheckpoints;
+
+      setUpAll(() async {
+        final node = await syncNode(
+          await createAdditionalTestSession(),
+          testSyncTables,
+        );
+        downloaded = _insert('first server row');
+        reports = [];
+        callbackRows = [];
+        callbackCheckpoints = [];
+        peer = await _Peer.open(
+          node: node,
+          mode: OfflineSyncPeerMode.follower,
+          onMergeSuccess: (spaceId, hlc) async {
+            reports.add((spaceId, hlc));
+            callbackRows.add(await Unique.db.findById(node.raw, downloaded.uuidRowId));
+            final cursor = await node.sync.createSyncSinceHlc(
+              node.raw,
+              spaceId: spaceId,
+            );
+            callbackCheckpoints.addAll(
+              cursor.nodeCheckpoints.where(
+                (hlc) => hlc.nodeId == downloaded.uuidNodeId,
+              ),
+            );
+          },
+        );
+      });
+
+      group(
+        'when it commits an empty batch followed by the first server-authored row,',
+        () {
+          late List<(UuidValue, Hlc)> emptyBatchReports;
+
+          setUpAll(() async {
+            peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+            await peer.waitFor<OfflineSyncCommitted>(
+              where: (event) => event.batchId == 1,
+            );
+            emptyBatchReports = List.of(reports);
+
+            peer
+              ..send(OfflineSyncMergeChunk(batchId: 2, changes: [downloaded]))
+              ..send(OfflineSyncEndOfBatch(batchId: 2, finalForOnce: false));
+
+            // Committed follows the awaited callback, including when the callback
+            // was incorrectly skipped. This exposes a missing report directly.
+            await peer.waitFor<OfflineSyncCommitted>(
+              where: (event) => event.batchId == 2,
+            );
+            await peer.subscription.cancel();
+          });
+
+          test('then the empty batch does not report a merge.', () {
+            expect(emptyBatchReports, isEmpty);
+          });
+
+          test('then it reports the committed space and HLC exactly once.', () {
+            expect(reports, [(testCrdtUserId, downloaded.hlc)]);
+          });
+
+          test(
+            'then the callback can already read the committed row and progress.',
+            () {
+              expect(callbackRows.map((row) => row?.name), ['first server row']);
+              expect(callbackCheckpoints, [downloaded.hlc]);
+            },
+          );
+        },
+      );
+    },
+  );
+
   test(
     'Given an authoritative session with its own grants and cursors, '
     'when the follower has not sent its identity yet, '
