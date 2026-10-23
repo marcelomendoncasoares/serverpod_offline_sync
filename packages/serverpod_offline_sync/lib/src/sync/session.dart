@@ -294,8 +294,8 @@ class _SyncSession {
         for (final checkpoint in batch.checkpoints) {
           spaces.advanceCheckpoint(checkpoint.uuidSpaceId, checkpoint.revision);
         }
-        for (final change in batch.changes) {
-          spaces.recordReportedHlc(change.uuidSpaceId, change.hlc);
+        for (final entry in batch.reportedHlcs.entries) {
+          spaces.recordReportedHlc(entry.key, entry.value);
         }
         inFlight = null;
         lastCapture = clock.now();
@@ -522,14 +522,22 @@ class _SyncSession {
 class _SentBatch {
   _SentBatch(
     this.id,
-    this.changes,
+    Iterable<CrdtMergeChange> changes,
     this.checkpoints,
     this.sentSpaces, {
     required this.finalForOnce,
-  });
+  }) {
+    // Keep only snapshot bounds and callback clocks while awaiting the ACK.
+    // Neither needs row payloads after their frames have been consumed.
+    for (final change in changes) {
+      reportedHlcs[change.uuidSpaceId] = change.hlc.maxBetween(
+        reportedHlcs[change.uuidSpaceId],
+      );
+    }
+  }
 
   final int id;
-  final List<CrdtMergeChange> changes;
+  final reportedHlcs = <UuidValue, Hlc>{};
   final List<OfflineSyncSpaceCheckpoint> checkpoints;
   final Set<UuidValue> sentSpaces;
   final bool finalForOnce;
