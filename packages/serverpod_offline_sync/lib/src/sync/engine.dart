@@ -37,6 +37,8 @@ typedef DomainRowOwner = ({bool exists, int? spaceId});
 /// A cache of domain row owners by table name and row id.
 typedef DomainRowOwnerCache = Map<(String, UuidValue), DomainRowOwner>;
 
+typedef _OutboundPayloads = Map<(String, int, UuidValue), Map<String, dynamic>>;
+
 /// The shared CRDT synchronization logic used by both client and server nodes.
 class OfflineSyncEngine {
   /// Creates a new [OfflineSyncEngine] instance.
@@ -82,7 +84,10 @@ class OfflineSyncEngine {
   final Duration _continuousSyncInterval;
 
   /// Wraps [database] in a CRDT-aware database using this sync context.
-  OfflineSyncDatabase wrapDatabase(Database database, {UuidValue? persistentUserId}) {
+  OfflineSyncDatabase wrapDatabase(
+    Database database, {
+    UuidValue? persistentUserId,
+  }) {
     if (database is OfflineSyncDatabase) return database;
     return OfflineSyncDatabase(
       database,
@@ -147,9 +152,9 @@ class OfflineSyncEngine {
   /// Resolves the spaces' internal ids once and keeps their checkpoint vectors
   /// scoped by those internal ids. Node ids are stable per replica and may
   /// appear in multiple spaces, so checkpoint filtering must compare both
-  /// `spaceId` and `uuidNodeId`. This still runs one query per change kind for
-  /// the whole pass. Per-row ownership and integrity checks resolve against
-  /// each row's own space.
+  /// `spaceId` and `uuidNodeId`. Row and tombstone metadata share one query;
+  /// changed fields and attempted values share a second query. Per-row ownership
+  /// and integrity checks resolve against each row's own space.
   ///
   /// All changes for nodes that are not present in a space's checkpoint list
   /// are collected and emitted. Passing an empty list for a space will collect
@@ -338,26 +343,94 @@ class OfflineSyncEngine {
     Map<int, List<Hlc>> checkpointsBySpaceId,
     Transaction transaction,
   ) async* {
+    final rows = await CrdtDataRow.db.find(
+      session,
+      transaction: transaction,
+      where: (t) =>
+          t.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
+          (_rowHlcAfterFilter(t, checkpointsBySpaceId) |
+              t.fields.any(
+                (f) => _fieldHlcAfterFilter(f, checkpointsBySpaceId),
+              ) |
+              (t.deleted.id.notEquals(null) &
+                  _tombstoneHlcAfterFilter(t.deleted, checkpointsBySpaceId))),
+      include: CrdtDataRow.include(
+        tbl: CrdtSchemaTable.include(),
+        node: CrdtNode.include(),
+        deleted: CrdtDataDeleted.include(node: CrdtNode.include()),
+        fields: CrdtDataField.includeList(
+          where: (t) =>
+              _fieldHlcAfterFilter(t, checkpointsBySpaceId) |
+              t.attemptedValue.id.notEquals(null),
+          include: CrdtDataField.include(
+            column: CrdtSchemaColumn.include(),
+            node: CrdtNode.include(),
+            attemptedValue: CrdtDataAttemptedValue.include(),
+          ),
+        ),
+      ),
+    );
+
+    final checkpoints = <int, Map<UuidValue, Hlc>>{};
+    for (final entry in checkpointsBySpaceId.entries) {
+      final byAuthor = checkpoints[entry.key] = {};
+      for (final checkpoint in entry.value) {
+        byAuthor.putIfAbsent(checkpoint.nodeId, () => checkpoint);
+      }
+    }
+
+    bool pending(int spaceId, Hlc hlc) {
+      final checkpoint = checkpoints[spaceId]?[hlc.nodeId];
+      return checkpoint == null || hlc > checkpoint;
+    }
+
+    final inserts = <CrdtDataRow>[];
+    final updates = <CrdtDataField>[];
+    final deletes = <CrdtDataDeleted>[];
+    for (final row in rows) {
+      if (pending(row.spaceId, row.hlc)) inserts.add(row);
+
+      // Children need their owner metadata, without a cyclic object graph.
+      final owner = row.copyWith(fields: null, deleted: null);
+      for (final field in row.fields ?? const <CrdtDataField>[]) {
+        if (pending(row.spaceId, field.hlc) && field.hlc != row.hlc) {
+          updates.add(field.copyWith(row: owner));
+        }
+      }
+      final deleted = row.deleted;
+      if (deleted != null && pending(row.spaceId, deleted.hlc)) {
+        deletes.add(deleted.copyWith(row: owner));
+      }
+    }
+
     // Cache ownership within this collection's consistent snapshot.
     final ownerCache = DomainRowOwnerCache();
+    final payloads = await _loadOutboundRows(
+      session,
+      inserts,
+      updates,
+      transaction,
+    );
     yield* _streamInserts(
       session,
       spaceUuidById,
-      checkpointsBySpaceId,
+      inserts,
+      payloads,
       ownerCache,
       transaction,
     );
     yield* _streamUpdates(
       session,
       spaceUuidById,
-      checkpointsBySpaceId,
+      updates,
+      payloads,
       ownerCache,
       transaction,
     );
     yield* _streamDeletes(
       session,
       spaceUuidById,
-      checkpointsBySpaceId,
+      deletes,
       ownerCache,
       transaction,
     );
@@ -366,27 +439,11 @@ class OfflineSyncEngine {
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
+    List<CrdtDataRow> rows,
+    _OutboundPayloads domainRows,
     DomainRowOwnerCache ownerCache,
     Transaction transaction,
   ) async* {
-    final rows = await CrdtDataRow.db.find(
-      session,
-      transaction: transaction,
-      where: (t) => _rowHlcAfterFilter(t, checkpointsBySpaceId),
-      include: CrdtDataRow.include(
-        tbl: CrdtSchemaTable.include(),
-        node: CrdtNode.include(),
-      ),
-    );
-
-    final attemptedValueFieldsByRowId = await _loadAttemptedValueFields(
-      session,
-      rows,
-      transaction,
-    );
-    final domainRows = await _loadOutboundRows(session, rows, transaction);
-
     for (final row in rows) {
       final tableName = row.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
@@ -448,7 +505,7 @@ class OfflineSyncEngine {
           table,
           dartName,
           columns!,
-          attemptedValueFieldsByRowId[row.id!],
+          row.fields,
         ),
       );
     }
@@ -457,45 +514,29 @@ class OfflineSyncEngine {
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
+    List<CrdtDataField> fields,
+    _OutboundPayloads domainRows,
     DomainRowOwnerCache ownerCache,
     Transaction transaction,
   ) async* {
-    final fields = await CrdtDataField.db.find(
-      session,
-      transaction: transaction,
-      where: (t) => _fieldHlcAfterFilter(t, checkpointsBySpaceId),
-      include: CrdtDataField.include(
-        row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
-        column: CrdtSchemaColumn.include(),
-        node: CrdtNode.include(),
-        attemptedValue: CrdtDataAttemptedValue.include(),
-      ),
-    );
-
     for (final field in fields) {
       final tableName = field.row!.tbl!.name;
       if (!_syncTablesByName.containsKey(tableName)) continue;
-      if (field.hlcDatetime == field.row!.hlcDatetime &&
-          field.hlcCounter == field.row!.hlcCounter &&
-          field.nodeId == field.row!.nodeId) {
-        continue;
-      }
-
       final spaceId = field.row!.spaceId;
       final spaceUuid = spaceUuidById[spaceId]!;
       final columnName = field.column!.name;
-      final columnValue = await _fetchOwnedColumnValue(
-        session,
-        tableName,
-        field.row!.uuidRowId,
-        columnName,
-        field.attemptedValue,
-        spaceId,
-        ownerCache,
-        transaction,
-      );
-      if (!columnValue.exists) {
+      final columns = domainRows[(tableName, spaceId, field.row!.uuidRowId)];
+      final owner = columns == null
+          ? await _readDomainRowOwner(
+              session,
+              tableName,
+              field.row!.uuidRowId,
+              ownerCache,
+              transaction,
+            )
+          : (exists: true, spaceId: spaceId);
+      ownerCache[(tableName, field.row!.uuidRowId)] = owner;
+      if (!owner.exists) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: field.row!.id,
           type: OfflineSyncViolationType.missingDomainRow,
@@ -508,17 +549,32 @@ class OfflineSyncEngine {
           hlc: field.hlc,
         );
       }
-      if (columnValue.ownerSpaceId != spaceId) {
+      if (owner.spaceId != spaceId) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: field.row!.id,
           type: OfflineSyncViolationType.ownershipCollision,
           operation: OfflineSyncViolationOperation.outboundUpdate,
           tableName: tableName,
           rowId: field.row!.uuidRowId,
-          ownerSpaceId: columnValue.ownerSpaceId,
+          ownerSpaceId: owner.spaceId,
           incomingSpaceUuid: spaceUuid,
           uuidNodeId: field.node!.uuidNodeId,
           hlc: field.hlc,
+        );
+      }
+
+      final attempted = field.attemptedValue;
+      final dynamic value;
+      if (attempted != null) {
+        value = attempted.value;
+      } else {
+        final column = _syncTablesByName[tableName]!.columns.singleWhere(
+          (c) => c.columnName == columnName,
+        );
+        value = _decodeColumnValue(
+          tableName,
+          columnName,
+          _decodeStructuredValue(session, column, columns![columnName]),
         );
       }
 
@@ -530,7 +586,7 @@ class OfflineSyncEngine {
         uuidRowId: field.row!.uuidRowId,
         uuidNodeId: field.node!.uuidNodeId,
         columnName: columnName,
-        value: columnValue.value,
+        value: value,
       );
     }
   }
@@ -538,20 +594,10 @@ class OfflineSyncEngine {
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
+    List<CrdtDataDeleted> tombstones,
     DomainRowOwnerCache ownerCache,
     Transaction transaction,
   ) async* {
-    final tombstones = await CrdtDataDeleted.db.find(
-      session,
-      transaction: transaction,
-      where: (t) => _tombstoneHlcAfterFilter(t, checkpointsBySpaceId),
-      include: CrdtDataDeleted.include(
-        row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
-        node: CrdtNode.include(),
-      ),
-    );
-
     for (final tombstone in tombstones) {
       if (!tombstone.reason.isSynced) continue;
 
@@ -633,34 +679,50 @@ class OfflineSyncEngine {
         checkpointsBySpaceId,
       );
 
-  /// Loads outbound payloads in bounded batches within the metadata snapshot.
-  /// Grouping by table and owning space preserves the original ownership filter.
-  Future<Map<(String, int, UuidValue), Map<String, dynamic>>> _loadOutboundRows(
+  /// Loads insert and update payloads in bounded batches in the same snapshot.
+  /// Each table/space group selects only the columns needed by its pending facts.
+  /// Even an attempted-value override loads the id to verify domain ownership.
+  Future<_OutboundPayloads> _loadOutboundRows(
     DatabaseSession session,
     List<CrdtDataRow> rows,
+    List<CrdtDataField> fields,
     Transaction transaction,
   ) async {
-    final groups = <(String, int), Set<UuidValue>>{};
-    for (final row in rows) {
-      final tableName = row.tbl!.name;
-      if (!_syncTablesByName.containsKey(tableName) ||
-          !_classNamesByTableName.containsKey(tableName)) {
-        continue;
-      }
-      groups.putIfAbsent((tableName, row.spaceId), () => {}).add(row.uuidRowId);
+    final groups = <(String, int), ({Set<UuidValue> ids, Set<String> columns})>{};
+    void request(CrdtDataRow row, Iterable<String> columns) {
+      final group = groups.putIfAbsent((
+        row.tbl!.name,
+        row.spaceId,
+      ), () => (ids: {}, columns: {'id'}));
+      group.ids.add(row.uuidRowId);
+      group.columns.addAll(columns);
     }
 
-    final payloads = <(String, int, UuidValue), Map<String, dynamic>>{};
+    for (final row in rows) {
+      final tableName = row.tbl!.name;
+      final table = _syncTablesByName[tableName];
+      if (table == null || !_classNamesByTableName.containsKey(tableName)) continue;
+      request(row, table.columns.map((column) => column.columnName));
+    }
+    for (final field in fields) {
+      if (!_syncTablesByName.containsKey(field.row!.tbl!.name)) continue;
+      request(field.row!, [
+        if (field.attemptedValue == null) field.column!.name,
+      ]);
+    }
+
+    final payloads = _OutboundPayloads();
     for (final entry in groups.entries) {
       final (tableName, spaceId) = entry.key;
       final table = _syncTablesByName[tableName]!;
       final columns = table.columns
+          .where((column) => entry.value.columns.contains(column.columnName))
           .map(
             (column) =>
                 '${_outboundColumnExpression(session, column)} AS "${column.columnName.escapeIdentifier()}"',
           )
           .join(', ');
-      final ids = entry.value.toList();
+      final ids = entry.value.ids.toList();
       const batchSize = 100;
       for (var start = 0; start < ids.length; start += batchSize) {
         final batch = ids.skip(start).take(batchSize).map((id) => id.sqlLiteral());
@@ -671,7 +733,9 @@ class OfflineSyncEngine {
         );
         for (final row in result) {
           final columns = row.toColumnMap();
-          final id = _serializationManager.deserialize<UuidValue>(columns['id']);
+          final id = _serializationManager.deserialize<UuidValue>(
+            columns['id'],
+          );
           payloads[(tableName, spaceId, id)] = columns;
         }
       }
@@ -721,76 +785,6 @@ class OfflineSyncEngine {
       ...columnMap,
       '__className__': dartName,
     });
-  }
-
-  /// Resolves a column value for outbound update sync.
-  ///
-  /// When [attempted] is present, returns its authored value instead of the
-  /// materialized domain column value. Columns without an attempted row are
-  /// read directly from the domain table. Both the table and column are
-  /// runtime schema values, so this cannot use a statically typed repository.
-  Future<({bool exists, int? ownerSpaceId, dynamic value})> _fetchOwnedColumnValue(
-    DatabaseSession session,
-    String tableName,
-    UuidValue rowId,
-    String columnName,
-    CrdtDataAttemptedValue? attempted,
-    int spaceId,
-    DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async {
-    if (attempted != null) {
-      final owner = await _readDomainRowOwner(
-        session,
-        tableName,
-        rowId,
-        ownerCache,
-        transaction,
-      );
-      if (!owner.exists || owner.spaceId != spaceId) {
-        return (exists: owner.exists, ownerSpaceId: owner.spaceId, value: null);
-      }
-      return (
-        exists: true,
-        ownerSpaceId: spaceId,
-        value: attempted.value,
-      );
-    }
-
-    final encodedRowId = rowId.sqlLiteral();
-    final encodedSpaceId = spaceId.sqlLiteral();
-    final escapedTableName = tableName.escapeIdentifier();
-    final column = _syncTablesByName[tableName]!.columns.singleWhere(
-      (c) => c.columnName == columnName,
-    );
-    final result = await session.db.unsafeQuery(
-      'SELECT ${_outboundColumnExpression(session, column)} '
-      'FROM "$escapedTableName" '
-      'WHERE "id" = $encodedRowId AND "spaceId" = $encodedSpaceId '
-      'LIMIT 1',
-      transaction: transaction,
-    );
-    if (result.isNotEmpty) {
-      ownerCache[(tableName, rowId)] = (exists: true, spaceId: spaceId);
-      return (
-        exists: true,
-        ownerSpaceId: spaceId,
-        value: _decodeColumnValue(
-          tableName,
-          columnName,
-          _decodeStructuredValue(session, column, result.first[0]),
-        ),
-      );
-    }
-
-    final owner = await _readDomainRowOwner(
-      session,
-      tableName,
-      rowId,
-      ownerCache,
-      transaction,
-    );
-    return (exists: owner.exists, ownerSpaceId: owner.spaceId, value: null);
   }
 
   Future<DomainRowOwner> _readDomainRowOwner(
@@ -881,37 +875,6 @@ class OfflineSyncEngine {
 
     final space = await OfflineSyncSpace.db.findById(session, spaceId);
     return space?.uuidSpaceId;
-  }
-
-  /// Loads attempted-value metadata for outbound insert sync.
-  ///
-  /// Returns fields that currently have a [CrdtDataAttemptedValue] row, keyed
-  /// by CRDT row id. These are the columns whose domain-table value differs
-  /// from the durable authored fact.
-  Future<Map<int, List<CrdtDataField>>> _loadAttemptedValueFields(
-    DatabaseSession session,
-    List<CrdtDataRow> rows,
-    Transaction transaction,
-  ) async {
-    final rowIds = {for (final row in rows) ?row.id};
-    if (rowIds.isEmpty) return {};
-
-    final fields = await CrdtDataField.db.find(
-      session,
-      transaction: transaction,
-      where: (t) => t.rowId.inSet(rowIds) & t.attemptedValue.id.notEquals(null),
-      include: CrdtDataField.include(
-        column: CrdtSchemaColumn.include(),
-        attemptedValue: CrdtDataAttemptedValue.include(),
-      ),
-    );
-
-    final fieldsByRowId = <int, List<CrdtDataField>>{};
-    for (final field in fields) {
-      fieldsByRowId.putIfAbsent(field.rowId, () => []).add(field);
-    }
-
-    return fieldsByRowId;
   }
 
   String _outboundColumnExpression(DatabaseSession session, Column column) {
