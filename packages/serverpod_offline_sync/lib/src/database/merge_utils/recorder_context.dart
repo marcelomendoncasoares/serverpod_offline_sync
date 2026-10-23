@@ -174,42 +174,153 @@ class CrdtRecorderContext {
   Future<void> persistUserClock(Transaction transaction) =>
       _persistUserClock(_userClockFor(transaction), transaction);
 
+  /// Stores received progress together with the applying clock on PostgreSQL.
+  /// All values are final and the clock/space locks remain held until commit.
+  Future<void> persistMergeProgress(
+    List<OfflineSyncSpaceNode> progress,
+    Transaction transaction,
+  ) async {
+    if (database.dialect == DatabaseDialect.postgres) {
+      await _persistUserClock(
+        _userClockFor(transaction),
+        transaction,
+        receivedProgress: progress,
+      );
+    } else if (progress.isNotEmpty) {
+      await OfflineSyncSpaceNode.db.update(
+        databaseSession,
+        progress,
+        columns: (t) => [t.lastReceivedHlc],
+        transaction: transaction,
+      );
+    }
+  }
+
+  /// Updates distinct metadata tables in one PostgreSQL round trip. The CTEs
+  /// do not read one another: their execution order is deliberately irrelevant.
+  Future<void> _writeMergeProgress(
+    _UserClock userClock,
+    List<OfflineSyncSpaceNode> progress,
+    List<OfflineSyncSpace> spaces,
+    Transaction transaction,
+  ) async {
+    final updates = <String>[];
+    final expectedCounts = <int>[];
+    if (progress.isNotEmpty) {
+      final values = progress
+          .map((node) {
+            final hlc = ValueEncoder.instance.encodeColumnValue(
+              OfflineSyncSpaceNode.t.lastReceivedHlc,
+              node.lastReceivedHlc,
+            );
+            return '(${node.id!}::bigint, $hlc::jsonb)';
+          })
+          .join(', ');
+      updates.add('''UPDATE "offline_sync_space_nodes" AS target
+SET "lastReceivedHlc" = incoming.hlc
+FROM (VALUES $values) AS incoming(id, hlc)
+WHERE target."id" = incoming.id RETURNING target."id"''');
+      expectedCounts.add(progress.length);
+    }
+    if (userClock.node.lastHlc != userClock.persisted) {
+      final hlc = ValueEncoder.instance.encodeColumnValue(
+        CrdtNode.t.lastHlc,
+        userClock.node.lastHlc,
+      );
+      updates.add('''UPDATE "crdt_nodes" SET "lastHlc" = $hlc
+WHERE "id" = ${userClock.node.id!} RETURNING "id"''');
+      expectedCounts.add(1);
+    }
+    final values = spaces
+        .map((space) {
+          final hlc = ValueEncoder.instance.encodeColumnValue(
+            OfflineSyncSpace.t.lastHlc,
+            space.lastHlc,
+          );
+          return '(${space.id!}::bigint, $hlc::jsonb, '
+              '${space.revision.sqlLiteral()}::uuid)';
+        })
+        .join(', ');
+    updates.add('''UPDATE "offline_sync_spaces" AS target
+SET "lastHlc" = incoming.hlc, "revision" = incoming.revision
+FROM (VALUES $values) AS incoming(id, hlc, revision)
+WHERE target."id" = incoming.id RETURNING target."id"''');
+    expectedCounts.add(spaces.length);
+
+    final clauses = [
+      for (final (index, sql) in updates.indexed) 'u$index AS ($sql)',
+    ].join(',\n');
+    final counts = [
+      for (var index = 0; index < updates.length; index++)
+        '(SELECT COUNT(*) FROM u$index)',
+    ].join(', ');
+    final result = await database.unsafeQuery(
+      'WITH $clauses SELECT $counts',
+      transaction: transaction,
+    );
+    for (var index = 0; index < expectedCounts.length; index++) {
+      if (result.single[index] != expectedCounts[index]) {
+        throw StateError('Missing metadata while persisting merge progress.');
+      }
+    }
+  }
+
   /// Stores the clock and each touched space's high-water mark and revision.
   /// A received older fact may leave the HLC unchanged, but must change the
   /// revision so other processes can recover its commit. Reads store nothing.
   Future<void> _persistUserClock(
     _UserClock userClock,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    List<OfflineSyncSpaceNode>? receivedProgress,
+  }) async {
     final lastHlc = userClock.node.lastHlc;
-    if (userClock.usedInSpaces.isEmpty || lastHlc == null) return;
-
-    if (lastHlc != userClock.persisted) {
-      await CrdtNode.db.updateWhere(
-        databaseSession,
-        columnValues: (t) => [t.lastHlc(lastHlc)],
-        where: (t) => t.id.equals(userClock.node.id),
-        transaction: transaction,
-        noReturn: true,
-      );
+    if (userClock.usedInSpaces.isEmpty || lastHlc == null) {
+      if (receivedProgress?.isNotEmpty ?? false) {
+        throw StateError('Received progress has no applying clock.');
+      }
+      return;
     }
 
-    for (final entry in userClock.usedInSpaces.entries) {
-      final spaceId = entry.key;
-      final highWater = userClock.spaceHighWater[spaceId];
-      final revision = const Uuid().v7obj();
-      await OfflineSyncSpace.db.updateWhere(
-        databaseSession,
-        columnValues: (t) => [
-          if (highWater == null || lastHlc > highWater) t.lastHlc(lastHlc),
-          t.revision(revision),
-        ],
-        where: (t) => t.id.equals(spaceId),
-        transaction: transaction,
-        noReturn: true,
-      );
-      databaseContext.recordSpaceChange(transaction, entry.value, revision);
-      userClock.spaceHighWater[spaceId] = lastHlc.maxBetween(highWater);
+    final spaces = [
+      for (final entry in userClock.usedInSpaces.entries)
+        OfflineSyncSpace(
+          id: entry.key,
+          uuidSpaceId: entry.value,
+          lastHlc: lastHlc.maxBetween(userClock.spaceHighWater[entry.key]),
+          revision: const Uuid().v7obj(),
+        ),
+    ];
+    if (receivedProgress != null) {
+      await _writeMergeProgress(userClock, receivedProgress, spaces, transaction);
+    } else {
+      if (lastHlc != userClock.persisted) {
+        await CrdtNode.db.updateWhere(
+          databaseSession,
+          columnValues: (t) => [t.lastHlc(lastHlc)],
+          where: (t) => t.id.equals(userClock.node.id),
+          transaction: transaction,
+          noReturn: true,
+        );
+      }
+
+      for (final space in spaces) {
+        await OfflineSyncSpace.db.updateWhere(
+          databaseSession,
+          columnValues: (t) => [
+            if (space.lastHlc != userClock.spaceHighWater[space.id])
+              t.lastHlc(space.lastHlc),
+            t.revision(space.revision),
+          ],
+          where: (t) => t.id.equals(space.id),
+          transaction: transaction,
+          noReturn: true,
+        );
+      }
+    }
+
+    for (final space in spaces) {
+      databaseContext.recordSpaceChange(transaction, space.uuidSpaceId, space.revision);
+      userClock.spaceHighWater[space.id!] = space.lastHlc;
     }
     userClock
       ..persisted = lastHlc
