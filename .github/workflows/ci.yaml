@@ -9,9 +9,7 @@ on:
     paths-ignore:
       - '**/*.md'
   pull_request:
-    branches:
-      - main
-      - stable-*
+    # Also validate PRs whose base is another branch in a review stack.
     paths-ignore:
       - '**/*.md'
 
