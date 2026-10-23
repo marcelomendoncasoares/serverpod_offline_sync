@@ -1,0 +1,15 @@
+apiServer:
+  port: 8180
+  publicHost: localhost
+  publicPort: 8180
+  publicScheme: http
+webServer:
+  port: 8182
+  publicHost: localhost
+  publicPort: 8182
+  publicScheme: http
+database:
+  filePath: benchmark.db
+sessionLogs:
+  persistentEnabled: false
+  consoleEnabled: false

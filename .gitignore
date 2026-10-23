@@ -22,6 +22,7 @@ coverage-results.txt
 
 # Deterministic simulation hunt results
 .dst-soak/
+.scale-benchmark/
 
 # Downloaded by scripts/setup_sqlite_web_assets.sh.
 test/serverpod_offline_sync_test_server/test/browser/sqlite3.wasm
