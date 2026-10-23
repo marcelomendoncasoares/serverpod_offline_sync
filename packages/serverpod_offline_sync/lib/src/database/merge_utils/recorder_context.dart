@@ -1081,6 +1081,70 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     );
   }
 
+  /// Materializes distinct authored values after merge ownership and conflict
+  /// checks. Only unconstrained edits may use this path; projection writes
+  /// retain their ordering and unique-value parking through [updateDomainRows].
+  Future<void> updateUnconstrainedDomainRows(
+    Map<MergeRowKey, Map<String, Object?>> updatesByRow,
+    Transaction transaction,
+  ) async {
+    final groups =
+        <
+          (String table, String columns),
+          ({List<String> columns, Map<UuidValue, Map<String, Object?>> rows})
+        >{};
+
+    for (final MapEntry(key: row, value: updates) in updatesByRow.entries) {
+      if (updates.isEmpty) continue;
+
+      final columns = updates.keys.toList()..sort();
+      // SQL identifiers cannot contain NUL, so this distinguishes column sets
+      // without grouping on the authored values themselves.
+      final group = groups.putIfAbsent(
+        (row.$1, columns.join('\x00')),
+        () => (columns: columns, rows: {}),
+      );
+      group.rows[row.$2] = updates;
+    }
+
+    for (final MapEntry(key: key, value: group) in groups.entries) {
+      final rows = group.rows.entries.toList();
+      for (var offset = 0; offset < rows.length; offset += 100) {
+        final batch = rows.skip(offset).take(100).toList();
+        if (batch.length == 1) {
+          await updateDomainRows(
+            key.$1,
+            {batch.single.key},
+            batch.single.value,
+            transaction,
+          );
+          continue;
+        }
+
+        final assignments = <String>[];
+        for (final column in group.columns) {
+          final name = '"${column.escapeIdentifier()}"';
+          final cases = [
+            for (final row in batch)
+              'WHEN ${row.key.sqlLiteral()} THEN ${encodeDomainColumnValue(key.$1, column, row.value[column])}',
+          ].join(' ');
+          // The existing column supplies the CASE result type, including when
+          // every new value is NULL or an otherwise untyped JSON/UUID literal.
+          assignments.add('$name = CASE "id" $cases ELSE $name END');
+        }
+
+        await database.unsafeExecute(
+          '''
+UPDATE "${key.$1.escapeIdentifier()}"
+SET ${assignments.join(', ')}
+WHERE "id" IN (${batch.map((row) => row.key).sqlLiteralList()})
+''',
+          transaction: transaction,
+        );
+      }
+    }
+  }
+
   /// The `id` column of every row of a result whose first column is a row id.
   Set<UuidValue> _rowIds(DatabaseResult result) => {
     for (final row in result) UuidValueJsonExtension.fromJson(row.first),
