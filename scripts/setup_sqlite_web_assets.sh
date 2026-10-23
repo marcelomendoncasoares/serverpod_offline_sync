@@ -17,9 +17,8 @@ resolved_version() {
 }
 
 sqlite_version="$(resolved_version sqlite3)"
-worker_version="$(resolved_version sqlite_async)"
 
-if [[ -z "$sqlite_version" || -z "$worker_version" ]]; then
+if [[ -z "$sqlite_version" || ! -f .dart_tool/package_config.json ]]; then
   echo 'Run dart pub get before provisioning SQLite browser assets.' >&2
   exit 1
 fi
@@ -28,6 +27,25 @@ curl --fail --location --silent --show-error --retry 3 \
   "https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-$sqlite_version/sqlite3.wasm" \
   --output "$test_directory/sqlite3.wasm"
 
-curl --fail --location --silent --show-error --retry 3 \
-  "https://github.com/powersync-ja/sqlite_async.dart/releases/download/sqlite_async-v$worker_version/db_worker.js" \
-  --output "$test_directory/db_worker.js"
+# A released worker embeds the sqlite3 bindings available when it was built.
+# Compile against the same resolved packages as the browser test and WASM asset.
+worker_directory="$(mktemp -d)"
+trap 'rm -rf "$worker_directory"' EXIT
+
+cat > "$worker_directory/worker.dart" <<'DART'
+import 'package:sqlite3_web/sqlite3_web.dart';
+import 'package:sqlite_async/sqlite3_web_worker.dart';
+
+void main() {
+  WebSqlite.workerEntrypoint(controller: AsyncSqliteController());
+}
+DART
+
+dart compile js \
+  --packages=.dart_tool/package_config.json \
+  --no-source-maps \
+  -O2 \
+  "$worker_directory/worker.dart" \
+  --output="$worker_directory/db_worker.js"
+
+mv "$worker_directory/db_worker.js" "$test_directory/db_worker.js"
