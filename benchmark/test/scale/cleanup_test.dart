@@ -283,7 +283,7 @@ Future<_ScaleResult> _runScaleFixture(
     final directory = p.join(scratch.path, runId);
     final processOutput = '${await output}\n${await errors}';
     final summary = File(p.join(directory, 'summary.json'));
-    if (!await summary.exists()) {
+    if (!summary.existsSync()) {
       throw StateError(
         'Coordinator exited with code $code before writing summary.json:\n'
         '$processOutput',
