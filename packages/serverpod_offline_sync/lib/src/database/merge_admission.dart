@@ -14,6 +14,8 @@ class _MergeAdmission {
   final _spaces = <UuidValue, Future<void>>{};
   final _waiting = Queue<Completer<void>>();
   var _active = 0;
+  var _queued = 0;
+  final _queuedByUser = <UuidValue, int>{};
 
   Future<T> run<T>(
     UuidValue userId,
@@ -22,6 +24,20 @@ class _MergeAdmission {
     OfflineSyncCancellation? cancellation,
   }) async {
     cancellation?.throwIfCancelled();
+    OfflineSyncDiagnostics.event('queue.join', {
+      'scope': 'serverInstance',
+      'serializationKeys': ['user', 'space'],
+      'concurrencyLimit': limit,
+      'queuedTotalAhead': _queued,
+      'queuedForUserAhead': _queuedByUser[userId] ?? 0,
+      'waitingForCapacity': _waiting.length,
+      'active': _active,
+      'userBusy': _users.containsKey(userId),
+      'spaceBusy': _spaces.containsKey(spaceId),
+    });
+    _queued++;
+    _queuedByUser.update(userId, (count) => count + 1, ifAbsent: () => 1);
+    var queued = true;
     final previousUser = _users[userId];
     final previousSpace = _spaces[spaceId];
     final userReleased = Completer<void>();
@@ -34,7 +50,10 @@ class _MergeAdmission {
       // Reserve each key before waiting. A cancelled entry forwards each key
       // independently, so an unrelated successor need not wait for both keys.
       final predecessors = Future.wait([?previousUser, ?previousSpace]);
-      await (cancellation?.waitFor(predecessors) ?? predecessors);
+      await OfflineSyncDiagnostics.measure(
+        'queue.userOrSpace',
+        () => cancellation?.waitFor(predecessors) ?? predecessors,
+      );
       if (_active < limit) {
         _active++;
         hasSlot = true;
@@ -42,7 +61,10 @@ class _MergeAdmission {
         final ready = Completer<void>();
         _waiting.add(ready);
         try {
-          await (cancellation?.waitFor(ready.future) ?? ready.future);
+          await OfflineSyncDiagnostics.measure(
+            'queue.globalCapacity',
+            () => cancellation?.waitFor(ready.future) ?? ready.future,
+          );
           hasSlot = true;
         } on Object {
           // A release may already have handed us its slot before cancellation
@@ -53,8 +75,16 @@ class _MergeAdmission {
       }
 
       cancellation?.throwIfCancelled();
+      final queuedForUser = _leaveQueue(userId);
+      queued = false;
+      OfflineSyncDiagnostics.event('queue.admitted', {
+        'queuedTotal': _queued,
+        'queuedForUser': queuedForUser,
+        'active': _active,
+      });
       return await action();
     } finally {
+      if (queued) _leaveQueue(userId);
       if (hasSlot) {
         if (_waiting.isEmpty) {
           _active--;
@@ -67,6 +97,17 @@ class _MergeAdmission {
       _releaseKey(_users, userId, userReleased, previousUser);
       _releaseKey(_spaces, spaceId, spaceReleased, previousSpace);
     }
+  }
+
+  int _leaveQueue(UuidValue userId) {
+    _queued--;
+    final remaining = _queuedByUser[userId]! - 1;
+    if (remaining == 0) {
+      _queuedByUser.remove(userId);
+    } else {
+      _queuedByUser[userId] = remaining;
+    }
+    return remaining;
   }
 
   void _releaseKey(

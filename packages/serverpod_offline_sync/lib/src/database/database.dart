@@ -14,6 +14,7 @@ import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../spaces/membership.dart';
 import '../sync/cancellation.dart';
+import '../sync/diagnostics.dart';
 import '../sync/engine.dart';
 import '../sync/exceptions.dart';
 import '../sync/integrity_violation.dart';
@@ -198,29 +199,43 @@ class OfflineSyncDatabase implements Database {
           'A user ID is required when merging changes without a persistent user.',
         ));
     final effectiveSpaceId = spaceId ?? effectiveUserId;
-    await _context.runMerge(effectiveUserId, effectiveSpaceId, () async {
-      cancellation?.throwIfCancelled();
-      // Source nodes are shared by every space; commit them before locking.
-      await _recorder.ensureSourceNodes({
-        for (final change in mergeSet) change.uuidNodeId,
-      });
-      cancellation?.throwIfCancelled();
-      try {
-        await _transactionAs<void>(
-          effectiveUserId,
-          effectiveSpaceId,
-          (tx) => _recorder.mergeChanges(mergeSet, tx),
-          authoring: false,
-          cancellation: cancellation,
+    await OfflineSyncDiagnostics.measure(
+      'merge',
+      () => _context.runMerge(effectiveUserId, effectiveSpaceId, () async {
+        cancellation?.throwIfCancelled();
+        // Source nodes are shared by every space; commit them before locking.
+        await OfflineSyncDiagnostics.measure(
+          'merge.prepareSources',
+          () => _recorder.ensureSourceNodes({
+            for (final change in mergeSet) change.uuidNodeId,
+          }),
         );
-      } on OfflineSyncIntegrityViolationException catch (exception) {
-        final persistedViolation = await recordOfflineSyncIntegrityViolation(
-          _delegate.session,
-          violation: exception.violation,
-        );
-        throw OfflineSyncIntegrityViolationException(persistedViolation);
-      }
-    }, cancellation: cancellation);
+        cancellation?.throwIfCancelled();
+        try {
+          await _transactionAs<void>(
+            effectiveUserId,
+            effectiveSpaceId,
+            (tx) => _recorder.mergeChanges(mergeSet, tx),
+            authoring: false,
+            cancellation: cancellation,
+          );
+        } on OfflineSyncIntegrityViolationException catch (exception) {
+          final persistedViolation = await recordOfflineSyncIntegrityViolation(
+            _delegate.session,
+            violation: exception.violation,
+          );
+          throw OfflineSyncIntegrityViolationException(persistedViolation);
+        }
+      }, cancellation: cancellation),
+      data: {
+        'userId': effectiveUserId.toString(),
+        'spaceId': effectiveSpaceId.toString(),
+        'changes': mergeSet.length,
+        'rows': {
+          for (final change in mergeSet) (change.tableName, change.uuidRowId),
+        }.length,
+      },
+    );
   }
 
   @override
@@ -1094,7 +1109,8 @@ class OfflineSyncDatabase implements Database {
     // Do not initialize CRDT here. Serverpod runs database migrations inside
     // [transaction] before CRDT tables exist. Callers that need CRDT state
     // ([transactionForUser], mutating ORM methods) initialize explicitly.
-    return _delegate.transaction(
+    return OfflineSyncDiagnostics.transaction(
+      _delegate,
       _recorder.hasPersistentSpace
           ? (tx) => _recorder.withUserClock(tx, transactionFunction)
           : transactionFunction,
@@ -1146,11 +1162,13 @@ class OfflineSyncDatabase implements Database {
     TransactionSettings? settings,
     OfflineSyncCancellation? cancellation,
   }) async {
+    OfflineSyncDiagnostics.event('merge.phase', {'phase': 'prepareSpaceAndClock'});
     final space = await _recorder.getOrCreateSpace(spaceId);
     final clockNode = await _recorder.getOrCreateUserNode(userId);
     if (authoring) await _recorder.ensureParticipation(space, clockNode);
 
-    return _delegate.transaction<R>(
+    return OfflineSyncDiagnostics.transaction<R>(
+      _delegate,
       (tx) async {
         Future<R> run() async {
           try {
@@ -1158,8 +1176,17 @@ class OfflineSyncDatabase implements Database {
             userForTransaction[tx] = userId;
             clockNodeForTransaction[tx] = clockNode;
             return await _recorder.withUserClock(tx, (tx) async {
+              OfflineSyncDiagnostics.event('merge.phase', {
+                'phase': 'lockClockAndSpace',
+              });
               await _recorder.lockUserClock(tx);
-              return action(tx);
+              try {
+                return await action(tx);
+              } finally {
+                OfflineSyncDiagnostics.event('merge.phase', {
+                  'phase': 'persistClockAndCleanup',
+                });
+              }
             });
           } finally {
             spaceForTransaction.remove(tx);
