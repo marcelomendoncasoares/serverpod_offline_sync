@@ -75,8 +75,6 @@ class OfflineSyncEngine {
   /// Continuous sync responds immediately unless a throttle is configured.
   static const defaultContinuousSyncInterval = Duration.zero;
 
-  static const _idlePollInterval = Duration(milliseconds: 1200);
-
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
   final OfflineSyncDatabaseContext _databaseContext;

@@ -987,6 +987,13 @@ class Protocol extends _isd.DatabaseSerializationManager
           dartType:
               'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
+        _isd.ColumnDefinition(
+          name: 'revision',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+          columnDefault: 'random_v7',
+        ),
       ],
       foreignKeys: [],
       indexes: [

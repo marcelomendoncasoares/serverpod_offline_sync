@@ -15,5 +15,9 @@ fields:
   ### other users' clocks.
   lastHlc: Hlc?
 
+  ### Opaque commit revision for recovery hints, changed under the space lock.
+  ### This is neither a logical timestamp nor a synchronization checkpoint.
+  revision: UuidValue, default=random_v7
+
   ### The nodes associated with the space and their per-space checkpoints.
   nodes: List<OfflineSyncSpaceNode>?, relation(name=space_nodes)
