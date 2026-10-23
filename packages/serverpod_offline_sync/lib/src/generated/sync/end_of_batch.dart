@@ -11,32 +11,59 @@
 
 part of 'stream_event.dart';
 
-/// Marks the end of a framed sync batch.
+/// Completes a numbered batch, allowing its receiver to apply it.
 abstract class OfflineSyncEndOfBatch extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  OfflineSyncEndOfBatch._();
+  OfflineSyncEndOfBatch._({
+    required this.batchId,
+    required this.finalForOnce,
+  });
 
-  factory OfflineSyncEndOfBatch() = _OfflineSyncEndOfBatchImpl;
+  factory OfflineSyncEndOfBatch({
+    required int batchId,
+    required bool finalForOnce,
+  }) = _OfflineSyncEndOfBatchImpl;
 
   factory OfflineSyncEndOfBatch.fromJson(
     Map<String, dynamic> jsonSerialization,
   ) {
-    return OfflineSyncEndOfBatch();
+    return OfflineSyncEndOfBatch(
+      batchId: jsonSerialization['batchId'] as int,
+      finalForOnce: _iss.BoolJsonExtension.fromJson(
+        jsonSerialization['finalForOnce'],
+      ),
+    );
   }
+
+  int batchId;
+
+  /// Selects the finite upload or download boundary for syncOnce.
+  bool finalForOnce;
 
   /// Returns a shallow copy of this [OfflineSyncEndOfBatch]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  OfflineSyncEndOfBatch copyWith();
+  OfflineSyncEndOfBatch copyWith({
+    int? batchId,
+    bool? finalForOnce,
+  });
   @override
   Map<String, dynamic> toJson() {
-    return {'__className__': 'serverpod_offline_sync.OfflineSyncEndOfBatch'};
+    return {
+      '__className__': 'serverpod_offline_sync.OfflineSyncEndOfBatch',
+      'batchId': batchId,
+      'finalForOnce': finalForOnce,
+    };
   }
 
   @override
   Map<String, dynamic> toJsonForProtocol() {
-    return {'__className__': 'serverpod_offline_sync.OfflineSyncEndOfBatch'};
+    return {
+      '__className__': 'serverpod_offline_sync.OfflineSyncEndOfBatch',
+      'batchId': batchId,
+      'finalForOnce': finalForOnce,
+    };
   }
 
   @override
@@ -46,13 +73,25 @@ abstract class OfflineSyncEndOfBatch extends _icw2tu00.OfflineSyncStreamEvent
 }
 
 class _OfflineSyncEndOfBatchImpl extends OfflineSyncEndOfBatch {
-  _OfflineSyncEndOfBatchImpl() : super._();
+  _OfflineSyncEndOfBatchImpl({
+    required int batchId,
+    required bool finalForOnce,
+  }) : super._(
+         batchId: batchId,
+         finalForOnce: finalForOnce,
+       );
 
   /// Returns a shallow copy of this [OfflineSyncEndOfBatch]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  OfflineSyncEndOfBatch copyWith() {
-    return OfflineSyncEndOfBatch();
+  OfflineSyncEndOfBatch copyWith({
+    int? batchId,
+    bool? finalForOnce,
+  }) {
+    return OfflineSyncEndOfBatch(
+      batchId: batchId ?? this.batchId,
+      finalForOnce: finalForOnce ?? this.finalForOnce,
+    );
   }
 }

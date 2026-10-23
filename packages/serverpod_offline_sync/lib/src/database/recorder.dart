@@ -58,6 +58,75 @@ class OfflineSyncDatabaseContext {
 
   final _MergeAdmission? _mergeAdmission;
 
+  static final _transactionChanges = Expando<Set<UuidValue>>();
+  final _spaceListeners = <UuidValue, Set<void Function()>>{};
+
+  /// Subscribes to local commit hints for one space. The returned function
+  /// removes the subscription. Hints carry no data or checkpoint authority.
+  @internal
+  void Function() onSpaceChanged(UuidValue space, void Function() listener) {
+    (_spaceListeners[space] ??= {}).add(listener);
+    return () {
+      final listeners = _spaceListeners[space];
+      listeners?.remove(listener);
+      if (listeners?.isEmpty ?? false) _spaceListeners.remove(space);
+    };
+  }
+
+  /// Marks a space touched by a transaction owned by a sync database wrapper.
+  /// Caller-owned transactions and other processes use periodic catch-up.
+  @internal
+  void recordSpaceChange(Transaction transaction, UuidValue space) {
+    _transactionChanges[transaction]?.add(space);
+  }
+
+  /// Publishes coalesced hints only after the database transaction completes.
+  @internal
+  Future<R> runTransaction<R>(
+    Database database,
+    TransactionFunction<R> action, {
+    TransactionSettings? settings,
+  }) async {
+    final changed = <UuidValue>{};
+    final result = await OfflineSyncDiagnostics.transaction<R>(
+      database,
+      (transaction) async {
+        _transactionChanges[transaction] = changed;
+        try {
+          return await action(transaction);
+        } finally {
+          _transactionChanges[transaction] = null;
+        }
+      },
+      settings: settings,
+    );
+
+    final notificationWatch = OfflineSyncDiagnostics.enabled
+        ? (Stopwatch()..start())
+        : null;
+    var listenersNotified = 0;
+    for (final space in changed) {
+      for (final listener in _spaceListeners[space]?.toList() ?? const []) {
+        try {
+          listener();
+          listenersNotified++;
+        } on Object {
+          // A best-effort hint cannot turn a committed write into a failure.
+        }
+      }
+    }
+    if (notificationWatch != null) {
+      OfflineSyncDiagnostics.event('sync.commitNotification', {
+        'spaces': changed.length,
+        'listenersNotified': listenersNotified,
+        'micros': notificationWatch.elapsedMicroseconds,
+        'scope': 'localContext',
+      });
+    }
+
+    return result;
+  }
+
   /// Admits a merge before it acquires database connections, when configured.
   /// Database transaction locks remain responsible for correctness.
   @internal
