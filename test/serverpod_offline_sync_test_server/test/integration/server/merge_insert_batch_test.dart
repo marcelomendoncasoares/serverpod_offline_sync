@@ -44,6 +44,265 @@ void main() {
         await merging.db.initialize();
       });
 
+      group(
+        'Given an established source and a space that rejects its next revision,',
+        () {
+          late UuidValue spaceId;
+          late OfflineSyncSpace spaceBefore;
+          late CrdtNode clockBefore;
+          late List<OfflineSyncSpaceNode> progressBefore;
+          late server.City incoming;
+          late Hlc incomingHlc;
+
+          setUpAll(() async {
+            spaceId = const Uuid().v7obj();
+            final first = Hlc.now(const Uuid().v7obj());
+            await merging.db.mergeChanges([
+              _insert(
+                spaceId,
+                server.City(id: const Uuid().v7obj(), name: 'seed'),
+                first,
+              ),
+            ], userId: spaceId);
+            spaceBefore = (await OfflineSyncSpace.db.findFirstRow(
+              raw,
+              where: (t) => t.uuidSpaceId.equals(spaceId),
+            ))!;
+            clockBefore = (await CrdtNode.db.findFirstRow(
+              raw,
+              where: (t) => t.localUserUuid.equals(spaceId),
+            ))!;
+            progressBefore = await OfflineSyncSpaceNode.db.find(
+              raw,
+              where: (t) => t.spaceId.equals(spaceBefore.id),
+            );
+            incoming = server.City(id: const Uuid().v7obj(), name: 'retry me');
+            incomingHlc = Hlc(first.datetime, 1, first.nodeId);
+            await raw.db.unsafeExecute('''
+CREATE FUNCTION reject_merge_revision() RETURNS trigger LANGUAGE plpgsql AS \$\$
+BEGIN
+  IF NEW."id" = ${spaceBefore.id} AND NEW."revision" <> OLD."revision" THEN
+    IF NOT EXISTS (SELECT 1 FROM "city" WHERE "id" = '${incoming.id}') THEN
+      RAISE EXCEPTION 'test did not reach the completed domain write';
+    END IF;
+    RAISE EXCEPTION 'injected merge revision failure';
+  END IF;
+  RETURN NEW;
+END
+\$\$;
+CREATE TRIGGER reject_merge_revision BEFORE UPDATE ON "offline_sync_spaces"
+FOR EACH ROW EXECUTE FUNCTION reject_merge_revision();
+''');
+            addTearDown(() async {
+              await raw.db.unsafeExecute('''
+DROP TRIGGER IF EXISTS reject_merge_revision ON "offline_sync_spaces";
+DROP FUNCTION IF EXISTS reject_merge_revision();
+''');
+            });
+          });
+
+          group(
+            'when persistence fails and the same merge is retried without the trigger,',
+            () {
+              late Object? error;
+              late server.City? afterFailure;
+              late List<CrdtDataRow> metadataAfterFailure;
+              late OfflineSyncSpace spaceAfterFailure;
+              late CrdtNode clockAfterFailure;
+              late List<OfflineSyncSpaceNode> progressAfterFailure;
+              late server.City? afterRetry;
+              late Hlc? receivedAfterRetry;
+              late OfflineSyncSpace spaceAfterRetry;
+
+              setUpAll(() async {
+                final changes = [_insert(spaceId, incoming, incomingHlc)];
+                error = await merging.db
+                    .mergeChanges(changes, userId: spaceId)
+                    .then<Object?>((_) => null, onError: (Object error) => error);
+                afterFailure = await server.City.db.findById(raw, incoming.id!);
+                metadataAfterFailure = await CrdtDataRow.db.find(
+                  raw,
+                  where: (t) => t.uuidRowId.equals(incoming.id),
+                );
+                spaceAfterFailure = (await OfflineSyncSpace.db.findById(
+                  raw,
+                  spaceBefore.id!,
+                ))!;
+                clockAfterFailure = (await CrdtNode.db.findById(raw, clockBefore.id!))!;
+                progressAfterFailure = await OfflineSyncSpaceNode.db.find(
+                  raw,
+                  where: (t) => t.spaceId.equals(spaceBefore.id),
+                );
+
+                await raw.db.unsafeExecute(
+                  'DROP TRIGGER reject_merge_revision ON "offline_sync_spaces"',
+                );
+                await merging.db.mergeChanges(changes, userId: spaceId);
+                afterRetry = await server.City.db.findById(raw, incoming.id!);
+                receivedAfterRetry = (await OfflineSyncSpaceNode.db.findFirstRow(
+                  raw,
+                  where: (t) =>
+                      t.spaceId.equals(spaceBefore.id) &
+                      t.node.uuidNodeId.equals(incomingHlc.nodeId),
+                ))!.lastReceivedHlc;
+                spaceAfterRetry = (await OfflineSyncSpace.db.findById(
+                  raw,
+                  spaceBefore.id!,
+                ))!;
+              });
+
+              test('then the failed persistence leaves no domain or CRDT write.', () {
+                expect(error.toString(), contains('injected merge revision failure'));
+                expect(afterFailure, isNull);
+                expect(metadataAfterFailure, isEmpty);
+              });
+
+              test(
+                'then received progress, the clock and the revision all roll back.',
+                () {
+                  expect(clockAfterFailure.lastHlc, clockBefore.lastHlc);
+                  expect(spaceAfterFailure.lastHlc, spaceBefore.lastHlc);
+                  expect(spaceAfterFailure.revision, spaceBefore.revision);
+                  expect(
+                    {
+                      for (final node in progressAfterFailure)
+                        node.id: node.lastReceivedHlc,
+                    },
+                    {for (final node in progressBefore) node.id: node.lastReceivedHlc},
+                  );
+                },
+              );
+
+              test(
+                'then retry commits the row, progress and a fresh revision together.',
+                () {
+                  expect(afterRetry?.name, incoming.name);
+                  expect(receivedAfterRetry, incomingHlc);
+                  expect(spaceAfterRetry.revision, isNot(spaceBefore.revision));
+                  expect(
+                    spaceAfterRetry.lastHlc!.compareTo(incomingHlc),
+                    greaterThanOrEqualTo(0),
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+
+      group(
+        'Given an established author advanced by another session and an author known only in another space,',
+        () {
+          late UuidValue space;
+          late UuidValue otherSpace;
+          late Hlc first;
+          late Hlc second;
+          late Hlc third;
+          late List<server.City> rows;
+
+          setUpAll(() async {
+            space = const Uuid().v7obj();
+            otherSpace = const Uuid().v7obj();
+            first = Hlc.now(const Uuid().v7obj());
+            second = Hlc(first.datetime, 2, const Uuid().v7obj());
+            third = Hlc(first.datetime, 4, const Uuid().v7obj());
+            rows = [
+              server.City(id: const Uuid().v7obj(), name: 'older unseen fact'),
+              server.City(id: const Uuid().v7obj(), name: 'new space association'),
+              server.City(id: const Uuid().v7obj(), name: 'new author'),
+            ];
+            await merging.db.mergeChanges([
+              _insert(
+                space,
+                server.City(id: const Uuid().v7obj(), name: 'establish author'),
+                first,
+              ),
+            ], userId: space);
+            await merging.db.mergeChanges([
+              _insert(
+                otherSpace,
+                server.City(id: const Uuid().v7obj(), name: 'other first'),
+                Hlc(first.datetime, 50, first.nodeId),
+              ),
+              _insert(
+                otherSpace,
+                server.City(id: const Uuid().v7obj(), name: 'other second'),
+                Hlc(first.datetime, 50, second.nodeId),
+              ),
+            ], userId: otherSpace);
+
+            final independent = OfflineSyncDatabaseSession.wraps(
+              sessions.build(),
+              syncTables: server.syncTables,
+            );
+            await independent.db.mergeChanges([
+              _insert(
+                space,
+                server.City(id: const Uuid().v7obj(), name: 'newer received fact'),
+                Hlc(first.datetime, 9, first.nodeId),
+              ),
+            ], userId: space);
+          });
+
+          group('when one batch mixes their older facts with a new author,', () {
+            late Map<(UuidValue, UuidValue), Hlc?> progress;
+            late Map<UuidValue, UuidValue> authors;
+
+            setUpAll(() async {
+              await merging.db.mergeChanges([
+                _insert(space, rows[0], Hlc(first.datetime, 3, first.nodeId)),
+                _insert(space, rows[1], second),
+                _insert(space, rows[2], third),
+              ], userId: space);
+
+              final sources = await OfflineSyncSpaceNode.db.find(
+                raw,
+                where: (t) => t.node.uuidNodeId.inSet({
+                  first.nodeId,
+                  second.nodeId,
+                  third.nodeId,
+                }),
+                include: OfflineSyncSpaceNode.include(
+                  node: CrdtNode.include(),
+                  space: OfflineSyncSpace.include(),
+                ),
+              );
+              progress = {
+                for (final source in sources)
+                  (source.space!.uuidSpaceId, source.node!.uuidNodeId):
+                      source.lastReceivedHlc,
+              };
+              final stored = await CrdtDataRow.db.find(
+                raw,
+                where: (t) => t.uuidRowId.inSet({for (final row in rows) row.id!}),
+                include: CrdtDataRow.include(node: CrdtNode.include()),
+              );
+              authors = {
+                for (final row in stored) row.uuidRowId: row.node!.uuidNodeId,
+              };
+            });
+
+            test('then progress stays monotonic and scoped to each space.', () {
+              expect(progress, {
+                (space, first.nodeId): Hlc(first.datetime, 9, first.nodeId),
+                (space, second.nodeId): second,
+                (space, third.nodeId): third,
+                (otherSpace, first.nodeId): Hlc(first.datetime, 50, first.nodeId),
+                (otherSpace, second.nodeId): Hlc(first.datetime, 50, second.nodeId),
+              });
+            });
+
+            test('then every fact retains its original author.', () {
+              expect(authors, {
+                rows[0].id!: first.nodeId,
+                rows[1].id!: second.nodeId,
+                rows[2].id!: third.nodeId,
+              });
+            });
+          });
+        },
+      );
+
       group('Given related new rows authored by two devices,', () {
         late UuidValue user;
         late server.City city;

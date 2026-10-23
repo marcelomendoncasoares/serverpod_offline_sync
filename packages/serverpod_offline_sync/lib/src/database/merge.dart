@@ -284,14 +284,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       remoteNodes.spaceNodesByUuid[nodeId] = updatedSpaceNode;
     }
 
-    if (spaceNodesToUpdate.isNotEmpty) {
-      await OfflineSyncSpaceNode.db.update(
-        _session,
-        spaceNodesToUpdate,
-        columns: (t) => [t.lastReceivedHlc],
-        transaction: transaction,
-      );
-    }
+    await _context.persistMergeProgress(spaceNodesToUpdate, transaction);
   }
 
   Future<MergeNodes> _findOrCreateNodesForMerge(
