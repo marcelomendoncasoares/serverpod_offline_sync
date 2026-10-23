@@ -7,6 +7,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
+import '../test_tools/framed_sync_peer.dart';
 import '../test_tools/sync_topology.dart';
 
 void main() {
@@ -17,6 +18,7 @@ void main() {
     late _Peer peer;
     late OfflineSyncDatabaseContext context;
     late Completer<void> joining;
+    late Completer<int> recoverySubscribers;
     late List<Timer> periodicTimers;
     late UuidValue sharedSpace;
 
@@ -39,6 +41,7 @@ void main() {
         ),
       );
       joining = Completer<void>();
+      recoverySubscribers = Completer<int>();
       periodicTimers = [];
       sharedSpace = const Uuid().v7obj();
       peer = await runZoned(
@@ -47,6 +50,13 @@ void main() {
           if (event['name'] == 'sync.stage' &&
               (event['data']! as Map)['phase'] == 'cleanup.join') {
             joining.complete();
+          }
+          if (event['name'] == 'sync.recoveryScan' &&
+              event['kind'] == 'start' &&
+              !recoverySubscribers.isCompleted) {
+            recoverySubscribers.complete(
+              (event['data']! as Map)['subscriptions'] as int,
+            );
           }
         }, () => _Peer.start(node: node, mode: OfflineSyncPeerMode.follower)),
         zoneSpecification: ZoneSpecification(
@@ -87,6 +97,7 @@ void main() {
       late bool completedBeforeRelease;
       late int remainingTimers;
       late int notifiedListeners;
+      late int nextScanSubscribers;
       late List<OfflineSyncReady> readyFrames;
 
       setUpAll(() async {
@@ -116,6 +127,24 @@ void main() {
             ),
           ),
         );
+
+        // The next live stream must be the only owner of a recovery scan.
+        final next = await FramedSyncPeer.open(
+          peer.node,
+          onDiagnostic: (event) {
+            if (event['name'] == 'sync.recoveryScan' &&
+                event['kind'] == 'start' &&
+                !recoverySubscribers.isCompleted) {
+              recoverySubscribers.complete(
+                (event['data']! as Map)['subscriptions'] as int,
+              );
+            }
+          },
+        );
+        nextScanSubscribers = await recoverySubscribers.future.timeout(
+          const Duration(seconds: 5),
+        );
+        await next.close();
       });
 
       test('then cancellation joins cursor work without announcing readiness.', () {
@@ -126,6 +155,10 @@ void main() {
       test('then no periodic recovery timer or local commit listener remains.', () {
         expect(remainingTimers, 0);
         expect(notifiedListeners, 0);
+      });
+
+      test('then the next recovery scan contains only its live subscriber.', () {
+        expect(nextScanSubscribers, 1);
       });
     });
   });

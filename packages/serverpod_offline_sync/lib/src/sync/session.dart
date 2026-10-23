@@ -37,7 +37,7 @@ class _SyncSession {
   Future<void>? sending;
   Future<void>? merging;
   Future<void>? handling;
-  Timer? recovery;
+  OfflineSyncRecoverySubscription? recovery;
   Object? failure;
   StackTrace? failureStack;
   _SentBatch? inFlight;
@@ -149,7 +149,7 @@ class _SyncSession {
       await spaceWork;
       // Join callbacks for the current frame, without waiting for peer EOF.
       await handling;
-      recovery?.cancel();
+      await recovery?.close();
       for (final unsubscribe in subscriptions.values) {
         unsubscribe();
       }
@@ -183,6 +183,13 @@ class _SyncSession {
   void _subscribe() {
     if (once || stopped) return;
     final active = spaces.activeSpaceIds.toSet();
+    recovery ??= engine._databaseContext.watchCommittedState(
+      session: session,
+      userId: userId,
+      spaces: active,
+      onChanged: _wake,
+    );
+    recovery!.updateSpaces(active);
     for (final id in subscriptions.keys.toList()) {
       if (!active.contains(id)) subscriptions.remove(id)!();
     }
@@ -244,12 +251,6 @@ class _SyncSession {
           if (!once || spaces.isAuthoritative) _emit(OfflineSyncReady());
         }
         _stage('active');
-        if (!once) {
-          recovery = Timer.periodic(OfflineSyncEngine._idlePollInterval, (_) {
-            OfflineSyncDiagnostics.event('sync.idlePoll');
-            _wake();
-          });
-        }
       case OfflineSyncReady():
         if (peerReady || spaces.hasIncompleteActiveHandshake) {
           _unexpected(event, 'complete initial resume vectors followed by one Ready');

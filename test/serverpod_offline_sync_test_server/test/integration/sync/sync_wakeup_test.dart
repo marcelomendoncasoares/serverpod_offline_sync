@@ -13,8 +13,8 @@ void main() {
     late SyncNode node;
     late FramedSyncPeer peer;
 
-    // Per test, not per group: a zero poll count proves the wakeup only while
-    // the insert lands on a fresh stream, before its first idle poll.
+    // Per test, not per group: a zero recovery count proves the wakeup only
+    // while the insert lands on a fresh stream, before its first recovery scan.
     setUp(() async {
       node = await _node(persistentUserId: testCrdtUserId);
       peer = await FramedSyncPeer.open(node);
@@ -23,7 +23,7 @@ void main() {
     group('when an application transaction commits a local insertion,', () {
       late Unique row;
       late List<CrdtMergeChange> sent;
-      late int idlePolls;
+      late int recoveryWakeups;
 
       setUp(() async {
         row = Unique(id: const Uuid().v7obj(), name: 'committed');
@@ -32,33 +32,33 @@ void main() {
         });
         await peer.waitForRow(row.id!);
         sent = List.of(peer.outbound);
-        idlePolls = peer.idlePolls;
+        recoveryWakeups = peer.recoveryWakeups;
         await peer.close();
       });
 
-      test('then the insertion is sent without waiting for the poll.', () {
+      test('then the insertion is sent without waiting for recovery.', () {
         expect(sent.map((c) => c.uuidRowId), [row.id]);
-        expect(idlePolls, 0);
+        expect(recoveryWakeups, 0);
       });
     });
 
     group('when a standalone ORM insertion commits its own transaction,', () {
       late Unique row;
       late List<CrdtMergeChange> sent;
-      late int idlePolls;
+      late int recoveryWakeups;
 
       setUp(() async {
         row = Unique(id: const Uuid().v7obj(), name: 'standalone');
         await Unique.db.insertRow(node.offlineSync, row);
         await peer.waitForRow(row.id!);
         sent = List.of(peer.outbound);
-        idlePolls = peer.idlePolls;
+        recoveryWakeups = peer.recoveryWakeups;
         await peer.close();
       });
 
-      test('then its stream wakes without waiting for the idle poll.', () {
+      test('then its stream wakes without waiting for recovery.', () {
         expect(sent.map((c) => c.uuidRowId), [row.id]);
-        expect(idlePolls, 0);
+        expect(recoveryWakeups, 0);
       });
     });
   });
@@ -82,7 +82,7 @@ void main() {
 
     group('when the sender merges an insertion,', () {
       late List<CrdtMergeChange> sent;
-      late int idlePolls;
+      late int recoveryWakeups;
       late List<CrdtMergeChange> echoed;
       late int unrelatedCyclesAfter;
 
@@ -90,7 +90,7 @@ void main() {
         echoed = await sender.sendBatch([insertion]);
         await receiver.waitForRow(insertion.uuidRowId);
         sent = List.of(receiver.outbound);
-        idlePolls = sender.idlePolls + receiver.idlePolls;
+        recoveryWakeups = sender.recoveryWakeups + receiver.recoveryWakeups;
         unrelatedCyclesAfter = unrelated.stages
             .where((s) => s == 'outbound.capture')
             .length;
@@ -99,9 +99,9 @@ void main() {
         await unrelated.close();
       });
 
-      test('then the other device receives it without waiting for a poll.', () {
+      test('then the other device receives it without waiting for recovery.', () {
         expect(sent.map((c) => c.uuidRowId), [insertion.uuidRowId]);
-        expect(idlePolls, 0);
+        expect(recoveryWakeups, 0);
       });
 
       test('then the sender receives no echo.', () {
@@ -137,21 +137,21 @@ void main() {
 
     group('when another insertion commits and wakes the stream,', () {
       late List<CrdtMergeChange> sent;
-      late int idlePolls;
+      late int recoveryWakeups;
       late Unique? rejectedRow;
 
       setUpAll(() async {
         await Unique.db.insertRow(node.offlineSync, committed);
         await peer.waitForRow(committed.id!);
         sent = List.of(peer.outbound);
-        idlePolls = peer.idlePolls;
+        recoveryWakeups = peer.recoveryWakeups;
         rejectedRow = await Unique.db.findById(node.raw, rejected.id!);
         await peer.close();
       });
 
       test('then only the committed insertion is published.', () {
         expect(sent.map((c) => c.uuidRowId), [committed.id]);
-        expect(idlePolls, 0);
+        expect(recoveryWakeups, 0);
         expect(rejectedRow, isNull);
       });
     });
@@ -177,7 +177,7 @@ void main() {
       late Unique? beforeTerminator;
       late Unique? afterTerminator;
       late List<CrdtMergeChange> sent;
-      late int idlePolls;
+      late int recoveryWakeups;
 
       setUpAll(() async {
         await Unique.db.insertRow(node.offlineSync, local);
@@ -186,7 +186,7 @@ void main() {
         await peer.endBatch();
         afterTerminator = await Unique.db.findById(node.raw, remote.uuidRowId);
         sent = List.of(peer.outbound);
-        idlePolls = peer.idlePolls;
+        recoveryWakeups = peer.recoveryWakeups;
         await peer.close();
       });
 
@@ -197,7 +197,7 @@ void main() {
 
       test('then the local change is sent before the inbound batch is complete.', () {
         expect(sent.map((c) => c.uuidRowId), [local.id]);
-        expect(idlePolls, 0);
+        expect(recoveryWakeups, 0);
       });
     });
   });
