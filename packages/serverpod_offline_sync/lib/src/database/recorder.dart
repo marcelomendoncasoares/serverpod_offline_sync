@@ -39,6 +39,8 @@ typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 /// A single context is created per `OfflineSyncEngine` (i.e. once per Serverpod
 /// instance) and shared by every ephemeral [OfflineSyncDatabase], so the schema is
 /// synchronized once per process rather than once per `Session`.
+/// Projection rebuilds required by registry changes are also shared; a failed
+/// rebuild is retried by a later initialization.
 ///
 /// The cached schema holds database-assigned identifiers and is never
 /// invalidated for the lifetime of the context. This assumes the CRDT schema
@@ -191,6 +193,7 @@ class OfflineSyncDatabaseContext {
 
   _CrdtSchema? _schema;
   Future<_CrdtSchema>? _schemaFuture;
+  Future<void>? _projectionRebuildFuture;
   var _registryChanged = false;
 
   /// Whether schema reconciliation inserted, updated, or deleted registry rows
@@ -208,6 +211,22 @@ class OfflineSyncDatabaseContext {
     } catch (_) {
       if (identical(_schemaFuture, schemaFuture)) {
         _schemaFuture = null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _rebuildProjectionsOnce(Future<void> Function() rebuild) async {
+    if (!_registryChanged) return;
+
+    // A registry change belongs to this shared context. Every session waits
+    // for its one rebuild before using the schema, including concurrent opens.
+    final pending = _projectionRebuildFuture ??= rebuild();
+    try {
+      await pending;
+    } catch (_) {
+      if (identical(_projectionRebuildFuture, pending)) {
+        _projectionRebuildFuture = null;
       }
       rethrow;
     }
@@ -404,9 +423,7 @@ class CrdtMutationRecorder {
 
   Future<void> _initializeOnce() async {
     await _databaseContext.initialize(_session);
-    if (_databaseContext.registryChanged) {
-      await _rebuildProjectionsForAllSpaces();
-    }
+    await _databaseContext._rebuildProjectionsOnce(_rebuildProjectionsForAllSpaces);
     if (persistentUserId case final userId?) {
       final space = await _context.spaceManager.getOrCreate(userId);
       final node = await _context.spaceManager.getOrCreateUserNode(userId);
