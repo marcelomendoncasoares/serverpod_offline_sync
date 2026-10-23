@@ -308,7 +308,10 @@ class OfflineSyncEngine {
     Hlc? receivedHlc,
   ) async {
     final checkpointMax = spaces.checkpointMaxOf(spaceId);
-    if (checkpointMax == null) {
+    // A peer may advertise an empty vector before authoring its first change.
+    // Its committed inbound batch still has an HLC to report.
+    final syncedHlc = checkpointMax?.maxBetween(receivedHlc) ?? receivedHlc;
+    if (syncedHlc == null) {
       OfflineSyncDiagnostics.event('sync.mergeReportSkipped', {
         'reason': 'noCheckpoint',
         'spaceId': spaceId.toString(),
@@ -316,7 +319,7 @@ class OfflineSyncEngine {
       return;
     }
     OfflineSyncDiagnostics.event('sync.mergeReportStart');
-    await onMergeSuccess?.call(spaceId, checkpointMax.maxBetween(receivedHlc));
+    await onMergeSuccess?.call(spaceId, syncedHlc);
     OfflineSyncDiagnostics.event('sync.mergeReportEnd');
   }
 
