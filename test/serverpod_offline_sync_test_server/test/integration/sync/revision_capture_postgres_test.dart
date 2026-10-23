@@ -169,7 +169,7 @@ ANALYZE "crdt_data_tombstone";
             'when production capture requests only a new range from one space,',
             () {
               late OfflineSyncCapture capture;
-              late Map<String, String> plans;
+              late String plan;
 
               setUpAll(() async {
                 capture =
@@ -181,38 +181,33 @@ ANALYZE "crdt_data_tombstone";
                       checkpointsBySpaceUuid: {requested: 1},
                       peerId: 123,
                     );
-                plans = {};
-                for (final entry in captureDatabase.predicates.entries) {
-                  final result = await raw.db.unsafeQuery(
-                    'EXPLAIN SELECT * FROM "${entry.key}" WHERE ${entry.value}',
-                  );
-                  plans[entry.key] = result.map((row) => row.single).join('\n');
-                }
+                final predicate = captureDatabase.predicates['crdt_data_rows']!;
+                final result = await raw.db.unsafeQuery(
+                  'EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM "crdt_data_rows" '
+                  'WHERE $predicate',
+                );
+                plan = result.map((row) => row.single).join('\n');
+                print(plan);
               });
 
               test(
-                'then each captured predicate uses its tenant-leading revision index.',
+                'then candidate discovery uses all three space revision indexes.',
                 () {
                   expect(capture.changes, isEmpty);
-                  expect(plans, hasLength(3));
-                  for (final entry in plans.entries) {
+                  for (final table in [
+                    'crdt_data_rows',
+                    'crdt_data_fields',
+                    'crdt_data_tombstone',
+                  ]) {
                     expect(
-                      entry.value,
-                      contains('${entry.key}_space_revision_idx'),
-                      reason: entry.value,
-                    );
-                    expect(entry.value, contains('Index Cond:'), reason: entry.value);
-                    expect(
-                      entry.value,
-                      contains('"spaceId" = 31'),
-                      reason: entry.value,
-                    );
-                    expect(
-                      entry.value,
-                      contains('"syncRevision" > 1'),
-                      reason: entry.value,
+                      plan,
+                      contains('${table}_space_revision_idx'),
+                      reason: plan,
                     );
                   }
+                  expect(plan, isNot(contains('Seq Scan')), reason: plan);
+                  expect(plan, contains('"spaceId" = 31'), reason: plan);
+                  expect(plan, contains('"syncRevision" > 1'), reason: plan);
                 },
               );
             },
