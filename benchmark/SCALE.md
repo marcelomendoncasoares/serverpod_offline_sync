@@ -510,3 +510,6 @@ passing level is a lower bound under this workload, not a universal maximum.
 server metrics and worker CPU/lag; `summary.json` contains exact nearest-rank
 quantiles (unlike the churn benchmark's histogram upper bounds). Warmup rounds
 have negative round numbers and are never included in these distributions.
+
+Standalone transport, heap, round-correlation and cross-process mechanism tools
+are documented in [PROBES.md](PROBES.md).
