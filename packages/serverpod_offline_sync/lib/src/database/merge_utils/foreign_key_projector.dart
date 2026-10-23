@@ -2432,7 +2432,11 @@ class CrdtForeignKeyProjector {
       )[fieldKey.$3] = value;
     }
 
-    await _applyBatchedDomainRowUpdates(updatesByRow, transaction);
+    if (_context.database.dialect == DatabaseDialect.postgres) {
+      await _context.updateUnconstrainedDomainRows(updatesByRow, transaction);
+    } else {
+      await _applyBatchedDomainRowUpdates(updatesByRow, transaction);
+    }
   }
 
   Future<void> _applyBatchedDomainRowUpdates(
