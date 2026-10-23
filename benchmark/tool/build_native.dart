@@ -13,7 +13,12 @@ Future<void> main(List<String> args) async {
     ..addOption(
       'target',
       defaultsTo: 'bin/scale.dart',
-      allowed: ['bin/scale.dart', 'bin/scale_server.dart', 'bin/rounds.dart'],
+      allowed: [
+        'bin/scale.dart',
+        'bin/scale_server.dart',
+        'bin/rounds.dart',
+        'bin/cross_rounds.dart',
+      ],
     )
     ..addOption('output', help: 'Directory that receives bundle/.')
     ..addFlag('help', abbr: 'h', negatable: false);
