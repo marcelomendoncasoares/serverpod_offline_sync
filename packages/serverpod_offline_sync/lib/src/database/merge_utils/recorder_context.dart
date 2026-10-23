@@ -360,6 +360,11 @@ WHERE $rowPredicate AND ($_rowVisible)
   AND (d."id" IS NULL OR d."clFlag" % 2 = 1)) = ${rowIds.length}'''
       else
         'NOT EXISTS (SELECT 1 FROM "crdt_data_rows" r WHERE $rowPredicate)',
+      // A merge can adopt a domain row written without CRDT metadata. Such an
+      // upsert may retain omitted columns, so it needs the full projection.
+      if (!persisted)
+        '''NOT EXISTS (SELECT 1 FROM "${tableName.escapeIdentifier()}"
+WHERE "id" IN ($ids))''',
       // An attempted FK may own a unique fallback different from its authored value.
       '''NOT EXISTS (
 SELECT 1 FROM "crdt_data_attempted_value" a
@@ -676,6 +681,17 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
     required List<({Set<String> columnNames, Set<Object?> values})> alternatives,
     required Transaction transaction,
   }) async {
+    final query = _attemptedClaimsQuery(tableName, alternatives, transaction);
+    if (query == null) return const {};
+
+    return _rowIds(await database.unsafeQuery(query, transaction: transaction));
+  }
+
+  String? _attemptedClaimsQuery(
+    String tableName,
+    List<({Set<String> columnNames, Set<Object?> values})> alternatives,
+    Transaction transaction,
+  ) {
     final (tableId, columns) = schema[tableName]!;
     final predicates = <String>{};
     for (final alternative in alternatives) {
@@ -699,23 +715,18 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
         'AND a."value" IN (${encodedValues.join(', ')}))',
       );
     }
-    if (predicates.isEmpty) return const {};
+    if (predicates.isEmpty) return null;
 
     final spaceId = spaceIdFor(transaction);
-    final result = await database.unsafeQuery(
-      '''
-SELECT DISTINCT r."uuidRowId"
+    return '''
+SELECT DISTINCT r."uuidRowId" AS "id"
 FROM "crdt_data_attempted_value" a
 JOIN "crdt_data_fields" f ON f."id" = a."fieldId"
 JOIN "crdt_data_rows" r ON r."id" = f."rowId"
 WHERE r."spaceId" = $spaceId
   AND r."tblId" = $tableId
   AND (${predicates.join(' OR ')})
-''',
-      transaction: transaction,
-    );
-
-    return _rowIds(result);
+''';
   }
 
   /// Sparse roots and children that may depend on a changed SET DEFAULT target.
@@ -782,6 +793,16 @@ WHERE r."spaceId" = $spaceId
     required List<Map<String, Set<Object?>>> alternatives,
     required Transaction transaction,
   }) async {
+    final query = _domainClaimsQuery(tableName, alternatives);
+    if (query == null) return const {};
+
+    return _rowIds(await database.unsafeQuery(query, transaction: transaction));
+  }
+
+  String? _domainClaimsQuery(
+    String tableName,
+    List<Map<String, Set<Object?>>> alternatives,
+  ) {
     final predicates = <String>{};
     for (final valuesByColumn in alternatives) {
       if (valuesByColumn.isEmpty) continue;
@@ -795,18 +816,62 @@ WHERE r."spaceId" = $spaceId
           .join(') AND (');
       predicates.add('(($claim))');
     }
-    if (predicates.isEmpty) return const {};
+    if (predicates.isEmpty) return null;
 
-    final result = await database.unsafeQuery(
-      '''
+    return '''
 SELECT "id"
 FROM "${tableName.escapeIdentifier()}"
 WHERE ${predicates.join(' OR ')}
-''',
-      transaction: transaction,
-    );
+''';
+  }
 
-    return _rowIds(result);
+  /// Reads one closure wave without a separate round trip for each table.
+  /// Every claim keeps its original predicate and attempted-value encoding.
+  Future<Map<(String, bool), Set<UuidValue>>> findProjectionClaimRows({
+    required Map<(String, bool), List<Map<String, Set<Object?>>>> requests,
+    required Transaction transaction,
+  }) async {
+    final queries = <String>[];
+    final tablesById = <int, String>{};
+    final matches = <(String, bool), Set<UuidValue>>{};
+    for (final MapEntry(key: key, value: claims) in requests.entries) {
+      matches[key] = {};
+      final (table, attempted) = key;
+      final tableId = schema[table]!.$1;
+      tablesById[tableId] = table;
+      final query = attempted
+          ? _attemptedClaimsQuery(table, [
+              for (final claim in claims)
+                (
+                  columnNames: claim.keys.toSet(),
+                  values: {for (final values in claim.values) ...values},
+                ),
+            ], transaction)
+          : _domainClaimsQuery(table, claims);
+      if (query == null) continue;
+
+      queries.add(
+        'SELECT $tableId AS "tableId", ${attempted ? 1 : 0} AS "attempted", '
+        'q."id" AS "rowId" FROM ($query) q',
+      );
+    }
+    if (queries.isEmpty) return matches;
+
+    // Bound compound query size for large schemas. Every chunk uses the same
+    // locked transaction and contributes to the same closure wave.
+    const maxQueriesPerStatement = 128;
+    for (var offset = 0; offset < queries.length; offset += maxQueriesPerStatement) {
+      final result = await database.unsafeQuery(
+        queries.skip(offset).take(maxQueriesPerStatement).join('\nUNION ALL\n'),
+        transaction: transaction,
+      );
+      for (final row in result) {
+        matches[(tablesById[row[0]]!, row[1] == 1)]!.add(
+          UuidValueJsonExtension.fromJson(row[2]),
+        );
+      }
+    }
+    return matches;
   }
 
   Future<Set<UuidValue>> findVisibleDomainRowIdsWhere({
