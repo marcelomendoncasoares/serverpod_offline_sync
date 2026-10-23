@@ -1,7 +1,3 @@
-### Marks a graceful end of a one-shot sync session.
-###
-### Both peers send [OfflineSyncClose] after merging the final batch in a
-### one-shot session so each side can shut down without closing the transport
-### early.
+### Requests cancellation of a continuous stream, discarding partial input.
 class: OfflineSyncClose
 extends: OfflineSyncStreamEvent

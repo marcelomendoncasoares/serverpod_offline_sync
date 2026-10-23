@@ -1,6 +1,6 @@
-### A chunk of merge changes carried inside a framed sync batch.
+### Changes belonging to one numbered batch. Chunks do not imply commit.
 class: OfflineSyncMergeChunk
 extends: OfflineSyncStreamEvent
 fields:
-  ### The merge changes to apply.
+  batchId: int
   changes: List<CrdtMergeChange>

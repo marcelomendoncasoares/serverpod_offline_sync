@@ -1049,11 +1049,18 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
       userClock.active && userClock.nodeLocked != null,
       'Lock the user clock inside withUserClock before allocating timestamps.',
     );
-    final spaceId = spaceIdFor(transaction);
+    final space = effectiveSpaceFor(transaction);
+    final spaceId = space.id!;
     return userClock.managers[spaceId] ??= HlcManager(
       spaceId,
       userClock.node,
-      onUse: () => userClock.usedInSpaces.add(spaceId),
+      onUse: () {
+        userClock.usedInSpaces.add(spaceId);
+        databaseContext.recordSpaceChange(
+          transaction,
+          space.uuidSpaceId,
+        );
+      },
     );
   }
 

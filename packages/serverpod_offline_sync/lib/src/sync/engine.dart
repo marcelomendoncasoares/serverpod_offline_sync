@@ -25,6 +25,8 @@ import 'space_state.dart';
 
 export 'space_state.dart' show OfflineSyncPeerMode;
 
+part 'session.dart';
+
 /// Callback function for when a merge is successful.
 typedef OfflineSyncOnMergeSuccess =
     FutureOr<void> Function(UuidValue spaceUuid, Hlc syncedHlc);
@@ -51,7 +53,7 @@ class OfflineSyncEngine {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = defaultSyncBatchSize,
 
-    /// Delay between continuous sync rounds.
+    /// Optional throttle between continuous sync rounds.
     this._continuousSyncInterval = defaultContinuousSyncInterval,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
@@ -70,8 +72,10 @@ class OfflineSyncEngine {
   /// Default maximum number of merge changes sent in one stream message.
   static const defaultSyncBatchSize = 100;
 
-  /// Default delay between continuous sync rounds.
-  static const defaultContinuousSyncInterval = Duration(milliseconds: 200);
+  /// Continuous sync responds immediately unless a throttle is configured.
+  static const defaultContinuousSyncInterval = Duration.zero;
+
+  static const _idlePollInterval = Duration(milliseconds: 1200);
 
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
@@ -254,6 +258,7 @@ class OfflineSyncEngine {
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
     OfflineSyncCancellation? cancellation,
+    bool requireWriteAccess = false,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
@@ -263,23 +268,17 @@ class OfflineSyncEngine {
       userId: userId,
       spaceId: spaceId,
       cancellation: cancellation,
+      requireWriteAccess: requireWriteAccess,
     );
     return maxSyncedHlc;
   }
 
-  /// Runs a symmetric CRDT sync session over a bidirectional event stream.
+  /// Synchronizes independent numbered batches over one bidirectional stream.
   ///
-  /// Both peers exchange [OfflineSyncConnect] and a lockstep [OfflineSyncSpaceSet]
-  /// before the data loop. Each cycle sends a combined batch — space
-  /// announcement when grants changed, [OfflineSyncSinceHlc] for newly active
-  /// spaces, and [OfflineSyncMergeChunk]s — closed by [OfflineSyncEndOfBatch] when
-  /// anything was sent. Inbound frames are de-multiplexed by collectNextBatch
-  /// until [OfflineSyncEndOfBatch] when this peer sent a batch, or an idle timeout
-  /// when both peers had nothing to send.
-  ///
-  /// When [once] is true the loop may run an extra cycle after handshakes
-  /// complete so merge data can flow; then it closes symmetrically. Continuous
-  /// mode loops with [_continuousSyncInterval] between idle cycles.
+  /// Receivers acknowledge only committed batches. A finite session completes
+  /// after the follower's selected upload and a server snapshot taken after that
+  /// upload commits have both been acknowledged. Continuous sessions remain
+  /// silent until changes or membership updates need to be sent.
   Stream<OfflineSyncStreamEvent> sync(
     DatabaseSession session, {
     required UuidValue userId,
@@ -287,341 +286,15 @@ class OfflineSyncEngine {
     required OfflineSyncPeerMode mode,
     bool once = false,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
-  }) {
-    final cancellation = OfflineSyncCancellation();
-    var completed = false;
-    late StreamIterator<OfflineSyncStreamEvent> inboundIterator;
-    late StreamSubscription<OfflineSyncStreamEvent> subscription;
-    // The generator closes this controller on completion; cancellation closes
-    // the generator after its database work has settled.
-    // ignore: close_sinks
-    late StreamController<OfflineSyncStreamEvent> controller;
-    controller = StreamController<OfflineSyncStreamEvent>(
-      onListen: () {
-        // Once sessions require complete frames; idle timeouts are only for
-        // continuous sessions waiting for the next change.
-        inboundIterator = StreamIterator(
-          once
-              ? inbound
-              : inbound.timeout(
-                  const Duration(seconds: 1),
-                  onTimeout: (sink) => sink.add(OfflineSyncIdleTimeout()),
-                ),
-        );
-        subscription =
-            _syncSession(
-              session,
-              userId: userId,
-              inboundIterator: inboundIterator,
-              mode: mode,
-              once: once,
-              onMergeSuccess: onMergeSuccess,
-              cancellation: cancellation,
-            ).listen(
-              controller.add,
-              onError: controller.addError,
-              onDone: () {
-                completed = true;
-                unawaited(controller.close());
-              },
-            );
-      },
-      onPause: () => subscription.pause(),
-      onResume: () => subscription.resume(),
-      onCancel: () async {
-        if (completed) return;
-        // An async generator alone cannot observe cancellation while awaiting
-        // admission or a database call. Signal it before awaiting its cleanup.
-        cancellation.cancel();
-        try {
-          await inboundIterator.cancel().timeout(
-            const Duration(milliseconds: 200),
-            onTimeout: () {},
-          );
-        } finally {
-          await subscription.cancel();
-        }
-      },
-    );
-    return controller.stream;
-  }
-
-  Stream<OfflineSyncStreamEvent> _syncSession(
-    DatabaseSession session, {
-    required UuidValue userId,
-    required StreamIterator<OfflineSyncStreamEvent> inboundIterator,
-    required OfflineSyncPeerMode mode,
-    required bool once,
-    required OfflineSyncCancellation cancellation,
-    OfflineSyncOnMergeSuccess? onMergeSuccess,
-  }) async* {
-    var sessionCompleted = false;
-    var cycle = 0;
-    void stage(String phase, [Map<String, Object?> data = const {}]) {
-      OfflineSyncDiagnostics.event('sync.stage', {
-        'phase': phase,
-        'cycle': cycle,
-        ...data,
-      });
-    }
-
-    try {
-      stage('handshake.localNode');
-      // Informational: the per-space checkpoints carry every node's progress.
-      final localNode = await OfflineSyncSpaceManager(
-        session,
-      ).getOrCreateUserNode(userId);
-      yield OfflineSyncConnect(
-        localNodeId: localNode.uuidNodeId,
-        syncTablesHash: currentSyncTablesHash,
-      );
-
-      stage('handshake.waitForPeerConnect');
-      final peerConnect = await inboundIterator.moveAndThrowIfNot<OfflineSyncConnect>();
-      OfflineSyncDiagnostics.event('sync.peer', {
-        'peerNodeId': peerConnect.localNodeId.toString(),
-      });
-      _validateSyncTablesHash(peerConnect.syncTablesHash);
-
-      final spaces = OfflineSyncSpaceState(
-        session,
-        userId: userId,
-        mode: mode,
-        peerNodeId: peerConnect.localNodeId,
-      );
-
-      stage('handshake.reconcileSpaces');
-      await spaces.reconcile();
-      yield OfflineSyncSpaceSet(spaces: spaces.localGrants);
-      spaces.markAnnounced();
-      stage('handshake.waitForPeerSpaces');
-      final peerSpaceSet = await inboundIterator
-          .moveAndThrowIfNot<OfflineSyncSpaceSet>();
-      stage('handshake.adoptSpaces');
-      await spaces.adoptPeerGrants(peerSpaceSet.spaces);
-
-      while (true) {
-        if (cancellation.isCancelled) return;
-        cycle++;
-        stage('cycle.reconcileSpaces');
-        await spaces.reconcile();
-
-        final hadSendableCheckpoints = spaces.sendableCheckpoints.isNotEmpty;
-        var hasChanges = false;
-        final outboundSpaces = <UuidValue>{};
-
-        if (spaces.shouldAnnounce) {
-          yield OfflineSyncSpaceSet(spaces: spaces.localGrants);
-          spaces.markAnnounced();
-          hasChanges = true;
-        }
-
-        stage('cycle.readCursors');
-        for (final spaceId in spaces.activeSpaceIds) {
-          if (!spaces.markHandshakeSent(spaceId)) continue;
-          yield await createSyncSinceHlc(session, spaceId: spaceId);
-          hasChanges = true;
-        }
-
-        stage('cycle.collectAndYieldOutbound');
-        final pendingLocalChanges = collectPendingChanges(
-          session,
-          checkpointsBySpaceUuid: spaces.sendableCheckpoints,
-        );
-
-        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
-          hasChanges = true;
-          for (final change in changes) {
-            spaces.advanceCheckpoint(change.uuidSpaceId, change);
-            outboundSpaces.add(change.uuidSpaceId);
-          }
-          yield OfflineSyncMergeChunk(changes: changes);
-        }
-        if (hasChanges || once) {
-          yield OfflineSyncEndOfBatch();
-        }
-
-        stage('cycle.waitForInbound');
-        final batch = await inboundIterator.collectNextBatch(
-          allowCloseBeforeBatch: !once,
-        );
-        if (batch == null) {
-          if (once) {
-            yield OfflineSyncClose();
-          }
-          sessionCompleted = true;
-          return;
-        }
-
-        stage('cycle.applyInbound', {'changes': batch.changes.length});
-        await _applyCycleBatch(
-          session,
-          spaces,
-          batch,
-          outboundSpaces,
-          onMergeSuccess,
-          cancellation,
-        );
-        stage('cycle.applied', {'changes': batch.changes.length});
-
-        if (once) {
-          if (spaces.hasIncompleteActiveHandshake) {
-            stage('cycle.repeat', {'reason': 'incompleteSpaceHandshake'});
-            continue;
-          }
-          if (!hadSendableCheckpoints && spaces.sendableCheckpoints.isNotEmpty) {
-            stage('cycle.repeat', {'reason': 'newPeerCursorsNeedOutboundPass'});
-            continue;
-          }
-          stage('close.yieldAndWaitForPeer');
-          yield OfflineSyncClose();
-          await inboundIterator.moveAndThrowIfNot<OfflineSyncClose>();
-          sessionCompleted = true;
-          // Keep reading until the peer closes its side so the underlying
-          // transport subscription reaches "done" instead of being left paused.
-          // A paused inbound controller stalls the peer's stream teardown for
-          // several seconds (the transport's close timeout), which lands on the
-          // critical path of the next sync round over a shared connection.
-          //
-          // The drain runs detached: awaiting it here would deadlock the
-          // symmetric close handshake, since the peer only closes its side once
-          // our own outbound stream closes, which happens after this generator
-          // returns.
-          unawaited(_drainUntilDone(inboundIterator));
-          return;
-        }
-
-        // Wait for the configured interval before checking for local changes again.
-        stage('cycle.pollDelay', {
-          'configuredMicros': _continuousSyncInterval.inMicroseconds,
-        });
-        await Future<void>.delayed(_continuousSyncInterval);
-      }
-    } on OfflineSyncCancelledException {
-      // The merge has rolled back before reaching this handler.
-      if (once) rethrow;
-      return;
-    } on OfflineSyncStreamClosedException {
-      // A continuous session ending is normal: the peer closed its outbound
-      // (typically a cancel). Whether the stream closed between batches or
-      // mid-batch, nothing is left to do — complete gracefully so the `finally`
-      // skips the force-cancel that races WebSocket teardown and surfaces
-      // spurious "connection closed" errors on the peer. A `once` session has a
-      // completion contract (full handshake plus the symmetric Close), so a
-      // close before that is a real truncation and must propagate.
-      if (once) rethrow;
-      sessionCompleted = true;
-      return;
-    } finally {
-      stage('cleanup', {'sessionCompleted': sessionCompleted});
-      // Cancelling inbound on normal completion races with WebSocket stream
-      // teardown and produces "connection closed" errors on the peer. On normal
-      // completion the inbound is instead drained to "done" (see above). Keep
-      // forced cancellation for abnormal exits so listener cancellation can
-      // unblock.
-      if (!sessionCompleted) {
-        // Best-effort cleanup, since the transport will close the socket anyway.
-        const waitTimeout = Duration(milliseconds: 200);
-        await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
-      }
-      stage('finished');
-    }
-  }
-
-  Future<void> _applyCycleBatch(
-    DatabaseSession session,
-    OfflineSyncSpaceState spaces,
-    OfflineSyncCycleBatch batch,
-    Set<UuidValue> outboundSpaces,
-    OfflineSyncOnMergeSuccess? onMergeSuccess,
-    OfflineSyncCancellation cancellation,
-  ) async {
-    if (batch.spaceSet != null) {
-      await spaces.adoptPeerGrants(batch.spaceSet!.spaces);
-    }
-    for (final entry in batch.sinceHlcs.entries) {
-      if (spaces.accepts(entry.key)) {
-        spaces.recordPeerHandshake(entry.key, entry.value);
-      }
-    }
-
-    final mergedSpaces = <UuidValue>{};
-    final changesBySpace = <UuidValue, List<CrdtMergeChange>>{};
-    for (final change in batch.changes) {
-      changesBySpace.putIfAbsent(change.uuidSpaceId, () => []).add(change);
-    }
-    for (final entry in changesBySpace.entries) {
-      final spaceId = entry.key;
-      if (!spaces.accepts(spaceId)) continue;
-      mergedSpaces.add(spaceId);
-      if (spaces.isAuthoritative) {
-        await _assertCanMergeInboundSpace(
-          session,
-          spaceId: spaceId,
-          userId: spaces.userId,
-          changes: entry.value,
-        );
-      }
-      final receivedHlc = await mergeInboundBatch(
-        session,
-        userId: spaces.userId,
-        spaceId: spaceId,
-        mergeSet: entry.value,
-        cancellation: cancellation,
-      );
-      await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
-    }
-    for (final spaceId in outboundSpaces.difference(mergedSpaces)) {
-      await _reportMerge(onMergeSuccess, spaces, spaceId, null);
-    }
-  }
-
-  Future<void> _assertCanMergeInboundSpace(
-    DatabaseSession session, {
-    required UuidValue spaceId,
-    required UuidValue userId,
-    required List<CrdtMergeChange> changes,
-  }) async {
-    if (changes.isEmpty || userId == spaceId) return;
-
-    final role = await OfflineSyncSpaceMembership.roleOf(
-      session,
-      userUuid: userId,
-      spaceUuid: spaceId,
-    );
-    if (role.canWrite) return;
-
-    final firstChange = changes.first;
-    final now = clock.now().toUtc();
-    final violation = OfflineSyncIntegrityViolation(
-      type: OfflineSyncViolationType.unauthorizedWrite,
-      domainTableName: firstChange.tableName,
-      uuidRowId: firstChange.uuidRowId,
-      ownerSpaceUuid: null,
-      incomingSpaceUuid: spaceId,
-      operation: _operationForInboundChange(firstChange),
-      uuidNodeId: firstChange.uuidNodeId,
-      crdtDataRowId: null,
-      hlcDatetime: firstChange.hlcDatetime,
-      hlcCounter: firstChange.hlcCounter,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      occurrences: 1,
-    );
-    final persisted = await recordOfflineSyncIntegrityViolation(
-      session,
-      violation: violation,
-    );
-    throw OfflineSyncIntegrityViolationException(persisted);
-  }
-
-  OfflineSyncViolationOperation _operationForInboundChange(CrdtMergeChange change) {
-    return switch (change) {
-      CrdtMergeInsert() => OfflineSyncViolationOperation.mergeInsert,
-      CrdtMergeUpdate() => OfflineSyncViolationOperation.mergeUpdate,
-      CrdtMergeDelete() => OfflineSyncViolationOperation.mergeDelete,
-    };
-  }
+  }) => _SyncSession(
+    this,
+    session,
+    userId: userId,
+    inbound: inbound,
+    mode: mode,
+    once: once,
+    onMergeSuccess: onMergeSuccess,
+  ).stream;
 
   /// Reports a successful merge for [spaceId] to [onMergeSuccess], combining the
   /// space's checkpoint high-water mark with the [receivedHlc] just merged.
@@ -632,7 +305,10 @@ class OfflineSyncEngine {
     Hlc? receivedHlc,
   ) async {
     final checkpointMax = spaces.checkpointMaxOf(spaceId);
-    if (checkpointMax == null) {
+    // A peer may advertise an empty vector before authoring its first change.
+    // Its committed inbound batch still has an HLC to report.
+    final syncedHlc = checkpointMax?.maxBetween(receivedHlc) ?? receivedHlc;
+    if (syncedHlc == null) {
       OfflineSyncDiagnostics.event('sync.mergeReportSkipped', {
         'reason': 'noCheckpoint',
         'spaceId': spaceId.toString(),
@@ -640,26 +316,8 @@ class OfflineSyncEngine {
       return;
     }
     OfflineSyncDiagnostics.event('sync.mergeReportStart');
-    await onMergeSuccess?.call(spaceId, checkpointMax.maxBetween(receivedHlc));
+    await onMergeSuccess?.call(spaceId, syncedHlc);
     OfflineSyncDiagnostics.event('sync.mergeReportEnd');
-  }
-
-  /// Drains [iterator] until the peer closes the stream.
-  ///
-  /// Used to settle the inbound transport after the `once` close handshake so
-  /// its controller reaches "done" with an active listener instead of being
-  /// torn down while paused. Trailing events (idle timeouts, late frames) are
-  /// discarded; errors are swallowed since the transport is closing anyway.
-  static Future<void> _drainUntilDone(
-    StreamIterator<OfflineSyncStreamEvent> iterator,
-  ) async {
-    try {
-      while (await iterator.moveNext()) {
-        // Discard whatever the peer sends before it closes its side.
-      }
-    } on Object catch (_) {
-      // Best-effort: the transport is shutting down.
-    }
   }
 
   void _validateSyncTablesHash(String syncTablesHash) {
@@ -1405,6 +1063,43 @@ Expression _afterAnySpaceCheckpointFilter(
   return hasCheckpoint
       ? caseExpression.orElse(Constant.bool(true))
       : Constant.bool(true);
+}
+
+/// Exact facts received successfully on this stream, awaiting outbound scan.
+/// Eviction only restores redundant traffic; it never implies peer progress.
+class _ReceivedChanges {
+  static const _maxEntries = 256;
+  static const _maxCharacters = 128 * 1024;
+
+  final _encoded = <String>{};
+  var _characters = 0;
+
+  void addAll(Iterable<String> changes) {
+    for (final change in changes) {
+      if (change.length > _maxCharacters || !_encoded.add(change)) continue;
+      _characters += change.length;
+      while (_encoded.length > _maxEntries || _characters > _maxCharacters) {
+        final oldest = _encoded.first;
+        _encoded.remove(oldest);
+        _characters -= oldest.length;
+      }
+    }
+  }
+
+  bool remove(CrdtMergeChange change) {
+    if (_encoded.isEmpty) return false;
+    // Insert payloads can change while retaining their original insert HLC.
+    // Match the complete payload, never just the row identity and clock.
+    final encoded = jsonEncode(change);
+    if (!_encoded.remove(encoded)) return false;
+    _characters -= encoded.length;
+    return true;
+  }
+
+  void clear() {
+    _encoded.clear();
+    _characters = 0;
+  }
 }
 
 extension on Map<String, dynamic> {

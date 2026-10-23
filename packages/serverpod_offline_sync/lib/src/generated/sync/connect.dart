@@ -11,7 +11,7 @@
 
 part of 'stream_event.dart';
 
-/// Session handshake sent once by each peer before any space work.
+/// Session identity and initial grants sent together before any space work.
 ///
 /// [localNodeId] is the syncing user's local clock node on this peer. It is
 /// announced once on connect and is informational.
@@ -22,11 +22,13 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
   OfflineSyncConnect._({
     required this.localNodeId,
     required this.syncTablesHash,
+    required this.spaces,
   });
 
   factory OfflineSyncConnect({
     required _iss.UuidValue localNodeId,
     required String syncTablesHash,
+    required List<_icw2tu00.OfflineSyncSpaceGrant> spaces,
   }) = _OfflineSyncConnectImpl;
 
   factory OfflineSyncConnect.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -35,6 +37,10 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
         jsonSerialization['localNodeId'],
       ),
       syncTablesHash: jsonSerialization['syncTablesHash'] as String,
+      spaces: _icw2tu00.Protocol()
+          .deserialize<List<_icw2tu00.OfflineSyncSpaceGrant>>(
+            jsonSerialization['spaces'],
+          ),
     );
   }
 
@@ -44,6 +50,9 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
   /// The hash of the synchronized schema configured on this peer.
   String syncTablesHash;
 
+  /// Initial authoritative grants. A follower announces an empty list.
+  List<_icw2tu00.OfflineSyncSpaceGrant> spaces;
+
   /// Returns a shallow copy of this [OfflineSyncConnect]
   /// with some or all fields replaced by the given arguments.
   @override
@@ -51,6 +60,7 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
   OfflineSyncConnect copyWith({
     _iss.UuidValue? localNodeId,
     String? syncTablesHash,
+    List<_icw2tu00.OfflineSyncSpaceGrant>? spaces,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -58,6 +68,7 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
       '__className__': 'serverpod_offline_sync.OfflineSyncConnect',
       'localNodeId': localNodeId.toJson(),
       'syncTablesHash': syncTablesHash,
+      'spaces': spaces.toJson(valueToJson: (v) => v.toJson()),
     };
   }
 
@@ -67,6 +78,7 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
       '__className__': 'serverpod_offline_sync.OfflineSyncConnect',
       'localNodeId': localNodeId.toJson(),
       'syncTablesHash': syncTablesHash,
+      'spaces': spaces.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
   }
 
@@ -80,9 +92,11 @@ class _OfflineSyncConnectImpl extends OfflineSyncConnect {
   _OfflineSyncConnectImpl({
     required _iss.UuidValue localNodeId,
     required String syncTablesHash,
+    required List<_icw2tu00.OfflineSyncSpaceGrant> spaces,
   }) : super._(
          localNodeId: localNodeId,
          syncTablesHash: syncTablesHash,
+         spaces: spaces,
        );
 
   /// Returns a shallow copy of this [OfflineSyncConnect]
@@ -92,10 +106,12 @@ class _OfflineSyncConnectImpl extends OfflineSyncConnect {
   OfflineSyncConnect copyWith({
     _iss.UuidValue? localNodeId,
     String? syncTablesHash,
+    List<_icw2tu00.OfflineSyncSpaceGrant>? spaces,
   }) {
     return OfflineSyncConnect(
       localNodeId: localNodeId ?? this.localNodeId,
       syncTablesHash: syncTablesHash ?? this.syncTablesHash,
+      spaces: spaces ?? this.spaces.map((e0) => e0.copyWith()).toList(),
     );
   }
 }
