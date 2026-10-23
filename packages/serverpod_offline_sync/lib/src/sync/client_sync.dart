@@ -65,7 +65,7 @@ class OfflineSyncClient {
     // ignore: close_sinks
     final outboundChanges = StreamController<OfflineSyncStreamEvent>();
     final doneCompleter = Completer<void>();
-    var cancelled = false;
+    Future<void>? cancellation;
 
     try {
       final remoteStream = _transport(
@@ -94,19 +94,16 @@ class OfflineSyncClient {
 
       return OfflineSyncSubscription._(
         done: doneCompleter.future.whenComplete(outboundChanges.closeOrSkip),
-        cancel: () async {
-          if (cancelled) return;
-          cancelled = true;
-
+        cancel: () => cancellation ??= () async {
           unawaited(outboundChanges.closeOrSkip());
           if (doneCompleter.isCompleted) return;
           const waitTimeout = Duration(milliseconds: 200);
           // Prefer graceful shutdown: closing outbound lets the server finish
           // and complete [done] via [subscription.onDone].
           await doneCompleter.future.timeout(waitTimeout, onTimeout: () {});
-          await subscription.cancel().timeout(waitTimeout, onTimeout: () {});
+          await subscription.cancel();
           doneCompleter.completeOrSkip();
-        },
+        }(),
       );
     } catch (_) {
       unawaited(outboundChanges.closeOrSkip());

@@ -13,6 +13,7 @@ import '../crdt/merge.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../spaces/membership.dart';
+import '../sync/cancellation.dart';
 import '../sync/engine.dart';
 import '../sync/exceptions.dart';
 import '../sync/integrity_violation.dart';
@@ -175,12 +176,19 @@ class OfflineSyncDatabase implements Database {
   /// personal space. The merge advances [userId]'s clock and keeps each fact's
   /// source node. It skips the write-role check, so authorize the source of
   /// [mergeSet] first, as [sync] does.
+  ///
+  /// If [cancellation] is requested before the merge callback finishes, the merge
+  /// rolls back and throws [OfflineSyncCancelledException]. The transaction
+  /// boundary waits for cleanup; cancellation does not interrupt an executing
+  /// SQL statement or undo a transaction already committing.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet, {
     UuidValue? userId,
     UuidValue? spaceId,
+    OfflineSyncCancellation? cancellation,
   }) async {
     if (mergeSet.isEmpty) return;
+    cancellation?.throwIfCancelled();
     await _ensureInitialized();
 
     final effectiveUserId =
@@ -189,24 +197,30 @@ class OfflineSyncDatabase implements Database {
         (throw StateError(
           'A user ID is required when merging changes without a persistent user.',
         ));
-    // Source nodes are shared by every space; commit them before locking.
-    await _recorder.ensureSourceNodes({
-      for (final change in mergeSet) change.uuidNodeId,
-    });
-    try {
-      await _transactionAs<void>(
-        effectiveUserId,
-        spaceId ?? effectiveUserId,
-        (tx) => _recorder.mergeChanges(mergeSet, tx),
-        authoring: false,
-      );
-    } on OfflineSyncIntegrityViolationException catch (exception) {
-      final persistedViolation = await recordOfflineSyncIntegrityViolation(
-        _delegate.session,
-        violation: exception.violation,
-      );
-      throw OfflineSyncIntegrityViolationException(persistedViolation);
-    }
+    final effectiveSpaceId = spaceId ?? effectiveUserId;
+    await _context.runMerge(effectiveUserId, effectiveSpaceId, () async {
+      cancellation?.throwIfCancelled();
+      // Source nodes are shared by every space; commit them before locking.
+      await _recorder.ensureSourceNodes({
+        for (final change in mergeSet) change.uuidNodeId,
+      });
+      cancellation?.throwIfCancelled();
+      try {
+        await _transactionAs<void>(
+          effectiveUserId,
+          effectiveSpaceId,
+          (tx) => _recorder.mergeChanges(mergeSet, tx),
+          authoring: false,
+          cancellation: cancellation,
+        );
+      } on OfflineSyncIntegrityViolationException catch (exception) {
+        final persistedViolation = await recordOfflineSyncIntegrityViolation(
+          _delegate.session,
+          violation: exception.violation,
+        );
+        throw OfflineSyncIntegrityViolationException(persistedViolation);
+      }
+    }, cancellation: cancellation);
   }
 
   @override
@@ -1130,6 +1144,7 @@ class OfflineSyncDatabase implements Database {
     TransactionFunction<R> action, {
     required bool authoring,
     TransactionSettings? settings,
+    OfflineSyncCancellation? cancellation,
   }) async {
     final space = await _recorder.getOrCreateSpace(spaceId);
     final clockNode = await _recorder.getOrCreateUserNode(userId);
@@ -1137,19 +1152,23 @@ class OfflineSyncDatabase implements Database {
 
     return _delegate.transaction<R>(
       (tx) async {
-        try {
-          spaceForTransaction[tx] = space;
-          userForTransaction[tx] = userId;
-          clockNodeForTransaction[tx] = clockNode;
-          return await _recorder.withUserClock(tx, (tx) async {
-            await _recorder.lockUserClock(tx);
-            return action(tx);
-          });
-        } finally {
-          spaceForTransaction.remove(tx);
-          userForTransaction.remove(tx);
-          clockNodeForTransaction.remove(tx);
+        Future<R> run() async {
+          try {
+            spaceForTransaction[tx] = space;
+            userForTransaction[tx] = userId;
+            clockNodeForTransaction[tx] = clockNode;
+            return await _recorder.withUserClock(tx, (tx) async {
+              await _recorder.lockUserClock(tx);
+              return action(tx);
+            });
+          } finally {
+            spaceForTransaction.remove(tx);
+            userForTransaction.remove(tx);
+            clockNodeForTransaction.remove(tx);
+          }
         }
+
+        return cancellation == null ? run() : cancellation.run(tx, run);
       },
       settings: settings,
     );
