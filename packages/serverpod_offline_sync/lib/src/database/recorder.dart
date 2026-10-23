@@ -30,6 +30,7 @@ part 'merge.dart';
 part 'merge_admission.dart';
 part 'merge_insert_batch.dart';
 part 'merge_write_batch.dart';
+part 'sync_recovery.dart';
 
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 
@@ -58,26 +59,43 @@ class OfflineSyncDatabaseContext {
 
   final _MergeAdmission? _mergeAdmission;
 
-  static final _transactionChanges = Expando<Set<UuidValue>>();
+  static final _transactionChanges = Expando<Map<UuidValue, UuidValue>>();
   final _spaceListeners = <UuidValue, Set<void Function()>>{};
+  final _syncRecovery = _SyncRecovery();
+
+  /// Watches committed space versions and membership through one shared scan.
+  /// Closing the subscription joins any scan using [session], so its caller can
+  /// safely release the database session afterwards.
+  @internal
+  OfflineSyncRecoverySubscription watchCommittedState({
+    required DatabaseSession session,
+    required UuidValue userId,
+    required Iterable<UuidValue> spaces,
+    required void Function() onChanged,
+  }) => _syncRecovery.subscribe(session, userId, spaces, onChanged);
 
   /// Subscribes to local commit hints for one space. The returned function
   /// removes the subscription. Hints carry no data or checkpoint authority.
   @internal
   void Function() onSpaceChanged(UuidValue space, void Function() listener) {
-    (_spaceListeners[space] ??= {}).add(listener);
+    final callback = Zone.current.bindCallback(listener);
+    (_spaceListeners[space] ??= {}).add(callback);
     return () {
       final listeners = _spaceListeners[space];
-      listeners?.remove(listener);
+      listeners?.remove(callback);
       if (listeners?.isEmpty ?? false) _spaceListeners.remove(space);
     };
   }
 
-  /// Marks a space touched by a transaction owned by a sync database wrapper.
+  /// Records the revision written by a transaction owned by a sync wrapper.
   /// Caller-owned transactions and other processes use periodic catch-up.
   @internal
-  void recordSpaceChange(Transaction transaction, UuidValue space) {
-    _transactionChanges[transaction]?.add(space);
+  void recordSpaceChange(
+    Transaction transaction,
+    UuidValue space,
+    UuidValue revision,
+  ) {
+    _transactionChanges[transaction]?[space] = revision;
   }
 
   /// Publishes coalesced hints only after the database transaction completes.
@@ -87,7 +105,7 @@ class OfflineSyncDatabaseContext {
     TransactionFunction<R> action, {
     TransactionSettings? settings,
   }) async {
-    final changed = <UuidValue>{};
+    final changed = <UuidValue, UuidValue>{};
     final result = await OfflineSyncDiagnostics.transaction<R>(
       database,
       (transaction) async {
@@ -105,15 +123,19 @@ class OfflineSyncDatabaseContext {
         ? (Stopwatch()..start())
         : null;
     var listenersNotified = 0;
-    for (final space in changed) {
+    for (final entry in changed.entries) {
+      final space = entry.key;
+      var delivered = true;
       for (final listener in _spaceListeners[space]?.toList() ?? const []) {
         try {
           listener();
           listenersNotified++;
         } on Object {
           // A best-effort hint cannot turn a committed write into a failure.
+          delivered = false;
         }
       }
+      if (delivered) _syncRecovery.recordLocalCommit(space, entry.value);
     }
     if (notificationWatch != null) {
       OfflineSyncDiagnostics.event('sync.commitNotification', {

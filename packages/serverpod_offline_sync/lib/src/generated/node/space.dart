@@ -27,13 +27,16 @@ abstract class OfflineSyncSpace
     this.id,
     _iss.UuidValue? uuidSpaceId,
     this.lastHlc,
+    _iss.UuidValue? revision,
     this.nodes,
-  }) : uuidSpaceId = uuidSpaceId ?? const _iss.Uuid().v7obj();
+  }) : uuidSpaceId = uuidSpaceId ?? const _iss.Uuid().v7obj(),
+       revision = revision ?? const _iss.Uuid().v7obj();
 
   factory OfflineSyncSpace({
     int? id,
     _iss.UuidValue? uuidSpaceId,
     _icw2tu00.Hlc? lastHlc,
+    _iss.UuidValue? revision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
   }) = _OfflineSyncSpaceImpl;
 
@@ -48,6 +51,9 @@ abstract class OfflineSyncSpace
       lastHlc: jsonSerialization['lastHlc'] == null
           ? null
           : _icw2tu00.Hlc.fromJson(jsonSerialization['lastHlc']),
+      revision: jsonSerialization['revision'] == null
+          ? null
+          : _iss.UuidValueJsonExtension.fromJson(jsonSerialization['revision']),
       nodes: jsonSerialization['nodes'] == null
           ? null
           : _icw2tu00.Protocol()
@@ -73,6 +79,10 @@ abstract class OfflineSyncSpace
   /// other users' clocks.
   _icw2tu00.Hlc? lastHlc;
 
+  /// Opaque commit revision for recovery hints, changed under the space lock.
+  /// This is neither a logical timestamp nor a synchronization checkpoint.
+  _iss.UuidValue revision;
+
   /// The nodes associated with the space and their per-space checkpoints.
   List<_icw2tu00.OfflineSyncSpaceNode>? nodes;
 
@@ -86,6 +96,7 @@ abstract class OfflineSyncSpace
     int? id,
     _iss.UuidValue? uuidSpaceId,
     _icw2tu00.Hlc? lastHlc,
+    _iss.UuidValue? revision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
         const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   });
@@ -96,6 +107,7 @@ abstract class OfflineSyncSpace
       if (id != null) 'id': id,
       'uuidSpaceId': uuidSpaceId.toJson(),
       if (lastHlc != null) 'lastHlc': lastHlc?.toJson(),
+      'revision': revision.toJson(),
       if (nodes != null) 'nodes': nodes?.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -114,6 +126,7 @@ abstract class OfflineSyncSpace
             :
               // ignore: dead_code
               lastHlc?.toJson(),
+      'revision': revision.toJson(),
       if (nodes != null)
         'nodes': nodes?.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
@@ -156,11 +169,13 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
     int? id,
     _iss.UuidValue? uuidSpaceId,
     _icw2tu00.Hlc? lastHlc,
+    _iss.UuidValue? revision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
   }) : super._(
          id: id,
          uuidSpaceId: uuidSpaceId,
          lastHlc: lastHlc,
+         revision: revision,
          nodes: nodes,
        );
 
@@ -172,6 +187,7 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
     Object? id = _Undefined,
     _iss.UuidValue? uuidSpaceId,
     Object? lastHlc = _Undefined,
+    _iss.UuidValue? revision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
         const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   }) {
@@ -179,6 +195,7 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
       id: id is int? ? id : this.id,
       uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
       lastHlc: lastHlc is _icw2tu00.Hlc? ? lastHlc : this.lastHlc?.copyWith(),
+      revision: revision ?? this.revision,
       nodes: nodes is _iss.UndefinedSentinel
           ? this.nodes?.map((e0) => e0.copyWith()).toList()
           : nodes,
@@ -203,6 +220,13 @@ class OfflineSyncSpaceUpdateTable
     table.lastHlc,
     value,
   );
+
+  _isd.ColumnValue<_iss.UuidValue, _iss.UuidValue> revision(
+    _iss.UuidValue value,
+  ) => _isd.ColumnValue(
+    table.revision,
+    value,
+  );
 }
 
 class OfflineSyncSpaceTable extends _isd.Table<int?> {
@@ -218,6 +242,11 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
       'lastHlc',
       this,
     );
+    revision = _isd.ColumnUuid(
+      'revision',
+      this,
+      hasDefault: true,
+    );
   }
 
   late final OfflineSyncSpaceUpdateTable updateTable;
@@ -230,6 +259,10 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
   /// Writes observe it under the space lock, so they follow facts committed by
   /// other users' clocks.
   late final _isd.ColumnStructured<_icw2tu00.Hlc> lastHlc;
+
+  /// Opaque commit revision for recovery hints, changed under the space lock.
+  /// This is neither a logical timestamp nor a synchronization checkpoint.
+  late final _isd.ColumnUuid revision;
 
   /// The nodes associated with the space and their per-space checkpoints.
   _icw2tu00.OfflineSyncSpaceNodeTable? ___nodes;
@@ -278,6 +311,7 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
     id,
     uuidSpaceId,
     lastHlc,
+    revision,
   ];
 
   @override

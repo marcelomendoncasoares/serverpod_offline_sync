@@ -40,7 +40,7 @@ class _UserClock {
   final spaceHighWater = <int, Hlc?>{};
 
   /// Spaces whose clock must be stored.
-  final usedInSpaces = <int>{};
+  final usedInSpaces = <int, UuidValue>{};
 }
 
 /// Shared state and database access for the CRDT recorder and its helpers.
@@ -174,8 +174,9 @@ class CrdtRecorderContext {
   Future<void> persistUserClock(Transaction transaction) =>
       _persistUserClock(_userClockFor(transaction), transaction);
 
-  /// Stores the clock and the high-water mark of each space it was used in,
-  /// when they moved. A transaction that only read stores nothing.
+  /// Stores the clock and each touched space's high-water mark and revision.
+  /// A received older fact may leave the HLC unchanged, but must change the
+  /// revision so other processes can recover its commit. Reads store nothing.
   Future<void> _persistUserClock(
     _UserClock userClock,
     Transaction transaction,
@@ -193,17 +194,22 @@ class CrdtRecorderContext {
       );
     }
 
-    for (final spaceId in userClock.usedInSpaces) {
+    for (final entry in userClock.usedInSpaces.entries) {
+      final spaceId = entry.key;
       final highWater = userClock.spaceHighWater[spaceId];
-      if (highWater != null && lastHlc <= highWater) continue;
+      final revision = const Uuid().v7obj();
       await OfflineSyncSpace.db.updateWhere(
         databaseSession,
-        columnValues: (t) => [t.lastHlc(lastHlc)],
+        columnValues: (t) => [
+          if (highWater == null || lastHlc > highWater) t.lastHlc(lastHlc),
+          t.revision(revision),
+        ],
         where: (t) => t.id.equals(spaceId),
         transaction: transaction,
         noReturn: true,
       );
-      userClock.spaceHighWater[spaceId] = lastHlc;
+      databaseContext.recordSpaceChange(transaction, entry.value, revision);
+      userClock.spaceHighWater[spaceId] = lastHlc.maxBetween(highWater);
     }
     userClock
       ..persisted = lastHlc
@@ -1055,11 +1061,7 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
       spaceId,
       userClock.node,
       onUse: () {
-        userClock.usedInSpaces.add(spaceId);
-        databaseContext.recordSpaceChange(
-          transaction,
-          space.uuidSpaceId,
-        );
+        userClock.usedInSpaces[spaceId] = space.uuidSpaceId;
       },
     );
   }
