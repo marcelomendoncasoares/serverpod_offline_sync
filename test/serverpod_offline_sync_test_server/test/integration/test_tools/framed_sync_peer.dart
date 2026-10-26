@@ -33,6 +33,7 @@ class FramedSyncPeer {
   static Future<FramedSyncPeer> open(SyncNode node, {UuidValue? userId}) async {
     final actingUser = userId ?? testCrdtUserId;
     final peer = FramedSyncPeer();
+    final handshakes = <UuidValue>{};
     addTearDown(peer.close);
     OfflineSyncDiagnostics.run(
       (event) {
@@ -55,18 +56,27 @@ class FramedSyncPeer {
           .listen(
             (event) {
               if (event is OfflineSyncConnect) {
-                peer.inbound
-                  ..add(
-                    OfflineSyncConnect(
-                      localNodeId: const Uuid().v7obj(),
-                      syncTablesHash: event.syncTablesHash,
-                      spaces: const [],
+                peer.inbound.add(
+                  OfflineSyncConnect(
+                    localNodeId: const Uuid().v7obj(),
+                    syncTablesHash: event.syncTablesHash,
+                    spaces: const [],
+                  ),
+                );
+              } else if (event is OfflineSyncSinceHlc) {
+                if (handshakes.add(event.uuidSpaceId)) {
+                  peer.inbound.add(
+                    OfflineSyncSinceHlc(
+                      uuidSpaceId: event.uuidSpaceId,
+                      nodeCheckpoints: [],
                     ),
-                  )
-                  ..add(
-                    OfflineSyncSinceHlc(uuidSpaceId: actingUser, nodeCheckpoints: []),
-                  )
-                  ..add(OfflineSyncReady());
+                  );
+                }
+              } else if (event is OfflineSyncReady) {
+                peer.inbound.add(OfflineSyncReady());
+              } else if (event is OfflineSyncSpaceSet) {
+                final active = event.spaces.map((g) => g.uuidSpaceId).toSet();
+                handshakes.removeWhere((id) => !active.contains(id));
               } else if (event is OfflineSyncMergeChunk) {
                 peer.outbound.addAll(event.changes);
                 for (final change in event.changes) {
