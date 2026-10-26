@@ -139,6 +139,41 @@ class CrdtRecorderContext {
     }();
   }
 
+  /// Locks all spaces before nested savepoints can release any acquired lock.
+  Future<void> lockUserClockInSpaces(
+    Transaction transaction,
+    Iterable<int> spaceIds,
+  ) async {
+    final userClock = _userClockFor(transaction);
+    await (userClock.nodeLocked ??= _lockClockNode(userClock, transaction));
+    for (final spaceId in spaceIds.toSet().toList()..sort()) {
+      await (userClock.spacesLocked[spaceId] ??= _lockSpace(
+        userClock,
+        spaceId,
+        transaction,
+      ));
+    }
+  }
+
+  /// Matches in-memory clock changes to a nested SQL savepoint's outcome.
+  Future<R> withUserClockSavepoint<R>(
+    Transaction transaction,
+    TransactionFunction<R> action,
+  ) async {
+    final userClock = _userClockFor(transaction);
+    final lastHlc = userClock.node.lastHlc;
+    final usedInSpaces = Set<int>.of(userClock.usedInSpaces);
+    try {
+      return await action(transaction);
+    } catch (_) {
+      userClock.node.lastHlc = lastHlc;
+      userClock.usedInSpaces
+        ..clear()
+        ..addAll(usedInSpaces);
+      rethrow;
+    }
+  }
+
   Future<void> _lockClockNode(_UserClock userClock, Transaction transaction) async {
     final nodeId = userClock.node.id!;
     final node = await CrdtNode.db.findById(

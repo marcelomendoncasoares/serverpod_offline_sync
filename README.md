@@ -201,6 +201,11 @@ access.
   to target the correct space.
 - **On the client**, set a `persistentUserId` to target the personal space by
   default, or use `transactionForUser` to target a shared space.
+- To write in more than one space in a single local commit, use
+  `transactionForSpaces(userId, {spaceA, spaceB}, (spaces) async { ... })` and
+  await `spaces.runForSpace(spaceId, (tx) async { ... })` for each space.
+  Preparation happens automatically before the transaction and survives a
+  domain rollback. See the [transaction API](docs/shared-spaces.md#transaction-api).
 
 Shared spaces are created and managed **on the server only** through the
 `session.offlineSync.spaces` API.

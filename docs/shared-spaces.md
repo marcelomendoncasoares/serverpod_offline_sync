@@ -66,10 +66,11 @@ membership relation and a sync protocol that iterates spaces.
    `offline_sync_space_members` (plus the implicit personal space) and never widens it
    from anything the client sends. A space the user is not a member of is never
    synced, even if the client names it.
-5. **One space per transaction.** Reads are membership-wide; writes stay pinned
-   to exactly one space. This is deliberate honesty about CRDT semantics: two
-   spaces' chains replicate independently and a remote replica can never
-   observe a cross-space write atomically.
+5. **One space per write scope.** Reads are membership-wide; writes stay pinned
+   to exactly one space per `runForSpace` call. `transactionForSpaces` prepares
+   all declared spaces before opening their shared SQL transaction. Two spaces'
+   chains replicate independently and a remote replica can never observe a
+   cross-space write atomically.
 6. **Roles are closed CRDT access roles.** The package stores and projects
    non-null `OfflineSyncSpaceRole` values in space grants and shared memberships:
    `readWrite` allows CRDT writes and `readOnly` blocks them. The implicit
@@ -143,9 +144,10 @@ timestamps it:
   wait, and rows that only reference the locked ones are not blocked.
 - The clock observes the space's `lastHlc` under the lock, so a write follows
   every fact already committed to the space, even from a clock that ran ahead.
-- The clock and the space's `lastHlc` are stored once, when the transaction
-  completes. A write in a caller-owned transaction stores them inside its own
-  savepoint instead.
+- `transactionForUser` and `transactionForSpaces` store the clock and affected
+  spaces' `lastHlc` once, when the transaction completes. Writes in plain or
+  caller-owned transactions reload and store clocks inside each write's
+  savepoint, because a caller rollback can release their lazily acquired locks.
 - `transactionForUser` locks before its callback, even for reads. Plain
   transactions on a persistent client lock at their first tracked write.
 
@@ -452,24 +454,83 @@ change.
 
 ## Transaction API
 
-`transactionForUser` keeps its name and user-first semantics and gains an
-optional space:
+`transactionForUser` keeps its existing single-space interface. Use
+`transactionForSpaces` when several spaces must share one local commit:
 
 ```dart
-db.transactionForUser(userId, fn);                  // acts in the personal space
-db.transactionForUser(userId, fn, spaceId: listId); // acts in a shared space
+// Acting in the personal space
+await session.db.transactionForUser(userId, fn);
+
+// Acting in a shared space
+await session.db.transactionForUser(userId, fn, spaceId: listId);
+
+// Acting in multiple shared spaces atomically
+await session.db.transactionForSpaces(userId, {spaceA, spaceB}, (spaces) async {
+  await spaces.runForSpace(spaceA, (tx) async {
+    await Person.db.insertRow(session, alice, transaction: tx);
+  });
+  await spaces.runForSpace(spaceB, (tx) async {
+    await Person.db.insertRow(session, bob, transaction: tx);
+  });
+});
 ```
 
-- Without `spaceId`, the space resolves to the user's personal space —
-  `userId` itself by convention — which is exactly today's behavior.
-- With `spaceId`, the package resolves the member role with
-  `OfflineSyncSpaceMembership.roleOf` — no injected validator. On the server that table
-  is authoritative; on a persistent client it is the server-projected membership
-  cache. A missing role throws `OfflineSyncSpaceMembershipException`; anything other
-  than `readWrite` throws `OfflineSyncSpaceRoleException` before the transaction starts.
-- A transaction acts in **exactly one** space (constraint 5). The write path —
-  stamp-or-assert, the space-scoped `WHERE`, `spaceId` immutability — is unchanged
-  beyond which space is resolved.
+- Both entry points initialize the database and prepare spaces, the acting user's clock, and
+  space-node participation **before opening the domain transaction**. Preparation
+  commits separately and survives a later domain rollback. Shared-space
+  creation and grants still belong to the server space-management API and must
+  already be committed. Automatic preparation does not grant access.
+- Calling `transactionForUser` defaults to the personal space (the `userId`
+  itself). Calling `transactionForSpaces` takes one authenticated user and a
+  set of declared space UUIDs that such user is a member of (the caller is
+  responsible for authenticating that identity).
+- Write authorization is checked for every declared shared space before the
+  transaction callback, using `OfflineSyncSpaceMembership.roleOf`. On the server
+  that table is authoritative; on a persistent client it is the server-projected
+  membership cache. A missing role throws `OfflineSyncSpaceMembershipException`;
+  anything other than `readWrite` throws `OfflineSyncSpaceRoleException`.
+- The callback receives an `OfflineSyncSpacesTransaction`. Its
+  `runForSpace(spaceId, fn)` binds a declared space and supplies the shared SQL
+  transaction to `fn`. Pass that `tx` to ORM calls as shown above. Each scope
+  returns its callback's result, as does the enclosing transaction.
+- `runForSpace` checks membership again using the transaction. Membership-wide
+  reads also use that transaction, so grants, role changes, and revocations made
+  there are visible immediately. Reads retain their existing membership-wide
+  behavior; the declared set limits which spaces the context can act in.
+- Tracked reads and writes must run inside an active `runForSpace` callback.
+  Reusing its transaction between scopes throws `StateError`, including through another
+  wrapper or a persistent-user session. Catching that rejection still permits
+  entering another declared scope.
+- Each `runForSpace` acts in **exactly one** space (constraint 5), with its own
+  savepoint. A caught failure rolls back that scope's writes and in-memory
+  clock changes and restores the previous binding; an uncaught failure rolls
+  back the entire domain transaction, including its CRDT changes. Preparation remains committed.
+- Await each scope before using the transaction again. Awaited nested scopes
+  are supported and restore the outer binding after success or failure.
+  Overlapping sibling calls throw `StateError` before creating a savepoint.
+  Independent transactions can be started concurrently; transactions for the
+  same user or overlapping declared spaces serialize.
+- Reading or writing through a parent binding while a child scope runs, or
+  returning from a parent while its child still runs, invalidates the transaction
+  even if the callback catches the error. Raw SQL and untracked tables do not resolve
+  space bindings, so callers must still obey the await rule for those operations.
+- A failed savepoint rollback also invalidates the entire transaction. Abort a
+  scope by throwing; let the exception escape the enclosing callback to abort
+  all writes. Do not call `tx.cancel()` inside a scope: cancellation prevents
+  Serverpod's savepoint cleanup and produces a cleanup error.
+- The transaction locks the acting user's clock, then every declared space in
+  database ID order before invoking the callback. PostgreSQL uses
+  `FOR NO KEY UPDATE`. Locks survive nested savepoint rollbacks; the user clock
+  and high-water marks of spaces with successful writes are stored at the end.
+  Do not await a separate transaction for the same user or any declared space
+  inside the callback: it waits for this transaction to finish. Under
+  `REPEATABLE READ`, a waiter may fail with a serialization error.
+- An undeclared space throws `ArgumentError`. The context expires when the
+  transaction callback returns or throws; using it afterwards throws `StateError`.
+  `transactionForSpaces` owns its SQL transaction and does not accept an existing
+  one. Both transaction entry points retain the optional `settings` argument.
+- Atomicity is local: spaces replicate independently, so remote replicas cannot
+  observe a cross-space write atomically.
 
 ## Read path: membership-wide
 
@@ -503,60 +564,6 @@ applies with the transaction's resolved space; the durable
 `offline_sync_integrity_violations` contract now also records unauthorized role
 writes. The merge, FK, and unique engines already key on the space the merge
 runs in and need no ownership changes for sharing.
-
-## Implementation status
-
-The implementation landed in independently green phases. Tests should continue
-to run with `--concurrency=1`.
-
-- **Phase 1 — membership foundation.** Implemented `offline_sync_space_members`
-  (`database: all`, unsynced) and its migration. Added the shared
-  `OfflineSyncSpaceMembership` helpers (`memberGrants`, `memberSpaces`, `roleOf`,
-  `isMember`, and the follower projection path). No behavior change yet: a
-  personal-space-only set reproduces today's single-space sync exactly.
-- **Phase 2 — sequential multi-space sync (the requirement).** Implemented
-  protocol model
-  changes (`Connect` with session `localNodeId`, new per-cycle
-  `OfflineSyncSpaceSet`, per-space `SinceHlc`, `MergeChunk.uuidSpaceId`) plus
-  generate/migrate. Outer cycle loop in `OfflineSyncEngine.sync` with per-cycle
-  `SpaceSet` exchange with role-carrying `OfflineSyncSpaceGrant`s, per-space
-  handshake-on-first-visit, in-memory per-space checkpoints, and the
-  once/continuous cadence. Reconciliation via a
-  `OfflineSyncPeerMode` enum: the server endpoint passes `authoritative` (cycles
-  `OfflineSyncSpaceMembership.memberGrants`); the client driver passes `follower`
-  (adopts the server's set). Space-aware `onMergeSuccess`. A personal-space-only
-  device behaves identically to today.
-- **Phase 3 — transaction API.** Implemented
-  `transactionForUser(userId, fn, {spaceId})` with the membership assertion;
-  one space per transaction.
-- **Phase 4 — membership-wide reads.** Implemented the space-scoped read filter as
-  `spaceId IN (…)` over the user's member spaces.
-- **Phase 5 — lifecycle and docs.** Documented client adoption of newly
-  announced shares; reconcile with the space-purge semantics in
-  `sync-non-sync-relations.md`.
-  Revocation cleanup is deferred (see *Follow-ups*).
-- **Phase 6 — idle-silent sync, one method.** Reworked the single `sync` method
-  (no separate once/continuous bodies) into a shared lockstep establishment plus
-  a shared combined data loop: each cycle coalesces into one space-scoped-change batch
-  terminated by a single `EndOfBatch`, with `SpaceSet`/`SinceHlc`/`MergeChunk`
-  sent only on change and read via `collectNextBatch`. An idle continuous
-  session now sends zero frames and idles out once per cycle regardless of space
-  count (Phase 2's loop re-announced the set and an `EndOfBatch` per space every
-  tick). `once` runs one data cycle then closes; mid-session continuous spaces are
-  deferred until their `SinceHlc` round-trips, and inbound frames are honored
-  only for authorized spaces.
-- **Phase 7 — roles within a space.** Implemented the closed
-  `OfflineSyncSpaceRole` enum (`readOnly`, `readWrite`) on server and client.
-  `readWrite` is the only shared-space write grant. Added authoritative inbound
-  enforcement that records
-  `unauthorizedWrite` and fails before merge, client-side
-  `OfflineSyncSpaceRoleException` early rejection, and follower outbound skipping for
-  non-writable shared spaces while reads remain membership-wide.
-- **Phase 8 — space management service.** Implemented the server-side
-  `session.offlineSync.spaces` service (`create`, `createFor`, `grant`, `grantAll`,
-  `revoke`, `members`) with transaction/savepoint threading. Single grants reuse
-  the bulk-grant path; unknown-space grants throw `OfflineSyncSpaceNotFoundException`.
-  Invitations, acceptance, and authorization policy stay in app endpoints.
 
 ## Test plan
 
@@ -634,9 +641,9 @@ tested once, not per combination.
 - **Iteration order:** sorted space UUIDs, so both peers stay in lockstep
   without negotiation. Each merge change carries its space UUID, so receive can
   regroup a combined batch deterministically.
-- **One space per transaction:** kept. Cross-space writes need separate
-  transactions; remote replicas cannot observe a cross-space write atomically
-  anyway.
+- **One space per write scope:** kept. Several `runForSpace` calls inside
+  `transactionForSpaces` share one SQL transaction; remote replicas cannot
+  observe a cross-space write atomically.
 - **Membership table is `database: all` but unsynced:** the schema exists on
   every node, yet it is server-authoritative app state, never CRDT-replicated.
 - **Idle chatter removed:** continuous sync has one combined data loop per
