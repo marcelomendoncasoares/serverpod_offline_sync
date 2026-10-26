@@ -888,6 +888,52 @@ void main() {
       expect(rows.map((c) => c.uuidRowId), [second.uuidRowId]);
     },
   );
+  test(
+    'Given a complete outbound batch with different clocks from two origins, '
+    'when it is acknowledged after both origins commit newer rows, '
+    'then only the newer rows are sent without skipping the slower origin.',
+    () async {
+      final node = await syncNode(await createAdditionalTestSession(), testSyncTables);
+      final fast = const Uuid().v7obj();
+      final slow = const Uuid().v7obj();
+      final initial = [
+        _insert('fast ten').copyWith(uuidNodeId: fast, hlcCounter: 10),
+        _insert('fast eight').copyWith(uuidNodeId: fast, hlcCounter: 8),
+        _insert('slow five').copyWith(uuidNodeId: slow, hlcCounter: 5),
+      ];
+      await node.offlineSync.db.mergeChanges(initial, userId: testCrdtUserId);
+      final peer = await _Peer.open(node: node);
+      final first = await peer.waitFor<OfflineSyncEndOfBatch>();
+      final initialIds = peer.events
+          .whereType<OfflineSyncMergeChunk>()
+          .expand((event) => event.changes)
+          .map((change) => change.uuidRowId)
+          .toSet();
+      final later = [
+        _insert('fast eleven').copyWith(uuidNodeId: fast, hlcCounter: 11),
+        _insert('slow six').copyWith(uuidNodeId: slow, hlcCounter: 6),
+      ];
+      await node.offlineSync.db.mergeChanges(later, userId: testCrdtUserId);
+
+      // The writer has an independent context. An inbound empty batch wakes
+      // this sender without relying on a polling timer to arrange the race.
+      peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+      await peer.waitFor<OfflineSyncCommitted>();
+      peer.send(OfflineSyncCommitted(batchId: first.batchId));
+      final next = await peer.waitFor<OfflineSyncEndOfBatch>(
+        where: (event) => event.batchId > first.batchId,
+      );
+      final received = peer.events
+          .whereType<OfflineSyncMergeChunk>()
+          .where((event) => event.batchId == next.batchId)
+          .expand((event) => event.changes)
+          .map((change) => change.uuidRowId)
+          .toList();
+
+      expect(initialIds, initial.map((change) => change.uuidRowId).toSet());
+      expect(received, unorderedEquals(later.map((change) => change.uuidRowId)));
+    },
+  );
 }
 
 class _Peer {

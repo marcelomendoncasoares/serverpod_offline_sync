@@ -32,4 +32,6 @@ Cancellation signals the active merge's native rollback and waits for SQL and ca
 
 ## Memory limits
 
+After capture, the sender retains only maximum clocks per space and source for acknowledgement bookkeeping, allowing consumed frames to release row payloads. This vector includes exact echo-suppressed facts and advances checkpoints only after the matching acknowledgement.
+
 The implementation buffers complete outbound snapshots and incoming batches. One outstanding batch limits protocol concurrency, not bytes or peak backlog memory. Any future storage bound must preserve complete snapshot enumeration and durable checkpoint correctness.
