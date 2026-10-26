@@ -1094,6 +1094,7 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
         databaseContext.recordSpaceChange(
           transaction,
           space.uuidSpaceId,
+          userClock.node.lastHlc!,
         );
       },
     );

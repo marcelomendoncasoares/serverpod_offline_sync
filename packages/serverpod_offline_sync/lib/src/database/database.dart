@@ -1176,6 +1176,7 @@ class OfflineSyncDatabase implements Database {
       _delegate,
       transactionFunction,
       settings: settings,
+      verifySavepoints: true,
     );
   }
 

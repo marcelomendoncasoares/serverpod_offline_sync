@@ -12,6 +12,85 @@ import '../test_tools/sync_topology.dart';
 void main() {
   initTestClientSession(createSessionPerTest: false);
 
+  test(
+    'Given a persistent transaction with a caller savepoint before its first write, '
+    'when it rolls back that savepoint and returns without another write, '
+    'then no local wakeup is emitted.',
+    () async {
+      final fixture = await _SpaceWakeups.open(const Uuid().v7obj(), persistent: true);
+
+      await fixture.node.offlineSync.db.transaction((tx) async {
+        final savepoint = await tx.createSavepoint();
+        await Unique.db.insertRow(
+          fixture.node.offlineSync,
+          Unique(id: const Uuid().v7obj(), name: 'discard'),
+          transaction: tx,
+        );
+        await savepoint.rollback();
+      });
+      final rows = await Unique.db.find(fixture.node.raw);
+
+      expect(fixture.notifications, isEmpty);
+      expect(rows, isEmpty);
+    },
+  );
+
+  test(
+    'Given a persistent transaction with a caller savepoint before its first write, '
+    'when it rolls back that savepoint and commits a replacement write, '
+    'then one local wakeup describes only the surviving data.',
+    () async {
+      final fixture = await _SpaceWakeups.open(const Uuid().v7obj(), persistent: true);
+
+      await fixture.node.offlineSync.db.transaction((tx) async {
+        final savepoint = await tx.createSavepoint();
+        await Unique.db.insertRow(
+          fixture.node.offlineSync,
+          Unique(id: const Uuid().v7obj(), name: 'discard'),
+          transaction: tx,
+        );
+        await savepoint.rollback();
+        await Unique.db.insertRow(
+          fixture.node.offlineSync,
+          Unique(id: const Uuid().v7obj(), name: 'replacement'),
+          transaction: tx,
+        );
+      });
+      final rows = await Unique.db.find(fixture.node.raw);
+
+      expect(fixture.notifications, [testCrdtUserId]);
+      expect(rows.map((row) => row.name), ['replacement']);
+    },
+  );
+
+  test(
+    'Given a persistent transaction with a write before its caller savepoint, '
+    'when a later write rolls back to that savepoint and the transaction commits, '
+    'then the earlier surviving write still triggers one local wakeup.',
+    () async {
+      final fixture = await _SpaceWakeups.open(const Uuid().v7obj(), persistent: true);
+
+      await fixture.node.offlineSync.db.transaction((tx) async {
+        await Unique.db.insertRow(
+          fixture.node.offlineSync,
+          Unique(id: const Uuid().v7obj(), name: 'earlier'),
+          transaction: tx,
+        );
+        final savepoint = await tx.createSavepoint();
+        await Unique.db.insertRow(
+          fixture.node.offlineSync,
+          Unique(id: const Uuid().v7obj(), name: 'discard later'),
+          transaction: tx,
+        );
+        await savepoint.rollback();
+      });
+      final rows = await Unique.db.find(fixture.node.raw);
+
+      expect(fixture.notifications, [testCrdtUserId]);
+      expect(rows.map((row) => row.name), ['earlier']);
+    },
+  );
+
   group('Given idle streams for two spaces writable by one user,', () {
     late _SpaceWakeups fixture;
     late FramedSyncPeer personalPeer;
@@ -194,7 +273,10 @@ class _SpaceWakeups {
   final UuidValue sharedSpace;
   final List<UuidValue> notifications;
 
-  static Future<_SpaceWakeups> open(UuidValue sharedSpace) async {
+  static Future<_SpaceWakeups> open(
+    UuidValue sharedSpace, {
+    bool persistent = false,
+  }) async {
     final raw = await createAdditionalTestSession();
     final context = OfflineSyncDatabaseContext(
       syncTables: testSyncTables,
@@ -204,6 +286,7 @@ class _SpaceWakeups {
       raw,
       syncTables: testSyncTables,
       context: context,
+      persistentUserId: persistent ? testCrdtUserId : null,
     );
     await offlineSync.db.initialize();
     final space = await OfflineSyncSpace.db.insertRow(

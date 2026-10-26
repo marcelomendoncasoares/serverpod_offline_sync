@@ -33,6 +33,21 @@ part 'merge_write_batch.dart';
 
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 
+class _TransactionSpaceChanges {
+  _TransactionSpaceChanges(this.verifySavepoints);
+
+  final bool verifySavepoints;
+  final markers = <UuidValue, Set<Hlc>>{};
+
+  void record(UuidValue space, Hlc marker) {
+    if (!verifySavepoints) {
+      markers[space] = {marker};
+      return;
+    }
+    (markers[space] ??= {}).add(marker);
+  }
+}
+
 /// Process-level CRDT database metadata shared by ephemeral database wrappers.
 ///
 /// A single context is created per `OfflineSyncEngine` (i.e. once per Serverpod
@@ -58,7 +73,7 @@ class OfflineSyncDatabaseContext {
 
   final _MergeAdmission? _mergeAdmission;
 
-  static final _transactionChanges = Expando<Set<UuidValue>>();
+  static final _transactionChanges = Expando<_TransactionSpaceChanges>();
   final _spaceListeners = <UuidValue, Set<void Function()>>{};
 
   /// Subscribes to local commit hints for one space. The returned function
@@ -76,8 +91,8 @@ class OfflineSyncDatabaseContext {
   /// Marks a space touched by a transaction owned by a sync database wrapper.
   /// Caller-owned transactions and other processes use periodic catch-up.
   @internal
-  void recordSpaceChange(Transaction transaction, UuidValue space) {
-    _transactionChanges[transaction]?.add(space);
+  void recordSpaceChange(Transaction transaction, UuidValue space, Hlc marker) {
+    _transactionChanges[transaction]?.record(space, marker);
   }
 
   /// Restores pending notifications when a managed space savepoint rolls back.
@@ -86,9 +101,11 @@ class OfflineSyncDatabaseContext {
     Transaction transaction,
     TransactionFunction<R> action,
   ) async {
-    final changed = _transactionChanges[transaction];
+    final changed = _transactionChanges[transaction]?.markers;
     if (changed == null) return action(transaction);
-    final before = Set<UuidValue>.of(changed);
+    final before = {
+      for (final entry in changed.entries) entry.key: Set<Hlc>.of(entry.value),
+    };
     try {
       return await action(transaction);
     } catch (_) {
@@ -105,14 +122,33 @@ class OfflineSyncDatabaseContext {
     Database database,
     TransactionFunction<R> action, {
     TransactionSettings? settings,
+    bool verifySavepoints = false,
   }) async {
     final changed = <UuidValue>{};
+    final pending = _TransactionSpaceChanges(verifySavepoints);
     final result = await OfflineSyncDiagnostics.transaction<R>(
       database,
       (transaction) async {
-        _transactionChanges[transaction] = changed;
+        _transactionChanges[transaction] = pending;
         try {
-          return await action(transaction);
+          final result = await action(transaction);
+          if (verifySavepoints && pending.markers.isNotEmpty) {
+            // Plain transactions expose raw savepoints. Keep only markers still
+            // present in their final SQL state, before releasing the transaction.
+            // Retain earlier candidates so a rollback can reveal a prior write.
+            final spaces = await database.find<OfflineSyncSpace>(
+              where: OfflineSyncSpace.t.uuidSpaceId.inSet(pending.markers.keys.toSet()),
+              transaction: transaction,
+            );
+            for (final space in spaces) {
+              if (pending.markers[space.uuidSpaceId]!.contains(space.lastHlc)) {
+                changed.add(space.uuidSpaceId);
+              }
+            }
+          } else {
+            changed.addAll(pending.markers.keys);
+          }
+          return result;
         } finally {
           _transactionChanges[transaction] = null;
         }
