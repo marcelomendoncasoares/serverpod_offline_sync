@@ -131,30 +131,38 @@ class OfflineSyncDatabaseContext {
       (transaction) async {
         _transactionChanges[transaction] = pending;
         try {
-          final result = await action(transaction);
-          if (verifySavepoints && pending.markers.isNotEmpty) {
-            // Plain transactions expose raw savepoints. Keep only markers still
-            // present in their final SQL state, before releasing the transaction.
-            // Retain earlier candidates so a rollback can reveal a prior write.
-            final spaces = await database.find<OfflineSyncSpace>(
-              where: OfflineSyncSpace.t.uuidSpaceId.inSet(pending.markers.keys.toSet()),
-              transaction: transaction,
-            );
-            for (final space in spaces) {
-              if (pending.markers[space.uuidSpaceId]!.contains(space.lastHlc)) {
-                changed.add(space.uuidSpaceId);
-              }
-            }
-          } else {
-            changed.addAll(pending.markers.keys);
-          }
-          return result;
+          return await action(transaction);
         } finally {
           _transactionChanges[transaction] = null;
         }
       },
       settings: settings,
     );
+
+    if (verifySavepoints && pending.markers.isNotEmpty) {
+      // Plain transactions expose raw savepoints and cancellation. Reconcile
+      // after the transaction returns, using a fresh read of durable state.
+      // Retain earlier candidates so a rollback can reveal a prior write.
+      // A concurrent overwrite may suppress an obsolete advisory wakeup.
+      try {
+        final spaces = await database.find<OfflineSyncSpace>(
+          where: OfflineSyncSpace.t.uuidSpaceId.inSet(pending.markers.keys.toSet()),
+        );
+        for (final space in spaces) {
+          if (pending.markers[space.uuidSpaceId]!.contains(space.lastHlc)) {
+            changed.add(space.uuidSpaceId);
+          }
+        }
+      } on Object catch (error) {
+        // Hint delivery must not change a completed transaction's outcome.
+        OfflineSyncDiagnostics.event('sync.hintVerificationFailed', {
+          'type': error.runtimeType.toString(),
+        });
+        return result;
+      }
+    } else {
+      changed.addAll(pending.markers.keys);
+    }
 
     final notificationWatch = OfflineSyncDiagnostics.enabled
         ? (Stopwatch()..start())
