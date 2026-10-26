@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
+// Observe local wakeups alongside the real PostgreSQL competing-clock probes.
+// ignore_for_file: invalid_use_of_internal_member
+
 import 'package:clock/clock.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
@@ -48,13 +51,21 @@ void main() {
         late Person later;
         late Person competing;
         late Clock now;
+        late List<UuidValue> firstNotifications;
 
         setUp(() async {
           user = const Uuid().v7obj();
+          firstNotifications = [];
+          final context = OfflineSyncDatabaseContext(
+            syncTables: syncTables,
+            serializationManager: raw.db.serializationManager,
+          );
+          addTearDown(context.onSpaceChanged(user, () => firstNotifications.add(user)));
           first = OfflineSyncDatabaseSession.wraps(
             raw,
             syncTables: syncTables,
             persistentUserId: user,
+            context: context,
           );
           second = OfflineSyncDatabaseSession.wraps(
             raw,
@@ -165,6 +176,13 @@ void main() {
                 expect(pending.single.uuidSpaceId, user);
               },
             );
+
+            test(
+              'then the outer transaction emits one wakeup for its surviving write.',
+              () {
+                expect(firstNotifications, [user]);
+              },
+            );
           },
         );
 
@@ -177,6 +195,7 @@ void main() {
             late Hlc nextClock;
             late List<CrdtMergeChange> pending;
             late Person? discardedRow;
+            late List<UuidValue> notificationsAfterReturn;
 
             setUp(() async {
               final rolledBack = Completer<void>();
@@ -214,6 +233,7 @@ void main() {
                 resume.complete();
                 await outer;
               }
+              notificationsAfterReturn = List.of(firstNotifications);
 
               checkpoint = (await CrdtDataRow.db.findFirstRow(
                 raw,
@@ -255,6 +275,10 @@ void main() {
               expect(discardedRow, isNull);
               expect(storedAfterReturn, checkpoint);
               expect(spaceAfterReturn, checkpoint);
+            });
+
+            test('then returning emits no wakeup for the discarded write.', () {
+              expect(notificationsAfterReturn, isEmpty);
             });
 
             test(
