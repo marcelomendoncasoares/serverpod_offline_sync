@@ -89,7 +89,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
             if (!release.isCompleted) release.complete();
             await holding;
           });
-          await entered.future;
+          await entered.future.timeout(const Duration(seconds: 10));
         });
 
         group('when overlapping merges and a disjoint merge arrive,', () {
@@ -180,7 +180,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
             if (!release.isCompleted) release.complete();
             await failure;
           });
-          await entered.future;
+          await entered.future.timeout(const Duration(seconds: 10));
         });
 
         group('when a disjoint merge and a same-user merge queue behind it,', () {
@@ -418,7 +418,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
             if (!release.isCompleted) release.complete();
             await holding;
           });
-          await entered.future;
+          await entered.future.timeout(const Duration(seconds: 10));
           counting.queryCount = 0;
 
           final cancellation = OfflineSyncCancellation();
@@ -646,7 +646,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
             if (!release.isCompleted) release.complete();
             await holding;
           });
-          await entered.future;
+          await entered.future.timeout(const Duration(seconds: 10));
 
           var secondFinished = false;
           final merging = _merge(second, user: user).whenComplete(() {
@@ -701,7 +701,7 @@ Future<server.Unique> _merge(
   return row;
 }
 
-/// Holds a real transaction after its first CRDT row insert.
+/// Holds a real transaction after its first persisted CRDT row metadata.
 class _HoldMerge extends QueryCountingDatabase {
   // The delegate parameter belongs to the proxy's private implementation.
   // ignore: matching_super_parameters
@@ -714,11 +714,32 @@ class _HoldMerge extends QueryCountingDatabase {
   @override
   Future<T> insertRow<T extends TableRow>(T row, {Transaction? transaction}) async {
     final result = await super.insertRow(row, transaction: transaction);
-    if (row is CrdtDataRow && transaction != null && !entered.isCompleted) {
+    await _hold(row is CrdtDataRow, transaction);
+    return result;
+  }
+
+  @override
+  Future<List<T>> insert<T extends TableRow>(
+    List<T> rows, {
+    Transaction? transaction,
+    bool ignoreConflicts = false,
+    bool noReturn = false,
+  }) async {
+    final result = await super.insert(
+      rows,
+      transaction: transaction,
+      ignoreConflicts: ignoreConflicts,
+      noReturn: noReturn,
+    );
+    await _hold(rows.any((row) => row is CrdtDataRow), transaction);
+    return result;
+  }
+
+  Future<void> _hold(bool wroteMetadata, Transaction? transaction) async {
+    if (wroteMetadata && transaction != null && !entered.isCompleted) {
       entered.complete();
       await release.future;
       if (fail) throw StateError('Fail after persisting merge metadata.');
     }
-    return result;
   }
 }
