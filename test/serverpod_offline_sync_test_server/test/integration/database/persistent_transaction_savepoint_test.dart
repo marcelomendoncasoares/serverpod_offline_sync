@@ -52,13 +52,16 @@ void main() {
         late Person competing;
         late Clock now;
         late List<UuidValue> firstNotifications;
+        late List<Map<UuidValue, UuidValue>> firstPublications;
 
         setUp(() async {
           user = const Uuid().v7obj();
           firstNotifications = [];
+          firstPublications = [];
           final context = OfflineSyncDatabaseContext(
             syncTables: syncTables,
             serializationManager: raw.db.serializationManager,
+            onCommittedSpaces: firstPublications.add,
           );
           addTearDown(context.onSpaceChanged(user, () => firstNotifications.add(user)));
           first = OfflineSyncDatabaseSession.wraps(
@@ -88,6 +91,7 @@ void main() {
             late Hlc laterClock;
             late Hlc storedClock;
             late Hlc? spaceClock;
+            late UuidValue spaceRevision;
             late Person? discardedRow;
             late List<CrdtMergeChange> pending;
 
@@ -140,10 +144,12 @@ void main() {
                   .hlc;
               laterClock = records.singleWhere((row) => row.uuidRowId == later.id).hlc;
               storedClock = await persistedUserClock(raw, user);
-              spaceClock = (await OfflineSyncSpace.db.findFirstRow(
+              final space = (await OfflineSyncSpace.db.findFirstRow(
                 raw,
                 where: (t) => t.uuidSpaceId.equals(user),
-              ))!.lastHlc;
+              ))!;
+              spaceClock = space.lastHlc;
+              spaceRevision = space.revision;
               discardedRow = await Person.db.findById(raw, discarded.id!);
               pending =
                   await OfflineSyncEngine(
@@ -183,6 +189,15 @@ void main() {
                 expect(firstNotifications, [user]);
               },
             );
+
+            test(
+              'then the outer transaction publishes its final durable revision.',
+              () {
+                expect(firstPublications, [
+                  {user: spaceRevision},
+                ]);
+              },
+            );
           },
         );
 
@@ -196,6 +211,7 @@ void main() {
             late List<CrdtMergeChange> pending;
             late Person? discardedRow;
             late List<UuidValue> notificationsAfterReturn;
+            late List<Map<UuidValue, UuidValue>> publicationsAfterReturn;
 
             setUp(() async {
               final rolledBack = Completer<void>();
@@ -234,6 +250,7 @@ void main() {
                 await outer;
               }
               notificationsAfterReturn = List.of(firstNotifications);
+              publicationsAfterReturn = List.of(firstPublications);
 
               checkpoint = (await CrdtDataRow.db.findFirstRow(
                 raw,
@@ -280,6 +297,13 @@ void main() {
             test('then returning emits no wakeup for the discarded write.', () {
               expect(notificationsAfterReturn, isEmpty);
             });
+
+            test(
+              'then returning publishes neither the discarded nor competing revision.',
+              () {
+                expect(publicationsAfterReturn, isEmpty);
+              },
+            );
 
             test(
               'then the next transaction advances the clock and remains sendable.',

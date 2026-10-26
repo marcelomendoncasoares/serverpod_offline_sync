@@ -26,7 +26,7 @@ The follower finishes once its upload has been acknowledged and it has applied t
 
 ## Continuous wakeup and cleanup
 
-Local tracked commits notify subscribed streams after the transaction succeeds. Notifications coalesce capture work and carry no checkpoint authority. A shared periodic scan compares durable space revisions and membership across subscribed streams. Every tracked write changes the revision, including received facts older than the greatest HLC. Recovery records a locally announced revision only after successful notification, still wakes for an unknown initial baseline, and joins scans borrowing a closing stream's session. Revisions never authorize checkpoint advancement.
+Local tracked commits notify subscribed streams after the transaction succeeds. Notifications coalesce capture work and carry no checkpoint authority. A shared periodic scan compares durable space revisions and membership across subscribed streams. Every tracked write changes the revision, including received facts older than the greatest HLC. Recovery records a locally announced revision only after successful notification, still wakes for an unknown initial baseline, and joins scans borrowing a closing stream's session. Revisions never authorize checkpoint advancement. An optional [commit-hint transport](commit-hints.md) can wake streams across processes sooner; periodic recovery remains enabled for lost notifications and membership changes.
 
 Cancellation signals the active merge's native rollback and waits for SQL and callbacks to settle before releasing the session. An executing SQL statement is not forcibly interrupted, and cancellation cannot undo a transaction already committing.
 

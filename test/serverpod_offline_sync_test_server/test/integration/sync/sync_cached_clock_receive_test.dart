@@ -518,12 +518,15 @@ void main() {
       late DateTime start;
       late Hlc committedClock;
       late List<UuidValue> notifications;
+      late List<Map<UuidValue, UuidValue>> publications;
 
       setUpAll(() async {
         final raw = await createAdditionalTestSession();
+        publications = [];
         final context = OfflineSyncDatabaseContext(
           syncTables: testSyncTables,
           serializationManager: raw.db.serializationManager,
+          onCommittedSpaces: publications.add,
         );
         notifications = [];
 
@@ -555,6 +558,7 @@ void main() {
 
         committedClock = await rowHlc(prime.id!, databaseSession: app);
         notifications.clear();
+        publications.clear();
       });
 
       group(
@@ -568,6 +572,9 @@ void main() {
           late Unique? cancelledRow;
           late List<UuidValue> notificationsAfterCancel;
           late List<UuidValue> notificationsAfterCommit;
+          late List<Map<UuidValue, UuidValue>> publicationsAfterCancel;
+          late List<Map<UuidValue, UuidValue>> publicationsAfterCommit;
+          late UuidValue nextRevision;
 
           setUpAll(() async {
             final cancelled = Unique(id: const Uuid().v7obj(), name: 'cancelled');
@@ -587,6 +594,7 @@ void main() {
             }
 
             notificationsAfterCancel = List.of(notifications);
+            publicationsAfterCancel = List.of(publications);
             cancelledRow = await Unique.db.findById(app, cancelled.id!);
             persistedAfterCancel = await persistedUserClock(app, testCrdtUserId);
 
@@ -596,6 +604,11 @@ void main() {
             });
             nextClock = await rowHlc(next.id!, databaseSession: app);
             notificationsAfterCommit = List.of(notifications);
+            publicationsAfterCommit = List.of(publications);
+            nextRevision = (await OfflineSyncSpace.db.findFirstRow(
+              app,
+              where: (t) => t.uuidSpaceId.equals(testCrdtUserId),
+            ))!.revision;
           });
 
           test(
@@ -616,6 +629,19 @@ void main() {
           test('then the following committed write emits one local wakeup.', () {
             expect(notificationsAfterCommit, [testCrdtUserId]);
           });
+
+          test('then cancellation publishes no revision hint.', () {
+            expect(publicationsAfterCancel, isEmpty);
+          });
+
+          test(
+            'then the following committed write publishes its durable revision.',
+            () {
+              expect(publicationsAfterCommit, [
+                {testCrdtUserId: nextRevision},
+              ]);
+            },
+          );
         },
       );
     },
