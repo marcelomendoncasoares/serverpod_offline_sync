@@ -34,7 +34,7 @@ part 'merge_write_batch.dart';
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 
 class _TransactionSpaceChanges {
-  _TransactionSpaceChanges(this.verifySavepoints);
+  _TransactionSpaceChanges({required this.verifySavepoints});
 
   final bool verifySavepoints;
   final markers = <UuidValue, Set<Hlc>>{};
@@ -125,7 +125,7 @@ class OfflineSyncDatabaseContext {
     bool verifySavepoints = false,
   }) async {
     final changed = <UuidValue>{};
-    final pending = _TransactionSpaceChanges(verifySavepoints);
+    final pending = _TransactionSpaceChanges(verifySavepoints: verifySavepoints);
     final result = await OfflineSyncDiagnostics.transaction<R>(
       database,
       (transaction) async {
