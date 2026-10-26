@@ -28,6 +28,11 @@ curl --fail --location --silent --show-error --retry 3 \
   "https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-$sqlite_version/sqlite3.wasm" \
   --output "$test_directory/sqlite3.wasm"
 
-curl --fail --location --silent --show-error --retry 3 \
-  "https://github.com/powersync-ja/sqlite_async.dart/releases/download/sqlite_async-v$worker_version/db_worker.js" \
-  --output "$test_directory/db_worker.js"
+# Compile against the resolved dependencies so the worker's SQLite bindings
+# match the downloaded WASM. Precompiled workers can embed older bindings.
+# Rebuild on every setup to account for dependency and Dart SDK changes.
+echo "Compiling sqlite_async ($worker_version) web worker with sqlite3 ($sqlite_version)"
+dart compile js --packages=.dart_tool/package_config.json \
+  -O4 -Dsqlite3.dartbigints=false --no-source-maps \
+  -o "$test_directory/db_worker.js" \
+  package:sqlite_async/src/web/worker/worker.dart
