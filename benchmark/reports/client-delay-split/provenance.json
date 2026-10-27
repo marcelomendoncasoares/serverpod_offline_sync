@@ -1,0 +1,82 @@
+{
+  "sourceRevision": "7b21811736298ee53137168b7073926766f3fb8f",
+  "originalClientSha256": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+  "serverSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+  "instrumentedClientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+  "clientDartVersion": "3.12.2, same as the preceding campaign client",
+  "serverDartVersion": "3.13.7 (stable) (Thu Oct 22 14:28:57 2026 -0700) on \"linux_x64\"",
+  "sourceChanges": "Client benchmark observations and report tooling only; no deployed server changes.",
+  "clientProfile": "Only user index 0; bounded in-memory frame markers, emitted after each round.",
+  "rawSourceHashes": {
+    "split-medium-8": {
+      "receiptSha256": "9f6de4a57a82d93556b8e596c3b921f2b0524861a4a3a140277dbfa47b9a8c9d",
+      "clientEventsSha256": "b7d76f31b756e99fcb920c908c45790d9be0821fbfa23a13138906b5e8b78481",
+      "serverEventsSha256": "3b0e3424f46622ecd37186437d11752305237404d4ac57c0003b2e9f7404cdc8",
+      "resourcesSha256": "f1de6e22787a6f6d829bf3182fbfb99b7e53448290190eab1656690d2bf1c481"
+    },
+    "control-medium-8": {
+      "receiptSha256": "11374fcfc230500a8d796da1720552914e05154e3f69573a813c07f532aaf18d",
+      "clientEventsSha256": "305a49c816afc83cc62197e2f14bfd970bafb2033593c3b8fadd55a8e41dbc7f",
+      "serverEventsSha256": "abee4d57e179a706f28a63c6887fa6d0a0ecbe0e9a4b7b87ed5d5ad3d9e6031c",
+      "resourcesSha256": "c9ffa981fd82a8c5d025fde2a227fa86c759ad1ff012d44417a466f6ef5b6611"
+    },
+    "split-medium-64": {
+      "receiptSha256": "b3d29340e66561dfe77bb02a0c85405be7f6a25370d54c4a2da69a857faf7dbd",
+      "clientEventsSha256": "be3aed56f0119927046e87ca808dabc87f4fcfeda1f6f7533a1760329d6b300b",
+      "serverEventsSha256": "07cd3d71c74c422b50410bd0390c9081b912a0ad5e4e4c716dc99bd98eb8740b",
+      "resourcesSha256": "56ae69ac4d459c3394f38f436a68d533bac914a660eb172cbc8a4fac909a726e"
+    },
+    "control-xxlarge-64": {
+      "receiptSha256": "fda70f586c6e9f03b687366ecf66c4bb88a1a62d1d0ed30d9a284eea9ac8a720",
+      "clientEventsSha256": "0a6648073ae24dac723ba7f78af487928e4d95c135eaa4ac2606c384fdb2ff6a",
+      "serverEventsSha256": "e70dadd091312cb5f4761c9412abbe976f2a85789be23e8d348707d7fef7be17",
+      "resourcesSha256": "65d55bc6c109c153eb4a88ee7f2820098ecdad2843e9a813a4c9604960469966"
+    },
+    "split-xxlarge-64": {
+      "receiptSha256": "3b9ae48d16c1fe83fed1f33b80e046d3f9304f90cb15fab355f4ac537b0bfa46",
+      "clientEventsSha256": "c58ceb3481160fdd7dea7029ef1f3848b0dd539774bdf9724bb0ca569f097e30",
+      "serverEventsSha256": "b52da7118e7684e4910176290a30149292b42e70960d5f13e1c3d37049122028",
+      "resourcesSha256": "f9db8fa2bfb44bf397618b0af785f9729ad0a2ad8e50563c4c0bce9fce2f902c"
+    },
+    "split-xxlarge-64r": {
+      "receiptSha256": "fc27547918024e25e8802bb988d9a71e4d83c7e23ff71310300cfa87bf4439ff",
+      "clientEventsSha256": "e7529dac8722f86216016e326d161e71cb2d0db4b606c7b7570d9037e9b8cb6f",
+      "serverEventsSha256": "7ee3ce129ee7eba749b1effb9ee6628109937e58b6e34e73573c22d3c7755288",
+      "resourcesSha256": "d69ebee70d3584f4fc73c5b0ccae5dd8817e174a0e56d280ec50fee9846af780"
+    }
+  },
+  "sourceFileHashes": {
+    "benchmark/lib/scale/client_diagnostics.dart": "1d04acbe90713d95eaf7bc57ca53abfdb937b6c466585ee08dadd26182a0f1fd",
+    "benchmark/lib/scale/round_client_profile.dart": "a2baf301757d4a36cc2bf0ae16df83f221b3053b0095bed40dd356e20defc6cd",
+    "benchmark/lib/scale/round_options.dart": "436a834de480757656aa4c7b269524d42ff9e3d55a73058ab7bdd4c61f4f21c9",
+    "benchmark/lib/scale/round_worker.dart": "4fa6f8505687e6c9c76e7e0259cd99dcb386973db25cba8eddc771a69f6b74db",
+    "benchmark/test/scale/round_client_profile_test.dart": "d018a42b73fdfc1c4fcc421f4ec0057f7c5d3f16a955ce00c1b8f83669234fb0",
+    "benchmark/tool/established_ping_probe.dart": "aebc98307091bbce5c5b4b4ec3e007516aaf0d384c1dab4a2a2e971efc128ddf",
+    "benchmark/tool/profile_rounds.py": "518538982ba717d9530d955c9832059188fc301d59418cbce748cc9bab9c4ee6",
+    "benchmark/tool/test_profile_rounds.py": "20fc4f28fb203c2b3e8c762390af7bd5ae052dfd00690ce6f3c620099d5347bd",
+    "pubspec.yaml": "c638526dc99847f7145059efe7a7b3a96f2922a41dffcbe7a2d611176aceb77a",
+    "pubspec.lock": "e5be13fcabccdda51f33bd37967024df453d0e5f4281503f318c08645475559a"
+  },
+  "finalCompute": {
+    "__className__": "ComputeInfo",
+    "cloudCapsuleId": "serverpod-offline-sync-benchmark",
+    "size": "small",
+    "minInstances": 1,
+    "maxInstances": 1,
+    "memoryMb": 256
+  },
+  "serverExecutableUnchanged": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+  "protectedConfigurationFilesUnchanged": 6,
+  "cleanStreamsAndTransactions": true,
+  "statistics": "Arithmetic mean and median; nearest-rank p95. Independent runs are not pooled.",
+  "instrumentationCommit": "68fe083f02ab241117bd3616fcde2f08e2e9d173",
+  "validation": {
+    "dartChecks": 28,
+    "pythonPartitionChecks": 5,
+    "staticAnalysis": "passed",
+    "cloudMeasuredRounds": 1360,
+    "cloudValidCorrelatedRounds": 60,
+    "cloudClientSplitRounds": 40,
+    "hostedCi": "See PR checks; not part of the local validation claim."
+  }
+}

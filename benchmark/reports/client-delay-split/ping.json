@@ -1,0 +1,38 @@
+{
+  "control-xxlarge-64-ping": {
+    "startedAt": "2026-10-27T01:28:17.738848Z",
+    "elapsedClock": "CLOCK_MONOTONIC_RAW",
+    "samplesMicros": [
+      254769,
+      255501,
+      254614,
+      254996,
+      256355,
+      256214,
+      256477,
+      254853,
+      254880,
+      255216,
+      254817,
+      257278,
+      254656,
+      257341,
+      255715,
+      256162,
+      256644,
+      255035,
+      254937,
+      256302
+    ],
+    "warmupPingsExcluded": 2,
+    "semantics": "One established TLS WebSocket, Serverpod ping/pong, no SQL; includes both network directions and transport dispatch. Connection setup and two warmup pings excluded. Run at idle.",
+    "distributionMs": {
+      "n": 20,
+      "min": 254.614,
+      "median": 255.3585,
+      "mean": 255.6381,
+      "p95": 257.278,
+      "max": 257.341
+    }
+  }
+}
