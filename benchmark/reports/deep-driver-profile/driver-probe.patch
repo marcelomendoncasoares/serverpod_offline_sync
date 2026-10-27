@@ -1,0 +1,413 @@
+--- a/lib/src/v3/connection.dart
++++ b/lib/src/v3/connection.dart
+@@ -19,0 +20 @@
++import 'benchmark_wire_probe.dart';
+@@ -125,0 +127,37 @@
++    Object query, {
++    Object? parameters,
++    bool ignoreRows = false,
++    QueryMode? queryMode,
++    Duration? timeout,
++  }) {
++    final observer = Zone.current[benchmarkWireObserverKey] as WireObserver?;
++    if (observer == null) {
++      return _execute(
++        query,
++        parameters: parameters,
++        ignoreRows: ignoreRows,
++        queryMode: queryMode,
++        timeout: timeout,
++      );
++    }
++
++    final sql = query is SqlImpl ? query.sql : query.toString();
++    final command =
++        RegExp(r'^\s*([A-Za-z]+)').firstMatch(sql)?.group(1) ?? 'other';
++    final probe = BenchmarkWireProbe(observer, command.toUpperCase());
++    return runZoned(() async {
++      try {
++        return await _execute(
++          query,
++          parameters: parameters,
++          ignoreRows: ignoreRows,
++          queryMode: queryMode,
++          timeout: timeout,
++        );
++      } finally {
++        probe.finish();
++      }
++    }, zoneValues: {benchmarkWireProbeKey: probe});
++  }
++
++  Future<Result> _execute(
+@@ -952,0 +991 @@
++  final _benchmarkProbe = BenchmarkWireProbe.current;
+@@ -988,0 +1028 @@
++      _benchmarkProbe?.operationReady();
+@@ -1009,0 +1050 @@
++        _benchmarkProbe?.asynchronousCodec = true;
+@@ -1035,0 +1077 @@
++      _benchmarkProbe?.sent();
+@@ -1052,0 +1095 @@
++      _benchmarkProbe?.operationReady();
+@@ -1054,0 +1098 @@
++      _benchmarkProbe?.sent();
+@@ -1071,0 +1116 @@
++    _benchmarkProbe?.scheduled();
+@@ -1150,14 +1195,23 @@
+-    switch (message) {
+-      case ParseCompleteMessage():
+-      case BindCompleteMessage():
+-      case CloseCompleteMessage():
+-      case NoDataMessage():
+-        // Nothing to do!
+-        break;
+-      case RowDescriptionMessage():
+-        final schema = _resultSchema = ResultSchema([
+-          for (final field in message.fieldDescriptions)
+-            ResultSchemaColumn(
+-              typeOid: field.typeOid,
+-              type: session._connection._settings.typeRegistry.resolveOid(
+-                field.typeOid,
++    final probe = _benchmarkProbe;
++    probe?.message(message.runtimeType.toString());
++    final cpuStart = probe?.cpuStart();
++    try {
++      switch (message) {
++        case ParseCompleteMessage():
++        case BindCompleteMessage():
++        case CloseCompleteMessage():
++        case NoDataMessage():
++          // Nothing to do!
++          break;
++        case RowDescriptionMessage():
++          final schema = _resultSchema = ResultSchema([
++            for (final field in message.fieldDescriptions)
++              ResultSchemaColumn(
++                typeOid: field.typeOid,
++                type: session._connection._settings.typeRegistry.resolveOid(
++                  field.typeOid,
++                ),
++                columnName: field.fieldName,
++                columnOid: field.columnOid,
++                tableOid: field.tableOid,
++                isBinaryEncoding: field.isBinaryEncoding,
+@@ -1165,25 +1219,34 @@
+-              columnName: field.fieldName,
+-              columnOid: field.columnOid,
+-              tableOid: field.tableOid,
+-              isBinaryEncoding: field.isBinaryEncoding,
+-            ),
+-        ]);
+-        _schema.complete(schema);
+-      case DataRowMessage():
+-        if (!ignoreRows) {
+-          final schema = _resultSchema!;
+-
+-          final columnCount = message.values.length;
+-          // Codec.decode is synchronous for all built-in types, so most rows
+-          // never touch Future machinery at all - only columns that actually
+-          // decode asynchronously get collected and awaited below.
+-          final values = List<Object?>.filled(columnCount, null);
+-          List<(int, Future<Object?>)>? pending;
+-          List<bool>? sqlNulls;
+-          final context = session._connection.codecContext;
+-          for (var i = 0; i < columnCount; i++) {
+-            final field = schema.columns[i];
+-            final input = message.values[i];
+-            if (input == null) {
+-              sqlNulls ??= List<bool>.filled(columnCount, false);
+-              sqlNulls[i] = true;
++          ]);
++          _schema.complete(schema);
++        case DataRowMessage():
++          if (!ignoreRows) {
++            final schema = _resultSchema!;
++
++            final columnCount = message.values.length;
++            // Codec.decode is synchronous for all built-in types, so most rows
++            // never touch Future machinery at all - only columns that actually
++            // decode asynchronously get collected and awaited below.
++            final values = List<Object?>.filled(columnCount, null);
++            List<(int, Future<Object?>)>? pending;
++            List<bool>? sqlNulls;
++            final context = session._connection.codecContext;
++            for (var i = 0; i < columnCount; i++) {
++              final field = schema.columns[i];
++              final input = message.values[i];
++              if (input == null) {
++                sqlNulls ??= List<bool>.filled(columnCount, false);
++                sqlNulls[i] = true;
++              }
++              final decoded = context.typeRegistry.decode(
++                EncodedValue(
++                  input,
++                  format: EncodingFormat.fromBinaryFlag(field.isBinaryEncoding),
++                  typeOid: field.typeOid,
++                ),
++                context,
++              );
++              if (decoded is Future<Object?>) {
++                (pending ??= []).add((i, decoded));
++              } else {
++                values[i] = decoded;
++              }
+@@ -1191,7 +1254,12 @@
+-            final decoded = context.typeRegistry.decode(
+-              EncodedValue(
+-                input,
+-                format: EncodingFormat.fromBinaryFlag(field.isBinaryEncoding),
+-                typeOid: field.typeOid,
+-              ),
+-              context,
++            if (pending != null) {
++              _benchmarkProbe?.asynchronousCodec = true;
++              final resolved = await Future.wait(pending.map((e) => e.$2));
++              for (var j = 0; j < pending.length; j++) {
++                values[pending[j].$1] = resolved[j];
++              }
++            }
++
++            final row = ResultRow(
++              schema: schema,
++              values: values,
++              sqlNulls: sqlNulls,
+@@ -1199,5 +1267 @@
+-            if (decoded is Future<Object?>) {
+-              (pending ??= []).add((i, decoded));
+-            } else {
+-              values[i] = decoded;
+-            }
++            _controller.add(row);
+@@ -1205,44 +1269,35 @@
+-          if (pending != null) {
+-            final resolved = await Future.wait(pending.map((e) => e.$2));
+-            for (var j = 0; j < pending.length; j++) {
+-              values[pending[j].$1] = resolved[j];
+-            }
+-          }
+-
+-          final row = ResultRow(
+-            schema: schema,
+-            values: values,
+-            sqlNulls: sqlNulls,
+-          );
+-          _controller.add(row);
+-        }
+-      case CommandCompleteMessage():
+-        // We can't complete _affectedRows directly after receiving the message
+-        // since, if multiple statements are running in a single SQL string,
+-        // we'll get this more than once.
+-        _affectedRowsSoFar += message.rowsAffected;
+-      case ReadyForQueryMessage():
+-        // CloseComplete does not end the exchange. On an error PostgreSQL
+-        // skips Close and drains to Sync, so it may not arrive at all.
+-        _completeQuery();
+-      case CopyBothResponseMessage():
+-        // This message indicates a successful start for Streaming Replication.
+-        // Hence, in this context, the query is complete. And from here on,
+-        // the server will be streaming replication messages.
+-        // But if the connection was used after this point to execute further
+-        // queries, the server messages will be blocked.
+-        // TODO(osaxma): Prevent executing queries when Streaming Replication
+-        //               is ongoing
+-        _completeQuery();
+-      case EmptyQueryResponseMessage():
+-        break;
+-      default:
+-        // Unexpected message - either a severe bug in this package or in the
+-        // connection. We better close it.
+-        //
+-        // Record and complete first: `_closeAfterError` calls back into
+-        // `handleConnectionClosed`, which would otherwise drop this error.
+-        final exception = PgException('Unexpected message $message');
+-        _errors.add((exception, _trace()));
+-        _completeQuery();
+-        session._connection._closeAfterError(exception);
++        case CommandCompleteMessage():
++          // We can't complete _affectedRows directly after receiving the message
++          // since, if multiple statements are running in a single SQL string,
++          // we'll get this more than once.
++          _affectedRowsSoFar += message.rowsAffected;
++        case ReadyForQueryMessage():
++          // CloseComplete does not end the exchange. On an error PostgreSQL
++          // skips Close and drains to Sync, so it may not arrive at all.
++          _completeQuery();
++        case CopyBothResponseMessage():
++          // This message indicates a successful start for Streaming Replication.
++          // Hence, in this context, the query is complete. And from here on,
++          // the server will be streaming replication messages.
++          // But if the connection was used after this point to execute further
++          // queries, the server messages will be blocked.
++          // TODO(osaxma): Prevent executing queries when Streaming Replication
++          //               is ongoing
++          _completeQuery();
++        case EmptyQueryResponseMessage():
++          break;
++        default:
++          // Unexpected message - either a severe bug in this package or in the
++          // connection. We better close it.
++          //
++          // Record and complete first: `_closeAfterError` calls back into
++          // `handleConnectionClosed`, which would otherwise drop this error.
++          final exception = PgException('Unexpected message $message');
++          _errors.add((exception, _trace()));
++          _completeQuery();
++          session._connection._closeAfterError(exception);
++      }
++    } finally {
++      if (probe?.asynchronousCodec == false) {
++        probe?.cpuEnd('handleMessages', cpuStart);
++      }
+@@ -1383 +1438,15 @@
+-  Future<void> _sendAndMarkClosed(String command) async {
++  Future<void> _sendAndMarkClosed(String command) {
++    final observer = Zone.current[benchmarkWireObserverKey] as WireObserver?;
++    if (observer == null) return _sendAndMarkClosedUnobserved(command);
++
++    final probe = BenchmarkWireProbe(observer, command.replaceAll(';', ''));
++    return runZoned(() async {
++      try {
++        await _sendAndMarkClosedUnobserved(command);
++      } finally {
++        probe.finish();
++      }
++    }, zoneValues: {benchmarkWireProbeKey: probe});
++  }
++
++  Future<void> _sendAndMarkClosedUnobserved(String command) async {
+--- /dev/null
++++ b/lib/src/v3/benchmark_wire_probe.dart
+@@ -0,0 +1,132 @@
++// Temporary benchmark instrumentation. This file is not a driver API change.
++import 'dart:async';
++import 'dart:ffi';
++import 'dart:io';
++
++const benchmarkWireObserverKey = #offlineSyncBenchmarkWireObserver;
++const benchmarkWireProbeKey = #offlineSyncBenchmarkWireProbe;
++
++typedef WireObserver = void Function(Map<String, Object?> record);
++
++final class _Timespec extends Struct {
++  @Int64()
++  external int seconds;
++
++  @Int64()
++  external int nanoseconds;
++}
++
++class _ThreadCpuClock {
++  _ThreadCpuClock() {
++    if (!Platform.isLinux) return;
++    try {
++      final library = DynamicLibrary.process();
++      final malloc = library
++          .lookupFunction<
++            Pointer<Void> Function(IntPtr),
++            Pointer<Void> Function(int)
++          >('malloc');
++      _clock = library
++          .lookupFunction<
++            Int32 Function(Int32, Pointer<_Timespec>),
++            int Function(int, Pointer<_Timespec>)
++          >('clock_gettime');
++      _value = malloc(sizeOf<_Timespec>()).cast<_Timespec>();
++    } on Object {
++      _clock = null;
++    }
++  }
++
++  int Function(int, Pointer<_Timespec>)? _clock;
++  Pointer<_Timespec>? _value;
++
++  int? read() {
++    final value = _value;
++    if (value == null || value == nullptr || _clock?.call(3, value) != 0) {
++      return null;
++    }
++    return value.ref.seconds * 1000000 + value.ref.nanoseconds ~/ 1000;
++  }
++}
++
++class BenchmarkWireProbe {
++  BenchmarkWireProbe(this.output, this.command) {
++    prepareCpuStart = _cpu.read();
++  }
++
++  static final _cpu = _ThreadCpuClock();
++  static BenchmarkWireProbe? get current =>
++      Zone.current[benchmarkWireProbeKey] as BenchmarkWireProbe?;
++
++  final WireObserver output;
++  final String command;
++  final watch = Stopwatch()..start();
++  final marks = <String, int>{'executeStart': 0};
++  final cpuMicros = <String, int>{};
++  final messageCounts = <String, int>{};
++  final messageTimeline = <Map<String, Object?>>[];
++  int droppedMessages = 0;
++  int? prepareCpuStart;
++  int? sendCpuStart;
++  bool asynchronousCodec = false;
++
++  void mark(String name) {
++    marks.putIfAbsent(name, () => watch.elapsedMicroseconds);
++  }
++
++  int? cpuStart() => _cpu.read();
++
++  void cpuEnd(String name, int? start) {
++    final end = _cpu.read();
++    if (start != null && end != null && end >= start) {
++      cpuMicros.update(
++        name,
++        (value) => value + end - start,
++        ifAbsent: () => end - start,
++      );
++    }
++  }
++
++  void scheduled() {
++    mark('scheduled');
++    cpuEnd('prepare', prepareCpuStart);
++  }
++
++  void operationReady() {
++    mark('operationReady');
++    sendCpuStart = cpuStart();
++  }
++
++  void sent() {
++    mark('sent');
++    if (!asynchronousCodec) cpuEnd('encodeAndSend', sendCpuStart);
++  }
++
++  void message(String name) {
++    mark('firstMessage');
++    if (messageTimeline.length < 32) {
++      messageTimeline.add({'name': name, 'micros': watch.elapsedMicroseconds});
++    } else {
++      droppedMessages++;
++    }
++    messageCounts.update(name, (value) => value + 1, ifAbsent: () => 1);
++    if (name == 'ReadyForQueryMessage') mark('ready');
++  }
++
++  void finish() {
++    mark('executeEnd');
++    try {
++      output({
++        'command': command,
++        'marksMicros': marks,
++        'threadCpuMicros': cpuMicros,
++        'messages': messageCounts,
++        'messageTimeline': messageTimeline,
++        'droppedMessages': droppedMessages,
++        'asynchronousCodec': asynchronousCodec,
++      });
++    } on Object {
++      // A diagnostic observer must not affect a query's result or cleanup.
++    }
++  }
++}

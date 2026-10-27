@@ -149,6 +149,217 @@ All **1,360 additional measured rounds** converged, and all six trials drained s
 
 Evidence: [results](client-delay-split/results.json), [raw round durations](client-delay-split/rounds.json), [correlated phases and client boundaries](client-delay-split/profiles.json), [WebSocket ping samples](client-delay-split/ping.json), and [provenance](client-delay-split/provenance.json). Run `rounds` with `--client-profile-user 0 --no-sync-diagnostics` and configure server sampling for the same user to reproduce the split with `tool/profile_rounds.py`. The new client timing option does not enable full per-SQL client traces.
 
+## Cloud driver wait attribution — second follow-up on October 27 UTC
+
+The multi-second Medium result is predominantly time waiting around database
+exchanges. A new Cloud trace attributes **4,444 ms of a 4,916 ms sampled round**
+to 19 driver calls. A narrower repeat locates approximately **805 ms** in the
+driver's deferred callback scheduling, versus **0.6 ms** acquiring its operation
+locks. These are diagnostic observations, not an implemented optimization or a
+promise that removing a scheduling step will save that entire amount.
+
+### What the earlier labels include
+
+**Merge SQL** is the union of elapsed SQL-call intervals inside the merge
+transaction. It includes driver preparation, database/transport waits, and
+result handling. It does **not** include all of that merge's in-memory projection
+calculations; those normally fall in transaction non-SQL time. Work from other
+requests sharing the isolate can still delay an awaited SQL call and inflate its
+elapsed interval. The transaction body, rather than its SQL-only portion, includes
+all of its own projection work.
+
+For the earlier Medium/64 sample, the 2,321.24 ms SQL total breaks down as follows.
+These are the original ten correlated rounds, not the new diagnostic repeat.
+
+| Merge phase | Data statements/round | SQL elapsed/round, ms |
+| --- | ---: | ---: |
+| Lock clock and space | 2 | 403.55 |
+| Read nodes and conflict metadata | 3 | 681.04 |
+| Check conflict/reference eligibility | 1 | 289.77 |
+| Write rows and change metadata | 3 | 697.71 |
+| Persist received cursor/clock state | 1 | 249.18 |
+| **Total** | **10** | **2,321.24** |
+
+The same merge transaction has 23.93 ms outside SQL. Its explicit
+`projectConflicts` phase averages 0.075 ms with no SQL. These one-row inserts take
+the proven insert fast path; this is not a cost estimate for full conflict
+projection on constrained edits, deletes, or larger batches. See the phase
+boundaries in [merge.dart](../../packages/serverpod_offline_sync/lib/src/database/merge.dart).
+
+**Database-free ping/pong** means 20 exchanges on one already-open TLS WebSocket.
+Connection setup and two warmup exchanges are excluded. The server's existing
+ping handler returns a pong without SQL; this is not a handshake measurement.
+The earlier 255.6 ms mean was measured at idle on two cores, not under the
+Medium/64 workload. It includes both network directions and transport dispatch.
+
+### New Cloud controls
+
+The temporary AOT builds retain the same SDK, driver behavior, TLS, transaction
+locks, database, full schema, pool limit 100, and disabled session logging/commit
+hints. The bounded driver observer samples user 0's two streams. Process thread
+counters are sampled once a second in both observer-on and observer-off arms.
+No extra queries or query values are emitted by the driver observer.
+
+All rows use 32 users × 2 devices, one Person insert per round, ten rounds per
+user, and the same client executable as the preceding follow-up. Each row has
+320 exactly converged exercise rounds. Latencies start before the local write
+and finish when the peer observes the exact row through its public ORM watch.
+Startup, warmup, final verification, and stream teardown remain excluded.
+
+All latency columns below are milliseconds.
+
+| Cloud trial | Offered rounds/s | Min | Median | Mean | p95 | Max | Kept up |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| Medium, driver observer off | 8 | 508.2 | 5,601.3 | 5,586.9 | 8,191.8 | 18,772.3 | no |
+| Medium, driver observer on | 8 | 1,046.1 | 5,352.3 | 5,081.5 | 6,192.0 | 6,720.5 | no |
+| Medium, observer off repeat | 8 | 603.4 | 5,810.3 | 5,559.2 | 7,101.7 | 7,497.2 | no |
+| Medium, lower rate, observer on | 2 | 397.7 | 533.0 | 548.4 | 631.5 | 2,037.5 | yes |
+| Two cores, observer on | 8 | 347.2 | 439.3 | 444.8 | 547.6 | 674.8 | yes |
+| Medium, additional queue boundary | 8 | 618.3 | 6,263.9 | 6,013.3 | 7,774.1 | 21,605.0 | no |
+
+The Medium observer-on run is 8.8% below the mean of its two surrounding controls;
+the narrower queue repeat is slower. This is not a performance gain, proof of
+zero observer overhead, or a statistical equivalence test. Near-overload runs
+vary substantially. The two-core total also includes about 101 ms of sampled
+client processing, versus about 10 ms in the preceding follow-up; the local
+write alone grew from roughly 4 to 35 ms. Do not replace the earlier production
+baseline or attribute that client-side difference to the server driver.
+
+Keeping all 64 streams while reducing the offered rate from eight to two rounds
+per second yields a 548 ms mean and keeps up. The two-core run keeps up with the
+higher rate. This points to capacity under active exchange load; the number of
+open streams alone does not explain the slowdown. The controls retain the same
+database endpoint, so fixed database distance alone does not explain the
+multi-second increase. They do not establish capacity for thousands of devices.
+
+### Where the time is spent inside the driver
+
+The following table partitions means from **ten correlated rounds per column**.
+It is not a percentile breakdown of the full 320-round population. There are
+19 calls on each traced critical path: ten merge data queries, three peer-capture
+data queries, two BEGINs, two COMMITs, one membership refresh, and one space-ID
+lookup before the capture transaction. Origin echoes and unrelated recovery
+scans remain outside this critical-path count.
+
+| Elapsed step, ms/round | Medium, 8 rounds/s | Medium, 2 rounds/s | Two cores, 8 rounds/s |
+| --- | ---: | ---: | ---: |
+| Driver query preparation | 17.70 | 1.72 | 1.89 |
+| Driver operation scheduling before callback | 725.69 | 9.82 | 4.30 |
+| Parameter encoding and channel handoff | 9.14 | 0.99 | 0.93 |
+| Channel handoff to first parsed response | 3,661.73 | 250.00 | 90.66 |
+| First response through ReadyForQuery | 28.95 | 16.00 | 4.28 |
+| ReadyForQuery through driver return | 0.77 | 0.87 | 0.97 |
+| Other server work, including projection and bookkeeping | 33.56 | 24.14 | 11.24 |
+| Client local write | 37.13 | 7.42 | 35.21 |
+| Client upload preparation | 21.72 | 2.23 | 23.02 |
+| Transport and boundary residual | 321.69 | 239.34 | 253.30 |
+| Peer application and watch observation | 57.78 | 9.55 | 42.58 |
+| **Sampled round total** | **4,915.85** | **562.06** | **468.38** |
+
+The fresh Medium merge-SQL subtotal is **2,158.89 ms**, close to the earlier
+2,321.24 ms. Of it, 368.37 ms is driver operation scheduling, 1,753.18 ms is
+handoff-to-first-response waiting, and roughly 37 ms is everything else. The two
+waiting categories account for about 98.3% of this subtotal. They are elapsed
+waits, not measured PostgreSQL execution or CPU time.
+
+The old connection-acquisition-plus-BEGIN label also needs care: in this repeat,
+the merge and capture together spend 467.22 ms there, but only **0.39 ms** is
+outside the driver's BEGIN calls. The two commit/release spans total 518.65 ms,
+with **0.28 ms** outside the driver's COMMIT calls. Pool acquisition is not the
+source of those half-second totals in the sampled rounds.
+
+The membership refresh in `_SyncSession._send` and the stable-space lookup in
+`collectPendingChanges` add **550.84 ms** in driver calls. They explain most of
+the previously broad after-merge and capture-overhead buckets. These are two
+additional data queries, not in-memory projection or stream fan-out alone.
+See [session.dart](../../packages/serverpod_offline_sync/lib/src/sync/session.dart)
+and [engine.dart](../../packages/serverpod_offline_sync/lib/src/sync/engine.dart).
+
+The handoff marker is after `_channel.sink.add` returns. It is not a packet-send
+timestamp. The first-response marker is at the driver's parsed-message handler,
+not at the NIC or TLS socket. That interval therefore includes buffered outbound
+work, TLS/socket dispatch, transport, PostgreSQL processing, incoming parsing,
+and scheduling before the driver handles the response. These measurements
+cannot divide those components into exact independent shares.
+
+### Narrowing the pre-send wait
+
+A second diagnostic build adds one marker immediately inside the operation-lock
+callback. It separates acquiring the lock from the explicit `Future(callback)`
+in [`_PgSessionBase._withResource`](https://github.com/marcelomendoncasoares/postgresql-dart/blob/79560a928c6b9307e89fe52f368f68dfce01eb79/lib/src/v3/connection.dart#L67).
+The probe changes no scheduling behavior.
+
+For its ten correlated rounds, averaging **5,749.20 ms** end to end,
+all 19 driver calls together spend **0.61 ms** getting the operation lock
+and **804.65 ms** between lock acquisition and callback execution. That
+is approximately 0.032 ms versus 42.35 ms per call.
+The hundreds of milliseconds are at the deferred execution step after the lock
+is granted, rather than waiting for a competing statement to release that lock.
+This is also separate from PostgreSQL row locks and offline-sync merge admission.
+
+Recovery-scan SQL can run in the sampled stream's diagnostic zone concurrently
+with its capture. The correlator uses the capture's parent-span ID and excludes
+those background spans; it does not sum every query that happens to share a
+request ID and time window. The raw phase records and complete query boundaries
+remain available for audit.
+
+The next targeted experiment is to remove the unnecessary event-queue deferral
+once the operation lock has been granted, while retaining asynchronous error
+propagation, operation cleanup, query ordering, and cancellation drain. This
+requires the driver lifecycle tests and a fresh controlled benchmark. The
+805 ms attribution is not a promised saving: changing scheduling can
+move work or contention elsewhere. A separate offline-sync candidate is carrying
+already-resolved space identities through one capture pass, while continuing to
+refresh authorization correctly.
+
+### Limits, verification, and restoration
+
+- These are real Cloud AOT measurements, not transplanted local CPU percentages.
+  They are instrumented elapsed-time profiles, not a native CPU flamegraph or a
+  Dart VM CPU/heap capture. The production AOT runtime has no VM service.
+- The Cloud kernel identifies itself as gVisor. Scheduler-wait and CPU-throttle
+  counters are unavailable. The thread CPU clock increments observed by the
+  probe are quantized in 10,000 microseconds, so its mostly-zero per-call CPU
+  deltas cannot establish zero CPU work or precise per-function CPU shares.
+  Raw deltas are retained, but no CPU-cost claim uses them.
+- Exposed process accounting reports roughly 0.31–0.35 cores in the heavy
+  Medium windows despite a nominal 0.25-core quota. Treat those virtualized
+  counters as observations, not an exact throttle fraction or proof of the host's
+  accounting. The 100 ms event-loop timer records up to 193 ms of lag in the
+  first profiled Medium exercise window; it cannot detect every shorter stall.
+- At idle, serial `SELECT 1` on a warmed connection has a 5.92 ms median on
+  Medium and 3.75 ms on two cores. The Medium mean is 12.00 ms because two of
+  its 16 samples take about 49 and 65 ms. These are whole adapter/driver
+  exchanges. Its separate `EXPLAIN ANALYZE SELECT 1` reports 0.013 ms execution;
+  that is a trivial-query control, not an execution plan for the merge queries.
+- Both probe builds pass the same 15 real PostgreSQL/SQLite integration tests,
+  including convergence, cleanup, and complete ordered BEGIN/query/COMMIT
+  boundaries. All **1,920 measured Cloud rounds converge**, all six trials drain,
+  and all 60 correlated paths have valid partitions and complete collectors.
+- The temporary driver and server probes have been removed from the prepared
+  deployment. The **original executable hash is restored exactly** on one Small
+  podlet: `e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc`.
+  Original database/full schema/pool 100, disabled logging and commit hints, six
+  unchanged configuration/secret hashes, zero open streams, and zero idle
+  transactions are verified. No production optimization is claimed in this step.
+
+Evidence: [all trial distributions](deep-driver-profile/results.json),
+[raw round timings](deep-driver-profile/rounds.json),
+[correlated paths and query boundaries](deep-driver-profile/profiles.json),
+[driver attribution](deep-driver-profile/driver-analysis.json),
+[operation-lock versus callback split](deep-driver-profile/queue-split.json),
+[process observations](deep-driver-profile/process-analysis.json),
+[idle database controls](deep-driver-profile/idle-database.json), and
+[provenance and restoration](deep-driver-profile/provenance.json).
+The [driver probe](deep-driver-profile/driver-probe.patch),
+[additional queue marker](deep-driver-profile/driver-queue-marker.patch), and
+[benchmark probe](deep-driver-profile/benchmark-probe.patch) are retained as
+reference patches, not enabled library code. Apply these zero-context patches
+with `git apply --unidiff-zero` to the recorded bases; their output was checked
+byte-for-byte against the deployed source archives. Raw private evidence and the
+controllers are in `/tmp/sync-cloud-deep-profile-20261027`; credentials and query
+values are excluded from these committed artifacts.
+
 ## Correctness and validation
 
 - Driver: 467 tests pass in UTC, including real PostgreSQL TLS/Unix transports, wire ordering, large results, row locks, cancellation, rollback/reuse, errors, replication, and supported COPY behavior. A date/time expectation failed under São Paulo time on unchanged upstream as well; the controlled full run uses UTC. No support was added for previously unsupported COPY streaming directions.

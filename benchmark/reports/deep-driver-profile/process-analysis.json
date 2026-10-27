@@ -1,0 +1,158 @@
+[
+  {
+    "label": "deep-medium-control",
+    "windowSeconds": 51.098911,
+    "samples": 52,
+    "windowDefinition": "Same-server monotonic span from sampled user exercise merges to last peer capture, trimmed by three seconds at each end; process counters cover all users and diagnostics.",
+    "userCpuSeconds": 15.99,
+    "systemCpuSeconds": 1.85,
+    "cpuCores": 0.3491268140724173,
+    "systemFraction": 0.10369955156950673,
+    "commonThreadCpuSeconds": {
+      "dart:server": 0.0,
+      "dart:io EventHa": 0.6200000000000003,
+      "DartWorker": 14.969999999999981
+    },
+    "threadCounterLimit": "Only threads present in consecutive samples are differenced; short-lived thread work may be absent. Runtime names do not identify individual Dart functions.",
+    "loopLagSamples": 443,
+    "loopLagMeanMs": 23.88182618510158,
+    "loopLagMaxMs": 600.505,
+    "loopLagIntervalMs": 100,
+    "maxRssMiB": 127.25390625,
+    "minThreads": 16,
+    "maxThreads": 36,
+    "vmMetrics": [
+      "unavailable: VM service disabled (normal for AOT Cloud builds)"
+    ]
+  },
+  {
+    "label": "deep-medium-profile",
+    "windowSeconds": 43.917137,
+    "samples": 45,
+    "windowDefinition": "Same-server monotonic span from sampled user exercise merges to last peer capture, trimmed by three seconds at each end; process counters cover all users and diagnostics.",
+    "userCpuSeconds": 12.2,
+    "systemCpuSeconds": 1.98,
+    "cpuCores": 0.3228807925252505,
+    "systemFraction": 0.13963328631875882,
+    "commonThreadCpuSeconds": {
+      "dart:server": 0.0,
+      "dart:io EventHa": 0.5000000000000001,
+      "DartWorker": 12.379999999999978
+    },
+    "threadCounterLimit": "Only threads present in consecutive samples are differenced; short-lived thread work may be absent. Runtime names do not identify individual Dart functions.",
+    "loopLagSamples": 421,
+    "loopLagMeanMs": 12.703688836104513,
+    "loopLagMaxMs": 192.661,
+    "loopLagIntervalMs": 100,
+    "maxRssMiB": 183.37890625,
+    "minThreads": 26,
+    "maxThreads": 38,
+    "vmMetrics": [
+      "unavailable: VM service disabled (normal for AOT Cloud builds)"
+    ]
+  },
+  {
+    "label": "deep-medium-controlr",
+    "windowSeconds": 49.09839,
+    "samples": 50,
+    "windowDefinition": "Same-server monotonic span from sampled user exercise merges to last peer capture, trimmed by three seconds at each end; process counters cover all users and diagnostics.",
+    "userCpuSeconds": 12.52,
+    "systemCpuSeconds": 2.75,
+    "cpuCores": 0.3110081613674094,
+    "systemFraction": 0.18009168303863785,
+    "commonThreadCpuSeconds": {
+      "dart:server": 0.0,
+      "dart:io EventHa": 0.6600000000000003,
+      "DartWorker": 12.75999999999998
+    },
+    "threadCounterLimit": "Only threads present in consecutive samples are differenced; short-lived thread work may be absent. Runtime names do not identify individual Dart functions.",
+    "loopLagSamples": 447,
+    "loopLagMeanMs": 17.130449664429527,
+    "loopLagMaxMs": 406.899,
+    "loopLagIntervalMs": 100,
+    "maxRssMiB": 239.95703125,
+    "minThreads": 22,
+    "maxThreads": 37,
+    "vmMetrics": [
+      "unavailable: VM service disabled (normal for AOT Cloud builds)"
+    ]
+  },
+  {
+    "label": "deep-medium-lowrate",
+    "windowSeconds": 138.922172,
+    "samples": 140,
+    "windowDefinition": "Same-server monotonic span from sampled user exercise merges to last peer capture, trimmed by three seconds at each end; process counters cover all users and diagnostics.",
+    "userCpuSeconds": 22.35,
+    "systemCpuSeconds": 4.73,
+    "cpuCores": 0.1949292874574406,
+    "systemFraction": 0.17466765140324964,
+    "commonThreadCpuSeconds": {
+      "dart:server": 0.0,
+      "dart:io EventHa": 1.590000000000001,
+      "DartWorker": 25.280000000000044
+    },
+    "threadCounterLimit": "Only threads present in consecutive samples are differenced; short-lived thread work may be absent. Runtime names do not identify individual Dart functions.",
+    "loopLagSamples": 1398,
+    "loopLagMeanMs": 3.3319792560801145,
+    "loopLagMaxMs": 201.405,
+    "loopLagIntervalMs": 100,
+    "maxRssMiB": 288.65234375,
+    "minThreads": 6,
+    "maxThreads": 11,
+    "vmMetrics": [
+      "unavailable: VM service disabled (normal for AOT Cloud builds)"
+    ]
+  },
+  {
+    "label": "deep-xxlarge-profile",
+    "windowSeconds": 28.996481,
+    "samples": 30,
+    "windowDefinition": "Same-server monotonic span from sampled user exercise merges to last peer capture, trimmed by three seconds at each end; process counters cover all users and diagnostics.",
+    "userCpuSeconds": 7.58,
+    "systemCpuSeconds": 1.41,
+    "cpuCores": 0.31003762146172154,
+    "systemFraction": 0.1568409343715239,
+    "commonThreadCpuSeconds": {
+      "dart:server": 0.0,
+      "dart:io EventHa": 0.3700000000000001,
+      "DartWorker": 8.46999999999999
+    },
+    "threadCounterLimit": "Only threads present in consecutive samples are differenced; short-lived thread work may be absent. Runtime names do not identify individual Dart functions.",
+    "loopLagSamples": 300,
+    "loopLagMeanMs": 1.6528766666666668,
+    "loopLagMaxMs": 59.511,
+    "loopLagIntervalMs": 100,
+    "maxRssMiB": 173.16796875,
+    "minThreads": 8,
+    "maxThreads": 11,
+    "vmMetrics": [
+      "unavailable: VM service disabled (normal for AOT Cloud builds)"
+    ]
+  },
+  {
+    "label": "deep-medium-queue-profile",
+    "windowSeconds": 54.088159,
+    "samples": 55,
+    "windowDefinition": "Same-server monotonic span from sampled user exercise merges to last peer capture, trimmed by three seconds at each end; process counters cover all users and diagnostics.",
+    "userCpuSeconds": 15.39,
+    "systemCpuSeconds": 2.35,
+    "cpuCores": 0.32798306187496606,
+    "systemFraction": 0.13246899661781283,
+    "commonThreadCpuSeconds": {
+      "dart:server": 0.0,
+      "dart:io EventHa": 0.42000000000000015,
+      "DartWorker": 16.44999999999998
+    },
+    "threadCounterLimit": "Only threads present in consecutive samples are differenced; short-lived thread work may be absent. Runtime names do not identify individual Dart functions.",
+    "loopLagSamples": 455,
+    "loopLagMeanMs": 30.154624175824175,
+    "loopLagMaxMs": 329.558,
+    "loopLagIntervalMs": 100,
+    "maxRssMiB": 155.5390625,
+    "minThreads": 16,
+    "maxThreads": 36,
+    "vmMetrics": [
+      "unavailable: VM service disabled (normal for AOT Cloud builds)"
+    ]
+  }
+]

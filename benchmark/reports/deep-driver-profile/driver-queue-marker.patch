@@ -1,0 +1,4 @@
+--- a/lib/src/v3/connection.dart
++++ b/lib/src/v3/connection.dart
+@@ -70,0 +71 @@
++      BenchmarkWireProbe.current?.mark('operationLockAcquired');
