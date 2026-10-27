@@ -1,0 +1,434 @@
+[
+  {
+    "label": "split-medium-8",
+    "runId": "capacity-split-medium-8-20261027T012249Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 40,
+      "min": 455.762,
+      "mean": 497.4699,
+      "median": 481.30899999999997,
+      "p95": 558.675,
+      "max": 608.189
+    },
+    "wholeRunRssMiB": {
+      "n": 10,
+      "min": 82.15625,
+      "median": 99.50390625,
+      "mean": 97.796484375,
+      "p95": 103.3671875,
+      "max": 103.3671875
+    },
+    "exerciseCpuCores": {
+      "n": 5,
+      "min": 0.09801165736298396,
+      "mean": 0.1371537438929222,
+      "median": 0.14160003205081623,
+      "p95": 0.18475970225377697,
+      "max": 0.18475970225377697
+    },
+    "exerciseRssMiB": {
+      "n": 6,
+      "min": 98.88671875,
+      "mean": 100.76822916666667,
+      "median": 100.259765625,
+      "p95": 103.1171875,
+      "max": 103.1171875
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 6,
+      "min": 82.03125,
+      "mean": 85.474609375,
+      "median": 85.318359375,
+      "p95": 89.38671875,
+      "max": 89.38671875
+    },
+    "maxLoopLagMs": 71.105,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "control-medium-8",
+    "runId": "capacity-control-medium-8-20261027T012327Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 40,
+      "min": 445.604,
+      "mean": 502.26515,
+      "median": 475.041,
+      "p95": 553.911,
+      "max": 788.18
+    },
+    "wholeRunRssMiB": {
+      "n": 10,
+      "min": 109.3203125,
+      "median": 130.0625,
+      "mean": 125.926953125,
+      "p95": 131.3125,
+      "max": 131.3125
+    },
+    "exerciseCpuCores": {
+      "n": 6,
+      "min": 0.08065293963850347,
+      "mean": 0.12225004872741291,
+      "median": 0.1232371881213301,
+      "p95": 0.16843014426397174,
+      "max": 0.16843014426397174
+    },
+    "exerciseRssMiB": {
+      "n": 7,
+      "min": 122.73828125,
+      "mean": 129.02287946428572,
+      "median": 130.3125,
+      "p95": 131.3125,
+      "max": 131.3125
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 7,
+      "min": 97.2265625,
+      "mean": 102.09095982142857,
+      "median": 102.90234375,
+      "p95": 104.61328125,
+      "max": 104.61328125
+    },
+    "maxLoopLagMs": 7.508,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "split-medium-64",
+    "runId": "capacity-split-medium-64-20261027T012407Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": false,
+    "latencyMs": {
+      "n": 320,
+      "min": 534.031,
+      "mean": 5142.599528125,
+      "median": 5314.5895,
+      "p95": 6826.208,
+      "max": 9598.608
+    },
+    "wholeRunRssMiB": {
+      "n": 27,
+      "min": 131.3125,
+      "median": 166.53515625,
+      "mean": 161.94574652777777,
+      "p95": 176.08984375,
+      "max": 176.08984375
+    },
+    "exerciseCpuCores": {
+      "n": 15,
+      "min": 0.22194151970725567,
+      "mean": 0.2778360391978953,
+      "median": 0.2666369652496689,
+      "p95": 0.3800409780339434,
+      "max": 0.3800409780339434
+    },
+    "exerciseRssMiB": {
+      "n": 16,
+      "min": 161.41796875,
+      "mean": 167.461181640625,
+      "median": 167.64453125,
+      "p95": 172.5625,
+      "max": 172.5625
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 16,
+      "min": 139.0859375,
+      "mean": 144.004638671875,
+      "median": 143.73828125,
+      "p95": 149.3515625,
+      "max": 149.3515625
+    },
+    "maxLoopLagMs": 277.419,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "control-xxlarge-64",
+    "runId": "capacity-control-xxlarge-64-20261027T012711Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 320,
+      "min": 303.27,
+      "mean": 333.91674375,
+      "median": 332.3065,
+      "p95": 353.743,
+      "max": 432.004
+    },
+    "wholeRunRssMiB": {
+      "n": 20,
+      "min": 101.5,
+      "median": 115.64453125,
+      "mean": 114.7267578125,
+      "p95": 118.28515625,
+      "max": 122.16015625
+    },
+    "exerciseCpuCores": {
+      "n": 12,
+      "min": 0.17296531025828285,
+      "mean": 0.22151850062789158,
+      "median": 0.2208146737575851,
+      "p95": 0.2652416101636212,
+      "max": 0.2652416101636212
+    },
+    "exerciseRssMiB": {
+      "n": 13,
+      "min": 115.23828125,
+      "mean": 116.52283653846153,
+      "median": 116.28515625,
+      "p95": 118.28515625,
+      "max": 118.28515625
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 13,
+      "min": 99.7265625,
+      "mean": 102.72896634615384,
+      "median": 102.44921875,
+      "p95": 105.296875,
+      "max": 105.296875
+    },
+    "maxLoopLagMs": 6.617,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "split-xxlarge-64",
+    "runId": "capacity-split-xxlarge-64-20261027T012830Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 320,
+      "min": 302.171,
+      "mean": 333.301628125,
+      "median": 330.5155,
+      "p95": 354.018,
+      "max": 524.621
+    },
+    "wholeRunRssMiB": {
+      "n": 18,
+      "min": 126.73828125,
+      "median": 155.296875,
+      "mean": 152.02517361111111,
+      "p95": 159.80078125,
+      "max": 159.80078125
+    },
+    "exerciseCpuCores": {
+      "n": 10,
+      "min": 0.12680729195796908,
+      "mean": 0.21439063513003526,
+      "median": 0.22510907001739394,
+      "p95": 0.28401846024587246,
+      "max": 0.28401846024587246
+    },
+    "exerciseRssMiB": {
+      "n": 11,
+      "min": 153.65234375,
+      "mean": 156.82492897727272,
+      "median": 156.2265625,
+      "p95": 159.80078125,
+      "max": 159.80078125
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 11,
+      "min": 134.38671875,
+      "mean": 138.25923295454547,
+      "median": 138.01171875,
+      "p95": 141.12109375,
+      "max": 141.12109375
+    },
+    "maxLoopLagMs": 6.513,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "split-xxlarge-64r",
+    "runId": "capacity-split-xxlarge-64r-20261027T012933Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 320,
+      "min": 303.581,
+      "mean": 333.9829375,
+      "median": 331.21349999999995,
+      "p95": 356.55,
+      "max": 456.702
+    },
+    "wholeRunRssMiB": {
+      "n": 20,
+      "min": 157.51171875,
+      "median": 161.732421875,
+      "mean": 161.782421875,
+      "p95": 164.91015625,
+      "max": 167.55078125
+    },
+    "exerciseCpuCores": {
+      "n": 12,
+      "min": 0.17775423934836518,
+      "mean": 0.23041794824044945,
+      "median": 0.23301987034195462,
+      "p95": 0.28239009099068735,
+      "max": 0.28239009099068735
+    },
+    "exerciseRssMiB": {
+      "n": 13,
+      "min": 158.0078125,
+      "mean": 161.29927884615384,
+      "median": 161.40625,
+      "p95": 163.05859375,
+      "max": 163.05859375
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 13,
+      "min": 135.9296875,
+      "mean": 138.6036658653846,
+      "median": 138.61328125,
+      "p95": 139.953125,
+      "max": 139.953125
+    },
+    "maxLoopLagMs": 7.879,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  }
+]

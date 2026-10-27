@@ -1,0 +1,2992 @@
+{
+  "split-medium-8": {
+    "label": "split-medium-8",
+    "status": "valid",
+    "matching": "Explicit authored benchmark round and writer, request and numbered batch. Same-isolate monotonic timestamps; no wall-clock conversion or ordinal pairing.",
+    "populationLatency": {
+      "n": 40,
+      "minMs": 455.762,
+      "meanMs": 497.4699,
+      "medianMs": 481.309,
+      "p95Ms": 558.675,
+      "maxMs": 608.189
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 463.369,
+      "meanMs": 523.659,
+      "medianMs": 540.3595,
+      "p95Ms": 608.189,
+      "maxMs": 608.189
+    },
+    "invalidPartitions": 0,
+    "collectorRetries": [],
+    "limits": "SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.",
+    "meanPartsMs": {
+      "mergeQueue": 0.0574,
+      "mergeSourcePreparation": 0.0453,
+      "mergeConnectionAndBegin": 4.921600000000001,
+      "mergeSql": 94.65610000000001,
+      "mergeNonSql": 3.6121,
+      "mergeCommitAndRelease": 5.7891,
+      "mergeOther": 0.5442,
+      "afterMergeBeforeCapture": 18.7011,
+      "captureConnectionAndBegin": 24.8243,
+      "captureSql": 51.3754,
+      "captureNonSql": 8.1965,
+      "captureCommitAndRelease": 34.773,
+      "captureOther": 12.9426,
+      "afterCaptureBeforeYield": 7.1064,
+      "clientLocalWrite": 3.7273,
+      "clientOutboundPreparation": 1.5535,
+      "transportAndBoundaryResidual": 246.17579999999998,
+      "clientPeerApplyAndObserve": 4.6573
+    },
+    "rows": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "totalMicros": 495479,
+        "serverPathMicros": 244444,
+        "parts": {
+          "mergeQueue": 40,
+          "mergeSourcePreparation": 28,
+          "mergeConnectionAndBegin": 4842,
+          "mergeSql": 53223,
+          "mergeNonSql": 3434,
+          "mergeCommitAndRelease": 5895,
+          "mergeOther": 433,
+          "afterMergeBeforeCapture": 67504,
+          "captureConnectionAndBegin": 5766,
+          "captureSql": 89872,
+          "captureNonSql": 2374,
+          "captureCommitAndRelease": 4620,
+          "captureOther": 6158,
+          "afterCaptureBeforeYield": 255,
+          "clientLocalWrite": 3573,
+          "clientOutboundPreparation": 1535,
+          "transportAndBoundaryResidual": 241417,
+          "clientPeerApplyAndObserve": 4510
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 0,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 4996,
+              "chunks": 1,
+              "lastChunkMicros": 4996,
+              "endMicros": 5108
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 490896,
+              "chunks": 1,
+              "lastChunkMicros": 490896,
+              "endMicros": 490969
+            }
+          ]
+        },
+        "localCommitMicros": 3573
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "totalMicros": 538380,
+        "serverPathMicros": 290393,
+        "parts": {
+          "mergeQueue": 55,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 5077,
+          "mergeSql": 92983,
+          "mergeNonSql": 3494,
+          "mergeCommitAndRelease": 5182,
+          "mergeOther": 613,
+          "afterMergeBeforeCapture": 7598,
+          "captureConnectionAndBegin": 75405,
+          "captureSql": 18709,
+          "captureNonSql": 1803,
+          "captureCommitAndRelease": 4206,
+          "captureOther": 74970,
+          "afterCaptureBeforeYield": 252,
+          "clientLocalWrite": 3746,
+          "clientOutboundPreparation": 1531,
+          "transportAndBoundaryResidual": 238208,
+          "clientPeerApplyAndObserve": 4502
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 1,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 5155,
+              "chunks": 1,
+              "lastChunkMicros": 5155,
+              "endMicros": 5277
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 533849,
+              "chunks": 1,
+              "lastChunkMicros": 533849,
+              "endMicros": 533878
+            }
+          ]
+        },
+        "localCommitMicros": 3746
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "totalMicros": 542339,
+        "serverPathMicros": 291377,
+        "parts": {
+          "mergeQueue": 60,
+          "mergeSourcePreparation": 45,
+          "mergeConnectionAndBegin": 5506,
+          "mergeSql": 98049,
+          "mergeNonSql": 3634,
+          "mergeCommitAndRelease": 6333,
+          "mergeOther": 598,
+          "afterMergeBeforeCapture": 7148,
+          "captureConnectionAndBegin": 5123,
+          "captureSql": 23158,
+          "captureNonSql": 63493,
+          "captureCommitAndRelease": 4949,
+          "captureOther": 5544,
+          "afterCaptureBeforeYield": 67737,
+          "clientLocalWrite": 3677,
+          "clientOutboundPreparation": 1600,
+          "transportAndBoundaryResidual": 240969,
+          "clientPeerApplyAndObserve": 4716
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 2,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5141,
+              "chunks": 1,
+              "lastChunkMicros": 5141,
+              "endMicros": 5277
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 537558,
+              "chunks": 1,
+              "lastChunkMicros": 537558,
+              "endMicros": 537623
+            }
+          ]
+        },
+        "localCommitMicros": 3677
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "totalMicros": 481589,
+        "serverPathMicros": 228497,
+        "parts": {
+          "mergeQueue": 78,
+          "mergeSourcePreparation": 66,
+          "mergeConnectionAndBegin": 5186,
+          "mergeSql": 96738,
+          "mergeNonSql": 3799,
+          "mergeCommitAndRelease": 6067,
+          "mergeOther": 589,
+          "afterMergeBeforeCapture": 7230,
+          "captureConnectionAndBegin": 5120,
+          "captureSql": 75256,
+          "captureNonSql": 2542,
+          "captureCommitAndRelease": 20073,
+          "captureOther": 5373,
+          "afterCaptureBeforeYield": 380,
+          "clientLocalWrite": 4214,
+          "clientOutboundPreparation": 1536,
+          "transportAndBoundaryResidual": 242238,
+          "clientPeerApplyAndObserve": 5104
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 3,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5631,
+              "chunks": 1,
+              "lastChunkMicros": 5631,
+              "endMicros": 5750
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 476455,
+              "chunks": 1,
+              "lastChunkMicros": 476455,
+              "endMicros": 476485
+            }
+          ]
+        },
+        "localCommitMicros": 4214
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "totalMicros": 608189,
+        "serverPathMicros": 292972,
+        "parts": {
+          "mergeQueue": 59,
+          "mergeSourcePreparation": 43,
+          "mergeConnectionAndBegin": 4884,
+          "mergeSql": 99526,
+          "mergeNonSql": 3399,
+          "mergeCommitAndRelease": 5993,
+          "mergeOther": 523,
+          "afterMergeBeforeCapture": 6341,
+          "captureConnectionAndBegin": 5263,
+          "captureSql": 83004,
+          "captureNonSql": 2067,
+          "captureCommitAndRelease": 74949,
+          "captureOther": 6296,
+          "afterCaptureBeforeYield": 625,
+          "clientLocalWrite": 3929,
+          "clientOutboundPreparation": 1709,
+          "transportAndBoundaryResidual": 304472,
+          "clientPeerApplyAndObserve": 5107
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 4,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 5482,
+              "chunks": 1,
+              "lastChunkMicros": 5482,
+              "endMicros": 5638
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 603051,
+              "chunks": 1,
+              "lastChunkMicros": 603051,
+              "endMicros": 603082
+            }
+          ]
+        },
+        "localCommitMicros": 3929
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "totalMicros": 549301,
+        "serverPathMicros": 302126,
+        "parts": {
+          "mergeQueue": 55,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 4882,
+          "mergeSql": 117733,
+          "mergeNonSql": 3918,
+          "mergeCommitAndRelease": 5789,
+          "mergeOther": 565,
+          "afterMergeBeforeCapture": 63338,
+          "captureConnectionAndBegin": 5299,
+          "captureSql": 16702,
+          "captureNonSql": 1602,
+          "captureCommitAndRelease": 75165,
+          "captureOther": 6675,
+          "afterCaptureBeforeYield": 357,
+          "clientLocalWrite": 3820,
+          "clientOutboundPreparation": 1560,
+          "transportAndBoundaryResidual": 237469,
+          "clientPeerApplyAndObserve": 4326
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 5,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 5235,
+              "chunks": 1,
+              "lastChunkMicros": 5235,
+              "endMicros": 5380
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 544900,
+              "chunks": 1,
+              "lastChunkMicros": 544900,
+              "endMicros": 544975
+            }
+          ]
+        },
+        "localCommitMicros": 3820
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "totalMicros": 548093,
+        "serverPathMicros": 299783,
+        "parts": {
+          "mergeQueue": 58,
+          "mergeSourcePreparation": 43,
+          "mergeConnectionAndBegin": 4849,
+          "mergeSql": 103012,
+          "mergeNonSql": 3320,
+          "mergeCommitAndRelease": 6043,
+          "mergeOther": 526,
+          "afterMergeBeforeCapture": 6790,
+          "captureConnectionAndBegin": 68350,
+          "captureSql": 22843,
+          "captureNonSql": 1865,
+          "captureCommitAndRelease": 75298,
+          "captureOther": 6282,
+          "afterCaptureBeforeYield": 504,
+          "clientLocalWrite": 3605,
+          "clientOutboundPreparation": 1499,
+          "transportAndBoundaryResidual": 238482,
+          "clientPeerApplyAndObserve": 4724
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 6,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 4982,
+              "chunks": 1,
+              "lastChunkMicros": 4982,
+              "endMicros": 5104
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 543286,
+              "chunks": 1,
+              "lastChunkMicros": 543286,
+              "endMicros": 543369
+            }
+          ]
+        },
+        "localCommitMicros": 3605
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "totalMicros": 466135,
+        "serverPathMicros": 219601,
+        "parts": {
+          "mergeQueue": 54,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 4446,
+          "mergeSql": 94713,
+          "mergeNonSql": 3817,
+          "mergeCommitAndRelease": 5514,
+          "mergeOther": 515,
+          "afterMergeBeforeCapture": 7335,
+          "captureConnectionAndBegin": 5887,
+          "captureSql": 84348,
+          "captureNonSql": 2058,
+          "captureCommitAndRelease": 4186,
+          "captureOther": 6353,
+          "afterCaptureBeforeYield": 329,
+          "clientLocalWrite": 3430,
+          "clientOutboundPreparation": 1469,
+          "transportAndBoundaryResidual": 237542,
+          "clientPeerApplyAndObserve": 4093
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 7,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 4777,
+              "chunks": 1,
+              "lastChunkMicros": 4777,
+              "endMicros": 4899
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 462018,
+              "chunks": 1,
+              "lastChunkMicros": 462018,
+              "endMicros": 462042
+            }
+          ]
+        },
+        "localCommitMicros": 3430
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "totalMicros": 543716,
+        "serverPathMicros": 292537,
+        "parts": {
+          "mergeQueue": 60,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 4877,
+          "mergeSql": 95770,
+          "mergeNonSql": 3652,
+          "mergeCommitAndRelease": 5617,
+          "mergeOther": 548,
+          "afterMergeBeforeCapture": 6825,
+          "captureConnectionAndBegin": 65954,
+          "captureSql": 21512,
+          "captureNonSql": 2042,
+          "captureCommitAndRelease": 79316,
+          "captureOther": 6037,
+          "afterCaptureBeforeYield": 283,
+          "clientLocalWrite": 3732,
+          "clientOutboundPreparation": 1574,
+          "transportAndBoundaryResidual": 240669,
+          "clientPeerApplyAndObserve": 5204
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 8,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 5177,
+              "chunks": 1,
+              "lastChunkMicros": 5177,
+              "endMicros": 5306
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 538439,
+              "chunks": 1,
+              "lastChunkMicros": 538439,
+              "endMicros": 538512
+            }
+          ]
+        },
+        "localCommitMicros": 3732
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "totalMicros": 463369,
+        "serverPathMicros": 213721,
+        "parts": {
+          "mergeQueue": 55,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 4667,
+          "mergeSql": 94814,
+          "mergeNonSql": 3654,
+          "mergeCommitAndRelease": 5458,
+          "mergeOther": 532,
+          "afterMergeBeforeCapture": 6902,
+          "captureConnectionAndBegin": 6076,
+          "captureSql": 78350,
+          "captureNonSql": 2119,
+          "captureCommitAndRelease": 4968,
+          "captureOther": 5738,
+          "afterCaptureBeforeYield": 342,
+          "clientLocalWrite": 3547,
+          "clientOutboundPreparation": 1522,
+          "transportAndBoundaryResidual": 240292,
+          "clientPeerApplyAndObserve": 4287
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 9,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 4918,
+              "chunks": 1,
+              "lastChunkMicros": 4918,
+              "endMicros": 5069
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 459056,
+              "chunks": 1,
+              "lastChunkMicros": 459056,
+              "endMicros": 459082
+            }
+          ]
+        },
+        "localCommitMicros": 3547
+      }
+    ]
+  },
+  "control-medium-8": {
+    "label": "control-medium-8",
+    "status": "valid",
+    "matching": "Explicit authored benchmark round and writer, request and numbered batch. Same-isolate monotonic timestamps; no wall-clock conversion or ordinal pairing.",
+    "populationLatency": {
+      "n": 40,
+      "minMs": 445.604,
+      "meanMs": 502.26515,
+      "medianMs": 475.041,
+      "p95Ms": 553.911,
+      "maxMs": 788.18
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 458.117,
+      "meanMs": 516.9010999999999,
+      "medianMs": 536.8075,
+      "p95Ms": 553.911,
+      "maxMs": 553.911
+    },
+    "invalidPartitions": 0,
+    "collectorRetries": [],
+    "limits": "SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.",
+    "meanPartsMs": {
+      "mergeQueue": 0.0625,
+      "mergeSourcePreparation": 0.0538,
+      "mergeConnectionAndBegin": 7.5263,
+      "mergeSql": 98.6614,
+      "mergeNonSql": 3.5902,
+      "mergeCommitAndRelease": 5.9688,
+      "mergeOther": 0.5691,
+      "afterMergeBeforeCapture": 12.040899999999999,
+      "captureConnectionAndBegin": 16.5227,
+      "captureSql": 60.2236,
+      "captureNonSql": 1.9745,
+      "captureCommitAndRelease": 12.6236,
+      "captureOther": 34.4523,
+      "afterCaptureBeforeYield": 0.37239999999999995,
+      "transportAndClientResidual": 262.259
+    },
+    "rows": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "totalMicros": 496232,
+        "serverPathMicros": 247366,
+        "parts": {
+          "mergeQueue": 81,
+          "mergeSourcePreparation": 66,
+          "mergeConnectionAndBegin": 12809,
+          "mergeSql": 110044,
+          "mergeNonSql": 3648,
+          "mergeCommitAndRelease": 5527,
+          "mergeOther": 604,
+          "afterMergeBeforeCapture": 7501,
+          "captureConnectionAndBegin": 6447,
+          "captureSql": 86073,
+          "captureNonSql": 1610,
+          "captureCommitAndRelease": 5831,
+          "captureOther": 6307,
+          "afterCaptureBeforeYield": 818,
+          "transportAndClientResidual": 248866
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "totalMicros": 539090,
+        "serverPathMicros": 286150,
+        "parts": {
+          "mergeQueue": 58,
+          "mergeSourcePreparation": 47,
+          "mergeConnectionAndBegin": 10936,
+          "mergeSql": 96922,
+          "mergeNonSql": 3444,
+          "mergeCommitAndRelease": 10173,
+          "mergeOther": 514,
+          "afterMergeBeforeCapture": 6346,
+          "captureConnectionAndBegin": 5347,
+          "captureSql": 90851,
+          "captureNonSql": 2178,
+          "captureCommitAndRelease": 6569,
+          "captureOther": 52421,
+          "afterCaptureBeforeYield": 344,
+          "transportAndClientResidual": 252940
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "totalMicros": 541291,
+        "serverPathMicros": 291586,
+        "parts": {
+          "mergeQueue": 61,
+          "mergeSourcePreparation": 68,
+          "mergeConnectionAndBegin": 5139,
+          "mergeSql": 111205,
+          "mergeNonSql": 3779,
+          "mergeCommitAndRelease": 5421,
+          "mergeOther": 672,
+          "afterMergeBeforeCapture": 59189,
+          "captureConnectionAndBegin": 5209,
+          "captureSql": 86042,
+          "captureNonSql": 2048,
+          "captureCommitAndRelease": 6111,
+          "captureOther": 6459,
+          "afterCaptureBeforeYield": 183,
+          "transportAndClientResidual": 249705
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "totalMicros": 458117,
+        "serverPathMicros": 209190,
+        "parts": {
+          "mergeQueue": 53,
+          "mergeSourcePreparation": 47,
+          "mergeConnectionAndBegin": 5030,
+          "mergeSql": 94455,
+          "mergeNonSql": 3313,
+          "mergeCommitAndRelease": 5359,
+          "mergeOther": 590,
+          "afterMergeBeforeCapture": 6526,
+          "captureConnectionAndBegin": 62907,
+          "captureSql": 17671,
+          "captureNonSql": 2092,
+          "captureCommitAndRelease": 5074,
+          "captureOther": 5699,
+          "afterCaptureBeforeYield": 374,
+          "transportAndClientResidual": 248927
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "totalMicros": 478239,
+        "serverPathMicros": 213926,
+        "parts": {
+          "mergeQueue": 56,
+          "mergeSourcePreparation": 47,
+          "mergeConnectionAndBegin": 4854,
+          "mergeSql": 89506,
+          "mergeNonSql": 3541,
+          "mergeCommitAndRelease": 5022,
+          "mergeOther": 415,
+          "afterMergeBeforeCapture": 6549,
+          "captureConnectionAndBegin": 5926,
+          "captureSql": 80966,
+          "captureNonSql": 1480,
+          "captureCommitAndRelease": 9378,
+          "captureOther": 5848,
+          "afterCaptureBeforeYield": 338,
+          "transportAndClientResidual": 264313
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "totalMicros": 551301,
+        "serverPathMicros": 298890,
+        "parts": {
+          "mergeQueue": 64,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 12250,
+          "mergeSql": 89172,
+          "mergeNonSql": 3439,
+          "mergeCommitAndRelease": 5704,
+          "mergeOther": 579,
+          "afterMergeBeforeCapture": 7343,
+          "captureConnectionAndBegin": 4394,
+          "captureSql": 94240,
+          "captureNonSql": 2378,
+          "captureCommitAndRelease": 8266,
+          "captureOther": 70549,
+          "afterCaptureBeforeYield": 466,
+          "transportAndClientResidual": 252411
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "totalMicros": 550873,
+        "serverPathMicros": 213633,
+        "parts": {
+          "mergeQueue": 59,
+          "mergeSourcePreparation": 64,
+          "mergeConnectionAndBegin": 4699,
+          "mergeSql": 95749,
+          "mergeNonSql": 3809,
+          "mergeCommitAndRelease": 5504,
+          "mergeOther": 560,
+          "afterMergeBeforeCapture": 6697,
+          "captureConnectionAndBegin": 4844,
+          "captureSql": 18165,
+          "captureNonSql": 1406,
+          "captureCommitAndRelease": 4499,
+          "captureOther": 67304,
+          "afterCaptureBeforeYield": 274,
+          "transportAndClientResidual": 337240
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "totalMicros": 534525,
+        "serverPathMicros": 284132,
+        "parts": {
+          "mergeQueue": 75,
+          "mergeSourcePreparation": 62,
+          "mergeConnectionAndBegin": 10136,
+          "mergeSql": 99126,
+          "mergeNonSql": 3265,
+          "mergeCommitAndRelease": 5608,
+          "mergeOther": 605,
+          "afterMergeBeforeCapture": 6205,
+          "captureConnectionAndBegin": 5255,
+          "captureSql": 17738,
+          "captureNonSql": 2076,
+          "captureCommitAndRelease": 70762,
+          "captureOther": 62876,
+          "afterCaptureBeforeYield": 343,
+          "transportAndClientResidual": 250393
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "totalMicros": 553911,
+        "serverPathMicros": 289804,
+        "parts": {
+          "mergeQueue": 62,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 4686,
+          "mergeSql": 104188,
+          "mergeNonSql": 4068,
+          "mergeCommitAndRelease": 5895,
+          "mergeOther": 622,
+          "afterMergeBeforeCapture": 7328,
+          "captureConnectionAndBegin": 4506,
+          "captureSql": 88920,
+          "captureNonSql": 2301,
+          "captureCommitAndRelease": 5721,
+          "captureOther": 61159,
+          "afterCaptureBeforeYield": 304,
+          "transportAndClientResidual": 264107
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "totalMicros": 465432,
+        "serverPathMicros": 211744,
+        "parts": {
+          "mergeQueue": 56,
+          "mergeSourcePreparation": 47,
+          "mergeConnectionAndBegin": 4724,
+          "mergeSql": 96247,
+          "mergeNonSql": 3596,
+          "mergeCommitAndRelease": 5475,
+          "mergeOther": 530,
+          "afterMergeBeforeCapture": 6725,
+          "captureConnectionAndBegin": 60392,
+          "captureSql": 21570,
+          "captureNonSql": 2176,
+          "captureCommitAndRelease": 4025,
+          "captureOther": 5901,
+          "afterCaptureBeforeYield": 280,
+          "transportAndClientResidual": 253688
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      }
+    ]
+  },
+  "split-medium-64": {
+    "label": "split-medium-64",
+    "status": "valid",
+    "matching": "Explicit authored benchmark round and writer, request and numbered batch. Same-isolate monotonic timestamps; no wall-clock conversion or ordinal pairing.",
+    "populationLatency": {
+      "n": 320,
+      "minMs": 534.031,
+      "meanMs": 5142.599528125,
+      "medianMs": 5314.5895,
+      "p95Ms": 6826.208,
+      "maxMs": 9598.608
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 534.031,
+      "meanMs": 4921.4045,
+      "medianMs": 5302.654,
+      "p95Ms": 6923.996,
+      "maxMs": 6923.996
+    },
+    "invalidPartitions": 0,
+    "collectorRetries": [],
+    "limits": "SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.",
+    "meanPartsMs": {
+      "mergeQueue": 0.0673,
+      "mergeSourcePreparation": 0.0482,
+      "mergeConnectionAndBegin": 214.81539999999998,
+      "mergeSql": 2321.2426,
+      "mergeNonSql": 23.928,
+      "mergeCommitAndRelease": 307.0718,
+      "mergeOther": 0.5398,
+      "afterMergeBeforeCapture": 243.8049,
+      "captureConnectionAndBegin": 239.6125,
+      "captureSql": 767.3682,
+      "captureNonSql": 1.932,
+      "captureCommitAndRelease": 265.8938,
+      "captureOther": 210.9384,
+      "afterCaptureBeforeYield": 7.2241,
+      "clientLocalWrite": 4.6108,
+      "clientOutboundPreparation": 1.8707,
+      "transportAndBoundaryResidual": 305.7466,
+      "clientPeerApplyAndObserve": 4.6894
+    },
+    "rows": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "totalMicros": 534031,
+        "serverPathMicros": 296420,
+        "parts": {
+          "mergeQueue": 58,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 5203,
+          "mergeSql": 61565,
+          "mergeNonSql": 50525,
+          "mergeCommitAndRelease": 5599,
+          "mergeOther": 631,
+          "afterMergeBeforeCapture": 6536,
+          "captureConnectionAndBegin": 5468,
+          "captureSql": 79279,
+          "captureNonSql": 2088,
+          "captureCommitAndRelease": 4727,
+          "captureOther": 5758,
+          "afterCaptureBeforeYield": 68939,
+          "clientLocalWrite": 4988,
+          "clientOutboundPreparation": 2190,
+          "transportAndBoundaryResidual": 225866,
+          "clientPeerApplyAndObserve": 4567
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 0,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 7000,
+              "chunks": 1,
+              "lastChunkMicros": 7000,
+              "endMicros": 7178
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 529383,
+              "chunks": 1,
+              "lastChunkMicros": 529383,
+              "endMicros": 529464
+            }
+          ]
+        },
+        "localCommitMicros": 4988
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "totalMicros": 3446552,
+        "serverPathMicros": 3188690,
+        "parts": {
+          "mergeQueue": 54,
+          "mergeSourcePreparation": 75,
+          "mergeConnectionAndBegin": 97991,
+          "mergeSql": 1520796,
+          "mergeNonSql": 84643,
+          "mergeCommitAndRelease": 202783,
+          "mergeOther": 563,
+          "afterMergeBeforeCapture": 183306,
+          "captureConnectionAndBegin": 193264,
+          "captureSql": 596158,
+          "captureNonSql": 1807,
+          "captureCommitAndRelease": 199577,
+          "captureOther": 107328,
+          "afterCaptureBeforeYield": 345,
+          "clientLocalWrite": 3725,
+          "clientOutboundPreparation": 1757,
+          "transportAndBoundaryResidual": 247759,
+          "clientPeerApplyAndObserve": 4621
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 1,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 5338,
+              "chunks": 1,
+              "lastChunkMicros": 5338,
+              "endMicros": 5482
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 3441853,
+              "chunks": 1,
+              "lastChunkMicros": 3441853,
+              "endMicros": 3441931
+            }
+          ]
+        },
+        "localCommitMicros": 3725
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "totalMicros": 5937745,
+        "serverPathMicros": 5497985,
+        "parts": {
+          "mergeQueue": 54,
+          "mergeSourcePreparation": 53,
+          "mergeConnectionAndBegin": 195773,
+          "mergeSql": 2721604,
+          "mergeNonSql": 76460,
+          "mergeCommitAndRelease": 299567,
+          "mergeOther": 499,
+          "afterMergeBeforeCapture": 588384,
+          "captureConnectionAndBegin": 112339,
+          "captureSql": 995884,
+          "captureNonSql": 1771,
+          "captureCommitAndRelease": 205199,
+          "captureOther": 300165,
+          "afterCaptureBeforeYield": 233,
+          "clientLocalWrite": 4067,
+          "clientOutboundPreparation": 1463,
+          "transportAndBoundaryResidual": 429670,
+          "clientPeerApplyAndObserve": 4560
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 2,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5416,
+              "chunks": 1,
+              "lastChunkMicros": 5416,
+              "endMicros": 5530
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 5933069,
+              "chunks": 1,
+              "lastChunkMicros": 5933069,
+              "endMicros": 5933185
+            }
+          ]
+        },
+        "localCommitMicros": 4067
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "totalMicros": 5296911,
+        "serverPathMicros": 4991642,
+        "parts": {
+          "mergeQueue": 33,
+          "mergeSourcePreparation": 25,
+          "mergeConnectionAndBegin": 293478,
+          "mergeSql": 2517635,
+          "mergeNonSql": 2719,
+          "mergeCommitAndRelease": 277934,
+          "mergeOther": 436,
+          "afterMergeBeforeCapture": 211761,
+          "captureConnectionAndBegin": 205957,
+          "captureSql": 698097,
+          "captureNonSql": 2772,
+          "captureCommitAndRelease": 486254,
+          "captureOther": 294138,
+          "afterCaptureBeforeYield": 403,
+          "clientLocalWrite": 4261,
+          "clientOutboundPreparation": 1557,
+          "transportAndBoundaryResidual": 295064,
+          "clientPeerApplyAndObserve": 4387
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 3,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5668,
+              "chunks": 1,
+              "lastChunkMicros": 5668,
+              "endMicros": 5818
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 5292469,
+              "chunks": 1,
+              "lastChunkMicros": 5292469,
+              "endMicros": 5292524
+            }
+          ]
+        },
+        "localCommitMicros": 4261
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "totalMicros": 5397746,
+        "serverPathMicros": 5097897,
+        "parts": {
+          "mergeQueue": 164,
+          "mergeSourcePreparation": 28,
+          "mergeConnectionAndBegin": 204112,
+          "mergeSql": 2486184,
+          "mergeNonSql": 3622,
+          "mergeCommitAndRelease": 594639,
+          "mergeOther": 592,
+          "afterMergeBeforeCapture": 215527,
+          "captureConnectionAndBegin": 294847,
+          "captureSql": 889884,
+          "captureNonSql": 2079,
+          "captureCommitAndRelease": 208288,
+          "captureOther": 197550,
+          "afterCaptureBeforeYield": 381,
+          "clientLocalWrite": 4449,
+          "clientOutboundPreparation": 1507,
+          "transportAndBoundaryResidual": 289648,
+          "clientPeerApplyAndObserve": 4245
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 4,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 5847,
+              "chunks": 1,
+              "lastChunkMicros": 5847,
+              "endMicros": 5956
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 5393392,
+              "chunks": 1,
+              "lastChunkMicros": 5393392,
+              "endMicros": 5393501
+            }
+          ]
+        },
+        "localCommitMicros": 4449
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "totalMicros": 5308397,
+        "serverPathMicros": 4998367,
+        "parts": {
+          "mergeQueue": 78,
+          "mergeSourcePreparation": 45,
+          "mergeConnectionAndBegin": 292926,
+          "mergeSql": 2597902,
+          "mergeNonSql": 2571,
+          "mergeCommitAndRelease": 297883,
+          "mergeOther": 576,
+          "afterMergeBeforeCapture": 212874,
+          "captureConnectionAndBegin": 303182,
+          "captureSql": 696774,
+          "captureNonSql": 1820,
+          "captureCommitAndRelease": 299177,
+          "captureOther": 292175,
+          "afterCaptureBeforeYield": 384,
+          "clientLocalWrite": 4818,
+          "clientOutboundPreparation": 2365,
+          "transportAndBoundaryResidual": 297632,
+          "clientPeerApplyAndObserve": 5215
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 5,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 7051,
+              "chunks": 1,
+              "lastChunkMicros": 7051,
+              "endMicros": 7183
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 5303156,
+              "chunks": 1,
+              "lastChunkMicros": 5303156,
+              "endMicros": 5303182
+            }
+          ]
+        },
+        "localCommitMicros": 4818
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "totalMicros": 6272246,
+        "serverPathMicros": 5895235,
+        "parts": {
+          "mergeQueue": 59,
+          "mergeSourcePreparation": 78,
+          "mergeConnectionAndBegin": 243075,
+          "mergeSql": 3132048,
+          "mergeNonSql": 9808,
+          "mergeCommitAndRelease": 403336,
+          "mergeOther": 553,
+          "afterMergeBeforeCapture": 109564,
+          "captureConnectionAndBegin": 285071,
+          "captureSql": 1307778,
+          "captureNonSql": 1508,
+          "captureCommitAndRelease": 294602,
+          "captureOther": 107534,
+          "afterCaptureBeforeYield": 221,
+          "clientLocalWrite": 4014,
+          "clientOutboundPreparation": 1461,
+          "transportAndBoundaryResidual": 367043,
+          "clientPeerApplyAndObserve": 4493
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 6,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 5329,
+              "chunks": 1,
+              "lastChunkMicros": 5329,
+              "endMicros": 5475
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 6267729,
+              "chunks": 1,
+              "lastChunkMicros": 6267729,
+              "endMicros": 6267753
+            }
+          ]
+        },
+        "localCommitMicros": 4014
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "totalMicros": 6923996,
+        "serverPathMicros": 6595862,
+        "parts": {
+          "mergeQueue": 54,
+          "mergeSourcePreparation": 45,
+          "mergeConnectionAndBegin": 413215,
+          "mergeSql": 3384059,
+          "mergeNonSql": 3049,
+          "mergeCommitAndRelease": 401510,
+          "mergeOther": 475,
+          "afterMergeBeforeCapture": 288865,
+          "captureConnectionAndBegin": 501418,
+          "captureSql": 999923,
+          "captureNonSql": 1769,
+          "captureCommitAndRelease": 390855,
+          "captureOther": 210254,
+          "afterCaptureBeforeYield": 371,
+          "clientLocalWrite": 5086,
+          "clientOutboundPreparation": 1611,
+          "transportAndBoundaryResidual": 317068,
+          "clientPeerApplyAndObserve": 4369
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 7,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 6565,
+              "chunks": 1,
+              "lastChunkMicros": 6565,
+              "endMicros": 6697
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 6919600,
+              "chunks": 1,
+              "lastChunkMicros": 6919600,
+              "endMicros": 6919627
+            }
+          ]
+        },
+        "localCommitMicros": 5086
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "totalMicros": 5282756,
+        "serverPathMicros": 4983715,
+        "parts": {
+          "mergeQueue": 69,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 198477,
+          "mergeSql": 2586409,
+          "mergeNonSql": 3236,
+          "mergeCommitAndRelease": 292932,
+          "mergeOther": 497,
+          "afterMergeBeforeCapture": 321858,
+          "captureConnectionAndBegin": 289879,
+          "captureSql": 711930,
+          "captureNonSql": 1939,
+          "captureCommitAndRelease": 283958,
+          "captureOther": 291978,
+          "afterCaptureBeforeYield": 509,
+          "clientLocalWrite": 4259,
+          "clientOutboundPreparation": 2239,
+          "transportAndBoundaryResidual": 286632,
+          "clientPeerApplyAndObserve": 5911
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 8,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 6378,
+              "chunks": 1,
+              "lastChunkMicros": 6378,
+              "endMicros": 6498
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 5276623,
+              "chunks": 1,
+              "lastChunkMicros": 5276623,
+              "endMicros": 5276845
+            }
+          ]
+        },
+        "localCommitMicros": 4259
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "totalMicros": 4813665,
+        "serverPathMicros": 4499057,
+        "parts": {
+          "mergeQueue": 50,
+          "mergeSourcePreparation": 45,
+          "mergeConnectionAndBegin": 203904,
+          "mergeSql": 2204224,
+          "mergeNonSql": 2647,
+          "mergeCommitAndRelease": 294535,
+          "mergeOther": 576,
+          "afterMergeBeforeCapture": 299374,
+          "captureConnectionAndBegin": 204700,
+          "captureSql": 697975,
+          "captureNonSql": 1767,
+          "captureCommitAndRelease": 286301,
+          "captureOther": 302504,
+          "afterCaptureBeforeYield": 455,
+          "clientLocalWrite": 6441,
+          "clientOutboundPreparation": 2557,
+          "transportAndBoundaryResidual": 301084,
+          "clientPeerApplyAndObserve": 4526
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 9,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 8874,
+              "chunks": 1,
+              "lastChunkMicros": 8874,
+              "endMicros": 8998
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 4809086,
+              "chunks": 1,
+              "lastChunkMicros": 4809086,
+              "endMicros": 4809139
+            }
+          ]
+        },
+        "localCommitMicros": 6441
+      }
+    ]
+  },
+  "control-xxlarge-64": {
+    "label": "control-xxlarge-64",
+    "status": "valid",
+    "matching": "Explicit authored benchmark round and writer, request and numbered batch. Same-isolate monotonic timestamps; no wall-clock conversion or ordinal pairing.",
+    "populationLatency": {
+      "n": 320,
+      "minMs": 303.27,
+      "meanMs": 333.91674375,
+      "medianMs": 332.3065,
+      "p95Ms": 353.743,
+      "maxMs": 432.004
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 328.695,
+      "meanMs": 336.8385,
+      "medianMs": 335.118,
+      "p95Ms": 355.315,
+      "maxMs": 355.315
+    },
+    "invalidPartitions": 0,
+    "collectorRetries": [],
+    "limits": "SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.",
+    "meanPartsMs": {
+      "mergeQueue": 0.0506,
+      "mergeSourcePreparation": 0.037700000000000004,
+      "mergeConnectionAndBegin": 3.8334,
+      "mergeSql": 38.7215,
+      "mergeNonSql": 3.2066,
+      "mergeCommitAndRelease": 4.271,
+      "mergeOther": 0.4848,
+      "afterMergeBeforeCapture": 5.5181000000000004,
+      "captureConnectionAndBegin": 3.9717,
+      "captureSql": 15.264,
+      "captureNonSql": 1.8437999999999999,
+      "captureCommitAndRelease": 3.3971999999999998,
+      "captureOther": 4.3988000000000005,
+      "afterCaptureBeforeYield": 0.2572,
+      "transportAndClientResidual": 251.5821
+    },
+    "rows": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "totalMicros": 342442,
+        "serverPathMicros": 84344,
+        "parts": {
+          "mergeQueue": 53,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 3788,
+          "mergeSql": 37858,
+          "mergeNonSql": 2641,
+          "mergeCommitAndRelease": 4422,
+          "mergeOther": 510,
+          "afterMergeBeforeCapture": 5217,
+          "captureConnectionAndBegin": 4934,
+          "captureSql": 15245,
+          "captureNonSql": 1747,
+          "captureCommitAndRelease": 3294,
+          "captureOther": 4413,
+          "afterCaptureBeforeYield": 178,
+          "transportAndClientResidual": 258098
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "totalMicros": 331698,
+        "serverPathMicros": 81180,
+        "parts": {
+          "mergeQueue": 57,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 3482,
+          "mergeSql": 37976,
+          "mergeNonSql": 2656,
+          "mergeCommitAndRelease": 4082,
+          "mergeOther": 440,
+          "afterMergeBeforeCapture": 4619,
+          "captureConnectionAndBegin": 3602,
+          "captureSql": 14900,
+          "captureNonSql": 1691,
+          "captureCommitAndRelease": 3082,
+          "captureOther": 4207,
+          "afterCaptureBeforeYield": 340,
+          "transportAndClientResidual": 250518
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "totalMicros": 339672,
+        "serverPathMicros": 82782,
+        "parts": {
+          "mergeQueue": 35,
+          "mergeSourcePreparation": 26,
+          "mergeConnectionAndBegin": 3517,
+          "mergeSql": 38318,
+          "mergeNonSql": 2593,
+          "mergeCommitAndRelease": 4307,
+          "mergeOther": 308,
+          "afterMergeBeforeCapture": 5545,
+          "captureConnectionAndBegin": 4229,
+          "captureSql": 14395,
+          "captureNonSql": 1324,
+          "captureCommitAndRelease": 3491,
+          "captureOther": 4511,
+          "afterCaptureBeforeYield": 183,
+          "transportAndClientResidual": 256890
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "totalMicros": 334392,
+        "serverPathMicros": 84849,
+        "parts": {
+          "mergeQueue": 37,
+          "mergeSourcePreparation": 27,
+          "mergeConnectionAndBegin": 3394,
+          "mergeSql": 38330,
+          "mergeNonSql": 3287,
+          "mergeCommitAndRelease": 4327,
+          "mergeOther": 463,
+          "afterMergeBeforeCapture": 4731,
+          "captureConnectionAndBegin": 3736,
+          "captureSql": 16455,
+          "captureNonSql": 1577,
+          "captureCommitAndRelease": 3900,
+          "captureOther": 4347,
+          "afterCaptureBeforeYield": 238,
+          "transportAndClientResidual": 249543
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "totalMicros": 331108,
+        "serverPathMicros": 82438,
+        "parts": {
+          "mergeQueue": 59,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 3579,
+          "mergeSql": 37025,
+          "mergeNonSql": 2506,
+          "mergeCommitAndRelease": 3881,
+          "mergeOther": 497,
+          "afterMergeBeforeCapture": 5535,
+          "captureConnectionAndBegin": 4140,
+          "captureSql": 15374,
+          "captureNonSql": 1420,
+          "captureCommitAndRelease": 3622,
+          "captureOther": 4560,
+          "afterCaptureBeforeYield": 196,
+          "transportAndClientResidual": 248670
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "totalMicros": 355315,
+        "serverPathMicros": 104724,
+        "parts": {
+          "mergeQueue": 55,
+          "mergeSourcePreparation": 69,
+          "mergeConnectionAndBegin": 5726,
+          "mergeSql": 45402,
+          "mergeNonSql": 7448,
+          "mergeCommitAndRelease": 4541,
+          "mergeOther": 905,
+          "afterMergeBeforeCapture": 7661,
+          "captureConnectionAndBegin": 3593,
+          "captureSql": 17417,
+          "captureNonSql": 3613,
+          "captureCommitAndRelease": 3875,
+          "captureOther": 4035,
+          "afterCaptureBeforeYield": 384,
+          "transportAndClientResidual": 250591
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "totalMicros": 329183,
+        "serverPathMicros": 80869,
+        "parts": {
+          "mergeQueue": 36,
+          "mergeSourcePreparation": 32,
+          "mergeConnectionAndBegin": 3413,
+          "mergeSql": 38938,
+          "mergeNonSql": 2763,
+          "mergeCommitAndRelease": 4330,
+          "mergeOther": 302,
+          "afterMergeBeforeCapture": 5469,
+          "captureConnectionAndBegin": 4398,
+          "captureSql": 12584,
+          "captureNonSql": 1259,
+          "captureCommitAndRelease": 2966,
+          "captureOther": 4204,
+          "afterCaptureBeforeYield": 175,
+          "transportAndClientResidual": 248314
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "totalMicros": 335844,
+        "serverPathMicros": 87461,
+        "parts": {
+          "mergeQueue": 43,
+          "mergeSourcePreparation": 28,
+          "mergeConnectionAndBegin": 3689,
+          "mergeSql": 38333,
+          "mergeNonSql": 2602,
+          "mergeCommitAndRelease": 4385,
+          "mergeOther": 539,
+          "afterMergeBeforeCapture": 5233,
+          "captureConnectionAndBegin": 3519,
+          "captureSql": 17699,
+          "captureNonSql": 2784,
+          "captureCommitAndRelease": 3295,
+          "captureOther": 4913,
+          "afterCaptureBeforeYield": 399,
+          "transportAndClientResidual": 248383
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "totalMicros": 328695,
+        "serverPathMicros": 81200,
+        "parts": {
+          "mergeQueue": 94,
+          "mergeSourcePreparation": 34,
+          "mergeConnectionAndBegin": 3739,
+          "mergeSql": 37260,
+          "mergeNonSql": 2754,
+          "mergeCommitAndRelease": 4046,
+          "mergeOther": 385,
+          "afterMergeBeforeCapture": 4880,
+          "captureConnectionAndBegin": 4151,
+          "captureSql": 14361,
+          "captureNonSql": 1497,
+          "captureCommitAndRelease": 3217,
+          "captureOther": 4561,
+          "afterCaptureBeforeYield": 221,
+          "transportAndClientResidual": 247495
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "totalMicros": 340036,
+        "serverPathMicros": 82717,
+        "parts": {
+          "mergeQueue": 37,
+          "mergeSourcePreparation": 27,
+          "mergeConnectionAndBegin": 4007,
+          "mergeSql": 37775,
+          "mergeNonSql": 2816,
+          "mergeCommitAndRelease": 4389,
+          "mergeOther": 499,
+          "afterMergeBeforeCapture": 6291,
+          "captureConnectionAndBegin": 3415,
+          "captureSql": 14210,
+          "captureNonSql": 1526,
+          "captureCommitAndRelease": 3230,
+          "captureOther": 4237,
+          "afterCaptureBeforeYield": 258,
+          "transportAndClientResidual": 257319
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3
+      }
+    ]
+  },
+  "split-xxlarge-64": {
+    "label": "split-xxlarge-64",
+    "status": "valid",
+    "matching": "Explicit authored benchmark round and writer, request and numbered batch. Same-isolate monotonic timestamps; no wall-clock conversion or ordinal pairing.",
+    "populationLatency": {
+      "n": 320,
+      "minMs": 302.171,
+      "meanMs": 333.301628125,
+      "medianMs": 330.5155,
+      "p95Ms": 354.018,
+      "maxMs": 524.621
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 342.549,
+      "meanMs": 350.2468,
+      "medianMs": 350.1955,
+      "p95Ms": 355.582,
+      "maxMs": 355.582
+    },
+    "invalidPartitions": 0,
+    "collectorRetries": [],
+    "limits": "SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.",
+    "meanPartsMs": {
+      "mergeQueue": 0.0571,
+      "mergeSourcePreparation": 0.04,
+      "mergeConnectionAndBegin": 3.466,
+      "mergeSql": 36.568599999999996,
+      "mergeNonSql": 2.5042,
+      "mergeCommitAndRelease": 4.0296,
+      "mergeOther": 0.4058,
+      "afterMergeBeforeCapture": 5.2003,
+      "captureConnectionAndBegin": 3.6855,
+      "captureSql": 15.8523,
+      "captureNonSql": 1.5629000000000002,
+      "captureCommitAndRelease": 3.6451,
+      "captureOther": 4.211399999999999,
+      "afterCaptureBeforeYield": 0.2656,
+      "clientLocalWrite": 3.9189000000000003,
+      "clientOutboundPreparation": 1.6865999999999999,
+      "transportAndBoundaryResidual": 258.54429999999996,
+      "clientPeerApplyAndObserve": 4.602600000000001
+    },
+    "rows": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "totalMicros": 349710,
+        "serverPathMicros": 82134,
+        "parts": {
+          "mergeQueue": 58,
+          "mergeSourcePreparation": 54,
+          "mergeConnectionAndBegin": 3497,
+          "mergeSql": 35600,
+          "mergeNonSql": 2261,
+          "mergeCommitAndRelease": 4052,
+          "mergeOther": 446,
+          "afterMergeBeforeCapture": 7245,
+          "captureConnectionAndBegin": 3899,
+          "captureSql": 14791,
+          "captureNonSql": 1777,
+          "captureCommitAndRelease": 3404,
+          "captureOther": 4811,
+          "afterCaptureBeforeYield": 239,
+          "clientLocalWrite": 3826,
+          "clientOutboundPreparation": 1561,
+          "transportAndBoundaryResidual": 256602,
+          "clientPeerApplyAndObserve": 5587
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 0,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 5227,
+              "chunks": 1,
+              "lastChunkMicros": 5227,
+              "endMicros": 5387
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 344049,
+              "chunks": 1,
+              "lastChunkMicros": 344049,
+              "endMicros": 344123
+            }
+          ]
+        },
+        "localCommitMicros": 3826
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "totalMicros": 350614,
+        "serverPathMicros": 84100,
+        "parts": {
+          "mergeQueue": 79,
+          "mergeSourcePreparation": 47,
+          "mergeConnectionAndBegin": 3718,
+          "mergeSql": 37353,
+          "mergeNonSql": 2727,
+          "mergeCommitAndRelease": 4114,
+          "mergeOther": 487,
+          "afterMergeBeforeCapture": 5414,
+          "captureConnectionAndBegin": 3946,
+          "captureSql": 16794,
+          "captureNonSql": 1607,
+          "captureCommitAndRelease": 3036,
+          "captureOther": 4570,
+          "afterCaptureBeforeYield": 208,
+          "clientLocalWrite": 4368,
+          "clientOutboundPreparation": 1643,
+          "transportAndBoundaryResidual": 256003,
+          "clientPeerApplyAndObserve": 4500
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 1,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 5860,
+              "chunks": 1,
+              "lastChunkMicros": 5860,
+              "endMicros": 6011
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 346087,
+              "chunks": 1,
+              "lastChunkMicros": 346087,
+              "endMicros": 346114
+            }
+          ]
+        },
+        "localCommitMicros": 4368
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "totalMicros": 355582,
+        "serverPathMicros": 83238,
+        "parts": {
+          "mergeQueue": 55,
+          "mergeSourcePreparation": 47,
+          "mergeConnectionAndBegin": 3507,
+          "mergeSql": 36584,
+          "mergeNonSql": 2454,
+          "mergeCommitAndRelease": 4034,
+          "mergeOther": 464,
+          "afterMergeBeforeCapture": 5252,
+          "captureConnectionAndBegin": 4319,
+          "captureSql": 17050,
+          "captureNonSql": 1409,
+          "captureCommitAndRelease": 3275,
+          "captureOther": 4618,
+          "afterCaptureBeforeYield": 170,
+          "clientLocalWrite": 3724,
+          "clientOutboundPreparation": 1561,
+          "transportAndBoundaryResidual": 262700,
+          "clientPeerApplyAndObserve": 4359
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 2,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5114,
+              "chunks": 1,
+              "lastChunkMicros": 5114,
+              "endMicros": 5285
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 351152,
+              "chunks": 1,
+              "lastChunkMicros": 351152,
+              "endMicros": 351223
+            }
+          ]
+        },
+        "localCommitMicros": 3724
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "totalMicros": 351601,
+        "serverPathMicros": 77956,
+        "parts": {
+          "mergeQueue": 35,
+          "mergeSourcePreparation": 39,
+          "mergeConnectionAndBegin": 3447,
+          "mergeSql": 36128,
+          "mergeNonSql": 2464,
+          "mergeCommitAndRelease": 3748,
+          "mergeOther": 364,
+          "afterMergeBeforeCapture": 4305,
+          "captureConnectionAndBegin": 3080,
+          "captureSql": 15074,
+          "captureNonSql": 1781,
+          "captureCommitAndRelease": 3021,
+          "captureOther": 4119,
+          "afterCaptureBeforeYield": 351,
+          "clientLocalWrite": 4049,
+          "clientOutboundPreparation": 1700,
+          "transportAndBoundaryResidual": 263496,
+          "clientPeerApplyAndObserve": 4400
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 3,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5537,
+              "chunks": 1,
+              "lastChunkMicros": 5537,
+              "endMicros": 5749
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 347171,
+              "chunks": 1,
+              "lastChunkMicros": 347171,
+              "endMicros": 347201
+            }
+          ]
+        },
+        "localCommitMicros": 4049
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "totalMicros": 347401,
+        "serverPathMicros": 80930,
+        "parts": {
+          "mergeQueue": 65,
+          "mergeSourcePreparation": 28,
+          "mergeConnectionAndBegin": 3254,
+          "mergeSql": 37063,
+          "mergeNonSql": 2858,
+          "mergeCommitAndRelease": 4280,
+          "mergeOther": 366,
+          "afterMergeBeforeCapture": 4798,
+          "captureConnectionAndBegin": 3708,
+          "captureSql": 14860,
+          "captureNonSql": 1564,
+          "captureCommitAndRelease": 3824,
+          "captureOther": 4010,
+          "afterCaptureBeforeYield": 252,
+          "clientLocalWrite": 3640,
+          "clientOutboundPreparation": 1579,
+          "transportAndBoundaryResidual": 257136,
+          "clientPeerApplyAndObserve": 4116
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 4,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 5064,
+              "chunks": 1,
+              "lastChunkMicros": 5064,
+              "endMicros": 5219
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 343257,
+              "chunks": 1,
+              "lastChunkMicros": 343257,
+              "endMicros": 343285
+            }
+          ]
+        },
+        "localCommitMicros": 3640
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "totalMicros": 349777,
+        "serverPathMicros": 82345,
+        "parts": {
+          "mergeQueue": 36,
+          "mergeSourcePreparation": 45,
+          "mergeConnectionAndBegin": 3550,
+          "mergeSql": 36638,
+          "mergeNonSql": 2395,
+          "mergeCommitAndRelease": 3966,
+          "mergeOther": 365,
+          "afterMergeBeforeCapture": 4348,
+          "captureConnectionAndBegin": 3217,
+          "captureSql": 17941,
+          "captureNonSql": 1396,
+          "captureCommitAndRelease": 4214,
+          "captureOther": 3921,
+          "afterCaptureBeforeYield": 313,
+          "clientLocalWrite": 3679,
+          "clientOutboundPreparation": 1584,
+          "transportAndBoundaryResidual": 257842,
+          "clientPeerApplyAndObserve": 4327
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 5,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 5124,
+              "chunks": 1,
+              "lastChunkMicros": 5124,
+              "endMicros": 5263
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 345429,
+              "chunks": 1,
+              "lastChunkMicros": 345429,
+              "endMicros": 345450
+            }
+          ]
+        },
+        "localCommitMicros": 3679
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "totalMicros": 349130,
+        "serverPathMicros": 82671,
+        "parts": {
+          "mergeQueue": 36,
+          "mergeSourcePreparation": 26,
+          "mergeConnectionAndBegin": 3186,
+          "mergeSql": 36827,
+          "mergeNonSql": 2090,
+          "mergeCommitAndRelease": 3843,
+          "mergeOther": 312,
+          "afterMergeBeforeCapture": 5364,
+          "captureConnectionAndBegin": 3928,
+          "captureSql": 17180,
+          "captureNonSql": 1314,
+          "captureCommitAndRelease": 4232,
+          "captureOther": 4049,
+          "afterCaptureBeforeYield": 284,
+          "clientLocalWrite": 3957,
+          "clientOutboundPreparation": 1615,
+          "transportAndBoundaryResidual": 256158,
+          "clientPeerApplyAndObserve": 4729
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 6,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 5361,
+              "chunks": 1,
+              "lastChunkMicros": 5361,
+              "endMicros": 5572
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 344375,
+              "chunks": 1,
+              "lastChunkMicros": 344375,
+              "endMicros": 344401
+            }
+          ]
+        },
+        "localCommitMicros": 3957
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "totalMicros": 342549,
+        "serverPathMicros": 77114,
+        "parts": {
+          "mergeQueue": 57,
+          "mergeSourcePreparation": 44,
+          "mergeConnectionAndBegin": 3430,
+          "mergeSql": 35114,
+          "mergeNonSql": 2734,
+          "mergeCommitAndRelease": 3951,
+          "mergeOther": 412,
+          "afterMergeBeforeCapture": 4191,
+          "captureConnectionAndBegin": 3139,
+          "captureSql": 15235,
+          "captureNonSql": 1601,
+          "captureCommitAndRelease": 3038,
+          "captureOther": 3960,
+          "afterCaptureBeforeYield": 208,
+          "clientLocalWrite": 3823,
+          "clientOutboundPreparation": 2138,
+          "transportAndBoundaryResidual": 254631,
+          "clientPeerApplyAndObserve": 4843
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 7,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 5813,
+              "chunks": 1,
+              "lastChunkMicros": 5813,
+              "endMicros": 5961
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 337612,
+              "chunks": 1,
+              "lastChunkMicros": 337612,
+              "endMicros": 337706
+            }
+          ]
+        },
+        "localCommitMicros": 3823
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "totalMicros": 355460,
+        "serverPathMicros": 83741,
+        "parts": {
+          "mergeQueue": 59,
+          "mergeSourcePreparation": 43,
+          "mergeConnectionAndBegin": 3581,
+          "mergeSql": 36674,
+          "mergeNonSql": 2581,
+          "mergeCommitAndRelease": 3978,
+          "mergeOther": 495,
+          "afterMergeBeforeCapture": 5925,
+          "captureConnectionAndBegin": 3919,
+          "captureSql": 15855,
+          "captureNonSql": 1690,
+          "captureCommitAndRelease": 4375,
+          "captureOther": 4150,
+          "afterCaptureBeforeYield": 416,
+          "clientLocalWrite": 4344,
+          "clientOutboundPreparation": 1975,
+          "transportAndBoundaryResidual": 260885,
+          "clientPeerApplyAndObserve": 4515
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 8,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 6190,
+              "chunks": 1,
+              "lastChunkMicros": 6190,
+              "endMicros": 6319
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 350919,
+              "chunks": 1,
+              "lastChunkMicros": 350919,
+              "endMicros": 350945
+            }
+          ]
+        },
+        "localCommitMicros": 4344
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "totalMicros": 350644,
+        "serverPathMicros": 80715,
+        "parts": {
+          "mergeQueue": 91,
+          "mergeSourcePreparation": 27,
+          "mergeConnectionAndBegin": 3490,
+          "mergeSql": 37705,
+          "mergeNonSql": 2478,
+          "mergeCommitAndRelease": 4330,
+          "mergeOther": 347,
+          "afterMergeBeforeCapture": 5161,
+          "captureConnectionAndBegin": 3700,
+          "captureSql": 13743,
+          "captureNonSql": 1490,
+          "captureCommitAndRelease": 4032,
+          "captureOther": 3906,
+          "afterCaptureBeforeYield": 215,
+          "clientLocalWrite": 3779,
+          "clientOutboundPreparation": 1510,
+          "transportAndBoundaryResidual": 259990,
+          "clientPeerApplyAndObserve": 4650
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 9,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 5127,
+              "chunks": 1,
+              "lastChunkMicros": 5127,
+              "endMicros": 5289
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 345965,
+              "chunks": 1,
+              "lastChunkMicros": 345965,
+              "endMicros": 345994
+            }
+          ]
+        },
+        "localCommitMicros": 3779
+      }
+    ]
+  },
+  "split-xxlarge-64r": {
+    "label": "split-xxlarge-64r",
+    "status": "valid",
+    "matching": "Explicit authored benchmark round and writer, request and numbered batch. Same-isolate monotonic timestamps; no wall-clock conversion or ordinal pairing.",
+    "populationLatency": {
+      "n": 320,
+      "minMs": 303.581,
+      "meanMs": 333.9829375,
+      "medianMs": 331.2135,
+      "p95Ms": 356.55,
+      "maxMs": 456.702
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 346.719,
+      "meanMs": 356.22929999999997,
+      "medianMs": 356.3605,
+      "p95Ms": 367.433,
+      "maxMs": 367.433
+    },
+    "invalidPartitions": 0,
+    "collectorRetries": [],
+    "limits": "SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.",
+    "meanPartsMs": {
+      "mergeQueue": 0.0484,
+      "mergeSourcePreparation": 0.040799999999999996,
+      "mergeConnectionAndBegin": 3.6538000000000004,
+      "mergeSql": 41.6939,
+      "mergeNonSql": 3.3169,
+      "mergeCommitAndRelease": 4.302,
+      "mergeOther": 0.4428,
+      "afterMergeBeforeCapture": 5.343,
+      "captureConnectionAndBegin": 4.3983,
+      "captureSql": 16.3033,
+      "captureNonSql": 1.8339,
+      "captureCommitAndRelease": 3.7851999999999997,
+      "captureOther": 4.3727,
+      "afterCaptureBeforeYield": 0.2305,
+      "clientLocalWrite": 3.9251,
+      "clientOutboundPreparation": 1.6803,
+      "transportAndBoundaryResidual": 256.09229999999997,
+      "clientPeerApplyAndObserve": 4.766100000000001
+    },
+    "rows": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "totalMicros": 356171,
+        "serverPathMicros": 86539,
+        "parts": {
+          "mergeQueue": 46,
+          "mergeSourcePreparation": 27,
+          "mergeConnectionAndBegin": 3489,
+          "mergeSql": 39418,
+          "mergeNonSql": 4541,
+          "mergeCommitAndRelease": 4305,
+          "mergeOther": 311,
+          "afterMergeBeforeCapture": 5545,
+          "captureConnectionAndBegin": 4244,
+          "captureSql": 14729,
+          "captureNonSql": 1460,
+          "captureCommitAndRelease": 3578,
+          "captureOther": 4598,
+          "afterCaptureBeforeYield": 248,
+          "clientLocalWrite": 4463,
+          "clientOutboundPreparation": 1874,
+          "transportAndBoundaryResidual": 256800,
+          "clientPeerApplyAndObserve": 6495
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 0,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 6173,
+              "chunks": 1,
+              "lastChunkMicros": 6173,
+              "endMicros": 6337
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 349642,
+              "chunks": 1,
+              "lastChunkMicros": 349642,
+              "endMicros": 349676
+            }
+          ]
+        },
+        "localCommitMicros": 4463
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "totalMicros": 346719,
+        "serverPathMicros": 79518,
+        "parts": {
+          "mergeQueue": 37,
+          "mergeSourcePreparation": 69,
+          "mergeConnectionAndBegin": 3608,
+          "mergeSql": 37609,
+          "mergeNonSql": 3361,
+          "mergeCommitAndRelease": 4382,
+          "mergeOther": 426,
+          "afterMergeBeforeCapture": 4625,
+          "captureConnectionAndBegin": 3423,
+          "captureSql": 12855,
+          "captureNonSql": 1542,
+          "captureCommitAndRelease": 3529,
+          "captureOther": 3869,
+          "afterCaptureBeforeYield": 183,
+          "clientLocalWrite": 3643,
+          "clientOutboundPreparation": 1531,
+          "transportAndBoundaryResidual": 257636,
+          "clientPeerApplyAndObserve": 4391
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 1,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 2,
+              "firstChunkMicros": 5021,
+              "chunks": 1,
+              "lastChunkMicros": 5021,
+              "endMicros": 5174
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 2,
+              "firstChunkMicros": 342301,
+              "chunks": 1,
+              "lastChunkMicros": 342301,
+              "endMicros": 342328
+            }
+          ]
+        },
+        "localCommitMicros": 3643
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "totalMicros": 356550,
+        "serverPathMicros": 89663,
+        "parts": {
+          "mergeQueue": 81,
+          "mergeSourcePreparation": 68,
+          "mergeConnectionAndBegin": 4110,
+          "mergeSql": 40350,
+          "mergeNonSql": 3495,
+          "mergeCommitAndRelease": 4254,
+          "mergeOther": 851,
+          "afterMergeBeforeCapture": 6356,
+          "captureConnectionAndBegin": 4038,
+          "captureSql": 16070,
+          "captureNonSql": 1650,
+          "captureCommitAndRelease": 3672,
+          "captureOther": 4460,
+          "afterCaptureBeforeYield": 208,
+          "clientLocalWrite": 3934,
+          "clientOutboundPreparation": 1568,
+          "transportAndBoundaryResidual": 257018,
+          "clientPeerApplyAndObserve": 4367
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 2,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 5349,
+              "chunks": 1,
+              "lastChunkMicros": 5349,
+              "endMicros": 5502
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 352116,
+              "chunks": 1,
+              "lastChunkMicros": 352116,
+              "endMicros": 352183
+            }
+          ]
+        },
+        "localCommitMicros": 3934
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "totalMicros": 352540,
+        "serverPathMicros": 85335,
+        "parts": {
+          "mergeQueue": 56,
+          "mergeSourcePreparation": 49,
+          "mergeConnectionAndBegin": 3456,
+          "mergeSql": 40129,
+          "mergeNonSql": 3162,
+          "mergeCommitAndRelease": 4269,
+          "mergeOther": 460,
+          "afterMergeBeforeCapture": 4476,
+          "captureConnectionAndBegin": 3567,
+          "captureSql": 15470,
+          "captureNonSql": 2181,
+          "captureCommitAndRelease": 3477,
+          "captureOther": 4355,
+          "afterCaptureBeforeYield": 228,
+          "clientLocalWrite": 3630,
+          "clientOutboundPreparation": 1505,
+          "transportAndBoundaryResidual": 257615,
+          "clientPeerApplyAndObserve": 4455
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 3,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 3,
+              "firstChunkMicros": 4983,
+              "chunks": 1,
+              "lastChunkMicros": 4983,
+              "endMicros": 5135
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 3,
+              "firstChunkMicros": 348062,
+              "chunks": 1,
+              "lastChunkMicros": 348062,
+              "endMicros": 348085
+            }
+          ]
+        },
+        "localCommitMicros": 3630
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "totalMicros": 350123,
+        "serverPathMicros": 84188,
+        "parts": {
+          "mergeQueue": 36,
+          "mergeSourcePreparation": 27,
+          "mergeConnectionAndBegin": 3833,
+          "mergeSql": 36966,
+          "mergeNonSql": 2570,
+          "mergeCommitAndRelease": 4183,
+          "mergeOther": 320,
+          "afterMergeBeforeCapture": 5235,
+          "captureConnectionAndBegin": 4119,
+          "captureSql": 16999,
+          "captureNonSql": 1608,
+          "captureCommitAndRelease": 3441,
+          "captureOther": 4664,
+          "afterCaptureBeforeYield": 187,
+          "clientLocalWrite": 3690,
+          "clientOutboundPreparation": 1677,
+          "transportAndBoundaryResidual": 256149,
+          "clientPeerApplyAndObserve": 4419
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 4,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 5191,
+              "chunks": 1,
+              "lastChunkMicros": 5191,
+              "endMicros": 5367
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 345675,
+              "chunks": 1,
+              "lastChunkMicros": 345675,
+              "endMicros": 345704
+            }
+          ]
+        },
+        "localCommitMicros": 3690
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "totalMicros": 364975,
+        "serverPathMicros": 99763,
+        "parts": {
+          "mergeQueue": 59,
+          "mergeSourcePreparation": 42,
+          "mergeConnectionAndBegin": 3784,
+          "mergeSql": 58279,
+          "mergeNonSql": 2571,
+          "mergeCommitAndRelease": 3902,
+          "mergeOther": 441,
+          "afterMergeBeforeCapture": 4933,
+          "captureConnectionAndBegin": 2998,
+          "captureSql": 13464,
+          "captureNonSql": 1704,
+          "captureCommitAndRelease": 3327,
+          "captureOther": 3952,
+          "afterCaptureBeforeYield": 307,
+          "clientLocalWrite": 4202,
+          "clientOutboundPreparation": 2261,
+          "transportAndBoundaryResidual": 254077,
+          "clientPeerApplyAndObserve": 4672
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 5,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 4,
+              "firstChunkMicros": 6295,
+              "chunks": 1,
+              "lastChunkMicros": 6295,
+              "endMicros": 6463
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 4,
+              "firstChunkMicros": 360275,
+              "chunks": 1,
+              "lastChunkMicros": 360275,
+              "endMicros": 360303
+            }
+          ]
+        },
+        "localCommitMicros": 4202
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "totalMicros": 359634,
+        "serverPathMicros": 92667,
+        "parts": {
+          "mergeQueue": 45,
+          "mergeSourcePreparation": 28,
+          "mergeConnectionAndBegin": 3645,
+          "mergeSql": 39004,
+          "mergeNonSql": 2712,
+          "mergeCommitAndRelease": 3905,
+          "mergeOther": 347,
+          "afterMergeBeforeCapture": 6296,
+          "captureConnectionAndBegin": 5991,
+          "captureSql": 19662,
+          "captureNonSql": 1986,
+          "captureCommitAndRelease": 3963,
+          "captureOther": 4901,
+          "afterCaptureBeforeYield": 182,
+          "clientLocalWrite": 3771,
+          "clientOutboundPreparation": 1824,
+          "transportAndBoundaryResidual": 256899,
+          "clientPeerApplyAndObserve": 4473
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 6,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 5426,
+              "chunks": 1,
+              "lastChunkMicros": 5426,
+              "endMicros": 5595
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 355134,
+              "chunks": 1,
+              "lastChunkMicros": 355134,
+              "endMicros": 355161
+            }
+          ]
+        },
+        "localCommitMicros": 3771
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "totalMicros": 361016,
+        "serverPathMicros": 95887,
+        "parts": {
+          "mergeQueue": 36,
+          "mergeSourcePreparation": 26,
+          "mergeConnectionAndBegin": 3367,
+          "mergeSql": 43436,
+          "mergeNonSql": 4828,
+          "mergeCommitAndRelease": 4752,
+          "mergeOther": 385,
+          "afterMergeBeforeCapture": 5221,
+          "captureConnectionAndBegin": 3883,
+          "captureSql": 17889,
+          "captureNonSql": 2364,
+          "captureCommitAndRelease": 4487,
+          "captureOther": 4914,
+          "afterCaptureBeforeYield": 299,
+          "clientLocalWrite": 4480,
+          "clientOutboundPreparation": 1519,
+          "transportAndBoundaryResidual": 254898,
+          "clientPeerApplyAndObserve": 4232
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 7,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 5,
+              "firstChunkMicros": 5862,
+              "chunks": 1,
+              "lastChunkMicros": 5862,
+              "endMicros": 5999
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 5,
+              "firstChunkMicros": 356608,
+              "chunks": 1,
+              "lastChunkMicros": 356608,
+              "endMicros": 356784
+            }
+          ]
+        },
+        "localCommitMicros": 4480
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "totalMicros": 367433,
+        "serverPathMicros": 101468,
+        "parts": {
+          "mergeQueue": 35,
+          "mergeSourcePreparation": 26,
+          "mergeConnectionAndBegin": 3732,
+          "mergeSql": 42615,
+          "mergeNonSql": 2992,
+          "mergeCommitAndRelease": 4311,
+          "mergeOther": 323,
+          "afterMergeBeforeCapture": 6104,
+          "captureConnectionAndBegin": 8265,
+          "captureSql": 21372,
+          "captureNonSql": 2155,
+          "captureCommitAndRelease": 5185,
+          "captureOther": 4068,
+          "afterCaptureBeforeYield": 285,
+          "clientLocalWrite": 3853,
+          "clientOutboundPreparation": 1486,
+          "transportAndBoundaryResidual": 255041,
+          "clientPeerApplyAndObserve": 5585
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 8,
+          "writer": 0,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 0,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 5217,
+              "chunks": 1,
+              "lastChunkMicros": 5217,
+              "endMicros": 5339
+            },
+            {
+              "device": 1,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 361823,
+              "chunks": 1,
+              "lastChunkMicros": 361823,
+              "endMicros": 361848
+            }
+          ]
+        },
+        "localCommitMicros": 3853
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "totalMicros": 347132,
+        "serverPathMicros": 82627,
+        "parts": {
+          "mergeQueue": 53,
+          "mergeSourcePreparation": 46,
+          "mergeConnectionAndBegin": 3514,
+          "mergeSql": 39133,
+          "mergeNonSql": 2937,
+          "mergeCommitAndRelease": 4757,
+          "mergeOther": 564,
+          "afterMergeBeforeCapture": 4639,
+          "captureConnectionAndBegin": 3455,
+          "captureSql": 14523,
+          "captureNonSql": 1689,
+          "captureCommitAndRelease": 3193,
+          "captureOther": 3946,
+          "afterCaptureBeforeYield": 178,
+          "clientLocalWrite": 3585,
+          "clientOutboundPreparation": 1558,
+          "transportAndBoundaryResidual": 254790,
+          "clientPeerApplyAndObserve": 4572
+        },
+        "mergeStatementCount": 10,
+        "captureStatementCount": 3,
+        "clientProfile": {
+          "round": 9,
+          "writer": 1,
+          "droppedBatches": 0,
+          "batches": [
+            {
+              "device": 1,
+              "direction": "sent",
+              "batchId": 6,
+              "firstChunkMicros": 4979,
+              "chunks": 1,
+              "lastChunkMicros": 4979,
+              "endMicros": 5143
+            },
+            {
+              "device": 0,
+              "direction": "received",
+              "batchId": 6,
+              "firstChunkMicros": 342532,
+              "chunks": 1,
+              "lastChunkMicros": 342532,
+              "endMicros": 342560
+            }
+          ]
+        },
+        "localCommitMicros": 3585
+      }
+    ]
+  }
+}
