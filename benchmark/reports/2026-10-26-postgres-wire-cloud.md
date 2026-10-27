@@ -102,6 +102,53 @@ Medium still spends several seconds in database-call and transaction-boundary sp
 
 Ten trials have valid correlated phase evidence. Baseline Medium/8 lost final stream traces before instance replacement, so its latency distribution is retained but no phase breakdown is invented. Baseline XXLarge/8 final traces were recovered from the same live instance after teardown. The collector was then changed only to drain bounded final traces after measurement and cleanup; observation during exercise is unchanged.
 
+## Client and transport split — follow-up on October 27 UTC
+
+Client frame timestamps now divide the earlier residual into local writes, upload preparation, combined transport and boundary overhead, and peer application/observation. The original tables and findings above retain their original populations. The following are **fresh measurements of the same deployed server executable**, with no server redeploy or production code change; differences from the preceding runs are not claimed as additional optimization savings.
+
+The workload is unchanged: established continuous streams, two devices per user, one Person row per round, 10 rounds per user, 2 rounds/s at 8 streams and 8 rounds/s at 64 streams. The new client uses Dart 3.12.2, matching the previous client. Its source is the retained capacity harness at `7b21811736298ee53137168b7073926766f3fb8f` plus benchmark-only observations. The six SDK pins, server executable, database location, pool, logging settings, and disabled commit hints are unchanged. Only user index 0 records client frame boundaries. The same new binary is used for controls with that observation disabled.
+
+The expanded table partitions **10 correlated rounds from one user in each run**, in milliseconds. It is a mean phase breakdown, not a decomposition of population p95. The bold client rows replace the earlier combined residual; rounding can slightly change displayed sums.
+
+| Mean phase, ms | Medium, 8 streams | 2 cores, 64 streams | Medium, 64 streams |
+| --- | ---: | ---: | ---: |
+| Merge admission queue | <0.1 | <0.1 | <0.1 |
+| Connection acquisition + BEGIN | 29.7 | 7.2 | 454.4 |
+| Merge SQL: 10 statements | 94.7 | 36.6 | 2,321.2 |
+| Peer download SQL: 3 statements | 51.4 | 15.9 | 767.4 |
+| COMMIT + connection release | 40.6 | 7.7 | 573.0 |
+| Other server work, fan-out and scheduling | 51.1 | 14.2 | 488.4 |
+| **Local write transaction** | 3.7 | 3.9 | 4.6 |
+| **Client upload preparation** | 1.6 | 1.7 | 1.9 |
+| **Upload + download transport and boundary overhead** | 246.2 | 258.5 | 305.7 |
+| **Peer apply + public ORM observation** | 4.7 | 4.6 | 4.7 |
+| **Total sampled latency** | 523.7 | 350.2 | 4,921.4 |
+
+The two-core repeat has a sampled total of **356.2 ms**: **89.8 ms** in the server path, **10.4 ms** in the three measured client-work phases, and **256.1 ms** in combined transport/boundary overhead. The full-population means are lower than these one-user sample means; both populations are retained below.
+
+| Instance / streams | Client timing | n | Min | Median | Mean | p95 | Max | Kept up |
+| --- | :---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| Medium / 8 | on | 40 | 455.8 | 481.3 | 497.5 | 558.7 | 608.2 | yes |
+| Medium / 8 | off | 40 | 445.6 | 475.0 | 502.3 | 553.9 | 788.2 | yes |
+| Medium / 64 | on | 320 | 534.0 | 5,314.6 | 5,142.6 | 6,826.2 | 9,598.6 | **no** |
+| 2 cores / 64 | off | 320 | 303.3 | 332.3 | 333.9 | 353.7 | 432.0 | yes |
+| 2 cores / 64 | on | 320 | 302.2 | 330.5 | 333.3 | 354.0 | 524.6 | yes |
+| 2 cores / 64 repeat | on | 320 | 303.6 | 331.2 | 334.0 | 356.6 | 456.7 | yes |
+
+Additional findings, following those above:
+
+1. **Client processing accounts for about 10 ms on the healthy path.** The two-core sample spends 3.9 ms in the local write, 1.7 ms preparing the upload, and 4.6 ms applying the peer download and observing exact values through the public ORM. The repeat is similar. The selected user's Medium/8 client work totals 9.9 ms. These measurements do not show a large client-side polling or protocol wait on established streams. Stream startup and syncOnce are outside this workload.
+2. **The remaining healthy delay closely matches the client-to-Cloud transport round trip.** A separate, database-free Serverpod ping/pong control on one established TLS WebSocket averages **255.6 ms**, with median 255.4 ms, p95 257.3 ms, min 254.6 ms and max 257.3 ms over 20 pings, excluding two warmup pings and connection setup. That is close to the sync transport/boundary residual of **258.5 ms**, or **256.1 ms on repeat**. Those residuals are 73.8% and 71.9% of the corresponding sampled totals. This supports network/transport as the main remaining component on the healthy two-core path. Ping also includes transport dispatch, so these figures do not isolate propagation time or each network direction.
+3. **A closer database cannot remove the client-to-server portion.** On the two-core sample, all 13 measured SQL calls total 52.4 ms and transaction acquisition/commit/release another 14.8 ms. SQL includes driver, database network and scheduling. The much larger 258.5 ms client/transport portion lies outside that measured server work. The next location comparison should distinguish client-to-server placement from server-to-database placement.
+4. **Medium/64 remains constrained in the server path.** The sampled server work takes 4,604.5 ms, about 93.6% of the 4,921.4 ms total. Client processing still totals only 11.2 ms. The 305.7 ms transport/boundary residual can include extra scheduling before merge entry or after yield under CPU pressure. It does not establish that the network became slower. Admission queue time remains below 0.1 ms; this still does not indicate cross-user serialization in that queue.
+5. **The timing observations show no material population-wide slowdown in these short controls.** Medium/8 averages 497.5 ms with client timing and 502.3 ms without it. Two cores/64 averages 333.3 ms with timing, 334.0 ms on repeat, and 333.9 ms without it. These controls support the measurements' usefulness; they do not prove zero observer overhead or a new performance gain.
+
+Correlation uses authored round/writer identity and the numbered upload/download batches. All client boundaries share the round's `CLOCK_MONOTONIC_RAW` clock. The transport residual is the client's upload-boundary-to-download-boundary duration minus the server's merge-entry-to-download-yield duration. Independent machine timestamps are never aligned. That residual includes both network directions, SDK encoding/decoding and delivery, and short server boundaries outside the measured span. Peer apply time also includes the public ORM observation query. Negative partitions and missing/ambiguous boundaries are rejected, never clamped or guessed.
+
+All **1,360 additional measured rounds** converged, and all six trials drained streams and idle transactions. All 60 correlated server partitions are valid; 40 have the new client split. The benchmark observations passed 28 focused Dart checks, including real PostgreSQL/SQLite transport correlation for alternating writers, plus five Python partition checks and static analysis. One initial test command used the repository root with benchmark-relative paths and failed to locate its test files; the corrected command runs from `benchmark/`. The deployed server executable is unchanged and the final Cloud size is **Small**, with six protected configuration files unchanged.
+
+Evidence: [results](client-delay-split/results.json), [raw round durations](client-delay-split/rounds.json), [correlated phases and client boundaries](client-delay-split/profiles.json), [WebSocket ping samples](client-delay-split/ping.json), and [provenance](client-delay-split/provenance.json). Run `rounds` with `--client-profile-user 0 --no-sync-diagnostics` and configure server sampling for the same user to reproduce the split with `tool/profile_rounds.py`. The new client timing option does not enable full per-SQL client traces.
+
 ## Correctness and validation
 
 - Driver: 467 tests pass in UTC, including real PostgreSQL TLS/Unix transports, wire ordering, large results, row locks, cancellation, rollback/reuse, errors, replication, and supported COPY behavior. A date/time expectation failed under São Paulo time on unchanged upstream as well; the controlled full run uses UTC. No support was added for previously unsupported COPY streaming directions.
