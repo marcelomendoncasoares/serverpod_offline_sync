@@ -1,0 +1,854 @@
+[
+  {
+    "label": "baseline-medium-64",
+    "runId": "capacity-baseline-medium-64-20261026T235321Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": false,
+    "latencyMs": {
+      "n": 320,
+      "min": 977.246,
+      "mean": 6989.3625375,
+      "median": 6991.947,
+      "p95": 9177.35,
+      "max": 13909.507
+    },
+    "wholeRunRssMiB": {
+      "n": 36,
+      "min": 108.35546875,
+      "median": 160.056640625,
+      "mean": 154.44162326388889,
+      "p95": 172.640625,
+      "max": 173.44140625
+    },
+    "exerciseCpuCores": {
+      "n": 20,
+      "min": 0.19098437995849413,
+      "mean": 0.27440487506420447,
+      "median": 0.2822616804596619,
+      "p95": 0.33320784547568366,
+      "max": 0.3341700678353546
+    },
+    "exerciseRssMiB": {
+      "n": 21,
+      "min": 154.375,
+      "mean": 161.44810267857142,
+      "median": 161.09375,
+      "p95": 165.09375,
+      "max": 165.59375
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 21,
+      "min": 120.7265625,
+      "mean": 127.41350446428571,
+      "median": 127.8671875,
+      "p95": 131.93359375,
+      "max": 132.4140625
+    },
+    "maxLoopLagMs": 201.607,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "ab7d8f602fd96493b16e2d4a5c903beba597f08925731cc6375a6a281056565c",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": null,
+      "expectedFinalTraces": null
+    }
+  },
+  {
+    "label": "baseline-medium-8",
+    "runId": "capacity-baseline-medium-8-20261026T235243Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 40,
+      "min": 540.414,
+      "mean": 654.743775,
+      "median": 651.735,
+      "p95": 739.68,
+      "max": 765.668
+    },
+    "wholeRunRssMiB": {
+      "n": 11,
+      "min": 95.98828125,
+      "median": 105.27734375,
+      "mean": 103.82634943181819,
+      "p95": 111.828125,
+      "max": 111.828125
+    },
+    "exerciseCpuCores": {
+      "n": 5,
+      "min": 0.11698423985444718,
+      "mean": 0.16626843127984298,
+      "median": 0.1825230314214157,
+      "p95": 0.20533871863458625,
+      "max": 0.20533871863458625
+    },
+    "exerciseRssMiB": {
+      "n": 6,
+      "min": 100.296875,
+      "mean": 103.43815104166667,
+      "median": 103.041015625,
+      "p95": 106.9765625,
+      "max": 106.9765625
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 6,
+      "min": 76.34375,
+      "mean": 82.64713541666667,
+      "median": 82.03515625,
+      "p95": 87.89453125,
+      "max": 87.89453125
+    },
+    "maxLoopLagMs": 6.68,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "ab7d8f602fd96493b16e2d4a5c903beba597f08925731cc6375a6a281056565c",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": null,
+      "expectedFinalTraces": null
+    }
+  },
+  {
+    "label": "baseline-small-8",
+    "runId": "capacity-baseline-small-8-20261026T234740Z",
+    "status": "failed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.1,
+    "pool": 100,
+    "rounds": 0,
+    "plannedRounds": 40,
+    "successfulRounds": 0,
+    "rate": 2.0,
+    "keptUp": false,
+    "latencyMs": null,
+    "wholeRunRssMiB": {
+      "n": 17,
+      "min": 298.05078125,
+      "median": 299.59765625,
+      "mean": 299.7281709558824,
+      "p95": 301.55078125,
+      "max": 301.55078125
+    },
+    "exerciseCpuCores": null,
+    "exerciseRssMiB": null,
+    "exerciseChargedMemoryMiB": null,
+    "maxLoopLagMs": null,
+    "errors": {},
+    "failures": [
+      "Bad state: Worker 3 failed: TimeoutException after 0:00:45.000000: Future not completed",
+      "Only 0 users passed exact verification.",
+      "Incomplete or failed measured rounds.",
+      "2 unexpected stream ends."
+    ],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "ab7d8f602fd96493b16e2d4a5c903beba597f08925731cc6375a6a281056565c",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": null,
+      "expectedFinalTraces": null
+    }
+  },
+  {
+    "label": "baseline-xxlarge-64",
+    "runId": "capacity-baseline-xxlarge-64-20261026T235724Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 320,
+      "min": 376.806,
+      "mean": 497.03149375,
+      "median": 487.83050000000003,
+      "p95": 622.777,
+      "max": 693.782
+    },
+    "wholeRunRssMiB": {
+      "n": 20,
+      "min": 105.59765625,
+      "median": 127.373046875,
+      "mean": 123.176171875,
+      "p95": 128.7109375,
+      "max": 130.95703125
+    },
+    "exerciseCpuCores": {
+      "n": 11,
+      "min": 0.26944334296085193,
+      "mean": 0.3593493741899319,
+      "median": 0.3523116345060673,
+      "p95": 0.47052265787506153,
+      "max": 0.47052265787506153
+    },
+    "exerciseRssMiB": {
+      "n": 12,
+      "min": 125.05859375,
+      "mean": 127.46158854166667,
+      "median": 127.73828125,
+      "p95": 128.7109375,
+      "max": 128.7109375
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 12,
+      "min": 112.29296875,
+      "mean": 116.14485677083333,
+      "median": 116.390625,
+      "p95": 118.18359375,
+      "max": 118.18359375
+    },
+    "maxLoopLagMs": 6.042,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "ab7d8f602fd96493b16e2d4a5c903beba597f08925731cc6375a6a281056565c",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": null,
+      "expectedFinalTraces": null
+    }
+  },
+  {
+    "label": "baseline-xxlarge-8",
+    "runId": "capacity-baseline-xxlarge-8-20261026T235649Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 40,
+      "min": 365.089,
+      "mean": 465.659475,
+      "median": 453.7455,
+      "p95": 560.433,
+      "max": 590.349
+    },
+    "wholeRunRssMiB": {
+      "n": 10,
+      "min": 104.484375,
+      "median": 106.138671875,
+      "mean": 106.469140625,
+      "p95": 109.1640625,
+      "max": 109.1640625
+    },
+    "exerciseCpuCores": {
+      "n": 6,
+      "min": 0.04914769408082087,
+      "mean": 0.10259085997964461,
+      "median": 0.10598348992145312,
+      "p95": 0.13494456030306112,
+      "max": 0.13494456030306112
+    },
+    "exerciseRssMiB": {
+      "n": 7,
+      "min": 105.21484375,
+      "mean": 106.26116071428571,
+      "median": 106.0625,
+      "p95": 108.19140625,
+      "max": 108.19140625
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 7,
+      "min": 80.265625,
+      "mean": 84.73716517857143,
+      "median": 85.60546875,
+      "p95": 88.015625,
+      "max": 88.015625
+    },
+    "maxLoopLagMs": 5.816,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "ab7d8f602fd96493b16e2d4a5c903beba597f08925731cc6375a6a281056565c",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": null,
+      "expectedFinalTraces": null
+    }
+  },
+  {
+    "label": "candidate-medium-64",
+    "runId": "capacity-candidate-medium-64-20261027T003820Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": false,
+    "latencyMs": {
+      "n": 320,
+      "min": 507.576,
+      "mean": 5754.408740625,
+      "median": 5527.7785,
+      "p95": 7379.494,
+      "max": 18751.523
+    },
+    "wholeRunRssMiB": {
+      "n": 30,
+      "min": 112.91015625,
+      "median": 142.767578125,
+      "mean": 138.56731770833332,
+      "p95": 156.5546875,
+      "max": 157.1796875
+    },
+    "exerciseCpuCores": {
+      "n": 17,
+      "min": 0.2343369238921061,
+      "mean": 0.3151697089697604,
+      "median": 0.30712219183675515,
+      "p95": 0.4894402406764714,
+      "max": 0.4894402406764714
+    },
+    "exerciseRssMiB": {
+      "n": 18,
+      "min": 134.6015625,
+      "mean": 144.24500868055554,
+      "median": 144.40625,
+      "p95": 149.30859375,
+      "max": 149.30859375
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 18,
+      "min": 110.54296875,
+      "mean": 119.01649305555556,
+      "median": 118.904296875,
+      "p95": 125.515625,
+      "max": 125.515625
+    },
+    "maxLoopLagMs": 505.665,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "candidate-medium-64r",
+    "runId": "capacity-candidate-medium-64r-20261027T004008Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": false,
+    "latencyMs": {
+      "n": 320,
+      "min": 509.294,
+      "mean": 4954.84770625,
+      "median": 5195.4495,
+      "p95": 6909.52,
+      "max": 7412.54
+    },
+    "wholeRunRssMiB": {
+      "n": 28,
+      "min": 155.984375,
+      "median": 159.79296875,
+      "mean": 162.61300223214286,
+      "p95": 183.3359375,
+      "max": 184.3359375
+    },
+    "exerciseCpuCores": {
+      "n": 15,
+      "min": 0.2220445850570635,
+      "mean": 0.30254533402002826,
+      "median": 0.30007450390818535,
+      "p95": 0.38236516204029625,
+      "max": 0.38236516204029625
+    },
+    "exerciseRssMiB": {
+      "n": 16,
+      "min": 156.484375,
+      "mean": 159.427001953125,
+      "median": 159.54296875,
+      "p95": 163.1171875,
+      "max": 163.1171875
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 16,
+      "min": 131.12890625,
+      "mean": 134.6748046875,
+      "median": 133.40625,
+      "p95": 139.390625,
+      "max": 139.390625
+    },
+    "maxLoopLagMs": 619.091,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "candidate-medium-8",
+    "runId": "capacity-candidate-medium-8-20261027T003742Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.25,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 40,
+      "min": 398.861,
+      "mean": 474.156575,
+      "median": 458.493,
+      "p95": 591.344,
+      "max": 708.845
+    },
+    "wholeRunRssMiB": {
+      "n": 10,
+      "min": 95.26171875,
+      "median": 97.455078125,
+      "mean": 100.26953125,
+      "p95": 111.73828125,
+      "max": 111.73828125
+    },
+    "exerciseCpuCores": {
+      "n": 5,
+      "min": 0.1098814438088783,
+      "mean": 0.16313140106734347,
+      "median": 0.175127722395816,
+      "p95": 0.20704545715147019,
+      "max": 0.20704545715147019
+    },
+    "exerciseRssMiB": {
+      "n": 6,
+      "min": 95.26171875,
+      "mean": 98.18489583333333,
+      "median": 95.306640625,
+      "p95": 111.73828125,
+      "max": 111.73828125
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 6,
+      "min": 75.29296875,
+      "mean": 78.87825520833333,
+      "median": 77.37109375,
+      "p95": 88.9296875,
+      "max": 88.9296875
+    },
+    "maxLoopLagMs": 83.808,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "candidate-small-8",
+    "runId": "capacity-candidate-small-8-20261027T004332Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 0.1,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": false,
+    "latencyMs": {
+      "n": 40,
+      "min": 1395.035,
+      "mean": 2215.302625,
+      "median": 2200.733,
+      "p95": 2525.228,
+      "max": 2696.717
+    },
+    "wholeRunRssMiB": {
+      "n": 13,
+      "min": 93.27734375,
+      "median": 109.6640625,
+      "mean": 108.30829326923077,
+      "p95": 119.4921875,
+      "max": 119.4921875
+    },
+    "exerciseCpuCores": {
+      "n": 6,
+      "min": 0.0995442947766997,
+      "mean": 0.12540757644481668,
+      "median": 0.12087778800763735,
+      "p95": 0.16885821246391938,
+      "max": 0.16885821246391938
+    },
+    "exerciseRssMiB": {
+      "n": 7,
+      "min": 104.7265625,
+      "mean": 108.90345982142857,
+      "median": 106.7265625,
+      "p95": 119.4921875,
+      "max": 119.4921875
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 7,
+      "min": 76.12890625,
+      "mean": 81.05078125,
+      "median": 80.0,
+      "p95": 87.01953125,
+      "max": 87.01953125
+    },
+    "maxLoopLagMs": 107.582,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "candidate-xxlarge-64",
+    "runId": "capacity-candidate-xxlarge-64-20261027T003342Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 320,
+      "min": 309.724,
+      "mean": 356.859771875,
+      "median": 345.821,
+      "p95": 435.183,
+      "max": 530.873
+    },
+    "wholeRunRssMiB": {
+      "n": 19,
+      "min": 111.37109375,
+      "median": 133.05078125,
+      "mean": 129.49938322368422,
+      "p95": 135.515625,
+      "max": 135.515625
+    },
+    "exerciseCpuCores": {
+      "n": 10,
+      "min": 0.20351574236124853,
+      "mean": 0.24061672728106653,
+      "median": 0.24182675554750238,
+      "p95": 0.29602773692250134,
+      "max": 0.29602773692250134
+    },
+    "exerciseRssMiB": {
+      "n": 11,
+      "min": 130.8671875,
+      "mean": 133.45561079545453,
+      "median": 133.234375,
+      "p95": 135.015625,
+      "max": 135.015625
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 11,
+      "min": 118.625,
+      "mean": 121.40447443181819,
+      "median": 121.453125,
+      "p95": 123.54296875,
+      "max": 123.54296875
+    },
+    "maxLoopLagMs": 4.86,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "candidate-xxlarge-64r",
+    "runId": "capacity-candidate-xxlarge-64r-20261027T003450Z",
+    "status": "passed",
+    "users": 32,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 320,
+    "plannedRounds": 320,
+    "successfulRounds": 320,
+    "rate": 8.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 320,
+      "min": 304.986,
+      "mean": 350.1103125,
+      "median": 336.9865,
+      "p95": 427.529,
+      "max": 488.24
+    },
+    "wholeRunRssMiB": {
+      "n": 19,
+      "min": 131.609375,
+      "median": 154.81640625,
+      "mean": 151.38856907894737,
+      "p95": 156.4765625,
+      "max": 156.4765625
+    },
+    "exerciseCpuCores": {
+      "n": 11,
+      "min": 0.16868013892088268,
+      "mean": 0.2207736569868194,
+      "median": 0.21250943664209637,
+      "p95": 0.31376011988301217,
+      "max": 0.31376011988301217
+    },
+    "exerciseRssMiB": {
+      "n": 12,
+      "min": 153.81640625,
+      "mean": 154.73307291666666,
+      "median": 154.81640625,
+      "p95": 154.81640625,
+      "max": 154.81640625
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 12,
+      "min": 140.98828125,
+      "mean": 141.86328125,
+      "median": 141.83984375,
+      "p95": 142.1796875,
+      "max": 142.1796875
+    },
+    "maxLoopLagMs": 5.446,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  },
+  {
+    "label": "candidate-xxlarge-8",
+    "runId": "capacity-candidate-xxlarge-8-20261027T003300Z",
+    "status": "passed",
+    "users": 4,
+    "rows": 1,
+    "schema": "full",
+    "workload": "person",
+    "quota": 2.0,
+    "pool": 100,
+    "rounds": 40,
+    "plannedRounds": 40,
+    "successfulRounds": 40,
+    "rate": 2.0,
+    "keptUp": true,
+    "latencyMs": {
+      "n": 40,
+      "min": 318.308,
+      "mean": 348.4707,
+      "median": 348.1385,
+      "p95": 375.515,
+      "max": 418.682
+    },
+    "wholeRunRssMiB": {
+      "n": 10,
+      "min": 108.046875,
+      "median": 109.998046875,
+      "mean": 111.19453125,
+      "p95": 122.62109375,
+      "max": 122.62109375
+    },
+    "exerciseCpuCores": {
+      "n": 5,
+      "min": 0.05736948455585387,
+      "mean": 0.07236608204054155,
+      "median": 0.07657192937061379,
+      "p95": 0.08335145523338709,
+      "max": 0.08335145523338709
+    },
+    "exerciseRssMiB": {
+      "n": 6,
+      "min": 108.046875,
+      "mean": 111.06119791666667,
+      "median": 108.109375,
+      "p95": 122.62109375,
+      "max": 122.62109375
+    },
+    "exerciseChargedMemoryMiB": {
+      "n": 6,
+      "min": 84.18359375,
+      "mean": 87.603515625,
+      "median": 85.962890625,
+      "p95": 95.25390625,
+      "max": 95.25390625
+    },
+    "maxLoopLagMs": 6.698,
+    "errors": {},
+    "failures": [],
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "serverSha": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "clientSha": "984ff1545678f180beda262ed596bd59ed18c37f2587e286906038c396d05bf6",
+    "exerciseThrottledPeriodFraction": null,
+    "collector": {
+      "gaps": [],
+      "errors": [],
+      "stopped": true,
+      "finalTraces": 2,
+      "expectedFinalTraces": 2
+    }
+  }
+]
