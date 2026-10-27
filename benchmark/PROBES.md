@@ -8,10 +8,22 @@ Credentials come from `BENCHMARK_SECRET` and must stay out of shared artifacts.
 | Tool | Measurement and limits |
 | --- | --- |
 | `tool/network_probe.dart API_URL OUTPUT_JSON` | Sixteen fresh HTTP control and WebSocket connections in alternating order. The HTTP request is a database-free benchmark control, not an HTTP sync protocol. Setup and ping observations are not `syncOnce` timings. Partial failures are retained. |
+| `tool/established_ping_probe.dart API_URL OUTPUT_JSON` | Twenty database-free Serverpod ping/pong round trips on one established TLS WebSocket, after two warmup pings. Uses the round harness clock; run after workloads drain. Includes transport dispatch and both network directions. |
 | `tool/transport_probe.dart API_URL OUTPUT_JSON` | Fresh WebSocket setup and four pings on each connection, with cleanup. DNS, TLS and runtime caches are not cleared. |
 | `tool/profile_rounds.py EVIDENCE_DIRECTORY LABEL` | Joins sampled rounds to explicit authored row/writer, request and batch identities on one server clock. Requires complete collector sequences and rejects negative or inconsistent partitions without clamping. The receipt names the client and server event artifacts. |
 | `tool/profile_retained_batch.py OUTPUT_DIRECTORY LABEL ROWS PAYLOAD_BYTES` | Starts the Dart retained-batch probe with a loopback VM service, collects post-GC live heap at seeded, held-ACK, acknowledged and closed barriers, then stops its owned process. Set `DART` to select the SDK executable. Held payload savings are separate from peak capture memory, RSS and capacity. |
 | `tool/cross_process_rounds.py` | Verifies two distinct server processes and device placement before timing delivered versus deliberately dropped commit hints. Exact convergence, offered schedule and cleanup remain required. Both arms publish hints, so the comparison does not measure notification overhead against no transport. |
+
+For continuous Person rounds, `--client-profile-user 0` records client frame
+boundaries only for that user, independently of `--no-sync-diagnostics`. Each
+round retains bounded batch markers in memory and emits them after completion;
+row payloads and per-SQL client traces are excluded. Configure server sampling
+for the same user and use `tool/profile_rounds.py` to correlate numbered batches.
+The detailed partition requires two devices per user and splits local write,
+upload preparation, combined transport/boundary overhead, and peer apply plus
+public ORM observation. Client boundaries use the same round clock. Across
+machines, only durations are subtracted; one-way network delays are not inferred.
+Missing boundaries, ambiguous batches and negative partitions are rejected.
 
 Build the cross-process client with the same native provenance wrapper:
 

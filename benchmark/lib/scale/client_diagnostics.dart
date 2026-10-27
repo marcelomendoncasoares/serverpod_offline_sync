@@ -13,6 +13,9 @@ class DiagnosticClient extends Client {
 
   final bool diagnosticsEnabled;
 
+  /// Optional benchmark observer, installed before opening a sampled stream.
+  void Function(Object event, String direction)? onSyncFrame;
+
   @override
   dynamic callStreamingServerEndpoint<T, G>(
     String endpoint,
@@ -21,21 +24,7 @@ class DiagnosticClient extends Client {
     Map<String, Stream> streams, {
     bool authenticated = true,
   }) {
-    final trace = SyncTrace.current;
-    if (!diagnosticsEnabled &&
-        endpoint == 'serverpod_offline_sync.offlineSync' &&
-        method == 'sync') {
-      return super.callStreamingServerEndpoint<T, G>(
-        endpoint,
-        method,
-        {...args, 'benchmarkDiagnostics': false},
-        streams,
-        authenticated: authenticated,
-      );
-    }
-    if (trace == null ||
-        endpoint != 'serverpod_offline_sync.offlineSync' ||
-        method != 'sync') {
+    if (endpoint != 'serverpod_offline_sync.offlineSync' || method != 'sync') {
       return super.callStreamingServerEndpoint<T, G>(
         endpoint,
         method,
@@ -44,21 +33,39 @@ class DiagnosticClient extends Client {
         authenticated: authenticated,
       );
     }
-    OfflineSyncDiagnostics.event('client.requestDispatched');
+
+    final trace = diagnosticsEnabled ? SyncTrace.current : null;
+    final observer = onSyncFrame;
+    final parameters = {
+      ...args,
+      if (!diagnosticsEnabled) 'benchmarkDiagnostics': false,
+      if (trace != null) ...{
+        'benchmarkRequestId': trace.requestId,
+        'benchmarkRunId': trace.runId,
+        'benchmarkDeviceId': trace.deviceId,
+      },
+    };
+    if (trace == null && observer == null) {
+      return super.callStreamingServerEndpoint<T, G>(
+        endpoint,
+        method,
+        parameters,
+        streams,
+        authenticated: authenticated,
+      );
+    }
+
+    if (trace != null) OfflineSyncDiagnostics.event('client.requestDispatched');
     final response =
         super.callStreamingServerEndpoint<T, G>(
               endpoint,
               method,
-              {
-                ...args,
-                'benchmarkRequestId': trace.requestId,
-                'benchmarkRunId': trace.runId,
-                'benchmarkDeviceId': trace.deviceId,
-              },
+              parameters,
               {
                 for (final entry in streams.entries)
                   entry.key: entry.value.map((dynamic event) {
-                    trace.wire(event as Object, direction: 'sent');
+                    observer?.call(event as Object, 'sent');
+                    trace?.wire(event as Object, direction: 'sent');
                     return event;
                   }),
               },
@@ -66,7 +73,8 @@ class DiagnosticClient extends Client {
             )
             as Stream<G>;
     return response.map((event) {
-      trace.wire(event as Object, direction: 'received');
+      observer?.call(event as Object, 'received');
+      trace?.wire(event as Object, direction: 'received');
       return event;
     });
   }
