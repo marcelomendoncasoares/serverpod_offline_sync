@@ -1,0 +1,52 @@
+[
+  {
+    "round": 0,
+    "operationLockAcquisitionMicros": 519,
+    "deferredCallbackMicros": 5017
+  },
+  {
+    "round": 1,
+    "operationLockAcquisitionMicros": 511,
+    "deferredCallbackMicros": 591721
+  },
+  {
+    "round": 2,
+    "operationLockAcquisitionMicros": 1553,
+    "deferredCallbackMicros": 1212789
+  },
+  {
+    "round": 3,
+    "operationLockAcquisitionMicros": 383,
+    "deferredCallbackMicros": 739136
+  },
+  {
+    "round": 4,
+    "operationLockAcquisitionMicros": 376,
+    "deferredCallbackMicros": 584998
+  },
+  {
+    "round": 5,
+    "operationLockAcquisitionMicros": 398,
+    "deferredCallbackMicros": 733737
+  },
+  {
+    "round": 6,
+    "operationLockAcquisitionMicros": 582,
+    "deferredCallbackMicros": 991488
+  },
+  {
+    "round": 7,
+    "operationLockAcquisitionMicros": 550,
+    "deferredCallbackMicros": 1105072
+  },
+  {
+    "round": 8,
+    "operationLockAcquisitionMicros": 686,
+    "deferredCallbackMicros": 1173979
+  },
+  {
+    "round": 9,
+    "operationLockAcquisitionMicros": 560,
+    "deferredCallbackMicros": 908598
+  }
+]
