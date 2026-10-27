@@ -1,0 +1,200 @@
+[
+  {
+    "label": "deep-medium-control",
+    "quotaCores": 0.25,
+    "streams": 64,
+    "targetRoundsPerSecond": 8.0,
+    "keptUp": false,
+    "wireProfile": false,
+    "latency": {
+      "n": 320,
+      "minMs": 508.217,
+      "meanMs": 5586.931578125,
+      "medianMs": 5601.274,
+      "p95Ms": 8191.797,
+      "maxMs": 18772.279
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 508.217,
+      "meanMs": 5334.763400000001,
+      "medianMs": 5909.6015,
+      "p95Ms": 7980.154,
+      "maxMs": 7980.154
+    },
+    "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "serverExecutableSha256": "b2b97fe38ba87da77a9de1f2cea6042205149ac52f8da6bb4d48da74a637dd14",
+    "status": "passed",
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "collectorGaps": [],
+    "collectorRetries": []
+  },
+  {
+    "label": "deep-medium-profile",
+    "quotaCores": 0.25,
+    "streams": 64,
+    "targetRoundsPerSecond": 8.0,
+    "keptUp": false,
+    "wireProfile": true,
+    "latency": {
+      "n": 320,
+      "minMs": 1046.125,
+      "meanMs": 5081.519665625,
+      "medianMs": 5352.3335,
+      "p95Ms": 6192.037,
+      "maxMs": 6720.523
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 1312.674,
+      "meanMs": 4915.8525,
+      "medianMs": 5252.6005,
+      "p95Ms": 6192.037,
+      "maxMs": 6192.037
+    },
+    "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "serverExecutableSha256": "b2b97fe38ba87da77a9de1f2cea6042205149ac52f8da6bb4d48da74a637dd14",
+    "status": "passed",
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "collectorGaps": [],
+    "collectorRetries": []
+  },
+  {
+    "label": "deep-medium-controlr",
+    "quotaCores": 0.25,
+    "streams": 64,
+    "targetRoundsPerSecond": 8.0,
+    "keptUp": false,
+    "wireProfile": false,
+    "latency": {
+      "n": 320,
+      "minMs": 603.4,
+      "meanMs": 5559.224903125,
+      "medianMs": 5810.31,
+      "p95Ms": 7101.66,
+      "maxMs": 7497.207
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 603.4,
+      "meanMs": 5316.2199,
+      "medianMs": 5705.358,
+      "p95Ms": 7488.951,
+      "maxMs": 7488.951
+    },
+    "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "serverExecutableSha256": "b2b97fe38ba87da77a9de1f2cea6042205149ac52f8da6bb4d48da74a637dd14",
+    "status": "passed",
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "collectorGaps": [],
+    "collectorRetries": []
+  },
+  {
+    "label": "deep-medium-lowrate",
+    "quotaCores": 0.25,
+    "streams": 64,
+    "targetRoundsPerSecond": 2.0,
+    "keptUp": true,
+    "wireProfile": true,
+    "latency": {
+      "n": 320,
+      "minMs": 397.705,
+      "meanMs": 548.3788937500001,
+      "medianMs": 533.009,
+      "p95Ms": 631.496,
+      "maxMs": 2037.545
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 485.188,
+      "meanMs": 562.0579,
+      "medianMs": 569.178,
+      "p95Ms": 644.002,
+      "maxMs": 644.002
+    },
+    "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "serverExecutableSha256": "b2b97fe38ba87da77a9de1f2cea6042205149ac52f8da6bb4d48da74a637dd14",
+    "status": "passed",
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "collectorGaps": [],
+    "collectorRetries": []
+  },
+  {
+    "label": "deep-xxlarge-profile",
+    "quotaCores": 2.0,
+    "streams": 64,
+    "targetRoundsPerSecond": 8.0,
+    "keptUp": true,
+    "wireProfile": true,
+    "latency": {
+      "n": 320,
+      "minMs": 347.174,
+      "meanMs": 444.81769375,
+      "medianMs": 439.299,
+      "p95Ms": 547.644,
+      "maxMs": 674.795
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 382.656,
+      "meanMs": 468.3766,
+      "medianMs": 471.916,
+      "p95Ms": 552.191,
+      "maxMs": 552.191
+    },
+    "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "serverExecutableSha256": "b2b97fe38ba87da77a9de1f2cea6042205149ac52f8da6bb4d48da74a637dd14",
+    "status": "passed",
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "collectorGaps": [],
+    "collectorRetries": []
+  },
+  {
+    "label": "deep-medium-queue-profile",
+    "quotaCores": 0.25,
+    "streams": 64,
+    "targetRoundsPerSecond": 8.0,
+    "keptUp": false,
+    "wireProfile": true,
+    "latency": {
+      "n": 320,
+      "minMs": 618.276,
+      "meanMs": 6013.27226875,
+      "medianMs": 6263.8675,
+      "p95Ms": 7774.085,
+      "maxMs": 21604.976
+    },
+    "sampledLatency": {
+      "n": 10,
+      "minMs": 731.152,
+      "meanMs": 5749.2039,
+      "medianMs": 6290.4955,
+      "p95Ms": 7688.159,
+      "maxMs": 7688.159
+    },
+    "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+    "serverExecutableSha256": "a8da9204bcdcc232d7e3eb80d34d1d97234f22dff8f2054982da0a2b2280ea7f",
+    "status": "passed",
+    "cleanup": {
+      "clean": true,
+      "streams": 0
+    },
+    "collectorGaps": [],
+    "collectorRetries": []
+  }
+]

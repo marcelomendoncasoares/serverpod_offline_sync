@@ -1,0 +1,154 @@
+{
+  "medium": {
+    "samples": 16,
+    "warmupQueries": 3,
+    "serialSelect1Micros": [
+      5933,
+      6162,
+      5349,
+      4513,
+      4255,
+      4658,
+      6604,
+      6232,
+      4240,
+      49068,
+      5972,
+      5908,
+      5311,
+      5832,
+      7166,
+      64789
+    ],
+    "minimumMicros": 4240,
+    "medianMicros": 5920.5,
+    "p95Micros": 64789,
+    "meanMicros": 11999.5,
+    "connectionWaitAndBeginMicros": 5291,
+    "singleQuery16RowsMicros": 5888,
+    "totalMicros": 240118,
+    "select1Plan": [
+      [
+        [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 0.0,
+              "Total Cost": 0.01,
+              "Plan Rows": 1,
+              "Plan Width": 4,
+              "Actual Startup Time": 0.001,
+              "Actual Total Time": 0.001,
+              "Actual Rows": 1,
+              "Actual Loops": 1
+            },
+            "Planning Time": 0.011,
+            "Triggers": [],
+            "Execution Time": 0.013
+          }
+        ]
+      ]
+    ],
+    "cpuCgroupBefore": {
+      "available": true,
+      "version": 1,
+      "quotaMicros": 25000,
+      "periodMicros": 100000,
+      "quotaCores": 0.25,
+      "periods": null,
+      "throttledPeriods": null,
+      "throttledMicros": null,
+      "scope": "visible container cgroup; ancestor limits may be hidden"
+    },
+    "cpuCgroupAfter": {
+      "available": true,
+      "version": 1,
+      "quotaMicros": 25000,
+      "periodMicros": 100000,
+      "quotaCores": 0.25,
+      "periods": null,
+      "throttledPeriods": null,
+      "throttledMicros": null,
+      "scope": "visible container cgroup; ancestor limits may be hidden"
+    },
+    "measurement": "Same warmed connection; includes driver, network, server execution and scheduling."
+  },
+  "xxlarge": {
+    "samples": 16,
+    "warmupQueries": 3,
+    "serialSelect1Micros": [
+      3919,
+      4551,
+      3741,
+      3807,
+      3625,
+      3470,
+      3590,
+      3417,
+      3464,
+      3379,
+      3450,
+      3779,
+      3762,
+      4541,
+      4061,
+      4050
+    ],
+    "minimumMicros": 3379,
+    "medianMicros": 3751.5,
+    "p95Micros": 4551,
+    "meanMicros": 3787.875,
+    "connectionWaitAndBeginMicros": 4147,
+    "singleQuery16RowsMicros": 3999,
+    "totalMicros": 99765,
+    "select1Plan": [
+      [
+        [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 0.0,
+              "Total Cost": 0.01,
+              "Plan Rows": 1,
+              "Plan Width": 4,
+              "Actual Startup Time": 0.001,
+              "Actual Total Time": 0.001,
+              "Actual Rows": 1,
+              "Actual Loops": 1
+            },
+            "Planning Time": 0.011,
+            "Triggers": [],
+            "Execution Time": 0.012
+          }
+        ]
+      ]
+    ],
+    "cpuCgroupBefore": {
+      "available": true,
+      "version": 1,
+      "quotaMicros": 200000,
+      "periodMicros": 100000,
+      "quotaCores": 2.0,
+      "periods": null,
+      "throttledPeriods": null,
+      "throttledMicros": null,
+      "scope": "visible container cgroup; ancestor limits may be hidden"
+    },
+    "cpuCgroupAfter": {
+      "available": true,
+      "version": 1,
+      "quotaMicros": 200000,
+      "periodMicros": 100000,
+      "quotaCores": 2.0,
+      "periods": null,
+      "throttledPeriods": null,
+      "throttledMicros": null,
+      "scope": "visible container cgroup; ancestor limits may be hidden"
+    },
+    "measurement": "Same warmed connection; includes driver, network, server execution and scheduling."
+  }
+}

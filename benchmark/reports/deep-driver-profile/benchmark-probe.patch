@@ -1,0 +1,371 @@
+--- a/benchmark/lib/scale/diagnostics.dart
++++ b/benchmark/lib/scale/diagnostics.dart
+@@ -52,0 +53,2 @@
++  final driverQueries = <Map<String, Object?>>[];
++  int droppedDriverQueries = 0;
+@@ -142 +144,7 @@
+-      zoneValues: {_traceKey: this},
++      zoneValues: {
++        _traceKey: this,
++        if (metadata['wireProfile'] == true)
++          #offlineSyncBenchmarkWireObserver: (Map<String, Object?> record) {
++            OfflineSyncDiagnostics.event('driver.query', record);
++          },
++      },
+@@ -157 +165 @@
+-    if (name != 'sql') {
++    if (name != 'sql' && name != 'driver.query') {
+@@ -223 +231,4 @@
+-          'batchId': _ancestor(span.parent, 'sync.inboundBatch')?.data['batchId'],
++          'batchId': _ancestor(
++            span.parent,
++            'sync.inboundBatch',
++          )?.data['batchId'],
+@@ -240,0 +252,23 @@
++    if (name == 'driver.query' && transaction != null) {
++      if (transaction.driverQueries.length < 128) {
++        transaction.driverQueries.add({
++          ...data,
++          'phase': transaction.bodyStart == null
++              ? 'beforeBody'
++              : transaction.bodyEnd == null
++              ? transaction.phase
++              : 'afterBody',
++        });
++      } else {
++        transaction.droppedDriverQueries++;
++      }
++    }
++    if (name == 'driver.query' && transaction == null) {
++      output({
++        'type': 'driverQuery',
++        ...identity,
++        'atMicros': at,
++        'parentId': parent,
++        ...data,
++      });
++    }
+@@ -250 +284,2 @@
+-    if (name == 'transaction.commitOrRollbackAndRelease' && transaction != null) {
++    if (name == 'transaction.commitOrRollbackAndRelease' &&
++        transaction != null) {
+@@ -350 +385,2 @@
+-    for (final interval in span.sqlIntervals..sort((a, b) => a.$1.compareTo(b.$1))) {
++    for (final interval
++        in span.sqlIntervals..sort((a, b) => a.$1.compareTo(b.$1))) {
+@@ -370,0 +407,3 @@
++      if (metadata['wireProfile'] == true) 'driverQueries': span.driverQueries,
++      if (metadata['wireProfile'] == true)
++        'droppedDriverQueries': span.droppedDriverQueries,
+@@ -396 +435,2 @@
+-          if (event is OfflineSyncMergeChunk) 'rounds': benchmarkRounds(event.changes),
++          if (event is OfflineSyncMergeChunk)
++            'rounds': benchmarkRounds(event.changes),
+@@ -430 +470,2 @@
+-            for (final c in event.changes) (c.uuidSpaceId, c.tableName, c.uuidRowId),
++            for (final c in event.changes)
++              (c.uuidSpaceId, c.tableName, c.uuidRowId),
+@@ -482 +523,3 @@
+-            'lastSqlEndMicros': s.sqlIntervals.isEmpty ? null : s.sqlIntervals.last.$2,
++            'lastSqlEndMicros': s.sqlIntervals.isEmpty
++                ? null
++                : s.sqlIntervals.last.$2,
+@@ -523 +566,2 @@
+-    for (final (round, writer) in identities) {'round': round, 'writer': writer},
++    for (final (round, writer) in identities)
++      {'round': round, 'writer': writer},
+--- a/benchmark/lib/scale/server_diagnostics.dart
++++ b/benchmark/lib/scale/server_diagnostics.dart
+@@ -30 +30,5 @@
+-    : super(server: original.server, enableLogging: false, endpoint: original.endpoint);
++    : super(
++        server: original.server,
++        enableLogging: false,
++        endpoint: original.endpoint,
++      );
+@@ -100,0 +105 @@
++  bool wireProfile = false;
+@@ -111,0 +117 @@
++    wireProfile = input['wireProfile'] == true;
+@@ -113 +119,6 @@
+-    return {'runId': runId, 'userIds': users.toList(), 'enabled': users.isNotEmpty};
++    return {
++      'runId': runId,
++      'userIds': users.toList(),
++      'enabled': users.isNotEmpty,
++      'wireProfile': wireProfile,
++    };
+@@ -181,0 +193 @@
++        'threads': sampleProcessThreads(),
+@@ -201 +213,3 @@
+-      _vm?.add(jsonEncode({'jsonrpc': '2.0', 'id': '${++_rpc}', 'method': 'getVM'}));
++      _vm?.add(
++        jsonEncode({'jsonrpc': '2.0', 'id': '${++_rpc}', 'method': 'getVM'}),
++      );
+@@ -210 +224,2 @@
+-        vmMetrics = 'unavailable: VM service disabled (normal for AOT Cloud builds)';
++        vmMetrics =
++            'unavailable: VM service disabled (normal for AOT Cloud builds)';
+@@ -268 +283,4 @@
+-    final page = records.where((r) => (r['sequence'] as int) > after).take(64).toList();
++    final page = records
++        .where((r) => (r['sequence'] as int) > after)
++        .take(64)
++        .toList();
+@@ -272 +290,3 @@
+-      'oldestSequence': records.isEmpty ? sequence + 1 : records.first['sequence'],
++      'oldestSequence': records.isEmpty
++          ? sequence + 1
++          : records.first['sequence'],
+@@ -276 +296,3 @@
+-      'records': [for (final r in page) Map<String, dynamic>.of(r)..remove('_bytes')],
++      'records': [
++        for (final r in page) Map<String, dynamic>.of(r)..remove('_bytes'),
++      ],
+@@ -343 +365,2 @@
+-          (source.userId == trace.userId && source.deviceId == trace.deviceId) ||
++          (source.userId == trace.userId &&
++              source.deviceId == trace.deviceId) ||
+@@ -347 +370,3 @@
+-      (deliveries[source.requestId] ??= []).add(_clock.elapsedMicroseconds - source.at);
++      (deliveries[source.requestId] ??= []).add(
++        _clock.elapsedMicroseconds - source.at,
++      );
+@@ -380,2 +405,5 @@
+-    requestId: params['benchmarkRequestId'] as String? ?? session.sessionId.toString(),
+-    runId: sampled ? sampling!.runId : params['benchmarkRunId'] as String? ?? 'unknown',
++    requestId:
++        params['benchmarkRequestId'] as String? ?? session.sessionId.toString(),
++    runId: sampled
++        ? sampling!.runId
++        : params['benchmarkRunId'] as String? ?? 'unknown',
+@@ -383 +411,2 @@
+-    deviceId: params['benchmarkDeviceId'] as String? ?? session.sessionId.toString(),
++    deviceId:
++        params['benchmarkDeviceId'] as String? ?? session.sessionId.toString(),
+@@ -389,0 +419 @@
++      'wireProfile': sampled && serverDiagnostics.wireProfile,
+@@ -500 +530,3 @@
+-      await db.unsafeExecute('CREATE EXTENSION IF NOT EXISTS pg_stat_statements');
++      await db.unsafeExecute(
++        'CREATE EXTENSION IF NOT EXISTS pg_stat_statements',
++      );
+@@ -534 +566,4 @@
+-        await db.unsafeExecute("SET LOCAL statement_timeout = '2s'", transaction: tx);
++        await db.unsafeExecute(
++          "SET LOCAL statement_timeout = '2s'",
++          transaction: tx,
++        );
+@@ -547 +582,4 @@
+-      (result['plans'] as List).add({'sqlId': entry.key, 'error': error.toString()});
++      (result['plans'] as List).add({
++        'sqlId': entry.key,
++        'error': error.toString(),
++      });
+--- a/benchmark/lib/scale/runtime_diagnostics.dart
++++ b/benchmark/lib/scale/runtime_diagnostics.dart
+@@ -61 +61,5 @@
+-      for (final path in [directory, '$directory/cpu', '$directory/cpu,cpuacct']) {
++      for (final path in [
++        directory,
++        '$directory/cpu',
++        '$directory/cpu,cpuacct',
++      ]) {
+@@ -115 +119,4 @@
+-    await session.db.unsafeExecute('SET TRANSACTION READ ONLY', transaction: tx);
++    await session.db.unsafeExecute(
++      'SET TRANSACTION READ ONLY',
++      transaction: tx,
++    );
+@@ -127 +134,2 @@
+-      if (rows.single.single != 1) throw StateError('Unexpected SELECT 1 result.');
++      if (rows.single.single != 1)
++        throw StateError('Unexpected SELECT 1 result.');
+@@ -149 +157,2 @@
+-    'meanMicros': samples.reduce((left, right) => left + right) / samples.length,
++    'meanMicros':
++        samples.reduce((left, right) => left + right) / samples.length,
+@@ -238,13 +247,14 @@
+-      socketConnect: (host, port, {sourceAddress, sourcePort = 0, timeout}) async {
+-        final socket = await parent.run(
+-          () => Socket.connect(
+-            host,
+-            port,
+-            sourceAddress: sourceAddress,
+-            sourcePort: sourcePort,
+-            timeout: timeout,
+-          ),
+-        );
+-        applied = socket.setOption(SocketOption.tcpNoDelay, noDelay);
+-        return socket;
+-      },
++      socketConnect:
++          (host, port, {sourceAddress, sourcePort = 0, timeout}) async {
++            final socket = await parent.run(
++              () => Socket.connect(
++                host,
++                port,
++                sourceAddress: sourceAddress,
++                sourcePort: sourcePort,
++                timeout: timeout,
++              ),
++            );
++            applied = socket.setOption(SocketOption.tcpNoDelay, noDelay);
++            return socket;
++          },
+@@ -259 +269,4 @@
+-          await tx.execute('SET TRANSACTION READ ONLY', queryMode: pg.QueryMode.simple);
++          await tx.execute(
++            'SET TRANSACTION READ ONLY',
++            queryMode: pg.QueryMode.simple,
++          );
+@@ -269 +282,2 @@
+-            if (result.single.single != 1) throw StateError('Unexpected probe row.');
++            if (result.single.single != 1)
++              throw StateError('Unexpected probe row.');
+@@ -311,0 +326,43 @@
++
++/// Read-only thread accounting; unavailable files are explicit, not zero cost.
++Map<String, dynamic> sampleProcessThreads() {
++  try {
++    final threads = <Map<String, dynamic>>[];
++    for (final entry in Directory('/proc/self/task').listSync()) {
++      final stat = File('${entry.path}/stat').readAsStringSync();
++      final close = stat.lastIndexOf(')');
++      final values = stat.substring(close + 2).split(' ');
++      final scheduler = File('${entry.path}/schedstat');
++      threads.add({
++        'tid': int.parse(entry.path.split('/').last),
++        'name': stat.substring(stat.indexOf('(') + 1, close),
++        'state': values[0],
++        'userTicks': int.parse(values[11]),
++        'systemTicks': int.parse(values[12]),
++        if (scheduler.existsSync())
++          'scheduler': scheduler.readAsStringSync().trim(),
++      });
++    }
++    return {'available': true, 'threads': threads};
++  } on Object catch (error) {
++    return {'available': false, 'reason': error.toString()};
++  }
++}
++
++Map<String, dynamic> nativeProfileCapabilities() {
++  String? read(String path) {
++    try {
++      return File(path).readAsStringSync().trim();
++    } on Object {
++      return null;
++    }
++  }
++
++  return {
++    'probeVersion': 'driver-wall-and-thread-cpu-v1',
++    'kernel': read('/proc/version'),
++    'perfEventParanoid': read('/proc/sys/kernel/perf_event_paranoid'),
++    'schedulerStats': read('/proc/self/schedstat'),
++    'threads': sampleProcessThreads(),
++  };
++}
+--- a/benchmark/lib/scale/server.dart
++++ b/benchmark/lib/scale/server.dart
+@@ -47 +47,3 @@
+-    throw StateError('The City-only registry requires an isolated capacity database.');
++    throw StateError(
++      'The City-only registry requires an isolated capacity database.',
++    );
+@@ -197 +199,3 @@
+-Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () async {
++Future<Map<String, dynamic>> serverIdentity(
++  Serverpod pod,
++) => _identity ??= () async {
+@@ -200 +204,2 @@
+-    'instanceId': '${Platform.localHostname}/$pid/${_startedAt.microsecondsSinceEpoch}',
++    'instanceId':
++        '${Platform.localHostname}/$pid/${_startedAt.microsecondsSinceEpoch}',
+@@ -209 +214,2 @@
+-    'benchmarkDatabase': Platform.environment['BENCHMARK_DATABASE'] ?? 'original',
++    'benchmarkDatabase':
++        Platform.environment['BENCHMARK_DATABASE'] ?? 'original',
+@@ -227 +233,2 @@
+-  BenchmarkEndpoint([StreamMetrics? metrics]) : metrics = metrics ?? StreamMetrics();
++  BenchmarkEndpoint([StreamMetrics? metrics])
++    : metrics = metrics ?? StreamMetrics();
+@@ -249 +256,3 @@
+-            : (input['cursors'] as Map?)?[serverDiagnostics.instanceId] as int? ?? 0,
++            : (input['cursors'] as Map?)?[serverDiagnostics.instanceId]
++                      as int? ??
++                  0,
+@@ -250,0 +260 @@
++      'profileCapabilities' => nativeProfileCapabilities(),
+@@ -274 +284,3 @@
+-      throw StateError('Close all streams before creating an experiment database.');
++      throw StateError(
++        'Close all streams before creating an experiment database.',
++      );
+@@ -293 +305,3 @@
+-    'active': [for (final trace in serverDiagnostics.active.values) trace.identity],
++    'active': [
++      for (final trace in serverDiagnostics.active.values) trace.identity,
++    ],
+@@ -359 +373,4 @@
+-  Future<Map<String, dynamic>> _metrics(Session session, {required bool exact}) async {
++  Future<Map<String, dynamic>> _metrics(
++    Session session, {
++    required bool exact,
++  }) async {
+@@ -402 +419,7 @@
+-              .map((row) => {'state': row[0], 'waitEventType': row[1], 'count': row[2]})
++              .map(
++                (row) => {
++                  'state': row[0],
++                  'waitEventType': row[1],
++                  'count': row[2],
++                },
++              )
+@@ -455 +478,2 @@
+-    final endpoint = BenchmarkEndpoint(metrics)..initialize(server, 'benchmark', null);
++    final endpoint = BenchmarkEndpoint(metrics)
++      ..initialize(server, 'benchmark', null);
+@@ -477 +501,2 @@
+-    final original = connector.methodConnectors['sync']! as MethodStreamConnector;
++    final original =
++        connector.methodConnectors['sync']! as MethodStreamConnector;
+@@ -505 +530,2 @@
+-          (counted) => original.call(session, params, counted) as Stream<dynamic>,
++          (counted) =>
++              original.call(session, params, counted) as Stream<dynamic>,
+@@ -515,14 +541,19 @@
+-AuthenticationHandler benchmarkAuthentication(String secret) => (session, token) async {
+-  switch (classifyToken(secret, token)) {
+-    case AdminToken():
+-      return AuthenticationInfo('benchmark-admin', {
+-        const Scope(benchmarkScope),
+-      }, authId: 'benchmark-admin');
+-    case UserTokenIdentity(:final userId):
+-      final user = await AuthUser.db.findById(session, userId);
+-      if (user == null || user.blocked) return null;
+-      return AuthenticationInfo(userId.toString(), {}, authId: userId.toString());
+-    case null:
+-      return null;
+-  }
+-};
++AuthenticationHandler benchmarkAuthentication(String secret) =>
++    (session, token) async {
++      switch (classifyToken(secret, token)) {
++        case AdminToken():
++          return AuthenticationInfo('benchmark-admin', {
++            const Scope(benchmarkScope),
++          }, authId: 'benchmark-admin');
++        case UserTokenIdentity(:final userId):
++          final user = await AuthUser.db.findById(session, userId);
++          if (user == null || user.blocked) return null;
++          return AuthenticationInfo(
++            userId.toString(),
++            {},
++            authId: userId.toString(),
++          );
++        case null:
++          return null;
++      }
++    };
