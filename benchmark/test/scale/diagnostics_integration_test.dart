@@ -544,6 +544,8 @@ void main() {
           '--period-ms',
           '50',
           '--no-sync-diagnostics',
+          '--client-profile-user',
+          '0',
         ]),
         0,
         events.add,
@@ -594,6 +596,85 @@ void main() {
         expect(streams.map((r) => r['deviceId']).toSet(), hasLength(2));
         expect(streams.every((r) => r['sampled'] == true), isTrue);
         expect(cleanup['streams'], containsPair('open', 0));
+      });
+
+      test(
+        'then client boundaries match the server batches for alternating writers.',
+        () {
+          final rounds = events
+              .where(
+                (event) =>
+                    event['type'] == 'round' &&
+                    event['user'] == 0 &&
+                    (event['round'] as int) >= 0,
+              )
+              .toList();
+          final frames = records.where((record) => record['type'] == 'syncFrame');
+
+          expect(rounds, hasLength(4));
+          for (final round in rounds) {
+            final profile = round['clientProfile'] as Map;
+            final batches = (profile['batches'] as List).cast<Map>();
+            final upload = batches.singleWhere(
+              (batch) =>
+                  batch['device'] == round['writer'] && batch['direction'] == 'sent',
+            );
+            final download = batches.singleWhere(
+              (batch) =>
+                  batch['device'] != round['writer'] &&
+                  batch['direction'] == 'received',
+            );
+            final matching = frames.where(
+              (frame) =>
+                  frame['frame'] == 'chunk' &&
+                  (frame['rounds'] as List).cast<Map>().any(
+                    (identity) =>
+                        identity['round'] == round['round'] &&
+                        identity['writer'] == round['writer'],
+                  ),
+            );
+
+            expect(profile['droppedBatches'], 0);
+            expect(
+              upload['batchId'],
+              matching.singleWhere(
+                (frame) => frame['direction'] == 'received',
+              )['batchId'],
+            );
+            expect(
+              download['batchId'],
+              matching.singleWhere(
+                (frame) => frame['direction'] == 'yielded',
+              )['batchId'],
+            );
+            expect(
+              upload['endMicros'],
+              greaterThanOrEqualTo(round['localCommitMicros'] as int),
+            );
+            expect(
+              download['endMicros'],
+              greaterThanOrEqualTo(upload['endMicros'] as int),
+            );
+            expect(
+              download['endMicros'],
+              lessThanOrEqualTo(round['writeToAllPeersMicros'] as int),
+            );
+          }
+        },
+      );
+
+      test('then unsampled users emit no client frame profiles.', () {
+        final rounds = events
+            .where(
+              (event) =>
+                  event['type'] == 'round' &&
+                  event['user'] == 1 &&
+                  (event['round'] as int) >= 0,
+            )
+            .toList();
+
+        expect(rounds, hasLength(4));
+        expect(rounds.any((round) => round.containsKey('clientProfile')), isFalse);
       });
 
       test('then sampled SQL timings and complete spans survive stream closure.', () {

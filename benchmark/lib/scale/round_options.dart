@@ -31,6 +31,10 @@ final roundParser = ArgParser()
   ..addOption('run-id')
   ..addOption('data-dir', defaultsTo: '.round-benchmark')
   ..addFlag('sync-diagnostics', defaultsTo: true)
+  ..addOption(
+    'client-profile-user',
+    help: 'User index whose continuous rounds record client frame boundaries.',
+  )
   ..addFlag('help', abbr: 'h', negatable: false);
 
 class RoundOptions {
@@ -76,6 +80,21 @@ class RoundOptions {
       }
       values[name] = value;
     }
+
+    final profile = parsed['client-profile-user'] as String?;
+    if (profile != null) {
+      final user = int.tryParse(profile);
+      if (user == null || user < 0 || user >= scale.number('users')) {
+        throw const FormatException(
+          '--client-profile-user must name an existing user.',
+        );
+      }
+      if (parsed['mode'] != 'continuous') {
+        throw const FormatException('--client-profile-user requires continuous mode.');
+      }
+      values['client-profile-user'] = user;
+    }
+
     return RoundOptions(values);
   }
 
