@@ -175,12 +175,13 @@ void main() {
         );
 
         test(
-          'then the normal manifest resolves all six reviewed SDK Git packages.',
+          'then the normal manifest resolves the reviewed SDK and driver Git packages.',
           () {
             expect(exportedOverrides, sourceOverrides);
             expect(
               exportedOverrides.keys,
               unorderedEquals([
+                'postgres',
                 'serverpod',
                 'serverpod_client',
                 'serverpod_database',
