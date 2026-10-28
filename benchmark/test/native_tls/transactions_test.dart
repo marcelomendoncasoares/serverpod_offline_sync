@@ -3,9 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:async/async.dart' as outcomes;
 import 'package:postgres/postgres.dart';
+// Observe actual wire exchanges in this isolated driver validation.
+// ignore: implementation_imports
+import 'package:postgres/src/v3/protocol.dart';
 import 'package:postgres_tls/postgres_tls.dart';
 import 'package:serverpod_embedded_postgres/serverpod_embedded_postgres.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -14,12 +19,14 @@ void main() {
   late Directory directory;
   late Endpoint endpoint;
 
-  Future<Connection> connect() => Connection.open(
+  Future<Connection> connect({int depth = 8, _WireEvents? wire}) => Connection.open(
     endpoint,
-    settings: const ConnectionSettings(
+    settings: ConnectionSettings(
       sslMode: SslMode.require,
+      pipelineDepth: depth,
+      transformer: wire?.transformer,
       tlsConnector: nativeTlsConnector,
-      connectTimeout: Duration(seconds: 5),
+      connectTimeout: const Duration(seconds: 5),
     ),
   );
 
@@ -99,6 +106,162 @@ void main() {
       directory.deleteSync(recursive: true);
     }
   });
+
+  group('Given a native TLS connection configured with pipeline depth eight,', () {
+    late Connection connection;
+    late _WireEvents wire;
+
+    setUpAll(() async {
+      wire = _WireEvents();
+      connection = await connect(wire: wire);
+    });
+
+    tearDownAll(() => connection.close());
+
+    group('when sixteen reads are started together inside one transaction,', () {
+      late List<int> values;
+      late List<String> exchanges;
+
+      setUpAll(() async {
+        await connection.runTx((tx) async {
+          wire.events.clear();
+          final results = await Future.wait([
+            for (var index = 0; index < 16; index++)
+              tx.execute(
+                r'SELECT pg_sleep(CASE WHEN $1::int = 0 THEN 0.1 ELSE 0 END), $1::int',
+                parameters: [index],
+              ),
+          ]);
+          values = [for (final row in results) row.single[1]! as int];
+          exchanges = List.of(wire.events);
+        });
+      });
+
+      test('then every future receives its own query result.', () {
+        expect(values, List.generate(16, (index) => index));
+      });
+
+      test(
+        'then eight exchanges are sent before an answer and the window stays bounded.',
+        () {
+          expect(exchanges.take(8), List.filled(8, 'sent'));
+          expect(_maximumInFlight(exchanges), 8);
+          expect(exchanges.where((event) => event == 'answered'), hasLength(16));
+        },
+      );
+    });
+  });
+
+  test(
+    'Given a native TLS connection configured with pipeline depth one, '
+    'when reads are started together inside a transaction, '
+    'then each answer precedes the next send.',
+    () async {
+      final wire = _WireEvents();
+      final connection = await connect(depth: 1, wire: wire);
+      addTearDown(connection.close);
+      late List<String> exchanges;
+
+      await connection.runTx((tx) async {
+        wire.events.clear();
+        await Future.wait([
+          tx.execute('SELECT 1'),
+          tx.execute('SELECT 2'),
+          tx.execute('SELECT 3'),
+        ]);
+        exchanges = List.of(wire.events);
+      });
+
+      expect(exchanges, ['sent', 'answered', 'sent', 'answered', 'sent', 'answered']);
+    },
+  );
+
+  group('Given a native TLS connection and an empty table,', () {
+    late Connection connection;
+
+    setUpAll(() async {
+      connection = await connect();
+      await connection.execute('CREATE TEMPORARY TABLE pipeline_failure (id int)');
+    });
+
+    tearDownAll(() => connection.close());
+
+    group('when the middle of three pipelined inserts fails,', () {
+      late List<outcomes.Result<Result>> results;
+      late Object? error;
+      late Object? count;
+      late Object? reusable;
+
+      setUpAll(() async {
+        error = await connection
+            .runTx((tx) async {
+              results = await Future.wait([
+                outcomes.Result.capture(
+                  tx.execute('INSERT INTO pipeline_failure VALUES (1)'),
+                ),
+                outcomes.Result.capture(
+                  tx.execute("INSERT INTO pipeline_failure VALUES ('invalid')"),
+                ),
+                outcomes.Result.capture(
+                  tx.execute('INSERT INTO pipeline_failure VALUES (3)'),
+                ),
+              ]);
+            })
+            .then<Object?>((_) => null, onError: (Object error) => error);
+        count = (await connection.execute(
+          'SELECT count(*) FROM pipeline_failure',
+        )).single.single;
+        reusable = (await connection.execute('SELECT 99')).single.single;
+      });
+
+      test(
+        'then every future settles with its corresponding success or SQL error.',
+        () {
+          expect(results[0].isValue, isTrue);
+          expect(
+            results[1].asError!.error,
+            isA<ServerException>().having((e) => e.code, 'code', '22P02'),
+          );
+          expect(
+            results[2].asError!.error,
+            isA<ServerException>().having((e) => e.code, 'code', '25P02'),
+          );
+          expect(error, isA<ServerException>());
+        },
+      );
+
+      test(
+        'then the entire transaction rolls back and the connection can be reused.',
+        () {
+          expect(count, 0);
+          expect(reusable, 99);
+        },
+      );
+    });
+  });
+
+  test(
+    'Given a slow native TLS query with another query already in flight, '
+    'when its soft cancellation timer fires, '
+    'then both queries settle without cancelling the following query.',
+    () async {
+      final connection = await connect();
+      addTearDown(connection.close);
+
+      final results = await Future.wait([
+        outcomes.Result.capture(
+          connection.execute(
+            'SELECT pg_sleep(0.3)',
+            timeout: const Duration(milliseconds: 50),
+          ),
+        ),
+        outcomes.Result.capture(connection.execute('SELECT 2')),
+      ]);
+
+      expect(results[0].isValue, isTrue);
+      expect(results[1].asValue!.value.single.single, 2);
+    },
+  );
 
   test('Given a native TLS PostgreSQL connection, '
       'when a binary payload spans many TLS records, '
@@ -233,4 +396,39 @@ void main() {
         List.generate(20, (query) => index * 100 + query),
     ]);
   });
+}
+
+class _WireEvents {
+  final events = <String>[];
+
+  StreamChannelTransformer<Message, Message> get transformer =>
+      StreamChannelTransformer(
+        StreamTransformer.fromHandlers(
+          handleData: (message, sink) {
+            if (message is ReadyForQueryMessage) events.add('answered');
+            sink.add(message);
+          },
+        ),
+        outcomes.StreamSinkTransformer.fromHandlers(
+          handleData: (message, sink) {
+            final messages = message is AggregatedClientMessage
+                ? message.messages
+                : [message];
+            if (messages.any((item) => item is SyncMessage || item is QueryMessage)) {
+              events.add('sent');
+            }
+            sink.add(message);
+          },
+        ),
+      );
+}
+
+int _maximumInFlight(List<String> exchanges) {
+  var current = 0;
+  var maximum = 0;
+  for (final event in exchanges) {
+    current += event == 'sent' ? 1 : -1;
+    if (current > maximum) maximum = current;
+  }
+  return maximum;
 }

@@ -44,13 +44,35 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     OfflineSyncDiagnostics.event('merge.phase', {
       'phase': 'readNodesAndConflictMetadata',
     });
-    final remoteNodes = await _findOrCreateNodesForMerge(
-      _context.spaceIdFor(transaction),
-      {for (final change in operations) change.uuidNodeId},
-      transaction,
-    );
+    late MergeNodes remoteNodes;
+    late MergeContext context;
+    late bool needsProjectionPass;
+
+    Future<void> readNodes() async {
+      remoteNodes = await _findOrCreateNodesForMerge(
+        _context.spaceIdFor(transaction),
+        {for (final change in operations) change.uuidNodeId},
+        transaction,
+      );
+    }
+
+    Future<void> readConflictMetadata() async {
+      context = await _loadMergeContext(mergeSet, transaction);
+      needsProjectionPass =
+          mayAffectProjection &&
+          !await _canLeaveMergeProjectionUnchanged(operations, context, transaction);
+    }
+
+    if (_context.database.dialect == DatabaseDialect.postgres) {
+      // The clock and space locks already serialize this merge. Conflict reads
+      // do not depend on source-node creation, so PostgreSQL can receive both
+      // chains together. Wait for both even on failure before rolling back.
+      await Future.wait([readNodes(), readConflictMetadata()]);
+    } else {
+      await readNodes();
+      await readConflictMetadata();
+    }
     final nodesByUuid = remoteNodes.nodesByUuid;
-    final context = await _loadMergeContext(mergeSet, transaction);
 
     // Deletes carry no authored overlay but still change visibility, so the
     // seed is every touched row, not just the ones with overlays.
@@ -65,9 +87,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     OfflineSyncDiagnostics.event('merge.phase', {
       'phase': 'planConflictsAndReferences',
     });
-    final needsProjectionPass =
-        mayAffectProjection &&
-        !await _canLeaveMergeProjectionUnchanged(operations, context, transaction);
     final projectionReads = needsProjectionPass
         ? _foreignKeyProjector.createReadCache(transaction)
         : null;

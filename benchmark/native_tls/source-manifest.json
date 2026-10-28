@@ -1,5 +1,5 @@
 {
-  "description": "SHA-256 of the production Dart sources in the measured matched-native Cloud workspace, before repository porting. Configuration and secrets are intentionally excluded.",
+  "description": "SHA-256 of production Dart sources in the pipeline8-concurrent Cloud workspace. Configuration and secrets are excluded; dependencies are pinned separately.",
   "scopes": [
     "benchmark/bin/main.dart",
     "benchmark/lib",
@@ -11,15 +11,15 @@
     "vendor/postgres/lib"
   ],
   "files": {
-    "benchmark/bin/main.dart": "4caf7dfec87dc5938b106a271c2c2e5f7018f4d31dd4ab718f16011f307560e4",
+    "benchmark/bin/main.dart": "45aa26fb645e9ca80045347c8354a9321805cda686319abe10b914d2cf6c2f6c",
     "benchmark/lib/scale/commit_hints.dart": "85a4c0676259392033f96277a054309f73303f3a0f83c2d0a8794198d0cbf0f9",
     "benchmark/lib/scale/common.dart": "9d6e9af1fa4cfa0793ab29cf36494d95c13ffe6188ac57341862443f2d8307ae",
-    "benchmark/lib/scale/diagnostics.dart": "0f27543e6b4fddf8d9dedfeed143e3d839a6fb41e45e8e9bcecbad39eddf7600",
+    "benchmark/lib/scale/diagnostics.dart": "ba5baeb9c9c41f3bd45336e990ed054ad079ae52a817f4306c23dd12aa1b8fc2",
     "benchmark/lib/scale/runtime_diagnostics.dart": "238a5a7df64dada2b15c28ff9f00abfa54feaa4c27549062cd44ebd89e23d540",
     "benchmark/lib/scale/schema.dart": "6f254f67cdca813867a5379f9953bf93ccf97e5b4e81126cfcccf926b88a7882",
-    "benchmark/lib/scale/server.dart": "7d535911899a4ae53e25c13be408c18f70ac186d2b7a2e0bb94f30c9d98ea93e",
+    "benchmark/lib/scale/server.dart": "041dd06eef316d58f535408b20dbf9ea29123811a965d7a0eff95beb35068b3a",
     "benchmark/lib/scale/server_diagnostics.dart": "b43c702264bf2b54d88dcdf0a79b5c0cd312f3b4b0ccd0214d1d35542d674571",
-    "benchmark/lib/scale/tls_experiment.dart": "45b089d7eca8f92535db50ee2d2401782de1d04192eb7bafdb2507a096c10690",
+    "benchmark/lib/scale/tls_experiment.dart": "702f12cc956f6b4f57441894218bcb00372936a5881c1beb2a49c6736ca43003",
     "benchmark/lib/scale/verification.dart": "25a1dc3788085e9c2bb71cf2dcc5f35867056273e8bfb9b42988f956da5669e6",
     "benchmark/lib/src/generated/address.dart": "ae54a765ca0bdb4aad93f0189fc8ff405d7d414cf7f9f830526c3e34cbb51689",
     "benchmark/lib/src/generated/city.dart": "7df33ff3e820a82d833ca3dfb7716a5ef48facb6ff89dba73e190d4be41df464",
@@ -65,7 +65,7 @@
     "packages/serverpod_offline_sync/lib/src/database/database.dart": "8ddacf97a749b5189b874e23afd6f29db562585a6f8dfe38708b19253c2d6d39",
     "packages/serverpod_offline_sync/lib/src/database/exceptions.dart": "f5ed5d0b09a3b21a5b11096239086c08319ab25c7952e23d762ba2336612fc5d",
     "packages/serverpod_offline_sync/lib/src/database/includes.dart": "f5b962b0334f6646bd0515b87c2a35143088dffaa9ca76e72325e2c7302e57a4",
-    "packages/serverpod_offline_sync/lib/src/database/merge.dart": "be9e31efa15ad554e80619c3acc6044636b255cf1bc77c667df2e06fef970853",
+    "packages/serverpod_offline_sync/lib/src/database/merge.dart": "5bec48e0f41b14eecb14d487a23f3fb0278f12e4e77675e33031077a498ca1cb",
     "packages/serverpod_offline_sync/lib/src/database/merge_admission.dart": "6fa6ca5dc7ab6d824021cbf63fb866811a79fa6f423598039b93fe3c8cd99a35",
     "packages/serverpod_offline_sync/lib/src/database/merge_insert_batch.dart": "51c9d0963d9c84fda134f29df835bf140bd4bd7986cd8c6be9d8e2dbe5bd45ef",
     "packages/serverpod_offline_sync/lib/src/database/merge_utils/database_helpers.dart": "c582a1005ae017bd91eeefe6fe83b1b94330272bc22ec5bf8b076c6f705c22fb",
@@ -208,7 +208,7 @@
     "test/serverpod_offline_sync_test_shared/lib/src/generated/shared_flavor.dart": "d61b795d24712366f5b4e8ec403e143c0e548a8314a5d95fa7f1dfb89d05fcf2",
     "test/serverpod_offline_sync_test_shared/lib/src/generated/shared_parent.dart": "93f43de9a76fe2178e013e4f41f84a94544d351c8901e9d24bf8be7fcf224816",
     "vendor/postgres/lib/messages.dart": "34c5954c2ee57375dd6d0bba8931cfb57ebc54fe2fbfd97cfecaaea26eb2e8a1",
-    "vendor/postgres/lib/postgres.dart": "ff8967965e147f160d7563fddd24008873f424c648b59013cc69e1d639337883",
+    "vendor/postgres/lib/postgres.dart": "f6e4bf8f02125e26a5425d319de0a4a9b5c010d27d5f4812875260634b025d21",
     "vendor/postgres/lib/src/auth/auth.dart": "6c4f4bcdef13d8b4867aae42c8a75dddabe05b0b121c25ba9d20b7c626a5926a",
     "vendor/postgres/lib/src/auth/clear_text_authenticator.dart": "1d494960581577d060d6f607eeb677a9cb23a645528c64024a142eade15dbf7f",
     "vendor/postgres/lib/src/auth/md5_authenticator.dart": "a979cafb3413cc7250807cc69c6eba66a9c9606ce3ecc3526f97c9a896a49e64",
@@ -219,11 +219,11 @@
     "vendor/postgres/lib/src/connection_string.dart": "150fa564276f1fcc9c109fd25f40e1b2a695ee8f9e8a068920deba41af3666b3",
     "vendor/postgres/lib/src/exceptions.dart": "2bc9b21bdd6cc206232a20b2ab4cd6448a8e80146c20b27bec002c8a960d3dcd",
     "vendor/postgres/lib/src/message_window.dart": "cd78242bea22da2649fdc5c0aa38962eedd3a9d48193f0159dda3fa9e137e8db",
-    "vendor/postgres/lib/src/messages/client_messages.dart": "ec53eb9e793221a380438f3dd16454bb65c369844d0cdaa5e37003e8a0dbb40b",
+    "vendor/postgres/lib/src/messages/client_messages.dart": "aa7a51530c3b1532e423e5db71f581701553d5165b984fc18fe75e81c6f518e2",
     "vendor/postgres/lib/src/messages/logical_replication_messages.dart": "8cae79165fe8f7f88354283942ee6cdc2d88cd2cd0f46018801e585238a94311",
     "vendor/postgres/lib/src/messages/server_messages.dart": "fe71a1b617059cac0f521569096877777f256e22341fc7a169cfd27353c9bd7f",
     "vendor/postgres/lib/src/messages/shared_messages.dart": "3e4d02bc46eb87b70eab764bf599a146058dce3956bfa2c5aaa8ad713ac734be",
-    "vendor/postgres/lib/src/pool/pool_api.dart": "86f82c479d1145371900be8de5f23e901101c1b6eda64f43eae6b5b378d3bcc9",
+    "vendor/postgres/lib/src/pool/pool_api.dart": "2a53f53f492e6c8156c239b527d210c88dae517a07eb7b08f0fe84b392893f07",
     "vendor/postgres/lib/src/pool/pool_impl.dart": "d16b85ce86a687f99ecd2f3d0700ff50596bfd4f4b05bb0817b22037078d8bed",
     "vendor/postgres/lib/src/replication.dart": "868e101644769a97013821c9cead38719d37c69828e36153d33bd33be38a0c0b",
     "vendor/postgres/lib/src/time_converters.dart": "631955e4af75c52487e027ca648426c73ade3eaf152384a20b0f395917a92f06",
@@ -237,12 +237,63 @@
     "vendor/postgres/lib/src/types/type_registry.dart": "ced8d02cb5efccd9987e286595d201e4d0a282fa4b492405ff5d49883839334d",
     "vendor/postgres/lib/src/types.dart": "8b13ef19318278e039d9a45232d55fe705a2b4b2b2758524d558575ec425a7d9",
     "vendor/postgres/lib/src/utils/package_pool_ext.dart": "e368d4acd21263e84aaf1791c2b45e5c1b69a36ba5328ca36a02adbb51d0e200",
-    "vendor/postgres/lib/src/v3/connection.dart": "c3479d404a7574c38e54f3de431259c74845f74ab6e1f7a3fe8a589a9d015028",
+    "vendor/postgres/lib/src/v3/connection.dart": "d278c202f3e3a3af7aed8f3346881c1434811ccc71387df56c444a3a076cb0b3",
     "vendor/postgres/lib/src/v3/connection_info.dart": "c4c758ad77b4b0783371b9b921f18f82ab491d901f8b26dbdc49978925c1b820",
     "vendor/postgres/lib/src/v3/database_info.dart": "4ee44c32a4f2a7d656de33a8a9df1064ec425701cec5916a5a5ce70ca2c0b3a5",
     "vendor/postgres/lib/src/v3/protocol.dart": "3f32ae68a7a7a70743eec1d68a7644c80d6cc834eec587d77cb9053b17e3813e",
     "vendor/postgres/lib/src/v3/query_description.dart": "3986ae9f06bf6ba610fb44b5d9b095dacb1fea4de00521a617cdefb3c6f39bcd",
-    "vendor/postgres/lib/src/v3/resolved_settings.dart": "1db61f72c6f76df1d61adb67f871b5542a4c71ecd8e8efe54623dbbc1f30db65",
+    "vendor/postgres/lib/src/v3/resolved_settings.dart": "5780b43e2b6d632e546cab7fd4fd6a25665f4a2fc8a10d8639f7b9ba28724583",
     "vendor/postgres/lib/src/v3/variable_tokenizer.dart": "d585211672e8925f9fb6428cc5b855be69ba65fbd1915a030ffa1da47b30956f"
-  }
+  },
+  "dependencyOverrides": {
+    "serverpod": {
+      "git": {
+        "url": "https://github.com/marcelomendoncasoares/serverpod.git",
+        "ref": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+        "path": "packages/serverpod"
+      }
+    },
+    "serverpod_client": {
+      "git": {
+        "url": "https://github.com/marcelomendoncasoares/serverpod.git",
+        "ref": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+        "path": "packages/serverpod_client"
+      }
+    },
+    "serverpod_database": {
+      "git": {
+        "url": "https://github.com/nielsenko/serverpod.git",
+        "ref": "242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29",
+        "path": "packages/serverpod_database"
+      }
+    },
+    "serverpod_shared": {
+      "git": {
+        "url": "https://github.com/marcelomendoncasoares/serverpod.git",
+        "ref": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+        "path": "packages/serverpod_shared"
+      }
+    },
+    "serverpod_serialization": {
+      "git": {
+        "url": "https://github.com/marcelomendoncasoares/serverpod.git",
+        "ref": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+        "path": "packages/serverpod_serialization"
+      }
+    },
+    "serverpod_embedded_postgres": {
+      "git": {
+        "url": "https://github.com/marcelomendoncasoares/serverpod.git",
+        "ref": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+        "path": "packages/serverpod_embedded_postgres"
+      }
+    }
+  },
+  "nativeTlsDependency": {
+    "git": {
+      "url": "https://github.com/nielsenko/postgres_tls.git",
+      "ref": "22067026c50da3447931ba71ad13fc95f230d5e8"
+    }
+  },
+  "postgresSourceCommit": "3a05c58697454816f386017f9c9ad89191a08929"
 }

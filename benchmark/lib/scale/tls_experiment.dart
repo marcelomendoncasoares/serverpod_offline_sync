@@ -1,5 +1,8 @@
 /// Identifies this isolated benchmark build without changing Cloud config.
-const tlsExperimentVariant = 'matched-native';
+const tlsExperimentVariant = 'pipeline8-concurrent';
 
-/// Both comparison builds include the same dependencies and diagnostics.
+/// The requested native TLS connector is installed before Serverpod starts.
 const tlsExperimentNative = true;
+
+/// Maximum in-flight statements on one PostgreSQL connection.
+const tlsExperimentPipelineDepth = 8;

@@ -15,7 +15,8 @@ import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
 import 'package:serverpod_offline_sync_test_server/src/generated/sync_tables.dart';
 
 Future<void> main(List<String> args) async {
-  postgresTlsConnector = tlsExperimentNative ? nativeTlsConnector : null;
+  postgresTlsConnector = nativeTlsConnector;
+  postgresPipelineDepth = tlsExperimentPipelineDepth;
 
   late AuthenticationHandler authenticate;
   final pod = Serverpod(

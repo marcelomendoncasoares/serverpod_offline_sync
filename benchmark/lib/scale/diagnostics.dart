@@ -347,11 +347,27 @@ class SyncTrace {
     _endPhase(span, end);
     var covered = 0;
     var previousEnd = start;
+    final boundaries = <(int, int)>[];
     for (final interval in span.sqlIntervals..sort((a, b) => a.$1.compareTo(b.$1))) {
+      if (min(end, interval.$2) > max(start, interval.$1)) {
+        boundaries
+          ..add((max(start, interval.$1), 1))
+          ..add((min(end, interval.$2), -1));
+      }
       final left = max(start, max(previousEnd, interval.$1));
       final right = min(end, interval.$2);
       if (right > left) covered += right - left;
       previousEnd = max(previousEnd, right);
+    }
+    boundaries.sort((a, b) {
+      final byTime = a.$1.compareTo(b.$1);
+      return byTime == 0 ? a.$2.compareTo(b.$2) : byTime;
+    });
+    var activeSql = 0;
+    var maxConcurrentSql = 0;
+    for (final boundary in boundaries) {
+      activeSql += boundary.$2;
+      maxConcurrentSql = max(maxConcurrentSql, activeSql);
     }
     return {
       'startMicros': span.start,
@@ -366,6 +382,7 @@ class SyncTrace {
       'affectedRows': span.rows,
       'sqlMicros': span.sqlMicros,
       'sqlWallMicros': covered,
+      'maxConcurrentSql': maxConcurrentSql,
       'unattributedBodyMicros': max(0, end - start - covered),
       'phases': {for (final e in span.phases.entries) e.key: e.value.toJson()},
     };

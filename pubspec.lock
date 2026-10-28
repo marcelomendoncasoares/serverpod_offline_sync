@@ -792,8 +792,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/serverpod_database"
-      ref: "010d23c755c48e99eb35295f7c280ea140412212"
-      resolved-ref: "010d23c755c48e99eb35295f7c280ea140412212"
+      ref: "242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29"
+      resolved-ref: "242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29"
       url: "https://github.com/nielsenko/serverpod.git"
     source: git
     version: "4.1.0-rc.1"

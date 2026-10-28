@@ -18,7 +18,7 @@ dev_dependencies:
   melos: ^7.5.1
   serverpod_cli: ^4.1.0-beta.3
 
-# Experimental native TLS integration; matched driver is a workspace member.
+# Experimental native TLS and pipeline dependencies, pinned for this comparison.
 dependency_overrides:
   serverpod:
     git:
@@ -33,7 +33,7 @@ dependency_overrides:
   serverpod_database:
     git:
       url: https://github.com/nielsenko/serverpod.git
-      ref: 010d23c755c48e99eb35295f7c280ea140412212
+      ref: 242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29
       path: packages/serverpod_database
   serverpod_shared:
     git:

@@ -8,7 +8,8 @@ import 'package:serverpod/serverpod.dart';
 // Serverpod's PostgreSQL schema renderer is not exported by its public barrel.
 // ignore: implementation_imports
 import 'package:serverpod_cli/src/database/dialects/postgres.dart';
-import 'package:serverpod_database/serverpod_database.dart' show DatabaseDefinition;
+import 'package:serverpod_database/serverpod_database.dart'
+    show DatabaseDefinition, postgresPipelineDepth;
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/diagnostics.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/options.dart';
@@ -32,6 +33,7 @@ const secret = 'local-diagnostics-test-secret';
 // The PostgreSQL server and SQLite clients have separate isolate-local SQL
 // encoders, just as they do in the deployed benchmark's separate processes.
 Future<void> serveDiagnostics((String, SendPort) arguments) async {
+  postgresPipelineDepth = 8;
   final (path, ready) = arguments;
   final directory = Directory(path);
   final commands = ReceivePort();
@@ -682,6 +684,7 @@ void main() {
         expect(transactions, isNotEmpty);
         expect(transactions.every((t) => t['ok'] == true), isTrue);
         expect(transactions.any((t) => (t['statements'] as int) > 0), isTrue);
+        expect(transactions.any((t) => (t['maxConcurrentSql'] as int) > 1), isTrue);
         final timeline = records
             .where((r) => r['type'] == 'syncTimeline')
             .map((r) => r['event'] as Map);

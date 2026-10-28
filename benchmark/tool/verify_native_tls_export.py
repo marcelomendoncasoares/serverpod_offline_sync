@@ -30,7 +30,18 @@ def main():
     if mismatches:
         raise SystemExit('Runtime source mismatch:\n' + '\n'.join(mismatches))
 
-    print(f'All {len(actual)} production Dart sources match the measured native build.')
+    # prepare_cloud writes JSON-compatible YAML, so this check needs no YAML
+    # package and verifies the normal manifests uploaded by scloud.
+    root_spec = json.loads((args.workspace / 'pubspec.yaml').read_text())
+    server_spec = json.loads(
+        (args.workspace / 'benchmark/pubspec.yaml').read_text()
+    )
+    if root_spec['dependency_overrides'] != manifest['dependencyOverrides']:
+        raise SystemExit('Dependency overrides differ from the measured build.')
+    if server_spec['dependencies']['postgres_tls'] != manifest['nativeTlsDependency']:
+        raise SystemExit('Native TLS dependency differs from the measured build.')
+
+    print(f'All {len(actual)} runtime sources and dependency pins match the pipeline build.')
 
 
 if __name__ == '__main__':

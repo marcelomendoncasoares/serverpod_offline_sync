@@ -1,75 +1,84 @@
-# Native PostgreSQL TLS benchmark branch
+# Native TLS and PostgreSQL pipelining experiment
 
-`perf-postgres-native-tls` preserves the matched native-TLS experiment, including
-the server diagnostics, benchmark client, patched driver, and local validation.
-Start with the [results and limits](../docs/sync-native-tls-benchmark-2026-10-28.md).
-This is an experiment branch based on `perf-postgres-wire-driver`, not a package
-release or a change to the existing PR stack.
+`perf-postgres-pipeline` continues the native TLS benchmark from
+`perf-postgres-native-tls` (`e8fd7dfc`). The earlier branch retains the previous
+matched driver and [native TLS results](../docs/sync-native-tls-benchmark-2026-10-28.md).
+This branch tests the supplied pipelining driver and allows independent merge
+reads to overlap. It does not alter the existing PR stack or package releases.
 
-## What is frozen
+## Frozen dependencies
 
-- `postgres_tls`: nielsenko/postgres_tls at
-  `22067026c50da3447931ba71ad13fc95f230d5e8`.
-- `serverpod_database`: nielsenko/serverpod at
-  `010d23c755c48e99eb35295f7c280ea140412212`.
-- Other Serverpod overrides: `4f2a75ab967dccd56e88261a39203fc5e59d8e80`.
-- The `postgres` runtime is vendored in `vendor/postgres`, with its original
-  license and [provenance](../vendor/postgres/PROVENANCE.md). It combines the
-  supplied connector branch with the already-tested TCP_NODELAY, portal-close,
-  and cancellation-drain behavior. It is an explicit workspace member so the
-  Cloud upload includes it.
-- The root `pubspec.lock` freezes this benchmark workspace. Server runtime source
-  hashes from the measured deployment are in `native_tls/source-manifest.json`.
+The requested branch heads were resolved on 2026-10-28 and pinned:
 
-`bin/scale_server.dart` installs `nativeTlsConnector` before constructing
-Serverpod. `lib/scale/tls_experiment.dart` selects the native build and provides
-the identity reported by the authenticated benchmark control endpoint.
+| Dependency | Requested ref | Commit |
+| --- | --- | --- |
+| `nielsenko/postgres_tls` | `dist` | `22067026c50da3447931ba71ad13fc95f230d5e8` |
+| `nielsenko/postgresql-dart` | `cloud-test` | `3a05c58697454816f386017f9c9ad89191a08929` |
+| `nielsenko/serverpod`, `packages/serverpod_database` | `postgres-pipeline-depth` | `242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29` |
 
-To repeat the matched Dart-TLS control, change only the two constants in
-`tls_experiment.dart` to `matched-stock` and `false`, then rebuild. Keep the
-dependency graph, database, configuration, workload, and CPU quota identical.
-The source-hash check below is intentionally specific to the native build.
+Other Serverpod overrides remain at `4f2a75ab967dccd56e88261a39203fc5e59d8e80`.
+The root lockfile freezes the workspace. The PostgreSQL runtime is a byte-for-byte copy of the supplied Git commit in
+`vendor/postgres`, with its original license and [provenance](../vendor/postgres/PROVENANCE.md).
+Upstream force-pushed `cloud-test` during the experiment, making the initial
+commit unavailable to a clean Cloud checkout. Vendoring preserves that tested
+snapshot; it does not include the subsequent `9c4cbc0` revision. The previous
+matched implementation remains on the native TLS branch.
+
+Before constructing Serverpod, `bin/scale_server.dart` installs
+`nativeTlsConnector` and sets `postgresPipelineDepth = 8` through the experiment
+constant in `lib/scale/tls_experiment.dart`. The authenticated runtime endpoint
+reports the variant, native connector, pipeline depth, executable hash and CPU
+quota.
+
+## Concurrent merge reads
+
+After acquiring the existing clock and space locks, a PostgreSQL merge starts
+two independent chains together: source-node/space-node lookup, and conflict
+metadata/projection-proof reads. `Future.wait` waits for both, including on
+failure, before writes or rollback. Each chain retains its own dependencies.
+SQLite remains sequential. Lock acquisition, writes, projection application,
+cursor persistence and commit retain their existing order.
+
+A depth of eight is a maximum on one connection, not eight database connections
+or eight parallel PostgreSQL executors. The narrow sync change exposes at most
+two simultaneous calls in its read phase. Most operations remain dependent.
+Diagnostics report `maxConcurrentSql`, summed query duration, and the union of
+query intervals as `sqlWallMicros`; only the latter belongs in a wall-time split.
+Concurrent calls can also be queued inside a depth-one driver, so the diagnostic
+peak alone does not prove pipelining. The native wire test checks actual sends
+and replies.
 
 ## Build and prepare
 
-The measured server used Dart 3.13.7 on Linux x64. The measured client used Dart
-3.12.2. Use `dart build cli` to bundle native assets; copying only an executable
-does not preserve its required libraries.
-
-From the repository root, with Dart 3.13.7 and the matching Serverpod CLI on PATH:
+Use Dart 3.13.7 and the matching Serverpod CLI. From the repository root:
 
 ```sh
 dart pub get --enforce-lockfile
-dart run benchmark/tool/prepare_cloud.dart --output /tmp/offline-sync-native-export
-python3 benchmark/tool/verify_native_tls_export.py /tmp/offline-sync-native-export
-cd /tmp/offline-sync-native-export/benchmark
-dart build cli --target bin/main.dart --output /tmp/offline-sync-native-server
+dart run benchmark/tool/prepare_cloud.dart --output /tmp/offline-sync-pipeline-export
+python3 benchmark/tool/verify_native_tls_export.py /tmp/offline-sync-pipeline-export
+cd /tmp/offline-sync-pipeline-export/benchmark
+dart build cli --target bin/main.dart --output /tmp/offline-sync-pipeline-server
 ```
 
-Preparation validates the installed CLI version and prints the required version
-if it differs. It creates fresh private configuration for a fresh database.
-Deployment credentials and the live Cloud configuration are not in this branch.
-When updating an existing prepared deployment, preserve its configuration,
-passwords, migration history, and Cloud project association. The export above
-does not deploy anything.
+Use `dart build cli` to preserve native assets. Preparation creates a private
+workspace and configuration for a fresh database; it does not deploy. When
+using an existing Cloud project, preserve its private config, passwords,
+migrations and project association. None of those credentials is in Git.
+The verifier checks the 233 exported runtime Dart files and dependency pins
+against this experiment's depth-eight concurrent build.
 
-The measured runs used TLS to the same remote database, a pool limit of 100,
-one instance, no persistent/console session logging, no commit hints, and the
-full Person schema. Default export configuration is a starting point, not a
-copy of those private deployment settings. See `SCALE.md` for authentication
-and benchmark configuration.
-
-Build the client from the repository root:
+The benchmark uses one streaming endpoint and the existing immutable client.
+For a newly built client, from the repository root:
 
 ```sh
-dart run benchmark/tool/build_native.dart --target bin/rounds.dart --output /tmp/native-tls-client
+dart run benchmark/tool/build_native.dart --target bin/rounds.dart --output /tmp/pipeline-client
 ```
 
 With `BENCHMARK_SECRET` supplied privately, the 64-stream workload is:
 
 ```sh
-/tmp/native-tls-client/bundle/bin/rounds \
-  --target "$BENCHMARK_TARGET" --run-id native-tls-64 \
+/tmp/pipeline-client/bundle/bin/rounds \
+  --target "$BENCHMARK_TARGET" --run-id pipeline-64 \
   --users 32 --devices 2 --workers 8 --rounds 10 --rows 1 \
   --period-ms 4000 --sample-seconds 30 --timeout-seconds 45 \
   --startup-timeout-seconds 300 --setup-concurrency 1 \
@@ -77,51 +86,48 @@ With `BENCHMARK_SECRET` supplied privately, the 64-stream workload is:
   --mode continuous --no-sync-diagnostics
 ```
 
-For 8 streams, use `--users 4 --workers 4 --period-ms 2000` and a new run ID.
-These commands reproduce the workload. The reported phase breakdowns also
-required collecting the server's sampled diagnostic events for user 0; they
-are not inferred from the client latency distribution.
+For eight streams use four users, four workers, a 2000 ms period and a fresh run
+ID. The comparison keeps database placement, pool size, logging, client binary,
+workload and CPU quota fixed. Detailed server profiling samples only user zero.
 
-## Local validation
+To repeat the depth-one control, change the experiment constant to one and its
+variant to `pipeline1-concurrent`. The sequential control uses the merge source
+from `e8fd7dfc` with the same new dependencies. The previous native-driver
+control uses that commit's dependency graph. Keep all other inputs identical.
 
-The native connector checks need Linux, OpenSSL, Python 3.11 or newer, and the
-embedded PostgreSQL dependency. Certificates and keys are generated temporarily
-and deleted. No live database or Cloud credentials are used.
+## Validation
 
+Native checks need Linux, OpenSSL, Python and embedded PostgreSQL. They create
+and remove their own certificates and database; no Cloud secret is needed.
 From `benchmark/`:
 
 ```sh
 dart test test/native_tls --concurrency 1
-dart test test/scale/prepare_cloud_test.dart test/scale/source_export_test.dart --concurrency 1
-dart build cli --target bin/native_tls_tests.dart --output /tmp/native-tls-validation
-/tmp/native-tls-validation/bundle/bin/native_tls_tests
+dart build cli --target bin/native_tls_tests.dart --output /tmp/pipeline-validation
+/tmp/pipeline-validation/bundle/bin/native_tls_tests
+dart test test/scale/diagnostics_integration_test.dart test/scale/prepare_cloud_test.dart test/scale/source_export_test.dart --concurrency 1
 ```
 
-The 17 native checks cover TLS exchange and certificate rejection, large binary
-payloads, concurrent connections, rollback/lock release, cancellation followed
-by reuse, and Serverpod's connector hook. The socket tests derive from the
-pinned `postgres_tls` tests; the pool-hook case derives from the pinned
-`serverpod_database` tests. The echo fixture closes accepted sockets so a
-standalone AOT runner exits normally. The transaction tests and TLS proxy are
-the local benchmark fixtures, now using repository-relative paths.
+The 23 native checks include eight exchanges in flight, depth-one serialization,
+correct result association, rollback after a middle statement fails, connection
+reuse, and the driver's timeout behavior with another query in flight. The
+instrumented integration check exercises actual sync and observes overlapping
+SQL calls, exact convergence and stream cleanup.
 
-The Cloud results in the report were measured before this source port. Publishing
-the branch does not constitute another Cloud run. The export hash check verifies
-the measured server, package, model, and driver runtime sources; packaging and
-fixture validation is reported separately.
+Run the existing PostgreSQL correctness contracts with depth eight from
+`test/serverpod_offline_sync_test_server/`:
 
-## Branch validation on 2026-10-28
+```sh
+dart test ../../benchmark/test/pipeline --concurrency 1
+```
 
-- `dart pub get --enforce-lockfile` passed.
-- The prepared Cloud export matched all 233 measured runtime source hashes.
-- The exported server compiled with `dart build cli`, including the native TLS
-  asset. The standalone validation bundle exited with code 0.
-- All 17 native checks passed in both JIT and AOT. The later rollback/reuse
-  assertion also passed on its own.
-- Cloud preparation, dependency resolution, upload exclusion, source export,
-  and interruption/preservation checks passed. The 16 selected workload,
-  round-contract, and frame-correlation checks passed.
-- Analysis of the touched benchmark code and fixtures reported no issues.
+These wrappers invoke the existing admission/cancellation, insert batching,
+domain batching and multi-space transaction contracts. Run them sequentially:
+the existing Serverpod fixtures share a fixed API port.
 
-No Cloud deployment or new performance measurement was performed for this
-branch publication.
+The driver intentionally avoids sending a query cancellation when a later
+statement is already in flight, since it could cancel that later statement.
+A configured query timeout may therefore complete successfully after its soft
+deadline; the hard fallback can close the connection. This behavior is verified
+in the native test and remains an upstream driver/API consideration before
+production adoption.

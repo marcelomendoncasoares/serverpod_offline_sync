@@ -211,6 +211,7 @@ Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () a
     'benchmarkDatabase': Platform.environment['BENCHMARK_DATABASE'] ?? 'original',
     'tlsExperiment': {
       'variant': tlsExperimentVariant,
+      'pipelineDepth': postgresPipelineDepth,
       'nativeConnectorInstalled':
           identical(postgresTlsConnector, nativeTlsConnector),
       'databaseRequiresSsl':

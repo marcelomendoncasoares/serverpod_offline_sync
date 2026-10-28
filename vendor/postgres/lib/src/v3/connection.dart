@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -28,8 +29,9 @@ final _runTxZoneKey = Object();
 const _debugLog = false;
 
 abstract class _PgSessionBase implements Session {
-  /// The lock to guard operations that must run sequentially, like sending
-  /// RPC messages to the postgres server and waiting for them to complete.
+  /// The lock that sends this session's operations in the order they were
+  /// started. It is held while an operation is sent, and until it is answered
+  /// only for an operation nothing may follow (see [_exchange]).
   ///
   /// Each session base has its own operation lock, but child sessions hold the
   /// parent lock while they are active. For instance, when starting a
@@ -62,21 +64,63 @@ abstract class _PgSessionBase implements Session {
     }
   }
 
-  /// Runs [callback], guarded by [_operationLock] and cleans up the pending
-  /// resource afterwards.
-  Future<T> _withResource<T>(FutureOr<T> Function() callback) {
+  /// Sends [operation] with the message [build] returns, then returns what
+  /// [wait] returns once the operation has been answered.
+  ///
+  /// The operation keeps its place in flight until [wait] returns, and the
+  /// connection has room for [ResolvedConnectionSettings.pipelineDepth] of
+  /// them. The lock is released once the message is sent, so the next
+  /// operation can go out before this one is answered. [exclusive] keeps it
+  /// until [wait] returns, for an operation nothing may follow.
+  Future<T> _exchange<T>(
+    _PendingOperation operation,
+    FutureOr<ClientMessage> Function() build,
+    Future<T> Function() wait, {
+    bool exclusive = false,
+  }) async {
     _checkActive();
-    return _operationLock.withResource(() {
-      _checkActive();
-      assert(
-        _connection._pending == null,
-        'Previous operation ${_connection._pending} did not clean up.',
-      );
+    Future<T> waitAndRelease(pool.PoolResource place) async {
+      try {
+        return await wait();
+      } finally {
+        place.release();
+      }
+    }
 
-      return Future(callback).whenComplete(() {
-        _connection._pending = null;
-      });
-    });
+    if (exclusive) {
+      return _operationLock.withResource(
+        () async => waitAndRelease(await _sendOperation(operation, build)),
+      );
+    }
+    final place = await _operationLock.withResource(
+      () => _sendOperation(operation, build),
+    );
+    return waitAndRelease(place);
+  }
+
+  /// Sends [operation] once the connection has room for it in flight, and
+  /// returns that place.
+  Future<pool.PoolResource> _sendOperation(
+    _PendingOperation operation,
+    FutureOr<ClientMessage> Function() build,
+  ) async {
+    _checkActive();
+    final place = await _connection._inFlightLimit.request();
+    try {
+      final message = await build();
+      // A CancelRequest cancels whatever runs when it lands, so nothing goes
+      // out while one is on its way (#471).
+      while (_connection._cancellation != null) {
+        await _connection._cancellation;
+      }
+      _checkActive();
+      _connection._send(message);
+      _connection._inFlight.add(operation);
+      return place;
+    } catch (_) {
+      place.release();
+      rethrow;
+    }
   }
 
   /// Sends a message to the server and waits for a response [T], gracefully
@@ -87,19 +131,18 @@ abstract class _PgSessionBase implements Session {
   }) {
     final trace = stackTrace ?? StackTrace.current;
 
-    return _withResource(() {
-      _connection._send(AggregatedClientMessage([send, const SyncMessage()]));
-
-      final wait = _connection._pending = _WaitForMessage<T>(this, trace);
-
-      return wait.doneWithOperation.future.then((value) {
+    final wait = _WaitForMessage<T>(this, trace);
+    return _exchange(
+      wait,
+      () => AggregatedClientMessage([send, const SyncMessage()]),
+      () => wait.doneWithOperation.future.then((value) {
         final effectiveResult =
             wait.result ??
             async.Result.error(StateError('Operation did not complete'), trace);
 
         return effectiveResult.asFuture;
-      });
-    });
+      }),
+    );
   }
 
   @override
@@ -186,7 +229,7 @@ abstract class _PgSessionBase implements Session {
         Trace.from(stackTrace),
         parse: buildParseMessage(description, '', variables),
       );
-      // No statement to close, success or failure: the unnamed statement is
+      // Nothing to close, success or failure: the unnamed statement is
       // replaced by the next parse that leaves the name empty, so closing it
       // is an exchange that changes nothing.
       return await prepared.run(variables, timeout: timeout);
@@ -229,7 +272,7 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
     StreamTransformer<Uint8List, Uint8List>? incomingBytesTransformer,
   }) async {
     // Captured here, synchronously, because `_startup()` runs its body in a
-    // deferred callback (see `_withResource`) - by the time it can fail, the
+    // deferred callback (see `_exchange`) - by the time it can fail, the
     // call stack no longer contains this method's caller, so any stack trace
     // captured from within `_startup()` would only show internal frames.
     final callerTrace = Trace.current();
@@ -356,21 +399,6 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
       port,
       timeout: settings.connectTimeout,
     );
-
-    if (!endpoint.isUnixSocket) {
-      try {
-        // Disable Nagle's algorithm before the first write, including the SSL
-        // request and TLS handshake. A false result means the platform cannot
-        // set this optional optimization; the connection is still usable.
-        socket.setOption(SocketOption.tcpNoDelay, true);
-      } on UnsupportedError {
-        // Some socket implementations do not support this option.
-      } catch (_) {
-        // No channel owns the socket yet if configuring it fails.
-        socket.destroy();
-        rethrow;
-      }
-    }
 
     final sslCompleter = Completer<int>();
     // ignore: cancel_subscriptions
@@ -542,7 +570,34 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
   bool _isClosing = false;
   bool _socketIsBroken = false;
 
-  _PendingOperation? _pending;
+  /// The operations sent and not yet answered, oldest first. The server
+  /// answers in the order it received them.
+  final _inFlight = ListQueue<_PendingOperation>();
+
+  /// The operation the server is answering now.
+  _PendingOperation? get _pending => _inFlight.firstOrNull;
+
+  /// Room for [ResolvedConnectionSettings.pipelineDepth] operations in flight.
+  late final _inFlightLimit = pool.Pool(_settings.pipelineDepth);
+
+  /// A CancelRequest on its way to the server, if any.
+  Future<void>? _cancellation;
+
+  Completer<void>? _idle;
+
+  /// Completes once no operation is in flight.
+  Future<void> _whenIdle() =>
+      _inFlight.isEmpty ? Future.value() : (_idle ??= Completer<void>()).future;
+
+  /// Removes [operation], which has been answered, from [_inFlight].
+  void _retire(_PendingOperation operation) {
+    _inFlight.remove(operation);
+    if (_inFlight.isEmpty) {
+      _idle?.complete();
+      _idle = null;
+    }
+  }
+
   // Errors happening while a transaction is active will roll back the
   // transaction and should be reporte to the user.
   _TransactionSession? _activeTransaction;
@@ -606,24 +661,19 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
   }
 
   Future<void> _startup() {
-    return _withResource(() {
-      final result = _pending = _AuthenticationProcedure(
-        this,
-        _channelIsSecure,
-      );
-
-      _send(
-        StartupMessage(
-          database: _endpoint.database,
-          timeZone: _settings.timeZone,
-          username: _endpoint.username,
-          replication: _settings.replicationMode,
-          applicationName: _settings.applicationName,
-        ),
-      );
-
-      return result._done.future.timeout(_settings.connectTimeout);
-    });
+    final result = _AuthenticationProcedure(this, _channelIsSecure);
+    return _exchange(
+      result,
+      () => StartupMessage(
+        database: _endpoint.database,
+        timeZone: _settings.timeZone,
+        username: _endpoint.username,
+        replication: _settings.replicationMode,
+        applicationName: _settings.applicationName,
+      ),
+      () => result._done.future.timeout(_settings.connectTimeout),
+      exclusive: true,
+    );
   }
 
   Future<void> _socketClosed() async {
@@ -670,7 +720,7 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
 
           _pending!.handleError(exception);
         }
-      } else if (_pending != null) {
+      } else if (_pending case final operation?) {
         // If PostgreSQL reports the transaction is healthy (e.g. after a
         // successful ROLLBACK TO SAVEPOINT), clear any stale exception so that
         // mayCommit can return true and the outer runTx can COMMIT.
@@ -679,12 +729,19 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
           _activeTransaction?._transactionException = null;
         }
         try {
-          await _pending!.handleMessage(message);
+          await operation.handleMessage(message);
         } on Object catch (e) {
           // handleMessage isn't otherwise observed - this runs as a stream's
           // data handler - so a throw here would escape as an unhandled
           // exception instead of a catchable connection failure.
           _closeAfterError(e is PgException ? e : PgException('$e'));
+        }
+        // An operation is answered by its ReadyForQuery, or by the
+        // CopyBothResponse that starts replication. What follows is for the
+        // next one.
+        if (message is ReadyForQueryMessage ||
+            message is CopyBothResponseMessage) {
+          _retire(operation);
         }
       }
     } finally {
@@ -827,14 +884,18 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
         if (interruptRunning) {
           // Own try/catch: a bug here must not skip the socket/session
           // cleanup below.
-          try {
-            _pending?.handleConnectionClosed(cause);
-          } catch (err) {
-            // silenced, see above
+          for (final operation in [..._inFlight]) {
+            try {
+              operation.handleConnectionClosed(cause);
+            } catch (err) {
+              // silenced, see above
+            }
+            _retire(operation);
           }
         } else {
-          // Wait for the previous operation to complete by using the lock
-          await _operationLock.withResource(() {
+          // Send nothing more, and wait for what was sent to be answered.
+          await _operationLock.withResource(() async {
+            await _whenIdle();
             if (!_socketIsBroken) {
               _channel.sink.add(const TerminateMessage());
             }
@@ -1007,8 +1068,9 @@ class _PgResultStreamSubscription
   final _done = Completer<void>();
   ResultSchema? _resultSchema;
 
-  /// A timeout's CancelRequest timer and the cancel it started; the operation
-  /// lock is held until the cancel drains (see [_drainCancellation]).
+  /// A timeout's CancelRequest timer and the cancel it started; the statement
+  /// keeps its place in flight until the cancel drains (see
+  /// [_drainCancellation]).
   Timer? _cancelTimer;
   Future<void>? _pendingCancellation;
 
@@ -1035,8 +1097,6 @@ class _PgResultStreamSubscription
            callerTrace ??
            statement.statement._effectiveSession._settings.captureTrace() {
     _scheduleStatement(() async {
-      connection._pending = this;
-
       final context = connection.codecContext;
       final params = statement.parameters;
       // Encoding is synchronous for all built-in types, so most binds never
@@ -1063,28 +1123,23 @@ class _PgResultStreamSubscription
         }
       }
 
-      connection._send(
-        AggregatedClientMessage([
-          // A statement that has not been parsed yet parses here, so that
-          // the parse and the bind travel in the same exchange.
-          ?statement.statement._parse,
-          BindMessage(
-            encodedValues,
-            portalName: _portalName,
-            statementName: statement.statement._name,
-          ),
-          DescribeMessage.portal(portalName: _portalName),
-          ExecuteMessage(_portalName),
-          // Execute has no row limit, so close its exhausted portal in this
-          // exchange. This releases portal resources even inside a transaction
-          // (see #390), without committing it or releasing its row locks.
-          CloseMessage.portal(_portalName),
-          SyncMessage(),
-        ]),
-      );
-
-      await _done.future;
-      await _drainCancellation();
+      return AggregatedClientMessage([
+        // A statement that has not been parsed yet parses here, so that
+        // the parse and the bind travel in the same exchange.
+        ?statement.statement._parse,
+        BindMessage(
+          encodedValues,
+          portalName: _portalName,
+          statementName: statement.statement._name,
+        ),
+        DescribeMessage.portal(portalName: _portalName),
+        ExecuteMessage(_portalName),
+        // A portal left open counts as an active query on its tables until
+        // the transaction ends, which blocks an ALTER TABLE on them in the
+        // same session (#390). Closing it here costs no exchange of its own.
+        CloseMessage.portal(_portalName),
+        SyncMessage(),
+      ]);
     });
   }
 
@@ -1098,18 +1153,12 @@ class _PgResultStreamSubscription
     void Function()? cleanup,
   }) : _parentTrace = null,
        _callerTrace = callerTrace ?? session._settings.captureTrace() {
-    _scheduleStatement(() async {
-      connection._pending = this;
-
-      connection._send(QueryMessage(sql));
-      await _done.future;
-      await _drainCancellation();
-      cleanup?.call();
-    });
+    _scheduleStatement(() => QueryMessage(sql), cleanup: cleanup);
   }
 
-  /// Holds the operation lock until this statement's CancelRequest has drained,
-  /// so a late cancel can't hit the next statement reusing this backend (#471).
+  /// Keeps this statement's place in flight until its CancelRequest has
+  /// drained, so a late cancel can't hit the next statement on this backend
+  /// (#471).
   /// A forced close skips the wait so a stuck side-channel can't block teardown.
   Future<void> _drainCancellation() async {
     _cancelTimer?.cancel();
@@ -1118,11 +1167,21 @@ class _PgResultStreamSubscription
     }
   }
 
-  void _scheduleStatement(Future<void> Function() sendAndWait) async {
+  /// Sends the message [build] returns and waits for the answer. [cleanup]
+  /// runs once the statement has ended; a statement with one ends its session
+  /// and keeps the lock until then, so nothing queued behind it is sent.
+  void _scheduleStatement(
+    FutureOr<ClientMessage> Function() build, {
+    void Function()? cleanup,
+  }) async {
     try {
-      await session._withResource(sendAndWait);
+      await session._exchange(this, build, () async {
+        await _done.future;
+        await _drainCancellation();
+        cleanup?.call();
+      }, exclusive: cleanup != null);
     } catch (e, s) {
-      // _withResource can fail if the connection or the session is already
+      // _exchange can fail if the connection or the session is already
       // closed. This error should be reported to the user!
       if (!_done.isCompleted) {
         _errors.add((e, s));
@@ -1133,15 +1192,12 @@ class _PgResultStreamSubscription
   }
 
   /// Reports the outcome to the listener once [_scheduleStatement]'s
-  /// [_withResource] has returned: the statement has ended, and the
-  /// connection no longer has it pending.
+  /// [_exchange] has returned: the statement has ended and given up its place
+  /// in flight.
   ///
   /// The server sends a failed statement's [ErrorResponseMessage] before the
-  /// [ReadyForQueryMessage] that ends it. A listener told of the error at the
-  /// first message could start a statement on another session (each session
-  /// has its own lock) while this one is still pending: that statement would
-  /// trip the `_pending` assertion in [_withResource], or, with asserts
-  /// disabled, take this statement's [ReadyForQueryMessage] as its own end.
+  /// [ReadyForQueryMessage] that ends it. Reporting at the end means a
+  /// listener that reacts with another statement finds this one answered.
   Future<void> _finish() async {
     for (final (error, stackTrace) in _errors) {
       _controller.addError(error, stackTrace);
@@ -1272,8 +1328,6 @@ class _PgResultStreamSubscription
         // we'll get this more than once.
         _affectedRowsSoFar += message.rowsAffected;
       case ReadyForQueryMessage():
-        // CloseComplete does not end the exchange. On an error PostgreSQL
-        // skips Close and drains to Sync, so it may not arrive at all.
         _completeQuery();
       case CopyBothResponseMessage():
         // This message indicates a successful start for Streaming Replication.
@@ -1308,12 +1362,16 @@ class _PgResultStreamSubscription
         : Timer(timeout, () {
             // Best effort: the cancel may not reach the server or may fail; the
             // hard timeout below still guarantees this call won't hang forever.
-            // Only cancel if we're still the pending statement; keep the future
-            // so the lock is held until it drains (see [_drainCancellation]).
-            if (!identical(connection._pending, this) || _done.isCompleted) {
+            // Only cancel if the server runs us and nothing was sent after
+            // us, which the cancel could hit instead; keep the future so our
+            // place in flight is held until it drains (see
+            // [_drainCancellation]).
+            if (!identical(connection._pending, this) ||
+                connection._inFlight.length > 1 ||
+                _done.isCompleted) {
               return;
             }
-            _pendingCancellation = connection
+            final cancellation = _pendingCancellation = connection
                 .cancelPendingStatement()
                 .catchError((_) {
                   // Cancel failed: the backend may still be running us, so the
@@ -1324,6 +1382,11 @@ class _PgResultStreamSubscription
                     ),
                   );
                 });
+            // Nothing is sent until the cancel has landed (see
+            // [_PgSessionBase._sendOperation]).
+            connection._cancellation = cancellation.whenComplete(() {
+              connection._cancellation = null;
+            });
           });
     try {
       var future = asFuture();
@@ -1348,7 +1411,7 @@ class _PgResultStreamSubscription
         // protocol is now out of sync (no ReadyForQueryMessage was received
         // for the outstanding query). Force the connection closed in that
         // case - this also completes `_done` for the still-pending
-        // operation, releasing the operation lock so that callers cleaning
+        // operation, releasing its place in flight so that callers cleaning
         // up (e.g. Pool or `runTx`) don't deadlock waiting for it.
         if (e is! PgException) {
           connection._closeAfterError(

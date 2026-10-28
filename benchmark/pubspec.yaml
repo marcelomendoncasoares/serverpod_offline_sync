@@ -35,6 +35,8 @@ dependencies:
     path: ../test/serverpod_offline_sync_test_server
 
 dev_dependencies:
+  async: ^2.12.0
+  stream_channel: ^2.1.4
   lints: '>=3.0.0 <7.0.0'
   serverpod_cli: ^4.1.0-beta.3
   serverpod_embedded_postgres: ^4.1.0-beta.3

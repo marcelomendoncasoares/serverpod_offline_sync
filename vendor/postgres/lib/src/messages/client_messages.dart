@@ -297,6 +297,9 @@ class CloseMessage extends ClientMessage {
 
   CloseMessage.portal([String name = '']) : _name = name, _isForPortal = true;
 
+  /// Whether this closes a portal rather than a statement.
+  bool get isForPortal => _isForPortal;
+
   @override
   void applyToBuffer(PgByteDataWriter buffer) {
     final name = buffer.encodeString(_name);
