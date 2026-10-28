@@ -243,7 +243,7 @@ void main() {
   test(
     'Given a slow native TLS query with another query already in flight, '
     'when its soft cancellation timer fires, '
-    'then both queries settle without cancelling the following query.',
+    'then the slow query times out and the following query succeeds.',
     () async {
       final connection = await connect();
       addTearDown(connection.close);
@@ -258,7 +258,7 @@ void main() {
         outcomes.Result.capture(connection.execute('SELECT 2')),
       ]);
 
-      expect(results[0].isValue, isTrue);
+      expect(results[0].asError!.error, isA<TimeoutException>());
       expect(results[1].asValue!.value.single.single, 2);
     },
   );

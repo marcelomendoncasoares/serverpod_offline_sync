@@ -1,5 +1,5 @@
 /// Identifies this isolated benchmark build without changing Cloud config.
-const tlsExperimentVariant = 'pipeline8-concurrent';
+const tlsExperimentVariant = 'pipeline8-concurrent-v2';
 
 /// The requested native TLS connector is installed before Serverpod starts.
 const tlsExperimentNative = true;

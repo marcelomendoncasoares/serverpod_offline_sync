@@ -1,5 +1,5 @@
 {
-  "description": "SHA-256 of production Dart sources in the pipeline8-concurrent Cloud workspace. Configuration and secrets are excluded; dependencies are pinned separately.",
+  "description": "SHA-256 of production Dart sources in the pipeline8-concurrent-v2 Cloud workspace. Configuration and secrets are excluded; dependencies are pinned separately.",
   "scopes": [
     "benchmark/bin/main.dart",
     "benchmark/lib",
@@ -19,7 +19,7 @@
     "benchmark/lib/scale/schema.dart": "6f254f67cdca813867a5379f9953bf93ccf97e5b4e81126cfcccf926b88a7882",
     "benchmark/lib/scale/server.dart": "041dd06eef316d58f535408b20dbf9ea29123811a965d7a0eff95beb35068b3a",
     "benchmark/lib/scale/server_diagnostics.dart": "b43c702264bf2b54d88dcdf0a79b5c0cd312f3b4b0ccd0214d1d35542d674571",
-    "benchmark/lib/scale/tls_experiment.dart": "702f12cc956f6b4f57441894218bcb00372936a5881c1beb2a49c6736ca43003",
+    "benchmark/lib/scale/tls_experiment.dart": "e525a27f560e3fba5aa8bb2c1fb1704bedcad9e71f53024cc386647e79c82711",
     "benchmark/lib/scale/verification.dart": "25a1dc3788085e9c2bb71cf2dcc5f35867056273e8bfb9b42988f956da5669e6",
     "benchmark/lib/src/generated/address.dart": "ae54a765ca0bdb4aad93f0189fc8ff405d7d414cf7f9f830526c3e34cbb51689",
     "benchmark/lib/src/generated/city.dart": "7df33ff3e820a82d833ca3dfb7716a5ef48facb6ff89dba73e190d4be41df464",
@@ -227,6 +227,7 @@
     "vendor/postgres/lib/src/pool/pool_impl.dart": "d16b85ce86a687f99ecd2f3d0700ff50596bfd4f4b05bb0817b22037078d8bed",
     "vendor/postgres/lib/src/replication.dart": "868e101644769a97013821c9cead38719d37c69828e36153d33bd33be38a0c0b",
     "vendor/postgres/lib/src/time_converters.dart": "631955e4af75c52487e027ca648426c73ade3eaf152384a20b0f395917a92f06",
+    "vendor/postgres/lib/src/types.dart": "8b13ef19318278e039d9a45232d55fe705a2b4b2b2758524d558575ec425a7d9",
     "vendor/postgres/lib/src/types/binary_codec.dart": "b8996d07bf03a06c090bab93cc9e0e07a1670f1aa46ea0bbcc8c6bb4e9b3001b",
     "vendor/postgres/lib/src/types/codec.dart": "baa7f2849914f826cdff7b181a53efd125d3b37f99dcf453c390fdcffaf83a11",
     "vendor/postgres/lib/src/types/generic_type.dart": "b413ae1c8509f59f60685645bf6072e88cc671d973419dfa83a5d84197ad382f",
@@ -235,14 +236,13 @@
     "vendor/postgres/lib/src/types/text_codec.dart": "8cbbd0e14338e018ffc846f973ae31fa05030630a60ff05fa0b4b79603018bc3",
     "vendor/postgres/lib/src/types/text_search.dart": "b514ef29fcb14c6807536e2617af0de736192053297139d96f02440cc372d62b",
     "vendor/postgres/lib/src/types/type_registry.dart": "ced8d02cb5efccd9987e286595d201e4d0a282fa4b492405ff5d49883839334d",
-    "vendor/postgres/lib/src/types.dart": "8b13ef19318278e039d9a45232d55fe705a2b4b2b2758524d558575ec425a7d9",
     "vendor/postgres/lib/src/utils/package_pool_ext.dart": "e368d4acd21263e84aaf1791c2b45e5c1b69a36ba5328ca36a02adbb51d0e200",
-    "vendor/postgres/lib/src/v3/connection.dart": "d278c202f3e3a3af7aed8f3346881c1434811ccc71387df56c444a3a076cb0b3",
+    "vendor/postgres/lib/src/v3/connection.dart": "ea0ac6aa3d1aff993ed98e2d167f224b84aa8ab71af2e2d0d9abe4848720d50c",
     "vendor/postgres/lib/src/v3/connection_info.dart": "c4c758ad77b4b0783371b9b921f18f82ab491d901f8b26dbdc49978925c1b820",
     "vendor/postgres/lib/src/v3/database_info.dart": "4ee44c32a4f2a7d656de33a8a9df1064ec425701cec5916a5a5ce70ca2c0b3a5",
     "vendor/postgres/lib/src/v3/protocol.dart": "3f32ae68a7a7a70743eec1d68a7644c80d6cc834eec587d77cb9053b17e3813e",
     "vendor/postgres/lib/src/v3/query_description.dart": "3986ae9f06bf6ba610fb44b5d9b095dacb1fea4de00521a617cdefb3c6f39bcd",
-    "vendor/postgres/lib/src/v3/resolved_settings.dart": "5780b43e2b6d632e546cab7fd4fd6a25665f4a2fc8a10d8639f7b9ba28724583",
+    "vendor/postgres/lib/src/v3/resolved_settings.dart": "28760537e76a16a3e11bf8aa727b6044cb1709808f4154fb430af4e0b015638c",
     "vendor/postgres/lib/src/v3/variable_tokenizer.dart": "d585211672e8925f9fb6428cc5b855be69ba65fbd1915a030ffa1da47b30956f"
   },
   "dependencyOverrides": {
@@ -295,5 +295,5 @@
       "ref": "22067026c50da3447931ba71ad13fc95f230d5e8"
     }
   },
-  "postgresSourceCommit": "3a05c58697454816f386017f9c9ad89191a08929"
+  "postgresSourceCommit": "9c4cbc007327444944bef83f20d0e9e48e8ec84e"
 }

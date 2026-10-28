@@ -13,16 +13,18 @@ The requested branch heads were resolved on 2026-10-28 and pinned:
 | Dependency | Requested ref | Commit |
 | --- | --- | --- |
 | `nielsenko/postgres_tls` | `dist` | `22067026c50da3447931ba71ad13fc95f230d5e8` |
-| `nielsenko/postgresql-dart` | `cloud-test` | `3a05c58697454816f386017f9c9ad89191a08929` |
+| `nielsenko/postgresql-dart` | `cloud-test` | `9c4cbc007327444944bef83f20d0e9e48e8ec84e` |
 | `nielsenko/serverpod`, `packages/serverpod_database` | `postgres-pipeline-depth` | `242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29` |
 
 Other Serverpod overrides remain at `4f2a75ab967dccd56e88261a39203fc5e59d8e80`.
-The root lockfile freezes the workspace. The PostgreSQL runtime is a byte-for-byte copy of the supplied Git commit in
+The root lockfile freezes the workspace. The PostgreSQL runtime is a byte-for-byte
+copy of the supplied Git commit in
 `vendor/postgres`, with its original license and [provenance](../vendor/postgres/PROVENANCE.md).
 Upstream force-pushed `cloud-test` during the experiment, making the initial
-commit unavailable to a clean Cloud checkout. Vendoring preserves that tested
-snapshot; it does not include the subsequent `9c4cbc0` revision. The previous
-matched implementation remains on the native TLS branch.
+commit unavailable to a clean Cloud checkout. After the requested upgrade,
+vendoring preserves the refreshed `9c4cbc0` snapshot. Results for the initial
+`3a05c586` snapshot remain separate, and its source is retained at `d92ce779`.
+The previous matched implementation remains on the native TLS branch.
 
 Before constructing Serverpod, `bin/scale_server.dart` installs
 `nativeTlsConnector` and sets `postgresPipelineDepth = 8` through the experiment
@@ -91,7 +93,7 @@ ID. The comparison keeps database placement, pool size, logging, client binary,
 workload and CPU quota fixed. Detailed server profiling samples only user zero.
 
 To repeat the depth-one control, change the experiment constant to one and its
-variant to `pipeline1-concurrent`. The sequential control uses the merge source
+variant to `pipeline1-concurrent-v2`. The sequential control uses the merge source
 from `e8fd7dfc` with the same new dependencies. The previous native-driver
 control uses that commit's dependency graph. Keep all other inputs identical.
 
@@ -125,9 +127,12 @@ These wrappers invoke the existing admission/cancellation, insert batching,
 domain batching and multi-space transaction contracts. Run them sequentially:
 the existing Serverpod fixtures share a fixed API port.
 
-The driver intentionally avoids sending a query cancellation when a later
-statement is already in flight, since it could cancel that later statement.
-A configured query timeout may therefore complete successfully after its soft
-deadline; the hard fallback can close the connection. This behavior is verified
-in the native test and remains an upstream driver/API consideration before
-production adoption.
+The upgraded driver attempts soft cancellation of the currently executing query
+even with another statement in flight. The native test verifies a timeout for
+the slow query and success for the following query. New unsent operations wait
+for cancellation to finish, and the side channel rechecks its target after
+connecting. This narrows, but does not eliminate, the race with an already-sent
+statement if the target finishes as cancellation reaches PostgreSQL. The local
+checks do not establish safety for every network/cancellation interleaving.
+The older snapshot instead skipped soft cancellation with multiple statements
+in flight; its test and results remain recorded at `d92ce779`.

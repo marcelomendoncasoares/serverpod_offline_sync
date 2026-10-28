@@ -71,7 +71,8 @@ abstract class _PgSessionBase implements Session {
   /// connection has room for [ResolvedConnectionSettings.pipelineDepth] of
   /// them. The lock is released once the message is sent, so the next
   /// operation can go out before this one is answered. [exclusive] keeps it
-  /// until [wait] returns, for an operation nothing may follow.
+  /// until [wait] returns, for an operation nothing may follow, such as the
+  /// COMMIT that ends a transaction.
   Future<T> _exchange<T>(
     _PendingOperation operation,
     FutureOr<ClientMessage> Function() build,
@@ -109,8 +110,9 @@ abstract class _PgSessionBase implements Session {
     try {
       final message = await build();
       // A CancelRequest cancels whatever runs when it lands, so nothing goes
-      // out while one is on its way (#471).
-      while (_connection._cancellation != null) {
+      // out while one is on its way (#471). A closing connection sends
+      // nothing anyway, so a stuck cancel can't hold up its teardown.
+      while (_connection._cancellation != null && !_connection._isClosing) {
         await _connection._cancellation;
       }
       _checkActive();
@@ -361,30 +363,15 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
     if (tlsConnector != null &&
         settings.sslMode != SslMode.disable &&
         !endpoint.isUnixSocket) {
-      // As with `SecureSocket.secure` below, `.timeout()` doesn't cancel the
-      // connector, so a socket it returns after we gave up is destroyed.
-      var gaveUp = false;
-      final connected = tlsConnector(
-        host,
-        port,
-        sslMode: settings.sslMode,
-        timeout: settings.connectTimeout,
-      );
-      unawaited(
-        connected
-            .then((s) {
-              if (gaveUp) {
-                s.destroy();
-              }
-            })
-            .catchError((_) {}),
-      );
-      final socket = await connected.timeout(
+      final socket = await _destroyIfLate(
+        tlsConnector(
+          host,
+          port,
+          sslMode: settings.sslMode,
+          timeout: settings.connectTimeout,
+        ),
         settings.connectTimeout,
-        onTimeout: () {
-          gaveUp = true;
-          throw TimeoutException('TLS connection timed out');
-        },
+        'TLS connection timed out',
       );
       return (
         _channelOver(socket, socket, codecContext, incomingBytesTransformer),
@@ -453,33 +440,16 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
           // SSL is supported, upgrade!
           subscription.pause();
 
-          // `.timeout()` below doesn't cancel the handshake - if it later
-          // succeeds anyway (after we've given up on it), close the
-          // resulting secure socket instead of leaking it, since nothing
-          // else would ever reach it.
-          var gaveUpOnHandshake = false;
-          final secureFuture = SecureSocket.secure(
-            socket,
-            context: settings.securityContext,
-            onBadCertificate: settings.sslMode.ignoreCertificateIssues
-                ? (_) => true
-                : (c) => throw BadCertificateException(c),
-          );
-          unawaited(
-            secureFuture
-                .then((s) {
-                  if (gaveUpOnHandshake) {
-                    s.destroy();
-                  }
-                })
-                .catchError((_) {}),
-          );
-          socket = await secureFuture.timeout(
+          socket = await _destroyIfLate(
+            SecureSocket.secure(
+              socket,
+              context: settings.securityContext,
+              onBadCertificate: settings.sslMode.ignoreCertificateIssues
+                  ? (_) => true
+                  : (c) => throw BadCertificateException(c),
+            ),
             settings.connectTimeout,
-            onTimeout: () {
-              gaveUpOnHandshake = true;
-              throw TimeoutException('SSL handshake timed out');
-            },
+            'SSL handshake timed out',
           );
           secure = true;
 
@@ -516,6 +486,36 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
         incomingBytesTransformer,
       ),
       secure,
+    );
+  }
+
+  /// Waits up to [timeout] for [connecting], then throws a
+  /// [TimeoutException] with [message].
+  ///
+  /// `.timeout()` doesn't cancel [connecting]. A socket it delivers after we
+  /// gave up is destroyed instead of leaked, since nothing else would ever
+  /// reach it.
+  static Future<Socket> _destroyIfLate(
+    Future<Socket> connecting,
+    Duration timeout,
+    String message,
+  ) {
+    var gaveUp = false;
+    unawaited(
+      connecting
+          .then((s) {
+            if (gaveUp) {
+              s.destroy();
+            }
+          })
+          .catchError((_) {}),
+    );
+    return connecting.timeout(
+      timeout,
+      onTimeout: () {
+        gaveUp = true;
+        throw TimeoutException(message);
+      },
     );
   }
 
@@ -672,7 +672,6 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
         applicationName: _settings.applicationName,
       ),
       () => result._done.future.timeout(_settings.connectTimeout),
-      exclusive: true,
     );
   }
 
@@ -872,42 +871,49 @@ class PgConnectionImplementation extends _PgSessionBase implements Connection {
     await _close(force, ex);
   }
 
+  /// The close in progress, once one has started.
+  Future<void>? _closed;
+
   Future<void> _close(
     bool interruptRunning,
     PgException? cause, {
     bool socketIsBroken = false,
-  }) async {
+  }) {
     _socketIsBroken = _socketIsBroken || socketIsBroken;
-    if (!_isClosing) {
-      _isClosing = true;
-      try {
-        if (interruptRunning) {
-          // Own try/catch: a bug here must not skip the socket/session
-          // cleanup below.
-          for (final operation in [..._inFlight]) {
-            try {
-              operation.handleConnectionClosed(cause);
-            } catch (err) {
-              // silenced, see above
-            }
-            _retire(operation);
-          }
-        } else {
-          // Send nothing more, and wait for what was sent to be answered.
-          await _operationLock.withResource(() async {
-            await _whenIdle();
-            if (!_socketIsBroken) {
-              _channel.sink.add(const TerminateMessage());
-            }
-          });
+    _isClosing = true;
+    // Also when a graceful close already waits for these: nothing will
+    // answer them now.
+    if (interruptRunning) {
+      for (final operation in [..._inFlight]) {
+        // Own try/catch: a bug here must not skip the socket/session cleanup.
+        try {
+          operation.handleConnectionClosed(cause);
+        } catch (err) {
+          // silenced, see above
         }
-
-        await Future.wait([_channel.sink.close(), _serverMessages.cancel()]);
-        _closeSession();
-      } catch (err) {
-        // error in _close(), silencing since the connection is no longer
-        // usable anyway
+        _retire(operation);
       }
+    }
+    return _closed ??= _shutDown(graceful: !interruptRunning);
+  }
+
+  Future<void> _shutDown({required bool graceful}) async {
+    try {
+      if (graceful) {
+        // Send nothing more, and wait for what was sent to be answered.
+        await _operationLock.withResource(() async {
+          await _whenIdle();
+          if (!_socketIsBroken) {
+            _channel.sink.add(const TerminateMessage());
+          }
+        });
+      }
+
+      await Future.wait([_channel.sink.close(), _serverMessages.cancel()]);
+      _closeSession();
+    } catch (err) {
+      // error in _close(), silencing since the connection is no longer
+      // usable anyway
     }
   }
 
@@ -1068,11 +1074,8 @@ class _PgResultStreamSubscription
   final _done = Completer<void>();
   ResultSchema? _resultSchema;
 
-  /// A timeout's CancelRequest timer and the cancel it started; the statement
-  /// keeps its place in flight until the cancel drains (see
-  /// [_drainCancellation]).
+  /// The timer that sends a CancelRequest when a timeout passes.
   Timer? _cancelTimer;
-  Future<void>? _pendingCancellation;
 
   /// Errors for this statement, reported once the statement has ended and
   /// released the connection (see [_finish]).
@@ -1151,35 +1154,30 @@ class _PgResultStreamSubscription
     this.ignoreRows, {
     Trace? callerTrace,
     void Function()? cleanup,
+    bool exclusive = false,
   }) : _parentTrace = null,
        _callerTrace = callerTrace ?? session._settings.captureTrace() {
-    _scheduleStatement(() => QueryMessage(sql), cleanup: cleanup);
-  }
-
-  /// Keeps this statement's place in flight until its CancelRequest has
-  /// drained, so a late cancel can't hit the next statement on this backend
-  /// (#471).
-  /// A forced close skips the wait so a stuck side-channel can't block teardown.
-  Future<void> _drainCancellation() async {
-    _cancelTimer?.cancel();
-    if (!connection._isClosing) {
-      await _pendingCancellation;
-    }
+    _scheduleStatement(
+      () => QueryMessage(sql),
+      cleanup: cleanup,
+      exclusive: exclusive,
+    );
   }
 
   /// Sends the message [build] returns and waits for the answer. [cleanup]
-  /// runs once the statement has ended; a statement with one ends its session
-  /// and keeps the lock until then, so nothing queued behind it is sent.
+  /// runs once the statement has ended. [exclusive] keeps the session's lock
+  /// until then, so nothing queued behind the statement is sent, as the
+  /// COMMIT or ROLLBACK that ends a transaction needs.
   void _scheduleStatement(
     FutureOr<ClientMessage> Function() build, {
     void Function()? cleanup,
+    bool exclusive = false,
   }) async {
     try {
       await session._exchange(this, build, () async {
         await _done.future;
-        await _drainCancellation();
         cleanup?.call();
-      }, exclusive: cleanup != null);
+      }, exclusive: exclusive);
     } catch (e, s) {
       // _exchange can fail if the connection or the session is already
       // closed. This error should be reported to the user!
@@ -1362,28 +1360,24 @@ class _PgResultStreamSubscription
         : Timer(timeout, () {
             // Best effort: the cancel may not reach the server or may fail; the
             // hard timeout below still guarantees this call won't hang forever.
-            // Only cancel if the server runs us and nothing was sent after
-            // us, which the cancel could hit instead; keep the future so our
-            // place in flight is held until it drains (see
-            // [_drainCancellation]).
-            if (!identical(connection._pending, this) ||
-                connection._inFlight.length > 1 ||
-                _done.isCompleted) {
+            // Only cancel while the server runs us. Should we finish just as
+            // the cancel lands, it hits the statement sent after us, if any;
+            // [cancelPendingStatement] narrows that by checking we still run
+            // once its connection is up.
+            if (!identical(connection._pending, this) || _done.isCompleted) {
               return;
             }
-            final cancellation = _pendingCancellation = connection
-                .cancelPendingStatement()
-                .catchError((_) {
-                  // Cancel failed: the backend may still be running us, so the
-                  // connection is in an unknown state - close rather than reuse.
-                  connection._closeAfterError(
-                    PgException(
-                      'Query cancellation failed; connection closed.',
-                    ),
-                  );
-                });
-            // Nothing is sent until the cancel has landed (see
-            // [_PgSessionBase._sendOperation]).
+            final cancellation = connection.cancelPendingStatement().catchError(
+              (_) {
+                // Cancel failed: the backend may still be running us, so the
+                // connection is in an unknown state - close rather than reuse.
+                connection._closeAfterError(
+                  PgException('Query cancellation failed; connection closed.'),
+                );
+              },
+            );
+            // Nothing is sent until the cancel has landed, so it can't hit a
+            // statement sent later (#471, see [_PgSessionBase._sendOperation]).
             connection._cancellation = cancellation.whenComplete(() {
               connection._cancellation = null;
             });
@@ -1508,6 +1502,7 @@ class _TransactionSession extends _PgSessionBase implements TxSession {
         _closeSession();
         _connection._activeTransaction = null;
       },
+      exclusive: true,
     );
     Object? error;
     StackTrace? stackTrace;
