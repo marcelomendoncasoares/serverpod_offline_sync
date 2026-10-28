@@ -96,6 +96,26 @@ jobs:
       #     file-path: coverage-results.txt
       #     comment-tag: coverage-results
 
+  native_tls:
+    name: native TLS (JIT and AOT)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Test native TLS against PostgreSQL
+        working-directory: benchmark
+        run: dart test test/native_tls --concurrency=1
+
+      - name: Build native TLS validation bundle
+        working-directory: benchmark
+        run: dart build cli --target bin/native_tls_tests.dart --output build/native-tls
+
+      - name: Run native TLS validation bundle
+        working-directory: benchmark
+        run: build/native-tls/bundle/bin/native_tls_tests
+
   browser_tests:
     name: dart test (Chrome)
     runs-on: ubuntu-latest

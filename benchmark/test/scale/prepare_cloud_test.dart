@@ -65,6 +65,8 @@ void main() {
         late Map<dynamic, dynamic> lockedPackages;
         late String commitHintSource;
         late String exportedCommitHints;
+        late Map<dynamic, dynamic> nativeTlsDependency;
+        late Map<dynamic, dynamic> exportedNativeTlsDependency;
 
         setUpAll(() async {
           output = p.join(scratch.path, 'prepared');
@@ -130,6 +132,24 @@ void main() {
                         ).readAsString(),
                       )
                       as Map)['packages']
+                  as Map;
+          nativeTlsDependency =
+              ((loadYaml(
+                            await File(
+                              p.join(root, 'benchmark/pubspec.yaml'),
+                            ).readAsString(),
+                          )
+                          as Map)['dependencies']
+                      as Map)['postgres_tls']
+                  as Map;
+          exportedNativeTlsDependency =
+              ((loadYaml(
+                            await File(
+                              p.join(output, 'benchmark/pubspec.yaml'),
+                            ).readAsString(),
+                          )
+                          as Map)['dependencies']
+                      as Map)['postgres_tls']
                   as Map;
           commitHintSource = await File(
             p.join(root, 'benchmark/lib/scale/commit_hints.dart'),
@@ -201,6 +221,21 @@ void main() {
               expect(description['path'], git['path']);
               expect(description['resolved-ref'], git['ref']);
             }
+          },
+        );
+
+        test(
+          'then native TLS remains a production dependency at the pinned source.',
+          () {
+            final git = nativeTlsDependency['git'] as Map;
+            final locked = lockedPackages['postgres_tls'] as Map;
+            final description = locked['description'] as Map;
+
+            expect(exportedNativeTlsDependency, nativeTlsDependency);
+            expect(git['ref'], matches(RegExp(r'^[0-9a-f]{40}$')));
+            expect(locked['source'], 'git');
+            expect(description['url'], git['url']);
+            expect(description['resolved-ref'], git['ref']);
           },
         );
 

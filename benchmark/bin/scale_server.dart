@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:postgres_tls/postgres_tls.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/commit_hints.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
@@ -11,6 +12,8 @@ import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
 import 'package:serverpod_offline_sync_test_server/src/generated/sync_tables.dart';
 
 Future<void> main(List<String> args) async {
+  postgresTlsConnector = nativeTlsConnector;
+
   late AuthenticationHandler authenticate;
   final pod = Serverpod(
     args,
