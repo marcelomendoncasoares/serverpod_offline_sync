@@ -5,6 +5,8 @@
 matched driver and [native TLS results](../docs/sync-native-tls-benchmark-2026-10-28.md).
 This branch tests the supplied pipelining driver and allows independent merge
 reads to overlap. It does not alter the existing PR stack or package releases.
+See the [pipelining benchmark report](../docs/sync-postgres-pipeline-benchmark-2026-10-28.md)
+for both driver revisions, the controls, timing splits and remaining limits.
 
 ## Frozen dependencies
 
@@ -37,7 +39,9 @@ quota.
 After acquiring the existing clock and space locks, a PostgreSQL merge starts
 two independent chains together: source-node/space-node lookup, and conflict
 metadata/projection-proof reads. `Future.wait` waits for both, including on
-failure, before writes or rollback. Each chain retains its own dependencies.
+failure, before domain writes or rollback. Source-node creation stays within
+its lookup chain; conflict reads do not depend on those new nodes. Each chain
+retains its own dependencies.
 SQLite remains sequential. Lock acquisition, writes, projection application,
 cursor persistence and commit retain their existing order.
 

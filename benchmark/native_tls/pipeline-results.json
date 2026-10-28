@@ -1,0 +1,1696 @@
+{
+  "initialDependencies": {
+    "postgres_tls": "22067026c50da3447931ba71ad13fc95f230d5e8",
+    "postgres": "3a05c58697454816f386017f9c9ad89191a08929",
+    "serverpod_database": "242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29",
+    "baseline": "e8fd7dfc6ffea4457df6d4d6c86d0985838d4179"
+  },
+  "upgradedDependencies": {
+    "postgres": {
+      "path": ".",
+      "ref": "cloud-test",
+      "resolved-ref": "9c4cbc007327444944bef83f20d0e9e48e8ec84e",
+      "url": "https://github.com/nielsenko/postgresql-dart.git"
+    },
+    "postgres_tls": {
+      "path": ".",
+      "ref": "dist",
+      "resolved-ref": "22067026c50da3447931ba71ad13fc95f230d5e8",
+      "url": "https://github.com/nielsenko/postgres_tls.git"
+    },
+    "serverpod_database": {
+      "path": "packages/serverpod_database",
+      "ref": "postgres-pipeline-depth",
+      "resolved-ref": "242ee66cc4b3176ac5c1bc3ed2b3c40cbd996d29",
+      "url": "https://github.com/nielsenko/serverpod.git"
+    }
+  },
+  "runs": [
+    {
+      "label": "matched-native-medium-8",
+      "variant": "matched-native",
+      "executableSha256": "484a62dda6add6d7d27652f3d9d46299ac587b552eb3423591fde2e1e6a20e29",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 8,
+      "latencyMs": {
+        "n": 40,
+        "minMs": 328.167,
+        "meanMs": 394.129125,
+        "medianMs": 369.5665,
+        "p95Ms": 492.234,
+        "maxMs": 802.323
+      },
+      "scheduledToAllPeersMs": {
+        "n": 40,
+        "min": 332.341,
+        "median": 443.51,
+        "mean": 461.14365,
+        "p95": 564.798,
+        "max": 866.247
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 2.0,
+      "exerciseWallSeconds": 19.07958,
+      "exerciseCpuCores": 0.070189829878783,
+      "exerciseResourceSampleSeconds": 14.389549052109942,
+      "exerciseRssMiB": {
+        "n": 5,
+        "min": 90.1875,
+        "median": 90.1875,
+        "mean": 90.5875,
+        "p95": 91.1875,
+        "max": 91.1875
+      },
+      "sampledServerPathMs": 191.24179999999998,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 331.923,
+        "meanMs": 440.4402,
+        "medianMs": 376.101,
+        "p95Ms": 802.323,
+        "maxMs": 802.323
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0555,
+        "mergeSourcePreparation": 0.047,
+        "mergeConnectionAndBegin": 5.0375,
+        "mergeSql": 84.2225,
+        "mergeNonSql": 3.8901999999999997,
+        "mergeCommitAndRelease": 5.358899999999999,
+        "mergeOther": 0.4799,
+        "afterMergeBeforeCapture": 15.2034,
+        "captureConnectionAndBegin": 6.2296000000000005,
+        "captureSql": 33.9433,
+        "captureNonSql": 4.8151,
+        "captureCommitAndRelease": 3.983,
+        "captureOther": 27.707,
+        "afterCaptureBeforeYield": 0.2689,
+        "transportAndClientResidual": 249.1984
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 118.16579999999999,
+        "mergeMaxConcurrentCalls": [
+          1
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 84.2225,
+        "mergeWallSqlMs": 84.2225,
+        "meanWallMsPerStatement": 9.089676923076922,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "matched-native-medium-64",
+      "variant": "matched-native",
+      "executableSha256": "484a62dda6add6d7d27652f3d9d46299ac587b552eb3423591fde2e1e6a20e29",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 350.393,
+        "meanMs": 973.2271812500001,
+        "medianMs": 980.7565,
+        "p95Ms": 1211.453,
+        "maxMs": 1469.913
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 351.123,
+        "median": 1114.3935000000001,
+        "mean": 1101.66555,
+        "p95": 1341.627,
+        "max": 1598.546
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 42.186151,
+      "exerciseCpuCores": 0.25136159853884926,
+      "exerciseResourceSampleSeconds": 37.91350809112191,
+      "exerciseRssMiB": {
+        "n": 11,
+        "min": 108.0078125,
+        "median": 110.65234375,
+        "mean": 110.36505681818181,
+        "p95": 111.15234375,
+        "max": 111.15234375
+      },
+      "sampledServerPathMs": 643.7848,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 350.393,
+        "meanMs": 929.1096,
+        "medianMs": 988.1635,
+        "p95Ms": 1087.773,
+        "maxMs": 1087.773
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0839,
+        "mergeSourcePreparation": 0.048799999999999996,
+        "mergeConnectionAndBegin": 15.4414,
+        "mergeSql": 332.05920000000003,
+        "mergeNonSql": 3.0976999999999997,
+        "mergeCommitAndRelease": 23.0865,
+        "mergeOther": 0.4658,
+        "afterMergeBeforeCapture": 39.709900000000005,
+        "captureConnectionAndBegin": 30.7348,
+        "captureSql": 112.0847,
+        "captureNonSql": 2.001,
+        "captureCommitAndRelease": 54.1397,
+        "captureOther": 30.5635,
+        "afterCaptureBeforeYield": 0.26789999999999997,
+        "transportAndClientResidual": 285.3248
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 444.14390000000003,
+        "mergeMaxConcurrentCalls": [
+          1
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 332.05920000000003,
+        "mergeWallSqlMs": 332.05920000000003,
+        "meanWallMsPerStatement": 34.164915384615384,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline1-sequential-medium-64",
+      "variant": "pipeline1-sequential",
+      "executableSha256": "a2715f3163ee475110e24ad84c18994eee4b452dc5eea615a6f23b18273ffaaa",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 363.355,
+        "meanMs": 979.8690124999999,
+        "medianMs": 895.894,
+        "p95Ms": 1497.941,
+        "maxMs": 1746.789
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 363.882,
+        "median": 1037.201,
+        "mean": 1113.1375,
+        "p95": 1620.817,
+        "max": 1895.208
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 40.426071,
+      "exerciseCpuCores": 0.2592814099638932,
+      "exerciseResourceSampleSeconds": 37.98961137002334,
+      "exerciseRssMiB": {
+        "n": 11,
+        "min": 107.65234375,
+        "median": 109.76953125,
+        "mean": 109.6182528409091,
+        "p95": 111.14453125,
+        "max": 111.14453125
+      },
+      "sampledServerPathMs": 640.7065,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 363.355,
+        "meanMs": 934.6571,
+        "medianMs": 869.9105,
+        "p95Ms": 1412.763,
+        "maxMs": 1412.763
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0451,
+        "mergeSourcePreparation": 0.037700000000000004,
+        "mergeConnectionAndBegin": 22.0073,
+        "mergeSql": 296.1274,
+        "mergeNonSql": 18.881,
+        "mergeCommitAndRelease": 31.426299999999998,
+        "mergeOther": 0.45280000000000004,
+        "afterMergeBeforeCapture": 39.359199999999994,
+        "captureConnectionAndBegin": 30.3113,
+        "captureSql": 133.89370000000002,
+        "captureNonSql": 13.757700000000002,
+        "captureCommitAndRelease": 14.488700000000001,
+        "captureOther": 39.5739,
+        "afterCaptureBeforeYield": 0.3444,
+        "transportAndClientResidual": 293.95059999999995
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 430.02110000000005,
+        "mergeMaxConcurrentCalls": [
+          1
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 296.1274,
+        "mergeWallSqlMs": 296.1274,
+        "meanWallMsPerStatement": 33.078546153846155,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-sequential-medium-64",
+      "variant": "pipeline8-sequential",
+      "executableSha256": "a9cefd4f70db9a27cfa88358ff45e1cd9fbbd0601584cf981c62b1b68d1e5236",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 379.591,
+        "meanMs": 2960.87109375,
+        "medianMs": 2701.948,
+        "p95Ms": 4913.781,
+        "maxMs": 8910.284
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 388.537,
+        "median": 2790.5955000000004,
+        "mean": 3228.5327375,
+        "p95": 5734.801,
+        "max": 9094.578
+      },
+      "keptUp": false,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 43.970245,
+      "exerciseCpuCores": 0.2694220638080268,
+      "exerciseResourceSampleSeconds": 39.19500819919631,
+      "exerciseRssMiB": {
+        "n": 11,
+        "min": 100.4609375,
+        "median": 103.2109375,
+        "mean": 103.81321022727273,
+        "p95": 108.83984375,
+        "max": 108.83984375
+      },
+      "sampledServerPathMs": 2416.843,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 404.682,
+        "meanMs": 2731.6306,
+        "medianMs": 2438.9225,
+        "p95Ms": 5083.489,
+        "maxMs": 5083.489
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0917,
+        "mergeSourcePreparation": 0.0412,
+        "mergeConnectionAndBegin": 127.9233,
+        "mergeSql": 1184.5989,
+        "mergeNonSql": 12.258799999999999,
+        "mergeCommitAndRelease": 132.7707,
+        "mergeOther": 0.4581,
+        "afterMergeBeforeCapture": 150.6233,
+        "captureConnectionAndBegin": 151.1119,
+        "captureSql": 398.7089,
+        "captureNonSql": 1.9646,
+        "captureCommitAndRelease": 101.6401,
+        "captureOther": 148.533,
+        "afterCaptureBeforeYield": 6.1185,
+        "transportAndClientResidual": 314.7876
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 1583.3078,
+        "mergeMaxConcurrentCalls": [
+          1
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 1184.5989,
+        "mergeWallSqlMs": 1184.5989,
+        "meanWallMsPerStatement": 121.7929076923077,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline1-concurrent-medium-64",
+      "variant": "pipeline1-concurrent",
+      "executableSha256": "5e2b021329fed8b439d9304eebf836cae01477b2c66689a59ef87bbacc235611",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 461.68,
+        "meanMs": 1325.8496375,
+        "medianMs": 1240.3685,
+        "p95Ms": 1997.359,
+        "maxMs": 2129.554
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 462.158,
+        "median": 1378.9335,
+        "mean": 1452.16075625,
+        "p95": 2111.485,
+        "max": 2245.804
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 41.073456,
+      "exerciseCpuCores": 0.2403550087406338,
+      "exerciseResourceSampleSeconds": 38.56795016909018,
+      "exerciseRssMiB": {
+        "n": 12,
+        "min": 102.03515625,
+        "median": 103.921875,
+        "mean": 103.63118489583333,
+        "p95": 104.6796875,
+        "max": 104.6796875
+      },
+      "sampledServerPathMs": 964.478,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 461.68,
+        "meanMs": 1253.7015,
+        "medianMs": 1135.177,
+        "p95Ms": 2062.802,
+        "maxMs": 2062.802
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0487,
+        "mergeSourcePreparation": 0.0441,
+        "mergeConnectionAndBegin": 16.2726,
+        "mergeSql": 494.2298,
+        "mergeNonSql": 17.972099999999998,
+        "mergeCommitAndRelease": 58.3827,
+        "mergeOther": 9.0067,
+        "afterMergeBeforeCapture": 41.764300000000006,
+        "captureConnectionAndBegin": 38.8947,
+        "captureSql": 177.93710000000002,
+        "captureNonSql": 9.848799999999999,
+        "captureCommitAndRelease": 40.511,
+        "captureOther": 59.0765,
+        "afterCaptureBeforeYield": 0.4889,
+        "transportAndClientResidual": 289.2235
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 672.1669,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 642.7544,
+        "mergeWallSqlMs": 494.2298,
+        "meanWallMsPerStatement": 51.70514615384616,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-medium-8",
+      "variant": "pipeline8-concurrent",
+      "executableSha256": "3272f7e71bbbf47967ee254cd9033689e84a68b616dcec9f3bf8971fe62186db",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 8,
+      "latencyMs": {
+        "n": 40,
+        "minMs": 285.294,
+        "meanMs": 330.42109999999997,
+        "medianMs": 312.257,
+        "p95Ms": 388.793,
+        "maxMs": 470.549
+      },
+      "scheduledToAllPeersMs": {
+        "n": 40,
+        "min": 352.625,
+        "median": 372.7595,
+        "mean": 393.61365,
+        "p95": 452.434,
+        "max": 539.387
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 2.0,
+      "exerciseWallSeconds": 20.672688,
+      "exerciseCpuCores": 0.064408343690585,
+      "exerciseResourceSampleSeconds": 14.439123050076887,
+      "exerciseRssMiB": {
+        "n": 5,
+        "min": 80.4609375,
+        "median": 80.9609375,
+        "mean": 81.0609375,
+        "p95": 81.4609375,
+        "max": 81.4609375
+      },
+      "sampledServerPathMs": 101.7182,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 287.802,
+        "meanMs": 343.6316,
+        "medianMs": 321.902,
+        "p95Ms": 470.549,
+        "maxMs": 470.549
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.053,
+        "mergeSourcePreparation": 0.042,
+        "mergeConnectionAndBegin": 3.0930999999999997,
+        "mergeSql": 32.931,
+        "mergeNonSql": 2.764,
+        "mergeCommitAndRelease": 4.0834,
+        "mergeOther": 0.4619,
+        "afterMergeBeforeCapture": 9.3599,
+        "captureConnectionAndBegin": 9.0068,
+        "captureSql": 27.9875,
+        "captureNonSql": 2.7155,
+        "captureCommitAndRelease": 3.1835,
+        "captureOther": 5.714899999999999,
+        "afterCaptureBeforeYield": 0.3217,
+        "transportAndClientResidual": 241.9134
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 60.918499999999995,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 38.7317,
+        "mergeWallSqlMs": 32.931,
+        "meanWallMsPerStatement": 4.686038461538461,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-medium-64",
+      "variant": "pipeline8-concurrent",
+      "executableSha256": "3272f7e71bbbf47967ee254cd9033689e84a68b616dcec9f3bf8971fe62186db",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 312.485,
+        "meanMs": 892.109046875,
+        "medianMs": 880.6355,
+        "p95Ms": 1180.606,
+        "maxMs": 1491.572
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 313.393,
+        "median": 1009.5415,
+        "mean": 1032.517296875,
+        "p95": 1351.379,
+        "max": 1679.32
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 40.368207,
+      "exerciseCpuCores": 0.23703339852381033,
+      "exerciseResourceSampleSeconds": 36.703688400797546,
+      "exerciseRssMiB": {
+        "n": 12,
+        "min": 107.828125,
+        "median": 110.359375,
+        "mean": 110.375,
+        "p95": 111.828125,
+        "max": 111.828125
+      },
+      "sampledServerPathMs": 597.6132,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 312.485,
+        "meanMs": 855.6275,
+        "medianMs": 865.8435,
+        "p95Ms": 1180.606,
+        "maxMs": 1180.606
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.053200000000000004,
+        "mergeSourcePreparation": 0.0375,
+        "mergeConnectionAndBegin": 20.0564,
+        "mergeSql": 272.69259999999997,
+        "mergeNonSql": 2.035,
+        "mergeCommitAndRelease": 38.7889,
+        "mergeOther": 0.5001,
+        "afterMergeBeforeCapture": 39.775400000000005,
+        "captureConnectionAndBegin": 13.7044,
+        "captureSql": 127.8977,
+        "captureNonSql": 1.666,
+        "captureCommitAndRelease": 38.447199999999995,
+        "captureOther": 41.5832,
+        "afterCaptureBeforeYield": 0.37560000000000004,
+        "transportAndClientResidual": 258.0143
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 400.59029999999996,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 331.0369,
+        "mergeWallSqlMs": 272.69259999999997,
+        "meanWallMsPerStatement": 30.814638461538458,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-medium-64-repeat",
+      "variant": "pipeline8-concurrent",
+      "executableSha256": "3272f7e71bbbf47967ee254cd9033689e84a68b616dcec9f3bf8971fe62186db",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 323.027,
+        "meanMs": 1130.388815625,
+        "medianMs": 1000.825,
+        "p95Ms": 2037.519,
+        "maxMs": 2314.422
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 323.421,
+        "median": 1148.4515000000001,
+        "mean": 1278.237175,
+        "p95": 2168.377,
+        "max": 2446.685
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 40.79496,
+      "exerciseCpuCores": 0.24027614528468072,
+      "exerciseResourceSampleSeconds": 39.579459661850706,
+      "exerciseRssMiB": {
+        "n": 13,
+        "min": 141.44140625,
+        "median": 142.828125,
+        "mean": 142.61328125,
+        "p95": 143.8046875,
+        "max": 143.8046875
+      },
+      "sampledServerPathMs": 813.5195,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 323.027,
+        "meanMs": 1132.6014,
+        "medianMs": 1104.3395,
+        "p95Ms": 1894.177,
+        "maxMs": 1894.177
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0409,
+        "mergeSourcePreparation": 0.033100000000000004,
+        "mergeConnectionAndBegin": 20.1417,
+        "mergeSql": 363.3096,
+        "mergeNonSql": 10.3207,
+        "mergeCommitAndRelease": 64.97840000000001,
+        "mergeOther": 0.5307999999999999,
+        "afterMergeBeforeCapture": 33.9516,
+        "captureConnectionAndBegin": 66.67760000000001,
+        "captureSql": 159.7318,
+        "captureNonSql": 1.783,
+        "captureCommitAndRelease": 34.666199999999996,
+        "captureOther": 49.0748,
+        "afterCaptureBeforeYield": 8.2793,
+        "transportAndClientResidual": 319.0819
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 523.0414,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 436.6485,
+        "mergeWallSqlMs": 363.3096,
+        "meanWallMsPerStatement": 40.233953846153845,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-xxlarge-64",
+      "variant": "pipeline8-concurrent",
+      "executableSha256": "3272f7e71bbbf47967ee254cd9033689e84a68b616dcec9f3bf8971fe62186db",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 2.0,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 292.52,
+        "meanMs": 317.763003125,
+        "medianMs": 312.9,
+        "p95Ms": 355.166,
+        "maxMs": 544.17
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 300.818,
+        "median": 503.9945,
+        "mean": 489.423090625,
+        "p95": 581.928,
+        "max": 656.506
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 39.974547,
+      "exerciseCpuCores": 0.1831438012632563,
+      "exerciseResourceSampleSeconds": 35.600440501002595,
+      "exerciseRssMiB": {
+        "n": 11,
+        "min": 107.6796875,
+        "median": 109.2421875,
+        "mean": 109.06072443181819,
+        "p95": 110.2421875,
+        "max": 110.2421875
+      },
+      "sampledServerPathMs": 75.69319999999999,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 297.354,
+        "meanMs": 315.9733,
+        "medianMs": 315.9465,
+        "p95Ms": 342.435,
+        "maxMs": 342.435
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0555,
+        "mergeSourcePreparation": 0.0405,
+        "mergeConnectionAndBegin": 3.2811,
+        "mergeSql": 31.651400000000002,
+        "mergeNonSql": 2.4603,
+        "mergeCommitAndRelease": 3.9518,
+        "mergeOther": 0.48710000000000003,
+        "afterMergeBeforeCapture": 5.178100000000001,
+        "captureConnectionAndBegin": 3.1663,
+        "captureSql": 16.1634,
+        "captureNonSql": 1.9345999999999999,
+        "captureCommitAndRelease": 3.3146,
+        "captureOther": 3.7135,
+        "afterCaptureBeforeYield": 0.295,
+        "transportAndClientResidual": 240.2801
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 47.814800000000005,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 37.78,
+        "mergeWallSqlMs": 31.651400000000002,
+        "meanWallMsPerStatement": 3.678061538461539,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline1-concurrent-v2-medium-64",
+      "variant": "pipeline1-concurrent-v2",
+      "executableSha256": "1fa0bc434a9414ece534f7429fdabdf4fb0e005072d16a645c3b525429d6ce54",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 481.687,
+        "meanMs": 2625.8910437500003,
+        "medianMs": 2467.585,
+        "p95Ms": 4164.512,
+        "maxMs": 4520.744
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 482.127,
+        "median": 2565.0969999999998,
+        "mean": 2704.260603125,
+        "p95": 4191.118,
+        "max": 4535.166
+      },
+      "keptUp": false,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 44.211293,
+      "exerciseCpuCores": 0.2672557539760462,
+      "exerciseResourceSampleSeconds": 37.305090168025345,
+      "exerciseRssMiB": {
+        "n": 12,
+        "min": 102.6796875,
+        "median": 104.0546875,
+        "mean": 104.37825520833333,
+        "p95": 107.4296875,
+        "max": 107.4296875
+      },
+      "sampledServerPathMs": 2189.0809,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 481.687,
+        "meanMs": 2524.5989,
+        "medianMs": 2399.4085,
+        "p95Ms": 4298.874,
+        "maxMs": 4298.874
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0674,
+        "mergeSourcePreparation": 0.0575,
+        "mergeConnectionAndBegin": 81.4427,
+        "mergeSql": 1145.1003999999998,
+        "mergeNonSql": 11.0626,
+        "mergeCommitAndRelease": 112.2605,
+        "mergeOther": 0.5666,
+        "afterMergeBeforeCapture": 138.44879999999998,
+        "captureConnectionAndBegin": 101.1065,
+        "captureSql": 357.76590000000004,
+        "captureNonSql": 1.9788,
+        "captureCommitAndRelease": 101.0706,
+        "captureOther": 129.3008,
+        "afterCaptureBeforeYield": 8.851799999999999,
+        "transportAndClientResidual": 335.518
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 1502.8663,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 1485.15,
+        "mergeWallSqlMs": 1145.1003999999998,
+        "meanWallMsPerStatement": 115.6051,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-v2-medium-8",
+      "variant": "pipeline8-concurrent-v2",
+      "executableSha256": "7c1cffa7c93b07596473f981bf301d6f91f72747d4519cbd0d94518091100a40",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 8,
+      "latencyMs": {
+        "n": 40,
+        "minMs": 306.198,
+        "meanMs": 388.297,
+        "medianMs": 367.207,
+        "p95Ms": 588.732,
+        "maxMs": 685.006
+      },
+      "scheduledToAllPeersMs": {
+        "n": 40,
+        "min": 356.051,
+        "median": 452.585,
+        "mean": 478.51015,
+        "p95": 731.233,
+        "max": 807.345
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 2.0,
+      "exerciseWallSeconds": 18.778979,
+      "exerciseCpuCores": 0.07253066418696895,
+      "exerciseResourceSampleSeconds": 18.19919912214391,
+      "exerciseRssMiB": {
+        "n": 6,
+        "min": 103.74609375,
+        "median": 104.49609375,
+        "mean": 104.4921875,
+        "p95": 105.24609375,
+        "max": 105.24609375
+      },
+      "sampledServerPathMs": 160.3155,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 329.985,
+        "meanMs": 432.6874,
+        "medianMs": 395.5105,
+        "p95Ms": 663.739,
+        "maxMs": 663.739
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0536,
+        "mergeSourcePreparation": 0.0402,
+        "mergeConnectionAndBegin": 6.3521,
+        "mergeSql": 48.6731,
+        "mergeNonSql": 2.3906,
+        "mergeCommitAndRelease": 13.1766,
+        "mergeOther": 4.9878,
+        "afterMergeBeforeCapture": 19.5416,
+        "captureConnectionAndBegin": 9.829600000000001,
+        "captureSql": 36.752,
+        "captureNonSql": 2.1389,
+        "captureCommitAndRelease": 5.9125,
+        "captureOther": 10.1388,
+        "afterCaptureBeforeYield": 0.3281,
+        "transportAndClientResidual": 272.37190000000004
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 85.4251,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 66.0837,
+        "mergeWallSqlMs": 48.6731,
+        "meanWallMsPerStatement": 6.5711615384615385,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-v2-medium-64",
+      "variant": "pipeline8-concurrent-v2",
+      "executableSha256": "7c1cffa7c93b07596473f981bf301d6f91f72747d4519cbd0d94518091100a40",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 435.539,
+        "meanMs": 3107.244196875,
+        "medianMs": 3111.1645,
+        "p95Ms": 4947.98,
+        "maxMs": 9205.158
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 436.08,
+        "median": 3218.7235,
+        "mean": 3331.762959375,
+        "p95": 5632.81,
+        "max": 9607.063
+      },
+      "keptUp": false,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 46.80726,
+      "exerciseCpuCores": 0.2569188295645503,
+      "exerciseResourceSampleSeconds": 44.21629983000457,
+      "exerciseRssMiB": {
+        "n": 13,
+        "min": 124.25,
+        "median": 126.76171875,
+        "mean": 128.11268028846155,
+        "p95": 133.28515625,
+        "max": 133.28515625
+      },
+      "sampledServerPathMs": 2735.8968999999997,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 435.539,
+        "meanMs": 3076.4537,
+        "medianMs": 3277.5155,
+        "p95Ms": 4743.067,
+        "maxMs": 4743.067
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0507,
+        "mergeSourcePreparation": 0.0461,
+        "mergeConnectionAndBegin": 148.53560000000002,
+        "mergeSql": 1263.3128000000002,
+        "mergeNonSql": 10.796,
+        "mergeCommitAndRelease": 169.8935,
+        "mergeOther": 0.4638,
+        "afterMergeBeforeCapture": 165.129,
+        "captureConnectionAndBegin": 176.77710000000002,
+        "captureSql": 470.424,
+        "captureNonSql": 10.2917,
+        "captureCommitAndRelease": 157.2628,
+        "captureOther": 162.44979999999998,
+        "afterCaptureBeforeYield": 0.464,
+        "transportAndClientResidual": 340.5568
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 1733.7368000000001,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 1573.8185,
+        "mergeWallSqlMs": 1263.3128000000002,
+        "meanWallMsPerStatement": 133.36436923076923,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-v2-medium-64-repeat",
+      "variant": "pipeline8-concurrent-v2",
+      "executableSha256": "7c1cffa7c93b07596473f981bf301d6f91f72747d4519cbd0d94518091100a40",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 0.25,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 335.037,
+        "meanMs": 941.76575625,
+        "medianMs": 953.0585,
+        "p95Ms": 1191.295,
+        "maxMs": 1432.116
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 335.686,
+        "median": 1090.725,
+        "mean": 1097.791234375,
+        "p95": 1383.227,
+        "max": 1600.943
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 40.279137,
+      "exerciseCpuCores": 0.22849666453675493,
+      "exerciseResourceSampleSeconds": 37.374724997906014,
+      "exerciseRssMiB": {
+        "n": 12,
+        "min": 161.57421875,
+        "median": 162.07421875,
+        "mean": 161.94921875,
+        "p95": 162.07421875,
+        "max": 162.07421875
+      },
+      "sampledServerPathMs": 598.9513000000001,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 335.037,
+        "meanMs": 881.9819,
+        "medianMs": 929.6045,
+        "p95Ms": 1097.396,
+        "maxMs": 1097.396
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.1113,
+        "mergeSourcePreparation": 0.0375,
+        "mergeConnectionAndBegin": 22.515,
+        "mergeSql": 263.9239,
+        "mergeNonSql": 2.1959,
+        "mergeCommitAndRelease": 48.0283,
+        "mergeOther": 0.4093,
+        "afterMergeBeforeCapture": 40.3414,
+        "captureConnectionAndBegin": 29.9895,
+        "captureSql": 110.68560000000001,
+        "captureNonSql": 1.8148,
+        "captureCommitAndRelease": 48.035199999999996,
+        "captureOther": 30.5875,
+        "afterCaptureBeforeYield": 0.2761,
+        "transportAndClientResidual": 283.0306
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 374.6095,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 341.8809,
+        "mergeWallSqlMs": 263.9239,
+        "meanWallMsPerStatement": 28.816115384615387,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline8-concurrent-v2-xxlarge-64",
+      "variant": "pipeline8-concurrent-v2",
+      "executableSha256": "7c1cffa7c93b07596473f981bf301d6f91f72747d4519cbd0d94518091100a40",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 2.0,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 285.135,
+        "meanMs": 307.91374375000004,
+        "medianMs": 307.0645,
+        "p95Ms": 332.185,
+        "maxMs": 430.22
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 285.532,
+        "median": 470.3845,
+        "mean": 462.402490625,
+        "p95": 606.323,
+        "max": 643.068
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 41.661056,
+      "exerciseCpuCores": 0.0971916426403755,
+      "exerciseResourceSampleSeconds": 35.39398971502669,
+      "exerciseRssMiB": {
+        "n": 11,
+        "min": 106.78515625,
+        "median": 110.28515625,
+        "mean": 109.72265625,
+        "p95": 111.34765625,
+        "max": 111.34765625
+      },
+      "sampledServerPathMs": 67.41760000000001,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 303.061,
+        "meanMs": 321.7425,
+        "medianMs": 319.989,
+        "p95Ms": 353.842,
+        "maxMs": 353.842
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0427,
+        "mergeSourcePreparation": 0.030600000000000002,
+        "mergeConnectionAndBegin": 3.1393,
+        "mergeSql": 29.106,
+        "mergeNonSql": 1.8519,
+        "mergeCommitAndRelease": 3.8748,
+        "mergeOther": 0.3282,
+        "afterMergeBeforeCapture": 4.2527,
+        "captureConnectionAndBegin": 3.3022,
+        "captureSql": 13.1156,
+        "captureNonSql": 1.4330999999999998,
+        "captureCommitAndRelease": 3.1545,
+        "captureOther": 3.5755,
+        "afterCaptureBeforeYield": 0.2105,
+        "transportAndClientResidual": 254.32489999999999
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 42.2216,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 35.098,
+        "mergeWallSqlMs": 29.106,
+        "meanWallMsPerStatement": 3.247815384615385,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "pipeline1-concurrent-v2-xxlarge-64",
+      "variant": "pipeline1-concurrent-v2",
+      "executableSha256": "1fa0bc434a9414ece534f7429fdabdf4fb0e005072d16a645c3b525429d6ce54",
+      "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+      "quotaCores": 2.0,
+      "streams": 64,
+      "latencyMs": {
+        "n": 320,
+        "minMs": 307.58,
+        "meanMs": 332.045796875,
+        "medianMs": 331.605,
+        "p95Ms": 358.786,
+        "maxMs": 448.967
+      },
+      "scheduledToAllPeersMs": {
+        "n": 320,
+        "min": 325.187,
+        "median": 501.712,
+        "mean": 496.07723125,
+        "p95": 529.836,
+        "max": 620.007
+      },
+      "keptUp": true,
+      "targetRoundsPerSecond": 8.0,
+      "exerciseWallSeconds": 40.189776,
+      "exerciseCpuCores": 0.18002498649547835,
+      "exerciseResourceSampleSeconds": 36.93931675516069,
+      "exerciseRssMiB": {
+        "n": 12,
+        "min": 108.328125,
+        "median": 110.2890625,
+        "mean": 110.04557291666667,
+        "p95": 111.9453125,
+        "max": 111.9453125
+      },
+      "sampledServerPathMs": 96.0842,
+      "sampledLatencyMs": {
+        "n": 10,
+        "minMs": 316.547,
+        "meanMs": 337.2789,
+        "medianMs": 334.8195,
+        "p95Ms": 407.07,
+        "maxMs": 407.07
+      },
+      "meanPartsMs": {
+        "mergeQueue": 0.0461,
+        "mergeSourcePreparation": 0.0348,
+        "mergeConnectionAndBegin": 3.9633000000000003,
+        "mergeSql": 43.434,
+        "mergeNonSql": 2.0919,
+        "mergeCommitAndRelease": 4.8241000000000005,
+        "mergeOther": 0.44210000000000005,
+        "afterMergeBeforeCapture": 5.8857,
+        "captureConnectionAndBegin": 4.1974,
+        "captureSql": 14.8237,
+        "captureNonSql": 8.0899,
+        "captureCommitAndRelease": 3.5242,
+        "captureOther": 4.4757,
+        "afterCaptureBeforeYield": 0.2513,
+        "transportAndClientResidual": 241.1947
+      },
+      "sampledSql": {
+        "mergeStatements": 10,
+        "captureStatements": 3,
+        "wallMs": 58.2577,
+        "mergeMaxConcurrentCalls": [
+          2
+        ],
+        "captureMaxConcurrentCalls": [
+          1
+        ],
+        "mergeSummedSqlMs": 55.0863,
+        "mergeWallSqlMs": 43.434,
+        "meanWallMsPerStatement": 4.481361538461538,
+        "scope": "Driver calls including transport and scheduling, excludes BEGIN/COMMIT. Portal Close exchanges are not SQL statements."
+      },
+      "retries": 0,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    }
+  ],
+  "mediumVariation": {
+    "sameProcessAndExecutable": true,
+    "runs": [
+      {
+        "label": "pipeline8-concurrent-v2-medium-64",
+        "executableSha256": "7c1cffa7c93b07596473f981bf301d6f91f72747d4519cbd0d94518091100a40",
+        "roundMeanMs": [
+          975.9774375,
+          1278.413875,
+          2798.63684375,
+          2759.1934375,
+          3077.91221875,
+          3569.301,
+          3525.1664375,
+          4099.7090625,
+          4823.04471875,
+          4165.0869375
+        ],
+        "sessionSamples": [
+          {
+            "phase": "preflight",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 33
+              }
+            ]
+          },
+          {
+            "phase": "init",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 33
+              }
+            ]
+          },
+          {
+            "phase": "warmup",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 33
+              }
+            ]
+          },
+          {
+            "phase": "exercise",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 20
+              },
+              {
+                "state": "idle in transaction",
+                "waitEventType": "Client",
+                "count": 12
+              }
+            ]
+          },
+          {
+            "phase": "exercise",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 14
+              },
+              {
+                "state": "idle in transaction",
+                "waitEventType": "Client",
+                "count": 25
+              }
+            ]
+          },
+          {
+            "phase": "exercise",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "verify",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "close",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "afterClose",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "pipeline8-concurrent-v2-medium-64-repeat",
+        "executableSha256": "7c1cffa7c93b07596473f981bf301d6f91f72747d4519cbd0d94518091100a40",
+        "roundMeanMs": [
+          666.12209375,
+          840.21821875,
+          1052.581625,
+          1087.38990625,
+          1079.75171875,
+          959.01696875,
+          992.75128125,
+          1023.12240625,
+          860.1163125,
+          856.58703125
+        ],
+        "sessionSamples": [
+          {
+            "phase": "preflight",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "init",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "warmup",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "exercise",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": "IPC",
+                "count": 1
+              },
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 32
+              },
+              {
+                "state": "idle in transaction",
+                "waitEventType": "Client",
+                "count": 7
+              }
+            ]
+          },
+          {
+            "phase": "exercise",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "verify",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 39
+              },
+              {
+                "state": "idle in transaction",
+                "waitEventType": "Client",
+                "count": 1
+              }
+            ]
+          },
+          {
+            "phase": "verify",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "close",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          },
+          {
+            "phase": "afterClose",
+            "connections": [
+              {
+                "state": "active",
+                "waitEventType": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "waitEventType": "Client",
+                "count": 40
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "quietDatabaseProbe": {
+    "samples": 16,
+    "warmupQueries": 3,
+    "serialSelect1Micros": [
+      2912,
+      2740,
+      2989,
+      3116,
+      3059,
+      3372,
+      2859,
+      2859,
+      3122,
+      3114,
+      3329,
+      2784,
+      2927,
+      3189,
+      3315,
+      2722
+    ],
+    "minimumMicros": 2722,
+    "medianMicros": 3024.0,
+    "p95Micros": 3372,
+    "meanMicros": 3025.5,
+    "connectionWaitAndBeginMicros": 3275,
+    "singleQuery16RowsMicros": 2987,
+    "totalMicros": 75749,
+    "select1Plan": [
+      [
+        [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 0.0,
+              "Total Cost": 0.01,
+              "Plan Rows": 1,
+              "Plan Width": 4,
+              "Actual Startup Time": 0.0,
+              "Actual Total Time": 0.0,
+              "Actual Rows": 1,
+              "Actual Loops": 1
+            },
+            "Planning Time": 0.004,
+            "Triggers": [],
+            "Execution Time": 0.004
+          }
+        ]
+      ]
+    ],
+    "cpuCgroupBefore": {
+      "available": true,
+      "version": 1,
+      "quotaMicros": 200000,
+      "periodMicros": 100000,
+      "quotaCores": 2.0,
+      "periods": null,
+      "throttledPeriods": null,
+      "throttledMicros": null,
+      "scope": "visible container cgroup; ancestor limits may be hidden"
+    },
+    "cpuCgroupAfter": {
+      "available": true,
+      "version": 1,
+      "quotaMicros": 200000,
+      "periodMicros": 100000,
+      "quotaCores": 2.0,
+      "periods": null,
+      "throttledPeriods": null,
+      "throttledMicros": null,
+      "scope": "visible container cgroup; ancestor limits may be hidden"
+    },
+    "measurement": "Same warmed connection; includes driver, network, server execution and scheduling."
+  },
+  "deploymentCleanup": {
+    "size": "small",
+    "instances": 1,
+    "quotaCores": 0.1,
+    "executableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "openStreams": 0,
+    "idleTransactions": 0,
+    "protectedConfigUnchanged": true
+  }
+}
