@@ -14,6 +14,10 @@ dependencies:
   benchmark_harness: ^2.4.0
   intl: ^0.20.2
   path: ^1.9.1
+  postgres_tls:
+    git:
+      url: https://github.com/nielsenko/postgres_tls.git
+      ref: 22067026c50da3447931ba71ad13fc95f230d5e8
   serverpod: ^4.1.0-beta.3
   serverpod_auth_core_server: ^4.1.0-beta.3
   serverpod_client: ^4.1.0-beta.3
@@ -31,6 +35,9 @@ dependencies:
 
 dev_dependencies:
   lints: '>=3.0.0 <7.0.0'
+  postgres: ^3.5.21
   serverpod_cli: ^4.1.0-beta.3
+  serverpod_embedded_postgres: ^4.1.0-beta.3
+  serverpod_shared: ^4.1.0-beta.3
   test: ^1.25.5
   yaml: ^3.1.3

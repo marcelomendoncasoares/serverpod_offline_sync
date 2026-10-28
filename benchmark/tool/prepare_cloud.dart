@@ -147,7 +147,7 @@ Future<void> prepare(
     if (entry.value == 'benchmark') {
       final dependencies = spec['dependencies'] as Map<String, dynamic>;
       final devDependencies = spec['dev_dependencies'] as Map<String, dynamic>;
-      for (final name in ['crypto', 'path']) {
+      for (final name in ['crypto', 'path', 'postgres_tls']) {
         dependencies[name] = (benchmarkSpec['dependencies'] as Map)[name];
         devDependencies.remove(name);
       }
