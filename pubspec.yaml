@@ -12,18 +12,14 @@ workspace:
   - test/serverpod_offline_sync_test_client
   - test/serverpod_offline_sync_test_server
   - test/serverpod_offline_sync_test_shared
+  - vendor/postgres
 
 dev_dependencies:
   melos: ^7.5.1
   serverpod_cli: ^4.1.0-beta.3
 
-# Reviewed streaming SDK and PostgreSQL driver sources, pinned immutably.
+# Experimental native TLS integration; matched driver is a workspace member.
 dependency_overrides:
-  postgres:
-    git:
-      url: https://github.com/marcelomendoncasoares/postgresql-dart.git
-      ref: 79560a928c6b9307e89fe52f368f68dfce01eb79
-      path: .
   serverpod:
     git:
       url: https://github.com/marcelomendoncasoares/serverpod.git
@@ -36,8 +32,8 @@ dependency_overrides:
       path: packages/serverpod_client
   serverpod_database:
     git:
-      url: https://github.com/marcelomendoncasoares/serverpod.git
-      ref: 4f2a75ab967dccd56e88261a39203fc5e59d8e80
+      url: https://github.com/nielsenko/serverpod.git
+      ref: 010d23c755c48e99eb35295f7c280ea140412212
       path: packages/serverpod_database
   serverpod_shared:
     git:

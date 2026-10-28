@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:postgres_tls/postgres_tls.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     show AuthUser;
@@ -28,13 +29,25 @@ import 'common.dart'
 import 'diagnostics.dart' show sqlShape;
 import 'runtime_diagnostics.dart';
 import 'server_diagnostics.dart';
+import 'tls_experiment.dart';
 import 'verification.dart' show snapshotOf;
 
 Map<String, bool>? _loadedSessionLogging;
 
 /// An explicit benchmark control applied after framework configuration loading.
 /// Leave unset to use the ordinary Serverpod logging configuration.
-ServerpodConfig benchmarkServerConfig(ServerpodConfig config) {
+ServerpodConfig benchmarkServerConfig(ServerpodConfig loadedConfig) {
+  var config = loadedConfig;
+  final isolatedDatabase = Platform.environment['BENCHMARK_DATABASE'];
+  if (isolatedDatabase != null) {
+    validateCapacityDatabase(isolatedDatabase);
+    final database = config.database! as PostgresDatabaseConfig;
+    config = config.copyWith(database: database.withName(isolatedDatabase));
+  }
+  if (benchmarkSchema == 'city' &&
+      !(isolatedDatabase?.startsWith('benchmark_capacity_city_') ?? false)) {
+    throw StateError('The City-only registry requires an isolated capacity database.');
+  }
   _loadedSessionLogging = {
     'persistentEnabled': config.sessionLogs.persistentEnabled,
     'consoleEnabled': config.sessionLogs.consoleEnabled,
@@ -110,6 +123,12 @@ class StreamMetrics {
             StreamTransformer<dynamic, dynamic>.fromHandlers(
               handleError: (error, stack, sink) {
                 failed++;
+                serverDiagnostics.add({
+                  'type': 'serverStreamError',
+                  'streamOrdinal': id,
+                  'errorType': error.runtimeType.toString(),
+                  'error': error.toString(),
+                });
                 finish();
                 sink
                   ..addError(error, stack)
@@ -175,6 +194,8 @@ String benchmarkPasswordName([String directory = '.']) =>
 
 /// Non-secret facts about this server process, computed once. Connection
 /// settings other than dialect and pool size are deliberately omitted.
+final benchmarkSchema = Platform.environment['BENCHMARK_SCHEMA'] ?? 'full';
+
 Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () async {
   final database = pod.config.database;
   return <String, dynamic>{
@@ -186,6 +207,15 @@ Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () a
     'runMode': pod.runMode,
     'dialect': database?.dialect.name,
     'maxConnectionCount': database?.maxConnectionCount,
+    'benchmarkSchema': benchmarkSchema,
+    'benchmarkDatabase': Platform.environment['BENCHMARK_DATABASE'] ?? 'original',
+    'tlsExperiment': {
+      'variant': tlsExperimentVariant,
+      'nativeConnectorInstalled':
+          identical(postgresTlsConnector, nativeTlsConnector),
+      'databaseRequiresSsl':
+          database is PostgresDatabaseConfig ? database.requireSsl : null,
+    },
     'processors': Platform.numberOfProcessors,
     'sessionLogging': {
       'beforeBenchmarkOverride': _loadedSessionLogging,
@@ -227,6 +257,15 @@ class BenchmarkEndpoint extends Endpoint {
             ? serverDiagnostics.sequence
             : (input['cursors'] as Map?)?[serverDiagnostics.instanceId] as int? ?? 0,
       ),
+      'runtime' => {
+        'server': await serverIdentity(session.serverpod),
+        'process': processSample(),
+        'cpuCgroup': cpuCgroup.sample(),
+        'memoryCgroup': memoryCgroup.sample(),
+        'streams': metrics.sample(),
+      },
+      'databaseTransportProbe' => await databaseTransportProbe(session),
+      'createCapacityDatabase' => await _createCapacityDatabase(session, input),
       'databaseDiagnostics' => await databaseDiagnostics(
         session,
         enable: input['enable'] == true,
@@ -234,6 +273,26 @@ class BenchmarkEndpoint extends Endpoint {
       _ => throw ArgumentError('Unknown benchmark action'),
     };
     return jsonEncode(result);
+  }
+
+  Future<Map<String, dynamic>> _createCapacityDatabase(
+    Session session,
+    Map<String, dynamic> input,
+  ) async {
+    if (metrics.sample()['open'] != 0) {
+      throw StateError('Close all streams before creating an experiment database.');
+    }
+    final name = input['name'] as String;
+    validateCapacityDatabase(name);
+    // The restrictive identifier validator excludes quotes and all SQL syntax.
+    final existing = await session.db.unsafeQuery(
+      "SELECT datname FROM pg_database WHERE datname = '$name'",
+    );
+    if (existing.isNotEmpty) {
+      throw StateError('Experiment database already exists; use a new name.');
+    }
+    await session.db.unsafeExecute('CREATE DATABASE "$name"');
+    return {'createdDatabase': name};
   }
 
   Map<String, dynamic> _hintStatus() => {
@@ -284,18 +343,22 @@ class BenchmarkEndpoint extends Endpoint {
     final db = session.db as sync.OfflineSyncDatabase;
     return db.transactionForUser(id, (transaction) async {
       return snapshotOf({
-        'person': (await Person.db.find(
-          session,
-          transaction: transaction,
-        )).map((r) => r.toJson()).toList(),
+        'person': benchmarkSchema == 'city'
+            ? <Map<String, dynamic>>[]
+            : (await Person.db.find(
+                session,
+                transaction: transaction,
+              )).map((r) => r.toJson()).toList(),
         'city': (await City.db.find(
           session,
           transaction: transaction,
         )).map((r) => r.toJson()).toList(),
-        'town': (await Town.db.find(
-          session,
-          transaction: transaction,
-        )).map((r) => r.toJson()).toList(),
+        'town': benchmarkSchema == 'city'
+            ? <Map<String, dynamic>>[]
+            : (await Town.db.find(
+                session,
+                transaction: transaction,
+              )).map((r) => r.toJson()).toList(),
       });
     });
   }
@@ -380,6 +443,7 @@ ORDER BY xact_start LIMIT 32
       'backend': db.dialect.name,
       'process': processSample(),
       'cpuCgroup': cpuCgroup.sample(),
+      'memoryCgroup': memoryCgroup.sample(),
       'streams': metrics.sample(),
       'commitHints': benchmarkCommitHints?.status ?? {'enabled': false},
       'tables': tables,
@@ -471,3 +535,15 @@ AuthenticationHandler benchmarkAuthentication(String secret) => (session, token)
       return null;
   }
 };
+
+/// Capacity tests may create new databases, never overwrite the deployed one.
+void validateCapacityDatabase(String name) {
+  if (name.length > 63 ||
+      !RegExp(r'^benchmark_capacity_(city|full)_[a-z0-9_]+$').hasMatch(name)) {
+    throw ArgumentError.value(
+      name,
+      'name',
+      'Expected an isolated capacity database name.',
+    );
+  }
+}

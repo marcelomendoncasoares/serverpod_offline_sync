@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -14,6 +15,7 @@ import 'common.dart';
 import 'elapsed_clock.dart';
 import 'round_client_profile.dart';
 import 'round_options.dart';
+import 'round_workload.dart';
 import 'verification.dart';
 import 'worker.dart';
 
@@ -21,21 +23,40 @@ import 'worker.dart';
 /// A matching row count or a merge callback alone cannot complete a round.
 bool deliveredRows(List<Person> actual, List<Person> expected) =>
     actual.length == expected.length &&
-    projectionDigest(actual.map((r) => r.toJson()), personFields) ==
-        projectionDigest(expected.map((r) => r.toJson()), personFields);
+    projectionDigest(
+          actual.map((r) => r.toJson()),
+          personFields,
+        ) ==
+        projectionDigest(
+          expected.map((r) => r.toJson()),
+          personFields,
+        );
 
 class RoundObserver {
-  RoundObserver(Device device, List<Person> expected, ElapsedClock clock) {
-    subscription = Person.db
-        .watch(
+  RoundObserver(
+    Device device,
+    String table,
+    List<TableRow<UuidValue?>> expected,
+    ElapsedClock clock,
+  ) {
+    subscription =
+        watchRoundRows(
           device.session!,
-          where: (t) => t.id.inSet(expected.map((r) => r.id!).toSet()),
-          throttle: null,
-        )
-        .listen(
+          table,
+          expected.map((r) => r.id!).toSet(),
+        ).listen(
           (rows) {
             if (!ready.isCompleted) ready.complete();
-            if (deliveredRows(rows, expected) && !delivered.isCompleted) {
+            if (rows.length == expected.length &&
+                projectionDigest(
+                      rows.map((r) => r.toJson() as Map<String, dynamic>),
+                      roundFields(table),
+                    ) ==
+                    projectionDigest(
+                      expected.map((r) => r.toJson() as Map<String, dynamic>),
+                      roundFields(table),
+                    ) &&
+                !delivered.isCompleted) {
               delivered.complete(clock.elapsedMicroseconds);
             }
           },
@@ -49,7 +70,7 @@ class RoundObserver {
 
   // Owned by the round and cancelled in its finally block.
   // ignore: cancel_subscriptions
-  late final StreamSubscription<List<Person>> subscription;
+  late final StreamSubscription<List<TableRow<UuidValue?>>> subscription;
   final ready = Completer<void>();
   final delivered = Completer<int>();
   Object? failure;
@@ -64,7 +85,7 @@ class RoundWorker {
   final String secret;
   final groups = <int, List<Device>>{};
   final clientProfiles = <int, RoundClientProfile>{};
-  final journals = <int, List<Person>>{};
+  final journals = <int, Map<String, List<TableRow<UuidValue?>>>>{};
   final lag = LoopLag();
   String phase = 'init';
   Timer? sampler;
@@ -84,7 +105,7 @@ class RoundWorker {
               Device(options.scale, user, d, emit),
           ];
           groups[user] = group;
-          journals[user] = [];
+          journals[user] = {'person': [], 'city': [], 'town': []};
           await control(admin, {
             'action': 'provision',
             'userId': group.first.userId.toString(),
@@ -210,22 +231,11 @@ class RoundWorker {
     }
     final writer = group[writerIndex];
     final peers = group.where((d) => d != writer).toList();
-    final expected = [
-      for (var i = 0; i < rows; i++)
-        Person(
-          id: benchmarkId(
-            options.updates
-                ? '${options.scale.runId}/$user/update/$i'
-                : '${options.scale.runId}/$user/round/$sequence/$i',
-          ),
-          name: seededPayload(
-            mixSeed([user, sequence, i]),
-            options.number('payload-bytes'),
-            '',
-          ),
-          surname: 'round:$sequence/row:$i/writer:$writerIndex',
-        ),
-    ];
+    final table = roundTable(options);
+    final expected = makeRoundRows(options, user, sequence, writerIndex, rows);
+    final parents = sequence == -group.length
+        ? roundParents(options, user)
+        : <String, List<TableRow<UuidValue?>>>{};
     // The first warmup seeds stable rows; every later update changes both fields.
     final insert = !options.updates || sequence == -group.length;
     final clock = ElapsedClock();
@@ -236,7 +246,9 @@ class RoundWorker {
             readMicros: () => clock.elapsedMicroseconds,
           )
         : null;
-    final observers = [for (final peer in peers) RoundObserver(peer, expected, clock)];
+    final observers = [
+      for (final peer in peers) RoundObserver(peer, table, expected, clock),
+    ];
     var ok = false;
     var committed = 0;
     var prepared = 0;
@@ -251,21 +263,28 @@ class RoundWorker {
       if (clientProfile != null) clientProfiles[user] = clientProfile;
       await writer.session!.db.transactionForUser(
         writer.userId,
-        (tx) => insert
-            ? Person.db.insert(writer.session!, expected, transaction: tx)
-            : Person.db.update(
-                writer.session!,
-                expected,
-                columns: (t) => [t.name, t.surname],
-                transaction: tx,
-              ),
+        (tx) async {
+          for (final entry in parents.entries) {
+            await writeRoundRows(
+              writer.session!,
+              tx,
+              entry.key,
+              entry.value,
+              insert: true,
+            );
+          }
+          await writeRoundRows(writer.session!, tx, table, expected, insert: insert);
+        },
       );
       committed = clock.elapsedMicroseconds;
       if (!insert) {
         final ids = {for (final row in expected) row.id};
-        journals[user]!.removeWhere((row) => ids.contains(row.id));
+        journals[user]![table]!.removeWhere((row) => ids.contains(row.id));
       }
-      journals[user]!.addAll(expected);
+      journals[user]![table]!.addAll(expected);
+      for (final entry in parents.entries) {
+        journals[user]![entry.key]!.addAll(entry.value);
+      }
       if (!options.continuous) {
         await syncOnce(writer, round: sequence, role: 'push', rows: rows);
         await Future.wait(
@@ -291,13 +310,17 @@ class RoundWorker {
         'elapsedClock': ElapsedClock.source,
         'mode': options.values['mode'],
         'writeMode': insert ? 'insert' : 'update',
+        'workload': options.values['workload'],
+        'table': table,
+        'parentRows': parents.values.fold<int>(0, (sum, rows) => sum + rows.length),
         'user': user,
         'round': sequence,
         'writer': writerIndex,
         'rows': rows,
         'payloadBytes': expected.fold<int>(
           0,
-          (n, row) => n + utf8.encode(jsonEncode(row.toJson())).length,
+          (n, row) =>
+              n + utf8.encode(jsonEncode(row.toJson() as Map<String, dynamic>)).length,
         ),
         'peers': peers.length,
         'ok': ok,
@@ -381,10 +404,14 @@ class RoundWorker {
           'action': 'snapshot',
           'userId': group.first.userId.toString(),
         });
-        if (server['receiptsDigest'] !=
-                projectionDigest(expected.map((r) => r.toJson()), personFields) ||
-            jsonEncode(server['rows']) !=
-                jsonEncode({'person': expected.length, 'city': 0, 'town': 0})) {
+        final expectedSnapshot = snapshotOf({
+          for (final entry in expected.entries)
+            entry.key: entry.value
+                .map((row) => row.toJson() as Map<String, dynamic>)
+                .toList(),
+        });
+        if (server['digest'] != expectedSnapshot['digest'] ||
+            jsonEncode(server['rows']) != jsonEncode(expectedSnapshot['rows'])) {
           throw StateError(
             'Server does not match the complete journal for user $user.',
           );
@@ -398,7 +425,7 @@ class RoundWorker {
         emit({
           'type': 'verified',
           'user': user,
-          'rows': expected.length,
+          'rows': expected.values.fold<int>(0, (sum, rows) => sum + rows.length),
           'devices': group.length,
         });
       });

@@ -65,6 +65,9 @@ void main() {
         late Map<dynamic, dynamic> lockedPackages;
         late String commitHintSource;
         late String exportedCommitHints;
+        late String sourceDriver;
+        late String exportedDriver;
+        late List<dynamic> exportedWorkspace;
 
         setUpAll(() async {
           output = p.join(scratch.path, 'prepared');
@@ -131,6 +134,25 @@ void main() {
                       )
                       as Map)['packages']
                   as Map;
+          exportedWorkspace =
+              (loadYaml(await File(p.join(output, 'pubspec.yaml')).readAsString())
+                      as Map)['workspace']
+                  as List;
+          sourceDriver = await File(
+            p.join(root, 'vendor/postgres/lib/src/v3/connection.dart'),
+          ).readAsString();
+          final packageConfig = File(
+            p.join(output, '.dart_tool/package_config.json'),
+          );
+          final postgres =
+              (jsonDecode(await packageConfig.readAsString())['packages'] as List)
+                  .cast<Map<String, dynamic>>()
+                  .singleWhere((package) => package['name'] == 'postgres');
+          exportedDriver = await File.fromUri(
+            packageConfig.uri
+                .resolve('${postgres['rootUri']}/')
+                .resolve('lib/src/v3/connection.dart'),
+          ).readAsString();
           commitHintSource = await File(
             p.join(root, 'benchmark/lib/scale/commit_hints.dart'),
           ).readAsString();
@@ -149,6 +171,9 @@ void main() {
               'benchmark/config/benchmark_build.json',
               'benchmark/bin/main.dart',
               'benchmark/lib/scale/commit_hints.dart',
+              'vendor/postgres/pubspec.yaml',
+              'vendor/postgres/lib/src/v3/connection.dart',
+              'vendor/postgres/LICENSE',
               'pubspec.yaml',
               'pubspec.lock',
             ],
@@ -175,13 +200,12 @@ void main() {
         );
 
         test(
-          'then the normal manifest resolves the reviewed SDK and driver Git packages.',
+          'then the normal manifest resolves the pinned SDK Git packages.',
           () {
             expect(exportedOverrides, sourceOverrides);
             expect(
               exportedOverrides.keys,
               unorderedEquals([
-                'postgres',
                 'serverpod',
                 'serverpod_client',
                 'serverpod_database',
@@ -201,6 +225,21 @@ void main() {
               expect(description['path'], git['path']);
               expect(description['resolved-ref'], git['ref']);
             }
+          },
+        );
+
+        test(
+          'then the exported workspace resolves the matched driver and native TLS package.',
+          () {
+            expect(exportedWorkspace, contains('vendor/postgres'));
+            expect(exportedDriver, sourceDriver);
+            expect(lockedPackages.containsKey('postgres'), isFalse);
+            final tls = lockedPackages['postgres_tls'] as Map;
+            expect(tls['source'], 'git');
+            expect(
+              (tls['description'] as Map)['resolved-ref'],
+              '22067026c50da3447931ba71ad13fc95f230d5e8',
+            );
           },
         );
 
@@ -257,6 +296,9 @@ void main() {
             'benchmark/config/benchmark_build.json': false,
             'benchmark/bin/main.dart': false,
             'benchmark/lib/scale/commit_hints.dart': false,
+            'vendor/postgres/pubspec.yaml': false,
+            'vendor/postgres/lib/src/v3/connection.dart': false,
+            'vendor/postgres/LICENSE': false,
             'pubspec.yaml': false,
             'pubspec.lock': false,
           });

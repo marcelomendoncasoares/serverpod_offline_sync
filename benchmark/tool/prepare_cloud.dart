@@ -77,6 +77,7 @@ Future<void> prepare(
         'test/serverpod_offline_sync_test_client',
     'test/serverpod_offline_sync_test_shared':
         'test/serverpod_offline_sync_test_shared',
+    'vendor/postgres': 'vendor/postgres',
   };
   final rootSpec =
       loadYaml(await File(p.join(root, 'pubspec.yaml')).readAsString()) as Map;
@@ -147,7 +148,7 @@ Future<void> prepare(
     if (entry.value == 'benchmark') {
       final dependencies = spec['dependencies'] as Map<String, dynamic>;
       final devDependencies = spec['dev_dependencies'] as Map<String, dynamic>;
-      for (final name in ['crypto', 'path']) {
+      for (final name in ['crypto', 'path', 'postgres', 'postgres_tls']) {
         dependencies[name] = (benchmarkSpec['dependencies'] as Map)[name];
         devDependencies.remove(name);
       }
@@ -169,6 +170,13 @@ Future<void> prepare(
         Directory(p.join(root, entry.key, 'lib')),
         Directory(p.join(destination.path, 'lib')),
       );
+    }
+    if (entry.key == 'vendor/postgres') {
+      for (final name in ['LICENSE', 'PROVENANCE.md']) {
+        await File(p.join(root, entry.key, name)).copy(
+          p.join(destination.path, name),
+        );
+      }
     }
     await writeYaml(File(p.join(destination.path, 'pubspec.yaml')), spec);
     final generatorFile = File(

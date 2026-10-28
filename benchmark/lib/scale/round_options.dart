@@ -12,7 +12,13 @@ final roundParser = ArgParser()
   ..addOption('devices', defaultsTo: '2', help: 'Fixed devices per user, at least two.')
   ..addOption('workers', defaultsTo: '4')
   ..addOption('rounds', defaultsTo: '20')
-  ..addOption('rows', defaultsTo: '1', help: 'Person rows written per round.')
+  ..addOption('rows', defaultsTo: '1', help: 'Domain rows written per round.')
+  ..addOption('schema', allowed: ['full', 'city'], defaultsTo: 'full')
+  ..addOption(
+    'workload',
+    allowed: ['city', 'person', 'person-linked', 'town', 'town-linked'],
+    defaultsTo: 'person',
+  )
   ..addOption('write-mode', allowed: ['insert', 'update'], defaultsTo: 'insert')
   ..addOption(
     'period-ms',
@@ -72,6 +78,8 @@ class RoundOptions {
       ...scale.values,
       'mode': parsed['mode'],
       'write-mode': parsed['write-mode'],
+      'schema': parsed['schema'],
+      'workload': parsed['workload'],
     };
     for (final name in ['rounds', 'rows', 'period-ms']) {
       final value = int.tryParse(parsed[name] as String);
@@ -94,7 +102,9 @@ class RoundOptions {
       }
       values['client-profile-user'] = user;
     }
-
+    if (values['schema'] == 'city' && values['workload'] != 'city') {
+      throw const FormatException('The city schema only supports the city workload.');
+    }
     return RoundOptions(values);
   }
 

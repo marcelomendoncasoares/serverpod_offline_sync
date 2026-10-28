@@ -156,6 +156,12 @@ Future<void> runRounds(RoundOptions options) async {
 
   try {
     initial = await sample(exact: true);
+    final actualSchema = (initial['server'] as Map)['benchmarkSchema'] ?? 'full';
+    if (actualSchema != options.values['schema']) {
+      throw StateError(
+        'Server schema $actualSchema differs from requested ${options.values['schema']}.',
+      );
+    }
     if (!cleanRoundServer(initial)) {
       throw StateError('Server has existing streams or idle transactions.');
     }
@@ -167,9 +173,8 @@ Future<void> runRounds(RoundOptions options) async {
         'loadGenerator': await executableIdentity(),
         'server': initial['server'],
         'cpuCgroup': initial['cpuCgroup'],
-        'workload': options.updates
-            ? 'Two-field Person updates on stable seeded rows, alternating writers; exact full-journal verification.'
-            : 'Independent Person inserts, one writer per user per round, alternating devices.',
+        'workload':
+            '${options.values['workload']} ${options.values['write-mode']}; alternating writers, exact full-journal verification; related parents are seeded in warmup.',
         'continuousBoundary':
             'Local transaction start to exact rows observed on every peer; warmup excluded.',
         'onceBoundary':
