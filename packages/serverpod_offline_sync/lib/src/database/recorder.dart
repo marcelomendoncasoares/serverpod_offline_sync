@@ -525,13 +525,6 @@ class CrdtMutationRecorder {
     TransactionFunction<R> action,
   ) => _context.withUserClock(transaction, action);
 
-  /// Stores a complete incoming range in the same transaction as its facts.
-  Future<void> recordReceivedRevision(
-    int peerId,
-    int revision,
-    Transaction transaction,
-  ) => _context.recordReceivedRevision(peerId, revision, transaction);
-
   /// Whether an enclosing scope already shares the acting user's clock.
   bool hasActiveUserClock(Transaction transaction) =>
       _context.hasActiveUserClock(transaction);
