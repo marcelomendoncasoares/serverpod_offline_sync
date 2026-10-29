@@ -58,8 +58,16 @@ At two CPUs the mean gain was 4.2%, while observed process CPU fell about 46%.
 These are short workload-specific observations, not a capacity guarantee.
 All 1,720 measured rounds across the eight experiment runs converged and drained.
 
-This PR repackages those runtime sources; its local checks and CI do not claim a
-new Cloud measurement. The full experiment snapshot and later pipeline branch
+The subsequent [Small-instance campaign](../docs/sync-small-native-tls-benchmark-2026-10-29.md)
+deployed this PR at `c6fe9d8d`. Without pipelining, four streams averaged 672 ms
+(p95 828 ms), and three eight-stream runs averaged 848–861 ms (p95 1005–1061 ms).
+All 240 native exercise rounds converged and every run kept up with its offered
+rate. Fresh Dart TLS controls varied from 1136 to 2238 ms; the report preserves
+that variability and distinguishes correctness from falling behind the schedule.
+
+The Medium/two-CPU table above describes the earlier matched experiment. The
+Small campaign measures the packaged PR runtime; local checks and CI are
+separate validation. The full experiment snapshot and later pipeline branch
 remain separate references.
 
 ## Validation and deployment packaging
