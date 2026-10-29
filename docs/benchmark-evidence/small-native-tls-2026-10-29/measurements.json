@@ -1,0 +1,3644 @@
+[
+  {
+    "label": "dart-tls-small-8",
+    "runId": "capacity-dart-tls-small-8-20261029T002152Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 799458,
+        "scheduledToAllPeersMicros": 799991,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 890110,
+        "scheduledToAllPeersMicros": 920379,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1045993,
+        "scheduledToAllPeersMicros": 1106263,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1126088,
+        "scheduledToAllPeersMicros": 1216435,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1222278,
+        "scheduledToAllPeersMicros": 1295173,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1236552,
+        "scheduledToAllPeersMicros": 1301074,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1546059,
+        "scheduledToAllPeersMicros": 1598068,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1453586,
+        "scheduledToAllPeersMicros": 1499527,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1558139,
+        "scheduledToAllPeersMicros": 1599127,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1579771,
+        "scheduledToAllPeersMicros": 1620098,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1375428,
+        "scheduledToAllPeersMicros": 1398668,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1393853,
+        "scheduledToAllPeersMicros": 1423693,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1473369,
+        "scheduledToAllPeersMicros": 1497103,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1183475,
+        "scheduledToAllPeersMicros": 1205334,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1158640,
+        "scheduledToAllPeersMicros": 1194414,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1177302,
+        "scheduledToAllPeersMicros": 1211192,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1170852,
+        "scheduledToAllPeersMicros": 1199617,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 978267,
+        "scheduledToAllPeersMicros": 1024196,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 954680,
+        "scheduledToAllPeersMicros": 1001813,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 981255,
+        "scheduledToAllPeersMicros": 1026688,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 951059,
+        "scheduledToAllPeersMicros": 997682,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 944470,
+        "scheduledToAllPeersMicros": 1000890,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1035973,
+        "scheduledToAllPeersMicros": 1095038,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1043925,
+        "scheduledToAllPeersMicros": 1101596,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1040052,
+        "scheduledToAllPeersMicros": 1099273,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 960800,
+        "scheduledToAllPeersMicros": 1019870,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 940327,
+        "scheduledToAllPeersMicros": 993509,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1058518,
+        "scheduledToAllPeersMicros": 1111441,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1050062,
+        "scheduledToAllPeersMicros": 1103654,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 951406,
+        "scheduledToAllPeersMicros": 1009891,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1046919,
+        "scheduledToAllPeersMicros": 1107007,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1143667,
+        "scheduledToAllPeersMicros": 1195944,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1243959,
+        "scheduledToAllPeersMicros": 1297157,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1368050,
+        "scheduledToAllPeersMicros": 1427048,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1165443,
+        "scheduledToAllPeersMicros": 1217607,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1163348,
+        "scheduledToAllPeersMicros": 1210986,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 964132,
+        "scheduledToAllPeersMicros": 1006125,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 967432,
+        "scheduledToAllPeersMicros": 1001551,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1051628,
+        "scheduledToAllPeersMicros": 1098129,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1049546,
+        "scheduledToAllPeersMicros": 1097278,
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "label": "native-tls-small-8",
+    "runId": "capacity-native-tls-small-8-20261029T002922Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 694030,
+        "scheduledToAllPeersMicros": 694556,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 777155,
+        "scheduledToAllPeersMicros": 803846,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 636589,
+        "scheduledToAllPeersMicros": 691154,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 610528,
+        "scheduledToAllPeersMicros": 692086,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 738571,
+        "scheduledToAllPeersMicros": 810219,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 844670,
+        "scheduledToAllPeersMicros": 910668,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 913911,
+        "scheduledToAllPeersMicros": 984576,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 913069,
+        "scheduledToAllPeersMicros": 984537,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 829533,
+        "scheduledToAllPeersMicros": 894005,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 845965,
+        "scheduledToAllPeersMicros": 905945,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 838100,
+        "scheduledToAllPeersMicros": 893956,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 833983,
+        "scheduledToAllPeersMicros": 889695,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 842414,
+        "scheduledToAllPeersMicros": 901946,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 746679,
+        "scheduledToAllPeersMicros": 805566,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 723897,
+        "scheduledToAllPeersMicros": 782762,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 629782,
+        "scheduledToAllPeersMicros": 689964,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 733129,
+        "scheduledToAllPeersMicros": 791666,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 839727,
+        "scheduledToAllPeersMicros": 903763,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 832565,
+        "scheduledToAllPeersMicros": 898684,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 917005,
+        "scheduledToAllPeersMicros": 986530,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 979709,
+        "scheduledToAllPeersMicros": 1044458,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1152453,
+        "scheduledToAllPeersMicros": 1212486,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1123651,
+        "scheduledToAllPeersMicros": 1183488,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 933498,
+        "scheduledToAllPeersMicros": 988275,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 843491,
+        "scheduledToAllPeersMicros": 895475,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 760074,
+        "scheduledToAllPeersMicros": 802796,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 751141,
+        "scheduledToAllPeersMicros": 794962,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 941294,
+        "scheduledToAllPeersMicros": 995938,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 950949,
+        "scheduledToAllPeersMicros": 1010237,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 940951,
+        "scheduledToAllPeersMicros": 1011261,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 807350,
+        "scheduledToAllPeersMicros": 888997,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1004994,
+        "scheduledToAllPeersMicros": 1081979,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 912844,
+        "scheduledToAllPeersMicros": 989412,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 926325,
+        "scheduledToAllPeersMicros": 1002372,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 900024,
+        "scheduledToAllPeersMicros": 985020,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 718848,
+        "scheduledToAllPeersMicros": 789492,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 820501,
+        "scheduledToAllPeersMicros": 898334,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1026901,
+        "scheduledToAllPeersMicros": 1104247,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 903893,
+        "scheduledToAllPeersMicros": 982007,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 797195,
+        "scheduledToAllPeersMicros": 890726,
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "label": "native-tls-small-8-repeat",
+    "runId": "capacity-native-tls-small-8-repeat-20261029T003005Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 720510,
+        "scheduledToAllPeersMicros": 720972,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 828312,
+        "scheduledToAllPeersMicros": 852317,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 832287,
+        "scheduledToAllPeersMicros": 880110,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 785444,
+        "scheduledToAllPeersMicros": 856892,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1005235,
+        "scheduledToAllPeersMicros": 1065773,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 917966,
+        "scheduledToAllPeersMicros": 972801,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 924251,
+        "scheduledToAllPeersMicros": 977625,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 814696,
+        "scheduledToAllPeersMicros": 869759,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1008291,
+        "scheduledToAllPeersMicros": 1053652,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 998870,
+        "scheduledToAllPeersMicros": 1048752,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 888247,
+        "scheduledToAllPeersMicros": 958723,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 857487,
+        "scheduledToAllPeersMicros": 955337,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 912140,
+        "scheduledToAllPeersMicros": 1002376,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 907627,
+        "scheduledToAllPeersMicros": 997663,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 875159,
+        "scheduledToAllPeersMicros": 974094,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 762589,
+        "scheduledToAllPeersMicros": 861556,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 875101,
+        "scheduledToAllPeersMicros": 969869,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 758432,
+        "scheduledToAllPeersMicros": 853956,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 760669,
+        "scheduledToAllPeersMicros": 857383,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 949037,
+        "scheduledToAllPeersMicros": 1056579,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1051584,
+        "scheduledToAllPeersMicros": 1149419,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 864578,
+        "scheduledToAllPeersMicros": 967458,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 886836,
+        "scheduledToAllPeersMicros": 970769,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 807991,
+        "scheduledToAllPeersMicros": 858410,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 944351,
+        "scheduledToAllPeersMicros": 989580,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 805949,
+        "scheduledToAllPeersMicros": 861691,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 908270,
+        "scheduledToAllPeersMicros": 964321,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 892098,
+        "scheduledToAllPeersMicros": 954281,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 897015,
+        "scheduledToAllPeersMicros": 954206,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 805077,
+        "scheduledToAllPeersMicros": 868499,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 912012,
+        "scheduledToAllPeersMicros": 970314,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 893691,
+        "scheduledToAllPeersMicros": 951988,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 918054,
+        "scheduledToAllPeersMicros": 976662,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 789381,
+        "scheduledToAllPeersMicros": 852067,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 700284,
+        "scheduledToAllPeersMicros": 757944,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 704278,
+        "scheduledToAllPeersMicros": 762241,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 799757,
+        "scheduledToAllPeersMicros": 856707,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 812037,
+        "scheduledToAllPeersMicros": 875202,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 844685,
+        "scheduledToAllPeersMicros": 913445,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 803377,
+        "scheduledToAllPeersMicros": 872155,
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "label": "native-tls-small-4",
+    "runId": "capacity-native-tls-small-4-20261029T003048Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 670531,
+        "scheduledToAllPeersMicros": 671029,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 558459,
+        "scheduledToAllPeersMicros": 669662,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 828386,
+        "scheduledToAllPeersMicros": 976267,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 728578,
+        "scheduledToAllPeersMicros": 877449,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 704404,
+        "scheduledToAllPeersMicros": 813064,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 710897,
+        "scheduledToAllPeersMicros": 777045,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 710704,
+        "scheduledToAllPeersMicros": 774023,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 612132,
+        "scheduledToAllPeersMicros": 676693,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 709519,
+        "scheduledToAllPeersMicros": 776299,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 603877,
+        "scheduledToAllPeersMicros": 678923,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 806301,
+        "scheduledToAllPeersMicros": 874774,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 796384,
+        "scheduledToAllPeersMicros": 869994,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 606891,
+        "scheduledToAllPeersMicros": 670695,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 527977,
+        "scheduledToAllPeersMicros": 591593,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 703056,
+        "scheduledToAllPeersMicros": 778121,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 596907,
+        "scheduledToAllPeersMicros": 676124,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 632360,
+        "scheduledToAllPeersMicros": 700087,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 605553,
+        "scheduledToAllPeersMicros": 676222,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 728424,
+        "scheduledToAllPeersMicros": 796886,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 608822,
+        "scheduledToAllPeersMicros": 679275,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 10,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 624479,
+        "scheduledToAllPeersMicros": 688450,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 10,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 615255,
+        "scheduledToAllPeersMicros": 685521,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 11,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 605138,
+        "scheduledToAllPeersMicros": 674150,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 11,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 610149,
+        "scheduledToAllPeersMicros": 680196,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 12,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 717951,
+        "scheduledToAllPeersMicros": 787928,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 12,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 833458,
+        "scheduledToAllPeersMicros": 888259,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 13,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 635474,
+        "scheduledToAllPeersMicros": 677512,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 13,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 535664,
+        "scheduledToAllPeersMicros": 573289,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 14,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 646220,
+        "scheduledToAllPeersMicros": 691945,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 14,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 629961,
+        "scheduledToAllPeersMicros": 678442,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 15,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 728723,
+        "scheduledToAllPeersMicros": 772749,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 15,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 647791,
+        "scheduledToAllPeersMicros": 693571,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 16,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 733701,
+        "scheduledToAllPeersMicros": 776090,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 16,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 692641,
+        "scheduledToAllPeersMicros": 780233,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 17,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 735413,
+        "scheduledToAllPeersMicros": 871883,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 17,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 841480,
+        "scheduledToAllPeersMicros": 977926,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 18,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 660261,
+        "scheduledToAllPeersMicros": 786756,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 18,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 468970,
+        "scheduledToAllPeersMicros": 583178,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 19,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 740173,
+        "scheduledToAllPeersMicros": 875579,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 19,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 721546,
+        "scheduledToAllPeersMicros": 879170,
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "label": "native-tls-small-8-longer",
+    "runId": "capacity-native-tls-small-8-longer-20261029T003152Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 802470,
+        "scheduledToAllPeersMicros": 802942,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 653633,
+        "scheduledToAllPeersMicros": 709611,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 599813,
+        "scheduledToAllPeersMicros": 711378,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 733454,
+        "scheduledToAllPeersMicros": 900572,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 864489,
+        "scheduledToAllPeersMicros": 998234,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 759961,
+        "scheduledToAllPeersMicros": 903696,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 762868,
+        "scheduledToAllPeersMicros": 906583,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 780800,
+        "scheduledToAllPeersMicros": 903986,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 883500,
+        "scheduledToAllPeersMicros": 995066,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1097548,
+        "scheduledToAllPeersMicros": 1220205,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 978448,
+        "scheduledToAllPeersMicros": 1101153,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 976120,
+        "scheduledToAllPeersMicros": 1098751,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 911264,
+        "scheduledToAllPeersMicros": 1007548,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 960092,
+        "scheduledToAllPeersMicros": 1006712,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 888010,
+        "scheduledToAllPeersMicros": 936062,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1148973,
+        "scheduledToAllPeersMicros": 1197942,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 954171,
+        "scheduledToAllPeersMicros": 1008391,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1043884,
+        "scheduledToAllPeersMicros": 1099713,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 936039,
+        "scheduledToAllPeersMicros": 995690,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 858895,
+        "scheduledToAllPeersMicros": 905421,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 850320,
+        "scheduledToAllPeersMicros": 907020,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 751736,
+        "scheduledToAllPeersMicros": 802756,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 763063,
+        "scheduledToAllPeersMicros": 819987,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 837716,
+        "scheduledToAllPeersMicros": 899608,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 841340,
+        "scheduledToAllPeersMicros": 902686,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 827769,
+        "scheduledToAllPeersMicros": 896196,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 737145,
+        "scheduledToAllPeersMicros": 804262,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 840792,
+        "scheduledToAllPeersMicros": 903208,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 932769,
+        "scheduledToAllPeersMicros": 995774,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 940989,
+        "scheduledToAllPeersMicros": 1003603,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 980787,
+        "scheduledToAllPeersMicros": 1048254,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 945189,
+        "scheduledToAllPeersMicros": 1006944,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 845811,
+        "scheduledToAllPeersMicros": 902821,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 948496,
+        "scheduledToAllPeersMicros": 1004321,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 952141,
+        "scheduledToAllPeersMicros": 1003761,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1045517,
+        "scheduledToAllPeersMicros": 1098208,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 952753,
+        "scheduledToAllPeersMicros": 1012014,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 943683,
+        "scheduledToAllPeersMicros": 996713,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 960616,
+        "scheduledToAllPeersMicros": 1014722,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 958998,
+        "scheduledToAllPeersMicros": 1006944,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 10,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 962691,
+        "scheduledToAllPeersMicros": 1014794,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 10,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 956396,
+        "scheduledToAllPeersMicros": 1010627,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 10,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 848377,
+        "scheduledToAllPeersMicros": 901818,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 10,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 863501,
+        "scheduledToAllPeersMicros": 916113,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 11,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 948167,
+        "scheduledToAllPeersMicros": 1001612,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 11,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 844257,
+        "scheduledToAllPeersMicros": 897825,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 11,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1053206,
+        "scheduledToAllPeersMicros": 1112104,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 11,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 937220,
+        "scheduledToAllPeersMicros": 995003,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 12,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 851963,
+        "scheduledToAllPeersMicros": 905777,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 12,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 842955,
+        "scheduledToAllPeersMicros": 901990,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 12,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 869196,
+        "scheduledToAllPeersMicros": 909216,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 12,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 860567,
+        "scheduledToAllPeersMicros": 895836,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 13,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 861871,
+        "scheduledToAllPeersMicros": 897310,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 13,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1063945,
+        "scheduledToAllPeersMicros": 1098673,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 13,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 875017,
+        "scheduledToAllPeersMicros": 910194,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 13,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 892502,
+        "scheduledToAllPeersMicros": 928850,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 14,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 864378,
+        "scheduledToAllPeersMicros": 899938,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 14,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 871076,
+        "scheduledToAllPeersMicros": 900624,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 14,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 959948,
+        "scheduledToAllPeersMicros": 995137,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 14,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 774858,
+        "scheduledToAllPeersMicros": 810211,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 15,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 768859,
+        "scheduledToAllPeersMicros": 804494,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 15,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 671411,
+        "scheduledToAllPeersMicros": 707356,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 15,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 778977,
+        "scheduledToAllPeersMicros": 811160,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 15,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 666136,
+        "scheduledToAllPeersMicros": 703656,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 16,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 771140,
+        "scheduledToAllPeersMicros": 809955,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 16,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 854547,
+        "scheduledToAllPeersMicros": 896932,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 16,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 749426,
+        "scheduledToAllPeersMicros": 804092,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 16,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 613384,
+        "scheduledToAllPeersMicros": 711246,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 17,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 674351,
+        "scheduledToAllPeersMicros": 799046,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 17,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 675061,
+        "scheduledToAllPeersMicros": 798519,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 17,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 694481,
+        "scheduledToAllPeersMicros": 828039,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 17,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 665715,
+        "scheduledToAllPeersMicros": 809182,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 18,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 692213,
+        "scheduledToAllPeersMicros": 825711,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 18,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 765152,
+        "scheduledToAllPeersMicros": 899764,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 18,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 682664,
+        "scheduledToAllPeersMicros": 812785,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 18,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 674321,
+        "scheduledToAllPeersMicros": 806659,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 19,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 768306,
+        "scheduledToAllPeersMicros": 899560,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 19,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 672082,
+        "scheduledToAllPeersMicros": 795572,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 19,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 601982,
+        "scheduledToAllPeersMicros": 734331,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 19,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1165699,
+        "scheduledToAllPeersMicros": 1299188,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 20,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1375182,
+        "scheduledToAllPeersMicros": 1498671,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 20,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1079646,
+        "scheduledToAllPeersMicros": 1214462,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 20,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 852300,
+        "scheduledToAllPeersMicros": 993577,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 20,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 978814,
+        "scheduledToAllPeersMicros": 1056658,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 21,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1061483,
+        "scheduledToAllPeersMicros": 1109562,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 21,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1042444,
+        "scheduledToAllPeersMicros": 1100064,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 21,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1032920,
+        "scheduledToAllPeersMicros": 1100397,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 21,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1040805,
+        "scheduledToAllPeersMicros": 1104062,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 22,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 936696,
+        "scheduledToAllPeersMicros": 996824,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 22,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 843094,
+        "scheduledToAllPeersMicros": 903215,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 22,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 745866,
+        "scheduledToAllPeersMicros": 806220,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 22,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 646632,
+        "scheduledToAllPeersMicros": 705839,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 23,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 642326,
+        "scheduledToAllPeersMicros": 710162,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 23,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 645652,
+        "scheduledToAllPeersMicros": 718915,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 23,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 639273,
+        "scheduledToAllPeersMicros": 719093,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 23,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 514042,
+        "scheduledToAllPeersMicros": 601352,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 24,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 628250,
+        "scheduledToAllPeersMicros": 714593,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 24,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 815543,
+        "scheduledToAllPeersMicros": 901836,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 24,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 824804,
+        "scheduledToAllPeersMicros": 910365,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 24,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 931303,
+        "scheduledToAllPeersMicros": 1023919,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 25,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 819603,
+        "scheduledToAllPeersMicros": 905039,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 25,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 828298,
+        "scheduledToAllPeersMicros": 899182,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 25,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 648876,
+        "scheduledToAllPeersMicros": 711701,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 25,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 655416,
+        "scheduledToAllPeersMicros": 704689,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 26,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 649573,
+        "scheduledToAllPeersMicros": 705548,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 26,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 848577,
+        "scheduledToAllPeersMicros": 904539,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 26,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 736716,
+        "scheduledToAllPeersMicros": 803499,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 26,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 729042,
+        "scheduledToAllPeersMicros": 796045,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 27,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 738565,
+        "scheduledToAllPeersMicros": 804780,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 27,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 986464,
+        "scheduledToAllPeersMicros": 1043415,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 27,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 955358,
+        "scheduledToAllPeersMicros": 1016673,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 27,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1034220,
+        "scheduledToAllPeersMicros": 1095683,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 28,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 938423,
+        "scheduledToAllPeersMicros": 1000183,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 28,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 851887,
+        "scheduledToAllPeersMicros": 901166,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 28,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 868237,
+        "scheduledToAllPeersMicros": 918843,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 28,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 956219,
+        "scheduledToAllPeersMicros": 1002894,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 29,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1043786,
+        "scheduledToAllPeersMicros": 1094808,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 29,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1040450,
+        "scheduledToAllPeersMicros": 1097086,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 29,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 952171,
+        "scheduledToAllPeersMicros": 995773,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 29,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 979346,
+        "scheduledToAllPeersMicros": 995915,
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "label": "dart-tls-small-8-restored",
+    "runId": "capacity-dart-tls-small-8-restored-20261029T004001Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1296571,
+        "scheduledToAllPeersMicros": 1297343,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1467821,
+        "scheduledToAllPeersMicros": 1498703,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2052612,
+        "scheduledToAllPeersMicros": 2113737,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2621120,
+        "scheduledToAllPeersMicros": 2712411,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2458733,
+        "scheduledToAllPeersMicros": 2501981,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2970747,
+        "scheduledToAllPeersMicros": 3002219,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2881089,
+        "scheduledToAllPeersMicros": 2995504,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2492377,
+        "scheduledToAllPeersMicros": 2994849,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2804822,
+        "scheduledToAllPeersMicros": 3517770,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1999223,
+        "scheduledToAllPeersMicros": 3002254,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2017899,
+        "scheduledToAllPeersMicros": 3013872,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2005010,
+        "scheduledToAllPeersMicros": 3000540,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2595239,
+        "scheduledToAllPeersMicros": 4113701,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2294710,
+        "scheduledToAllPeersMicros": 3297532,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2388921,
+        "scheduledToAllPeersMicros": 3403643,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2297810,
+        "scheduledToAllPeersMicros": 3299069,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2000210,
+        "scheduledToAllPeersMicros": 4114327,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2211831,
+        "scheduledToAllPeersMicros": 3510263,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2210166,
+        "scheduledToAllPeersMicros": 3614224,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1795797,
+        "scheduledToAllPeersMicros": 3095419,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2005546,
+        "scheduledToAllPeersMicros": 4120450,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2224391,
+        "scheduledToAllPeersMicros": 3735098,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2580994,
+        "scheduledToAllPeersMicros": 4196039,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2500961,
+        "scheduledToAllPeersMicros": 3596887,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2696530,
+        "scheduledToAllPeersMicros": 4817464,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2260964,
+        "scheduledToAllPeersMicros": 3996739,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2415669,
+        "scheduledToAllPeersMicros": 4612321,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2205174,
+        "scheduledToAllPeersMicros": 3802593,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2302788,
+        "scheduledToAllPeersMicros": 5120911,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2412164,
+        "scheduledToAllPeersMicros": 4409399,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1784727,
+        "scheduledToAllPeersMicros": 4397581,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1996927,
+        "scheduledToAllPeersMicros": 3800170,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2094466,
+        "scheduledToAllPeersMicros": 5215816,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2391684,
+        "scheduledToAllPeersMicros": 4801619,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2315866,
+        "scheduledToAllPeersMicros": 4713907,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2393741,
+        "scheduledToAllPeersMicros": 4194290,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2300141,
+        "scheduledToAllPeersMicros": 5516556,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2098963,
+        "scheduledToAllPeersMicros": 4901116,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2183778,
+        "scheduledToAllPeersMicros": 4898508,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1502612,
+        "scheduledToAllPeersMicros": 5020065,
+        "retries": 0
+      }
+    ]
+  },
+  {
+    "label": "dart-tls-small-8-restored-repeat",
+    "runId": "capacity-dart-tls-small-8-restored-repeat-20261029T004148Z",
+    "rounds": [
+      {
+        "user": 0,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1006939,
+        "scheduledToAllPeersMicros": 1007619,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1371314,
+        "scheduledToAllPeersMicros": 1402286,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1668547,
+        "scheduledToAllPeersMicros": 1729937,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 0,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1819639,
+        "scheduledToAllPeersMicros": 1910985,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2031193,
+        "scheduledToAllPeersMicros": 2092733,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1988753,
+        "scheduledToAllPeersMicros": 2025546,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1977930,
+        "scheduledToAllPeersMicros": 1995232,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 1,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2094253,
+        "scheduledToAllPeersMicros": 2099525,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2401763,
+        "scheduledToAllPeersMicros": 2495031,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2369520,
+        "scheduledToAllPeersMicros": 2395925,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2192075,
+        "scheduledToAllPeersMicros": 2192362,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 2,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2114968,
+        "scheduledToAllPeersMicros": 2215081,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1904078,
+        "scheduledToAllPeersMicros": 2399607,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2015267,
+        "scheduledToAllPeersMicros": 2411780,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2299222,
+        "scheduledToAllPeersMicros": 2492061,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 3,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2578486,
+        "scheduledToAllPeersMicros": 2794141,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2496281,
+        "scheduledToAllPeersMicros": 2896468,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2084640,
+        "scheduledToAllPeersMicros": 2497105,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2201909,
+        "scheduledToAllPeersMicros": 2694587,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 4,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2417377,
+        "scheduledToAllPeersMicros": 3212070,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2101224,
+        "scheduledToAllPeersMicros": 2998182,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2220751,
+        "scheduledToAllPeersMicros": 2718472,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2200845,
+        "scheduledToAllPeersMicros": 2896005,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 5,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2186950,
+        "scheduledToAllPeersMicros": 3399584,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2689262,
+        "scheduledToAllPeersMicros": 3691773,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2579887,
+        "scheduledToAllPeersMicros": 3298968,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2507055,
+        "scheduledToAllPeersMicros": 3403659,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 6,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2613632,
+        "scheduledToAllPeersMicros": 4013606,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2604294,
+        "scheduledToAllPeersMicros": 4296457,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2513262,
+        "scheduledToAllPeersMicros": 3812795,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2696483,
+        "scheduledToAllPeersMicros": 4100684,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 7,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2582377,
+        "scheduledToAllPeersMicros": 4596461,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2494710,
+        "scheduledToAllPeersMicros": 4791896,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2484223,
+        "scheduledToAllPeersMicros": 4297573,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2096101,
+        "scheduledToAllPeersMicros": 4197263,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 8,
+        "writer": 0,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2115412,
+        "scheduledToAllPeersMicros": 4712472,
+        "retries": 0
+      },
+      {
+        "user": 1,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2230432,
+        "scheduledToAllPeersMicros": 4528426,
+        "retries": 0
+      },
+      {
+        "user": 0,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2310208,
+        "scheduledToAllPeersMicros": 5102799,
+        "retries": 0
+      },
+      {
+        "user": 2,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 2202144,
+        "scheduledToAllPeersMicros": 4400012,
+        "retries": 0
+      },
+      {
+        "user": 3,
+        "round": 9,
+        "writer": 1,
+        "rows": 1,
+        "ok": true,
+        "writeToAllPeersMicros": 1791143,
+        "scheduledToAllPeersMicros": 4504202,
+        "retries": 0
+      }
+    ]
+  }
+]

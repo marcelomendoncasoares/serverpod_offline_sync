@@ -1,0 +1,119 @@
+{
+  "refs": {
+    "postgres_tls": "22067026c50da3447931ba71ad13fc95f230d5e8",
+    "postgres": "d392eada9e802c579719f1a1497c14d028cf3ff6",
+    "serverpod": "010d23c755c48e99eb35295f7c280ea140412212"
+  },
+  "baselineExecutableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+  "baselinePostgresRef": "79560a928c6b9307e89fe52f368f68dfce01eb79",
+  "dartVersion": "3.13.7",
+  "clientSha256": "044b08b4bee651780909be4c44949c90a25a239f72c1548417289d7301e2667e",
+  "localChecks": {
+    "suppliedJit": {
+      "passed": 17,
+      "log": "local-tests-with-certs.log"
+    },
+    "suppliedAot": {
+      "passed": 17,
+      "exitCode": 0,
+      "log": "aot-tests-final-run.log",
+      "fixtureAdjustments": [
+        "Generate missing CA and localhost leaf certificates",
+        "Close accepted echo server sockets during teardown; snapshot socket sets while awaiting close"
+      ]
+    },
+    "matchedPostgres": {
+      "passed": 5,
+      "log": "matched-transactions-tests.log"
+    },
+    "independentLaterAssertion": {
+      "passed": 1,
+      "log": "local-independent-assertion.log"
+    }
+  },
+  "arms": {
+    "candidate": {
+      "lockSha256": "194d55ab608cc254807f7ca05ed67a899f002efda5115d9e6aa2785861914e5b",
+      "postgres": {
+        "dependency": "direct overridden",
+        "description": {
+          "path": ".",
+          "ref": "d392eada9e802c579719f1a1497c14d028cf3ff6",
+          "resolved-ref": "d392eada9e802c579719f1a1497c14d028cf3ff6",
+          "url": "https://github.com/nielsenko/postgresql-dart.git"
+        },
+        "source": "git",
+        "version": "3.5.21"
+      },
+      "tlsConfig": "/// Identifies this isolated benchmark build without changing Cloud config.\nconst tlsExperimentVariant = 'supplied-native';\n\n/// Both comparison builds include the same dependencies and diagnostics.\nconst tlsExperimentNative = true;\n"
+    },
+    "matched-stock": {
+      "lockSha256": "f006ee4b063cc5952f7faa32e50fae2ff2edd344d3232d9ff8b4d79df1eb2d63",
+      "postgres": {
+        "source": "workspace",
+        "path": "vendor/postgres",
+        "upstreamRef": "d392eada9e802c579719f1a1497c14d028cf3ff6",
+        "patch": "postgres-matched-versus-base.diff"
+      },
+      "tlsConfig": "/// Identifies this isolated benchmark build without changing Cloud config.\nconst tlsExperimentVariant = 'matched-stock';\n\n/// Both comparison builds include the same dependencies and diagnostics.\nconst tlsExperimentNative = false;\n",
+      "workspaceDriverSha256": "c3479d404a7574c38e54f3de431259c74845f74ab6e1f7a3fe8a589a9d015028"
+    },
+    "matched-native": {
+      "lockSha256": "f006ee4b063cc5952f7faa32e50fae2ff2edd344d3232d9ff8b4d79df1eb2d63",
+      "postgres": {
+        "source": "workspace",
+        "path": "vendor/postgres",
+        "upstreamRef": "d392eada9e802c579719f1a1497c14d028cf3ff6",
+        "patch": "postgres-matched-versus-base.diff"
+      },
+      "tlsConfig": "/// Identifies this isolated benchmark build without changing Cloud config.\nconst tlsExperimentVariant = 'matched-native';\n\n/// Both comparison builds include the same dependencies and diagnostics.\nconst tlsExperimentNative = true;\n",
+      "workspaceDriverSha256": "c3479d404a7574c38e54f3de431259c74845f74ab6e1f7a3fe8a589a9d015028"
+    }
+  },
+  "cloudValidation": {
+    "completedRuns": 8,
+    "completedExerciseRounds": 1720,
+    "allConverged": true,
+    "allClean": true,
+    "restored": {
+      "size": "small",
+      "quotaCores": 0.1,
+      "executableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+      "protectedConfigurationFilesUnchanged": 6
+    },
+    "runBuilds": {
+      "matched-native-medium-64": {
+        "runId": "capacity-matched-native-medium-64-20261028T180703Z",
+        "executableSha256": "475b0aec088962b944fbbcb1c2512d024f83427a096b3c2e38630a809dc3456b"
+      },
+      "matched-native-medium-8": {
+        "runId": "capacity-matched-native-medium-8-20261028T180619Z",
+        "executableSha256": "475b0aec088962b944fbbcb1c2512d024f83427a096b3c2e38630a809dc3456b"
+      },
+      "matched-native-xxlarge-64": {
+        "runId": "capacity-matched-native-xxlarge-64-20261028T180344Z",
+        "executableSha256": "475b0aec088962b944fbbcb1c2512d024f83427a096b3c2e38630a809dc3456b"
+      },
+      "matched-stock-medium-64": {
+        "runId": "capacity-matched-stock-medium-64-20261028T175525Z",
+        "executableSha256": "0004017514bc7ee1cb5df1911a434a71842674eeb016f8d375b6196a095dac8a"
+      },
+      "matched-stock-medium-8": {
+        "runId": "capacity-matched-stock-medium-8-20261028T175444Z",
+        "executableSha256": "0004017514bc7ee1cb5df1911a434a71842674eeb016f8d375b6196a095dac8a"
+      },
+      "matched-stock-xxlarge-64": {
+        "runId": "capacity-matched-stock-xxlarge-64-20261028T175846Z",
+        "executableSha256": "0004017514bc7ee1cb5df1911a434a71842674eeb016f8d375b6196a095dac8a"
+      },
+      "supplied-native-medium-64": {
+        "runId": "capacity-supplied-native-medium-64-20261028T174513Z",
+        "executableSha256": "61d8aaf23725fbc13ef3682fc918d77c62196d3076c5c3d43b69e3c9e237eb0b"
+      },
+      "supplied-native-medium-8": {
+        "runId": "capacity-supplied-native-medium-8-20261028T174430Z",
+        "executableSha256": "61d8aaf23725fbc13ef3682fc918d77c62196d3076c5c3d43b69e3c9e237eb0b"
+      }
+    }
+  }
+}
