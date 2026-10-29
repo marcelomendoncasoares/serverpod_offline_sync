@@ -1,0 +1,27 @@
+{
+  "format": 1,
+  "sizes": ["small", "medium", "large", "xlarge", "xxlarge"],
+  "rows": [1, 10, 50, 200, 1000],
+  "maximumRows": 40000,
+  "activeUsers": [1, 4, 16, 64, 256],
+  "idleConnectedDevices": [64, 256, 1024, 4096, 8192],
+  "reference": {"users": 4, "active_users": 4, "rounds": 10},
+  "profiles": [
+    {"schema": "full", "workload": "person"},
+    {"schema": "full", "workload": "town-linked"},
+    {"schema": "city", "workload": "city"}
+  ],
+  "controls": [
+    {"id": "full-person-r1-c8-a8-soak", "schema": "full", "parameters": {"users": 4, "active_users": 4, "rounds": 150}},
+    {"id": "full-person-r1-c64-a8-mixed", "schema": "full", "parameters": {"users": 32, "active_users": 4, "rounds": 30}},
+    {"id": "full-person-r1-c256-a8-mixed", "schema": "full", "parameters": {"users": 128, "active_users": 4, "rounds": 30}},
+    {"id": "full-person-r1-c16-a16-fanout", "schema": "full", "parameters": {"users": 4, "active_users": 4, "devices": 4, "rounds": 20}},
+    {"id": "full-person-r1-c8-a8-burst", "schema": "full", "parameters": {"users": 4, "active_users": 4, "schedule": "burst", "rounds": 30}},
+    {"id": "full-person-r1-c8-a8-update", "schema": "full", "parameters": {"users": 4, "active_users": 4, "write_mode": "update", "rounds": 30}},
+    {"id": "full-town-r1-c2-a2-nullable", "schema": "full", "parameters": {"users": 1, "active_users": 1, "workload": "town", "rounds": 30}},
+    {"id": "full-town-linked-r1-c2-a2-control", "schema": "full", "parameters": {"users": 1, "active_users": 1, "workload": "town-linked", "rounds": 30}},
+    {"id": "full-city-r1-c8-a8-registry-control", "schema": "full", "parameters": {"users": 4, "active_users": 4, "workload": "city", "rounds": 30}},
+    {"id": "city-city-r1-c8-a8-registry-control", "schema": "city", "parameters": {"users": 4, "active_users": 4, "workload": "city", "rounds": 30}}
+  ]
+}
+
