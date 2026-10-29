@@ -238,129 +238,39 @@ additions through what the server announces.
 
 ## Sync: one call syncs every accessible space
 
-### One `sync`, two cadences: bounded `once`, idle-silent `continuous`
+### One streaming session, independent directions
 
-Merge is inherently one space at a time: a merge runs in exactly one space's
-transaction and lock, so the spaces always serialize regardless of framing. A
-single `sync` method serves both `syncOnce` and `syncContinuously`, branching on
-`once` only where they genuinely differ — read discipline and termination — so
-there is no duplicated send/merge logic:
+Finite and continuous synchronization use the same bidirectional session.
+[Streaming sync protocol](streaming-sync-protocol.md) defines the wire frames,
+committed revision invariant, acknowledgement boundaries, and completion rules.
 
-1. **Establishment (shared, lockstep).** After `Connect`, both peers exchange the
-   `SpaceSet`. Doing this *before* the loop is what removes the announce/adopt
-   offset that would otherwise make a follower act before it knows the agreed
-   set.
-2. **Data loop (shared, idle-silent).** Each cycle is **one combined batch**: the
-   space announcement (only when this peer's grants changed), a `SinceHlc` for
-   each newly active space, and merge chunks whose changes carry their space,
-   all closed by a single `EndOfBatch`. Continuous mode omits the terminator when
-   nothing was sent. The receive phase demultiplexes the peer's batch by type
-   until that terminator or — when the peer was idle — an idle timeout. An idle
-   continuous cycle therefore sends nothing and idles out **once**, regardless of
-   space count.
+Each peer announces `Connect` with its user-scoped replica epoch and schema hash.
+The server's `SpaceSet` determines the active grants. Each active space exchanges
+`SinceRevision` receipts before its data can be captured. The sender captures all
+sendable spaces in one consistent snapshot and sends `MergeChunk` frames followed
+by `EndOfBatch` with the captured revision of each space whose facts were sent.
 
-`once` stays in the data loop until every active space has exchanged `SinceHlc`
-and had one sendable data cycle, then performs the symmetric `Close` handshake.
-`continuous` loops instead, with no per-cycle chatter; it handshakes its initial
-spaces in the first cycle and absorbs membership changes as they are announced
-(a newly granted space is announced, adopted, and established over the following
-cycles — its data deferred until its `SinceHlc` round-trips).
+The receiver groups facts by `uuidSpaceId` and commits each space independently
+with its sender-epoch receipt. `Committed` acknowledges the complete batch only
+after those space transactions finish. Different spaces do not become atomically
+visible together. A complete empty capture advances only the sender's in-session
+scan cursor; it adds no empty continuous batch or receiver transaction.
 
-### Protocol frames
+Each direction permits one outstanding batch while the control reader and inbound
+merger continue independently. A finite follower marks its upload final; the
+server then sends its final download, and the follower acknowledges it before
+closing. Continuous sessions wake on committed local changes and periodically
+refresh membership and recover missed notifications. No transaction spans a peer
+acknowledgement or an idle wait.
 
-`Connect` opens the session once. After that the frames are the same in both
-cadences; only *when* they are sent differs (`once`: a fixed sequence per space;
-`continuous`: only on change, inside one combined batch). Frame changes
-(regenerated models + a migration on both client and server schemas):
+The authoritative peer ignores inbound spaces outside its grants. Writes into an
+active read-only space fail the permission check inside that space's transaction.
+A merge failure records the durable integrity violation and fails the session;
+other space transactions that already committed remain committed.
 
-- `OfflineSyncConnect { syncTablesHash, localNodeId }` — sent once by each peer. The
-  schema hash is validated once, before any space work. `localNodeId` is the
-  syncing user's local clock and is informational. The space list is dynamic
-  and exchanged per cycle.
-- `OfflineSyncSpaceSet { spaces: List<OfflineSyncSpaceGrant> }` (each grant a
-  `uuidSpaceId` + `role`) — the server's content is authoritative (resolved from
-  `offline_sync_space_members`, roles included). Followers send an empty set because the
-  authoritative peer never widens access from follower-reported state. In `once`
-  it is exchanged exactly once. In `continuous` a peer re-announces it
-  **only when its own grant set changed** since the last announcement — this is
-  the frame that carries access changes mid-session, and gating it on change is
-  what keeps an idle session silent while still letting a grant or revoke take
-  effect.
-- `OfflineSyncSinceHlc { uuidSpaceId, nodeCheckpoints }` — per space. Carries that
-  space's per-node checkpoints. Exchanged when a space first becomes active
-  (and again if a dropped space is later re-adopted);
-  checkpoints then live in memory for the rest of the session.
-- `OfflineSyncMergeChunk { changes }` — each change carries `uuidSpaceId`, letting
-  a combined batch carry every space's changes and regroup them on receive.
-- `OfflineSyncEndOfBatch`, `OfflineSyncClose`, `OfflineSyncIdleTimeout` — unchanged. A
-  single `EndOfBatch` terminates a cycle's combined batch (and is itself omitted
-  when nothing was sent, so an idle peer resolves to an empty batch instead).
-  `Close` ends the streaming session. Because it is an intentional peer control
-  frame, it may arrive even after frames for a partial cycle; the receiver
-  discards that partial cycle and records no checkpoint progress for it.
+### Space-set reconciliation
 
-The data cycle's receive uses `collectNextBatch`, which demultiplexes one
-cycle's frames by type into `{ spaceSet?, sinceHlcs, changes }`,
-returning on the single `EndOfBatch`, on `Close` with a closed result, or —
-when the peer was idle — on the idle timeout. A raw transport close without a
-`Close` frame is stricter: it is graceful only between continuous-session
-batches and is treated as truncation once a partial batch has arrived.
-
-### The session state machine
-
-```
-handshake (both cadences):
-  send Connect(syncTablesHash, localNodeId); read peer Connect; validate
-  syncTablesHash; store peer localNodeId
-
-establishment (both cadences, lockstep):
-  send SpaceSet(myGrants); read peer SpaceSet → adopt → activeSpaces
-  follower: materialize activeSpaces, project membership
-data loop (both cadences, one combined batch per cycle):
-  loop:
-    resolve activeSpaces      (authoritative: my set; follower: adopted peerGrants)
-    discard state for spaces no longer active
-    # send phase — emit only what changed; track whether any frame was sent
-    if myGrants != announcedGrants: send SpaceSet(myGrants)
-    for space in activeSpaces not yet sinceHlcSent: send SinceHlc(space)
-    if peer checkpoints exist: send MergeChunk(changes)*  # follower skips non-writable spaces
-    if anything was sent (or once): send EndOfBatch
-    # receive phase
-    batch = collectNextBatch(allowCloseBeforeBatch: !once)   # {spaceSet?, sinceHlcs, changes} | idle | closed
-    if closed: return
-    adopt batch.spaceSet (follower: materialize + project); store sinceHlcs;
-      group changes by uuidSpaceId; mergeInboundBatch each group
-    if once: send Close; read Close; drain; return
-    delay continuousSyncInterval
-```
-
-The shared establishment exchanges the space set so a follower never acts before
-it knows the agreed set. Both cadences handshake initial and newly added spaces
-through the loop's own `SinceHlc` exchange.
-
-`collectPendingChanges`, `mergeInboundBatch`, and the
-ownership-violation internals (`_streamInserts`/`Updates`/`Deletes`,
-`_fetchDomainRow`, the durable-violation path) are space-parameterized and merge
-each inbound space group in its own `transactionForUser`/lock, including its
-per-author checkpoints; any space's merge
-failure (for example an ownership collision or unauthorized role write) records
-the durable violation and fails the session, preserving today's fail-fast
-semantics.
-
-Because `continuous` defers a space's data until both peers have exchanged its
-`SinceHlc`, a newly active space is established over the **following** cycles
-rather than in lockstep — the deliberate trade for keeping the steady state
-silent. A peer only honors inbound `SinceHlc`/`MergeChunk` frames for spaces it
-authorizes (authoritative: its own membership; follower: the announced set), so
-the combined batch tolerates a peer's informational extras without widening
-access.
-
-`onMergeSuccess` becomes space-aware: `Function(UuidValue spaceUuid, Hlc hlc)`.
-This touches three test call sites and the example app's `demo_controller`.
-
-### Space-set reconciliation and lockstep
-
-Both peers must cycle the **same ordered space set** or send/receive desyncs.
+Both peers reconcile the authorized space set independently of batch boundaries.
 Membership is asymmetric — the client trusts the server's membership claims, the
 server trusts none of the client's — so the reconciliation is **directional**,
 not a symmetric set operation:
@@ -397,7 +307,7 @@ peer's set; writes are still gated server-side by
 In `once`, the client adopts straight from the cycle's `SpaceSet` *before* it
 iterates, so a newly granted space syncs in that same round. In `continuous`,
 adoption happens when the announcement arrives and the space's data follows over
-the next cycles once its `SinceHlc` round-trips. Sorting by space UUID makes the
+the next cycles once its `SinceRevision` round-trips. Sorting by space UUID makes the
 order deterministic on both sides with no extra negotiation. Frames carry
 `uuidSpaceId` so a receiver groups each chunk into the right space and fails loud
 on an unauthorized tag rather than merging a batch into the wrong space.
@@ -407,21 +317,20 @@ lookup on the server only; it may be throttled or invalidated by an
 application hook if per-cycle querying becomes hot, at the cost of slower
 propagation of access changes.
 
-### Checkpoints, once vs. continuous
+### Durable checkpoints and causal clocks
 
-Checkpoint rows stay per `(space, node)` in `offline_sync_space_nodes`, while
-`crdt_nodes` stores the stable clock identity. The same local user node can
-participate in multiple spaces, with separate `lastReceivedHlc` values per
-space. A handshake reports local nodes as complete and remote nodes up to the
-progress received. `SinceHlc` is exchanged once per space on first visit; later
-cycles reuse the in-memory
-`nodeCheckpoints[space]`, advanced as chunks are sent and as inbound batches
-merge — the multi-space analogue of today's single-space continuous loop, which
-already keeps checkpoints in memory across rounds.
+`offline_sync_peer_checkpoints` stores the committed sender revision per
+`(space, immediate peer)`. `offline_sync_peers` binds that immediate peer to the
+authenticated user and sender replica epoch. `SinceRevision` reports these
+receipts; sender-local scan cursors advance after a matching acknowledgement or
+a complete range proven to contain no unknown facts for the peer.
 
-The continuous interval delay moves to **after each full cycle**, not after each
-space, to keep per-space latency low while still preventing a busy loop when
-idle.
+`offline_sync_space_nodes.lastReceivedHlc` remains the highest observed causal
+clock for an author in a space. It is not a delivery frontier: relayed older facts
+can arrive after newer ones. Each effective incoming or local fact receives the
+space's next local revision, independent of its author HLC. Per-fact immediate
+provenance avoids returning received facts without a stream cache and without
+suppressing unrelated local fields on the same row.
 
 ### Access changes during a session
 
@@ -572,7 +481,7 @@ tested once, not per combination.
 
 - **Regression.** Every existing single-space suite passes unchanged on the
   personal-space-only path.
-- **Protocol.** `Connect`/`SinceHlc` round-trip a multi-space list; merge chunks
+- **Protocol.** `Connect`/`SinceRevision` round-trip a multi-space list; merge chunks
   route to the correct space by `uuidSpaceId`; per-space checkpoints advance
   independently across cycles.
 - **One call, every space.** A single `syncOnce` converges N spaces in one pass;
@@ -622,9 +531,9 @@ tested once, not per combination.
   re-resolves its set every cycle and re-announces a `SpaceSet` whenever it
   changed, so grants and revokes take effect mid-session without reconnecting.
   In `syncOnce` the client adopts from the initial `SpaceSet`, exchanges
-  `SinceHlc`, then runs the sendable data cycle; in `syncContinuously` a newly
+  `SinceRevision`, then runs the sendable data cycle; in `syncContinuously` a newly
   announced space is adopted then established over the next cycles as its
-  `SinceHlc` round-trips.
+  `SinceRevision` round-trips.
 - **Members vs. nodes:** orthogonal layers, both kept. Members are authorization
   (`who`); nodes are CRDT causality (`whose changes, up to which HLC`). One
   member maps to many nodes; the server is a node but not a member; a new member
@@ -638,9 +547,9 @@ tested once, not per combination.
   `offline_sync_spaces` rows alone do not grant access. It is a server-authored,
   client-read-only projection — never a
   bidirectionally-synced members table, so a client cannot self-grant.
-- **Iteration order:** sorted space UUIDs, so both peers stay in lockstep
-  without negotiation. Each merge change carries its space UUID, so receive can
-  regroup a combined batch deterministically.
+- **Iteration order:** sorted space UUIDs keep local work deterministic. Each
+  merge change and boundary receipt carries its space UUID, so receive can
+  regroup a combined batch while its opposite direction progresses independently.
 - **One space per write scope:** kept. Several `runForSpace` calls inside
   `transactionForSpaces` share one SQL transaction; remote replicas cannot
   observe a cross-space write atomically.
@@ -648,9 +557,9 @@ tested once, not per combination.
   every node, yet it is server-authoritative app state, never CRDT-replicated.
 - **Idle chatter removed:** continuous sync has one combined data loop per
   cycle. When neither peer has grants, handshakes, or changes to send, it emits
-  no `SpaceSet`, `SinceHlc`, `MergeChunk`, or `EndOfBatch`; `collectNextBatch`
-  resolves the idle cycle from the timeout once per session cycle, not once per
-  space.
+  no `SpaceSet`, `SinceRevision`, `MergeChunk`, or `EndOfBatch`. Local commit
+  notifications and periodic recovery schedule capture without per-space idle
+  wire frames.
 - **Initial-sync ordering is not a current concern:** a device joining many
   spaces cycles them one at a time on first sync. Prioritizing recently active
   spaces in the iteration order is a compatible refinement if cold-start latency

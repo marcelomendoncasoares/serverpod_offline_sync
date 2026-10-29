@@ -101,7 +101,7 @@ void main() {
             final changes = await clientSync
                 .collectPendingChanges(
                   clientSession,
-                  checkpointsBySpaceUuid: {ungrantedSpaceId: const []},
+                  checkpointsBySpaceUuid: {ungrantedSpaceId: 0},
                 )
                 .toList();
             expect(changes, isNotEmpty);
@@ -188,8 +188,8 @@ void main() {
                 .collectPendingChanges(
                   clientSession,
                   checkpointsBySpaceUuid: {
-                    testCrdtUserId: const [],
-                    sharedSpaceId: const [],
+                    testCrdtUserId: 0,
+                    sharedSpaceId: 0,
                   },
                 )
                 .toList();

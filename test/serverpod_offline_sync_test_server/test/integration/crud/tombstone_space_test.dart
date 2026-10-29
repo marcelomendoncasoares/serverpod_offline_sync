@@ -269,6 +269,10 @@ void main() {
         otherNode = await OfflineSyncSpaceManager(
           session,
         ).getOrCreateUserNode(otherUserId);
+        await OfflineSyncSpace.db.updateRow(
+          session,
+          otherSpace.copyWith(syncRevision: 1),
+        );
         staleTracker = await CrdtDataRow.db.insertRow(
           session,
           CrdtDataRow(
@@ -276,6 +280,7 @@ void main() {
             tblId: table!.id!,
             uuidRowId: rowId,
             nodeId: otherNode.id!,
+            syncRevision: 1,
             hlcDatetime: otherUserInsertHlc.datetime,
             hlcCounter: otherUserInsertHlc.counter,
           ),
@@ -295,7 +300,7 @@ void main() {
             sync
                 .collectPendingChanges(
                   session,
-                  checkpointsBySpaceUuid: {otherUserId: const []},
+                  checkpointsBySpaceUuid: {otherUserId: 0},
                 )
                 .toList(),
             throwsA(
@@ -386,7 +391,7 @@ void main() {
           sync
               .collectPendingChanges(
                 session,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList(),
           throwsA(
@@ -442,7 +447,7 @@ void main() {
     late Person person;
     late CrdtDataRow crdtRow;
     late CrdtDataField nameField;
-    late Hlc insertCheckpoint;
+    late int insertCheckpoint;
 
     setUp(() async {
       person = await session.db.transactionForUser(
@@ -459,7 +464,7 @@ void main() {
         where: (t) => t.uuidRowId.equals(person.id),
         include: CrdtDataRow.include(node: CrdtNode.include()),
       ))!;
-      insertCheckpoint = crdtRow.hlc;
+      insertCheckpoint = crdtRow.syncRevision;
 
       await session.db.transactionForUser(
         testCrdtUserId,
@@ -499,7 +504,7 @@ void main() {
               .collectPendingChanges(
                 session,
                 checkpointsBySpaceUuid: {
-                  testCrdtUserId: [insertCheckpoint],
+                  testCrdtUserId: insertCheckpoint,
                 },
               )
               .toList(),
@@ -554,7 +559,7 @@ void main() {
 
   group('Given delete CRDT metadata whose domain row is missing,', () {
     late Person person;
-    late Hlc insertCheckpoint;
+    late int insertCheckpoint;
     late CrdtDataDeleted tombstone;
 
     setUp(() async {
@@ -572,7 +577,7 @@ void main() {
         where: (t) => t.uuidRowId.equals(person.id),
         include: CrdtDataRow.include(node: CrdtNode.include()),
       ))!;
-      insertCheckpoint = crdtRow.hlc;
+      insertCheckpoint = crdtRow.syncRevision;
 
       await session.db.transactionForUser(
         testCrdtUserId,
@@ -604,7 +609,7 @@ void main() {
             .collectPendingChanges(
               session,
               checkpointsBySpaceUuid: {
-                testCrdtUserId: [insertCheckpoint],
+                testCrdtUserId: insertCheckpoint,
               },
             )
             .toList();

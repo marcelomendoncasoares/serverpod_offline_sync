@@ -208,7 +208,7 @@ void main() {
       final changes = await node.sync
           .collectPendingChanges(
             node.raw,
-            checkpointsBySpaceUuid: {space: const []},
+            checkpointsBySpaceUuid: {space: 0},
           )
           .toList();
       await mirror.session.db.mergeChanges(changes, userId: space);

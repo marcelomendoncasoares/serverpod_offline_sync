@@ -505,6 +505,13 @@ class CrdtMutationRecorder {
     TransactionFunction<R> action,
   ) => _context.withUserClock(transaction, action);
 
+  /// Stores a complete incoming range in the same transaction as its facts.
+  Future<void> recordReceivedRevision(
+    int peerId,
+    int revision,
+    Transaction transaction,
+  ) => _context.recordReceivedRevision(peerId, revision, transaction);
+
   /// Whether an enclosing scope already shares the acting user's clock.
   bool hasActiveUserClock(Transaction transaction) =>
       _context.hasActiveUserClock(transaction);
@@ -526,48 +533,6 @@ class CrdtMutationRecorder {
     Transaction transaction,
     TransactionFunction<R> action,
   ) => _context.withUserClockSavepoint(transaction, action);
-
-  /// Records per-author progress in [spaceId], rejecting an HLC not tagged with
-  /// [otherNodeId].
-  ///
-  /// Replaces mis-tagged stored progress; correctly tagged progress only advances.
-  Future<void> recordSyncCheckpoint(
-    UuidValue spaceId,
-    UuidValue otherNodeId,
-    Hlc syncedHlc,
-  ) async {
-    if (syncedHlc.nodeId != otherNodeId) {
-      throw ArgumentError.value(
-        syncedHlc,
-        'syncedHlc',
-        'A per-author checkpoint must carry otherNodeId',
-      );
-    }
-
-    final space = await _context.spaceManager.getOrCreate(spaceId);
-    await _db.transaction((transaction) async {
-      final node = await _context.findOrCreateNode(otherNodeId, transaction);
-      final spaceNode = await _context.findOrCreateSpaceNode(
-        space.id!,
-        node.id!,
-        transaction,
-      );
-
-      final currentSyncHlc = spaceNode.lastReceivedHlc;
-      if (currentSyncHlc != null &&
-          currentSyncHlc.nodeId == otherNodeId &&
-          currentSyncHlc >= syncedHlc) {
-        return;
-      }
-
-      await OfflineSyncSpaceNode.db.updateRow(
-        _session,
-        spaceNode.copyWith(lastReceivedHlc: syncedHlc),
-        columns: (t) => [t.lastReceivedHlc],
-        transaction: transaction,
-      );
-    });
-  }
 
   /// Recomputes FK/unique projection for currently stored rows.
   ///
@@ -1067,7 +1032,10 @@ class CrdtMutationRecorder {
 
       await CrdtDataRow.db.insert(
         _session,
-        [for (final rowId in rowIds) _newCrdtDataRow(tableId, rowId, hlcManager)],
+        [
+          for (final rowId in rowIds)
+            _newCrdtDataRow(tableId, rowId, hlcManager, transaction),
+        ],
         transaction: transaction,
         ignoreConflicts: true,
       );
@@ -1340,10 +1308,12 @@ class CrdtMutationRecorder {
     int tableId,
     UuidValue rowId,
     HlcManager hlcManager,
+    Transaction transaction,
   ) {
     final hlc = hlcManager.increment();
 
     return CrdtDataRow(
+      syncRevision: _context.revisionFor(transaction),
       spaceId: hlcManager.normalizedSpaceId,
       tblId: tableId,
       uuidRowId: rowId,
@@ -1362,8 +1332,14 @@ class CrdtMutationRecorder {
 
     return CrdtDataRow.db.update(
       _session,
-      [for (final row in rows) _context.withNextHlc(row, hlcManager)],
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+      [for (final row in rows) _context.withNextHlc(row, hlcManager, transaction)],
+      columns: (t) => [
+        t.nodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        t.syncRevision,
+        t.sourcePeerId,
+      ],
       transaction: transaction,
     );
   }

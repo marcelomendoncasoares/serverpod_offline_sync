@@ -13,7 +13,10 @@ import 'sync_topology.dart';
 class FramedSyncPeer {
   final inbound = StreamController<OfflineSyncStreamEvent>();
   final outbound = <CrdtMergeChange>[];
+  final events = <OfflineSyncStreamEvent>[];
+  final _events = StreamController<OfflineSyncStreamEvent>.broadcast();
   final stages = <String>[];
+  final spaces = <UuidValue>{};
   int idlePolls = 0;
   int nextBatchId = 1;
   final _rowWaiters = <UuidValue, Completer<void>>{};
@@ -23,6 +26,18 @@ class FramedSyncPeer {
   int _passes = 0;
   bool _closed = false;
 
+  Future<T> waitForEvent<T extends OfflineSyncStreamEvent>() async {
+    for (final event in events) {
+      if (event is T) return event;
+    }
+    return await _events.stream
+            .firstWhere((event) => event is T)
+            .timeout(
+              const Duration(seconds: 10),
+            )
+        as T;
+  }
+
   Future<void> waitForRow(UuidValue id) async {
     if (outbound.any((change) => change.uuidRowId == id)) return;
     await (_rowWaiters[id] ??= Completer<void>()).future.timeout(
@@ -30,13 +45,18 @@ class FramedSyncPeer {
     );
   }
 
-  static Future<FramedSyncPeer> open(SyncNode node, {UuidValue? userId}) async {
+  static Future<FramedSyncPeer> open(
+    SyncNode node, {
+    UuidValue? userId,
+    void Function(Map<String, Object?>)? onDiagnostic,
+  }) async {
     final actingUser = userId ?? testCrdtUserId;
     final peer = FramedSyncPeer();
     final handshakes = <UuidValue>{};
     addTearDown(peer.close);
     OfflineSyncDiagnostics.run(
       (event) {
+        onDiagnostic?.call(event);
         if (event['name'] == 'sync.idlePoll') peer.idlePolls++;
         if (event['name'] == 'sync.outboundCapture' && event['kind'] == 'start') {
           peer.stages.add('outbound.capture');
@@ -55,6 +75,8 @@ class FramedSyncPeer {
           )
           .listen(
             (event) {
+              peer.events.add(event);
+              peer._events.add(event);
               if (event is OfflineSyncConnect) {
                 peer.inbound.add(
                   OfflineSyncConnect(
@@ -63,10 +85,11 @@ class FramedSyncPeer {
                     spaces: const [],
                   ),
                 );
-              } else if (event is OfflineSyncSinceHlc) {
+              } else if (event is OfflineSyncSinceRevision) {
                 if (handshakes.add(event.uuidSpaceId)) {
+                  peer.spaces.add(event.uuidSpaceId);
                   peer.inbound.add(
-                    OfflineSyncSinceHlc(
+                    OfflineSyncSinceRevision(
                       uuidSpaceId: event.uuidSpaceId,
                       nodeCheckpoints: [],
                     ),
@@ -104,21 +127,32 @@ class FramedSyncPeer {
             },
           ),
     );
-    await peer._waitForPass(1);
+    await peer.waitForPass(1);
     return peer;
   }
 
-  Future<void> _waitForPass(int pass) async {
+  Future<void> waitForPass(int pass) async {
     if (_passes >= pass) return;
     await (_waiting[pass] ??= Completer<void>()).future.timeout(
       const Duration(seconds: 10),
     );
   }
 
-  Future<void> endBatch() async {
+  Future<void> endBatch({List<OfflineSyncSpaceCheckpoint>? checkpoints}) async {
     final id = nextBatchId++;
     final acknowledged = _acknowledged[id] = Completer<void>();
-    inbound.add(OfflineSyncEndOfBatch(batchId: id, finalForOnce: false));
+    inbound.add(
+      OfflineSyncEndOfBatch(
+        batchId: id,
+        finalForOnce: false,
+        checkpoints:
+            checkpoints ??
+            [
+              for (final space in spaces)
+                OfflineSyncSpaceCheckpoint(uuidSpaceId: space, revision: id),
+            ],
+      ),
+    );
     await acknowledged.future.timeout(const Duration(seconds: 10));
   }
 
@@ -127,7 +161,7 @@ class FramedSyncPeer {
     outbound.clear();
     inbound.add(OfflineSyncMergeChunk(batchId: nextBatchId, changes: changes));
     await endBatch();
-    await _waitForPass(nextPass);
+    await waitForPass(nextPass);
     return List.of(outbound);
   }
 
@@ -137,5 +171,6 @@ class FramedSyncPeer {
     if (!_done.isCompleted) inbound.add(OfflineSyncClose());
     await _done.future.timeout(const Duration(seconds: 10));
     unawaited(inbound.close());
+    unawaited(_events.close());
   }
 }

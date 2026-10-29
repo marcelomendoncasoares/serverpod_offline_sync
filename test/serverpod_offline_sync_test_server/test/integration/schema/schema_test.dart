@@ -1289,6 +1289,7 @@ Future<CrdtDataField> _insertFieldMetadata({
   return CrdtDataField.db.insertRow(
     session,
     CrdtDataField(
+      spaceId: row.spaceId,
       rowId: row.id!,
       columnId: column.id!,
       nodeId: node.id!,

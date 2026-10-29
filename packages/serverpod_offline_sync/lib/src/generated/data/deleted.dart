@@ -27,18 +27,26 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
     this.id,
     required super.hlcDatetime,
     required super.hlcCounter,
+    required this.spaceId,
+    int? syncRevision,
+    this.sourcePeerId,
+    this.sourcePeer,
     this.row,
     required this.rowId,
     required this.nodeId,
     this.node,
     required this.clFlag,
     required this.reason,
-  });
+  }) : syncRevision = syncRevision ?? 0;
 
   factory CrdtDataDeleted({
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
+    required int spaceId,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer,
     _icw2tu00.CrdtDataRow? row,
     required int rowId,
     required int nodeId,
@@ -54,6 +62,14 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
+      spaceId: jsonSerialization['spaceId'] as int,
+      syncRevision: jsonSerialization['syncRevision'] as int?,
+      sourcePeerId: jsonSerialization['sourcePeerId'] as int?,
+      sourcePeer: jsonSerialization['sourcePeer'] == null
+          ? null
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.OfflineSyncPeer>(
+              jsonSerialization['sourcePeer'],
+            ),
       row: jsonSerialization['row'] == null
           ? null
           : _icw2tu00.Protocol().deserialize<_icw2tu00.CrdtDataRow>(
@@ -79,6 +95,17 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
 
   @override
   int? id;
+
+  /// Owning space, copied from the immutable row identity for indexed capture.
+  int spaceId;
+
+  /// Local revision of this authored visibility fact, independent of its HLC.
+  int syncRevision;
+
+  int? sourcePeerId;
+
+  /// Authenticated immediate peer that supplied this fact.
+  _icw2tu00.OfflineSyncPeer? sourcePeer;
 
   /// Row whose visibility is tracked.
   _icw2tu00.CrdtDataRow? row;
@@ -107,6 +134,11 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
+    int? spaceId,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer =
+        const _UndefinedCrdtDataDeleted$sourcePeer(),
     _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataDeleted$row(),
     int? rowId,
     int? nodeId,
@@ -121,6 +153,10 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
+      'spaceId': spaceId,
+      'syncRevision': syncRevision,
+      if (sourcePeerId != null) 'sourcePeerId': sourcePeerId,
+      if (sourcePeer != null) 'sourcePeer': sourcePeer?.toJson(),
       if (row != null) 'row': row?.toJson(),
       'rowId': rowId,
       'nodeId': nodeId,
@@ -137,6 +173,10 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
+      'spaceId': spaceId,
+      'syncRevision': syncRevision,
+      if (sourcePeerId != null) 'sourcePeerId': sourcePeerId,
+      if (sourcePeer != null) 'sourcePeer': sourcePeer?.toJsonForProtocol(),
       if (row != null) 'row': row?.toJsonForProtocol(),
       'rowId': rowId,
       'nodeId': nodeId,
@@ -147,10 +187,12 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
   }
 
   static CrdtDataDeletedInclude include({
+    _icw2tu00.OfflineSyncPeerInclude? sourcePeer,
     _icw2tu00.CrdtDataRowInclude? row,
     _icw2tu00.CrdtNodeInclude? node,
   }) {
     return CrdtDataDeletedInclude._(
+      sourcePeer: sourcePeer,
       row: row,
       node: node,
     );
@@ -182,6 +224,11 @@ abstract class CrdtDataDeleted extends _icw2tu00.BaseHlc
 
 class _Undefined {}
 
+class _UndefinedCrdtDataDeleted$sourcePeer extends _iss.UndefinedSentinel
+    implements _icw2tu00.OfflineSyncPeer {
+  const _UndefinedCrdtDataDeleted$sourcePeer();
+}
+
 class _UndefinedCrdtDataDeleted$row extends _iss.UndefinedSentinel
     implements _icw2tu00.CrdtDataRow {
   const _UndefinedCrdtDataDeleted$row();
@@ -197,6 +244,10 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
+    required int spaceId,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer,
     _icw2tu00.CrdtDataRow? row,
     required int rowId,
     required int nodeId,
@@ -207,6 +258,10 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
          id: id,
          hlcDatetime: hlcDatetime,
          hlcCounter: hlcCounter,
+         spaceId: spaceId,
+         syncRevision: syncRevision,
+         sourcePeerId: sourcePeerId,
+         sourcePeer: sourcePeer,
          row: row,
          rowId: rowId,
          nodeId: nodeId,
@@ -223,6 +278,11 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
     Object? id = _Undefined,
     DateTime? hlcDatetime,
     int? hlcCounter,
+    int? spaceId,
+    int? syncRevision,
+    Object? sourcePeerId = _Undefined,
+    _icw2tu00.OfflineSyncPeer? sourcePeer =
+        const _UndefinedCrdtDataDeleted$sourcePeer(),
     _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataDeleted$row(),
     int? rowId,
     int? nodeId,
@@ -234,6 +294,12 @@ class _CrdtDataDeletedImpl extends CrdtDataDeleted {
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
+      spaceId: spaceId ?? this.spaceId,
+      syncRevision: syncRevision ?? this.syncRevision,
+      sourcePeerId: sourcePeerId is int? ? sourcePeerId : this.sourcePeerId,
+      sourcePeer: sourcePeer is _iss.UndefinedSentinel
+          ? this.sourcePeer?.copyWith()
+          : sourcePeer,
       row: row is _iss.UndefinedSentinel ? this.row?.copyWith() : row,
       rowId: rowId ?? this.rowId,
       nodeId: nodeId ?? this.nodeId,
@@ -256,6 +322,21 @@ class CrdtDataDeletedUpdateTable
 
   _isd.ColumnValue<int, int> hlcCounter(int value) => _isd.ColumnValue(
     table.hlcCounter,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> spaceId(int value) => _isd.ColumnValue(
+    table.spaceId,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> syncRevision(int value) => _isd.ColumnValue(
+    table.syncRevision,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> sourcePeerId(int? value) => _isd.ColumnValue(
+    table.sourcePeerId,
     value,
   );
 
@@ -296,6 +377,19 @@ class CrdtDataDeletedTable extends _isd.Table<int?> {
       'hlcCounter',
       this,
     );
+    spaceId = _isd.ColumnInt(
+      'spaceId',
+      this,
+    );
+    syncRevision = _isd.ColumnInt(
+      'syncRevision',
+      this,
+      hasDefault: true,
+    );
+    sourcePeerId = _isd.ColumnInt(
+      'sourcePeerId',
+      this,
+    );
     rowId = _isd.ColumnInt(
       'rowId',
       this,
@@ -323,6 +417,17 @@ class CrdtDataDeletedTable extends _isd.Table<int?> {
   /// The counter component of the HLC timestamp.
   late final _isd.ColumnInt hlcCounter;
 
+  /// Owning space, copied from the immutable row identity for indexed capture.
+  late final _isd.ColumnInt spaceId;
+
+  /// Local revision of this authored visibility fact, independent of its HLC.
+  late final _isd.ColumnInt syncRevision;
+
+  late final _isd.ColumnInt sourcePeerId;
+
+  /// Authenticated immediate peer that supplied this fact.
+  _icw2tu00.OfflineSyncPeerTable? _sourcePeer;
+
   /// Row whose visibility is tracked.
   _icw2tu00.CrdtDataRowTable? _row;
 
@@ -338,6 +443,19 @@ class CrdtDataDeletedTable extends _isd.Table<int?> {
 
   /// Why the row entered its current visibility generation.
   late final _isd.ColumnEnum<_icw2tu00.CrdtDataDeletedReason> reason;
+
+  _icw2tu00.OfflineSyncPeerTable get sourcePeer {
+    if (_sourcePeer != null) return _sourcePeer!;
+    _sourcePeer = _isd.createRelationTable(
+      relationFieldName: 'sourcePeer',
+      field: CrdtDataDeleted.t.sourcePeerId,
+      foreignField: _icw2tu00.OfflineSyncPeer.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          _icw2tu00.OfflineSyncPeerTable(tableRelation: foreignTableRelation),
+    );
+    return _sourcePeer!;
+  }
 
   _icw2tu00.CrdtDataRowTable get row {
     if (_row != null) return _row!;
@@ -370,6 +488,9 @@ class CrdtDataDeletedTable extends _isd.Table<int?> {
     id,
     hlcDatetime,
     hlcCounter,
+    spaceId,
+    syncRevision,
+    sourcePeerId,
     rowId,
     nodeId,
     clFlag,
@@ -378,6 +499,9 @@ class CrdtDataDeletedTable extends _isd.Table<int?> {
 
   @override
   _isd.Table? getRelationTable(String relationField) {
+    if (relationField == 'sourcePeer') {
+      return sourcePeer;
+    }
     if (relationField == 'row') {
       return row;
     }
@@ -390,12 +514,16 @@ class CrdtDataDeletedTable extends _isd.Table<int?> {
 
 class CrdtDataDeletedInclude extends _isd.IncludeObject {
   CrdtDataDeletedInclude._({
+    _icw2tu00.OfflineSyncPeerInclude? sourcePeer,
     _icw2tu00.CrdtDataRowInclude? row,
     _icw2tu00.CrdtNodeInclude? node,
   }) {
+    _sourcePeer = sourcePeer;
     _row = row;
     _node = node;
   }
+
+  _icw2tu00.OfflineSyncPeerInclude? _sourcePeer;
 
   _icw2tu00.CrdtDataRowInclude? _row;
 
@@ -403,6 +531,7 @@ class CrdtDataDeletedInclude extends _isd.IncludeObject {
 
   @override
   Map<String, _isd.Include?> get includes => {
+    'sourcePeer': _sourcePeer,
     'row': _row,
     'node': _node,
   };
@@ -434,6 +563,8 @@ class CrdtDataDeletedRepository {
   const CrdtDataDeletedRepository._();
 
   final attachRow = const CrdtDataDeletedAttachRowRepository._();
+
+  final detachRow = const CrdtDataDeletedDetachRowRepository._();
 
   /// Returns a list of [CrdtDataDeleted]s matching the given query parameters.
   ///
@@ -903,6 +1034,31 @@ class CrdtDataDeletedRepository {
 class CrdtDataDeletedAttachRowRepository {
   const CrdtDataDeletedAttachRowRepository._();
 
+  /// Creates a relation between the given [CrdtDataDeleted] and [OfflineSyncPeer]
+  /// by setting the [CrdtDataDeleted]'s foreign key `sourcePeerId` to refer to the [OfflineSyncPeer].
+  Future<void> sourcePeer(
+    _isd.DatabaseSession session,
+    CrdtDataDeleted crdtDataDeleted,
+    _icw2tu00.OfflineSyncPeer sourcePeer, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (crdtDataDeleted.id == null) {
+      throw ArgumentError.notNull('crdtDataDeleted.id');
+    }
+    if (sourcePeer.id == null) {
+      throw ArgumentError.notNull('sourcePeer.id');
+    }
+
+    var $crdtDataDeleted = crdtDataDeleted.copyWith(
+      sourcePeerId: sourcePeer.id,
+    );
+    await session.db.updateRow<CrdtDataDeleted>(
+      $crdtDataDeleted,
+      columns: [CrdtDataDeleted.t.sourcePeerId],
+      transaction: transaction,
+    );
+  }
+
   /// Creates a relation between the given [CrdtDataDeleted] and [CrdtDataRow]
   /// by setting the [CrdtDataDeleted]'s foreign key `rowId` to refer to the [CrdtDataRow].
   Future<void> row(
@@ -945,6 +1101,32 @@ class CrdtDataDeletedAttachRowRepository {
     await session.db.updateRow<CrdtDataDeleted>(
       $crdtDataDeleted,
       columns: [CrdtDataDeleted.t.nodeId],
+      transaction: transaction,
+    );
+  }
+}
+
+class CrdtDataDeletedDetachRowRepository {
+  const CrdtDataDeletedDetachRowRepository._();
+
+  /// Detaches the relation between this [CrdtDataDeleted] and the [OfflineSyncPeer] set in `sourcePeer`
+  /// by setting the [CrdtDataDeleted]'s foreign key `sourcePeerId` to `null`.
+  ///
+  /// This removes the association between the two models without deleting
+  /// the related record.
+  Future<void> sourcePeer(
+    _isd.DatabaseSession session,
+    CrdtDataDeleted crdtDataDeleted, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (crdtDataDeleted.id == null) {
+      throw ArgumentError.notNull('crdtDataDeleted.id');
+    }
+
+    var $crdtDataDeleted = crdtDataDeleted.copyWith(sourcePeerId: null);
+    await session.db.updateRow<CrdtDataDeleted>(
+      $crdtDataDeleted,
+      columns: [CrdtDataDeleted.t.sourcePeerId],
       transaction: transaction,
     );
   }

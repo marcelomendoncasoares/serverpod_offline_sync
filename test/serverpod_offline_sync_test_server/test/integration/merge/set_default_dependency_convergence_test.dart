@@ -2924,7 +2924,7 @@ Future<SyncNode> _node() async => syncNode(
 Future<CrdtMergeSet> _collect(SyncNode node) => node.sync
     .collectPendingChanges(
       node.raw,
-      checkpointsBySpaceUuid: {testCrdtUserId: const []},
+      checkpointsBySpaceUuid: {testCrdtUserId: 0},
     )
     .toList();
 

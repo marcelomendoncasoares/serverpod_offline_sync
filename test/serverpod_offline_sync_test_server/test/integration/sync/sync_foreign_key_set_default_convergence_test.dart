@@ -154,7 +154,7 @@ void main() {
       final changes = await from.sync
           .collectPendingChanges(
             from.raw,
-            checkpointsBySpaceUuid: {space: const []},
+            checkpointsBySpaceUuid: {space: 0},
           )
           .toList();
       await to.offlineSync.db.mergeChanges(changes, userId: space);

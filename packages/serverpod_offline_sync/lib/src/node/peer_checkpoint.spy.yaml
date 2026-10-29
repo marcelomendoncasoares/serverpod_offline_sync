@@ -1,0 +1,12 @@
+### A committed prefix of one immediate peer's local delivery revision.
+class: OfflineSyncPeerCheckpoint
+table: offline_sync_peer_checkpoints
+database: all
+fields:
+  space: OfflineSyncSpace?, relation(onDelete=Cascade)
+  peer: OfflineSyncPeer?, relation(onDelete=Cascade)
+  revision: int
+indexes:
+  offline_sync_peer_checkpoint_identity_idx:
+    fields: spaceId, peerId
+    unique: true

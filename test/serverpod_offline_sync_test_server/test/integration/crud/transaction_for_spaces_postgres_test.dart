@@ -390,7 +390,9 @@ void main() {
                       .collectPendingChanges(
                         raw,
                         checkpointsBySpaceUuid: {
-                          user: [outerClock],
+                          user: records
+                              .singleWhere((row) => row.uuidRowId == outerRow.id)
+                              .syncRevision,
                         },
                       )
                       .toList();
@@ -502,7 +504,9 @@ void main() {
                       .collectPendingChanges(
                         raw,
                         checkpointsBySpaceUuid: {
-                          user: [outerClock],
+                          user: records
+                              .singleWhere((row) => row.uuidRowId == outerRow.id)
+                              .syncRevision,
                         },
                       )
                       .toList();

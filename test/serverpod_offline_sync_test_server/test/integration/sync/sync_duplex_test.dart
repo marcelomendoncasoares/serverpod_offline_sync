@@ -205,7 +205,7 @@ void main() {
       late CrdtMergeInsert downloaded;
       late List<(UuidValue, Hlc)> reports;
       late List<Unique?> callbackRows;
-      late List<Hlc> callbackCheckpoints;
+      late List<int> callbackCheckpoints;
 
       setUpAll(() async {
         final node = await syncNode(
@@ -222,14 +222,17 @@ void main() {
           onMergeSuccess: (spaceId, hlc) async {
             reports.add((spaceId, hlc));
             callbackRows.add(await Unique.db.findById(node.raw, downloaded.uuidRowId));
-            final cursor = await node.sync.createSyncSinceHlc(
+            final cursor = await node.sync.createSyncSinceRevision(
               node.raw,
+              userId: testCrdtUserId,
               spaceId: spaceId,
             );
             callbackCheckpoints.addAll(
-              cursor.nodeCheckpoints.where(
-                (hlc) => hlc.nodeId == downloaded.uuidNodeId,
-              ),
+              cursor.nodeCheckpoints
+                  .where(
+                    (checkpoint) => checkpoint.uuidNodeId == peer.hello.localNodeId,
+                  )
+                  .map((checkpoint) => checkpoint.revision),
             );
           },
         );
@@ -241,7 +244,7 @@ void main() {
           late List<(UuidValue, Hlc)> emptyBatchReports;
 
           setUpAll(() async {
-            peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+            peer.send(_boundary(batchId: 1, finalForOnce: false));
             await peer.waitFor<OfflineSyncCommitted>(
               where: (event) => event.batchId == 1,
             );
@@ -249,7 +252,7 @@ void main() {
 
             peer
               ..send(OfflineSyncMergeChunk(batchId: 2, changes: [downloaded]))
-              ..send(OfflineSyncEndOfBatch(batchId: 2, finalForOnce: false));
+              ..send(_boundary(batchId: 2, finalForOnce: false));
 
             // Committed follows the awaited callback, including when the callback
             // was incorrectly skipped. This exposes a missing report directly.
@@ -271,7 +274,7 @@ void main() {
             'then the callback can already read the committed row and progress.',
             () {
               expect(callbackRows.map((row) => row?.name), ['first server row']);
-              expect(callbackCheckpoints, [downloaded.hlc]);
+              expect(callbackCheckpoints, [2]);
             },
           );
         },
@@ -291,7 +294,7 @@ void main() {
 
       expect(events, hasLength(3));
       expect(events.first, isA<OfflineSyncConnect>());
-      expect(events[1], isA<OfflineSyncSinceHlc>());
+      expect(events[1], isA<OfflineSyncSinceRevision>());
       expect(events.last, isA<OfflineSyncReady>());
     },
   );
@@ -303,7 +306,7 @@ void main() {
     () async {
       final peer = await _Peer.start();
 
-      peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+      peer.send(_boundary(batchId: 1, finalForOnce: false));
       final error = await peer.done.future;
 
       expect(error, isA<OfflineSyncUnexpectedEventException>());
@@ -326,7 +329,9 @@ void main() {
       final connect = await peer.waitFor<OfflineSyncConnect>();
       peer
         ..send(connect)
-        ..send(OfflineSyncSinceHlc(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []));
+        ..send(
+          OfflineSyncSinceRevision(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []),
+        );
       await initialized.future.timeout(const Duration(seconds: 5));
       final before = List.of(peer.events);
 
@@ -351,7 +356,9 @@ void main() {
 
       peer
         ..send(connect)
-        ..send(OfflineSyncSinceHlc(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []));
+        ..send(
+          OfflineSyncSinceRevision(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []),
+        );
       await peer.waitFor<OfflineSyncReady>();
       final events = List.of(peer.events);
 
@@ -386,19 +393,23 @@ void main() {
 
       peer
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [downloaded]))
-        ..send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: true));
+        ..send(_boundary(batchId: 1, finalForOnce: true));
       final error = await peer.done.future.timeout(const Duration(seconds: 5));
       final row = await Unique.db.findById(peer.node.raw, downloaded.uuidRowId);
-      final cursor = await peer.node.sync.createSyncSinceHlc(
+      final cursor = await peer.node.sync.createSyncSinceRevision(
         peer.node.raw,
+        userId: testCrdtUserId,
         spaceId: testCrdtUserId,
       );
 
       expect(error, isNull);
       expect(row?.name, 'final download');
       expect(
-        cursor.nodeCheckpoints.where((h) => h.nodeId == downloaded.uuidNodeId).single,
-        downloaded.hlc,
+        cursor.nodeCheckpoints
+            .where((c) => c.uuidNodeId == peer.hello.localNodeId)
+            .single
+            .revision,
+        1,
       );
       expect(peer.events.whereType<OfflineSyncCommitted>().single.batchId, 1);
       expect(peer.input.isClosed, isFalse);
@@ -430,7 +441,7 @@ void main() {
       late List<CrdtMergeChange> changes;
 
       setUpAll(() async {
-        peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: true));
+        peer.send(_boundary(batchId: 1, finalForOnce: true));
         await peer.waitFor<OfflineSyncCommitted>();
         gate.release.complete();
         error = await peer.done.future.timeout(const Duration(seconds: 5));
@@ -500,13 +511,13 @@ void main() {
       final upload = _insert('uploaded row');
       peer
         ..send(
-          OfflineSyncSinceHlc(
+          OfflineSyncSinceRevision(
             uuidSpaceId: testCrdtUserId,
-            nodeCheckpoints: [upload.hlc],
+            nodeCheckpoints: [],
           ),
         )
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [upload]))
-        ..send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: true));
+        ..send(_boundary(batchId: 1, finalForOnce: true));
       await mergeEntered.future.timeout(const Duration(seconds: 5));
     });
 
@@ -610,18 +621,22 @@ void main() {
       peer
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [first]))
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [second]))
-        ..send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+        ..send(_boundary(batchId: 1, finalForOnce: false));
       await peer.waitFor<OfflineSyncCommitted>();
       final rows = await Unique.db.find(peer.node.raw);
-      final cursor = await peer.node.sync.createSyncSinceHlc(
+      final cursor = await peer.node.sync.createSyncSinceRevision(
         peer.node.raw,
+        userId: testCrdtUserId,
         spaceId: testCrdtUserId,
       );
 
       expect(rows.map((r) => r.name), unorderedEquals(['first', 'second']));
       expect(
-        cursor.nodeCheckpoints.where((h) => h.nodeId == first.uuidNodeId).single,
-        second.hlc,
+        cursor.nodeCheckpoints
+            .where((c) => c.uuidNodeId == peer.hello.localNodeId)
+            .single
+            .revision,
+        1,
       );
     },
   );
@@ -633,7 +648,7 @@ void main() {
     () async {
       final peer = await _Peer.open();
 
-      peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+      peer.send(_boundary(batchId: 1, finalForOnce: false));
       final ack = await peer.waitFor<OfflineSyncCommitted>();
       final rows = await Unique.db.find(peer.node.raw);
 
@@ -649,7 +664,7 @@ void main() {
     () async {
       final peer = await _Peer.open();
 
-      peer.send(OfflineSyncEndOfBatch(batchId: 2, finalForOnce: false));
+      peer.send(_boundary(batchId: 2, finalForOnce: false));
       final error = await peer.done.future;
       final nodes = await OfflineSyncSpaceNode.db.find(peer.node.raw);
 
@@ -724,7 +739,7 @@ void main() {
       setUpAll(() async {
         peer
           ..send(OfflineSyncMergeChunk(batchId: 1, changes: [insertion]))
-          ..send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: true));
+          ..send(_boundary(batchId: 1, finalForOnce: true));
         await peer.waitFor<OfflineSyncCommitted>();
         final boundary = await peer.waitFor<OfflineSyncEndOfBatch>(
           where: (event) => event.finalForOnce,
@@ -767,14 +782,15 @@ void main() {
 
       peer
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [insertion]))
-        ..send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: true));
+        ..send(_boundary(batchId: 1, finalForOnce: true));
       await peer.waitFor<OfflineSyncCommitted>();
       await peer.waitFor<OfflineSyncEndOfBatch>(where: (e) => e.finalForOnce);
       unawaited(peer.input.close());
       final error = await peer.done.future;
       final row = await Unique.db.findById(peer.node.raw, insertion.uuidRowId);
-      final cursor = await peer.node.sync.createSyncSinceHlc(
+      final cursor = await peer.node.sync.createSyncSinceRevision(
         peer.node.raw,
+        userId: testCrdtUserId,
         spaceId: testCrdtUserId,
       );
 
@@ -784,8 +800,11 @@ void main() {
         insertion.data is Unique ? (insertion.data as Unique).name : null,
       );
       expect(
-        cursor.nodeCheckpoints.where((h) => h.nodeId == insertion.uuidNodeId).single,
-        insertion.hlc,
+        cursor.nodeCheckpoints
+            .where((c) => c.uuidNodeId == peer.hello.localNodeId)
+            .single
+            .revision,
+        1,
       );
     },
   );
@@ -811,7 +830,7 @@ void main() {
     () async {
       final peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
       await peer.waitFor<OfflineSyncEndOfBatch>();
-      peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: true));
+      peer.send(_boundary(batchId: 1, finalForOnce: true));
       await peer.waitFor<OfflineSyncCommitted>();
       final completedWithoutUploadAck = peer.done.isCompleted;
 
@@ -834,11 +853,11 @@ void main() {
       await peer.node.offlineSync.db.mergeChanges([first], userId: testCrdtUserId);
       // This node deliberately uses a separate recorder context. An inbound
       // batch requests a capture without a wall-clock polling barrier.
-      peer.send(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+      peer.send(_boundary(batchId: 1, finalForOnce: false));
       final firstBatch = await peer.waitFor<OfflineSyncEndOfBatch>();
       await peer.node.offlineSync.db.mergeChanges([second], userId: testCrdtUserId);
 
-      peer.send(OfflineSyncEndOfBatch(batchId: 2, finalForOnce: false));
+      peer.send(_boundary(batchId: 2, finalForOnce: false));
       await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 2);
       final batchesBeforeAck = peer.events.whereType<OfflineSyncEndOfBatch>().length;
       peer.send(OfflineSyncCommitted(batchId: firstBatch.batchId));
@@ -853,6 +872,119 @@ void main() {
 
       expect(batchesBeforeAck, 1);
       expect(rows.map((c) => c.uuidRowId), [second.uuidRowId]);
+    },
+  );
+  group('Given a receiver that committed a newer author fact,', () {
+    late _Peer peer;
+    late CrdtMergeInsert newer;
+    late CrdtMergeInsert older;
+    late List<Hlc> reports;
+
+    setUpAll(() async {
+      reports = [];
+      peer = await _Peer.open(onMergeSuccess: (_, hlc) => reports.add(hlc));
+      older = _insert('late older');
+      newer = _insert('already committed').copyWith(
+        uuidNodeId: older.uuidNodeId,
+        hlcDatetime: older.hlcDatetime.add(const Duration(seconds: 1)),
+      );
+      peer
+        ..send(OfflineSyncMergeChunk(batchId: 1, changes: [newer]))
+        ..send(_boundary(batchId: 1, finalForOnce: false));
+      await peer.waitFor<OfflineSyncCommitted>();
+    });
+
+    group('when an older fact arrives later from that author,', () {
+      late List<String> names;
+
+      setUpAll(() async {
+        peer
+          ..send(OfflineSyncMergeChunk(batchId: 2, changes: [older]))
+          ..send(_boundary(batchId: 2, finalForOnce: false));
+        await peer.waitFor<OfflineSyncCommitted>(where: (event) => event.batchId == 2);
+        await peer.subscription.cancel();
+        names = (await Unique.db.find(peer.node.raw)).map((row) => row.name).toList();
+      });
+
+      test(
+        'then both facts commit while the reported committed clock stays monotonic.',
+        () {
+          expect(names, unorderedEquals(['already committed', 'late older']));
+          expect(reports, [newer.hlc, newer.hlc]);
+        },
+      );
+    });
+  });
+
+  group(
+    'Given a batch whose data committed before its acknowledgement could be sent,',
+    () {
+      late _Peer peer;
+      late Completer<void> release;
+      late CrdtMergeInsert inserted;
+      late Future<void> cancelling;
+
+      setUpAll(() async {
+        final entered = Completer<void>();
+        release = Completer<void>();
+        peer = await _Peer.open(
+          onMergeSuccess: (_, _) async {
+            entered.complete();
+            await release.future;
+          },
+        );
+        inserted = _insert('committed with lost acknowledgement');
+        peer
+          ..send(OfflineSyncMergeChunk(batchId: 1, changes: [inserted]))
+          ..send(_boundary(batchId: 1, finalForOnce: false));
+        await entered.future.timeout(const Duration(seconds: 5));
+        cancelling = peer.subscription.cancel();
+        release.complete();
+        await cancelling;
+      });
+
+      group('when the same replica reconnects and reads its durable receipt,', () {
+        late OfflineSyncSinceRevision receipt;
+        late List<CrdtMergeChange> returned;
+        late String? name;
+
+        setUpAll(() async {
+          final reconnect = await _Peer.start(node: peer.node);
+          receipt = await reconnect.waitFor<OfflineSyncSinceRevision>();
+          reconnect
+            ..send(peer.hello)
+            ..send(
+              OfflineSyncSinceRevision(
+                uuidSpaceId: testCrdtUserId,
+                nodeCheckpoints: [],
+              ),
+            )
+            ..send(OfflineSyncReady());
+          final identity = await peer.node.sync.resolvePeer(
+            peer.node.raw,
+            testCrdtUserId,
+            peer.hello.localNodeId,
+          );
+          returned = (await peer.node.sync.captureChanges(
+            peer.node.raw,
+            checkpointsBySpaceUuid: {testCrdtUserId: 0},
+            peerId: identity.id,
+          )).changes;
+          name = (await Unique.db.findById(peer.node.raw, inserted.uuidRowId))?.name;
+          await reconnect.subscription.cancel();
+        });
+
+        test(
+          'then the receipt and data survive without an acknowledgement or echo cache.',
+          () {
+            expect(peer.events.whereType<OfflineSyncCommitted>(), isEmpty);
+            expect(name, 'committed with lost acknowledgement');
+            expect(receipt.nodeCheckpoints.single.uuidNodeId, peer.hello.localNodeId);
+            expect(receipt.nodeCheckpoints.single.revision, 1);
+            expect(returned, isEmpty);
+          },
+        );
+      });
     },
   );
 }
@@ -937,7 +1069,7 @@ class _Peer {
       ],
     );
     send(hello);
-    send(OfflineSyncSinceHlc(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []));
+    send(OfflineSyncSinceRevision(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []));
     send(OfflineSyncReady());
     await waitFor<OfflineSyncReady>();
   }
@@ -1003,7 +1135,7 @@ class _HoldCursorDatabase extends OfflineSyncDatabase {
       lockMode: lockMode,
       lockBehavior: lockBehavior,
     );
-    if (T == OfflineSyncSpaceNode && holdNextCursor) {
+    if (T == OfflineSyncPeerCheckpoint && holdNextCursor) {
       holdNextCursor = false;
       entered.complete();
       await release.future;
@@ -1053,3 +1185,12 @@ class _HoldMembershipDatabase extends OfflineSyncDatabase {
     return rows;
   }
 }
+
+OfflineSyncEndOfBatch _boundary({required int batchId, required bool finalForOnce}) =>
+    OfflineSyncEndOfBatch(
+      batchId: batchId,
+      finalForOnce: finalForOnce,
+      checkpoints: [
+        OfflineSyncSpaceCheckpoint(uuidSpaceId: testCrdtUserId, revision: batchId),
+      ],
+    );

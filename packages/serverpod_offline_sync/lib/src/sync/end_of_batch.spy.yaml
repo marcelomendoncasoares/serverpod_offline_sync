@@ -3,5 +3,7 @@ class: OfflineSyncEndOfBatch
 extends: OfflineSyncStreamEvent
 fields:
   batchId: int
+  ### Complete per-space capture bounds in the sending replica's revision order.
+  checkpoints: List<OfflineSyncSpaceCheckpoint>
   ### Selects the finite upload or download boundary for syncOnce.
   finalForOnce: bool

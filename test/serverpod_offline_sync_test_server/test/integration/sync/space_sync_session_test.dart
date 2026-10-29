@@ -197,6 +197,7 @@ void main() {
           ]);
 
           follower
+            ..localNodeId = remoteNodeUuid
             ..recordPeerHandshake(
               userUuid,
               _since(userUuid, _hlc(remoteNodeUuid, minute: 1)),
@@ -222,8 +223,8 @@ void main() {
       );
 
       test(
-        'when a sent change advances a completed handshake, '
-        'then the tracked checkpoint moves to the change HLC.',
+        'when an acknowledged complete capture advances a completed handshake, '
+        'then its revision advances independently of the reported fact clock.',
         () async {
           final userUuid = _uuid(37);
           final localNodeUuid = _uuid(47);
@@ -238,10 +239,12 @@ void main() {
           final spaceUuid = await session.offlineSync.spaces.createFor(userUuid);
 
           await authoritative.reconcile();
-          authoritative.recordPeerHandshake(
-            spaceUuid,
-            _since(spaceUuid, _hlc(remoteNodeUuid, minute: 6)),
-          );
+          authoritative
+            ..localNodeId = localNodeUuid
+            ..recordPeerHandshake(
+              spaceUuid,
+              _since(spaceUuid, _hlc(remoteNodeUuid, minute: 6)),
+            );
 
           final change = CrdtMergeInsert(
             uuidSpaceId: spaceUuid,
@@ -253,10 +256,13 @@ void main() {
             data: CrdtNode(uuidNodeId: _uuid(67)),
           );
 
-          authoritative.advanceCheckpoint(spaceUuid, change);
+          authoritative
+            ..advanceCheckpoint(spaceUuid, 7)
+            ..recordReportedHlc(spaceUuid, change.hlc);
+          expect(authoritative.sendableCheckpoints[spaceUuid], 7);
 
           expect(
-            authoritative.checkpointMaxOf(spaceUuid),
+            authoritative.reportedHlcOf(spaceUuid),
             Hlc(DateTime.utc(2026, 7, 2, 12, 7), 1, localNodeUuid),
           );
         },
@@ -286,6 +292,7 @@ void main() {
           expect(follower.markHandshakeSent(revokedSpaceUuid), isFalse);
 
           follower
+            ..localNodeId = remoteNodeUuid
             ..recordPeerHandshake(
               retainedSpaceUuid,
               _since(retainedSpaceUuid, _hlc(remoteNodeUuid, minute: 4)),
@@ -300,7 +307,7 @@ void main() {
           expect(follower.accepts(retainedSpaceUuid), isTrue);
           expect(follower.accepts(revokedSpaceUuid), isFalse);
           expect(follower.sendableCheckpoints.keys, [retainedSpaceUuid]);
-          expect(follower.checkpointMaxOf(revokedSpaceUuid), isNull);
+          expect(follower.reportedHlcOf(revokedSpaceUuid), isNull);
 
           await follower.adoptPeerGrants([
             _grant(retainedSpaceUuid),
@@ -354,8 +361,16 @@ OfflineSyncSpaceGrant _grant(
   OfflineSyncSpaceRole role = OfflineSyncSpaceRole.readWrite,
 }) => OfflineSyncSpaceGrant(uuidSpaceId: spaceUuid, role: role);
 
-OfflineSyncSinceHlc _since(UuidValue spaceUuid, Hlc checkpoint) =>
-    OfflineSyncSinceHlc(uuidSpaceId: spaceUuid, nodeCheckpoints: [checkpoint]);
+OfflineSyncSinceRevision _since(UuidValue spaceUuid, Hlc checkpoint) =>
+    OfflineSyncSinceRevision(
+      uuidSpaceId: spaceUuid,
+      nodeCheckpoints: [
+        OfflineSyncNodeCheckpoint(
+          uuidNodeId: checkpoint.nodeId,
+          revision: checkpoint.datetime.minute,
+        ),
+      ],
+    );
 
 Hlc _hlc(UuidValue nodeUuid, {required int minute}) =>
     Hlc(DateTime.utc(2026, 7, 2, 12, minute), 0, nodeUuid);

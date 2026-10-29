@@ -95,7 +95,7 @@ void main() {
             final changes = await source.sync
                 .collectPendingChanges(
                   source.raw,
-                  checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                  checkpointsBySpaceUuid: {testCrdtUserId: 0},
                 )
                 .toList();
             final insert = changes.inserts.singleWhere(
@@ -255,7 +255,7 @@ void main() {
             final changes = await source.sync
                 .collectPendingChanges(
                   source.raw,
-                  checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                  checkpointsBySpaceUuid: {testCrdtUserId: 0},
                 )
                 .toList();
             final insert = changes.inserts.singleWhere(
