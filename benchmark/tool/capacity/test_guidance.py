@@ -1,9 +1,12 @@
 """Guard against turning failed or differently scheduled runs into capacity."""
 
 import copy
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from guidance import active_screens, boundary, build_sizing
+from guidance import active_screens, boundary, build_sizing, render
 
 
 def trial(label, devices, *, correct=True, observed=True, p95=500, client='current'):
@@ -89,6 +92,22 @@ class SizingEvidenceTest(unittest.TestCase):
         cell = next(r for r in value['idleConnections'] if r['size'] == 'medium')
         self.assertEqual(cell['largestSuccessfulTrial']['load']['connectedDevices'], 256)
         self.assertEqual([r['label'] for r in cell['unsuccessfulTrials']], ['interrupted'])
+
+    def test_sustained_linked_and_isolated_schema_results_are_visible(self):
+        for schema, workload in [('full', 'town-linked'), ('city', 'city')]:
+            with self.subTest(schema=schema, workload=workload), tempfile.TemporaryDirectory() as temporary:
+                result = trial('sustained', 16)
+                result['options'].update(schema=schema, workload=workload, rounds=150)
+                result['latency'].update(count=1200, minMs=100, medianMs=200, meanMs=250, maxMs=900)
+                report = Path(temporary)
+                (report / 'results.json').write_text(json.dumps([result]))
+                (report / 'manifest.json').write_text(json.dumps({'clientBuilds': [{'sha256': 'current'}]}))
+
+                render(report)
+
+                document = (report / 'SIZING.md').read_text()
+                self.assertIn(f'medium / {schema}/{workload} / 5-minute offered workload', document)
+                self.assertIn('| 16 / 16 | 1200 |', document)
 
 
 if __name__ == '__main__':

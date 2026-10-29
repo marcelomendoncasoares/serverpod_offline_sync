@@ -224,12 +224,12 @@ def render(report):
 
     lines += [
         '', '## Mixed connections and sustained controls', '',
-        'The controls below use one-row Person writes. They keep latency, correctness, '
+        'The controls below use one-row writes in the named schema profiles. They keep latency, correctness, '
         'offered-rate adherence, and observation completeness separate. An incomplete observation '
         'does not erase the client timings, but excludes the run from a matched speedup claim. '
         'A mixed-load pass can establish a connected-device count that a separate setup attempt '
         'failed to establish; inspect both rather than treating the first failure as a ceiling.', '',
-        '| Size / control | Connected / active devices | Rounds | Min | Median | Mean | p95 | Max | Correct / kept up / observed |',
+        '| Size / profile / control | Connected / active devices | Rounds | Min | Median | Mean | p95 | Max | Correct / kept up / observed |',
         '|---|---:|---:|---:|---:|---:|---:|---:|---|',
     ]
     for size in SIZES:
@@ -239,8 +239,7 @@ def render(report):
             if result['instanceSize'] != size or result.get('clientSha256') != sizing['screenClientSha256']:
                 continue
             if not all([
-                options.get('mode') == 'continuous', options.get('schema') == 'full',
-                options.get('workload') == 'person', options.get('rows') == 1,
+                options.get('mode') == 'continuous', options.get('rows') == 1,
                 options.get('write-mode') == 'insert', options.get('schedule') == 'spread',
                 options.get('period-ms') == 2000, load.get('activeUsers', 0) > 0,
             ]):
@@ -249,12 +248,14 @@ def render(report):
             sustained = options.get('rounds', 0) >= 150
             if not (mixed or sustained):
                 continue
-            label = 'mixed' if mixed else 'five-minute offered workload'
+            minutes = options['rounds'] * options['period-ms'] / 60000
+            label = 'mixed' if mixed else f'{minutes:g}-minute offered workload'
+            profile = options['schema'] + '/' + options['workload']
             latency = result.get('latency')
             values = [f'{latency[k]:.0f}' for k in ['minMs', 'medianMs', 'meanMs', 'p95Ms', 'maxMs']] if latency else ['—'] * 5
             verdict = ' / '.join(str(result.get(k)) for k in ['correct', 'keptUp', 'observationsComplete'])
             lines.append('| ' + ' | '.join([
-                size + ' / ' + label,
+                size + ' / ' + profile + ' / ' + label,
                 f"{load['connectedDevices']} / {load['participatingDevices']}",
                 str(latency['count']) if latency else '0', *values, verdict,
             ]) + ' |')
