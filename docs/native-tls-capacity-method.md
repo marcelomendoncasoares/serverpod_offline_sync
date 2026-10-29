@@ -43,6 +43,16 @@ the complete write journal with the server and every replica, without repair
 syncs. Stream errors, missing rounds, partial convergence, and unclean teardown
 must fail correctness even if some latency measurements exist.
 
+The load-generator machine has measurable drift between its disciplined timer
+clock and `CLOCK_MONOTONIC_RAW`. Long Dart timer waits initially delayed scheduled
+starts by about 100 ms, even though write-to-peer latency measurements used the
+correct raw clock. The client now waits in short slices and rechecks the shared
+clock. A regression test doubles timer durations: the previous implementation
+missed a 250 ms target by more than 300 ms; the bounded-wait implementation stays
+within the 100 ms test tolerance. Preserve earlier latency observations, but
+identify the corrected client separately when judging offered-rate adherence and
+aligned bursts. This is a measurement correction, not a sync-engine speedup.
+
 ## Schema profiles
 
 1. **Flat:** City-only sync registry, one scalar domain field, no persisted

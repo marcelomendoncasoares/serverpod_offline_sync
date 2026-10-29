@@ -27,8 +27,12 @@ class ElapsedClock {
     while (true) {
       final remaining = timestamp - timestampMicroseconds;
       if (remaining <= 0) return;
+
+      // A timer using a slower clock can overshoot a long raw-clock deadline.
+      // Short waits bound that drift before checking the shared clock again.
+      final slice = remaining > 10000 ? 10000 : remaining;
       await Future<void>.delayed(
-        Duration(microseconds: remaining < 1000 ? 1000 : remaining),
+        Duration(microseconds: slice < 1000 ? 1000 : slice),
       );
     }
   }
