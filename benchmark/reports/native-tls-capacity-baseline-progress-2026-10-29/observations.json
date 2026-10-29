@@ -1,0 +1,82 @@
+[
+  {
+    "run": "small-full-person-r1000-c2-a2-spread-t2",
+    "observation": "Each measured logical round produced one 1000-row server merge from the writer and a subsequent 783-row server merge from the receiving peer, retaining the original round/writer markers.",
+    "sampledLogicalRounds": 8,
+    "sampledServerMergeTransactions": 16,
+    "statementsInOriginalMerge": 10,
+    "statementsInPeerMerge": 13,
+    "peerMergeDominantPhase": "projectConflicts",
+    "firstRoundOriginalMergeMicros": 5091451,
+    "firstRoundPeerMergeMicros": 4805715,
+    "firstRoundPeerProjectionMicros": 3597915,
+    "interpretation": "Redundant upload traffic is reproduced and its cache-eviction mechanism confirmed locally. Capacity results here retain the unchanged baseline; candidate Cloud performance must be measured separately.",
+    "confirmationRun": "small-full-person-r1000-c2-a2-period10s-t2",
+    "confirmation": "The same 1000-row original upload plus 783-row peer upload occurred in all four rounds of the slower-rate repeat.",
+    "mechanismConfirmedLocally": {
+      "baselineRevisions": [
+        "e11f16b541e5613fa8e5673add5db5fae6d04d5e",
+        "4c22482b3271964bd7ae6446bc236908f211851d"
+      ],
+      "cause": "The bounded received-fact cache retains 217 of 1000 Person facts in this workload and evicts 783; the next capture returns those 783 facts.",
+      "additionalCorrectnessFailure": "An author-HLC delivery checkpoint can omit a previously unseen older fact relayed after a newer fact has been acknowledged.",
+      "candidate": "The isolated checkpoint rewrite removes the cache and uses committed local revisions with atomic peer receipts. Focused local regressions show zero returned facts and delivery of the late older fact. Cloud candidate performance remains unmeasured."
+    },
+    "mediumConfirmation": [
+      {
+        "label": "medium-full-person-r1000-c2-a2-spread-t2",
+        "correct": true,
+        "keptUp": false,
+        "latency": {
+          "count": 8,
+          "minMs": 4913.404,
+          "medianMs": 6154.899,
+          "meanMs": 6072.977625,
+          "p95Ms": 6576.694,
+          "maxMs": 6576.694
+        },
+        "sampledMergeTransactions": {
+          "count": 16,
+          "receivedRowsAcrossBatches": 14264,
+          "receivedChangesAcrossBatches": 14264,
+          "completedSampledRounds": 8,
+          "transactionsPerCompletedRound": 2.0,
+          "statementsPerCompletedRound": 23.0,
+          "sqlWallMsPerCompletedRound": 1646.586125,
+          "meanStatements": 11.5,
+          "meanSqlWallMs": 823.2930625,
+          "meanConnectionAndBeginMs": 19.6269375,
+          "meanCommitAndReleaseMs": 13.442125,
+          "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+        }
+      },
+      {
+        "label": "medium-full-person-r1000-c2-a2-period10s-t2",
+        "correct": true,
+        "keptUp": true,
+        "latency": {
+          "count": 4,
+          "minMs": 4463.92,
+          "medianMs": 4566.8535,
+          "meanMs": 4573.5605,
+          "p95Ms": 4696.615,
+          "maxMs": 4696.615
+        },
+        "sampledMergeTransactions": {
+          "count": 8,
+          "receivedRowsAcrossBatches": 7132,
+          "receivedChangesAcrossBatches": 7132,
+          "completedSampledRounds": 4,
+          "transactionsPerCompletedRound": 2.0,
+          "statementsPerCompletedRound": 23.0,
+          "sqlWallMsPerCompletedRound": 1531.9235,
+          "meanStatements": 11.5,
+          "meanSqlWallMs": 765.96175,
+          "meanConnectionAndBeginMs": 13.11325,
+          "meanCommitAndReleaseMs": 12.447875,
+          "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+        }
+      }
+    ]
+  }
+]
