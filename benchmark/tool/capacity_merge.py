@@ -17,6 +17,7 @@ MATCHING_CONFIGURATION = [
 SOURCE_FILES = [
     'manifest.json', 'results.json', 'rounds.jsonl', 'replay.json',
     'skipped-cases.json', 'observations.json',
+    'qualification.json',
     'RESOURCE_ACCOUNTING.md', 'resource-accounting.json',
 ]
 
