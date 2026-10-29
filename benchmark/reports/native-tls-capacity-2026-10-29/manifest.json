@@ -31,9 +31,28 @@
   "memoryCaveat": "Cgroup allocation is authoritative for container budget; process RSS includes shared mappings.",
   "limits": "Passing/failing workload brackets, not an unconditional maximum device count. Exploratory runs require repetitions for sizing recommendations.",
   "restorationRequired": true,
+  "candidateRestorationRequired": true,
+  "originalDeploymentRestorationRequired": true,
   "dependencies": {
     "postgres": "e1079785acfe2b5734e594032c7f748d1ca23a8e",
     "postgres_tls": "22067026c50da3447931ba71ad13fc95f230d5e8",
     "serverpod_database": "010d23c755c48e99eb35295f7c280ea140412212"
+  },
+  "runnerFiles": {
+    "campaign.py": "e9ced6ebf895f585ebdf166420e9eab96bea0c0dc71b87e3096cccb2750e2666",
+    "cloud.py": "01c789c13844c536381925448a05ce72f8d889c1249b364429d7a6322b842512",
+    "compare.py": "0aa6ede0f0a79c6f872bc8c58be11dad744dbddf06c8add0b12d91c701e4eb7d",
+    "compute.py": "dc231125201d57ea81613b79b853567fb3a47d1ed5c880f76128443c47392aa8",
+    "deployment.py": "6d9a53fb696ba052786657facda4c868d93f9f52882569abd0fe048a3583f32d",
+    "export_evidence.py": "a5bd723688b0104bcd258c2942771cc994b54c07a622b1884c9f11414916daed",
+    "generator_monitor.py": "cfd64cb28360c79d6290affd6c2dee0e27a1b000b9ebdaa574dedeeb2d25a154",
+    "idle_bracket.py": "333332f6bf2719fd8952accfd72f85cfda62d54165eecdcd17546facffece6a7",
+    "matrix.py": "96687411b1ccfd5d60b92470127909b40080b0c8489b3dd3f57f33c118ce0b57",
+    "recover.py": "e062a83c6aeb3f20b89552cdb8c91c66f81598506090f26acadd2eab012f3c64",
+    "run.py": "0d52d59be7a6b01da6438828e6a98bd6e9213d633da770ee4c17223b94a81b6f",
+    "settings.py": "433bafb7400c6e404ca865c59bd1d0185526f52fa45ae4f08fd3a7c0971960e8",
+    "sweep.py": "af3f231baad294341297ee6db51f442ae13e865473005c1650cdb7e441a32910",
+    "test_replay.py": "7c47e158252a125b413fb734de446e5c5f8727a2bb97a36d46084770188d2435",
+    "transition.py": "02ca4aa7054fa85e704c2397015d7f3824ee9d283a05a64759e95cd80c77ca74"
   }
 }

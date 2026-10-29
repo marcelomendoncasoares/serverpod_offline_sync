@@ -31,7 +31,12 @@ def transition(size, schema):
 
     schema_changed = schema != state['currentSchema'] or before['server']['benchmarkDatabase'] != database(schema)
     if schema_changed:
-        environment = {**os.environ, 'CI': 'true', 'DART_SUPPRESS_ANALYTICS': 'true'}
+        environment = {
+            **os.environ,
+            **CONFIG.get('commandEnvironment', {}),
+            'CI': 'true',
+            'DART_SUPPRESS_ANALYTICS': 'true',
+        }
         base = [CLI, '--no-auto-cli-upgrade', '--non-interactive', '--yes',
                 '--project-dir', CONFIG['projectDirectory']]
         with (ROOT / (label + '-deploy.log')).open('w') as log:
