@@ -1,6 +1,6 @@
 # Native TLS capacity measurements
 
-Status: measuring. The matrix is incomplete until every size and workload is measured.
+Status: measuring. Coverage is limited to the cases listed below; unmeasured cells have no inferred result.
 
 Native TLS is enabled; pipelining is disabled. These are end-to-end continuous-sync rounds on established streams. A correctness pass means every expected row converged and teardown drained. Keeping up with the offered rate is a separate verdict.
 
@@ -57,6 +57,23 @@ Latency values are milliseconds. Median is the arithmetic sample median; p95 use
 | small-full-person-r1-c64-a8-mixed-t2 | 64 / 8 | 1 | 120 | 558.0 | 902.6 | 943.5 | 1315.6 | 1458.0 | True / True |
 | small-full-city-r1-c8-a8-registry-control-t2 | 8 / 8 | 1 | 120 | 549.0 | 872.2 | 1023.8 | 1847.2 | 2342.8 | True / True |
 | small-full-city-r50-c4-a4-registry-control-t2 | 4 / 4 | 50 | 40 | 941.0 | 1222.9 | 1352.2 | 1921.9 | 2306.2 | True / True |
+| small-city-city-r1-c2-a2-spread-t2 | 2 / 2 | 1 | 8 | 587.0 | 688.9 | 673.2 | 793.8 | 793.8 | True / True |
+| small-city-city-r1-c8-a8-spread-t2 | 8 / 8 | 1 | 32 | 623.0 | 735.6 | 834.0 | 1224.1 | 1225.2 | True / True |
+| small-city-city-r1-c32-a32-spread-t2 | 32 / 32 | 1 | 128 | 976.4 | 5012.2 | 5902.5 | 9406.0 | 17098.0 | True / False |
+| small-city-city-r1-c16-a16-spread-t2 | 16 / 16 | 1 | 64 | 759.1 | 2449.7 | 2391.5 | 2894.1 | 2992.4 | True / False |
+| small-city-city-r10-c2-a2-spread-t2 | 2 / 2 | 10 | 8 | 567.3 | 681.6 | 689.9 | 786.5 | 786.5 | True / True |
+| small-city-city-r10-c8-a8-spread-t2 | 8 / 8 | 10 | 32 | 928.1 | 1125.1 | 1144.4 | 1521.3 | 1624.4 | True / True |
+| small-city-city-r10-c32-a32-spread-t2 | 32 / 32 | 10 | 128 | 1288.3 | 5810.9 | 5764.9 | 7014.1 | 7512.1 | True / False |
+| small-city-city-r10-c16-a16-spread-t2 | 16 / 16 | 10 | 64 | 678.9 | 3002.6 | 2936.1 | 3705.4 | 3890.7 | True / False |
+| small-city-city-r50-c2-a2-spread-t2 | 2 / 2 | 50 | 8 | 787.5 | 896.0 | 902.2 | 990.6 | 990.6 | True / True |
+| small-city-city-r50-c8-a8-spread-t2 | 8 / 8 | 50 | 32 | 1585.2 | 2671.4 | 2698.9 | 3225.3 | 3412.4 | True / False |
+| small-city-city-r50-c4-a4-spread-t2 | 4 / 4 | 50 | 16 | 862.2 | 1011.2 | 1034.8 | 1272.7 | 1272.7 | True / True |
+| small-city-city-r200-c2-a2-spread-t2 | 2 / 2 | 200 | 8 | 2051.2 | 2175.7 | 2187.3 | 2362.0 | 2362.0 | True / False |
+| small-city-city-r200-c2-a2-period10s-t2 | 2 / 2 | 200 | 4 | 2154.4 | 2403.5 | 2365.8 | 2501.7 | 2501.7 | True / True |
+| small-city-city-r1000-c2-a2-spread-t2 | 2 / 2 | 1000 | 8 | 7932.7 | 10415.9 | 10261.8 | 11527.3 | 11527.3 | True / False |
+| small-city-city-r1000-c2-a2-period10s-t2 | 2 / 2 | 1000 | 4 | 8783.9 | 10083.8 | 9862.9 | 10500.3 | 10500.3 | True / False |
+| small-city-city-r1-c8-a8-registry-control-t2 | 8 / 8 | 1 | 120 | 519.2 | 798.4 | 805.4 | 1040.0 | 1235.5 | True / True |
+| small-city-city-r50-c4-a4-registry-control-t2 | 4 / 4 | 50 | 40 | 850.5 | 1042.4 | 1092.5 | 1442.9 | 1640.0 | True / True |
 
 The adjacent JSON files contain raw round timings, observed overlap, offered and achieved rates, schema/workload options, memory, generator observations, sampled merge SQL counts, failures, and exact build identities.
 
@@ -72,4 +89,4 @@ Each idle test warms both directions, holds established streams for 45 seconds, 
 | small-full-idle-c1024 | 1024 | 36 | False | 0 | — | 231.7 | False |
 | small-full-idle-c512-fresh | 512 | 372 | False | 0 | — | 233.7 | False |
 
-Restart causes require separate evidence. Memory samples alone do not establish an OOM kill. The 1,024-device Small attempt failed during startup after 36 stream-start events; Cloud logs show a subsequent graceful shutdown and restart. The same executable recovered cleanly. A subsequent 512-device attempt on the recovered process failed during startup after 372 stream-start events; its last sampled event-loop lag was 6.5 seconds at 234 MiB of cgroup memory. That process also restarted and recovered with the same executable and clean streams/transactions.
+Restart causes require separate evidence. Memory samples alone do not establish an OOM kill. See each failure phase and recovery receipt.
