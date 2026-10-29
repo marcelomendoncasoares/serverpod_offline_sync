@@ -19,7 +19,7 @@ part 'connect.dart';
 part 'end_of_batch.dart';
 part 'merge_chunk.dart';
 part 'ready.dart';
-part 'since_hlc.dart';
+part 'since_revision.dart';
 part 'space_set.dart';
 
 /// A CRDT sync event sent over a bidirectional stream.

@@ -106,8 +106,12 @@ this receive isolation; this is not a bidirectional network partition.
 `full` preserves the original merge convergence experiment: collection exports
 all retained facts, and a receiver's already-delivered keys decide whether another
 complete export is worth scheduling. `delta` reads each receiver's production
-`createSyncSinceHlc` vector under its seeded clock and passes it to the sender's
-`collectPendingChanges`. Vectors are scoped by receiver, space, and author.
+`createSyncSinceRevision` receipt and passes the cursor for the sender epoch to
+production `captureChanges`. A captured batch retains its sender epoch and
+complete space revision, which production merge stores atomically with its data.
+Receipts are scoped by authenticated user, space, and sender replica epoch; author
+HLCs never imply delivery completeness. Immediate-source provenance uses the
+receiver identity resolved by production code.
 
 Causal completeness is relative to the receiver: prerequisites must already be
 committed there or accompany the incoming fact. Each delta is collected against

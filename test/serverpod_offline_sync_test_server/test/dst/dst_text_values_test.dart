@@ -28,7 +28,7 @@ void main() {
       final changes = await source.sync
           .collectPendingChanges(
             source.raw,
-            checkpointsBySpaceUuid: {space: const []},
+            checkpointsBySpaceUuid: {space: 0},
           )
           .toList();
       await target.session.db.mergeChanges(changes, userId: space);
@@ -101,13 +101,13 @@ void main() {
       final fromLeft = await left.sync
           .collectPendingChanges(
             left.raw,
-            checkpointsBySpaceUuid: {space: const []},
+            checkpointsBySpaceUuid: {space: 0},
           )
           .toList();
       final fromRight = await right.sync
           .collectPendingChanges(
             right.raw,
-            checkpointsBySpaceUuid: {space: const []},
+            checkpointsBySpaceUuid: {space: 0},
           )
           .toList();
       await right.session.db.mergeChanges(fromLeft, userId: space);

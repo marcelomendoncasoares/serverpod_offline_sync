@@ -1,0 +1,5 @@
+### Complete capture bound in the sending replica's local delivery order.
+class: OfflineSyncSpaceCheckpoint
+fields:
+  uuidSpaceId: UuidValue
+  revision: int

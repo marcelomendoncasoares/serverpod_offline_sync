@@ -1,0 +1,5 @@
+### A committed prefix of a replica's local delivery order.
+class: OfflineSyncNodeCheckpoint
+fields:
+  uuidNodeId: UuidValue
+  revision: int

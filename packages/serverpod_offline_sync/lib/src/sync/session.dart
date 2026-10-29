@@ -28,7 +28,7 @@ class _SyncSession {
   final StreamIterator<OfflineSyncStreamEvent> input;
   late final StreamController<OfflineSyncStreamEvent> output;
   final cancellation = OfflineSyncCancellation();
-  final received = _ReceivedChanges();
+  late OfflineSyncPeer peer;
   final subscriptions = <UuidValue, void Function()>{};
   final completion = Completer<void>();
   final settled = Completer<void>();
@@ -96,6 +96,8 @@ class _SyncSession {
       ).getOrCreateUserNode(userId);
       if (stopped) return;
 
+      spaces.localNodeId = localNode.uuidNodeId;
+
       _stage('handshake.reconcileSpaces');
       await spaces.reconcile();
       _emit(
@@ -154,7 +156,6 @@ class _SyncSession {
       subscriptions.clear();
       incoming.clear();
       inFlight = null;
-      received.clear();
       _stage('cleanup');
       if (failure != null && !output.isClosed) {
         output.addError(failure!, failureStack);
@@ -175,7 +176,7 @@ class _SyncSession {
 
   Future<void> _sendCursor(UuidValue id) async {
     if (spaces.markHandshakeSent(id)) {
-      _emit(await engine.createSyncSinceHlc(session, spaceId: id));
+      _emit(await engine.createSyncSinceRevision(session, userId: userId, spaceId: id));
     }
   }
 
@@ -225,6 +226,7 @@ class _SyncSession {
       case OfflineSyncConnect():
         if (connected) _unexpected(event, 'one initial Connect');
         engine._validateSyncTablesHash(event.syncTablesHash);
+        peer = await engine.resolvePeer(session, userId, event.localNodeId);
         connected = true;
         OfflineSyncDiagnostics.event('sync.peer', {
           'peerNodeId': event.localNodeId.toString(),
@@ -263,10 +265,9 @@ class _SyncSession {
           _subscribe();
         });
         _wake();
-      case OfflineSyncSinceHlc():
+      case OfflineSyncSinceRevision():
         if (spaces.accepts(event.uuidSpaceId)) {
           spaces.recordPeerHandshake(event.uuidSpaceId, event);
-          received.clear();
           _wake();
         }
       case OfflineSyncMergeChunk():
@@ -289,8 +290,11 @@ class _SyncSession {
         if (!peerReady || batch == null || batch.id != event.batchId) {
           _unexpected(event, 'the acknowledgement for the outstanding batch');
         }
+        for (final checkpoint in batch.checkpoints) {
+          spaces.advanceCheckpoint(checkpoint.uuidSpaceId, checkpoint.revision);
+        }
         for (final change in batch.changes) {
-          spaces.advanceCheckpoint(change.uuidSpaceId, change);
+          spaces.recordReportedHlc(change.uuidSpaceId, change.hlc);
         }
         inFlight = null;
         lastCapture = clock.now();
@@ -333,20 +337,33 @@ class _SyncSession {
       for (final change in changes) {
         groups.putIfAbsent(change.uuidSpaceId, () => []).add(change);
       }
-      for (final entry in groups.entries) {
+      final revisions = <UuidValue, int>{};
+      for (final checkpoint in boundary.checkpoints) {
+        if (checkpoint.revision < 0 || revisions.containsKey(checkpoint.uuidSpaceId)) {
+          throw StateError('Invalid or duplicate batch checkpoint.');
+        }
+        revisions[checkpoint.uuidSpaceId] = checkpoint.revision;
+      }
+      if (groups.keys.any((id) => !revisions.containsKey(id))) {
+        throw StateError('A batch must cover every changed space.');
+      }
+      for (final entry in revisions.entries) {
         cancellation.throwIfCancelled();
         if (!spaces.accepts(entry.key)) continue;
-        final facts = _ReceivedChanges()..addAll(entry.value.map(jsonEncode));
+        final mergeSet = groups[entry.key] ?? const <CrdtMergeChange>[];
         final hlc = await engine.mergeInboundBatch(
           session,
           userId: userId,
           spaceId: entry.key,
-          mergeSet: entry.value,
+          mergeSet: mergeSet,
+          sourcePeerId: peer.id,
+          receivedRevision: entry.value,
           cancellation: cancellation,
           requireWriteAccess: spaces.isAuthoritative,
         );
-        received.addAll(facts._encoded);
-        await engine._reportMerge(onMergeSuccess, spaces, entry.key, hlc);
+        if (mergeSet.isNotEmpty) {
+          await engine._reportMerge(onMergeSuccess, spaces, entry.key, hlc);
+        }
       }
     }, data: {'batchId': boundary.batchId, 'changes': changes.length});
     cancellation.throwIfCancelled();
@@ -438,32 +455,36 @@ class _SyncSession {
       final finalForOnce = once && (!spaces.isAuthoritative || finalRequested);
       lastCapture = clock.now();
       final passId = ++pass;
-      final changes = await OfflineSyncDiagnostics.measure(
+      final previous = spaces.sendableCheckpoints;
+      final capture = await OfflineSyncDiagnostics.measure(
         'sync.outboundCapture',
-        () => engine
-            .collectPendingChanges(
-              session,
-              checkpointsBySpaceUuid: spaces.sendableCheckpoints,
-            )
-            .toList(),
+        () => engine.captureChanges(
+          session,
+          checkpointsBySpaceUuid: previous,
+          peerId: peer.id,
+        ),
         data: {'pass': passId},
       );
       if (!_canSend) return;
-      final outbound = <CrdtMergeChange>[];
-      for (final change in changes) {
-        if (!received.remove(change)) outbound.add(change);
-      }
-      if (outbound.length != changes.length) {
-        OfflineSyncDiagnostics.event('sync.echoSuppressed', {
-          'changes': changes.length - outbound.length,
-        });
+      final outbound = capture.changes;
+      final sentSpaces = outbound.map((change) => change.uuidSpaceId).toSet();
+      final receipts = <OfflineSyncSpaceCheckpoint>[];
+      for (final checkpoint in capture.checkpoints) {
+        if (sentSpaces.contains(checkpoint.uuidSpaceId)) {
+          receipts.add(checkpoint);
+        } else {
+          // This complete range has no unknown facts for this peer. It needs
+          // no receiver write, including when another space has outgoing data.
+          spaces.advanceCheckpoint(checkpoint.uuidSpaceId, checkpoint.revision);
+        }
       }
       if (outbound.isNotEmpty || finalForOnce) {
         final id = nextOutgoingId++;
         inFlight = _SentBatch(
           id,
-          changes,
-          outbound.map((c) => c.uuidSpaceId).toSet(),
+          outbound,
+          receipts,
+          sentSpaces,
           finalForOnce: finalForOnce,
         );
         if (once && !spaces.isAuthoritative) {
@@ -479,18 +500,18 @@ class _SyncSession {
             OfflineSyncMergeChunk(batchId: id, changes: outbound.sublist(start, end)),
           );
         }
-        _emit(OfflineSyncEndOfBatch(batchId: id, finalForOnce: finalForOnce));
+        _emit(
+          OfflineSyncEndOfBatch(
+            batchId: id,
+            finalForOnce: finalForOnce,
+            checkpoints: receipts,
+          ),
+        );
         OfflineSyncDiagnostics.event('sync.batchSent', {
           'batchId': id,
           'changes': outbound.length,
           'finalForOnce': finalForOnce,
         });
-      } else {
-        // Only exact received facts were omitted, and the complete consistent
-        // snapshot has now been enumerated. No unknown older fact is skipped.
-        for (final change in changes) {
-          spaces.advanceCheckpoint(change.uuidSpaceId, change);
-        }
       }
       OfflineSyncDiagnostics.event('sync.outboundIdle', {'pass': passId});
     }
@@ -498,10 +519,17 @@ class _SyncSession {
 }
 
 class _SentBatch {
-  _SentBatch(this.id, this.changes, this.sentSpaces, {required this.finalForOnce});
+  _SentBatch(
+    this.id,
+    this.changes,
+    this.checkpoints,
+    this.sentSpaces, {
+    required this.finalForOnce,
+  });
 
   final int id;
   final List<CrdtMergeChange> changes;
+  final List<OfflineSyncSpaceCheckpoint> checkpoints;
   final Set<UuidValue> sentSpaces;
   final bool finalForOnce;
 }

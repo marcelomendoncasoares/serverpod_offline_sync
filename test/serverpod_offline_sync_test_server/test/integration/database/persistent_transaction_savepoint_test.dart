@@ -153,7 +153,10 @@ void main() {
                       .collectPendingChanges(
                         raw,
                         checkpointsBySpaceUuid: {
-                          user: [checkpoint],
+                          user: (await CrdtDataRow.db.findFirstRow(
+                            raw,
+                            where: (t) => t.uuidRowId.equals(competing.id),
+                          ))!.syncRevision,
                         },
                       )
                       .toList();
@@ -265,7 +268,10 @@ void main() {
                       .collectPendingChanges(
                         raw,
                         checkpointsBySpaceUuid: {
-                          user: [checkpoint],
+                          user: (await CrdtDataRow.db.findFirstRow(
+                            raw,
+                            where: (t) => t.uuidRowId.equals(competing.id),
+                          ))!.syncRevision,
                         },
                       )
                       .toList();

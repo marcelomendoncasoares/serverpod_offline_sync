@@ -450,7 +450,7 @@ Future<List<CrdtMergeChange>> _pendingChanges(OfflineSyncEngine offlineSync) =>
     offlineSync
         .collectPendingChanges(
           testSession,
-          checkpointsBySpaceUuid: {testCrdtUserId: const []},
+          checkpointsBySpaceUuid: {testCrdtUserId: 0},
         )
         .toList();
 
