@@ -1,0 +1,14 @@
+Using the benchmarkSecret password; BENCHMARK_SECRET is ignored.
+SERVERPOD version: 4.1.0-beta.3, dart: 3.13.7 (stable) (Thu Oct 22 14:28:57 2026 -0700) on "linux_x64", time: 2026-10-29 11:50:33.782895Z
+runMode: development
+serverId: default
+role: monolith
+loggingMode: normal
+applyMigrations: true
+applyRepairMigration: false
+SERVERPOD initialized, time: 2026-10-29 11:50:33.783561Z
+Applied database migration:
+ - 20261029055700456
+SIGTERM (15) received, time: 2026-10-29 11:50:44.946974Z
+SERVERPOD initiating shutdown, time: 2026-10-29 11:50:44.946983Z
+SERVERPOD shutdown completed, time: 2026-10-29 11:50:44.955638Z

@@ -1,0 +1,66 @@
+{
+  "startedAt": "2026-10-29T11:50:23.352203+00:00",
+  "cloudModified": false,
+  "checks": [
+    {
+      "schema": "full",
+      "workload": "person",
+      "mode": "continuous",
+      "rowsPerRound": 1000,
+      "clientExitCode": 0,
+      "status": "passed",
+      "rounds": 2,
+      "verifiedUsers": 1,
+      "clean": true,
+      "executableSha256": "c4b977ea0185ae831c245f34291fb6cc930ccc73673e88ddc3ee00725130b327"
+    },
+    {
+      "schema": "city",
+      "workload": "city",
+      "mode": "once",
+      "rowsPerRound": 10,
+      "clientExitCode": 0,
+      "status": "passed",
+      "rounds": 2,
+      "verifiedUsers": 1,
+      "clean": true,
+      "executableSha256": "c4b977ea0185ae831c245f34291fb6cc930ccc73673e88ddc3ee00725130b327"
+    }
+  ],
+  "serverSha256": "c4b977ea0185ae831c245f34291fb6cc930ccc73673e88ddc3ee00725130b327",
+  "clientSha256": "5dd3b2608253b069084706a0bad784d083209eec33d2b989e34f580115810e0d",
+  "passed": true,
+  "cleanup": [
+    {
+      "name": "client-city",
+      "exitCode": 0
+    },
+    {
+      "name": "server-city",
+      "exitCode": 0
+    },
+    {
+      "name": "client-full",
+      "exitCode": 0
+    },
+    {
+      "name": "server-full",
+      "exitCode": 0
+    },
+    {
+      "name": "tls-proxy",
+      "exitCode": 0
+    },
+    {
+      "name": "postgres-fixture",
+      "exitCode": 0
+    }
+  ],
+  "finishedAt": "2026-10-29T11:50:53.138299+00:00",
+  "nativeTls": true,
+  "pipelining": false,
+  "performanceMeasurement": false,
+  "freshDatabases": true,
+  "migration": "20261029055700456",
+  "initialFixtureCorrection": "Replaced a local test secret shorter than 24 characters. The application rejected that first attempt before startup; no application code changed."
+}
