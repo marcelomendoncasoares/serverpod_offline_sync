@@ -10,6 +10,12 @@ exact PostgreSQL/SQLite convergence, and cleanup. Static analysis is clean.
 
 ## Objective and fixed implementation
 
+The versioned [capacity runner](../benchmark/tool/capacity/README.md) separates
+adaptive discovery from frozen replay. Replay retains the same case arguments
+and failed cases, regenerates the report, and compares matching observations
+after a performance change. Private configuration and credentials remain outside
+the repository.
+
 Measure one Cloud instance at each size: Small, Medium, Large, XL, and XXL.
 Use the native TLS integration from PR #202, retaining transaction serialization,
 TCP_NODELAY, inline portal close, and cancellation drainage. Do not enable

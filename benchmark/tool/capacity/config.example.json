@@ -1,0 +1,32 @@
+{
+  "evidenceDirectory": "/private/capacity/candidate",
+  "reportDirectory": "/private/capacity/candidate/report",
+  "target": "https://your-benchmark.api.serverpod.space/",
+  "project": "your-benchmark",
+  "projectDirectory": "/private/prepared/benchmark",
+  "scloud": "scloud",
+  "secretFile": "/private/benchmark-secret.txt",
+  "client": "/private/build/bundle/bin/rounds",
+  "clientSha256": "REPLACE_WITH_CLIENT_SHA256",
+  "serverExecutableSha256": "REPLACE_WITH_DEPLOYED_SERVER_SHA256",
+  "sourceRevision": "REPLACE_WITH_SERVER_GIT_REVISION",
+  "clientSourceRevision": "REPLACE_WITH_CLIENT_GIT_REVISION",
+  "branch": "your-candidate-branch",
+  "dartVersion": "REPLACE_WITH_BUILD_SDK_VERSION",
+  "nativeTls": true,
+  "pipelining": false,
+  "databasePlacement": "Record provider, regions, PostgreSQL version, and database plan; omit credentials.",
+  "databases": {
+    "full": "benchmark_capacity_full_candidate",
+    "city": "benchmark_capacity_city_candidate"
+  },
+  "protectedFiles": [
+    "/private/prepared/benchmark/config/passwords.yaml",
+    "/private/prepared/benchmark/config/production.yaml"
+  ],
+  "dependencies": {
+    "postgres": "REPLACE_WITH_RESOLVED_REVISION",
+    "postgres_tls": "REPLACE_WITH_RESOLVED_REVISION",
+    "serverpod_database": "REPLACE_WITH_RESOLVED_REVISION"
+  }
+}
