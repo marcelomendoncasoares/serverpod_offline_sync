@@ -13,8 +13,12 @@ part of 'stream_event.dart';
 
 /// Session identity and initial grants sent together before any space work.
 ///
-/// [localNodeId] is the syncing user's local clock node on this peer. It is
-/// announced once on connect and is informational.
+/// [localNodeId] is the syncing user's durable replica epoch on this peer,
+/// represented by its local clock node UUID. Together with the authenticated
+/// user and space, it scopes delivery receipts and the provenance of facts
+/// received directly from this peer.
+/// Recreating or restoring replica state requires a fresh local clock node and
+/// epoch while preserving the UUIDs of previously authored facts.
 /// [syncTablesHash] is the deterministic schema hash both sides must agree on
 /// before merging data.
 abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
@@ -44,7 +48,7 @@ abstract class OfflineSyncConnect extends _icw2tu00.OfflineSyncStreamEvent
     );
   }
 
-  /// The syncing user's local node identifier on this peer.
+  /// The syncing user's durable replica epoch (its local clock node UUID).
   _iss.UuidValue localNodeId;
 
   /// The hash of the synchronized schema configured on this peer.
