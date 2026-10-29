@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 
+import 'commit_hints.dart';
 import 'offline_sync_spaces.dart';
 
 /// The CRDT sync configured per [Serverpod] instance.
@@ -11,6 +13,28 @@ import 'offline_sync_spaces.dart';
 /// the [OfflineSyncDatabaseContext] it carries) instead of sharing a single
 /// process-wide singleton.
 final _offlineSyncByServerpod = Expando<OfflineSyncEngine>('offlineSync');
+final _commitHintsByServerpod = Expando<_CommitHintBinding>('offlineSyncHints');
+final _hintShutdownRegistered = Expando<bool>('offlineSyncHintShutdown');
+
+class _CommitHintBinding {
+  _CommitHintBinding(this.transport, OfflineSyncDatabaseContext context)
+    : subscription = transport.changes.listen(
+        context.receiveCommittedSpaces,
+        onError: (Object error, StackTrace stack) {
+          OfflineSyncDiagnostics.event('sync.hintReceptionFailed', {
+            'type': error.runtimeType.toString(),
+          });
+        },
+      );
+
+  final OfflineSyncCommitHints transport;
+  final StreamSubscription<Map<UuidValue, int>> subscription;
+
+  Future<void> close({bool closeTransport = true}) async {
+    await subscription.cancel();
+    if (closeTransport) await transport.close();
+  }
+}
 
 /// Intercepts each Serverpod session database with a CRDT-aware database once
 /// [OfflineSyncInitialize.initializeOfflineSync] has configured sync.
@@ -44,24 +68,56 @@ extension OfflineSyncInitialize on Serverpod {
   /// share a user clock or space queue before acquiring a connection. Defaults
   /// to half the configured pool size (at least one), or five for an unlimited
   /// pool. Transaction locks still serialize work across server instances.
+  ///
+  /// [commitHints] optionally wakes streams on other processes after commits.
+  /// This Serverpod instance owns the transport and closes it on shutdown or
+  /// replacement. Durable polling remains enabled for missed hints. A transport
+  /// must not be shared by different Serverpod instances.
   void initializeOfflineSync({
     required List<Table> syncTables,
     int syncBatchSize = OfflineSyncEngine.defaultSyncBatchSize,
     Duration continuousSyncInterval = OfflineSyncEngine.defaultContinuousSyncInterval,
     int? maxConcurrentMerges,
+    OfflineSyncCommitHints? commitHints,
   }) {
+    final context = OfflineSyncDatabaseContext(
+      syncTables: syncTables,
+      serializationManager: serializationManager,
+      onCommittedSpaces: commitHints?.publish,
+      maxConcurrentMerges:
+          maxConcurrentMerges ??
+          max(1, (config.database?.maxConnectionCount ?? 10) ~/ 2),
+    );
+    final previous = _commitHintsByServerpod[this];
+    _commitHintsByServerpod[this] = null;
+    if (previous != null) {
+      unawaited(
+        previous
+            .close(closeTransport: !identical(previous.transport, commitHints))
+            .catchError((Object error) {
+              OfflineSyncDiagnostics.event('sync.hintCloseFailed', {
+                'type': error.runtimeType.toString(),
+              });
+            }),
+      );
+    }
+    if (commitHints != null) {
+      _commitHintsByServerpod[this] = _CommitHintBinding(commitHints, context);
+      if (_hintShutdownRegistered[this] != true) {
+        _hintShutdownRegistered[this] = true;
+        experimental.shutdownTasks.addTask('offlineSyncCommitHints', () async {
+          final binding = _commitHintsByServerpod[this];
+          _commitHintsByServerpod[this] = null;
+          await binding?.close();
+        });
+      }
+    }
     _offlineSyncByServerpod[this] = OfflineSyncEngine(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
-      databaseContext: OfflineSyncDatabaseContext(
-        syncTables: syncTables,
-        serializationManager: serializationManager,
-        maxConcurrentMerges:
-            maxConcurrentMerges ??
-            max(1, (config.database?.maxConnectionCount ?? 10) ~/ 2),
-      ),
+      databaseContext: context,
     );
   }
 }
