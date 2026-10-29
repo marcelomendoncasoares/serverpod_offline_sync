@@ -652,9 +652,11 @@ filter and RLS become two enforcements of one predicate.
 - Every database is already sharing-capable schema-wise — the column is
   universal — so a sharing-enabled client simply holds several spaces' rows.
   One database file per space remains a valid alternative layout.
-- Checkpoints stay per `(space, node)`: `crdt_nodes` stores the stable replica
-  identity, while `offline_sync_space_nodes` stores each space's checkpoint for that
-  node.
+- Delivery checkpoints belong to `(space, immediate peer)`:
+  `offline_sync_peers` identifies the authenticated user and sender replica epoch,
+  and `offline_sync_peer_checkpoints` stores the highest completely applied sender
+  revision. `crdt_nodes` and `offline_sync_space_nodes` retain author identities
+  and causal clocks independently of these receipts.
 
 ### What sharing does not change
 
