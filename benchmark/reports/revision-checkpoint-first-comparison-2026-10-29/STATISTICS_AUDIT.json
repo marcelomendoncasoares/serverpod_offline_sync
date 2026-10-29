@@ -1,0 +1,1389 @@
+{
+  "cases": [
+    {
+      "case": "medium-full-person-r1-c8-a8-spread-t2",
+      "roundsVerified": 32,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": true,
+      "latency": {
+        "count": 32,
+        "minMs": 323.764,
+        "medianMs": 356.9465,
+        "meanMs": 389.92534375,
+        "p95Ms": 587.352,
+        "maxMs": 906.405
+      },
+      "baselineLatency": {
+        "count": 32,
+        "minMs": 305.189,
+        "medianMs": 324.123,
+        "meanMs": 337.9441875,
+        "p95Ms": 425.41,
+        "maxMs": 486.423
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": null
+    },
+    {
+      "case": "medium-full-person-r1-c32-a32-spread-t2",
+      "roundsVerified": 128,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": true,
+      "latency": {
+        "count": 128,
+        "minMs": 353.916,
+        "medianMs": 680.4590000000001,
+        "meanMs": 673.09384375,
+        "p95Ms": 858.418,
+        "maxMs": 930.852
+      },
+      "baselineLatency": {
+        "count": 128,
+        "minMs": 439.606,
+        "medianMs": 817.3625,
+        "meanMs": 809.930328125,
+        "p95Ms": 1009.884,
+        "maxMs": 1062.943
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": null
+    },
+    {
+      "case": "medium-full-person-r1-c64-a64-spread-t2",
+      "roundsVerified": 256,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 256,
+        "minMs": 391.612,
+        "medianMs": 3020.4435000000003,
+        "meanMs": 2980.7782890625,
+        "p95Ms": 4197.361,
+        "maxMs": 4588.248
+      },
+      "baselineLatency": {
+        "count": 256,
+        "minMs": 478.396,
+        "medianMs": 3688.797,
+        "meanMs": 3616.1611171875,
+        "p95Ms": 4989.741,
+        "maxMs": 5485.093
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": null
+    },
+    {
+      "case": "medium-full-person-r200-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": true,
+      "latency": {
+        "count": 8,
+        "minMs": 1039.154,
+        "medianMs": 1081.7175,
+        "meanMs": 1109.472375,
+        "p95Ms": 1276.901,
+        "maxMs": 1276.901
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 1035.319,
+        "medianMs": 1188.2425,
+        "meanMs": 1167.5745,
+        "p95Ms": 1278.035,
+        "maxMs": 1278.035
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": {
+        "authoredRows": 1600,
+        "receivedRows": 1600,
+        "receivedBatchSizes": {
+          "200": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ce0741b9-2968-4971-a080-270653beaa5b",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "8b9e6abf-5d0f-45b9-b959-4d1b9e809f46",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ce0741b9-2968-4971-a080-270653beaa5b",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "8b9e6abf-5d0f-45b9-b959-4d1b9e809f46",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ce0741b9-2968-4971-a080-270653beaa5b",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "8b9e6abf-5d0f-45b9-b959-4d1b9e809f46",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ce0741b9-2968-4971-a080-270653beaa5b",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "8b9e6abf-5d0f-45b9-b959-4d1b9e809f46",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 80,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "medium-full-person-r1000-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 8,
+        "minMs": 3550.372,
+        "medianMs": 3782.1639999999998,
+        "meanMs": 3819.038125,
+        "p95Ms": 4162.312,
+        "maxMs": 4162.312
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 5016.483,
+        "medianMs": 6240.3835,
+        "meanMs": 6210.986125,
+        "p95Ms": 7131.04,
+        "maxMs": 7131.04
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": {
+        "authoredRows": 8000,
+        "receivedRows": 8000,
+        "receivedBatchSizes": {
+          "1000": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "4eb7f9f9-8007-4a19-9ccd-bc762650c2c8",
+                "batchId": 2,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "e3aaf1cf-f763-477a-9366-4a27d5ea5b18",
+                "batchId": 2,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "4eb7f9f9-8007-4a19-9ccd-bc762650c2c8",
+                "batchId": 3,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "e3aaf1cf-f763-477a-9366-4a27d5ea5b18",
+                "batchId": 3,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "4eb7f9f9-8007-4a19-9ccd-bc762650c2c8",
+                "batchId": 4,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "e3aaf1cf-f763-477a-9366-4a27d5ea5b18",
+                "batchId": 4,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "4eb7f9f9-8007-4a19-9ccd-bc762650c2c8",
+                "batchId": 5,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "e3aaf1cf-f763-477a-9366-4a27d5ea5b18",
+                "batchId": 5,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 80,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "medium-full-town-linked-r200-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": true,
+      "latency": {
+        "count": 8,
+        "minMs": 1128.096,
+        "medianMs": 1209.7815,
+        "meanMs": 1207.5230000000001,
+        "p95Ms": 1253.779,
+        "maxMs": 1253.779
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 1437.869,
+        "medianMs": 2789.5805,
+        "meanMs": 2572.291,
+        "p95Ms": 3871.175,
+        "maxMs": 3871.175
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": {
+        "authoredRows": 1600,
+        "receivedRows": 1600,
+        "receivedBatchSizes": {
+          "200": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "7db5a1f2-4ccf-4c75-9fb5-1fac0a66b4aa",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "7f4e51bf-ac4e-47e8-9d5b-5748f1570621",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "7db5a1f2-4ccf-4c75-9fb5-1fac0a66b4aa",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "7f4e51bf-ac4e-47e8-9d5b-5748f1570621",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "7db5a1f2-4ccf-4c75-9fb5-1fac0a66b4aa",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "7f4e51bf-ac4e-47e8-9d5b-5748f1570621",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "7db5a1f2-4ccf-4c75-9fb5-1fac0a66b4aa",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "7f4e51bf-ac4e-47e8-9d5b-5748f1570621",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 120,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "medium-full-town-linked-r1000-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 8,
+        "minMs": 4747.51,
+        "medianMs": 5011.208500000001,
+        "meanMs": 5040.289,
+        "p95Ms": 5526.421,
+        "maxMs": 5526.421
+      },
+      "baselineLatency": null,
+      "matchingStartingDomainCounts": null,
+      "uploadAccounting": {
+        "authoredRows": 8000,
+        "receivedRows": 8000,
+        "receivedBatchSizes": {
+          "1000": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "44cba5c1-c416-488f-bbbf-5cd428f1e986",
+                "batchId": 2,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "53f82c03-3ec4-4364-ba60-3b31d2c9438f",
+                "batchId": 2,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "44cba5c1-c416-488f-bbbf-5cd428f1e986",
+                "batchId": 3,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "53f82c03-3ec4-4364-ba60-3b31d2c9438f",
+                "batchId": 3,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "44cba5c1-c416-488f-bbbf-5cd428f1e986",
+                "batchId": 4,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "53f82c03-3ec4-4364-ba60-3b31d2c9438f",
+                "batchId": 4,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "44cba5c1-c416-488f-bbbf-5cd428f1e986",
+                "batchId": 5,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "53f82c03-3ec4-4364-ba60-3b31d2c9438f",
+                "batchId": 5,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 120,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "medium-city-city-r200-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": true,
+      "latency": {
+        "count": 8,
+        "minMs": 785.312,
+        "medianMs": 858.3264999999999,
+        "meanMs": 845.355,
+        "p95Ms": 891.351,
+        "maxMs": 891.351
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 830.401,
+        "medianMs": 926.0975,
+        "meanMs": 963.806375,
+        "p95Ms": 1283.869,
+        "maxMs": 1283.869
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": {
+        "authoredRows": 1600,
+        "receivedRows": 1600,
+        "receivedBatchSizes": {
+          "200": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "3d82da9c-659f-4dd7-9687-aca9f403ec8d",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "fd8b159f-ad30-4f9b-a84c-a65c89e38f94",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "3d82da9c-659f-4dd7-9687-aca9f403ec8d",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "fd8b159f-ad30-4f9b-a84c-a65c89e38f94",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "3d82da9c-659f-4dd7-9687-aca9f403ec8d",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "fd8b159f-ad30-4f9b-a84c-a65c89e38f94",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "3d82da9c-659f-4dd7-9687-aca9f403ec8d",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "fd8b159f-ad30-4f9b-a84c-a65c89e38f94",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 64,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "medium-city-city-r1000-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 8,
+        "minMs": 2303.659,
+        "medianMs": 2536.7344999999996,
+        "meanMs": 2597.902,
+        "p95Ms": 3187.346,
+        "maxMs": 3187.346
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 3660.47,
+        "medianMs": 4147.9485,
+        "meanMs": 4245.854875,
+        "p95Ms": 5272.739,
+        "maxMs": 5272.739
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": {
+        "authoredRows": 8000,
+        "receivedRows": 8000,
+        "receivedBatchSizes": {
+          "1000": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "60194d49-520d-441e-92fe-39989c4559c2",
+                "batchId": 2,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "f03a6526-ee02-4040-aa3b-6a62e086f529",
+                "batchId": 2,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "60194d49-520d-441e-92fe-39989c4559c2",
+                "batchId": 3,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "f03a6526-ee02-4040-aa3b-6a62e086f529",
+                "batchId": 3,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "60194d49-520d-441e-92fe-39989c4559c2",
+                "batchId": 4,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "f03a6526-ee02-4040-aa3b-6a62e086f529",
+                "batchId": 4,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "60194d49-520d-441e-92fe-39989c4559c2",
+                "batchId": 5,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "f03a6526-ee02-4040-aa3b-6a62e086f529",
+                "batchId": 5,
+                "rows": 1000,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 64,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "small-full-person-r1-c8-a8-spread-t2",
+      "roundsVerified": 32,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": true,
+      "latency": {
+        "count": 32,
+        "minMs": 477.847,
+        "medianMs": 691.8175,
+        "meanMs": 703.71875,
+        "p95Ms": 875.593,
+        "maxMs": 879.171
+      },
+      "baselineLatency": {
+        "count": 32,
+        "minMs": 604.224,
+        "medianMs": 807.4,
+        "meanMs": 793.15665625,
+        "p95Ms": 1011.125,
+        "maxMs": 1012.922
+      },
+      "matchingStartingDomainCounts": false,
+      "uploadAccounting": null
+    },
+    {
+      "case": "small-full-person-r200-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 8,
+        "minMs": 1955.138,
+        "medianMs": 2249.423,
+        "meanMs": 2212.745625,
+        "p95Ms": 2331.91,
+        "maxMs": 2331.91
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 2373.617,
+        "medianMs": 2617.866,
+        "meanMs": 2596.355375,
+        "p95Ms": 2845.113,
+        "maxMs": 2845.113
+      },
+      "matchingStartingDomainCounts": false,
+      "uploadAccounting": {
+        "authoredRows": 1600,
+        "receivedRows": 1600,
+        "receivedBatchSizes": {
+          "200": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "38717ddd-2e33-45f4-85f3-4e2c143aedde",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "86a53b3a-330a-4a6c-9a4f-e37388cb31d5",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "38717ddd-2e33-45f4-85f3-4e2c143aedde",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "86a53b3a-330a-4a6c-9a4f-e37388cb31d5",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "38717ddd-2e33-45f4-85f3-4e2c143aedde",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "86a53b3a-330a-4a6c-9a4f-e37388cb31d5",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "38717ddd-2e33-45f4-85f3-4e2c143aedde",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "86a53b3a-330a-4a6c-9a4f-e37388cb31d5",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 10
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 80,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "small-full-town-linked-r200-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 8,
+        "minMs": 2749.088,
+        "medianMs": 2970.4735,
+        "meanMs": 2951.5005,
+        "p95Ms": 3100.894,
+        "maxMs": 3100.894
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 3453.223,
+        "medianMs": 7148.206,
+        "meanMs": 6925.315875,
+        "p95Ms": 9572.934,
+        "maxMs": 9572.934
+      },
+      "matchingStartingDomainCounts": false,
+      "uploadAccounting": {
+        "authoredRows": 1600,
+        "receivedRows": 1600,
+        "receivedBatchSizes": {
+          "200": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ff87897d-2281-435c-b1de-7cb8abe0028e",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "28340e0f-87ec-4fcf-982b-124e318b73ae",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ff87897d-2281-435c-b1de-7cb8abe0028e",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "28340e0f-87ec-4fcf-982b-124e318b73ae",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ff87897d-2281-435c-b1de-7cb8abe0028e",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "28340e0f-87ec-4fcf-982b-124e318b73ae",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "ff87897d-2281-435c-b1de-7cb8abe0028e",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "28340e0f-87ec-4fcf-982b-124e318b73ae",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 15
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 120,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    },
+    {
+      "case": "small-city-city-r200-c2-a2-spread-t2",
+      "roundsVerified": 8,
+      "correct": true,
+      "observationsComplete": true,
+      "cleanupClean": true,
+      "keptUp": false,
+      "latency": {
+        "count": 8,
+        "minMs": 1814.564,
+        "medianMs": 1943.777,
+        "meanMs": 1959.42975,
+        "p95Ms": 2386.28,
+        "maxMs": 2386.28
+      },
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 2191.165,
+        "medianMs": 2368.8995,
+        "meanMs": 2385.387125,
+        "p95Ms": 2590.36,
+        "maxMs": 2590.36
+      },
+      "matchingStartingDomainCounts": true,
+      "uploadAccounting": {
+        "authoredRows": 1600,
+        "receivedRows": 1600,
+        "receivedBatchSizes": {
+          "200": 8
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "28b4c884-935e-4104-8aa3-657d9bb2d11e",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "a8568d5e-5d22-4b13-84eb-1a0c371597c0",
+                "batchId": 2,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 2,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "28b4c884-935e-4104-8aa3-657d9bb2d11e",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 3,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "a8568d5e-5d22-4b13-84eb-1a0c371597c0",
+                "batchId": 3,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 4,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "28b4c884-935e-4104-8aa3-657d9bb2d11e",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 5,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "a8568d5e-5d22-4b13-84eb-1a0c371597c0",
+                "batchId": 4,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 6,
+            "uploads": [
+              {
+                "writer": 0,
+                "requestId": "28b4c884-935e-4104-8aa3-657d9bb2d11e",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          },
+          {
+            "round": 7,
+            "uploads": [
+              {
+                "writer": 1,
+                "requestId": "a8568d5e-5d22-4b13-84eb-1a0c371597c0",
+                "batchId": 5,
+                "rows": 200,
+                "transactions": 1,
+                "statements": 8
+              }
+            ]
+          }
+        ],
+        "mergeTransactions": 8,
+        "statements": 64,
+        "additionalRows": 0,
+        "scope": "Received chunks carrying nonnegative exercise round markers, matched to merge traces by request ID and batch ID. Both streams of this one-user case were sampled.",
+        "limits": "Accounting covers these insert trials; it does not establish behavior for every write shape or failure path."
+      }
+    }
+  ],
+  "verified": true
+}

@@ -1,0 +1,539 @@
+{
+  "baselineServerSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+  "candidateServerSha256": "f05548d20cda3669ed864c5351344d9d5874e483e0dbb281d2c142c5e5fd3ff1",
+  "configurationDifferences": [],
+  "cases": [
+    {
+      "case": "medium-full-person-r1-c8-a8-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": true,
+      "candidateKeptUp": true,
+      "baselineLatency": {
+        "count": 32,
+        "minMs": 305.189,
+        "medianMs": 324.123,
+        "meanMs": 337.9441875,
+        "p95Ms": 425.41,
+        "maxMs": 486.423
+      },
+      "candidateLatency": {
+        "count": 32,
+        "minMs": 323.764,
+        "medianMs": 356.9465,
+        "meanMs": 389.92534375,
+        "p95Ms": 587.352,
+        "maxMs": 906.405
+      },
+      "reductionsPercent": {
+        "medianMs": -10.12686541837513,
+        "meanMs": -15.38158020545923,
+        "p95Ms": -38.06727627465268
+      }
+    },
+    {
+      "case": "medium-full-person-r1-c32-a32-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 40,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 40,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": true,
+      "candidateKeptUp": true,
+      "baselineLatency": {
+        "count": 128,
+        "minMs": 439.606,
+        "medianMs": 817.3625,
+        "meanMs": 809.930328125,
+        "p95Ms": 1009.884,
+        "maxMs": 1062.943
+      },
+      "candidateLatency": {
+        "count": 128,
+        "minMs": 353.916,
+        "medianMs": 680.459,
+        "meanMs": 673.09384375,
+        "p95Ms": 858.418,
+        "maxMs": 930.852
+      },
+      "reductionsPercent": {
+        "medianMs": 16.74942268577284,
+        "meanMs": 16.894846337187833,
+        "p95Ms": 14.998356246856074
+      }
+    },
+    {
+      "case": "medium-full-person-r1-c64-a64-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 200,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 200,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": false,
+      "baselineLatency": {
+        "count": 256,
+        "minMs": 478.396,
+        "medianMs": 3688.797,
+        "meanMs": 3616.1611171875,
+        "p95Ms": 4989.741,
+        "maxMs": 5485.093
+      },
+      "candidateLatency": {
+        "count": 256,
+        "minMs": 391.612,
+        "medianMs": 3020.4435,
+        "meanMs": 2980.7782890625,
+        "p95Ms": 4197.361,
+        "maxMs": 4588.248
+      },
+      "reductionsPercent": {
+        "medianMs": 18.11846789075138,
+        "meanMs": 17.570644878212025,
+        "p95Ms": 15.880182959396091
+      }
+    },
+    {
+      "case": "medium-full-person-r200-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 520,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 520,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": true,
+      "candidateKeptUp": true,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 1035.319,
+        "medianMs": 1188.2425,
+        "meanMs": 1167.5745,
+        "p95Ms": 1278.035,
+        "maxMs": 1278.035
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 1039.154,
+        "medianMs": 1081.7175,
+        "meanMs": 1109.472375,
+        "p95Ms": 1276.901,
+        "maxMs": 1276.901
+      },
+      "reductionsPercent": {
+        "medianMs": 8.96492088104912,
+        "meanMs": 4.976309862882402,
+        "p95Ms": 0.08872996435934967
+      }
+    },
+    {
+      "case": "medium-full-person-r1000-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 2122,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 2122,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": false,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 5016.483,
+        "medianMs": 6240.3835,
+        "meanMs": 6210.986125,
+        "p95Ms": 7131.04,
+        "maxMs": 7131.04
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 3550.372,
+        "medianMs": 3782.164,
+        "meanMs": 3819.038125,
+        "p95Ms": 4162.312,
+        "maxMs": 4162.312
+      },
+      "reductionsPercent": {
+        "medianMs": 39.39212229504805,
+        "meanMs": 38.51156566542805,
+        "p95Ms": 41.63106643631223
+      }
+    },
+    {
+      "case": "medium-full-town-linked-r200-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 10124,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 10124,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": true,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 1437.869,
+        "medianMs": 2789.5805,
+        "meanMs": 2572.291,
+        "p95Ms": 3871.175,
+        "maxMs": 3871.175
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 1128.096,
+        "medianMs": 1209.7815,
+        "meanMs": 1207.523,
+        "p95Ms": 1253.779,
+        "maxMs": 1253.779
+      },
+      "reductionsPercent": {
+        "medianMs": 56.63213519021946,
+        "meanMs": 53.05651654497878,
+        "p95Ms": 67.6124432504343
+      }
+    },
+    {
+      "case": "medium-city-city-r200-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 0
+      },
+      "candidateStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 0
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": true,
+      "candidateKeptUp": true,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 830.401,
+        "medianMs": 926.0975,
+        "meanMs": 963.806375,
+        "p95Ms": 1283.869,
+        "maxMs": 1283.869
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 785.312,
+        "medianMs": 858.3265,
+        "meanMs": 845.355,
+        "p95Ms": 891.351,
+        "maxMs": 891.351
+      },
+      "reductionsPercent": {
+        "medianMs": 7.3179119909080805,
+        "meanMs": 12.289955542159595,
+        "p95Ms": 30.57305690845405
+      }
+    },
+    {
+      "case": "medium-city-city-r1000-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 1602
+      },
+      "candidateStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 1602
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": false,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 3660.47,
+        "medianMs": 4147.9485,
+        "meanMs": 4245.854875,
+        "p95Ms": 5272.739,
+        "maxMs": 5272.739
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 2303.659,
+        "medianMs": 2536.7345,
+        "meanMs": 2597.902,
+        "p95Ms": 3187.346,
+        "maxMs": 3187.346
+      },
+      "reductionsPercent": {
+        "medianMs": 38.843635594800666,
+        "meanMs": 38.8132172087017,
+        "p95Ms": 39.55046893085358
+      }
+    },
+    {
+      "case": "small-full-person-r1-c8-a8-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": false,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": false,
+      "baselineStartingDomainCounts": {
+        "person": 10125,
+        "town": 1602,
+        "city": 1
+      },
+      "candidateStartingDomainCounts": {
+        "person": 10126,
+        "town": 9604,
+        "city": 2
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": true,
+      "candidateKeptUp": true,
+      "baselineLatency": {
+        "count": 32,
+        "minMs": 604.224,
+        "medianMs": 807.4,
+        "meanMs": 793.15665625,
+        "p95Ms": 1011.125,
+        "maxMs": 1012.922
+      },
+      "candidateLatency": {
+        "count": 32,
+        "minMs": 477.847,
+        "medianMs": 691.8175,
+        "meanMs": 703.71875,
+        "p95Ms": 875.593,
+        "maxMs": 879.171
+      },
+      "reductionsPercent": null
+    },
+    {
+      "case": "small-full-person-r200-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": false,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": false,
+      "baselineStartingDomainCounts": {
+        "person": 10165,
+        "town": 1602,
+        "city": 1
+      },
+      "candidateStartingDomainCounts": {
+        "person": 10166,
+        "town": 9604,
+        "city": 2
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": false,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 2373.617,
+        "medianMs": 2617.866,
+        "meanMs": 2596.355375,
+        "p95Ms": 2845.113,
+        "maxMs": 2845.113
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 1955.138,
+        "medianMs": 2249.423,
+        "meanMs": 2212.745625,
+        "p95Ms": 2331.91,
+        "maxMs": 2331.91
+      },
+      "reductionsPercent": null
+    },
+    {
+      "case": "small-full-town-linked-r200-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": false,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": false,
+      "baselineStartingDomainCounts": {
+        "person": 11767,
+        "town": 1602,
+        "city": 1
+      },
+      "candidateStartingDomainCounts": {
+        "person": 11768,
+        "town": 9604,
+        "city": 2
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": false,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 3453.223,
+        "medianMs": 7148.206,
+        "meanMs": 6925.315875,
+        "p95Ms": 9572.934,
+        "maxMs": 9572.934
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 2749.088,
+        "medianMs": 2970.4735,
+        "meanMs": 2951.5005,
+        "p95Ms": 3100.894,
+        "maxMs": 3100.894
+      },
+      "reductionsPercent": null
+    },
+    {
+      "case": "small-city-city-r200-c2-a2-spread-t2",
+      "matchingWorkload": true,
+      "matchingResources": true,
+      "comparableLatency": true,
+      "matchingCollector": true,
+      "matchingStartingDomainCounts": true,
+      "baselineStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 9604
+      },
+      "candidateStartingDomainCounts": {
+        "person": 0,
+        "town": 0,
+        "city": 9604
+      },
+      "baselineCorrect": true,
+      "candidateCorrect": true,
+      "baselineKeptUp": false,
+      "candidateKeptUp": false,
+      "baselineLatency": {
+        "count": 8,
+        "minMs": 2191.165,
+        "medianMs": 2368.8995,
+        "meanMs": 2385.387125,
+        "p95Ms": 2590.36,
+        "maxMs": 2590.36
+      },
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 1814.564,
+        "medianMs": 1943.777,
+        "meanMs": 1959.42975,
+        "p95Ms": 2386.28,
+        "maxMs": 2386.28
+      },
+      "reductionsPercent": {
+        "medianMs": 17.945991377008603,
+        "meanMs": 17.856949529733047,
+        "p95Ms": 7.878441606572056
+      }
+    },
+    {
+      "case": "medium-full-town-linked-r1000-c2-a2-spread-t2",
+      "matchingWorkload": false,
+      "matchingResources": false,
+      "comparableLatency": false,
+      "matchingCollector": false,
+      "matchingStartingDomainCounts": null,
+      "baselineStartingDomainCounts": null,
+      "candidateStartingDomainCounts": {
+        "person": 10125,
+        "town": 1602,
+        "city": 1
+      },
+      "baselineCorrect": null,
+      "candidateCorrect": true,
+      "baselineKeptUp": null,
+      "candidateKeptUp": false,
+      "baselineLatency": null,
+      "candidateLatency": {
+        "count": 8,
+        "minMs": 4747.51,
+        "medianMs": 5011.2085,
+        "meanMs": 5040.289,
+        "p95Ms": 5526.421,
+        "maxMs": 5526.421
+      },
+      "reductionsPercent": null
+    }
+  ]
+}
