@@ -55,7 +55,12 @@ def export():
         'databasePlacement': state.get('databasePlacement', CONFIG.get('databasePlacement')),
         'memoryCaveat': 'Cgroup allocation is authoritative for container budget; process RSS includes shared mappings.',
         'limits': 'Passing/failing workload brackets, not an unconditional maximum device count. Exploratory runs require repetitions for sizing recommendations.',
-        'restorationRequired': state['restorationRequired'],
+        'restorationRequired': (
+            state['restorationRequired']
+            or state.get('originalDeploymentRestorationRequired', False)
+        ),
+        'candidateRestorationRequired': state['restorationRequired'],
+        'originalDeploymentRestorationRequired': state.get('originalDeploymentRestorationRequired', False),
         'dependencies': read(ROOT / 'deployment-manifest.json')['dependencies'],
         'runnerFiles': {
             path.name: sha256(path) for path in sorted(Path(__file__).parent.glob('*.py'))
