@@ -216,14 +216,11 @@ class OfflineSyncDatabase implements Database {
               }
               if (sourcePeerId != null) sourcePeerForTransaction[tx] = sourcePeerId;
               try {
-                await _recorder.mergeChanges(mergeSet, tx);
-                if (receivedRevision != null) {
-                  await _recorder.recordReceivedRevision(
-                    sourcePeerId!,
-                    receivedRevision,
-                    tx,
-                  );
-                }
+                await _recorder.mergeChanges(
+                  mergeSet,
+                  tx,
+                  receivedRevision: receivedRevision,
+                );
               } finally {
                 sourcePeerForTransaction.remove(tx);
               }
