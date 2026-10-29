@@ -34,10 +34,11 @@ void main() {
         setUpAll(() async {
           final firstPass = <CrdtMergeChange>[];
           var committed = false;
-          await for (final change in author.sync.collectPendingChanges(
+          final capture = await author.sync.captureChanges(
             author.raw,
-            checkpointsBySpaceUuid: {testCrdtUserId: const []},
-          )) {
+            checkpointsBySpaceUuid: {testCrdtUserId: 0},
+          );
+          for (final change in capture.changes) {
             firstPass.add(change);
             if (committed) continue;
             committed = true;
@@ -62,12 +63,7 @@ void main() {
             });
           }
 
-          await peer.sync.mergeInboundBatch(
-            peer.raw,
-            userId: testCrdtUserId,
-            spaceId: testCrdtUserId,
-            mergeSet: firstPass,
-          );
+          await deliverCapture(author, peer, capture);
           final secondPass = await _deliverPending(author, peer);
           final thirdPass = await _deliverPending(author, peer);
           collectedInserts = [
@@ -102,7 +98,7 @@ void main() {
     late SyncNode peer;
     late Person b;
     late Person deleted;
-    late List<Hlc> checkpoints;
+    late int checkpoints;
 
     setUpAll(() async {
       author = await syncNode(await createAdditionalTestSession(), [Person.t]);
@@ -114,10 +110,7 @@ void main() {
         await Person.db.insertRow(author.offlineSync, deleted, transaction: tx);
       });
       await pushChanges(author, peer);
-      checkpoints = (await peer.sync.createSyncSinceHlc(
-        peer.raw,
-        spaceId: testCrdtUserId,
-      )).nodeCheckpoints;
+      checkpoints = await peerCheckpoint(author, peer);
 
       await author.offlineSync.db.transactionForUser(
         testCrdtUserId,
@@ -140,10 +133,11 @@ void main() {
         setUpAll(() async {
           final firstPass = <CrdtMergeChange>[];
           var committed = false;
-          await for (final change in author.sync.collectPendingChanges(
+          final capture = await author.sync.captureChanges(
             author.raw,
             checkpointsBySpaceUuid: {testCrdtUserId: checkpoints},
-          )) {
+          );
+          for (final change in capture.changes) {
             firstPass.add(change);
             if (committed) continue;
             committed = true;
@@ -159,12 +153,7 @@ void main() {
             });
           }
 
-          await peer.sync.mergeInboundBatch(
-            peer.raw,
-            userId: testCrdtUserId,
-            spaceId: testCrdtUserId,
-            mergeSet: firstPass,
-          );
+          await deliverCapture(author, peer, capture);
           await _deliverPending(author, peer);
           authoredNames = await _personNames(author);
           receivedNames = await _personNames(peer);
@@ -213,7 +202,7 @@ void main() {
         await author.sync
             .collectPendingChanges(
               collector,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .first;
         await author.offlineSync.db.transactionForUser(
@@ -227,7 +216,7 @@ void main() {
         final changes = await author.sync
             .collectPendingChanges(
               collector,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
         names =
@@ -249,23 +238,13 @@ void main() {
 }
 
 Future<List<CrdtMergeChange>> _deliverPending(SyncNode author, SyncNode peer) async {
-  final since = await peer.sync.createSyncSinceHlc(
-    peer.raw,
-    spaceId: testCrdtUserId,
+  final checkpoint = await peerCheckpoint(author, peer);
+  final capture = await author.sync.captureChanges(
+    author.raw,
+    checkpointsBySpaceUuid: {testCrdtUserId: checkpoint},
   );
-  final changes = await author.sync
-      .collectPendingChanges(
-        author.raw,
-        checkpointsBySpaceUuid: {testCrdtUserId: since.nodeCheckpoints},
-      )
-      .toList();
-  await peer.sync.mergeInboundBatch(
-    peer.raw,
-    userId: testCrdtUserId,
-    spaceId: testCrdtUserId,
-    mergeSet: changes,
-  );
-  return changes;
+  await deliverCapture(author, peer, capture);
+  return capture.changes;
 }
 
 Future<List<String>> _personNames(SyncNode node) async {

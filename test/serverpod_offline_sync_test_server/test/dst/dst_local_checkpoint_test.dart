@@ -49,29 +49,25 @@ void main() {
     group(
       'when the author reconnects before its wall clock advances and after it moves backward,',
       () {
-        late Hlc sameMillisecond;
-        late Hlc backwardClock;
+        late DstCheckpoint sameMillisecond;
+        late DstCheckpoint backwardClock;
         late CrdtMergeSet sameMillisecondEcho;
         late CrdtMergeSet backwardClockEcho;
 
         setUpAll(() async {
           var checkpoints = await author.checkpoints(space);
-          sameMillisecond = checkpoints.singleWhere(
-            (hlc) => hlc.nodeId == author.nodeUuidFor(space),
-          );
+          sameMillisecond = checkpoints;
           sameMillisecondEcho = await peer.collect(space, checkpoints: checkpoints);
           clock.advance(const Duration(seconds: -1));
           checkpoints = await author.checkpoints(space);
-          backwardClock = checkpoints.singleWhere(
-            (hlc) => hlc.nodeId == author.nodeUuidFor(space),
-          );
+          backwardClock = checkpoints;
           backwardClockEcho = await peer.collect(space, checkpoints: checkpoints);
         });
 
-        test('then both resume vectors cover the persisted logical counter.', () {
+        test('then neither clock position invents received progress.', () {
           expect(latestAuthored.counter, greaterThan(0));
-          expect(sameMillisecond, greaterThanOrEqualTo(latestAuthored));
-          expect(backwardClock, greaterThanOrEqualTo(latestAuthored));
+          expect(sameMillisecond, isEmpty);
+          expect(backwardClock, isEmpty);
         });
 
         test("then neither resume causes the peer to echo the author's own facts.", () {

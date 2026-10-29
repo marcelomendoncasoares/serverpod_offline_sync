@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart'
     show IncludeTombstonedRows, OfflineSyncDatabase, OfflineSyncSpace;
+import 'package:serverpod_offline_sync_test_shared/demo_reset.dart';
 
 import '../generated/protocol.dart';
 
@@ -52,48 +53,16 @@ class DemoDebugEndpoint extends Endpoint {
     });
   }
 
-  /// Clears the caller's space by deleting its `offline_sync_spaces` row. Every synced
-  /// table cascades on `spaceId` → `offline_sync_spaces`, so all domain rows and CRDT
-  /// metadata are removed with it — no manual per-table cleanup needed.
+  /// Clears the caller's personal space and rotates its replica epoch atomically.
   ///
-  /// The delete runs with `defer_foreign_keys` on: the spaceId cascade fans out
-  /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
-  /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
-  /// cascade off `offline_sync_spaces`), and SQLite's cascade order can transiently
-  /// violate those immediate checks. Deferring them to commit lets the whole
-  /// cascade complete first.
+  /// Stop the caller's streams and writes first. Retained spaces keep their
+  /// historical author UUIDs; subsequent sessions use the fresh local clock.
   Future<void> resetSpace(Session session) async {
     final userId = UuidValue.withValidation(
       session.authenticated!.userIdentifier,
     );
 
-    final db = session.db;
-    if (db is OfflineSyncDatabase) {
-      await db.initialize();
-    }
-    final space = await OfflineSyncSpace.db.findFirstRow(
-      session,
-      where: (t) => t.uuidSpaceId.equals(userId),
-    );
-    final spaceId = space?.id;
-    if (spaceId != null) {
-      await db.transaction((transaction) async {
-        // TODO: Remove this explicit call to defer foreign keys once foreign
-        // keys are deferrable by default on the Serverpod package.
-        await db.unsafeExecute(
-          'PRAGMA defer_foreign_keys = ON',
-          transaction: transaction,
-        );
-        await OfflineSyncSpace.db.deleteWhere(
-          session,
-          where: (t) => t.id.equals(spaceId),
-          transaction: transaction,
-        );
-      });
-    }
-    if (db is OfflineSyncDatabase) {
-      await db.initialize();
-    }
+    await resetDemoSpace(session, userId);
   }
 
   /// Inserts demo rows of [kind] directly into the caller's space on the server,

@@ -81,12 +81,7 @@ class OfflineSyncClient {
             mode: OfflineSyncPeerMode.follower,
           )
           .listen(
-            (event) {
-              outboundChanges.addIfNotClosed(event);
-              if (once && event is OfflineSyncClose) {
-                unawaited(outboundChanges.closeOrSkip());
-              }
-            },
+            outboundChanges.addIfNotClosed,
             onDone: doneCompleter.completeOrSkip,
             onError: doneCompleter.completeErrorOrSkip,
             cancelOnError: true,

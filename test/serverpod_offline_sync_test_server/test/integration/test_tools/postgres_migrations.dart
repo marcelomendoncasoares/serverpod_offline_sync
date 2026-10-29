@@ -10,9 +10,12 @@ import 'package:serverpod_database/serverpod_database.dart' show DatabaseDefinit
 
 /// Renders the generated schema for an isolated PostgreSQL test database.
 /// The committed SQL targets SQLite; use Serverpod's generator for PostgreSQL.
-Future<void> preparePostgresMigrations(Directory serverDirectory) async {
+Future<void> preparePostgresMigrations(
+  Directory serverDirectory, {
+  String? schemaVersion,
+}) async {
   final versions = await File('migrations/migration_registry.txt').readAsLines();
-  final version = versions.lastWhere((line) => line.trim().isNotEmpty);
+  final version = schemaVersion ?? versions.lastWhere((line) => line.trim().isNotEmpty);
 
   final source = Directory('migrations/$version');
   final target = Directory('${serverDirectory.path}/migrations/$version');

@@ -33,6 +33,21 @@ part 'merge_write_batch.dart';
 
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
 
+class _TransactionSpaceChanges {
+  _TransactionSpaceChanges({required this.verifySavepoints});
+
+  final bool verifySavepoints;
+  final markers = <UuidValue, Set<Hlc>>{};
+
+  void record(UuidValue space, Hlc marker) {
+    if (!verifySavepoints) {
+      markers[space] = {marker};
+      return;
+    }
+    (markers[space] ??= {}).add(marker);
+  }
+}
+
 /// Process-level CRDT database metadata shared by ephemeral database wrappers.
 ///
 /// A single context is created per `OfflineSyncEngine` (i.e. once per Serverpod
@@ -57,6 +72,123 @@ class OfflineSyncDatabaseContext {
            : _MergeAdmission(maxConcurrentMerges);
 
   final _MergeAdmission? _mergeAdmission;
+
+  static final _transactionChanges = Expando<_TransactionSpaceChanges>();
+  final _spaceListeners = <UuidValue, Set<void Function()>>{};
+
+  /// Subscribes to local commit hints for one space. The returned function
+  /// removes the subscription. Hints carry no data or checkpoint authority.
+  @internal
+  void Function() onSpaceChanged(UuidValue space, void Function() listener) {
+    (_spaceListeners[space] ??= {}).add(listener);
+    return () {
+      final listeners = _spaceListeners[space];
+      listeners?.remove(listener);
+      if (listeners?.isEmpty ?? false) _spaceListeners.remove(space);
+    };
+  }
+
+  /// Marks a space touched by a transaction owned by a sync database wrapper.
+  /// Caller-owned transactions and other processes use periodic catch-up.
+  @internal
+  void recordSpaceChange(Transaction transaction, UuidValue space, Hlc marker) {
+    _transactionChanges[transaction]?.record(space, marker);
+  }
+
+  /// Restores pending notifications when a managed space savepoint rolls back.
+  @internal
+  Future<R> withSpaceChangesSavepoint<R>(
+    Transaction transaction,
+    TransactionFunction<R> action,
+  ) async {
+    final changed = _transactionChanges[transaction]?.markers;
+    if (changed == null) return action(transaction);
+    final before = {
+      for (final entry in changed.entries) entry.key: Set<Hlc>.of(entry.value),
+    };
+    try {
+      return await action(transaction);
+    } catch (_) {
+      changed
+        ..clear()
+        ..addAll(before);
+      rethrow;
+    }
+  }
+
+  /// Publishes coalesced hints only after the database transaction completes.
+  @internal
+  Future<R> runTransaction<R>(
+    Database database,
+    TransactionFunction<R> action, {
+    TransactionSettings? settings,
+    bool verifySavepoints = false,
+  }) async {
+    final changed = <UuidValue>{};
+    final pending = _TransactionSpaceChanges(verifySavepoints: verifySavepoints);
+    final result = await OfflineSyncDiagnostics.transaction<R>(
+      database,
+      (transaction) async {
+        _transactionChanges[transaction] = pending;
+        try {
+          return await action(transaction);
+        } finally {
+          _transactionChanges[transaction] = null;
+        }
+      },
+      settings: settings,
+    );
+
+    if (verifySavepoints && pending.markers.isNotEmpty) {
+      // Plain transactions expose raw savepoints and cancellation. Reconcile
+      // after the transaction returns, using a fresh read of durable state.
+      // Retain earlier candidates so a rollback can reveal a prior write.
+      // A concurrent overwrite may suppress an obsolete advisory wakeup.
+      try {
+        final spaces = await database.find<OfflineSyncSpace>(
+          where: OfflineSyncSpace.t.uuidSpaceId.inSet(pending.markers.keys.toSet()),
+        );
+        for (final space in spaces) {
+          if (pending.markers[space.uuidSpaceId]!.contains(space.lastHlc)) {
+            changed.add(space.uuidSpaceId);
+          }
+        }
+      } on Object catch (error) {
+        // Hint delivery must not change a completed transaction's outcome.
+        OfflineSyncDiagnostics.event('sync.hintVerificationFailed', {
+          'type': error.runtimeType.toString(),
+        });
+        return result;
+      }
+    } else {
+      changed.addAll(pending.markers.keys);
+    }
+
+    final notificationWatch = OfflineSyncDiagnostics.enabled
+        ? (Stopwatch()..start())
+        : null;
+    var listenersNotified = 0;
+    for (final space in changed) {
+      for (final listener in _spaceListeners[space]?.toList() ?? const []) {
+        try {
+          listener();
+          listenersNotified++;
+        } on Object {
+          // A best-effort hint cannot turn a committed write into a failure.
+        }
+      }
+    }
+    if (notificationWatch != null) {
+      OfflineSyncDiagnostics.event('sync.commitNotification', {
+        'spaces': changed.length,
+        'listenersNotified': listenersNotified,
+        'micros': notificationWatch.elapsedMicroseconds,
+        'scope': 'localContext',
+      });
+    }
+
+    return result;
+  }
 
   /// Admits a merge before it acquires database connections, when configured.
   /// Database transaction locks remain responsible for correctness.
@@ -373,6 +505,13 @@ class CrdtMutationRecorder {
     TransactionFunction<R> action,
   ) => _context.withUserClock(transaction, action);
 
+  /// Stores a complete incoming range in the same transaction as its facts.
+  Future<void> recordReceivedRevision(
+    int peerId,
+    int revision,
+    Transaction transaction,
+  ) => _context.recordReceivedRevision(peerId, revision, transaction);
+
   /// Whether an enclosing scope already shares the acting user's clock.
   bool hasActiveUserClock(Transaction transaction) =>
       _context.hasActiveUserClock(transaction);
@@ -394,48 +533,6 @@ class CrdtMutationRecorder {
     Transaction transaction,
     TransactionFunction<R> action,
   ) => _context.withUserClockSavepoint(transaction, action);
-
-  /// Records per-author progress in [spaceId], rejecting an HLC not tagged with
-  /// [otherNodeId].
-  ///
-  /// Replaces mis-tagged stored progress; correctly tagged progress only advances.
-  Future<void> recordSyncCheckpoint(
-    UuidValue spaceId,
-    UuidValue otherNodeId,
-    Hlc syncedHlc,
-  ) async {
-    if (syncedHlc.nodeId != otherNodeId) {
-      throw ArgumentError.value(
-        syncedHlc,
-        'syncedHlc',
-        'A per-author checkpoint must carry otherNodeId',
-      );
-    }
-
-    final space = await _context.spaceManager.getOrCreate(spaceId);
-    await _db.transaction((transaction) async {
-      final node = await _context.findOrCreateNode(otherNodeId, transaction);
-      final spaceNode = await _context.findOrCreateSpaceNode(
-        space.id!,
-        node.id!,
-        transaction,
-      );
-
-      final currentSyncHlc = spaceNode.lastReceivedHlc;
-      if (currentSyncHlc != null &&
-          currentSyncHlc.nodeId == otherNodeId &&
-          currentSyncHlc >= syncedHlc) {
-        return;
-      }
-
-      await OfflineSyncSpaceNode.db.updateRow(
-        _session,
-        spaceNode.copyWith(lastReceivedHlc: syncedHlc),
-        columns: (t) => [t.lastReceivedHlc],
-        transaction: transaction,
-      );
-    });
-  }
 
   /// Recomputes FK/unique projection for currently stored rows.
   ///
@@ -935,7 +1032,10 @@ class CrdtMutationRecorder {
 
       await CrdtDataRow.db.insert(
         _session,
-        [for (final rowId in rowIds) _newCrdtDataRow(tableId, rowId, hlcManager)],
+        [
+          for (final rowId in rowIds)
+            _newCrdtDataRow(tableId, rowId, hlcManager, transaction),
+        ],
         transaction: transaction,
         ignoreConflicts: true,
       );
@@ -1208,10 +1308,12 @@ class CrdtMutationRecorder {
     int tableId,
     UuidValue rowId,
     HlcManager hlcManager,
+    Transaction transaction,
   ) {
     final hlc = hlcManager.increment();
 
     return CrdtDataRow(
+      syncRevision: _context.revisionFor(transaction),
       spaceId: hlcManager.normalizedSpaceId,
       tblId: tableId,
       uuidRowId: rowId,
@@ -1230,8 +1332,14 @@ class CrdtMutationRecorder {
 
     return CrdtDataRow.db.update(
       _session,
-      [for (final row in rows) _context.withNextHlc(row, hlcManager)],
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+      [for (final row in rows) _context.withNextHlc(row, hlcManager, transaction)],
+      columns: (t) => [
+        t.nodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        t.syncRevision,
+        t.sourcePeerId,
+      ],
       transaction: transaction,
     );
   }

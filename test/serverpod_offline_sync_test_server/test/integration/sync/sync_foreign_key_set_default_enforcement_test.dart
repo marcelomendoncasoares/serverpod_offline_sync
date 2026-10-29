@@ -65,7 +65,7 @@ void main() {
         changes = await node.sync
             .collectPendingChanges(
               node.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
       });
@@ -141,7 +141,7 @@ void main() {
           changes = await node.sync
               .collectPendingChanges(
                 node.raw,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList();
         });
@@ -278,7 +278,7 @@ void main() {
         changes = await node.sync
             .collectPendingChanges(
               node.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
       });
@@ -429,7 +429,7 @@ void main() {
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
       });
@@ -525,7 +525,7 @@ void main() {
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
       });
@@ -624,7 +624,7 @@ void main() {
         changes = await client.sync
             .collectPendingChanges(
               client.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
       });

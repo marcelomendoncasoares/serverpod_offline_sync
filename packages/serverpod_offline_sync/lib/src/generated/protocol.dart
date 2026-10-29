@@ -25,12 +25,16 @@ import 'data/row_visibility.dart' as _ibzh2k8m;
 import 'hlc/base.dart' as _ipogc60q;
 import 'merge/change.dart' as _i0vvt7eq;
 import 'node/node.dart' as _iyfv8jet;
+import 'node/peer.dart' as _irp8gvgs;
+import 'node/peer_checkpoint.dart' as _ie1q2lve;
 import 'node/space.dart' as _ifj6lhq8;
 import 'node/space_member.dart' as _i75umry7;
 import 'node/space_node.dart' as _it7grqg6;
 import 'node/space_role.dart' as _ivdq6jvj;
 import 'schema/column.dart' as _iy534gq7;
 import 'schema/table.dart' as _ik8xyqdv;
+import 'sync/node_checkpoint.dart' as _ifr670fq;
+import 'sync/space_checkpoint.dart' as _ipjgs2a4;
 import 'sync/space_grant.dart' as _ijw89gb9;
 import 'sync/stream_event.dart' as _iimdylh8;
 import 'sync/violation.dart' as _iucor0s6;
@@ -46,12 +50,16 @@ export 'data/row_visibility.dart';
 export 'merge/change.dart';
 export 'hlc/base.dart';
 export 'node/node.dart';
+export 'node/peer.dart';
+export 'node/peer_checkpoint.dart';
 export 'node/space.dart';
 export 'node/space_member.dart';
 export 'node/space_node.dart';
 export 'node/space_role.dart';
 export 'schema/column.dart';
 export 'schema/table.dart';
+export 'sync/node_checkpoint.dart';
+export 'sync/space_checkpoint.dart';
 export 'sync/space_grant.dart';
 export 'sync/stream_event.dart';
 export 'sync/violation.dart';
@@ -85,6 +93,8 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_i0vvt7eq.CrdtMergeUpdate>,
           _iss.getType<_ipogc60q.BaseHlc>,
           _iss.getType<_iyfv8jet.CrdtNode>,
+          _iss.getType<_irp8gvgs.OfflineSyncPeer>,
+          _iss.getType<_ie1q2lve.OfflineSyncPeerCheckpoint>,
           _iss.getType<_ifj6lhq8.OfflineSyncSpace>,
           _iss.getType<_i75umry7.OfflineSyncSpaceMember>,
           _iss.getType<_it7grqg6.OfflineSyncSpaceNode>,
@@ -92,13 +102,16 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_iy534gq7.CrdtSchemaColumn>,
           _iss.getType<_ik8xyqdv.CrdtSchemaTable>,
           _iss.getType<_iimdylh8.OfflineSyncClose>,
+          _iss.getType<_iimdylh8.OfflineSyncCommitted>,
           _iss.getType<_iimdylh8.OfflineSyncConnect>,
           _iss.getType<_iimdylh8.OfflineSyncEndOfBatch>,
           _iss.getType<_iimdylh8.OfflineSyncMergeChunk>,
-          _iss.getType<_iimdylh8.OfflineSyncSinceHlc>,
+          _iss.getType<_ifr670fq.OfflineSyncNodeCheckpoint>,
+          _iss.getType<_iimdylh8.OfflineSyncReady>,
+          _iss.getType<_iimdylh8.OfflineSyncSinceRevision>,
+          _iss.getType<_ipjgs2a4.OfflineSyncSpaceCheckpoint>,
           _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant>,
           _iss.getType<_iimdylh8.OfflineSyncSpaceSet>,
-          _iss.getType<_iimdylh8.OfflineSyncIdleTimeout>,
           _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation>,
           _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation>,
           _iss.getType<_itf31ci3.OfflineSyncViolationType>,
@@ -114,6 +127,8 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_i0vvt7eq.CrdtMergeUpdate?>,
           _iss.getType<_ipogc60q.BaseHlc?>,
           _iss.getType<_iyfv8jet.CrdtNode?>,
+          _iss.getType<_irp8gvgs.OfflineSyncPeer?>,
+          _iss.getType<_ie1q2lve.OfflineSyncPeerCheckpoint?>,
           _iss.getType<_ifj6lhq8.OfflineSyncSpace?>,
           _iss.getType<_i75umry7.OfflineSyncSpaceMember?>,
           _iss.getType<_it7grqg6.OfflineSyncSpaceNode?>,
@@ -121,13 +136,16 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_iy534gq7.CrdtSchemaColumn?>,
           _iss.getType<_ik8xyqdv.CrdtSchemaTable?>,
           _iss.getType<_iimdylh8.OfflineSyncClose?>,
+          _iss.getType<_iimdylh8.OfflineSyncCommitted?>,
           _iss.getType<_iimdylh8.OfflineSyncConnect?>,
           _iss.getType<_iimdylh8.OfflineSyncEndOfBatch?>,
           _iss.getType<_iimdylh8.OfflineSyncMergeChunk?>,
-          _iss.getType<_iimdylh8.OfflineSyncSinceHlc?>,
+          _iss.getType<_ifr670fq.OfflineSyncNodeCheckpoint?>,
+          _iss.getType<_iimdylh8.OfflineSyncReady?>,
+          _iss.getType<_iimdylh8.OfflineSyncSinceRevision?>,
+          _iss.getType<_ipjgs2a4.OfflineSyncSpaceCheckpoint?>,
           _iss.getType<_ijw89gb9.OfflineSyncSpaceGrant?>,
           _iss.getType<_iimdylh8.OfflineSyncSpaceSet?>,
-          _iss.getType<_iimdylh8.OfflineSyncIdleTimeout?>,
           _iss.getType<_iucor0s6.OfflineSyncIntegrityViolation?>,
           _iss.getType<_ijw2vw1z.OfflineSyncViolationOperation?>,
           _iss.getType<_itf31ci3.OfflineSyncViolationType?>,
@@ -137,10 +155,10 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<_icw2tu00.Hlc?>,
           _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>>,
           _iss.getType<List<_icw2tu00.OfflineSyncSpaceNode>?>,
-          _iss.getType<List<_icw2tu00.CrdtMergeChange>>,
-          _iss.getType<List<_icw2tu00.Hlc>>,
-          _iss.getType<_icw2tu00.Hlc>,
           _iss.getType<List<_icw2tu00.OfflineSyncSpaceGrant>>,
+          _iss.getType<List<_icw2tu00.OfflineSyncSpaceCheckpoint>>,
+          _iss.getType<List<_icw2tu00.CrdtMergeChange>>,
+          _iss.getType<List<_icw2tu00.OfflineSyncNodeCheckpoint>>,
         ],
         modules: const [],
       );
@@ -233,6 +251,25 @@ class Protocol extends _isd.DatabaseSerializationManager
           dartType: 'int',
         ),
         _isd.ColumnDefinition(
+          name: 'spaceId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'syncRevision',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isd.ColumnDefinition(
+          name: 'sourcePeerId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isd.ColumnDefinition(
           name: 'rowId',
           columnType: _isd.ColumnType.bigint,
           isNullable: false,
@@ -254,6 +291,16 @@ class Protocol extends _isd.DatabaseSerializationManager
       foreignKeys: [
         _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_fields_fk_0',
+          columns: ['sourcePeerId'],
+          referenceTable: 'offline_sync_peers',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
+          matchType: null,
+        ),
+        _isd.ForeignKeyDefinition(
+          constraintName: 'crdt_data_fields_fk_1',
           columns: ['rowId'],
           referenceTable: 'crdt_data_rows',
           referenceTableSchema: 'public',
@@ -263,7 +310,7 @@ class Protocol extends _isd.DatabaseSerializationManager
           matchType: null,
         ),
         _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_data_fields_fk_1',
+          constraintName: 'crdt_data_fields_fk_2',
           columns: ['columnId'],
           referenceTable: 'crdt_schema_columns',
           referenceTableSchema: 'public',
@@ -273,7 +320,7 @@ class Protocol extends _isd.DatabaseSerializationManager
           matchType: null,
         ),
         _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_data_fields_fk_2',
+          constraintName: 'crdt_data_fields_fk_3',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
@@ -299,6 +346,23 @@ class Protocol extends _isd.DatabaseSerializationManager
           ],
           type: 'btree',
           isUnique: true,
+          isPrimary: false,
+        ),
+        _isd.IndexDefinition(
+          indexName: 'crdt_data_fields_space_revision_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'syncRevision',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
           isPrimary: false,
         ),
       ],
@@ -328,6 +392,19 @@ class Protocol extends _isd.DatabaseSerializationManager
           columnType: _isd.ColumnType.bigint,
           isNullable: false,
           dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'syncRevision',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isd.ColumnDefinition(
+          name: 'sourcePeerId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
         ),
         _isd.ColumnDefinition(
           name: 'spaceId',
@@ -364,6 +441,16 @@ class Protocol extends _isd.DatabaseSerializationManager
       foreignKeys: [
         _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_rows_fk_0',
+          columns: ['sourcePeerId'],
+          referenceTable: 'offline_sync_peers',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
+          matchType: null,
+        ),
+        _isd.ForeignKeyDefinition(
+          constraintName: 'crdt_data_rows_fk_1',
           columns: ['spaceId'],
           referenceTable: 'offline_sync_spaces',
           referenceTableSchema: 'public',
@@ -373,7 +460,7 @@ class Protocol extends _isd.DatabaseSerializationManager
           matchType: null,
         ),
         _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_data_rows_fk_1',
+          constraintName: 'crdt_data_rows_fk_2',
           columns: ['tblId'],
           referenceTable: 'crdt_schema_tables',
           referenceTableSchema: 'public',
@@ -383,7 +470,7 @@ class Protocol extends _isd.DatabaseSerializationManager
           matchType: null,
         ),
         _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_data_rows_fk_2',
+          constraintName: 'crdt_data_rows_fk_3',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
@@ -415,6 +502,23 @@ class Protocol extends _isd.DatabaseSerializationManager
           isUnique: true,
           isPrimary: false,
         ),
+        _isd.IndexDefinition(
+          indexName: 'crdt_data_rows_space_revision_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'syncRevision',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
       ],
       managed: true,
     ),
@@ -444,6 +548,25 @@ class Protocol extends _isd.DatabaseSerializationManager
           dartType: 'int',
         ),
         _isd.ColumnDefinition(
+          name: 'spaceId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'syncRevision',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isd.ColumnDefinition(
+          name: 'sourcePeerId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isd.ColumnDefinition(
           name: 'rowId',
           columnType: _isd.ColumnType.bigint,
           isNullable: false,
@@ -471,6 +594,16 @@ class Protocol extends _isd.DatabaseSerializationManager
       foreignKeys: [
         _isd.ForeignKeyDefinition(
           constraintName: 'crdt_data_tombstone_fk_0',
+          columns: ['sourcePeerId'],
+          referenceTable: 'offline_sync_peers',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.noAction,
+          matchType: null,
+        ),
+        _isd.ForeignKeyDefinition(
+          constraintName: 'crdt_data_tombstone_fk_1',
           columns: ['rowId'],
           referenceTable: 'crdt_data_rows',
           referenceTableSchema: 'public',
@@ -480,7 +613,7 @@ class Protocol extends _isd.DatabaseSerializationManager
           matchType: null,
         ),
         _isd.ForeignKeyDefinition(
-          constraintName: 'crdt_data_tombstone_fk_1',
+          constraintName: 'crdt_data_tombstone_fk_2',
           columns: ['nodeId'],
           referenceTable: 'crdt_nodes',
           referenceTableSchema: 'public',
@@ -502,6 +635,23 @@ class Protocol extends _isd.DatabaseSerializationManager
           ],
           type: 'btree',
           isUnique: true,
+          isPrimary: false,
+        ),
+        _isd.IndexDefinition(
+          indexName: 'crdt_data_tombstone_space_revision_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'syncRevision',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
           isPrimary: false,
         ),
       ],
@@ -818,6 +968,129 @@ class Protocol extends _isd.DatabaseSerializationManager
       managed: true,
     ),
     _isd.TableDefinition(
+      name: 'offline_sync_peer_checkpoints',
+      dartName: 'OfflineSyncPeerCheckpoint',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'spaceId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'peerId',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isd.ColumnDefinition(
+          name: 'revision',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+      ],
+      foreignKeys: [
+        _isd.ForeignKeyDefinition(
+          constraintName: 'offline_sync_peer_checkpoints_fk_0',
+          columns: ['spaceId'],
+          referenceTable: 'offline_sync_spaces',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+        _isd.ForeignKeyDefinition(
+          constraintName: 'offline_sync_peer_checkpoints_fk_1',
+          columns: ['peerId'],
+          referenceTable: 'offline_sync_peers',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isd.ForeignKeyAction.noAction,
+          onDelete: _isd.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isd.IndexDefinition(
+          indexName: 'offline_sync_peer_checkpoint_identity_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'spaceId',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'peerId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isd.TableDefinition(
+      name: 'offline_sync_peers',
+      dartName: 'OfflineSyncPeer',
+      schema: 'public',
+      module: 'serverpod_offline_sync',
+      columns: [
+        _isd.ColumnDefinition(
+          name: 'id',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isd.ColumnDefinition(
+          name: 'userUuid',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isd.ColumnDefinition(
+          name: 'peerUuid',
+          columnType: _isd.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isd.IndexDefinition(
+          indexName: 'offline_sync_peer_identity_idx',
+          tableSpace: null,
+          elements: [
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'userUuid',
+            ),
+            _isd.IndexElementDefinition(
+              type: _isd.IndexElementDefinitionType.column,
+              definition: 'peerUuid',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isd.TableDefinition(
       name: 'offline_sync_space_members',
       dartName: 'OfflineSyncSpaceMember',
       schema: 'public',
@@ -985,6 +1258,13 @@ class Protocol extends _isd.DatabaseSerializationManager
           dartType:
               'package:serverpod_offline_sync/serverpod_offline_sync.dart:Hlc?',
         ),
+        _isd.ColumnDefinition(
+          name: 'syncRevision',
+          columnType: _isd.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
       ],
       foreignKeys: [],
       indexes: [
@@ -1078,6 +1358,12 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iyfv8jet.CrdtNode) {
       return _iyfv8jet.CrdtNode.fromJson(data) as T;
     }
+    if (t == _irp8gvgs.OfflineSyncPeer) {
+      return _irp8gvgs.OfflineSyncPeer.fromJson(data) as T;
+    }
+    if (t == _ie1q2lve.OfflineSyncPeerCheckpoint) {
+      return _ie1q2lve.OfflineSyncPeerCheckpoint.fromJson(data) as T;
+    }
     if (t == _ifj6lhq8.OfflineSyncSpace) {
       return _ifj6lhq8.OfflineSyncSpace.fromJson(data) as T;
     }
@@ -1099,6 +1385,9 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iimdylh8.OfflineSyncClose) {
       return _iimdylh8.OfflineSyncClose.fromJson(data) as T;
     }
+    if (t == _iimdylh8.OfflineSyncCommitted) {
+      return _iimdylh8.OfflineSyncCommitted.fromJson(data) as T;
+    }
     if (t == _iimdylh8.OfflineSyncConnect) {
       return _iimdylh8.OfflineSyncConnect.fromJson(data) as T;
     }
@@ -1108,17 +1397,23 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iimdylh8.OfflineSyncMergeChunk) {
       return _iimdylh8.OfflineSyncMergeChunk.fromJson(data) as T;
     }
-    if (t == _iimdylh8.OfflineSyncSinceHlc) {
-      return _iimdylh8.OfflineSyncSinceHlc.fromJson(data) as T;
+    if (t == _ifr670fq.OfflineSyncNodeCheckpoint) {
+      return _ifr670fq.OfflineSyncNodeCheckpoint.fromJson(data) as T;
+    }
+    if (t == _iimdylh8.OfflineSyncReady) {
+      return _iimdylh8.OfflineSyncReady.fromJson(data) as T;
+    }
+    if (t == _iimdylh8.OfflineSyncSinceRevision) {
+      return _iimdylh8.OfflineSyncSinceRevision.fromJson(data) as T;
+    }
+    if (t == _ipjgs2a4.OfflineSyncSpaceCheckpoint) {
+      return _ipjgs2a4.OfflineSyncSpaceCheckpoint.fromJson(data) as T;
     }
     if (t == _ijw89gb9.OfflineSyncSpaceGrant) {
       return _ijw89gb9.OfflineSyncSpaceGrant.fromJson(data) as T;
     }
     if (t == _iimdylh8.OfflineSyncSpaceSet) {
       return _iimdylh8.OfflineSyncSpaceSet.fromJson(data) as T;
-    }
-    if (t == _iimdylh8.OfflineSyncIdleTimeout) {
-      return _iimdylh8.OfflineSyncIdleTimeout.fromJson(data) as T;
     }
     if (t == _iucor0s6.OfflineSyncIntegrityViolation) {
       return _iucor0s6.OfflineSyncIntegrityViolation.fromJson(data) as T;
@@ -1182,6 +1477,16 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iss.getType<_iyfv8jet.CrdtNode?>()) {
       return (data != null ? _iyfv8jet.CrdtNode.fromJson(data) : null) as T;
     }
+    if (t == _iss.getType<_irp8gvgs.OfflineSyncPeer?>()) {
+      return (data != null ? _irp8gvgs.OfflineSyncPeer.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_ie1q2lve.OfflineSyncPeerCheckpoint?>()) {
+      return (data != null
+              ? _ie1q2lve.OfflineSyncPeerCheckpoint.fromJson(data)
+              : null)
+          as T;
+    }
     if (t == _iss.getType<_ifj6lhq8.OfflineSyncSpace?>()) {
       return (data != null ? _ifj6lhq8.OfflineSyncSpace.fromJson(data) : null)
           as T;
@@ -1216,6 +1521,12 @@ class Protocol extends _isd.DatabaseSerializationManager
       return (data != null ? _iimdylh8.OfflineSyncClose.fromJson(data) : null)
           as T;
     }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncCommitted?>()) {
+      return (data != null
+              ? _iimdylh8.OfflineSyncCommitted.fromJson(data)
+              : null)
+          as T;
+    }
     if (t == _iss.getType<_iimdylh8.OfflineSyncConnect?>()) {
       return (data != null ? _iimdylh8.OfflineSyncConnect.fromJson(data) : null)
           as T;
@@ -1232,9 +1543,25 @@ class Protocol extends _isd.DatabaseSerializationManager
               : null)
           as T;
     }
-    if (t == _iss.getType<_iimdylh8.OfflineSyncSinceHlc?>()) {
+    if (t == _iss.getType<_ifr670fq.OfflineSyncNodeCheckpoint?>()) {
       return (data != null
-              ? _iimdylh8.OfflineSyncSinceHlc.fromJson(data)
+              ? _ifr670fq.OfflineSyncNodeCheckpoint.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncReady?>()) {
+      return (data != null ? _iimdylh8.OfflineSyncReady.fromJson(data) : null)
+          as T;
+    }
+    if (t == _iss.getType<_iimdylh8.OfflineSyncSinceRevision?>()) {
+      return (data != null
+              ? _iimdylh8.OfflineSyncSinceRevision.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _iss.getType<_ipjgs2a4.OfflineSyncSpaceCheckpoint?>()) {
+      return (data != null
+              ? _ipjgs2a4.OfflineSyncSpaceCheckpoint.fromJson(data)
               : null)
           as T;
     }
@@ -1247,12 +1574,6 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _iss.getType<_iimdylh8.OfflineSyncSpaceSet?>()) {
       return (data != null
               ? _iimdylh8.OfflineSyncSpaceSet.fromJson(data)
-              : null)
-          as T;
-    }
-    if (t == _iss.getType<_iimdylh8.OfflineSyncIdleTimeout?>()) {
-      return (data != null
-              ? _iimdylh8.OfflineSyncIdleTimeout.fromJson(data)
               : null)
           as T;
     }
@@ -1308,22 +1629,27 @@ class Protocol extends _isd.DatabaseSerializationManager
               : null)
           as T;
     }
+    if (t == List<_icw2tu00.OfflineSyncSpaceGrant>) {
+      return (data as List)
+              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceGrant>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_icw2tu00.OfflineSyncSpaceCheckpoint>) {
+      return (data as List)
+              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceCheckpoint>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_icw2tu00.CrdtMergeChange>) {
       return (data as List)
               .map((e) => deserialize<_icw2tu00.CrdtMergeChange>(e))
               .toList()
           as T;
     }
-    if (t == List<_icw2tu00.Hlc>) {
-      return (data as List).map((e) => deserialize<_icw2tu00.Hlc>(e)).toList()
-          as T;
-    }
-    if (t == _icw2tu00.Hlc) {
-      return _icw2tu00.Hlc.fromJson(data) as T;
-    }
-    if (t == List<_icw2tu00.OfflineSyncSpaceGrant>) {
+    if (t == List<_icw2tu00.OfflineSyncNodeCheckpoint>) {
       return (data as List)
-              .map((e) => deserialize<_icw2tu00.OfflineSyncSpaceGrant>(e))
+              .map((e) => deserialize<_icw2tu00.OfflineSyncNodeCheckpoint>(e))
               .toList()
           as T;
     }
@@ -1344,6 +1670,8 @@ class Protocol extends _isd.DatabaseSerializationManager
       _i0vvt7eq.CrdtMergeUpdate => 'CrdtMergeUpdate',
       _ipogc60q.BaseHlc => 'BaseHlc',
       _iyfv8jet.CrdtNode => 'CrdtNode',
+      _irp8gvgs.OfflineSyncPeer => 'OfflineSyncPeer',
+      _ie1q2lve.OfflineSyncPeerCheckpoint => 'OfflineSyncPeerCheckpoint',
       _ifj6lhq8.OfflineSyncSpace => 'OfflineSyncSpace',
       _i75umry7.OfflineSyncSpaceMember => 'OfflineSyncSpaceMember',
       _it7grqg6.OfflineSyncSpaceNode => 'OfflineSyncSpaceNode',
@@ -1351,13 +1679,16 @@ class Protocol extends _isd.DatabaseSerializationManager
       _iy534gq7.CrdtSchemaColumn => 'CrdtSchemaColumn',
       _ik8xyqdv.CrdtSchemaTable => 'CrdtSchemaTable',
       _iimdylh8.OfflineSyncClose => 'OfflineSyncClose',
+      _iimdylh8.OfflineSyncCommitted => 'OfflineSyncCommitted',
       _iimdylh8.OfflineSyncConnect => 'OfflineSyncConnect',
       _iimdylh8.OfflineSyncEndOfBatch => 'OfflineSyncEndOfBatch',
       _iimdylh8.OfflineSyncMergeChunk => 'OfflineSyncMergeChunk',
-      _iimdylh8.OfflineSyncSinceHlc => 'OfflineSyncSinceHlc',
+      _ifr670fq.OfflineSyncNodeCheckpoint => 'OfflineSyncNodeCheckpoint',
+      _iimdylh8.OfflineSyncReady => 'OfflineSyncReady',
+      _iimdylh8.OfflineSyncSinceRevision => 'OfflineSyncSinceRevision',
+      _ipjgs2a4.OfflineSyncSpaceCheckpoint => 'OfflineSyncSpaceCheckpoint',
       _ijw89gb9.OfflineSyncSpaceGrant => 'OfflineSyncSpaceGrant',
       _iimdylh8.OfflineSyncSpaceSet => 'OfflineSyncSpaceSet',
-      _iimdylh8.OfflineSyncIdleTimeout => 'OfflineSyncIdleTimeout',
       _iucor0s6.OfflineSyncIntegrityViolation =>
         'OfflineSyncIntegrityViolation',
       _ijw2vw1z.OfflineSyncViolationOperation =>
@@ -1404,6 +1735,10 @@ class Protocol extends _isd.DatabaseSerializationManager
         return 'BaseHlc';
       case _iyfv8jet.CrdtNode():
         return 'CrdtNode';
+      case _irp8gvgs.OfflineSyncPeer():
+        return 'OfflineSyncPeer';
+      case _ie1q2lve.OfflineSyncPeerCheckpoint():
+        return 'OfflineSyncPeerCheckpoint';
       case _ifj6lhq8.OfflineSyncSpace():
         return 'OfflineSyncSpace';
       case _i75umry7.OfflineSyncSpaceMember():
@@ -1418,20 +1753,26 @@ class Protocol extends _isd.DatabaseSerializationManager
         return 'CrdtSchemaTable';
       case _iimdylh8.OfflineSyncClose():
         return 'OfflineSyncClose';
+      case _iimdylh8.OfflineSyncCommitted():
+        return 'OfflineSyncCommitted';
       case _iimdylh8.OfflineSyncConnect():
         return 'OfflineSyncConnect';
       case _iimdylh8.OfflineSyncEndOfBatch():
         return 'OfflineSyncEndOfBatch';
       case _iimdylh8.OfflineSyncMergeChunk():
         return 'OfflineSyncMergeChunk';
-      case _iimdylh8.OfflineSyncSinceHlc():
-        return 'OfflineSyncSinceHlc';
+      case _ifr670fq.OfflineSyncNodeCheckpoint():
+        return 'OfflineSyncNodeCheckpoint';
+      case _iimdylh8.OfflineSyncReady():
+        return 'OfflineSyncReady';
+      case _iimdylh8.OfflineSyncSinceRevision():
+        return 'OfflineSyncSinceRevision';
+      case _ipjgs2a4.OfflineSyncSpaceCheckpoint():
+        return 'OfflineSyncSpaceCheckpoint';
       case _ijw89gb9.OfflineSyncSpaceGrant():
         return 'OfflineSyncSpaceGrant';
       case _iimdylh8.OfflineSyncSpaceSet():
         return 'OfflineSyncSpaceSet';
-      case _iimdylh8.OfflineSyncIdleTimeout():
-        return 'OfflineSyncIdleTimeout';
       case _iucor0s6.OfflineSyncIntegrityViolation():
         return 'OfflineSyncIntegrityViolation';
       case _ijw2vw1z.OfflineSyncViolationOperation():
@@ -1484,6 +1825,12 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (dataClassName == 'CrdtNode') {
       return deserialize<_iyfv8jet.CrdtNode>(data['data']);
     }
+    if (dataClassName == 'OfflineSyncPeer') {
+      return deserialize<_irp8gvgs.OfflineSyncPeer>(data['data']);
+    }
+    if (dataClassName == 'OfflineSyncPeerCheckpoint') {
+      return deserialize<_ie1q2lve.OfflineSyncPeerCheckpoint>(data['data']);
+    }
     if (dataClassName == 'OfflineSyncSpace') {
       return deserialize<_ifj6lhq8.OfflineSyncSpace>(data['data']);
     }
@@ -1505,6 +1852,9 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (dataClassName == 'OfflineSyncClose') {
       return deserialize<_iimdylh8.OfflineSyncClose>(data['data']);
     }
+    if (dataClassName == 'OfflineSyncCommitted') {
+      return deserialize<_iimdylh8.OfflineSyncCommitted>(data['data']);
+    }
     if (dataClassName == 'OfflineSyncConnect') {
       return deserialize<_iimdylh8.OfflineSyncConnect>(data['data']);
     }
@@ -1514,17 +1864,23 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (dataClassName == 'OfflineSyncMergeChunk') {
       return deserialize<_iimdylh8.OfflineSyncMergeChunk>(data['data']);
     }
-    if (dataClassName == 'OfflineSyncSinceHlc') {
-      return deserialize<_iimdylh8.OfflineSyncSinceHlc>(data['data']);
+    if (dataClassName == 'OfflineSyncNodeCheckpoint') {
+      return deserialize<_ifr670fq.OfflineSyncNodeCheckpoint>(data['data']);
+    }
+    if (dataClassName == 'OfflineSyncReady') {
+      return deserialize<_iimdylh8.OfflineSyncReady>(data['data']);
+    }
+    if (dataClassName == 'OfflineSyncSinceRevision') {
+      return deserialize<_iimdylh8.OfflineSyncSinceRevision>(data['data']);
+    }
+    if (dataClassName == 'OfflineSyncSpaceCheckpoint') {
+      return deserialize<_ipjgs2a4.OfflineSyncSpaceCheckpoint>(data['data']);
     }
     if (dataClassName == 'OfflineSyncSpaceGrant') {
       return deserialize<_ijw89gb9.OfflineSyncSpaceGrant>(data['data']);
     }
     if (dataClassName == 'OfflineSyncSpaceSet') {
       return deserialize<_iimdylh8.OfflineSyncSpaceSet>(data['data']);
-    }
-    if (dataClassName == 'OfflineSyncIdleTimeout') {
-      return deserialize<_iimdylh8.OfflineSyncIdleTimeout>(data['data']);
     }
     if (dataClassName == 'OfflineSyncIntegrityViolation') {
       return deserialize<_iucor0s6.OfflineSyncIntegrityViolation>(data['data']);
@@ -1610,6 +1966,10 @@ class Protocol extends _isd.DatabaseSerializationManager
         return _iokmrb1h.CrdtDataRow.t;
       case _iyfv8jet.CrdtNode:
         return _iyfv8jet.CrdtNode.t;
+      case _irp8gvgs.OfflineSyncPeer:
+        return _irp8gvgs.OfflineSyncPeer.t;
+      case _ie1q2lve.OfflineSyncPeerCheckpoint:
+        return _ie1q2lve.OfflineSyncPeerCheckpoint.t;
       case _ifj6lhq8.OfflineSyncSpace:
         return _ifj6lhq8.OfflineSyncSpace.t;
       case _i75umry7.OfflineSyncSpaceMember:

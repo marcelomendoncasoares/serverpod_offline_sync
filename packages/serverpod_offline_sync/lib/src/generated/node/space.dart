@@ -27,13 +27,16 @@ abstract class OfflineSyncSpace
     this.id,
     _iss.UuidValue? uuidSpaceId,
     this.lastHlc,
+    int? syncRevision,
     this.nodes,
-  }) : uuidSpaceId = uuidSpaceId ?? const _iss.Uuid().v7obj();
+  }) : uuidSpaceId = uuidSpaceId ?? const _iss.Uuid().v7obj(),
+       syncRevision = syncRevision ?? 0;
 
   factory OfflineSyncSpace({
     int? id,
     _iss.UuidValue? uuidSpaceId,
     _icw2tu00.Hlc? lastHlc,
+    int? syncRevision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
   }) = _OfflineSyncSpaceImpl;
 
@@ -48,6 +51,7 @@ abstract class OfflineSyncSpace
       lastHlc: jsonSerialization['lastHlc'] == null
           ? null
           : _icw2tu00.Hlc.fromJson(jsonSerialization['lastHlc']),
+      syncRevision: jsonSerialization['syncRevision'] as int?,
       nodes: jsonSerialization['nodes'] == null
           ? null
           : _icw2tu00.Protocol()
@@ -73,7 +77,10 @@ abstract class OfflineSyncSpace
   /// other users' clocks.
   _icw2tu00.Hlc? lastHlc;
 
-  /// The nodes associated with the space and their per-space checkpoints.
+  /// Local committed delivery revision, allocated while holding this space's lock.
+  int syncRevision;
+
+  /// The authors associated with the space and their observed causal clocks.
   List<_icw2tu00.OfflineSyncSpaceNode>? nodes;
 
   @override
@@ -86,6 +93,7 @@ abstract class OfflineSyncSpace
     int? id,
     _iss.UuidValue? uuidSpaceId,
     _icw2tu00.Hlc? lastHlc,
+    int? syncRevision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
         const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   });
@@ -96,6 +104,7 @@ abstract class OfflineSyncSpace
       if (id != null) 'id': id,
       'uuidSpaceId': uuidSpaceId.toJson(),
       if (lastHlc != null) 'lastHlc': lastHlc?.toJson(),
+      'syncRevision': syncRevision,
       if (nodes != null) 'nodes': nodes?.toJson(valueToJson: (v) => v.toJson()),
     };
   }
@@ -114,6 +123,7 @@ abstract class OfflineSyncSpace
             :
               // ignore: dead_code
               lastHlc?.toJson(),
+      'syncRevision': syncRevision,
       if (nodes != null)
         'nodes': nodes?.toJson(valueToJson: (v) => v.toJsonForProtocol()),
     };
@@ -156,11 +166,13 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
     int? id,
     _iss.UuidValue? uuidSpaceId,
     _icw2tu00.Hlc? lastHlc,
+    int? syncRevision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes,
   }) : super._(
          id: id,
          uuidSpaceId: uuidSpaceId,
          lastHlc: lastHlc,
+         syncRevision: syncRevision,
          nodes: nodes,
        );
 
@@ -172,6 +184,7 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
     Object? id = _Undefined,
     _iss.UuidValue? uuidSpaceId,
     Object? lastHlc = _Undefined,
+    int? syncRevision,
     List<_icw2tu00.OfflineSyncSpaceNode>? nodes =
         const _iss.$UndefinedList<_icw2tu00.OfflineSyncSpaceNode>(),
   }) {
@@ -179,6 +192,7 @@ class _OfflineSyncSpaceImpl extends OfflineSyncSpace {
       id: id is int? ? id : this.id,
       uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
       lastHlc: lastHlc is _icw2tu00.Hlc? ? lastHlc : this.lastHlc?.copyWith(),
+      syncRevision: syncRevision ?? this.syncRevision,
       nodes: nodes is _iss.UndefinedSentinel
           ? this.nodes?.map((e0) => e0.copyWith()).toList()
           : nodes,
@@ -203,6 +217,11 @@ class OfflineSyncSpaceUpdateTable
     table.lastHlc,
     value,
   );
+
+  _isd.ColumnValue<int, int> syncRevision(int value) => _isd.ColumnValue(
+    table.syncRevision,
+    value,
+  );
 }
 
 class OfflineSyncSpaceTable extends _isd.Table<int?> {
@@ -218,6 +237,11 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
       'lastHlc',
       this,
     );
+    syncRevision = _isd.ColumnInt(
+      'syncRevision',
+      this,
+      hasDefault: true,
+    );
   }
 
   late final OfflineSyncSpaceUpdateTable updateTable;
@@ -231,10 +255,13 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
   /// other users' clocks.
   late final _isd.ColumnStructured<_icw2tu00.Hlc> lastHlc;
 
-  /// The nodes associated with the space and their per-space checkpoints.
+  /// Local committed delivery revision, allocated while holding this space's lock.
+  late final _isd.ColumnInt syncRevision;
+
+  /// The authors associated with the space and their observed causal clocks.
   _icw2tu00.OfflineSyncSpaceNodeTable? ___nodes;
 
-  /// The nodes associated with the space and their per-space checkpoints.
+  /// The authors associated with the space and their observed causal clocks.
   _isd.ManyRelation<_icw2tu00.OfflineSyncSpaceNodeTable>? _nodes;
 
   _icw2tu00.OfflineSyncSpaceNodeTable get __nodes {
@@ -278,6 +305,7 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
     id,
     uuidSpaceId,
     lastHlc,
+    syncRevision,
   ];
 
   @override

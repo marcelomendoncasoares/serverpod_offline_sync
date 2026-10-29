@@ -1,3 +1,9 @@
-### Marks the end of a framed sync batch.
+### Completes a numbered batch, allowing its receiver to apply it.
 class: OfflineSyncEndOfBatch
 extends: OfflineSyncStreamEvent
+fields:
+  batchId: int
+  ### Complete per-space capture bounds in the sending replica's revision order.
+  checkpoints: List<OfflineSyncSpaceCheckpoint>
+  ### Selects the finite upload or download boundary for syncOnce.
+  finalForOnce: bool

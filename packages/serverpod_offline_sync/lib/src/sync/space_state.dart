@@ -2,7 +2,6 @@ import 'package:serverpod_database/serverpod_database.dart';
 import 'package:uuid/uuid.dart';
 
 import '../crdt/extensions.dart';
-import '../crdt/merge.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/space.dart';
@@ -57,20 +56,15 @@ bool _grantsEqual(List<OfflineSyncSpaceGrant>? a, List<OfflineSyncSpaceGrant> b)
 /// the membership helpers, so it carries no protocol or transport concerns.
 class OfflineSyncSpaceState {
   /// Creates a space session for [_userId] acting in [_mode] against [_session].
-  ///
-  /// [_peerNodeId] is the remote peer's CRDT node, learned from its connect
-  /// handshake before this session is constructed.
   OfflineSyncSpaceState(
     this._session, {
     required this._userId,
     required this._mode,
-    required this._peerNodeId,
   });
 
   final DatabaseSession _session;
   final UuidValue _userId;
   final OfflineSyncPeerMode _mode;
-  final UuidValue _peerNodeId;
 
   /// Session-lived space manager. Reused across cycles so its in-memory cache
   /// of already-materialized spaces survives, sparing a follower a per-cycle
@@ -96,16 +90,19 @@ class OfflineSyncSpaceState {
   /// Active spaces this peer may send local writes for.
   Set<String> _writableUuids = const {};
 
-  /// Spaces for which this peer has already sent its [OfflineSyncSinceHlc].
-  final Set<String> _sinceHlcSent = {};
+  /// Spaces for which this peer has already sent its [OfflineSyncSinceRevision].
+  final Set<String> _cursorSent = {};
 
-  /// The peer's node id from its connect handshake.
-  UuidValue get peerNodeId => _peerNodeId;
-
-  /// What the peer has seen per space (advances as we send), seeded from its
-  /// [OfflineSyncSinceHlc] — presence means the space's handshake completed both
+  /// What the peer has committed per space (advances on acknowledgement), seeded from its
+  /// [OfflineSyncSinceRevision] — presence means the space's handshake completed both
   /// ways, so it can stream changes.
-  final Map<UuidValue, Map<UuidValue, Hlc>> _checkpointsBySpace = {};
+  final Map<UuidValue, int> _checkpointsBySpace = {};
+
+  /// This database's user-scoped epoch, announced in Connect.
+  late UuidValue localNodeId;
+
+  // HLCs describe notifications only; they never decide delivery progress.
+  final Map<UuidValue, Hlc> _reportedHlcs = {};
 
   /// The grants this peer should announce this cycle.
   List<OfflineSyncSpaceGrant> get localGrants => _localGrants;
@@ -169,8 +166,9 @@ class OfflineSyncSpaceState {
       ),
     );
     _activeUuids = {for (final s in _activeSpaceIds) s.uuid};
-    _sinceHlcSent.removeWhere((uuid) => !_activeUuids.contains(uuid));
+    _cursorSent.removeWhere((uuid) => !_activeUuids.contains(uuid));
     _checkpointsBySpace.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
+    _reportedHlcs.removeWhere((s, _) => !_activeUuids.contains(s.uuid));
   }
 
   void _refreshWritableSpaces() {
@@ -190,27 +188,27 @@ class OfflineSyncSpaceState {
     };
   }
 
-  /// Marks that this peer is sending its [OfflineSyncSinceHlc] for [spaceId],
+  /// Marks that this peer is sending its [OfflineSyncSinceRevision] for [spaceId],
   /// returning whether the space was newly handshaked (so the driver sends one).
-  bool markHandshakeSent(UuidValue spaceId) => _sinceHlcSent.add(spaceId.uuid);
+  bool markHandshakeSent(UuidValue spaceId) => _cursorSent.add(spaceId.uuid);
 
-  /// Records the peer's resume vector for [spaceId] from its [sinceHlc],
-  /// completing the space's handshake from this peer's side.
-  void recordPeerHandshake(UuidValue spaceId, OfflineSyncSinceHlc sinceHlc) {
-    _checkpointsBySpace[spaceId] = normalizeCheckpoints(sinceHlc.nodeCheckpoints);
+  /// Selects the durable receiver cursor for this database's current epoch.
+  void recordPeerHandshake(UuidValue spaceId, OfflineSyncSinceRevision cursor) {
+    final revisions = <UuidValue, int>{};
+    for (final checkpoint in cursor.nodeCheckpoints) {
+      if (checkpoint.revision < 0 || revisions.containsKey(checkpoint.uuidNodeId)) {
+        throw StateError('Invalid or duplicate replica checkpoint.');
+      }
+      revisions[checkpoint.uuidNodeId] = checkpoint.revision;
+    }
+    _checkpointsBySpace[spaceId] = revisions[localNodeId] ?? 0;
   }
 
-  /// Normalizes a wire resume vector exactly as a peer handshake does.
-  static Map<UuidValue, Hlc> normalizeCheckpoints(Iterable<Hlc> checkpoints) => {
-    for (final checkpoint in checkpoints) checkpoint.nodeId: checkpoint,
-  };
-
-  /// Checkpoints for writable spaces whose handshake completed both ways, keyed
-  /// by space — the input to a pending-change collection pass.
-  Map<UuidValue, List<Hlc>> get sendableCheckpoints => {
+  /// Receiver cursors for writable spaces with a completed handshake.
+  Map<UuidValue, int> get sendableCheckpoints => {
     for (final spaceId in _activeSpaceIds)
       if (_checkpointsBySpace[spaceId] != null && _writableUuids.contains(spaceId.uuid))
-        spaceId: _checkpointsBySpace[spaceId]!.values.toList(),
+        spaceId: _checkpointsBySpace[spaceId]!,
   };
 
   /// Whether any active space still lacks the peer handshake state.
@@ -218,14 +216,17 @@ class OfflineSyncSpaceState {
     (spaceId) => _checkpointsBySpace[spaceId] == null,
   );
 
-  /// Advances the in-session checkpoint for [spaceId] past a just-sent [change],
-  /// so the next collection does not resend it.
-  void advanceCheckpoint(UuidValue spaceId, CrdtMergeChange change) {
-    final checkpoints = _checkpointsBySpace[spaceId];
-    if (checkpoints == null) return;
-    checkpoints[change.uuidNodeId] = change.hlc.maxBetween(
-      checkpoints[change.uuidNodeId],
-    );
+  /// Acknowledges complete coverage through the captured local revision.
+  void advanceCheckpoint(UuidValue spaceId, int revision) {
+    final previous = _checkpointsBySpace[spaceId];
+    if (previous != null && revision > previous) {
+      _checkpointsBySpace[spaceId] = revision;
+    }
+  }
+
+  /// Remembers an acknowledged fact's clock for the application callback.
+  void recordReportedHlc(UuidValue spaceId, Hlc hlc) {
+    _reportedHlcs[spaceId] = hlc.maxBetween(_reportedHlcs[spaceId]);
   }
 
   /// Whether this peer authorizes acting in [spaceId]: an authoritative peer
@@ -236,12 +237,8 @@ class OfflineSyncSpaceState {
         spaceId.uuid,
       );
 
-  /// The greatest checkpoint HLC tracked for [spaceId], or null if none.
-  Hlc? checkpointMaxOf(UuidValue spaceId) {
-    final checkpoints = _checkpointsBySpace[spaceId];
-    if (checkpoints == null || checkpoints.isEmpty) return null;
-    return checkpoints.values.max;
-  }
+  /// The greatest acknowledged fact HLC, independent of delivery cursors.
+  Hlc? reportedHlcOf(UuidValue spaceId) => _reportedHlcs[spaceId];
 
   /// Resolves the local grants this peer announces in its [OfflineSyncSpaceSet].
   ///
@@ -258,7 +255,7 @@ class OfflineSyncSpaceState {
     }
   }
 
-  /// Resolves the ordered lockstep spaces cycled this round.
+  /// Resolves the ordered active spaces for this session.
   ///
   /// Authoritative peers dictate their own set; followers adopt the peer's
   /// announced set, materializing each space locally.

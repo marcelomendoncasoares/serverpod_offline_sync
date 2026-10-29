@@ -755,7 +755,7 @@ void main() {
       final changes = await source.sync
           .collectPendingChanges(
             source.raw,
-            checkpointsBySpaceUuid: {testCrdtUserId: const []},
+            checkpointsBySpaceUuid: {testCrdtUserId: 0},
           )
           .toList();
       invalid = changes.map((change) {
@@ -844,7 +844,7 @@ void main() {
       final changes = await source.sync
           .collectPendingChanges(
             source.raw,
-            checkpointsBySpaceUuid: {testCrdtUserId: const []},
+            checkpointsBySpaceUuid: {testCrdtUserId: 0},
           )
           .toList();
       invalid = changes.map((change) {
@@ -967,7 +967,7 @@ void main() {
 Future<List<Object?>> _export(SyncNode node) => node.sync
     .collectPendingChanges(
       node.raw,
-      checkpointsBySpaceUuid: {testCrdtUserId: const []},
+      checkpointsBySpaceUuid: {testCrdtUserId: 0},
     )
     .map((change) => change.toJson())
     .toList();
