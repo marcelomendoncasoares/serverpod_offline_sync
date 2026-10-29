@@ -128,7 +128,10 @@ def render(report):
         'Connected devices and devices participating in active rounds are different quantities. '
         'Two devices share one user; each active user offers one round every two seconds, '
         'with at most one round outstanding. The eight-round screens use 128 bytes of seeded '
-        'payload per row plus identifiers. Timings include local commit and delivery to every peer.', '',
+        'payload per row plus identifiers. Timings include local commit and delivery to every peer. '
+        'Participating-device counts describe the offered workload; measured overlap below '
+        'counts devices belonging to unfinished rounds. Database transaction concurrency is '
+        'a separate measurement.', '',
         '## Observed process budgets', '',
         'These are the visible cgroup limits reported by the running server, not the host '
         'processor count. Unmeasured sizes remain blank.', '',
@@ -193,6 +196,33 @@ def render(report):
         ]) + ' |')
 
     lines += [
+        '', '## Measured overlap in one-row screens', '',
+        'These are the highest qualifying throughput screens from the second active-device '
+        'table. The mean and peak count devices involved in unfinished application rounds, '
+        'from local write through final peer application. They show how much of the configured '
+        'participating population was actually overlapping.', '',
+        '| Size / profile | Participating devices | Offered rounds/s | Overlapping devices, mean / peak | p95 ms |',
+        '|---|---:|---:|---:|---:|',
+    ]
+    for size in SIZES:
+        for row in sizing['activeScreens']:
+            if row['rows'] != 1:
+                continue
+            cell = row['sizes'][size]['keptUp']
+            result = cell['representative']
+            if not result:
+                continue
+            overlap = result.get('concurrency') or {}
+            mean = overlap.get('meanParticipatingDevices')
+            peak = overlap.get('peakParticipatingDevices')
+            display = f'{mean:.1f} / {peak}' if mean is not None and peak is not None else '—'
+            lines.append('| ' + ' | '.join([
+                size + ' / ' + row['profile'], str(cell['devices']),
+                f"{cell['offeredRoundsPerSecond']:g}", display,
+                f"{result['latency']['p95Ms']:.0f}",
+            ]) + ' |')
+
+    lines += [
         '', '## Mixed connections and sustained controls', '',
         'The controls below use one-row Person writes. They keep latency, correctness, '
         'offered-rate adherence, and observation completeness separate. An incomplete observation '
@@ -240,9 +270,9 @@ def render(report):
         'dominate. This campaign does not isolate a database-location change.', '',
         'Use headroom below the observed boundary and test reconnect bursts, longer idle periods, '
         'larger retained datasets, and sustained activity. The finite screens do not measure '
-        'multi-instance scaling or establish a maximum concurrent-user promise. ', '',
-        'The [raw sizing selection](sizing.json) retains every contributing trial, its actual '
-        'overlap, SQL counts, timings and resource measurements. See [results.json](results.json) '
+        'multi-instance scaling or establish a maximum concurrent-user promise.', '',
+        'The [raw sizing selection](sizing.json) records each selection, its source trial IDs, '
+        'and representative overlap, SQL counts, timings and resource measurements. See [results.json](results.json) '
         'for failures and observations excluded from the selection.', '',
     ]
     (report / 'SIZING.md').write_text('\n'.join(lines))

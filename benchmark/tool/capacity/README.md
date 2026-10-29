@@ -69,7 +69,7 @@ The report is regenerated at completion or interruption. It includes:
 
 - `README.md`: minimum, median, mean, p95, maximum, samples, and verdicts.
 - `SIZING.md`: observed CPU/memory budgets, active-device screens by schema and
-  row count, idle connection trials, and mixed/sustained controls.
+  row count, measured overlap, idle connection trials, and mixed/sustained controls.
 - `sizing.json`: the selected sizing trials and all contributing observations.
 - `results.json`: throughput, overlap, resources, SQL counts, and failure phases.
 - `rounds.jsonl`: individual round measurements, including incomplete-run data.
