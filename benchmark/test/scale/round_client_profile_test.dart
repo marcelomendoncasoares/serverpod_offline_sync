@@ -43,7 +43,7 @@ void main() {
         )
         ..observe(
           0,
-          OfflineSyncEndOfBatch(batchId: 6, finalForOnce: false),
+          OfflineSyncEndOfBatch(batchId: 6, finalForOnce: false, checkpoints: const []),
           'sent',
         );
       now = 10;
@@ -53,7 +53,7 @@ void main() {
       now = 15;
       profile.observe(
         0,
-        OfflineSyncEndOfBatch(batchId: 7, finalForOnce: false),
+        OfflineSyncEndOfBatch(batchId: 7, finalForOnce: false, checkpoints: const []),
         'sent',
       );
       now = 90;
@@ -65,7 +65,7 @@ void main() {
       now = 95;
       profile.observe(
         1,
-        OfflineSyncEndOfBatch(batchId: 3, finalForOnce: false),
+        OfflineSyncEndOfBatch(batchId: 3, finalForOnce: false, checkpoints: const []),
         'received',
       );
       now = 100;
@@ -120,7 +120,7 @@ void main() {
         ..observe(0, OfflineSyncMergeChunk(batchId: 1, changes: [change]), 'sent')
         ..observe(
           0,
-          OfflineSyncEndOfBatch(batchId: 2, finalForOnce: false),
+          OfflineSyncEndOfBatch(batchId: 2, finalForOnce: false, checkpoints: const []),
           'sent',
         );
       final batches = profile.toJson()['batches']! as List;
