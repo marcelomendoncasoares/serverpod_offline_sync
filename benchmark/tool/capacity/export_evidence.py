@@ -25,8 +25,17 @@ def export():
         result['options'] = {k: v for k, v in options.items() if k not in ['target', 'data-dir', 'directory']}
         result['failures'] = [str(s).replace(str(ROOT), '<evidence>') for s in result['failures']]
         interpretation = ROOT / (label + '-interpretation.json')
-        if interpretation.exists():
-            result['interpretation'] = read(interpretation)
+        result['interpretation'] = read(interpretation) if interpretation.exists() else {}
+        before = read(ROOT / (label + '-before.json'))
+        after_path = ROOT / (label + '-after.json')
+        after = read(after_path) if after_path.exists() else {}
+        dataset = result['interpretation'].setdefault('datasetContext', {})
+        dataset.update({
+            'tableCountsExactBefore': before.get('tableCountsExact') is True,
+            'domainRowsBefore': {table: before.get('tables', {}).get(table, 0) for table in ('person', 'town', 'city')},
+            'tableCountsExactAfter': after.get('tableCountsExact') is True,
+            'domainRowsAfter': {table: after.get('tables', {}).get(table, 0) for table in ('person', 'town', 'city')},
+        })
         results.append(result)
         event_path = Path(receipt['output']) / 'events.jsonl'
         if event_path.exists():

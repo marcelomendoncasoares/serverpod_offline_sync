@@ -19,6 +19,18 @@ def load_report(directory):
     )
 
 
+def exact_starting_counts(result):
+    if not result:
+        return None
+
+    context = result.get('interpretation', {}).get('datasetContext', {})
+    counts = context.get('domainRowsBefore')
+    if context.get('tableCountsExactBefore') is not True or not counts:
+        return None
+
+    return counts
+
+
 def compare(baseline, candidate, output):
     old_manifest, old_cases, old_results = load_report(baseline)
     new_manifest, new_cases, new_results = load_report(candidate)
@@ -33,13 +45,19 @@ def compare(baseline, candidate, output):
         matched = bool(old_case and new_case and old_case['caseSha256'] == new_case['caseSha256'])
         same_resources = bool(old and new and all(old.get(key) == new.get(key) for key in ['cpuQuota', 'memoryLimitBytes']))
         same_collector = bool(old and new and old.get('collectorVersion', 1) == new.get('collectorVersion', 1))
-        valid = bool(matched and same_resources and same_collector and not differences and old and new
+        old_counts, new_counts = exact_starting_counts(old), exact_starting_counts(new)
+        same_counts = old_counts == new_counts if old_counts is not None and new_counts is not None else None
+        valid = bool(matched and same_resources and same_collector and same_counts is True
+                     and not differences and old and new
                      and old['correct'] and new['correct']
                      and old['observationsComplete'] and new['observationsComplete'])
         row = {
             'case': case_id, 'matchingWorkload': matched,
             'matchingResources': same_resources, 'comparableLatency': valid,
             'matchingCollector': same_collector,
+            'matchingStartingDomainCounts': same_counts,
+            'baselineStartingDomainCounts': old_counts,
+            'candidateStartingDomainCounts': new_counts,
             'baselineCorrect': old.get('correct') if old else None,
             'candidateCorrect': new.get('correct') if new else None,
             'baselineKeptUp': old.get('keptUp') if old else None,
@@ -66,10 +84,12 @@ def compare(baseline, candidate, output):
     document = [
         '# Capacity comparison', '',
         'Positive percentages mean lower latency. Reductions are shown only for matching workloads, '
-        'resources, and configuration where both runs converged with complete observations. '
+        'resources, configuration, and exact starting domain-table counts where both runs converged '
+        'with complete observations. Missing or unequal starting counts suppress percentage comparisons. '
+        'Equal counts do not establish identical physical database state or eliminate run-to-run variation. '
         'Failures retain their verdicts; incomplete timings do not establish a speedup.', '',
-        '| Case | Correct before / after | Kept up before / after | Median reduction | Mean reduction | p95 reduction |',
-        '|---|---|---|---:|---:|---:|',
+        '| Case | Correct before / after | Kept up before / after | Starting counts match | Median reduction | Mean reduction | p95 reduction |',
+        '|---|---|---|---|---:|---:|---:|',
     ]
     for row in rows:
         reductions = row['reductionsPercent'] or {}
@@ -77,7 +97,8 @@ def compare(baseline, candidate, output):
                   for key in ['medianMs', 'meanMs', 'p95Ms']]
         document.append('| ' + ' | '.join([
             row['case'], f"{row['baselineCorrect']} / {row['candidateCorrect']}",
-            f"{row['baselineKeptUp']} / {row['candidateKeptUp']}", *values,
+            f"{row['baselineKeptUp']} / {row['candidateKeptUp']}",
+            str(row['matchingStartingDomainCounts']), *values,
         ]) + ' |')
     (output / 'README.md').write_text('\n'.join(document) + '\n')
     return value

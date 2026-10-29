@@ -43,6 +43,10 @@ def report(directory, *, correct=True, kept_up=True, mean=100, quota=.1):
         'label': case['id'], 'correct': correct, 'keptUp': kept_up,
         'observationsComplete': True, 'cpuQuota': quota, 'memoryLimitBytes': 256,
         'latency': {'meanMs': mean, 'medianMs': mean, 'p95Ms': mean},
+        'interpretation': {'datasetContext': {
+            'tableCountsExactBefore': True,
+            'domainRowsBefore': {'person': 0, 'town': 0, 'city': 0},
+        }},
     }])
 
 
@@ -90,6 +94,45 @@ class FrozenMatrixTest(unittest.TestCase):
 
 
 class ComparisonTest(unittest.TestCase):
+    def test_given_more_accumulated_rows_when_compared_then_raw_timings_remain_without_speedup(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            report(directory / 'before', mean=100)
+            report(directory / 'after', mean=50)
+            path = directory / 'after' / 'results.json'
+            results = json.loads(path.read_text())
+            results[0]['interpretation']['datasetContext']['domainRowsBefore']['town'] = 8000
+            write_json(path, results)
+
+            result = compare(directory / 'before', directory / 'after', directory / 'comparison')
+            row = result['cases'][0]
+
+            self.assertFalse(row['matchingStartingDomainCounts'])
+            self.assertFalse(row['comparableLatency'])
+            self.assertIsNone(row['reductionsPercent'])
+            self.assertEqual(row['baselineLatency']['meanMs'], 100)
+            self.assertEqual(row['candidateLatency']['meanMs'], 50)
+
+    def test_given_missing_or_estimated_starting_counts_when_compared_then_no_speedup_is_claimed(self):
+        for missing in (True, False):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                report(directory / 'before')
+                report(directory / 'after', mean=50)
+                path = directory / 'after' / 'results.json'
+                results = json.loads(path.read_text())
+                if missing:
+                    del results[0]['interpretation']['datasetContext']
+                else:
+                    results[0]['interpretation']['datasetContext']['tableCountsExactBefore'] = False
+
+                write_json(path, results)
+                result = compare(directory / 'before', directory / 'after', directory / 'comparison')
+
+                self.assertIsNone(result['cases'][0]['matchingStartingDomainCounts'])
+                self.assertFalse(result['cases'][0]['comparableLatency'])
+                self.assertIsNone(result['cases'][0]['reductionsPercent'])
+
     def test_given_matched_passes_when_compared_then_latency_reduction_is_reported(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
