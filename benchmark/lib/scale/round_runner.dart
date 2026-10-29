@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
 import 'common.dart';
+import 'elapsed_clock.dart';
 import 'round_options.dart';
 import 'runner.dart';
 
@@ -25,6 +26,62 @@ Map<String, dynamic> roundDistribution(Iterable<num> values) {
     'p95Micros': quantile(.95),
     'p99Micros': quantile(.99),
     'maxMicros': sorted.last,
+  };
+}
+
+/// End-to-end round overlap, not simultaneous SQL execution or configured load.
+Map<String, dynamic> roundConcurrency(
+  Iterable<Map<String, dynamic>> rounds, {
+  required int devicesPerUser,
+}) {
+  final boundaries = <({int time, int user, int delta})>[];
+  for (final round in rounds) {
+    final start = round['startedMicros'] as int?;
+    final end = round['finishedMicros'] as int?;
+    if (start == null || end == null) continue;
+    if (end < start) throw StateError('A round ended before it started.');
+    if (end == start) continue;
+    final user = round['user'] as int;
+    boundaries
+      ..add((time: start, user: user, delta: 1))
+      ..add((time: end, user: user, delta: -1));
+  }
+  boundaries.sort((a, b) {
+    final time = a.time.compareTo(b.time);
+    return time != 0 ? time : a.delta.compareTo(b.delta);
+  });
+  final activeUsers = <int, int>{};
+  var count = 0;
+  var peak = 0;
+  var peakUsers = 0;
+  var roundArea = 0;
+  var userArea = 0;
+  var previous = boundaries.isEmpty ? 0 : boundaries.first.time;
+  for (final boundary in boundaries) {
+    final duration = boundary.time - previous;
+    roundArea += duration * count;
+    userArea += duration * activeUsers.length;
+    count += boundary.delta;
+    final userCount = (activeUsers[boundary.user] ?? 0) + boundary.delta;
+    if (userCount == 0) {
+      activeUsers.remove(boundary.user);
+    } else {
+      activeUsers[boundary.user] = userCount;
+    }
+    peak = max(peak, count);
+    peakUsers = max(peakUsers, activeUsers.length);
+    previous = boundary.time;
+  }
+  final window = boundaries.isEmpty ? 0 : boundaries.last.time - boundaries.first.time;
+  return {
+    'peakInFlightRounds': peak,
+    'peakParticipatingUsers': peakUsers,
+    'peakParticipatingDevices': peakUsers * devicesPerUser,
+    'windowMicros': window,
+    'meanInFlightRounds': window == 0 ? 0 : roundArea / window,
+    'meanParticipatingDevices': window == 0 ? 0 : userArea * devicesPerUser / window,
+    'scope':
+        'First local write through last round completion; includes peer delivery and queueing.',
   };
 }
 
@@ -159,6 +216,12 @@ Future<void> runRounds(RoundOptions options) async {
     if (!cleanRoundServer(initial)) {
       throw StateError('Server has existing streams or idle transactions.');
     }
+    final actualSchema = (initial['server'] as Map)['benchmarkSchema'];
+    if (actualSchema != options.values['schema']) {
+      throw StateError(
+        'Server schema $actualSchema differs from requested ${options.values['schema']}.',
+      );
+    }
     await collectDiagnostics(tail: true);
     await File(p.join(directory.path, 'manifest.json')).writeAsString(
       const JsonEncoder.withIndent('  ').convert({
@@ -167,9 +230,9 @@ Future<void> runRounds(RoundOptions options) async {
         'loadGenerator': await executableIdentity(),
         'server': initial['server'],
         'cpuCgroup': initial['cpuCgroup'],
-        'workload': options.updates
-            ? 'Two-field Person updates on stable seeded rows, alternating writers; exact full-journal verification.'
-            : 'Independent Person inserts, one writer per user per round, alternating devices.',
+        'workload':
+            '${options.values['workload']} ${options.values['write-mode']}; '
+            '${options.activeUsers} active users, ${options.number('users')} connected users.',
         'continuousBoundary':
             'Local transaction start to exact rows observed on every peer; warmup excluded.',
         'onceBoundary':
@@ -177,7 +240,8 @@ Future<void> runRounds(RoundOptions options) async {
         'observer':
             'Public ORM watch, no throttle; includes local observation query overhead.',
         'schedule':
-            'Fixed period per user, user phases spread across period, no overlapping rounds for one user; lateness retained.',
+            '${options.values['schedule']} fixed-period schedule with a common worker origin; '
+            'no overlapping rounds for one user; lateness retained.',
         'authentication': 'BENCHMARK_SECRET environment variable (not recorded)',
       }),
     );
@@ -213,29 +277,40 @@ Future<void> runRounds(RoundOptions options) async {
         }
       })().whenComplete(() => sampleInFlight = null);
     });
-    for (final next in ['init', 'warmup', 'exercise', 'verify', 'close']) {
+    for (final next in ['init', 'warmup', 'exercise', 'probe', 'verify', 'close']) {
       if (interrupted) throw StateError('Interrupted.');
       phase = next;
+      if (next == 'exercise') {
+        await Future<void>.delayed(Duration(seconds: options.number('settle-seconds')));
+      }
       record({'type': 'phaseStart'});
       stdout.writeln(
         '$phase: ${options.values['mode']}, ${options.scale.totalDevices} devices',
       );
       final deadline = next == 'exercise'
-          ? options.number('rounds') *
-                    max<int>(
-                      options.number('timeout-seconds') * 3,
-                      (options.number('period-ms') / 1000).ceil(),
-                    ) +
-                30
+          ? max(
+              options.number('idle-seconds') + 30,
+              options.number('rounds') *
+                      max<int>(
+                        options.number('timeout-seconds') * 3,
+                        (options.number('period-ms') / 1000).ceil(),
+                      ) +
+                  30,
+            )
           : options.number('startup-timeout-seconds');
-      await Future.wait(
-        workers.map(
-          (w) => w.command(next, {
-            if (next == 'init') 'options': options.values,
-          }, Duration(seconds: deadline)),
-        ),
-        eagerError: true,
-      );
+      final startMicros = next == 'exercise'
+          ? ElapsedClock.timestampMicroseconds + 2000000
+          : null;
+      Future<void> dispatch(WorkerProcess worker) => worker.command(next, {
+        if (next == 'init') 'options': options.values,
+        'startMicros': ?startMicros,
+      }, Duration(seconds: deadline));
+
+      if (next == 'warmup') {
+        await forEachBounded(workers, options.number('warmup-workers'), dispatch);
+      } else {
+        await Future.wait(workers.map(dispatch), eagerError: true);
+      }
       record({'type': 'phaseEnd'});
       await sampleInFlight;
       final boundary = await sample();
@@ -282,12 +357,20 @@ Future<void> runRounds(RoundOptions options) async {
     if (verified != options.number('users')) {
       failures.add('Only $verified users passed exact verification.');
     }
-    if (measured.length != options.number('users') * options.number('rounds') ||
+    if (measured.length != options.activeUsers * options.number('rounds') ||
         measuredFailures > 0) {
       failures.add('Incomplete or failed measured rounds.');
     }
     if (streamEnds != 0) failures.add('$streamEnds unexpected stream ends.');
     final successes = measured.where((r) => r['ok'] == true).toList();
+    final exerciseMicros = workerMetrics.isEmpty
+        ? null
+        : workerMetrics.map((worker) => worker['finishedMicros'] as int).reduce(max) -
+              workerMetrics.map((worker) => worker['startedMicros'] as int).reduce(min);
+    final completedRows = successes.fold<int>(
+      0,
+      (sum, round) => sum + (round['rows'] as int),
+    );
     Map<String, dynamic> distribution(String key) =>
         roundDistribution(successes.map((r) => r[key] as num));
     final report = {
@@ -303,6 +386,10 @@ Future<void> runRounds(RoundOptions options) async {
       'scheduleLag': distribution('scheduleLagMicros'),
       'scheduledToAllPeers': distribution('scheduledToAllPeersMicros'),
       'roundCompletion': distribution('completedMicros'),
+      'concurrency': roundConcurrency(
+        measured,
+        devicesPerUser: options.number('devices-min'),
+      ),
       'syncOnce': {
         for (final role in ['push', 'pull', 'all'])
           role: roundDistribution(
@@ -314,9 +401,30 @@ Future<void> runRounds(RoundOptions options) async {
       },
       'load': {
         'targetRoundsPerSecond':
-            options.number('users') * 1000 / options.number('period-ms'),
+            options.activeUsers * 1000 / options.number('period-ms'),
+        'targetRowsPerSecond':
+            options.activeUsers *
+            options.number('rows') *
+            1000 /
+            options.number('period-ms'),
+        'exerciseMicros': exerciseMicros,
+        'completedRows': completedRows,
+        'achievedRoundsPerSecond': exerciseMicros == null || exerciseMicros == 0
+            ? null
+            : successes.length * 1000000 / exerciseMicros,
+        'achievedRowsPerSecond': exerciseMicros == null || exerciseMicros == 0
+            ? null
+            : completedRows * 1000000 / exerciseMicros,
+        'domainPayloadBytes': successes.fold<int>(
+          0,
+          (sum, round) => sum + (round['payloadBytes'] as int),
+        ),
+        'connectedDevices': options.scale.totalDevices,
+        'activeUsers': options.activeUsers,
+        'participatingDevices': options.activeUsers * options.number('devices-min'),
+        'schedule': options.values['schedule'],
         'keptUp':
-            completions.length == options.number('users') &&
+            completions.length == options.activeUsers &&
             completions.every(
               (c) => (c['elapsedMicros'] as int) <= (c['budgetMicros'] as int),
             ),

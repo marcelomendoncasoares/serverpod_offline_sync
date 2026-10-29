@@ -14,6 +14,7 @@ import 'client_diagnostics.dart';
 import 'common.dart';
 import 'diagnostics.dart';
 import 'options.dart';
+import 'schema.dart';
 import 'verification.dart';
 
 typedef Emit = void Function(Map<String, dynamic> event);
@@ -129,7 +130,18 @@ class Device {
     try {
       session = await measure(
         'openDatabase',
-        () => newClient.createSyncSession(path, persistentUserId: userId),
+        () async {
+          final session = OfflineSyncDatabaseSession.wraps(
+            await newClient.createSession(path),
+            syncTables: benchmarkTables(
+              syncTables,
+              options.values['schema'] as String? ?? 'full',
+            ),
+            persistentUserId: userId,
+          );
+          await session.db.initialize();
+          return session;
+        },
       );
       client = newClient;
     } catch (_) {
@@ -452,9 +464,13 @@ class Device {
 
   Future<DeviceSnapshot> snapshot() async {
     final tables = {
-      'person': (await Person.db.find(session!)).map((r) => r.toJson()).toList(),
+      'person': options.values['schema'] == 'city'
+          ? <Map<String, dynamic>>[]
+          : (await Person.db.find(session!)).map((r) => r.toJson()).toList(),
       'city': (await City.db.find(session!)).map((r) => r.toJson()).toList(),
-      'town': (await Town.db.find(session!)).map((r) => r.toJson()).toList(),
+      'town': options.values['schema'] == 'city'
+          ? <Map<String, dynamic>>[]
+          : (await Town.db.find(session!)).map((r) => r.toJson()).toList(),
     };
     return DeviceSnapshot(snapshotOf(tables), tables['city']!, tables['town']!);
   }

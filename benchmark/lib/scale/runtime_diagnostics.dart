@@ -153,3 +153,55 @@ Future<Map<String, dynamic>> databaseRoundTripProbe(Session session) async {
         'Same warmed connection; includes driver, network, server execution and scheduling.',
   };
 }
+
+/// Visible cgroup memory, reported separately from process RSS and high-water RSS.
+/// An unavailable counter remains null; it is never interpreted as zero pressure.
+class CgroupMemorySampler {
+  CgroupMemorySampler({this.directory = '/sys/fs/cgroup'});
+
+  final String directory;
+
+  Map<String, dynamic> sample() {
+    try {
+      for (final path in [directory, '$directory/memory']) {
+        final v2 = File('$path/memory.current').existsSync();
+        if (!v2 && !File('$path/memory.usage_in_bytes').existsSync()) continue;
+
+        int? read(String name) {
+          final file = File('$path/$name');
+          return file.existsSync()
+              ? int.tryParse(file.readAsStringSync().trim())
+              : null;
+        }
+
+        Map<String, int> pairs(String name) {
+          final file = File('$path/$name');
+          if (!file.existsSync()) return {};
+          return {
+            for (final line in file.readAsLinesSync())
+              if (line.trim().isNotEmpty)
+                line.trim().split(RegExp(r'\s+'))[0]: int.parse(
+                  line.trim().split(RegExp(r'\s+'))[1],
+                ),
+          };
+        }
+
+        return {
+          'available': true,
+          'version': v2 ? 2 : 1,
+          'currentBytes': read(v2 ? 'memory.current' : 'memory.usage_in_bytes'),
+          'limitBytes': read(v2 ? 'memory.max' : 'memory.limit_in_bytes'),
+          'peakBytes': read(v2 ? 'memory.peak' : 'memory.max_usage_in_bytes'),
+          'failCount': v2 ? null : read('memory.failcnt'),
+          'events': pairs(v2 ? 'memory.events' : 'memory.oom_control'),
+          'scope': 'visible container cgroup; ancestor limits may be hidden',
+        };
+      }
+      return {'available': false, 'reason': 'Memory controller is not exposed'};
+    } on Object catch (error) {
+      return {'available': false, 'reason': error.toString()};
+    }
+  }
+}
+
+final memoryCgroup = CgroupMemorySampler();

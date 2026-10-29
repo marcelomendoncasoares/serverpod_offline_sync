@@ -4,6 +4,7 @@ import 'package:postgres_tls/postgres_tls.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/commit_hints.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/schema.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server_diagnostics.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
@@ -24,7 +25,7 @@ Future<void> main(List<String> args) async {
     databaseInterceptor: benchmarkDatabaseInterceptor,
   );
   pod.initializeOfflineSync(
-    syncTables: syncTables,
+    syncTables: benchmarkTables(syncTables, benchmarkSchema),
     commitHints: createBenchmarkCommitHints(pod),
   );
   final passwordName = benchmarkPasswordName();

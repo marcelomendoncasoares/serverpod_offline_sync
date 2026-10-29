@@ -34,7 +34,18 @@ Map<String, bool>? _loadedSessionLogging;
 
 /// An explicit benchmark control applied after framework configuration loading.
 /// Leave unset to use the ordinary Serverpod logging configuration.
-ServerpodConfig benchmarkServerConfig(ServerpodConfig config) {
+ServerpodConfig benchmarkServerConfig(ServerpodConfig loadedConfig) {
+  var config = loadedConfig;
+  final isolatedDatabase = Platform.environment['BENCHMARK_DATABASE'];
+  if (isolatedDatabase != null) {
+    validateCapacityDatabase(isolatedDatabase);
+    final database = config.database! as PostgresDatabaseConfig;
+    config = config.copyWith(database: database.withName(isolatedDatabase));
+  }
+  if (benchmarkSchema == 'city' &&
+      !(isolatedDatabase?.startsWith('benchmark_capacity_city_') ?? false)) {
+    throw StateError('The City-only registry requires an isolated capacity database.');
+  }
   _loadedSessionLogging = {
     'persistentEnabled': config.sessionLogs.persistentEnabled,
     'consoleEnabled': config.sessionLogs.consoleEnabled,
@@ -175,6 +186,8 @@ String benchmarkPasswordName([String directory = '.']) =>
 
 /// Non-secret facts about this server process, computed once. Connection
 /// settings other than dialect and pool size are deliberately omitted.
+final benchmarkSchema = Platform.environment['BENCHMARK_SCHEMA'] ?? 'full';
+
 Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () async {
   final database = pod.config.database;
   return <String, dynamic>{
@@ -186,6 +199,8 @@ Future<Map<String, dynamic>> serverIdentity(Serverpod pod) => _identity ??= () a
     'runMode': pod.runMode,
     'dialect': database?.dialect.name,
     'maxConnectionCount': database?.maxConnectionCount,
+    'benchmarkSchema': benchmarkSchema,
+    'benchmarkDatabase': Platform.environment['BENCHMARK_DATABASE'] ?? 'original',
     'processors': Platform.numberOfProcessors,
     'sessionLogging': {
       'beforeBenchmarkOverride': _loadedSessionLogging,
@@ -284,18 +299,22 @@ class BenchmarkEndpoint extends Endpoint {
     final db = session.db as sync.OfflineSyncDatabase;
     return db.transactionForUser(id, (transaction) async {
       return snapshotOf({
-        'person': (await Person.db.find(
-          session,
-          transaction: transaction,
-        )).map((r) => r.toJson()).toList(),
+        'person': benchmarkSchema == 'city'
+            ? <Map<String, dynamic>>[]
+            : (await Person.db.find(
+                session,
+                transaction: transaction,
+              )).map((r) => r.toJson()).toList(),
         'city': (await City.db.find(
           session,
           transaction: transaction,
         )).map((r) => r.toJson()).toList(),
-        'town': (await Town.db.find(
-          session,
-          transaction: transaction,
-        )).map((r) => r.toJson()).toList(),
+        'town': benchmarkSchema == 'city'
+            ? <Map<String, dynamic>>[]
+            : (await Town.db.find(
+                session,
+                transaction: transaction,
+              )).map((r) => r.toJson()).toList(),
       });
     });
   }
@@ -380,6 +399,7 @@ ORDER BY xact_start LIMIT 32
       'backend': db.dialect.name,
       'process': processSample(),
       'cpuCgroup': cpuCgroup.sample(),
+      'memoryCgroup': memoryCgroup.sample(),
       'streams': metrics.sample(),
       'commitHints': benchmarkCommitHints?.status ?? {'enabled': false},
       'tables': tables,
@@ -471,3 +491,11 @@ AuthenticationHandler benchmarkAuthentication(String secret) => (session, token)
       return null;
   }
 };
+
+/// Capacity experiments may select only an isolated benchmark database.
+void validateCapacityDatabase(String name) {
+  if (name.length > 63 ||
+      !RegExp(r'^benchmark_capacity_(city|full)_[a-z0-9_]+$').hasMatch(name)) {
+    throw ArgumentError.value(name, 'name', 'Expected an isolated capacity database.');
+  }
+}
