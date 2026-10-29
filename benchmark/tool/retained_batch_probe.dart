@@ -115,9 +115,9 @@ Future<void> main(List<String> args) async {
                       spaces: [],
                     ),
                   );
-                } else if (event is OfflineSyncSinceHlc) {
+                } else if (event is OfflineSyncSinceRevision) {
                   input.add(
-                    OfflineSyncSinceHlc(
+                    OfflineSyncSinceRevision(
                       uuidSpaceId: event.uuidSpaceId,
                       nodeCheckpoints: [],
                     ),
