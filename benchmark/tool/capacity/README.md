@@ -133,6 +133,28 @@ short screens. A short passing trial cannot override a failed longer run, and a
 mixed workload with many idle connections cannot validate the same count of
 actively participating devices.
 
+Combine completed discovery and follow-up reports from the same server build
+without contacting Cloud:
+
+```sh
+python3 benchmark/tool/capacity_merge.py \
+  --reports benchmark/reports/discovery benchmark/reports/followups \
+  --output benchmark/reports/combined
+```
+
+The input and output directories must be siblings. The combiner rejects changed
+server binaries, SDKs, dependency pins, database placement, pool limits, logging,
+or diagnostic configuration. It retains failed and incompletely observed runs,
+counts identical copied observations once, and refuses conflicting observations
+with the same label. If the reports select different latest client builds, pass
+`--client-sha256` to identify the client used for sizing.
+
+The combined report links to the original raw round files and records their
+hashes in `sources.json`. It preserves CPU-accounting caveats. Restoration flags
+remain historical snapshots; the final restoration audit establishes the current
+deployment state. This aggregation is separate from comparing performance across
+different builds.
+
 The orchestration has offline regression checks covering adaptive stopping,
 automatic tier traversal, frozen failures,
 parameter tampering, offline export, comparison eligibility, and conservative
@@ -177,4 +199,5 @@ python3 benchmark/tool/capacity/run.py --evidence /private/evidence freeze --mat
 python3 benchmark/tool/capacity/run.py --config /private/capacity.json export
 python3 benchmark/tool/capacity/run.py --evidence /private/evidence status
 python3 -m unittest discover -s benchmark/tool/capacity -p 'test_*.py'
+python3 -m unittest discover -s benchmark/tool -p 'test_capacity_merge.py'
 ```
