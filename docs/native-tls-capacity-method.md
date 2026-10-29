@@ -1,6 +1,10 @@
 # Native TLS capacity campaign
 
-Status: harness validated locally; Cloud capacity runs are pending. The 51
+Status: harness validated locally; Cloud capacity measurements are in progress.
+The first Small reference and 16/64/256 idle-stream cases passed. The 1,024-device
+attempt failed during startup and is retained separately from established-stream
+capacity. See the [measurement ledger](../benchmark/reports/native-tls-capacity-2026-10-29/README.md).
+The 51
 focused checks include actual separate worker processes, idle-stream probes,
 exact PostgreSQL/SQLite convergence, and cleanup. Static analysis is clean.
 
