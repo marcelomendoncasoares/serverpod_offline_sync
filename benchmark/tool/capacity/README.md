@@ -4,10 +4,11 @@ The runner measures continuous sync on one Serverpod Cloud instance using native
 PostgreSQL TLS without pipelining. It preserves exact convergence, offered-rate
 adherence, latency, and observation completeness as separate verdicts.
 
-`discover` finds workload boundaries. `replay` runs every case from a frozen
-matrix, including previously failing cases, without stopping at the old boundary.
-Use replay to compare a performance fix fairly. Run discovery afterward to find
-any new capacity beyond the old matrix.
+`discover` finds workload boundaries. `replay` retries the frozen matrix on the
+new build. Both stop heavier comparable loads after a case fails correctness,
+observation completeness, or its offered rate. A failure on the old build does
+not stop a new build from being measured. Run discovery afterward to find any
+new capacity beyond the old matrix.
 
 ## Prepare an experiment
 
@@ -65,6 +66,18 @@ idle/active, fan-out, burst, update, and longer controls. Adaptive screens are
 finite experiments. Use repeated longer runs near a proposed operating point
 before recommending a production limit.
 
+That single command automatically changes tiers and schemas, runs each applicable
+profile, exports the results, and restores its starting deployment. `--sizes` is
+only needed to restrict the campaign to selected tiers.
+
+Within a tier and workload, a failed load prevents equal or higher row counts,
+connected users, active users, and round counts when the other settings match.
+Lower concurrency can still be tested at a higher row count, and the search can
+refine below a failure. If even the minimum concurrency fails at 200 rows, 1,000
+rows is skipped. Discovery never retries the failure at a slower cadence.
+Other tiers, schemas, schedules, and workloads remain independent. Passing
+operating points can still receive sustained verification.
+
 The report is regenerated at completion or interruption. It includes:
 
 - `README.md`: minimum, median, mean, p95, maximum, samples, and verdicts.
@@ -75,6 +88,8 @@ The report is regenerated at completion or interruption. It includes:
 - `rounds.jsonl`: individual round measurements, including incomplete-run data.
 - `manifest.json`: build identities, dependency pins, and experiment settings.
 - `replay.json`: the exact completed case list and its parameter fingerprints.
+- `skipped-cases.json`: unmeasured cases and the earlier measurement that stopped
+  them. Skips do not count as measured failures or establish a capacity limit.
 
 Raw receipts, server diagnostics, local SQLite replicas, and recovery records stay
 in the private evidence directory. The diagnostics collector drains queued pages
@@ -118,7 +133,8 @@ short screens. A short passing trial cannot override a failed longer run, and a
 mixed workload with many idle connections cannot validate the same count of
 actively participating devices.
 
-The orchestration has 17 offline regression checks covering frozen failures,
+The orchestration has offline regression checks covering adaptive stopping,
+automatic tier traversal, frozen failures,
 parameter tampering, offline export, comparison eligibility, and conservative
 sizing selections. A live Cloud
 smoke case also completed with exact convergence, complete diagnostics, and

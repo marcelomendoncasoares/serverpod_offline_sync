@@ -3,39 +3,46 @@
 import argparse
 import fcntl
 import json
-from pathlib import Path
 
-from campaign import ROOT, read, run_case
+from campaign import ROOT, read
+from stopping import CaseRunner
 
 
-def sustained(workload, row_points, active_users=None, maximum_rows=40000):
+def sustained(workload, row_points, active_users=None, maximum_rows=40000, *, case_runner=None):
     state = read(ROOT / 'campaign-state.json')
     size = state['currentSize']
     schema = state['currentSchema']
     tag = '-' + state['clientCampaignTag'] if state.get('clientCampaignTag') else ''
     brackets = []
+    runner = case_runner or CaseRunner(ROOT)
 
-    points = list(row_points)
+    points = sorted(set(row_points))
+    user_points = sorted(set(active_users or [1, 4, 16, 64, 256]))
     for rows in points:
         observations = {}
+        skipped = {}
 
         def measure(users):
             label = f'{size}-{schema}-{workload}-r{rows}-c{users * 2}-a{users * 2}-spread{tag}'
-            result = run_case(
-                label, users=users, active_users=users, workload=workload,
-                rows=rows, rounds=8, timeout=45,
-            )
+            result = runner.run({
+                'id': label, 'size': size,
+                'parameters': {'schema': schema, 'users': users, 'active_users': users,
+                               'workload': workload, 'rows': rows, 'rounds': 8, 'timeout': 45},
+            })
+            if result.get('status') == 'skipped':
+                skipped[users] = result
+                return False
+
             observations[users] = result
             return result['correct'] and result['observationsComplete'] and result['keptUp']
 
         last_pass = 0
         first_fail = None
-        for users in active_users or [1, 4, 16, 64, 256]:
+        for users in user_points:
             if measure(users):
                 last_pass = users
-            else:
+            elif first_fail is None:
                 first_fail = users
-                break
 
         if first_fail and last_pass and first_fail > last_pass * 2:
             middle = first_fail // 2
@@ -44,19 +51,14 @@ def sustained(workload, row_points, active_users=None, maximum_rows=40000):
             else:
                 first_fail = middle
 
-        if not last_pass:
-            run_case(
-                f'{size}-{schema}-{workload}-r{rows}-c2-a2-period10s{tag}',
-                users=1, active_users=1, workload=workload, rows=rows,
-                rounds=4, period=10000, timeout=90,
-            )
-
         bracket = {
             'size': size, 'schema': schema, 'workload': workload, 'rows': rows,
             'periodMs': 2000, 'passingActiveUsers': last_pass,
-            'failingActiveUsers': first_fail,
+            'failingActiveUsers': first_fail if first_fail in observations else None,
             'labels': [r['label'] for r in observations.values()],
-            'interpretation': 'Finite eight-round screen. Repeat and sustain useful points before sizing guidance.',
+            'skippedActiveUsers': sorted(skipped),
+            'blockedBy': sorted({result['blockedBy'] for result in skipped.values()}),
+            'interpretation': 'Finite eight-round screen. Skipped loads are unmeasured, not observed failures. Sustain passing points before sizing guidance.',
         }
         brackets.append(bracket)
         (ROOT / f'{size}-{schema}-{workload}-brackets{tag}.json').write_text(json.dumps(brackets, indent=2) + '\n')

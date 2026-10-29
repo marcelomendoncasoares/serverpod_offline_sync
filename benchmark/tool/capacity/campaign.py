@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from settings import CONFIG, ROOT, require, sha256
+from stopping import parameters_for
 
 
 def read(path):
@@ -166,17 +167,10 @@ def concise(result):
 def run_case(label, **parameters):
     state = read(ROOT / 'campaign-state.json')
     arguments = {
-        'quota': state['currentQuota'], 'schema': state['currentSchema'],
-        'users': 4, 'active-users': 4, 'devices': 2, 'workers': 8,
-        'warmup-workers': 1 if state['currentSize'] == 'small' else 4,
-        'rows': 1, 'rounds': 10, 'period': 2000,
-        'idle-seconds': 45, 'settle-seconds': 5,
-        'payload-bytes': 128,
-        'timeout': 30, 'sample': 30,
-        'startup': 1200, 'deadline': 3600, 'workload': 'person',
-        'schedule': 'spread', 'setup': 1, 'write-mode': 'insert',
-        'mode': 'continuous', 'profile': True,
-        **{k.replace('_', '-'): v for k, v in parameters.items()},
+        'quota': state['currentQuota'],
+        **{key.replace('_', '-'): value for key, value in parameters_for(
+            state['currentSize'], state['currentSchema'], parameters,
+        ).items()},
     }
     require(arguments['schema'] == state['currentSchema'], 'Transition to the case schema before running it.')
     expected = {key.replace('-', '_'): value for key, value in arguments.items()}

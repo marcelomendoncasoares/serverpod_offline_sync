@@ -22,7 +22,7 @@ def parser():
     discover.add_argument('--sizes', nargs='+', choices=['small', 'medium', 'large', 'xlarge', 'xxlarge'])
     discover.add_argument('--leave-deployed', action='store_true', help='Continue this campaign later without restoring its starting settings yet.')
 
-    replay = commands.add_parser('replay', help='Run every frozen case, retaining failures.')
+    replay = commands.add_parser('replay', help='Replay frozen cases, stopping heavier loads after a failure.')
     replay.add_argument('--matrix', required=True)
     replay.add_argument('--baseline', help='A previous report directory for a matched comparison.')
     replay.add_argument('--leave-deployed', action='store_true')
@@ -75,39 +75,34 @@ def initialize():
 
 
 def replay(value):
-    from campaign import run_case
     from matrix import validate_matrix
-    from transition import transition
+    from stopping import CaseRunner
 
     validate_matrix(value)
-    current = None
+    runner = CaseRunner()
     for case in value['cases']:
-        destination = (case['size'], case['parameters']['schema'])
-        if destination != current:
-            transition(*destination)
-            current = destination
-        run_case(case['id'], **case['parameters'])
+        runner.run(case)
 
 
 def discover(plan, sizes):
-    from campaign import run_case
     from idle_bracket import bracket
     from settings import SIZES, require
+    from stopping import CaseRunner
     from sweep import sustained
-    from transition import transition
 
     require(plan['format'] == 1, 'Unsupported discovery plan format.')
+    runner = CaseRunner()
     for size in sizes or plan['sizes']:
         require(size in SIZES, 'Unsupported instance size.')
-        transition(size, 'full')
-        run_case(f'{size}-full-reference', **plan['reference'])
-        bracket(plan['idleConnectedDevices'], 1 if size == 'small' else 4)
+        runner.run({'id': f'{size}-full-reference', 'size': size,
+                    'parameters': {'schema': 'full', **plan['reference']}})
+        bracket(plan['idleConnectedDevices'], 1 if size == 'small' else 4, case_runner=runner)
         for profile in plan['profiles']:
-            transition(size, profile['schema'])
-            sustained(profile['workload'], plan['rows'], plan['activeUsers'], plan['maximumRows'])
+            runner.transition_to(size, profile['schema'])
+            sustained(profile['workload'], plan['rows'], plan['activeUsers'], plan['maximumRows'], case_runner=runner)
         for control in plan['controls']:
-            transition(size, control['schema'])
-            run_case(f'{size}-{control["id"]}', **control['parameters'])
+            runner.run({'id': f'{size}-{control["id"]}', 'size': size,
+                        'parameters': {'schema': control['schema'], **control['parameters']}})
 
 
 def export_all():
@@ -153,6 +148,7 @@ def main():
             return
         from matrix import digest
         from settings import CONFIG
+        from stopping import POLICY
         lock_directory = Path(tempfile.gettempdir()) / f'offline-sync-capacity-locks-{os.getuid()}'
         lock_directory.mkdir(mode=0o700, exist_ok=True)
         project_lock = stack.enter_context((lock_directory / digest(CONFIG['project'])).open('w'))
@@ -166,10 +162,12 @@ def main():
 
         state = initialize()
         specification = json.loads(Path(args.matrix if args.action == 'replay' else args.plan).read_text())
-        invocation = {'action': args.action, 'specification': specification, 'sizes': getattr(args, 'sizes', None)}
+        invocation = {'action': args.action, 'specification': specification,
+                      'sizes': getattr(args, 'sizes', None), 'stoppingPolicy': POLICY}
         fingerprint = digest(invocation)
         require(state.get('planSha256', fingerprint) == fingerprint, 'Resume requires the same workload plan. Use a fresh evidence directory for a new plan.')
-        state.update({'planSha256': fingerprint, 'status': 'measuring', 'restorationRequired': True})
+        state.update({'planSha256': fingerprint, 'stoppingPolicy': POLICY,
+                      'status': 'measuring', 'restorationRequired': True})
         save(ROOT / 'campaign-state.json', state)
         save(ROOT / 'invocation.json', invocation)
         try:

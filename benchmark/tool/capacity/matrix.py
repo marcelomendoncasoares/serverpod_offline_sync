@@ -63,7 +63,7 @@ def freeze(evidence, destination, client_sha256=None):
     require(bool(cases), 'No completed receipts matched the requested client build.')
     value = {
         'format': 1,
-        'description': 'Exact completed cases, including failed cases; no adaptive stopping during replay.',
+        'description': 'Exact completed cases, including failed cases. Replay skips heavier comparable loads after a new unsuccessful measurement.',
         'baselineServerSha256': state['nativeExecutableSha256'],
         'baselineClientSha256': client_sha256,
         'cases': cases,

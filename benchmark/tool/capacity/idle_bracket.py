@@ -2,10 +2,11 @@ import argparse
 import fcntl
 import json
 
-from campaign import ROOT, read, run_case
+from campaign import ROOT, read
+from stopping import CaseRunner
 
 
-def bracket(points, warmup_workers):
+def bracket(points, warmup_workers, *, case_runner=None):
     state = read(ROOT / 'campaign-state.json')
     size, schema = state['currentSize'], state['currentSchema']
     tag = '-' + state['clientCampaignTag'] if state.get('clientCampaignTag') else ''
@@ -13,23 +14,30 @@ def bracket(points, warmup_workers):
     passing = 0
     failing = None
     labels = []
-    for connected in points:
+    skipped = []
+    runner = case_runner or CaseRunner(ROOT)
+    for connected in sorted(set(points)):
         label = f'{size}-{schema}-idle-c{connected}-w{warmup_workers}{tag}'
-        result = run_case(
-            label, users=connected // 2, active_users=0, rounds=1,
-            workload=workload, workers=8, warmup_workers=warmup_workers,
-            startup=1800, deadline=5400,
-        )
+        result = runner.run({
+            'id': label, 'size': size,
+            'parameters': {'schema': schema, 'users': connected // 2, 'active_users': 0,
+                           'rounds': 1, 'workload': workload, 'workers': 8,
+                           'warmup_workers': warmup_workers, 'startup': 1800, 'deadline': 5400},
+        })
+        if result.get('status') == 'skipped':
+            skipped.append(connected)
+            continue
+
         labels.append(label)
         if result['correct'] and result['observationsComplete']:
             passing = connected
         else:
             failing = connected
-            break
 
     value = {
         'size': size, 'schema': schema, 'passingConnectedDevices': passing,
         'failingTargetDevices': failing, 'labels': labels,
+        'skippedTargetDevices': skipped,
         'scope': 'A failed startup is not a measured established-stream ceiling; consult each run phase and generator evidence.',
     }
     (ROOT / f'{size}-{schema}-idle-bracket.json').write_text(json.dumps(value, indent=2) + '\n')

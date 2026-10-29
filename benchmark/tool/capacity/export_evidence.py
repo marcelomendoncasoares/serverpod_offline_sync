@@ -37,6 +37,7 @@ def export():
 
     manifest = {
         'status': state['status'],
+        'stoppingPolicy': state.get('stoppingPolicy'),
         'sourceRevision': state['sourceRevision'],
         'baseRevision': state['baseRevision'],
         'branch': state['branch'],
@@ -69,6 +70,9 @@ def export():
     }
     (DESTINATION / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     (DESTINATION / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+    skipped_path = ROOT / 'skipped-cases.json'
+    skipped = read(skipped_path) if skipped_path.exists() else []
+    (DESTINATION / 'skipped-cases.json').write_text(json.dumps(skipped, indent=2) + '\n')
     observation_paths = [ROOT / 'large-round-observation.json']
     observations = [read(path) for path in observation_paths if path.exists()]
     (DESTINATION / 'observations.json').write_text(json.dumps(observations, indent=2) + '\n')
@@ -120,6 +124,14 @@ def export():
             f'{peak / 1024**2:.1f}' if peak else '—', str(result['correct']),
         ]) + ' |')
     document += ['', 'Restart causes require separate evidence. Memory samples alone do not establish an OOM kill. See each failure phase and recovery receipt.', '']
+    if skipped:
+        document += [
+            '## Skipped heavier cases', '',
+            'These cases were not measured because an equal or lighter comparable load did not pass. '
+            'They do not establish a measured capacity limit. See `skipped-cases.json` for parameters and blocking verdicts.', '',
+            '| Skipped case | Blocking measurement |', '|---|---|',
+            *[f"| {case['id']} | {case['blockedBy']} |" for case in skipped], '',
+        ]
     (DESTINATION / 'README.md').write_text('\n'.join(document))
     render(DESTINATION)
     print(json.dumps({'exportedRuns': len(results), 'exportedRounds': len(rounds), 'destination': str(DESTINATION)}))
