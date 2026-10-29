@@ -1,0 +1,17 @@
+[
+  {
+    "run": "small-full-person-r1000-c2-a2-spread-t2",
+    "observation": "Each measured logical round produced one 1000-row server merge from the writer and a subsequent 783-row server merge from the receiving peer, retaining the original round/writer markers.",
+    "sampledLogicalRounds": 8,
+    "sampledServerMergeTransactions": 16,
+    "statementsInOriginalMerge": 10,
+    "statementsInPeerMerge": 13,
+    "peerMergeDominantPhase": "projectConflicts",
+    "firstRoundOriginalMergeMicros": 5091451,
+    "firstRoundPeerMergeMicros": 4805715,
+    "firstRoundPeerProjectionMicros": 3597915,
+    "interpretation": "Observed redundant upload traffic; exact convergence still passed. Mechanism and fix are not established. Keep server implementation fixed for the capacity comparison.",
+    "confirmationRun": "small-full-person-r1000-c2-a2-period10s-t2",
+    "confirmation": "The same 1000-row original upload plus 783-row peer upload occurred in all four rounds of the slower-rate repeat."
+  }
+]
