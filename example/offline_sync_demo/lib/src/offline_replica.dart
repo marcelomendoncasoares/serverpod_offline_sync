@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:path/path.dart' as p;
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
+import 'package:serverpod_offline_sync_test_shared/demo_reset.dart';
 
 /// One local replica: a Serverpod client database wrapped with the
 /// `serverpod_offline_sync` CRDT layer, plus the calls that synchronize it.
@@ -113,39 +114,11 @@ class OfflineReplica {
     );
   }
 
-  /// Wipes this replica back to an empty device by deleting its local CRDT
-  /// space row. Every synced table cascades on `spaceId` -> `offline_sync_spaces`, so
-  /// the domain rows and CRDT metadata go with it — no need to drop and recreate
-  /// the database file. A fresh space/node is established lazily on the next
-  /// write.
+  /// Clears the personal space and rotates this user's replica epoch atomically.
   ///
-  /// The delete runs with `defer_foreign_keys` on: the spaceId cascade fans out
-  /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
-  /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both
-  /// sides cascade off `offline_sync_spaces`), and SQLite's cascade order can
-  /// transiently violate those immediate checks. Deferring them to commit lets
-  /// the whole cascade complete first.
-  Future<void> reset() async {
-    final space = await OfflineSyncSpace.db.findFirstRow(
-      session,
-      where: (t) => t.uuidSpaceId.equals(persistentUserId),
-    );
-    final spaceId = space?.id;
-    if (spaceId != null) {
-      await session.db.transaction((transaction) async {
-        await session.db.unsafeExecute(
-          'PRAGMA defer_foreign_keys = ON',
-          transaction: transaction,
-        );
-        await OfflineSyncSpace.db.deleteWhere(
-          session,
-          where: (t) => t.id.equals(spaceId),
-          transaction: transaction,
-        );
-      });
-    }
-    await session.db.initialize();
-  }
+  /// Stop sync streams and writes first. Other spaces keep their data and
+  /// historical author UUIDs; later writes use the fresh local clock.
+  Future<void> reset() => resetDemoSpace(session, persistentUserId);
 
   /// Closes the underlying database connection.
   Future<void> close() => session.close();
