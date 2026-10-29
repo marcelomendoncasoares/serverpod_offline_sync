@@ -41,11 +41,11 @@ class _SyncRecovery {
   Future<void>? _pending;
   OfflineSyncRecoverySubscription? _owner;
 
-  /// These revisions have already woken local listeners after commitment.
+  /// These revisions have already woken this context's listeners after commitment.
   /// Recovery still compares durable revisions, so a later external commit
   /// cannot be hidden by a locally delivered hint. A scan racing a commit may
   /// conservatively wake again; revisions never authorize cursor progress.
-  void recordLocalCommit(UuidValue space, int revision) {
+  void recordDeliveredCommit(UuidValue space, int revision) {
     // Preserve the first unknown-baseline wakeup and retain only spaces
     // already tracked by recovery. This lookup is independent of stream count.
     if (_versions.containsKey(space)) {
