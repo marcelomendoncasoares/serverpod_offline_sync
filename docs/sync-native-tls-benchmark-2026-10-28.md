@@ -6,6 +6,10 @@ driver runtime as a pinned Git dependency above the wire-optimization stack,
 without the pipeline experiment. Its integration tests are separate from the
 Cloud measurements below.
 
+The later [Small-instance campaign](sync-small-native-tls-benchmark-2026-10-29.md)
+deploys the packaged integration from PR #202 and records four-stream and
+repeated eight-stream results, fresh controls, and restoration separately.
+
 ## Results
 
 The matched native TLS build reduced the Medium/64-stream average from 5308.2 ms to 1300.1 ms (75.5%). The table reports all exercise rounds; the offered-rate verdict is separate from correctness.
