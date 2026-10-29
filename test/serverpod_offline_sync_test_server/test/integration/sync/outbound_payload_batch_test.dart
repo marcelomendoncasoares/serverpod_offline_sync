@@ -63,7 +63,7 @@ void main() {
           final changes = await author.sync
               .collectPendingChanges(
                 collector,
-                checkpointsBySpaceUuid: {first: const [], second: const []},
+                checkpointsBySpaceUuid: {first: 0, second: 0},
               )
               .toList();
           inserts = changes.cast<CrdtMergeInsert>();

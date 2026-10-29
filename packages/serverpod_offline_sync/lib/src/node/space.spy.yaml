@@ -15,5 +15,8 @@ fields:
   ### other users' clocks.
   lastHlc: Hlc?
 
+  ### Local committed delivery revision, allocated while holding this space's lock.
+  syncRevision: int, default=0
+
   ### The nodes associated with the space and their per-space checkpoints.
   nodes: List<OfflineSyncSpaceNode>?, relation(name=space_nodes)

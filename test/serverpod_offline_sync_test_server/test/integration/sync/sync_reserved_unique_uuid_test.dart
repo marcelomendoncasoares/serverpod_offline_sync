@@ -1233,7 +1233,7 @@ void main() {
 Future<List<CrdtMergeChange>> _export(SyncNode node) => node.sync
     .collectPendingChanges(
       node.raw,
-      checkpointsBySpaceUuid: {testCrdtUserId: const []},
+      checkpointsBySpaceUuid: {testCrdtUserId: 0},
     )
     .toList();
 

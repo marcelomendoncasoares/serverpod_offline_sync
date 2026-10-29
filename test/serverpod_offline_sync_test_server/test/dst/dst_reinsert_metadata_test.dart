@@ -20,7 +20,7 @@ void main() {
     late DstReplica fresh;
     late UuidValue space;
     late List<Person> people;
-    late CrdtMergeSet deleted;
+    late DstBatch deleted;
     late DstSnapshot before;
 
     setUpAll(() async {
@@ -78,7 +78,7 @@ void main() {
               .collectPendingChanges(
                 source.rawSession,
                 checkpointsBySpaceUuid: {
-                  space: [deleted.maxHlc!],
+                  space: deleted.revision,
                 },
               )
               .toList();

@@ -13,7 +13,6 @@ import 'package:uuid/uuid.dart';
 import '../crdt/extensions.dart';
 import '../crdt/merge.dart';
 import '../generated/protocol.dart';
-import '../hlc/hlc.dart';
 import '../spaces/membership.dart';
 import '../sync/cancellation.dart';
 import '../sync/diagnostics.dart';
@@ -41,6 +40,10 @@ final userForTransaction = _ScopedTransactionBindings<UuidValue>();
 /// Map of transactions to the local clock node of their acting user.
 @internal
 final clockNodeForTransaction = _ScopedTransactionBindings<CrdtNode>();
+
+/// Immediate authenticated peer supplying authored facts in an inbound merge.
+@internal
+final sourcePeerForTransaction = _ScopedTransactionBindings<int>();
 
 /// Database proxy that runs insert/update/delete ORM operations inside a
 /// transaction to record each change in the CRDT tables.
@@ -112,6 +115,10 @@ class OfflineSyncDatabase implements Database {
     await _recorder.initialize();
   }
 
+  /// Initializes lazily before opening a snapshot, preserving live caches.
+  @internal
+  Future<void> ensureInitialized() => _ensureInitialized();
+
   Future<void> _ensureInitialized() async {
     await _recorder.ensureInitialized();
   }
@@ -147,33 +154,6 @@ class OfflineSyncDatabase implements Database {
     );
   }
 
-  /// Records acknowledged per-author progress for [otherNodeId] in [spaceId].
-  ///
-  /// When [spaceId] is omitted, this uses the persistent user's personal space.
-  ///
-  /// [syncedHlc] must carry [otherNodeId] as its author. Throws [ArgumentError]
-  /// otherwise. A correctly tagged checkpoint replaces previously stored
-  /// progress tagged with another author; valid progress advances monotonically.
-  Future<void> recordSyncCheckpoint(
-    UuidValue otherNodeId,
-    Hlc syncedHlc, {
-    UuidValue? spaceId,
-  }) async {
-    await _ensureInitialized();
-    final effectiveSpaceId =
-        spaceId ??
-        _recorder.persistentUserId ??
-        (throw StateError(
-          'A space ID is required when recording a checkpoint without a '
-          'persistent user.',
-        ));
-    await _recorder.recordSyncCheckpoint(
-      effectiveSpaceId,
-      otherNodeId,
-      syncedHlc,
-    );
-  }
-
   /// Merges remote CRDT changes into [spaceId] as the local [userId].
   ///
   /// [userId] defaults to the persistent user and [spaceId] to that user's
@@ -192,8 +172,13 @@ class OfflineSyncDatabase implements Database {
     UuidValue? spaceId,
     OfflineSyncCancellation? cancellation,
     bool requireWriteAccess = false,
+    int? sourcePeerId,
+    int? receivedRevision,
   }) async {
-    if (mergeSet.isEmpty) return;
+    if (mergeSet.isEmpty && receivedRevision == null) return;
+    if (receivedRevision != null && (sourcePeerId == null || receivedRevision < 0)) {
+      throw ArgumentError('A received revision requires an authenticated peer.');
+    }
     cancellation?.throwIfCancelled();
     await _ensureInitialized();
 
@@ -221,7 +206,7 @@ class OfflineSyncDatabase implements Database {
             effectiveUserId,
             effectiveSpaceId,
             (tx) async {
-              if (requireWriteAccess) {
+              if (requireWriteAccess && mergeSet.isNotEmpty) {
                 await _assertMergeWriteAccess(
                   mergeSet.first,
                   effectiveUserId,
@@ -229,7 +214,19 @@ class OfflineSyncDatabase implements Database {
                   tx,
                 );
               }
-              await _recorder.mergeChanges(mergeSet, tx);
+              if (sourcePeerId != null) sourcePeerForTransaction[tx] = sourcePeerId;
+              try {
+                await _recorder.mergeChanges(mergeSet, tx);
+                if (receivedRevision != null) {
+                  await _recorder.recordReceivedRevision(
+                    sourcePeerId!,
+                    receivedRevision,
+                    tx,
+                  );
+                }
+              } finally {
+                sourcePeerForTransaction.remove(tx);
+              }
             },
             authoring: false,
             cancellation: cancellation,

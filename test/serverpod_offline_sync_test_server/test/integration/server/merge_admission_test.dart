@@ -321,10 +321,18 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
                 ],
               ),
             )
-            ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
             ..add(OfflineSyncReady())
             ..add(OfflineSyncMergeChunk(batchId: 1, changes: changes))
-            ..add(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+            ..add(
+              OfflineSyncEndOfBatch(
+                batchId: 1,
+                finalForOnce: false,
+                checkpoints: [
+                  OfflineSyncSpaceCheckpoint(uuidSpaceId: user, revision: 1),
+                ],
+              ),
+            );
           await entered.future.timeout(const Duration(seconds: 10));
         });
 
@@ -703,9 +711,12 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
                 spaces: const [],
               ),
             )
-            ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
             ..add(
-              OfflineSyncSinceHlc(uuidSpaceId: space.uuidSpaceId, nodeCheckpoints: []),
+              OfflineSyncSinceRevision(
+                uuidSpaceId: space.uuidSpaceId,
+                nodeCheckpoints: [],
+              ),
             )
             ..add(OfflineSyncReady())
             ..add(
@@ -724,7 +735,18 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
                 ],
               ),
             )
-            ..add(OfflineSyncEndOfBatch(batchId: 1, finalForOnce: false));
+            ..add(
+              OfflineSyncEndOfBatch(
+                batchId: 1,
+                finalForOnce: false,
+                checkpoints: [
+                  OfflineSyncSpaceCheckpoint(
+                    uuidSpaceId: space.uuidSpaceId,
+                    revision: 1,
+                  ),
+                ],
+              ),
+            );
           await queued.future.timeout(const Duration(seconds: 10));
           await OfflineSyncSpaceMember.db.deleteRow(observer, member);
           release.complete();

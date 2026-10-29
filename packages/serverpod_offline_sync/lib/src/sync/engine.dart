@@ -16,7 +16,6 @@ import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/space.dart';
 import '../spaces/membership.dart';
-import '../utils/case_when.dart' show Case;
 import 'cancellation.dart';
 import 'diagnostics.dart';
 import 'exceptions.dart';
@@ -26,6 +25,7 @@ import 'space_state.dart';
 export 'space_state.dart' show OfflineSyncPeerMode;
 
 part 'session.dart';
+part 'revision_capture.dart';
 
 /// Callback function for when a merge is successful.
 typedef OfflineSyncOnMergeSuccess =
@@ -130,117 +130,24 @@ class OfflineSyncEngine {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Streams pending changes for every space in [checkpointsBySpaceUuid].
+  /// Exports committed facts after each space's replica-local revision.
   ///
-  /// Changes are captured in one consistent transaction, including domain
-  /// payloads, then emitted in insert, update, and delete order. The transaction
-  /// is released before yielding, so consumer backpressure or consumer writes
-  /// cannot keep the snapshot (or SQLite's write lock) open.
-  ///
-  /// Consume this stream outside application transactions, using a session
-  /// without an ambient transaction. Collection opens its own transaction to
-  /// capture committed data; it does not join a caller's transaction.
-  ///
-  /// Foreign-key columns with an active projection override are sent with their
-  /// durable [CrdtDataAttemptedValue.value], not the visible value stored
-  /// in the domain table. Peers need the attempted fact to converge; local FK
-  /// projection materializes only the safe visible value into domain tables.
-  ///
-  /// Resolves the spaces' internal ids once and keeps their checkpoint vectors
-  /// scoped by those internal ids. Node ids are stable per replica and may
-  /// appear in multiple spaces, so checkpoint filtering must compare both
-  /// `spaceId` and `uuidNodeId`. This still runs one query per change kind for
-  /// the whole pass. Per-row ownership and integrity checks resolve against
-  /// each row's own space.
-  ///
-  /// All changes for nodes that are not present in a space's checkpoint list
-  /// are collected and emitted. Passing an empty list for a space will collect
-  /// all of its changes. Each change carries its [CrdtMergeChange.uuidSpaceId].
+  /// Zero exports the complete current state. For delivery, use [captureChanges]
+  /// and acknowledge its captured bounds only after the receiver commits them.
+  /// Bounds, metadata, and authored payloads share one repeatable-read snapshot,
+  /// released before this stream yields so consumers cannot hold its locks.
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
-    required Map<UuidValue, List<Hlc>> checkpointsBySpaceUuid,
+    required Map<UuidValue, int> checkpointsBySpaceUuid,
   }) async* {
-    if (checkpointsBySpaceUuid.isEmpty) return;
-
-    // Resolve stable space identities before opening the snapshot. A wrapped
-    // database may initialize its CRDT registry on this first query, which can
-    // itself need a write transaction.
-    final spaces = await OfflineSyncSpace.db.find(
+    final capture = await captureChanges(
       session,
-      where: (t) => t.uuidSpaceId.inSet(checkpointsBySpaceUuid.keys.toSet()),
+      checkpointsBySpaceUuid: checkpointsBySpaceUuid,
     );
-    if (spaces.isEmpty) return;
-
-    final spaceUuidById = {
-      for (final space in spaces) space.id!: space.uuidSpaceId,
-    };
-    final checkpointsBySpaceId = {
-      for (final space in spaces)
-        space.id!: checkpointsBySpaceUuid[space.uuidSpaceId] ?? const <Hlc>[],
-    };
-
-    try {
-      final changes = await session.db.transaction(
-        (transaction) => _streamPendingChanges(
-          session,
-          spaceUuidById,
-          checkpointsBySpaceId,
-          transaction,
-        ).toList(),
-        settings: const TransactionSettings(
-          isolationLevel: IsolationLevel.repeatableRead,
-        ),
-      );
-
-      for (final change in changes) {
-        yield change;
-      }
-    } on PendingOutboundIntegrityViolation catch (violation) {
-      await _recordAndThrowIntegrityViolation(session, violation);
-    }
+    yield* Stream.fromIterable(capture.changes);
   }
 
-  /// Creates the [OfflineSyncSinceHlc] checkpoint for a space handshake.
-  ///
-  /// [OfflineSyncSinceHlc.nodeCheckpoints] reflects the latest change this
-  /// database has from each node in the space, tagged with the source node id.
-  /// Local nodes, including other users' clocks, are reported as complete.
-  Future<OfflineSyncSinceHlc> createSyncSinceHlc(
-    DatabaseSession session, {
-    required UuidValue spaceId,
-  }) async {
-    final space = await OfflineSyncSpaceManager(session).getOrCreate(spaceId);
-
-    final spaceNodes = await OfflineSyncSpaceNode.db.find(
-      session,
-      where: (t) => t.spaceId.equals(space.id),
-      include: OfflineSyncSpaceNode.include(node: CrdtNode.include()),
-    );
-
-    final checkpoints = <UuidValue, Hlc>{};
-    for (final spaceNode in spaceNodes) {
-      final node = spaceNode.node!;
-      final nodeId = node.uuidNodeId;
-      if (node.localUserUuid != null) {
-        // This database authored every fact of a local clock. Cover committed
-        // logical ticks as well as wall time, so peers never echo them back.
-        checkpoints[nodeId] = Hlc.now(nodeId).maxBetween(node.lastHlc);
-        continue;
-      }
-      final received = spaceNode.lastReceivedHlc;
-      // Older inbound bookkeeping could store a relayed author's clock under
-      // its direct peer. It proves no per-author progress for that peer.
-      final checkpoint = received?.nodeId == nodeId ? received! : Hlc.zero(nodeId);
-      checkpoints[nodeId] = checkpoint.maxBetween(checkpoints[nodeId]);
-    }
-
-    return OfflineSyncSinceHlc(
-      uuidSpaceId: spaceId,
-      nodeCheckpoints: checkpoints.values.toList(),
-    );
-  }
-
-  /// Merges a remote [mergeSet] and atomically records its per-author progress.
+  /// Merges a remote [mergeSet] and atomically records its complete sender revision.
   ///
   /// Inbound merge applies each remote change as [userId] in [spaceId], then
   /// materializes foreign-key projection into domain tables via
@@ -257,17 +164,21 @@ class OfflineSyncEngine {
     required UuidValue userId,
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
+    int? sourcePeerId,
+    int? receivedRevision,
     OfflineSyncCancellation? cancellation,
     bool requireWriteAccess = false,
   }) async {
-    if (mergeSet.isEmpty) return null;
-    final maxSyncedHlc = mergeSet.maxHlc;
+    if (mergeSet.isEmpty && receivedRevision == null) return null;
+    final maxSyncedHlc = mergeSet.isEmpty ? null : mergeSet.maxHlc;
     final offlineSyncDb = _openOfflineSyncDatabase(session);
     await offlineSyncDb.mergeChanges(
       mergeSet,
       userId: userId,
       spaceId: spaceId,
       cancellation: cancellation,
+      sourcePeerId: sourcePeerId,
+      receivedRevision: receivedRevision,
       requireWriteAccess: requireWriteAccess,
     );
     return maxSyncedHlc;
@@ -296,21 +207,19 @@ class OfflineSyncEngine {
     onMergeSuccess: onMergeSuccess,
   ).stream;
 
-  /// Reports a successful merge for [spaceId] to [onMergeSuccess], combining the
-  /// space's checkpoint high-water mark with the [receivedHlc] just merged.
+  /// Reports a monotonic committed fact clock across both transfer directions.
+  /// Reporting clocks are independent of replica-local delivery checkpoints.
   Future<void> _reportMerge(
     OfflineSyncOnMergeSuccess? onMergeSuccess,
     OfflineSyncSpaceState spaces,
     UuidValue spaceId,
     Hlc? receivedHlc,
   ) async {
-    final checkpointMax = spaces.checkpointMaxOf(spaceId);
-    // A peer may advertise an empty vector before authoring its first change.
-    // Its committed inbound batch still has an HLC to report.
-    final syncedHlc = checkpointMax?.maxBetween(receivedHlc) ?? receivedHlc;
+    if (receivedHlc != null) spaces.recordReportedHlc(spaceId, receivedHlc);
+    final syncedHlc = spaces.reportedHlcOf(spaceId);
     if (syncedHlc == null) {
       OfflineSyncDiagnostics.event('sync.mergeReportSkipped', {
-        'reason': 'noCheckpoint',
+        'reason': 'noCommittedFact',
         'spaceId': spaceId.toString(),
       });
       return;
@@ -337,48 +246,17 @@ class OfflineSyncEngine {
     return db is OfflineSyncDatabase ? db : wrapDatabase(db);
   }
 
-  Stream<CrdtMergeChange> _streamPendingChanges(
-    DatabaseSession session,
-    Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-    Transaction transaction,
-  ) async* {
-    // Cache ownership within this collection's consistent snapshot.
-    final ownerCache = DomainRowOwnerCache();
-    yield* _streamInserts(
-      session,
-      spaceUuidById,
-      checkpointsBySpaceId,
-      ownerCache,
-      transaction,
-    );
-    yield* _streamUpdates(
-      session,
-      spaceUuidById,
-      checkpointsBySpaceId,
-      ownerCache,
-      transaction,
-    );
-    yield* _streamDeletes(
-      session,
-      spaceUuidById,
-      checkpointsBySpaceId,
-      ownerCache,
-      transaction,
-    );
-  }
-
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async* {
+    Transaction transaction, {
+    required Expression Function(CrdtDataRowTable) filter,
+  }) async* {
     final rows = await CrdtDataRow.db.find(
       session,
       transaction: transaction,
-      where: (t) => _rowHlcAfterFilter(t, checkpointsBySpaceId),
+      where: filter,
       include: CrdtDataRow.include(
         tbl: CrdtSchemaTable.include(),
         node: CrdtNode.include(),
@@ -462,14 +340,14 @@ class OfflineSyncEngine {
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async* {
+    Transaction transaction, {
+    required Expression Function(CrdtDataFieldTable) filter,
+  }) async* {
     final fields = await CrdtDataField.db.find(
       session,
       transaction: transaction,
-      where: (t) => _fieldHlcAfterFilter(t, checkpointsBySpaceId),
+      where: filter,
       include: CrdtDataField.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         column: CrdtSchemaColumn.include(),
@@ -543,14 +421,14 @@ class OfflineSyncEngine {
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async* {
+    Transaction transaction, {
+    required Expression Function(CrdtDataDeletedTable) filter,
+  }) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
       transaction: transaction,
-      where: (t) => _tombstoneHlcAfterFilter(t, checkpointsBySpaceId),
+      where: filter,
       include: CrdtDataDeleted.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         node: CrdtNode.include(),
@@ -598,45 +476,6 @@ class OfflineSyncEngine {
       );
     }
   }
-
-  Expression _rowHlcAfterFilter(
-    CrdtDataRowTable t,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-  ) =>
-      t.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
-      _afterAnySpaceCheckpointFilter(
-        t.spaceId,
-        t.node.uuidNodeId,
-        t.hlcDatetime,
-        t.hlcCounter,
-        checkpointsBySpaceId,
-      );
-
-  Expression _fieldHlcAfterFilter(
-    CrdtDataFieldTable t,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-  ) =>
-      t.row.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
-      _afterAnySpaceCheckpointFilter(
-        t.row.spaceId,
-        t.node.uuidNodeId,
-        t.hlcDatetime,
-        t.hlcCounter,
-        checkpointsBySpaceId,
-      );
-
-  Expression _tombstoneHlcAfterFilter(
-    CrdtDataDeletedTable t,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-  ) =>
-      t.row.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
-      _afterAnySpaceCheckpointFilter(
-        t.row.spaceId,
-        t.node.uuidNodeId,
-        t.hlcDatetime,
-        t.hlcCounter,
-        checkpointsBySpaceId,
-      );
 
   /// Loads outbound payloads in bounded batches within the metadata snapshot.
   /// Grouping by table and owning space preserves the original ownership filter.
@@ -1035,70 +874,6 @@ class OfflineSyncEngine {
     ]..sort();
 
     return entries;
-  }
-}
-
-Expression _afterAnySpaceCheckpointFilter(
-  ColumnInt spaceId,
-  ColumnUuid uuidNodeId,
-  ColumnDateTime hlcDatetime,
-  ColumnInt hlcCounter,
-  Map<int, List<Hlc>> checkpointsBySpaceId,
-) {
-  final caseExpression = Case();
-  var hasCheckpoint = false;
-  for (final MapEntry(key: normalizedSpaceId, value: checkpoints)
-      in checkpointsBySpaceId.entries) {
-    for (final checkpoint in checkpoints) {
-      hasCheckpoint = true;
-      caseExpression.when(
-        spaceId.equals(normalizedSpaceId) & uuidNodeId.equals(checkpoint.nodeId),
-        then:
-            (hlcDatetime > checkpoint.datetime) |
-            (hlcDatetime.equals(checkpoint.datetime) &
-                (hlcCounter > checkpoint.counter)),
-      );
-    }
-  }
-  return hasCheckpoint
-      ? caseExpression.orElse(Constant.bool(true))
-      : Constant.bool(true);
-}
-
-/// Exact facts received successfully on this stream, awaiting outbound scan.
-/// Eviction only restores redundant traffic; it never implies peer progress.
-class _ReceivedChanges {
-  static const _maxEntries = 256;
-  static const _maxCharacters = 128 * 1024;
-
-  final _encoded = <String>{};
-  var _characters = 0;
-
-  void addAll(Iterable<String> changes) {
-    for (final change in changes) {
-      if (change.length > _maxCharacters || !_encoded.add(change)) continue;
-      _characters += change.length;
-      while (_encoded.length > _maxEntries || _characters > _maxCharacters) {
-        final oldest = _encoded.first;
-        _encoded.remove(oldest);
-        _characters -= oldest.length;
-      }
-    }
-  }
-
-  bool remove(CrdtMergeChange change) {
-    if (_encoded.isEmpty) return false;
-    // Insert payloads can change while retaining their original insert HLC.
-    // Match the complete payload, never just the row identity and clock.
-    final encoded = jsonEncode(change);
-    if (!_encoded.remove(encoded)) return false;
-    _characters -= encoded.length;
-    return true;
-  }
-
-  void clear() {
-    _encoded.clear();
-    _characters = 0;
   }
 }
 

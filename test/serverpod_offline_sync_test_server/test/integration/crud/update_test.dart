@@ -514,6 +514,7 @@ void main() {
         await CrdtDataField.db.insertRow(
           session,
           CrdtDataField(
+            spaceId: crdtDataRow.spaceId,
             rowId: crdtDataRow.id!,
             columnId: crdtSchemaColumn!.id!,
             nodeId: otherNode.id!,
