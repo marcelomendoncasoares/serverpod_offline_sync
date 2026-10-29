@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from guidance import active_screens, boundary, build_sizing, render
+from guidance import active_screens, boundary, build_sizing, render, sustained_controls
 
 
 def trial(label, devices, *, correct=True, observed=True, p95=500, client='current'):
@@ -108,6 +108,52 @@ class SizingEvidenceTest(unittest.TestCase):
                 document = (report / 'SIZING.md').read_text()
                 self.assertIn(f'medium / {schema}/{workload} / 5-minute offered workload', document)
                 self.assertIn('| 16 / 16 | 1200 |', document)
+
+    def test_short_pass_does_not_override_a_sustained_failure(self):
+        short = trial('short-pass', 32)
+        lower = trial('sustained-lower', 8)
+        lower['options']['rounds'] = 150
+        higher = trial('sustained-failed', 32)
+        higher['options']['rounds'] = 150
+        higher['keptUp'] = False
+
+        value = build_sizing([short, lower, higher], {'clientBuilds': [{'sha256': 'current'}]})
+
+        screen = next(r for r in value['activeScreens'] if r['workload'] == 'person' and r['rows'] == 1)
+        sustained = next(r for r in value['sustainedOneRow'] if r['size'] == 'medium' and r['workload'] == 'person')
+        self.assertEqual(screen['sizes']['medium']['keptUp']['devices'], 32)
+        self.assertEqual(sustained['keptUp']['devices'], 8)
+        self.assertEqual(sustained['keptUp']['allTrials'], ['sustained-lower', 'sustained-failed'])
+
+    def test_sustained_point_keeps_failed_repetitions_and_latency_target(self):
+        lower = trial('lower', 8)
+        higher = trial('higher', 32, p95=1200)
+        repeated = trial('higher-incomplete', 32, observed=False)
+        for result in [lower, higher, repeated]:
+            result['options']['rounds'] = 150
+        manifest = {'clientBuilds': [{'sha256': 'current'}]}
+
+        first = build_sizing([lower, higher], manifest)
+        repeated_result = build_sizing([lower, higher, repeated], manifest)
+
+        select = lambda value: next(r for r in value['sustainedOneRow'] if r['size'] == 'medium' and r['workload'] == 'person')
+        self.assertEqual(select(first)['keptUp']['devices'], 32)
+        self.assertEqual(select(first)['p95BelowOneSecond']['devices'], 8)
+        self.assertEqual(select(repeated_result)['keptUp']['devices'], 8)
+
+    def test_mixed_short_or_differently_scheduled_runs_do_not_validate_sustained_capacity(self):
+        results = [trial(name, 8) for name in ['valid', 'mixed', 'short', 'slow', 'old', 'larger-batch']]
+        for result in results:
+            result['options']['rounds'] = 150
+        results[1]['load']['connectedDevices'] = 256
+        results[2]['options']['rounds'] = 149
+        results[3]['options']['period-ms'] = 10000
+        results[4]['clientSha256'] = 'old'
+        results[5]['options']['rows'] = 10
+
+        selected = sustained_controls(results, 'current')
+
+        self.assertEqual([r['label'] for r in selected], ['valid'])
 
 
 if __name__ == '__main__':

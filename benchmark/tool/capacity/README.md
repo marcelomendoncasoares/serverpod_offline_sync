@@ -113,7 +113,12 @@ an existing exported report without contacting Cloud:
 python3 benchmark/tool/capacity/guidance.py --report /private/baseline/report
 ```
 
-The orchestration has 14 offline regression checks covering frozen failures,
+The five-minute one-row table qualifies sustained controls independently of the
+short screens. A short passing trial cannot override a failed longer run, and a
+mixed workload with many idle connections cannot validate the same count of
+actively participating devices.
+
+The orchestration has 17 offline regression checks covering frozen failures,
 parameter tampering, offline export, comparison eligibility, and conservative
 sizing selections. A live Cloud
 smoke case also completed with exact convergence, complete diagnostics, and

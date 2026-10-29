@@ -18,8 +18,8 @@ def usable(result):
     return result.get('correct') is True and result.get('observationsComplete') is True
 
 
-def active_screens(results, client_sha):
-    """Keep the same offered-load screen; longer controls remain separate."""
+def active_spread_trials(results, client_sha):
+    """Select matching load shapes before separating measurement durations."""
     selected = []
     for result in results:
         options = result.get('options') or {}
@@ -31,7 +31,6 @@ def active_screens(results, client_sha):
             options.get('write-mode') == 'insert',
             options.get('schedule') == 'spread',
             options.get('period-ms') == 2000,
-            options.get('rounds') == 8,
             options.get('payload-bytes') == 128,
             options.get('devices-min') == options.get('devices-max') == 2,
             load.get('activeUsers', 0) > 0,
@@ -40,6 +39,22 @@ def active_screens(results, client_sha):
             continue
         selected.append(result)
     return selected
+
+
+def active_screens(results, client_sha):
+    """Keep the same offered-load screen; longer controls remain separate."""
+    return [
+        result for result in active_spread_trials(results, client_sha)
+        if result['options'].get('rounds') == 8
+    ]
+
+
+def sustained_controls(results, client_sha):
+    return [
+        result for result in active_spread_trials(results, client_sha)
+        if result['options'].get('rows') == 1
+        and result['options'].get('rounds', 0) >= 150
+    ]
 
 
 def boundary(results, *, subsecond):
@@ -95,6 +110,22 @@ def build_sizing(results, manifest):
                 }
             cells.append(cell)
 
+    sustained = []
+    controls = sustained_controls(results, client_sha)
+    for size in SIZES:
+        for schema, workload, name in PROFILES:
+            matching = [
+                result for result in controls
+                if result['instanceSize'] == size
+                and result['options']['schema'] == schema
+                and result['options']['workload'] == workload
+            ]
+            sustained.append({
+                'size': size, 'schema': schema, 'workload': workload, 'profile': name,
+                'keptUp': boundary(matching, subsecond=False),
+                'p95BelowOneSecond': boundary(matching, subsecond=True),
+            })
+
     idle = []
     for size in SIZES:
         trials = [
@@ -110,7 +141,10 @@ def build_sizing(results, manifest):
             'unsuccessfulTrials': [r for r in trials if not usable(r)],
             'allTrials': [r['label'] for r in trials],
         })
-    return {'screenClientSha256': client_sha, 'activeScreens': cells, 'idleConnections': idle}
+    return {
+        'screenClientSha256': client_sha, 'activeScreens': cells,
+        'sustainedOneRow': sustained, 'idleConnections': idle,
+    }
 
 
 def render(report):
@@ -176,7 +210,28 @@ def render(report):
         'and populated City/Person references, with the linked parents seeded before exercise. '
         'City uses one persisted name field in an isolated registry. These profiles sample '
         'different costs; field counts alone do not model an arbitrary application schema.', '',
-        '## Connected but idle devices', '',
+        '## Five-minute one-row validation', '',
+        'These operating points completed at least five minutes of offered one-row traffic '
+        'with exact convergence, cleanup, complete observations, and rate adherence. They use '
+        'the same two-device users and two-second cadence as the short screens. A failed or '
+        'incompletely observed repetition disqualifies that count. Mixed idle/active workloads '
+        'remain separate. A dash means no qualifying sustained trial, not zero capacity.', '',
+        'Each cell is **participating devices / p95 milliseconds**. Keeping up and meeting a '
+        'subsecond p95 remain separate requirements. These finite runs support a starting '
+        'operating point; they do not establish long-term reliability or a maximum.', '',
+        '| Size / schema profile | Kept up | Kept up with p95 below one second |',
+        '|---|---:|---:|',
+    ]
+    for row in sizing['sustainedOneRow']:
+        values = []
+        for criterion in ['keptUp', 'p95BelowOneSecond']:
+            selected = row[criterion]
+            result = selected['representative']
+            values.append(f"{selected['devices']} / {result['latency']['p95Ms']:.0f}" if result else '—')
+        lines.append('| ' + ' | '.join([row['size'] + ' / ' + row['profile'], *values]) + ' |')
+
+    lines += [
+        '', '## Connected but idle devices', '',
         'The largest successful trial below completed setup, the idle hold, resumed delivery '
         'and exact verification, and drained cleanly. Failed attempts remain listed with their '
         'phase. A setup failure is not a measured ceiling for already established streams; '
