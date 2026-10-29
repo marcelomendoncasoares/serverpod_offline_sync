@@ -61,6 +61,8 @@ class _TransactionSpaceChanges {
 /// whose database is not reset underneath it. If the schema rows are dropped and
 /// re-created with different identifiers while the process lives, a new context
 /// must be created.
+/// re-created with different identifiers while the process lives, a new context
+/// must be created.
 class OfflineSyncDatabaseContext {
   /// Creates a [OfflineSyncDatabaseContext] for the configured synchronized tables.
   OfflineSyncDatabaseContext({
@@ -252,6 +254,7 @@ class OfflineSyncDatabaseContext {
 
   _CrdtSchema? _schema;
   Future<_CrdtSchema>? _schemaFuture;
+  Future<void>? _projectionRebuildFuture;
   var _registryChanged = false;
 
   /// Whether schema reconciliation inserted, updated, or deleted registry rows
@@ -269,6 +272,22 @@ class OfflineSyncDatabaseContext {
     } catch (_) {
       if (identical(_schemaFuture, schemaFuture)) {
         _schemaFuture = null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _rebuildProjectionsOnce(Future<void> Function() rebuild) async {
+    if (!_registryChanged) return;
+
+    // A registry change belongs to this shared context. Every session waits
+    // for its one rebuild before using the schema, including concurrent opens.
+    final pending = _projectionRebuildFuture ??= rebuild();
+    try {
+      await pending;
+    } catch (_) {
+      if (identical(_projectionRebuildFuture, pending)) {
+        _projectionRebuildFuture = null;
       }
       rethrow;
     }
@@ -465,9 +484,7 @@ class CrdtMutationRecorder {
 
   Future<void> _initializeOnce() async {
     await _databaseContext.initialize(_session);
-    if (_databaseContext.registryChanged) {
-      await _rebuildProjectionsForAllSpaces();
-    }
+    await _databaseContext._rebuildProjectionsOnce(_rebuildProjectionsForAllSpaces);
     if (persistentUserId case final userId?) {
       final space = await _context.spaceManager.getOrCreate(userId);
       final node = await _context.spaceManager.getOrCreateUserNode(userId);
