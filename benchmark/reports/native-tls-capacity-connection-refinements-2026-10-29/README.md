@@ -15,6 +15,8 @@ Each case holds established streams idle for 45 seconds, then delivers one fresh
 
 Idle CPU is an approximation from process ticks sampled during the hold. Peak charged memory spans the whole case. These quantities have different measurement windows.
 
+The [CPU accounting discrepancy](../native-tls-capacity-baseline-progress-2026-10-29/RESOURCE_ACCOUNTING.md) found in sustained Small runs also limits how confidently these process-counter estimates can be interpreted. They do not establish an effective CPU limit or available headroom.
+
 ## Largest fully verified idle trial by size
 
 This combines the completed [discovery baseline](../native-tls-capacity-baseline-progress-2026-10-29/README.md) with these refinements. It reports tested operating points, not guaranteed ceilings. Build identities for the earlier Small/Medium observations remain in the baseline manifest.

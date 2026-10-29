@@ -14,6 +14,8 @@ Each user writes to a separate personal space shared by that user's devices. The
 
 These are the visible cgroup limits reported by the running server, not the host processor count. Unmeasured sizes remain blank.
 
+The [CPU accounting note](RESOURCE_ACCOUNTING.md) documents process counters exceeding the reported quota in sustained Small runs. Treat CPU quota as reported configuration; the current counters do not establish an effective enforced limit or CPU headroom.
+
 | Size | CPU quota, cores | Memory limit, MiB |
 |---|---:|---:|
 | small | 0.1 | 256 |
