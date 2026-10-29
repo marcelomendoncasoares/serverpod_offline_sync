@@ -80,7 +80,7 @@ abstract class OfflineSyncSpace
   /// Local committed delivery revision, allocated while holding this space's lock.
   int syncRevision;
 
-  /// The nodes associated with the space and their per-space checkpoints.
+  /// The authors associated with the space and their observed causal clocks.
   List<_icw2tu00.OfflineSyncSpaceNode>? nodes;
 
   @override
@@ -258,10 +258,10 @@ class OfflineSyncSpaceTable extends _isd.Table<int?> {
   /// Local committed delivery revision, allocated while holding this space's lock.
   late final _isd.ColumnInt syncRevision;
 
-  /// The nodes associated with the space and their per-space checkpoints.
+  /// The authors associated with the space and their observed causal clocks.
   _icw2tu00.OfflineSyncSpaceNodeTable? ___nodes;
 
-  /// The nodes associated with the space and their per-space checkpoints.
+  /// The authors associated with the space and their observed causal clocks.
   _isd.ManyRelation<_icw2tu00.OfflineSyncSpaceNodeTable>? _nodes;
 
   _icw2tu00.OfflineSyncSpaceNodeTable get __nodes {

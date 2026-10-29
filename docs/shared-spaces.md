@@ -122,17 +122,17 @@ both stay:
   space. It answers *who may sync, read, and write*.
 - A **node** (`crdt_nodes`) is a stable CRDT clock identity. A space's `nodes`
   relation points at `offline_sync_space_nodes`, which records that node's
-  participation and checkpoint state in that space. Together they answer
-  *whose changes, up to which HLC* and are what per-`(space, node)` checkpoints
-  key on.
+  participation and highest observed author HLC in that space. It tracks causal
+  history; delivery receipts instead belong to `(space, immediate peer)` in
+  `offline_sync_peer_checkpoints`.
 
 They do not map one-to-one and neither replaces the other. Each database owns
 **one local node per user** (`crdt_nodes.localUserUuid`), shared by every space
 that user acts in. Nodes received through sync are remote. A freshly invited
 member has **zero space-node rows** until they write. Membership rows are
 managed through `session.offlineSync.spaces` from application endpoints.
-Removing the `nodes` list would break checkpointing and causal filtering — it is
-the chain topology, not the access list.
+The `nodes` list retains author participation and causal clocks. It neither
+authorizes access nor proves that all of an author's earlier facts were received.
 
 ### Clocks and locking
 
