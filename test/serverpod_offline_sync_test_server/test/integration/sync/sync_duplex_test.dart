@@ -857,6 +857,10 @@ void main() {
       final firstBatch = await peer.waitFor<OfflineSyncEndOfBatch>();
       await peer.node.offlineSync.db.mergeChanges([second], userId: testCrdtUserId);
 
+      // An outbound boundary does not acknowledge the independent inbound
+      // direction. Finish inbound batch 1 before sending batch 2, while still
+      // withholding acknowledgement of the first outbound batch.
+      await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 1);
       peer.send(_boundary(batchId: 2, finalForOnce: false));
       await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 2);
       final batchesBeforeAck = peer.events.whereType<OfflineSyncEndOfBatch>().length;
