@@ -1,0 +1,154 @@
+## Performance Benchmark (1,000 rows)
+
+This benchmark measures the performance impact of using CRDT metadata synchronization on database operations.
+```
+📊 SELECT performance impact:
+  Time: 7.23 ms --> 10.55 ms (3.32 ms)
+  CRDT overhead: 45.98% slower
+```
+```
+📊 INSERT performance impact:
+  Time: 26.19 ms --> 68.14 ms (41.95 ms)
+  CRDT overhead: 160.16% slower
+  Delay per insert: 41.95 μs
+```
+```
+📊 UPDATE performance impact:
+  Time: 28.70 ms --> 223.90 ms (195.20 ms)
+  CRDT overhead: 680.15% slower
+  Delay per update: 195.20 μs
+```
+```
+📊 UPSERT (INSERT) performance impact:
+  Time: 31.07 ms --> 91.86 ms (60.79 ms)
+  CRDT overhead: 195.64% slower
+  Delay per upsert (insert): 60.79 μs
+```
+```
+📊 UPSERT (UPDATE) performance impact:
+  Time: 31.16 ms --> 162.13 ms (130.97 ms)
+  CRDT overhead: 420.31% slower
+  Delay per upsert (update): 130.97 μs
+```
+```
+📊 DELETE performance impact:
+  Time: 17.35 ms --> 257.36 ms (240.00 ms)
+  CRDT overhead: 1,383.13% slower
+  Delay per delete: 240.00 μs
+```
+```
+🔭 SELECT space impact (100 extra users, 100,000 CRDT noise rows):
+  find all (1,000 rows): 6.94 ms --> 7.54 ms space-scoped (+8.63%) / 6.95 ms unscoped (+0.12%)
+  findById (per lookup): 53.69 μs --> 173.20 μs space-scoped (+222.59%) / 70.30 μs unscoped (+30.93%)
+```
+```
+💽 Storage impact (base footprint removed):
+  Base database size: 772.00 KB --> 772.00 KB
+  INSERT only:
+    Net storage: 120.00 KB --> 208.00 KB (+88.00 KB)
+    CRDT overhead: 73.33% increase
+    Extra storage per inserted row: +90.11 B
+  INSERT + UPDATE:
+    Net storage: 132.00 KB --> 628.00 KB (+496.00 KB)
+    CRDT overhead: 375.76% increase
+    Extra storage per updated column: +52.22 B
+  INSERT + UPDATE + DELETE:
+    Net storage: 132.00 KB --> 684.00 KB (+552.00 KB)
+    CRDT overhead: 418.18% increase
+    Extra storage per deleted row: +57.34 B
+  Storage overhead range: 73.33% --> 418.18%
+```
+
+## Merge Benchmark (1,000 changes)
+
+This benchmark measures the time to apply remote CRDT changes to the local database through the sync merge path.
+```
+🔀 MERGE INSERT performance:
+  Merge time: 188.27 ms
+  Time per change: 188.27 μs
+  Throughput: 5,312 changes/s
+  Queries: 1,011 per batch (1.01 per change)
+  Rows returned: 1,005.00 per batch
+  Rows by type: CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 1,001.00
+```
+```
+🔀 MERGE UPDATE performance:
+  Merge time: 146.81 ms
+  Time per change: 146.81 μs
+  Throughput: 6,812 changes/s
+  Queries: 1,297 per batch (1.30 per change)
+  Rows returned: 4,789.71 per batch
+  Rows by type: CrdtDataField: 2,785.71, CrdtDataRow: 1,000.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 1,000.00
+```
+```
+🔀 MERGE DELETE performance:
+  Merge time: 148.39 ms
+  Time per change: 148.39 μs
+  Throughput: 6,739 changes/s
+  Queries: 2,014 per batch (2.01 per change)
+  Rows returned: 4,004.00 per batch
+  Rows by type: CrdtDataRow: 2,000.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 2,000.00
+```
+```
+🔀 MERGE MIXED performance:
+  Batch: 334 inserts + 333 updates + 333 deletes
+  Merge time: 442.22 ms
+  Time per change: 442.22 μs
+  Throughput: 2,261 changes/s
+  Queries: 2,021 per batch (2.02 per change)
+  Rows returned: 5,335.00 per batch
+  Rows by type: CrdtDataField: 333.00, CrdtDataRow: 2,332.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 2,666.00
+```
+```
+🔀 MERGE UNIQUE CONFLICT performance:
+  Batch: 500 text + 500 uuid conflicting inserts
+  Merge time: 296.09 ms
+  Time per change: 296.09 μs
+  Throughput: 3,377 changes/s
+  Queries: 42 per batch (0.04 per change)
+  Rows returned: 15,006.00 per batch
+  Rows by type: CrdtDataAttemptedValue: 2.00, CrdtDataField: 2,000.00, CrdtDataRow: 3,000.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 10,000.00
+```
+```
+🔀 MERGE SET DEFAULT ORIGINAL DELETE / RESTORE performance:
+  Batch: 1,000 town/company pairs sharing one default
+  Merge time: 2.79 ms
+  Time per change: 2.79 ms
+  Throughput: 358 changes/s
+  Queries: 23 per batch (22.50 per change)
+  Rows returned: 15.00 per batch
+  Rows by type: CrdtDataAttemptedValue: 0.50, CrdtDataField: 1.00, CrdtDataRow: 4.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 5.50
+```
+```
+🔀 MERGE SET DEFAULT DEFAULT DELETE / RESTORE performance:
+  Batch: 1,000 town/company pairs sharing one default
+  Merge time: 2.37 ms
+  Time per change: 2.37 ms
+  Throughput: 421 changes/s
+  Queries: 17 per batch (17.00 per change)
+  Rows returned: 8.50 per batch
+  Rows by type: CrdtDataRow: 2.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 2.50
+```
+```
+🔀 MERGE FK CHAIN INSERT performance:
+  Batch: 111 families × 9 related rows
+  Merge time: 142.68 ms
+  Time per change: 142.83 μs
+  Throughput: 7,002 changes/s
+  Queries: 79 per batch (0.08 per change)
+  Rows returned: 5,445.00 per batch
+  Rows by type: CrdtDataField: 888.00, CrdtDataRow: 1,887.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 2,666.00
+```
+```
+🔀 MERGE FK CHAIN DELETE performance:
+  Batch: root + restrict blocker deletes across 111 families of 9 rows
+  Merge time: 97.04 ms
+  Time per change: 437.10 μs
+  Throughput: 2,288 changes/s
+  Queries: 480 per batch (2.16 per change)
+  Rows returned: 4,112.00 per batch
+  Rows by type: CrdtDataAttemptedValue: 1.00, CrdtDataField: 888.00, CrdtDataRow: 1,221.00, CrdtNode: 2.00, OfflineSyncSpace: 1.00, OfflineSyncSpaceNode: 1.00, sql: 1,998.00
+```
+
+------------------------------------------------------------
+✅ Benchmark complete!
