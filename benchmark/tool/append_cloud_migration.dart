@@ -19,6 +19,15 @@ Future<void> main(List<String> args) async {
     p.join(root, 'test/serverpod_offline_sync_test_server/migrations'),
   );
   final target = Directory(p.join(p.absolute(args.single), 'benchmark/migrations'));
+  stdout.writeln(jsonEncode(await appendCloudMigration(source, target)));
+}
+
+/// Appends the next migration, retaining explicit PostgreSQL data backfills.
+/// Structural JSON is rendered only when no dialect-specific SQL is supplied.
+Future<Map<String, Object>> appendCloudMigration(
+  Directory source,
+  Directory target,
+) async {
   final sourceVersions = await _versions(source);
   final targetVersions = await _versions(target);
   final version = sourceVersions.last;
@@ -45,11 +54,15 @@ Future<void> main(List<String> args) async {
             !definition.installedModules.any((current) => current.module == old.module),
       )
       .toList();
-  final sql = migration.toPgSql(
-    databaseDefinition: definition,
-    installedModules: definition.installedModules,
-    removedModules: removedModules,
-  );
+  final postgresSql = File(p.join(source.path, version, 'migration.postgres.sql'));
+  final hasExplicitSql = postgresSql.existsSync();
+  final sql = hasExplicitSql
+      ? await postgresSql.readAsString()
+      : migration.toPgSql(
+          databaseDefinition: definition,
+          installedModules: definition.installedModules,
+          removedModules: removedModules,
+        );
   final destination = Directory(p.join(target.path, version));
   if (destination.existsSync()) {
     throw StateError('Migration destination already exists.');
@@ -65,14 +78,13 @@ Future<void> main(List<String> args) async {
   await File(p.join(target.path, 'migration_registry.txt')).writeAsString(
     '${[...targetVersions, version].join('\n')}\n',
   );
-  stdout.writeln(
-    jsonEncode({
-      'previous': previous,
-      'version': version,
-      'migration': p.join(destination.path, 'migration.sql'),
-      'actions': migration.actions.length,
-    }),
-  );
+  return {
+    'previous': previous,
+    'version': version,
+    'migration': p.join(destination.path, 'migration.sql'),
+    'sqlSource': hasExplicitSql ? 'migration.postgres.sql' : 'migration.json',
+    'actions': migration.actions.length,
+  };
 }
 
 Future<List<String>> _versions(Directory directory) async => (await File(

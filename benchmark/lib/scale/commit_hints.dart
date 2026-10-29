@@ -28,14 +28,14 @@ class BenchmarkCommitHints implements OfflineSyncCommitHints {
   };
 
   @override
-  Stream<Map<UuidValue, UuidValue>> get changes => transport.changes.where((_) {
+  Stream<Map<UuidValue, int>> get changes => transport.changes.where((_) {
     received++;
     if (!deliver) suppressed++;
     return deliver;
   });
 
   @override
-  void publish(Map<UuidValue, UuidValue> revisions) => transport.publish(revisions);
+  void publish(Map<UuidValue, int> revisions) => transport.publish(revisions);
 
   @override
   Future<void> close() => transport.close();
