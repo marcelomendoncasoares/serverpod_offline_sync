@@ -1,0 +1,143 @@
+{
+  "driverCommit": "79560a928c6b9307e89fe52f368f68dfce01eb79",
+  "driverBaseCommit": "7a9f44de36e8201207098eafc8e9ee5fd7c53c18",
+  "serverpodIntegrationCommit": "c2c60aea863457a42d05c4c0c4d1252ffb48999f",
+  "offlineIntegrationCommit": "4ec43bad28f81b6a729a97a93f02ec84f5cd3b70",
+  "offlineStackBaseCommit": "05c5a5071ecfe2dfdfc363159e173034044313ce",
+  "unchangedServerpodSdkCommit": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+  "deployment": {
+    "attemptId": "2214d8c2-727d-4f50-a8d8-1ae5fdceb316",
+    "buildId": "78879c6c-be61-4d12-96a6-3d3a463e7f94",
+    "archiveSha256": "438ba2e58c38cbe107f2c36097189dbce8948e2e536a192f11d6878a2cec7bdc",
+    "executableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "driver": "79560a928c6b9307e89fe52f368f68dfce01eb79",
+    "initialQuotaCores": 2.0
+  },
+  "deploymentInputs": {
+    "applicationSourceIdentical": true,
+    "protectedFiles": {
+      "benchmark/scloud.yaml": true,
+      "benchmark/config/benchmark_build.json": true,
+      "benchmark/config/development.yaml": true,
+      "benchmark/config/generator.yaml": true,
+      "benchmark/config/passwords.yaml": true,
+      "benchmark/config/production.yaml": true
+    },
+    "driverGitResolved": "79560a928c6b9307e89fe52f368f68dfce01eb79",
+    "sdkPinsUnchanged": true,
+    "archiveSha256": "438ba2e58c38cbe107f2c36097189dbce8948e2e536a192f11d6878a2cec7bdc"
+  },
+  "cloudVariables": {
+    "equal": true,
+    "count": 6
+  },
+  "offlineValidation": {
+    "runnerComplete": true,
+    "allTestEvents": 399,
+    "visibleSuccessfulTests": 153,
+    "hiddenSetupAndTeardownEvents": 246,
+    "failed": 0,
+    "suites": 14,
+    "dart": "3.13.7",
+    "driver": "79560a928c6b9307e89fe52f368f68dfce01eb79",
+    "analysis": "no issues",
+    "startupFailureCause": "SERVERPOD_DATABASE_DATA_PATH alone was interpreted as incomplete database config before per-suite configOverride. Removing the redundant variable lets existing tests own isolated PGDATA.",
+    "exportPreparationTests": 15,
+    "exportPreparationRunnerComplete": true,
+    "exportPreparationAnalysis": "no issues"
+  },
+  "rawSourceHashes": {
+    "baseline-medium-64": {
+      "receiptSha256": "5987a57856ee6e93564960347d8d6210142c7c78b3b66e7d6032b2c63f02d969",
+      "clientEventsSha256": "b06790761554cc54aad082d5f2b5c9ab6324418d24e6860e36f65107bee83e7c",
+      "serverEventsSha256": "6037bb5911d106b09be80d2fe9c36e1dd9b574b96b8691fef7753ea790a03784",
+      "resourcesSha256": "52569df27be4ed3545ee729efe8769765cce0bbbf08700f3f1b114e546aba4d6"
+    },
+    "baseline-medium-8": {
+      "receiptSha256": "d90c737c36699d1ff7150cc1f7a3d6912a8b2f74bee19c4f3a5471872f7ac1b2",
+      "clientEventsSha256": "e112bc5442ef9e4744fd2cf4d1f7434a827b0254d1492a364e1155ab67029e1f",
+      "serverEventsSha256": "0a97072fd6a14f34b073b4e56ecd37ac1d54bd659846e55914600c2933b475b0",
+      "resourcesSha256": "f4e861cbe858d9e4ca019040f47fcb21640c94322e8029720ff10917a6c4f436"
+    },
+    "baseline-small-8": {
+      "receiptSha256": "ac27e68d71366d563160b1fe2e84ef428198e4a1e12016ca089f159b7ce8a376",
+      "clientEventsSha256": "e71c7dd2c2dbbf68bb5dffce42c93b428f5e2081c49ccaa64c83996ee708be4d",
+      "serverEventsSha256": "28cfb54ed6799308bf1d250750464440dd5d3a08169ccec8ff0a924981eac568",
+      "resourcesSha256": "b2337c8069f92de0236b3f8fee26a28b7e40c3d3508cbe8e94ca5f0d40c7e723"
+    },
+    "baseline-xxlarge-64": {
+      "receiptSha256": "18212f0505aaf224e91ff4bdc10ea04805d7e75ba8b855d022cdee7d0f82679f",
+      "clientEventsSha256": "de82b106e47298037e3ae0e839f16d693e3a8d7b691b24c8f391ff760b3c26e5",
+      "serverEventsSha256": "566a803a03247a92a66218dc8071adf737d644638f3fca0c9d233703bcdf2148",
+      "resourcesSha256": "748477edb6c6f84719ca1117f905cca3bd1a6ddead1b2691c113e5f4352fc3d1"
+    },
+    "baseline-xxlarge-8": {
+      "receiptSha256": "cb5f512549caf96a72071b1eeb46af7634f49d795cb4fafe37b8cb4ce0f236a6",
+      "clientEventsSha256": "c76218ae8afd9ce2ff05b29065d7039f97d3063d096c71a331d3b39ef3b410f5",
+      "serverEventsSha256": "6ffc16cb3d212cfd6e50fd21709c96023410270617b7132f95bf6d5d1a883b35",
+      "resourcesSha256": "1369f2720d3d1272d7efde2392cd9d57f87e07f4830292e9e21a53a717742e78"
+    },
+    "candidate-medium-64": {
+      "receiptSha256": "d02d8bc3d653b9956760482fc1430e69224c0a1a2f89f393734512ee5230198e",
+      "clientEventsSha256": "32dcc0b3899c19393fdd1854e7d4fc5340740b066ce60e96d6d2497d9eb49c28",
+      "serverEventsSha256": "3047ba2b75d2714821e34ad931c4ae75d6838ad48024a12f9d59ffe6bf97fc51",
+      "resourcesSha256": "1e83f5f71ea54eb2856831861e8c4c6f3616ac39dc0953219e7f76e9c5d9aec9"
+    },
+    "candidate-medium-64r": {
+      "receiptSha256": "6b663a6198854002d2002d5cc1dac47799563172c9dbfe3286dee00ef2f2e539",
+      "clientEventsSha256": "035a72a9b6ba3ca15a21476256fbe0d6564f17b03a599f94a548fec9cd20cffa",
+      "serverEventsSha256": "ad7782b31db3bc489b02ec3e2d4fc07fae93923069f0049e6bc4dc226d83c963",
+      "resourcesSha256": "dc1f108747bad96015249ab15a60fd10fa2291f2e60f1714035810527e93417e"
+    },
+    "candidate-medium-8": {
+      "receiptSha256": "2a9352701587261e785926f78c3d2811df16b3e211be38679ab45bf29cd48ca5",
+      "clientEventsSha256": "ee3b6bb74038a122f08e2f95c327aae99ad74a2ca713ee5fe49d29c05f8d864b",
+      "serverEventsSha256": "8b3d3ac654c7101bdeb0e55c109e80acce7e9b288792a2d4647d8dd1d7c1e465",
+      "resourcesSha256": "be5b984d3aece833647859d1247c63c695c88b6fad14a0c67010c8f77f401543"
+    },
+    "candidate-small-8": {
+      "receiptSha256": "de8c3e4ffc6fa2874916662335cf7b012792e3356b65b0af8b18450a08a224cd",
+      "clientEventsSha256": "d949187044bd0a391b8f7460a9052a00a2de3063c87aeafd69847a96ad56ce1f",
+      "serverEventsSha256": "847aa92c39883b1a10c4a66935d574bc9d325075264ff0f16af86eb29eee9d07",
+      "resourcesSha256": "88d676e6713ac87dedc341c492915ff30b673a1b6a9622cec3d6673c09094455"
+    },
+    "candidate-xxlarge-64": {
+      "receiptSha256": "f5360ecc4879f9903d98a3180e095512a8df500a7c7873542fc976832d8c064b",
+      "clientEventsSha256": "cf5cf4a78c2f6adb5189e35c09d259dbb44b77fe4c75c64701a7f1b42c070b7e",
+      "serverEventsSha256": "93971b940f38bd577acfff1d3cc9b9c7028150d7678b6b131210eca1d3338b5b",
+      "resourcesSha256": "2975df1fd9499cc1d91f1a904c349d26ed06b899303f7b0ac14fcf7087cb787d"
+    },
+    "candidate-xxlarge-64r": {
+      "receiptSha256": "1ae2f891dfa0c52021f11f734d7867f8a511940e865bd3b017cc8c5b77692e62",
+      "clientEventsSha256": "b82377864e3b706a1fefb46c3c9f772411c585fd261444103871979b51198256",
+      "serverEventsSha256": "298b00aa02c0047de37e0458f3e80e70414ef656426f44d75fde51add61e1853",
+      "resourcesSha256": "61fc39ab2ca86f0a0bf22280fbf75d3f481d03fae3f334f4b751554280c8c150"
+    },
+    "candidate-xxlarge-8": {
+      "receiptSha256": "36cc94d381e327baa483d66e21ae83ef07286c37c9cfde184acb360426e30030",
+      "clientEventsSha256": "750c5201df28f788836fff803656cd18de996b70d412b269e597cb46689b89f2",
+      "serverEventsSha256": "4720b5bd3c96fe0b9eab6a7c384ffa40cf8fbd446471ce9080a23ed0dd048c7a",
+      "resourcesSha256": "01197b4d37358d4acc01b87710ce154937791049e42c1fea2438e09fd7c49f93"
+    }
+  },
+  "statistics": "Arithmetic mean and median; nearest-rank p95 from raw successful exercise rounds. Repeats remain separate.",
+  "knownProfileExclusions": {
+    "baseline-medium-8": "Final stream traces were not collected before instance replacement; no phase partition is claimed.",
+    "baseline-small-8": "No exercise rounds: warmup failed."
+  },
+  "finalRuntime": {
+    "size": "small",
+    "replicas": 1,
+    "quotaCores": 0.1,
+    "executableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+    "benchmarkSchema": "full",
+    "benchmarkDatabase": "original",
+    "maxConnectionCount": 100,
+    "openStreams": 0,
+    "idleInTransaction": 0,
+    "persistentLogging": false,
+    "consoleLogging": false,
+    "commitHints": false
+  },
+  "offlineExportTestCommit": "d1bf27e5797e2756a330442c4062e3f8bed67896"
+}

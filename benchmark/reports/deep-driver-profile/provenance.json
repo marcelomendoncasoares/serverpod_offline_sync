@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-27",
+  "purpose": "Diagnostic attribution, not a performance optimization or replacement capacity baseline.",
+  "serverSource": "Prepared capacity benchmark from 7b21811736298ee53137168b7073926766f3fb8f, same offline-sync core as PR195, plus immutable postgres driver 79560a928c6b9307e89fe52f368f68dfce01eb79.",
+  "sdkCommit": "4f2a75ab967dccd56e88261a39203fc5e59d8e80",
+  "originalServerExecutableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+  "diagnosticServerExecutableSha256": "b2b97fe38ba87da77a9de1f2cea6042205149ac52f8da6bb4d48da74a637dd14",
+  "queueDiagnosticExecutableSha256": "a8da9204bcdcc232d7e3eb80d34d1d97234f22dff8f2054982da0a2b2280ea7f",
+  "serverDartVersion": "3.13.7 (stable) (Thu Oct 22 14:28:57 2026 -0700) on \"linux_x64\"",
+  "clientDartVersion": "3.12.2",
+  "clientSource": "Capacity source 7b218117 plus the client probes later committed as 68fe083f02ab241117bd3616fcde2f08e2e9d173; identical executable to the preceding client-delay-split campaign.",
+  "sampling": "One user, both alternating writers; ten correlated exercise rounds per trial. No extra SQL, TLS/cancellation/transaction behavior changes, or full-query value logging.",
+  "workload": "32 users, 2 devices each, 10 rounds per user, one Person insert per round, eight workers. Established streams; local write to exact peer ORM-watch observation. Startup, warmup, final verify and teardown excluded.",
+  "nativeCapabilities": {
+    "kernel": "Linux version 4.19.0-gvisor #1 SMP Sun Jan 10 15:06:54 PST 2016",
+    "perfEventParanoid": null,
+    "schedulerStats": null
+  },
+  "cpuCounterLimit": "Thread CPU increments were quantized in 10000us. Fine per-function CPU shares are not inferred. No Cloud native CPU flamegraph or Dart VM CPU/heap sample was collected.",
+  "validation": {
+    "integrationTestsPerBuild": 15,
+    "validatedBuilds": 2,
+    "v1FocusedAnalysis": "No issues",
+    "roundsExactlyConverged": 1920,
+    "invalidCorrelatedPartitions": 0,
+    "completeQueryBoundaryCheck": true
+  },
+  "rejectedAttempts": [
+    "Initial local analysis found Sql.sql is not a public getter; corrected to the driver implementation getter before deployment.",
+    "Initial local compile command did not support build hooks; changed to dart build cli.",
+    "Initial test assertion needed parentheses around a cast; corrected before deployment.",
+    "Initial Cloud build rejected overriding a workspace package; removed that temporary override, with postgres resolved as the diagnostic workspace package. No failed candidate replaced the live server."
+  ],
+  "restoration": {
+    "originalExecutableRestored": true,
+    "size": "Small",
+    "quotaCores": 0.1,
+    "maxConnectionCount": 100,
+    "database": "original",
+    "schema": "full",
+    "sessionLogging": {
+      "beforeBenchmarkOverride": {
+        "persistentEnabled": true,
+        "consoleEnabled": false
+      },
+      "persistentEnabled": false,
+      "consoleEnabled": false,
+      "benchmarkOverride": "off",
+      "persistentEnvironment": "true",
+      "consoleEnvironment": "false"
+    },
+    "commitHintsEnabled": false,
+    "streams": 0,
+    "idleInTransaction": 0,
+    "protectedConfigsAndSecretsUnchanged": true,
+    "temporaryInstrumentationRemoved": true
+  },
+  "rawEvidenceDirectory": "/tmp/sync-cloud-deep-profile-20261027"
+}

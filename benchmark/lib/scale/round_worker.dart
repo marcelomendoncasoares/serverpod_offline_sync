@@ -12,6 +12,7 @@ import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_c
 import 'client_diagnostics.dart';
 import 'common.dart';
 import 'elapsed_clock.dart';
+import 'round_client_profile.dart';
 import 'round_options.dart';
 import 'verification.dart';
 import 'worker.dart';
@@ -62,6 +63,7 @@ class RoundWorker {
   final Emit emit;
   final String secret;
   final groups = <int, List<Device>>{};
+  final clientProfiles = <int, RoundClientProfile>{};
   final journals = <int, List<Person>>{};
   final lag = LoopLag();
   String phase = 'init';
@@ -94,6 +96,13 @@ class RoundWorker {
         options.number('setup-concurrency'),
         (d) => d.open(secret),
       );
+      for (final device in devices) {
+        if (device.user != options.values['client-profile-user']) continue;
+
+        (device.client! as DiagnosticClient).onSyncFrame = (event, direction) {
+          clientProfiles[device.user]?.observe(device.index, event, direction);
+        };
+      }
     } finally {
       admin.close();
     }
@@ -220,6 +229,13 @@ class RoundWorker {
     // The first warmup seeds stable rows; every later update changes both fields.
     final insert = !options.updates || sequence == -group.length;
     final clock = ElapsedClock();
+    final clientProfile = user == options.values['client-profile-user']
+        ? RoundClientProfile(
+            round: sequence,
+            writer: writerIndex,
+            readMicros: () => clock.elapsedMicroseconds,
+          )
+        : null;
     final observers = [for (final peer in peers) RoundObserver(peer, expected, clock)];
     var ok = false;
     var committed = 0;
@@ -232,6 +248,7 @@ class RoundWorker {
       }
       prepared = preparation.elapsedMicroseconds;
       clock.start();
+      if (clientProfile != null) clientProfiles[user] = clientProfile;
       await writer.session!.db.transactionForUser(
         writer.userId,
         (tx) => insert
@@ -267,6 +284,7 @@ class RoundWorker {
       ok = true;
     } finally {
       final completed = clock.elapsedMicroseconds;
+      clientProfiles.remove(user);
       await Future.wait(observers.map((o) => o.subscription.cancel()));
       emit({
         'type': 'round',
@@ -287,6 +305,7 @@ class RoundWorker {
         'observerPreparationMicros': prepared,
         'scheduleLagMicros': scheduleLagMicros + prepared,
         'localCommitMicros': committed,
+        if (clientProfile != null) 'clientProfile': clientProfile.toJson(),
         'completedMicros': completed,
         'writeToAllPeersMicros': delivered.isEmpty ? null : delivered.reduce(max),
         'commitToAllPeersMicros': delivered.isEmpty

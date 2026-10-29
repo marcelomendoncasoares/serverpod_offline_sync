@@ -28,6 +28,41 @@ def records(path):
     return [json.loads(line) for line in Path(path).read_text().splitlines()]
 
 
+def split_client_residual(measured, source_batch, peer_batch, server_path):
+    """Subtract durations only; never align independent client/server clocks."""
+    profile = measured['clientProfile']
+    assert profile['round'] == measured['round']
+    assert profile['writer'] == measured['writer']
+    assert profile['droppedBatches'] == 0
+    assert measured['peers'] == 1, 'The correlated path requires exactly one peer'
+    peers = measured['peerAppliedMicros']
+    assert len(peers) == 1
+    peer_device = peers[0]['device']
+    assert peers[0]['micros'] == measured['writeToAllPeersMicros']
+
+    sent = [b for b in profile['batches'] if b['device'] == measured['writer']
+            and b['direction'] == 'sent']
+    received = [b for b in profile['batches'] if b['device'] == peer_device
+                and b['direction'] == 'received']
+    assert len(sent) == len(received) == 1, 'Ambiguous round-to-batch match'
+    upload, download = sent[0], received[0]
+    assert upload['batchId'] == source_batch
+    assert download['batchId'] == peer_batch
+    upload_end = upload['endMicros']
+    download_end = download['endMicros']
+    committed = measured['localCommitMicros']
+    total = measured['writeToAllPeersMicros']
+    assert 0 <= committed <= upload['firstChunkMicros'] <= upload_end
+    assert upload_end <= download['firstChunkMicros'] <= download_end <= total
+
+    return {
+        'clientLocalWrite': committed,
+        'clientOutboundPreparation': upload_end - committed,
+        'transportAndBoundaryResidual': download_end - upload_end - server_path,
+        'clientPeerApplyAndObserve': total - download_end,
+    }
+
+
 def analyze(root, label):
     receipt = json.loads((root / (label + '.json')).read_text())
     collector = receipt['collector']
@@ -105,6 +140,10 @@ def analyze(root, label):
                 'afterCaptureBeforeYield': sent - cap_end,
                 'transportAndClientResidual': measured['writeToAllPeersMicros'] - (sent - begin),
             }
+            if 'clientProfile' in measured:
+                parts.pop('transportAndClientResidual')
+                parts.update(split_client_residual(measured, source[1], peer[1], sent - begin))
+
             rows.append({
                 'user': user,
                 'round': sequence,
@@ -118,6 +157,9 @@ def analyze(root, label):
                 'parts': parts,
                 'mergeTransaction': tx,
                 'captureTransaction': cap_tx,
+                **({'clientProfile': measured['clientProfile'],
+                    'localCommitMicros': measured['localCommitMicros']}
+                   if 'clientProfile' in measured else {}),
             })
 
     expected = sum(user in receipt['sampleUserIndices'] for user, _ in rounds)
@@ -132,7 +174,7 @@ def analyze(root, label):
         'invalidPartitions': len(invalid),
         'collectorRetries': collector['errors'],
         'rows': rows,
-        'limits': 'SQL includes transport and scheduling. Connection includes BEGIN. Residual includes client work and both network directions. Sample overhead is measured separately. No invalid residual is clamped.',
+        'limits': 'SQL includes transport and scheduling. Connection includes BEGIN. Client frame boundaries use the round clock. Split transport residual includes both network directions and uninstrumented SDK/server boundaries, not a pure RTT or one-way measurement. No invalid residual is clamped.',
     }
     if not invalid:
         result['meanPartsMs'] = {key: statistics.mean(r['parts'][key] for r in rows) / 1000 for key in rows[0]['parts']}
