@@ -55,7 +55,7 @@ Future<void> main(List<String> args) async {
         ),
     ];
     worker.groups[0] = devices;
-    worker.journals[0] = [];
+    worker.journals[0] = {'person': [], 'city': [], 'town': []};
     final admin = Client(options.scale.target)..authKeyProvider = BenchmarkAuth(secret);
     try {
       await control(admin, {

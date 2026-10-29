@@ -92,21 +92,21 @@ void main() {
 
     test('when the rows arrive in a different order, '
         'then the exact batch is accepted.', () {
-      final delivered = deliveredRows(expected.reversed.toList(), expected);
+      final delivered = deliveredRows('person', expected.reversed.toList(), expected);
 
       expect(delivered, isTrue);
     });
 
     test('when one row is missing, '
         'then the batch is incomplete.', () {
-      final delivered = deliveredRows([expected.first], expected);
+      final delivered = deliveredRows('person', [expected.first], expected);
 
       expect(delivered, isFalse);
     });
 
     test('when the row count matches but a value is stale, '
         'then the batch is incomplete.', () {
-      final delivered = deliveredRows([
+      final delivered = deliveredRows('person', [
         expected.first,
         expected.last.copyWith(name: 'stale'),
       ], expected);
@@ -116,7 +116,7 @@ void main() {
 
     test('when an unrelated row substitutes for an expected row, '
         'then the batch is incomplete.', () {
-      final delivered = deliveredRows([
+      final delivered = deliveredRows('person', [
         expected.first,
         expected.last.copyWith(id: benchmarkId('unrelated')),
       ], expected);

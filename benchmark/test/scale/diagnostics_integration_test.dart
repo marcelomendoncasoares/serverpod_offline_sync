@@ -11,6 +11,7 @@ import 'package:serverpod_cli/src/database/dialects/postgres.dart';
 import 'package:serverpod_database/serverpod_database.dart' show DatabaseDefinition;
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/diagnostics.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/elapsed_clock.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/options.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/round_options.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/round_worker.dart';
@@ -349,6 +350,267 @@ void main() {
           expect(plans.where((dynamic p) => (p as Map).containsKey('error')), isEmpty);
         },
       );
+    });
+  });
+
+  group('Given six connected devices with only one active user,', () {
+    late RoundWorker worker;
+    late List<Map<String, dynamic>> events;
+    late Map<String, dynamic> before;
+
+    setUpAll(() async {
+      events = [];
+      worker = RoundWorker(
+        RoundOptions.parse([
+          '--target',
+          target,
+          '--data-dir',
+          directory.path,
+          '--run-id',
+          'capacity-active-and-idle',
+          '--users',
+          '3',
+          '--active-users',
+          '1',
+          '--devices',
+          '2',
+          '--workers',
+          '1',
+          '--rounds',
+          '2',
+          '--rows',
+          '3',
+          '--period-ms',
+          '20',
+        ]),
+        0,
+        events.add,
+        secret,
+      );
+      await worker.initialize();
+      await worker.warmup();
+      before = await control(admin, {'action': 'metrics'});
+    });
+
+    tearDownAll(() => worker.close());
+
+    group('when active rounds finish and idle streams are probed,', () {
+      late List<Map<String, dynamic>> rounds;
+      late Map<String, dynamic> after;
+
+      setUpAll(() async {
+        await worker.exercise();
+        rounds = events
+            .where((event) => event['type'] == 'round' && (event['round'] as int) >= 0)
+            .toList();
+        await worker.probeIdleUsers();
+        await worker.verify();
+        after = await control(admin, {'action': 'metrics'});
+      });
+
+      test('then only the active user authors measured rounds.', () {
+        expect(rounds, hasLength(2));
+        expect(rounds.map((round) => round['user']), [0, 0]);
+        expect(
+          rounds.every((round) => round['rows'] == 3 && round['ok'] == true),
+          isTrue,
+        );
+      });
+
+      test('then idle peers exchange fresh probes and all journals converge.', () {
+        final probes = events.where(
+          (event) => event['type'] == 'round' && event['round'] == -3,
+        );
+        final verified = events.where((event) => event['type'] == 'verified');
+
+        expect(probes.map((probe) => probe['user']), unorderedEquals([1, 2]));
+        expect(probes.every((probe) => probe['ok'] == true), isTrue);
+        expect(verified.map((event) => event['rows']), unorderedEquals([8, 3, 3]));
+      });
+
+      test('then all six original streams remain open during the workload.', () {
+        expect((before['streams'] as Map)['open'], 6);
+        expect((after['streams'] as Map)['open'], 6);
+        expect(
+          (after['streams'] as Map)['openedTotal'],
+          (before['streams'] as Map)['openedTotal'],
+        );
+      });
+
+      test('then timestamps bound the actual work for overlap measurement.', () {
+        expect(rounds.every((round) => (round['startedMicros'] as int) > 0), isTrue);
+        expect(
+          rounds.every(
+            (round) =>
+                (round['finishedMicros'] as int) > (round['startedMicros'] as int),
+          ),
+          isTrue,
+        );
+      });
+    });
+  });
+
+  group('Given three worker processes with two active users and one idle user,', () {
+    late Map<String, dynamic> summary;
+    late List<Map<String, dynamic>> measured;
+
+    group('when the real coordinator runs a shared burst schedule,', () {
+      setUpAll(() async {
+        final runner = await Isolate.resolvePackageUri(
+          Uri.parse('package:serverpod_offline_sync_benchmark/scale/round_runner.dart'),
+        );
+        final benchmark = File.fromUri(runner!).parent.parent.parent;
+        final process = await Process.start(
+          Platform.resolvedExecutable,
+          [
+            'run',
+            p.join(benchmark.path, 'bin/rounds.dart'),
+            '--target',
+            target,
+            '--data-dir',
+            directory.path,
+            '--run-id',
+            'capacity-coordinator-processes',
+            '--users',
+            '3',
+            '--active-users',
+            '2',
+            '--workers',
+            '3',
+            '--rounds',
+            '2',
+            '--rows',
+            '2',
+            '--period-ms',
+            '50',
+            '--schedule',
+            'burst',
+            '--settle-seconds',
+            '0',
+            '--no-sync-diagnostics',
+          ],
+          environment: {'BENCHMARK_SECRET': secret},
+        );
+        final output = process.stdout.transform(utf8.decoder).join();
+        final errors = process.stderr.transform(utf8.decoder).join();
+        try {
+          final result = await process.exitCode.timeout(const Duration(seconds: 90));
+          if (result != 0) {
+            throw StateError(
+              'Coordinator exited $result: ${await output}\n${await errors}',
+            );
+          }
+          await Future.wait([output, errors]);
+        } finally {
+          process.kill(ProcessSignal.sigterm);
+        }
+        final run = Directory(p.join(directory.path, 'capacity-coordinator-processes'));
+        summary =
+            jsonDecode(await File(p.join(run.path, 'summary.json')).readAsString())
+                as Map<String, dynamic>;
+        measured = (await File(p.join(run.path, 'events.jsonl')).readAsLines())
+            .map((line) => jsonDecode(line) as Map<String, dynamic>)
+            .where((event) => event['type'] == 'round' && (event['round'] as int) >= 0)
+            .toList();
+      });
+
+      test(
+        'then measured work excludes the idle user but verification includes it.',
+        () {
+          expect(summary['status'], 'passed');
+          expect(summary['rounds'], 4);
+          expect(summary['verifiedUsers'], 3);
+          expect(measured.map((round) => round['user']).toSet(), {0, 1});
+          expect((summary['load'] as Map)['connectedDevices'], 6);
+          expect((summary['load'] as Map)['participatingDevices'], 4);
+        },
+      );
+
+      test('then every process uses the coordinator clock origin.', () {
+        final workers = ((summary['generator'] as Map)['workers'] as List).cast<Map>();
+        final origins = workers.map((worker) => worker['startedMicros']).toSet();
+
+        expect(workers, hasLength(3));
+        expect(origins, hasLength(1));
+        expect(
+          measured.every(
+            (round) => (round['startedMicros'] as int) >= (origins.single as int),
+          ),
+          isTrue,
+        );
+      });
+
+      test('then all streams and transactions drain after the probes.', () {
+        final cleanup = (summary['server'] as Map)['cleanup'] as Map;
+
+        expect((cleanup['streams'] as Map)['open'], 0);
+        expect(summary['unexpectedStreamEnds'], 0);
+        expect(summary['failures'], isEmpty);
+      });
+    });
+  });
+
+  group('Given two connected devices with no active users,', () {
+    late RoundWorker worker;
+    late List<Map<String, dynamic>> events;
+
+    setUpAll(() async {
+      events = [];
+      worker = RoundWorker(
+        RoundOptions.parse([
+          '--target',
+          target,
+          '--data-dir',
+          directory.path,
+          '--run-id',
+          'capacity-idle-hold',
+          '--users',
+          '1',
+          '--active-users',
+          '0',
+          '--workers',
+          '1',
+          '--idle-seconds',
+          '1',
+        ]),
+        0,
+        events.add,
+        secret,
+      );
+      await worker.initialize();
+      await worker.warmup();
+    });
+
+    tearDownAll(() => worker.close());
+
+    group('when they remain idle and then exchange a fresh probe,', () {
+      late int holdMicros;
+      late List<Map<String, dynamic>> measured;
+
+      setUpAll(() async {
+        final clock = ElapsedClock()..start();
+        await worker.exercise();
+        holdMicros = clock.elapsedMicroseconds;
+        measured = events
+            .where((event) => event['type'] == 'round' && (event['round'] as int) >= 0)
+            .toList();
+        await worker.probeIdleUsers();
+        await worker.verify();
+      });
+
+      test('then the idle interval contains no measured writes.', () {
+        expect(measured, isEmpty);
+        expect(holdMicros, greaterThanOrEqualTo(1000000));
+      });
+
+      test('then the still-open streams deliver the probe exactly.', () {
+        final probe = events.singleWhere(
+          (event) => event['type'] == 'round' && event['round'] == -3,
+        );
+
+        expect(probe['ok'], isTrue);
+        expect(events.singleWhere((event) => event['type'] == 'verified')['rows'], 3);
+      });
     });
   });
 
