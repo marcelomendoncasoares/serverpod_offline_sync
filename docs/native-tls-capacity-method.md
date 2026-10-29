@@ -1,9 +1,9 @@
 # Native TLS capacity campaign
 
-Status: harness validated locally; Cloud capacity measurements are in progress.
-The first Small reference and 16/64/256 idle-stream cases passed. The 1,024-device
-attempt failed during startup and is retained separately from established-stream
-capacity. See the [measurement ledger](../benchmark/reports/native-tls-capacity-2026-10-29/README.md).
+Status: the cached/HLC baseline completed 372 cases across all five Cloud sizes.
+Sustained boundary follow-ups and the revision-checkpoint comparison are still
+in progress. See the [measurement ledger](../benchmark/reports/native-tls-capacity-baseline-progress-2026-10-29/README.md)
+and [sizing tables](../benchmark/reports/native-tls-capacity-baseline-progress-2026-10-29/SIZING.md).
 The 51
 focused checks include actual separate worker processes, idle-stream probes,
 exact PostgreSQL/SQLite convergence, and cleanup. Static analysis is clean.
@@ -11,15 +11,23 @@ exact PostgreSQL/SQLite convergence, and cleanup. Static analysis is clean.
 ## Objective and fixed implementation
 
 The versioned [capacity runner](../benchmark/tool/capacity/README.md) separates
-adaptive discovery from frozen replay. Replay retains the same case arguments
-and failed cases, regenerates the report, and compares matching observations
-after a performance change. Private configuration and credentials remain outside
-the repository.
+adaptive discovery from frozen replay. Both stop heavier comparable loads after
+an unsuccessful measurement. Replay retains the same case arguments and compares
+matching observations after a performance change; skipped cases remain explicitly
+unmeasured. Failures on an older build do not preempt measurements on a new build.
+Private configuration and credentials remain outside the repository.
+
+One `discover` command automatically traverses all five sizes and schema profiles,
+then restores the starting deployment. The stopping rule resets across independent
+tiers and workloads. It carries failures across increasing row and device counts
+within a comparable workload and never automatically retries at a slower cadence.
 
 Measure one Cloud instance at each size: Small, Medium, Large, XL, and XXL.
 Use the native TLS integration from PR #202, retaining transaction serialization,
 TCP_NODELAY, inline portal close, and cancellation drainage. Do not enable
-pipelining or change the Offline Sync engine during the campaign.
+pipelining or change the Offline Sync engine within a campaign. The durable
+revision-checkpoint implementation is a separate candidate with fresh databases,
+its matching client, and its own measurements.
 
 The table must relate schema complexity, rows changed per round, total connected
 devices, and actively syncing devices. A connected stream is not equivalent to
@@ -90,11 +98,14 @@ For every instance size:
    observed boundary or a documented generator/platform limit.
 3. Sweep active participation and rows per round for each schema profile.
    Initial row points are 1, 10, 50, 200, and 1000; expand or refine where needed.
-   Increase active groups until latency targets or offered-rate adherence fail.
+   Increase active groups until correctness, complete observations, or offered-rate
+   adherence fail. Track latency targets separately. Carry that failure forward
+   to heavier comparable loads; if the minimum concurrency fails at 200 rows,
+   skip 1,000 rows. Lower concurrency can still refine the passing boundary.
 4. At fixed active participation, add idle connected devices to measure their
    incremental cost. Check several active fractions near useful operating points.
-5. Run aligned bursts, fan-out controls, and representative updates. Repeat the
-   useful boundary and failing neighbor; validate recommended operating points
+5. Run aligned bursts, fan-out controls, and representative updates. Validate
+   useful passing boundaries and recommended operating points
    with longer runs. Do not infer an unmeasured cell solely from monotonicity.
 6. Confirm cleanup before the next run. Retain timeout and failure evidence.
    Verify any recovery/redeployment before continuing.

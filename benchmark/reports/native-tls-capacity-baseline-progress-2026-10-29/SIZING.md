@@ -1,6 +1,6 @@
 # Observed capacity by workload
 
-> Progress snapshot: 20261029T111649Z, 314 completed cases. Small through XL discovery has finished; XXL discovery is in progress. Boundary soak follow-ups and the checkpoint Cloud comparison remain pending. These measurements use the original cached/HLC native-TLS baseline at `e11f16b`, not the revision-checkpoint implementation. Failures and incomplete observations remain part of the report.
+> Completed discovery baseline: 372 measured cases across Small, Medium, Large, XL, and XXL. These measurements use the cached/HLC native-TLS implementation at `e11f16b`. Sustained boundary follow-ups and the revision-checkpoint Cloud comparison remain in progress. Failures and incomplete observations are retained. The new pruning policy applies to subsequent campaigns; historical heavier and slower-cadence trials remain visible here.
 
 These are measured workload screens, not production capacity guarantees. Use them to choose a starting configuration, then repeat a sustained test with your schema, database placement, row sizes, and activity pattern. All results belong to the exact server and client builds in [manifest.json](manifest.json).
 
@@ -34,16 +34,16 @@ Each cell shows **devices / p95 milliseconds** for the highest tested count that
 | Person, full registry | 200 | — | — | 2 / 833 | 16 / 891 | 16 / 904 |
 | Person, full registry | 1000 | — | — | — | — | — |
 | Person, full registry | 5000 | — | — | — | — | — |
-| Town with linked parents, full registry | 1 | — | 16 / 670 | 32 / 386 | 64 / 551 | — |
-| Town with linked parents, full registry | 10 | — | 16 / 734 | 32 / 469 | 64 / 862 | — |
-| Town with linked parents, full registry | 50 | — | 8 / 727 | 16 / 824 | 8 / 518 | — |
-| Town with linked parents, full registry | 200 | — | — | — | — | — |
+| Town with linked parents, full registry | 1 | — | 16 / 670 | 32 / 386 | 64 / 551 | 128 / 509 |
+| Town with linked parents, full registry | 10 | — | 16 / 734 | 32 / 469 | 64 / 862 | 128 / 870 |
+| Town with linked parents, full registry | 50 | — | 8 / 727 | 16 / 824 | 8 / 518 | 32 / 933 |
+| Town with linked parents, full registry | 200 | — | — | — | — | 2 / 941 |
 | Town with linked parents, full registry | 1000 | — | — | — | — | — |
 | Town with linked parents, full registry | 5000 | — | — | — | — | — |
-| City, isolated registry | 1 | 2 / 794 | 8 / 372 | 32 / 390 | 128 / 663 | — |
-| City, isolated registry | 10 | 2 / 787 | 16 / 413 | 32 / 451 | 64 / 480 | — |
-| City, isolated registry | 50 | 2 / 991 | 16 / 937 | 8 / 395 | 64 / 519 | — |
-| City, isolated registry | 200 | — | — | 8 / 674 | 16 / 586 | — |
+| City, isolated registry | 1 | 2 / 794 | 8 / 372 | 32 / 390 | 128 / 663 | 128 / 423 |
+| City, isolated registry | 10 | 2 / 787 | 16 / 413 | 32 / 451 | 64 / 480 | 128 / 656 |
+| City, isolated registry | 50 | 2 / 991 | 16 / 937 | 8 / 395 | 64 / 519 | 32 / 440 |
+| City, isolated registry | 200 | — | — | 8 / 674 | 16 / 586 | 16 / 806 |
 | City, isolated registry | 1000 | — | — | — | — | — |
 | City, isolated registry | 5000 | — | — | — | — | — |
 
@@ -57,17 +57,17 @@ Each cell shows **devices / p95 milliseconds** for the highest tested count that
 | Person, full registry | 200 | — | 4 / 1491 | 8 / 1051 | 16 / 891 | 16 / 904 |
 | Person, full registry | 1000 | — | — | — | — | — |
 | Person, full registry | 5000 | — | — | — | — | — |
-| Town with linked parents, full registry | 1 | 8 / 2159 | 16 / 670 | 32 / 386 | 64 / 551 | — |
-| Town with linked parents, full registry | 10 | 4 / 1928 | 16 / 734 | 32 / 469 | 64 / 862 | — |
-| Town with linked parents, full registry | 50 | 2 / 2125 | 8 / 727 | 16 / 824 | 32 / 1402 | — |
-| Town with linked parents, full registry | 200 | — | — | 2 / 1223 | 4 / 1586 | — |
+| Town with linked parents, full registry | 1 | 8 / 2159 | 16 / 670 | 32 / 386 | 64 / 551 | 128 / 509 |
+| Town with linked parents, full registry | 10 | 4 / 1928 | 16 / 734 | 32 / 469 | 64 / 862 | 128 / 870 |
+| Town with linked parents, full registry | 50 | 2 / 2125 | 8 / 727 | 16 / 824 | 32 / 1402 | 32 / 933 |
+| Town with linked parents, full registry | 200 | — | — | 2 / 1223 | 4 / 1586 | 4 / 1550 |
 | Town with linked parents, full registry | 1000 | — | — | — | — | — |
 | Town with linked parents, full registry | 5000 | — | — | — | — | — |
-| City, isolated registry | 1 | 8 / 1224 | 32 / 1187 | 64 / 1095 | 128 / 663 | — |
-| City, isolated registry | 10 | 8 / 1521 | 16 / 413 | 64 / 1632 | 64 / 480 | — |
-| City, isolated registry | 50 | 4 / 1273 | 16 / 937 | 32 / 1062 | 64 / 519 | — |
-| City, isolated registry | 200 | — | 4 / 1004 | 8 / 674 | 16 / 586 | — |
-| City, isolated registry | 1000 | — | — | — | 2 / 2058 | — |
+| City, isolated registry | 1 | 8 / 1224 | 32 / 1187 | 64 / 1095 | 128 / 663 | 128 / 423 |
+| City, isolated registry | 10 | 8 / 1521 | 16 / 413 | 64 / 1632 | 64 / 480 | 128 / 656 |
+| City, isolated registry | 50 | 4 / 1273 | 16 / 937 | 32 / 1062 | 64 / 519 | 64 / 1007 |
+| City, isolated registry | 200 | — | 4 / 1004 | 8 / 674 | 16 / 586 | 16 / 806 |
+| City, isolated registry | 1000 | — | — | — | 2 / 2058 | 2 / 2411 |
 | City, isolated registry | 5000 | — | — | — | — | — |
 
 Person writes two text fields with nullable relations unpopulated. Town writes its name and populated City/Person references, with the linked parents seeded before exercise. City uses one persisted name field in an isolated registry. These profiles sample different costs; field counts alone do not model an arbitrary application schema.
@@ -92,7 +92,7 @@ Each cell is **participating devices / p95 milliseconds**. Keeping up and meetin
 | xlarge / Person, full registry | 8 / 408 | 8 / 408 |
 | xlarge / Town with linked parents, full registry | — | — |
 | xlarge / City, isolated registry | — | — |
-| xxlarge / Person, full registry | — | — |
+| xxlarge / Person, full registry | 8 / 396 | 8 / 396 |
 | xxlarge / Town with linked parents, full registry | — | — |
 | xxlarge / City, isolated registry | — | — |
 
@@ -127,6 +127,8 @@ These are the highest qualifying throughput screens from the second active-devic
 | xlarge / Town with linked parents, full registry | 64 | 16 | 13.5 / 20 | 551 |
 | xlarge / City, isolated registry | 128 | 32 | 24.9 / 52 | 663 |
 | xxlarge / Person, full registry | 128 | 32 | 51.4 / 128 | 2067 |
+| xxlarge / Town with linked parents, full registry | 128 | 32 | 26.3 / 42 | 509 |
+| xxlarge / City, isolated registry | 128 | 32 | 21.5 / 36 | 423 |
 
 ## Mixed connections and sustained controls
 
@@ -145,6 +147,9 @@ The controls below use one-row writes in the named schema profiles. They keep la
 | xlarge / full/person / 5-minute offered workload | 8 / 8 | 600 | 320 | 345 | 352 | 408 | 737 | True / True / True |
 | xlarge / full/person / mixed | 64 / 8 | 120 | 319 | 333 | 343 | 383 | 788 | True / True / True |
 | xlarge / full/person / mixed | 256 / 8 | 120 | 319 | 340 | 344 | 382 | 426 | True / True / True |
+| xxlarge / full/person / 5-minute offered workload | 8 / 8 | 600 | 328 | 352 | 357 | 396 | 560 | True / True / True |
+| xxlarge / full/person / mixed | 64 / 8 | 120 | 346 | 372 | 387 | 460 | 860 | True / True / True |
+| xxlarge / full/person / mixed | 256 / 8 | 120 | 356 | 383 | 391 | 424 | 862 | True / True / True |
 
 ## Applying the measurements
 

@@ -1,8 +1,8 @@
 # Native TLS capacity measurements
 
-> Progress snapshot: 20261029T111649Z, 314 completed cases. Small through XL discovery has finished; XXL discovery is in progress. Boundary soak follow-ups and the checkpoint Cloud comparison remain pending. These measurements use the original cached/HLC native-TLS baseline at `e11f16b`, not the revision-checkpoint implementation. Failures and incomplete observations remain part of the report.
+> Completed discovery baseline: 372 measured cases across Small, Medium, Large, XL, and XXL. These measurements use the cached/HLC native-TLS implementation at `e11f16b`. Sustained boundary follow-ups and the revision-checkpoint Cloud comparison remain in progress. Failures and incomplete observations are retained. The new pruning policy applies to subsequent campaigns; historical heavier and slower-cadence trials remain visible here.
 
-Status: measuring. Coverage is limited to the cases listed below; unmeasured cells have no inferred result.
+Status: measured. Coverage is limited to the cases listed below; unmeasured cells have no inferred result.
 
 Native TLS is enabled; pipelining is disabled. These are end-to-end continuous-sync rounds on established streams. A correctness pass means every expected row converged and teardown drained. Keeping up with the offered rate is a separate verdict.
 
@@ -324,6 +324,64 @@ Latency values are milliseconds. Median is the arithmetic sample median; p95 use
 | xxlarge-full-person-r200-c16-a16-spread-t2 | 16 / 16 | 200 | 64 | 692.1 | 759.5 | 771.0 | 904.1 | 938.8 | True / True |
 | xxlarge-full-person-r1000-c2-a2-spread-t2 | 2 / 2 | 1000 | 8 | 2507.1 | 2838.0 | 2882.4 | 3352.3 | 3352.3 | True / False |
 | xxlarge-full-person-r1000-c2-a2-period10s-t2 | 2 / 2 | 1000 | 4 | 2163.8 | 2363.5 | 2375.1 | 2609.8 | 2609.8 | True / True |
+| xxlarge-full-town-linked-r1-c2-a2-spread-t2 | 2 / 2 | 1 | 8 | 346.5 | 369.2 | 372.4 | 410.8 | 410.8 | True / True |
+| xxlarge-full-town-linked-r1-c8-a8-spread-t2 | 8 / 8 | 1 | 32 | 332.5 | 348.2 | 352.8 | 379.9 | 400.9 | True / True |
+| xxlarge-full-town-linked-r1-c32-a32-spread-t2 | 32 / 32 | 1 | 128 | 323.5 | 357.7 | 386.0 | 633.4 | 899.5 | True / True |
+| xxlarge-full-town-linked-r1-c128-a128-spread-t2 | 128 / 128 | 1 | 512 | 346.6 | 409.7 | 420.9 | 508.9 | 689.8 | True / True |
+| xxlarge-full-town-linked-r1-c512-a512-spread-t2 | 512 / 512 | 1 | 0 | — | — | — | — | — | False / None |
+| xxlarge-full-town-linked-r1-c256-a256-spread-t2 | 256 / 256 | 1 | 1024 | 402.5 | 2898.1 | 2727.4 | 3355.9 | 3689.3 | True / False |
+| xxlarge-full-town-linked-r10-c2-a2-spread-t2 | 2 / 2 | 10 | 8 | 365.2 | 398.2 | 398.5 | 422.1 | 422.1 | True / True |
+| xxlarge-full-town-linked-r10-c8-a8-spread-t2 | 8 / 8 | 10 | 32 | 354.2 | 378.1 | 387.5 | 448.5 | 658.3 | True / True |
+| xxlarge-full-town-linked-r10-c32-a32-spread-t2 | 32 / 32 | 10 | 128 | 347.7 | 389.7 | 412.4 | 556.0 | 660.1 | True / True |
+| xxlarge-full-town-linked-r10-c128-a128-spread-t2 | 128 / 128 | 10 | 512 | 370.4 | 680.3 | 674.6 | 870.1 | 916.1 | True / True |
+| xxlarge-full-town-linked-r10-c512-a512-spread-t2 | 512 / 512 | 10 | 2048 | 580.4 | 8463.2 | 8106.9 | 8900.6 | 9281.0 | True / False |
+| xxlarge-full-town-linked-r10-c256-a256-spread-t2 | 256 / 256 | 10 | 1024 | 393.9 | 4273.5 | 4069.5 | 5098.8 | 5301.2 | True / False |
+| xxlarge-full-town-linked-r50-c2-a2-spread-t2 | 2 / 2 | 50 | 8 | 435.9 | 446.3 | 449.4 | 481.1 | 481.1 | True / True |
+| xxlarge-full-town-linked-r50-c8-a8-spread-t2 | 8 / 8 | 50 | 32 | 410.2 | 438.6 | 447.9 | 488.9 | 599.2 | True / True |
+| xxlarge-full-town-linked-r50-c32-a32-spread-t2 | 32 / 32 | 50 | 128 | 436.8 | 495.9 | 540.5 | 932.9 | 1257.4 | True / True |
+| xxlarge-full-town-linked-r50-c128-a128-spread-t2 | 128 / 128 | 50 | 512 | 488.7 | 4558.2 | 4295.0 | 4838.4 | 5107.3 | True / False |
+| xxlarge-full-town-linked-r50-c64-a64-spread-t2 | 64 / 64 | 50 | 256 | 496.2 | 2136.4 | 1915.5 | 2394.7 | 2504.5 | True / False |
+| xxlarge-full-town-linked-r200-c2-a2-spread-t2 | 2 / 2 | 200 | 8 | 721.9 | 865.0 | 850.3 | 941.2 | 941.2 | True / True |
+| xxlarge-full-town-linked-r200-c8-a8-spread-t2 | 8 / 8 | 200 | 32 | 730.5 | 1945.0 | 2081.0 | 3457.8 | 3556.4 | True / False |
+| xxlarge-full-town-linked-r200-c4-a4-spread-t2 | 4 / 4 | 200 | 16 | 763.3 | 1016.5 | 1079.1 | 1549.7 | 1549.7 | True / True |
+| xxlarge-full-town-linked-r1000-c2-a2-spread-t2 | 2 / 2 | 1000 | 8 | 3046.4 | 4592.8 | 4587.4 | 6414.9 | 6414.9 | True / False |
+| xxlarge-full-town-linked-r1000-c2-a2-period10s-t2 | 2 / 2 | 1000 | 4 | 2141.2 | 2673.2 | 2631.7 | 3039.3 | 3039.3 | True / True |
+| xxlarge-city-city-r1-c2-a2-spread-t2 | 2 / 2 | 1 | 8 | 323.9 | 346.2 | 352.4 | 412.1 | 412.1 | True / True |
+| xxlarge-city-city-r1-c8-a8-spread-t2 | 8 / 8 | 1 | 32 | 296.7 | 318.9 | 320.2 | 334.0 | 383.4 | True / True |
+| xxlarge-city-city-r1-c32-a32-spread-t2 | 32 / 32 | 1 | 128 | 299.2 | 319.4 | 325.3 | 354.8 | 471.0 | True / True |
+| xxlarge-city-city-r1-c128-a128-spread-t2 | 128 / 128 | 1 | 512 | 293.8 | 333.6 | 342.6 | 422.9 | 574.8 | True / True |
+| xxlarge-city-city-r1-c512-a512-spread-t2 | 512 / 512 | 1 | 2048 | 384.7 | 5738.1 | 5501.2 | 6511.6 | 7170.9 | True / False |
+| xxlarge-city-city-r1-c256-a256-spread-t2 | 256 / 256 | 1 | 1024 | 313.4 | 2615.5 | 2306.6 | 3235.1 | 3372.1 | True / False |
+| xxlarge-city-city-r10-c2-a2-spread-t2 | 2 / 2 | 10 | 8 | 326.4 | 353.4 | 353.7 | 381.3 | 381.3 | True / True |
+| xxlarge-city-city-r10-c8-a8-spread-t2 | 8 / 8 | 10 | 32 | 310.7 | 336.0 | 340.3 | 370.1 | 421.1 | True / True |
+| xxlarge-city-city-r10-c32-a32-spread-t2 | 32 / 32 | 10 | 128 | 294.5 | 334.0 | 334.4 | 359.5 | 391.5 | True / True |
+| xxlarge-city-city-r10-c128-a128-spread-t2 | 128 / 128 | 10 | 512 | 325.8 | 393.9 | 427.7 | 656.1 | 786.3 | True / True |
+| xxlarge-city-city-r10-c512-a512-spread-t2 | 512 / 512 | 10 | 2048 | 398.5 | 7295.8 | 6965.1 | 8053.5 | 8569.8 | True / False |
+| xxlarge-city-city-r10-c256-a256-spread-t2 | 256 / 256 | 10 | 1024 | 366.3 | 3873.5 | 3579.5 | 4540.3 | 4973.4 | True / False |
+| xxlarge-city-city-r50-c2-a2-spread-t2 | 2 / 2 | 50 | 8 | 378.3 | 396.3 | 397.5 | 414.7 | 414.7 | True / True |
+| xxlarge-city-city-r50-c8-a8-spread-t2 | 8 / 8 | 50 | 32 | 356.2 | 379.9 | 389.1 | 430.9 | 572.3 | True / True |
+| xxlarge-city-city-r50-c32-a32-spread-t2 | 32 / 32 | 50 | 128 | 352.0 | 384.6 | 389.7 | 439.9 | 500.6 | True / True |
+| xxlarge-city-city-r50-c128-a128-spread-t2 | 128 / 128 | 50 | 512 | 410.4 | 3095.0 | 3061.3 | 4124.3 | 4670.1 | True / False |
+| xxlarge-city-city-r50-c64-a64-spread-t2 | 64 / 64 | 50 | 256 | 386.9 | 474.5 | 580.0 | 1006.7 | 1149.2 | True / True |
+| xxlarge-city-city-r200-c2-a2-spread-t2 | 2 / 2 | 200 | 8 | 554.5 | 587.1 | 585.0 | 607.7 | 607.7 | True / True |
+| xxlarge-city-city-r200-c8-a8-spread-t2 | 8 / 8 | 200 | 32 | 540.0 | 592.4 | 592.7 | 638.9 | 649.6 | True / True |
+| xxlarge-city-city-r200-c32-a32-spread-t2 | 32 / 32 | 200 | 128 | 700.0 | 2473.9 | 2315.2 | 2970.9 | 3102.9 | True / False |
+| xxlarge-city-city-r200-c16-a16-spread-t2 | 16 / 16 | 200 | 64 | 501.5 | 614.5 | 640.5 | 806.0 | 847.0 | True / True |
+| xxlarge-city-city-r1000-c2-a2-spread-t2 | 2 / 2 | 1000 | 8 | 1459.4 | 1800.3 | 1852.4 | 2410.5 | 2410.5 | True / True |
+| xxlarge-city-city-r1000-c8-a8-spread-t2 | 8 / 8 | 1000 | 32 | 1820.3 | 3277.0 | 3310.1 | 4292.0 | 4517.5 | True / False |
+| xxlarge-city-city-r1000-c4-a4-spread-t2 | 4 / 4 | 1000 | 16 | 1824.7 | 2173.3 | 2222.1 | 2722.5 | 2722.5 | True / False |
+| xxlarge-city-city-r5000-c2-a2-spread-t2 | 2 / 2 | 5000 | 8 | 6072.3 | 6338.0 | 6414.4 | 6851.9 | 6851.9 | True / False |
+| xxlarge-city-city-r5000-c2-a2-period10s-t2 | 2 / 2 | 5000 | 4 | 5412.1 | 6019.2 | 6055.0 | 6769.4 | 6769.4 | True / True |
+| xxlarge-full-person-r1-c8-a8-soak | 8 / 8 | 1 | 600 | 328.0 | 351.5 | 357.2 | 395.9 | 560.5 | True / True |
+| xxlarge-full-person-r1-c64-a8-mixed | 64 / 8 | 1 | 120 | 346.5 | 372.2 | 387.1 | 459.8 | 859.9 | True / True |
+| xxlarge-full-person-r1-c256-a8-mixed | 256 / 8 | 1 | 120 | 355.9 | 383.0 | 391.3 | 423.7 | 862.3 | True / True |
+| xxlarge-full-person-r1-c16-a16-fanout | 16 / 16 | 1 | 80 | 365.0 | 393.0 | 396.5 | 418.7 | 490.6 | True / True |
+| xxlarge-full-person-r1-c8-a8-burst | 8 / 8 | 1 | 120 | 423.2 | 476.6 | 473.6 | 506.1 | 539.3 | True / True |
+| xxlarge-full-person-r1-c8-a8-update | 8 / 8 | 1 | 120 | 318.0 | 338.4 | 338.1 | 356.4 | 450.4 | True / True |
+| xxlarge-full-town-r1-c2-a2-nullable | 2 / 2 | 1 | 30 | 348.3 | 360.1 | 380.1 | 477.0 | 482.1 | True / True |
+| xxlarge-full-town-linked-r1-c2-a2-control | 2 / 2 | 1 | 30 | 367.7 | 378.6 | 378.7 | 394.2 | 408.9 | True / True |
+| xxlarge-full-city-r1-c8-a8-registry-control | 8 / 8 | 1 | 120 | 387.5 | 411.7 | 413.2 | 438.7 | 517.4 | True / True |
+| xxlarge-city-city-r1-c8-a8-registry-control | 8 / 8 | 1 | 120 | 293.2 | 308.3 | 312.1 | 334.1 | 448.9 | True / True |
 
 The adjacent JSON files contain raw round timings, observed overlap, offered and achieved rates, schema/workload options, memory, generator observations, sampled merge SQL counts, failures, and exact build identities.
 
