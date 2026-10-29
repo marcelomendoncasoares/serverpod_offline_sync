@@ -2,6 +2,8 @@
 
 The completed [connection refinements](../native-tls-capacity-connection-refinements-2026-10-29/README.md) extend the verified idle trials to 1,024 devices on Large and 2,048 on XL/XXL. The discovery-only tables below preserve their original observations.
 
+The [sustained follow-up failure analysis](SUSTAINED_FAILURES.md) records two Large 64-device WebSocket closures. They remain failed trials even though the completed-round latencies were low.
+
 > Completed discovery baseline: 372 measured cases across Small, Medium, Large, XL, and XXL. These measurements use the cached/HLC native-TLS implementation at `e11f16b`. Sustained boundary follow-ups and the revision-checkpoint Cloud comparison remain in progress. Failures and incomplete observations are retained. The new pruning policy applies to subsequent campaigns; historical heavier and slower-cadence trials remain visible here.
 
 Status: measured. Coverage is limited to the cases listed below; unmeasured cells have no inferred result.

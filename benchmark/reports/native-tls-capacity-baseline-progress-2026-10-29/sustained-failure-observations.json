@@ -1,0 +1,84 @@
+{
+  "scope": "Existing evidence only; no new workload, deployment, or logging change.",
+  "serverSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+  "clientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+  "clientSource": "serverpod 4f2a75ab967dccd56e88261a39203fc5e59d8e80, packages/serverpod_client/lib/src/client_method_stream_manager.dart:611-678 and 745-776",
+  "cloudLogQuery": {
+    "requestedSince": "2026-10-29T14:18:00Z",
+    "requestedUntil": "2026-10-29T14:37:00Z",
+    "requestedLimit": 500,
+    "returnedRecords": 24,
+    "severityCounts": {
+      "INFO": 24
+    },
+    "firstReturnedAt": "2026-10-29T14:30:00.807412Z",
+    "lastReturnedAt": "2026-10-29T14:30:54.770407Z",
+    "rawSha256": "e850ca90fdfdf4de7b59837812f1c2db7049b0b432e325f59f0a865009d6a555",
+    "interpretation": "The query returned startup, migration, and shutdown INFO records around the planned 14:30 schema transition. It returned no record explaining either socket closure. Session logging was disabled, so absence of an error record does not exclude a server error."
+  },
+  "failures": [
+    {
+      "label": "large-full-person-r1-c64-a64-boundary-soak-t2",
+      "failureAt": "2026-10-29T14:22:12.047622Z",
+      "clientError": "Method stream WebSocket connection closed",
+      "failedUser": 15,
+      "failedDevice": 1,
+      "lastSuccessfulRoundAt": "2026-10-29T14:22:11.436264Z",
+      "lastSuccessfulRoundIndex": 104,
+      "lastSuccessfulRoundMs": 562.026,
+      "secondsFromSuccessfulRoundToClosure": 0.611358,
+      "completedRounds": 4755,
+      "expectedRounds": 4800,
+      "latencyOfCompletedRoundsOnly": {
+        "count": 4755,
+        "minMs": 395.887,
+        "medianMs": 654.136,
+        "meanMs": 671.9467192429022,
+        "p95Ms": 924.754,
+        "maxMs": 1626.052
+      },
+      "finalVerificationCompleted": false,
+      "nearbyProcessSamples": 20,
+      "nearbyMaximumLoopLagMs": 7.893,
+      "nearbyPeakCgroupBytes": 106311680,
+      "memoryLimitBytes": 1073741824,
+      "observedProcessInstanceCount": 1,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    },
+    {
+      "label": "large-city-city-r1-c64-a64-boundary-soak-t2",
+      "failureAt": "2026-10-29T14:34:05.011631Z",
+      "clientError": "Method stream WebSocket connection closed",
+      "failedUser": 8,
+      "failedDevice": 1,
+      "lastSuccessfulRoundAt": "2026-10-29T14:34:03.037705Z",
+      "lastSuccessfulRoundIndex": 73,
+      "lastSuccessfulRoundMs": 400.905,
+      "secondsFromSuccessfulRoundToClosure": 1.973926,
+      "completedRounds": 4717,
+      "expectedRounds": 4800,
+      "latencyOfCompletedRoundsOnly": {
+        "count": 4717,
+        "minMs": 326.128,
+        "medianMs": 453.643,
+        "meanMs": 468.85617553529784,
+        "p95Ms": 607.781,
+        "maxMs": 1214.41
+      },
+      "finalVerificationCompleted": false,
+      "nearbyProcessSamples": 20,
+      "nearbyMaximumLoopLagMs": 63.924,
+      "nearbyPeakCgroupBytes": 113664000,
+      "memoryLimitBytes": 1073741824,
+      "observedProcessInstanceCount": 1,
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      }
+    }
+  ],
+  "conclusion": "Two failed 64-device soaks; cause not attributed. These failures disqualify the trials from sustained capacity guidance. Completed-round latency, nearby loop-lag samples, and stable sampled process identity do not establish that the whole transport path was healthy or that a particular resource was saturated."
+}
