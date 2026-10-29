@@ -1,0 +1,23 @@
+{
+  "status": "measuring",
+  "sourceRevision": "e11f16b541e5613fa8e5673add5db5fae6d04d5e",
+  "baseRevision": "12a606345496567527b20ca96938861910a34541",
+  "branch": "perf/native-tls-capacity-matrix",
+  "nativeTls": true,
+  "pipelining": false,
+  "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+  "clientSha256": "867bddb112a2b7c669071e35bda28ef617991a82cda5416ecd77ada5af7d7fbb",
+  "dartVersion": "3.13.7",
+  "databasePoolLimit": 100,
+  "mergeConcurrencyLimit": 50,
+  "commitHints": false,
+  "persistentSessionLogging": false,
+  "consoleSessionLogging": false,
+  "diagnostics": "One sampled user plus existing one-second process samples; same configuration across runs.",
+  "measurements": "Continuous established streams; local write start until exact rows are applied on every peer.",
+  "correctness": "Full journal comparison against server and every replica without repair syncs; clean stream and transaction drainage.",
+  "databasePlacement": "Unchanged remote managed PostgreSQL; separate campaign databases for full and City-only schemas.",
+  "memoryCaveat": "Cgroup allocation is authoritative for container budget; process RSS includes shared mappings.",
+  "limits": "Passing/failing workload brackets, not an unconditional maximum device count. Exploratory runs require repetitions for sizing recommendations.",
+  "restorationRequired": true
+}
