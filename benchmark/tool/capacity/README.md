@@ -68,6 +68,9 @@ before recommending a production limit.
 The report is regenerated at completion or interruption. It includes:
 
 - `README.md`: minimum, median, mean, p95, maximum, samples, and verdicts.
+- `SIZING.md`: observed CPU/memory budgets, active-device screens by schema and
+  row count, idle connection trials, and mixed/sustained controls.
+- `sizing.json`: the selected sizing trials and all contributing observations.
 - `results.json`: throughput, overlap, resources, SQL counts, and failure phases.
 - `rounds.jsonl`: individual round measurements, including incomplete-run data.
 - `manifest.json`: build identities, dependency pins, and experiment settings.
@@ -100,8 +103,19 @@ client build identities when comparing those historical cases. New experiments
 should use the corrected client consistently. Collector versions are also
 recorded because diagnostic traffic can affect a resource-constrained server.
 
-The orchestration has seven offline regression checks covering frozen failures,
-parameter tampering, offline export, and comparison eligibility. A live Cloud
+The sizing view separates keeping up from a subsecond p95 and uses the latest
+recorded client for active screens. It does not select a passing repetition when
+another matching trial failed or had incomplete observations. Idle setup failures
+remain separate from established-stream measurements. Regenerate that view from
+an existing exported report without contacting Cloud:
+
+```sh
+python3 benchmark/tool/capacity/guidance.py --report /private/baseline/report
+```
+
+The orchestration has 13 offline regression checks covering frozen failures,
+parameter tampering, offline export, comparison eligibility, and conservative
+sizing selections. A live Cloud
 smoke case also completed with exact convergence, complete diagnostics, and
 verified restoration. Repeating its command reused the receipt without issuing
 another workload. These checks validate the runner, not a capacity limit.

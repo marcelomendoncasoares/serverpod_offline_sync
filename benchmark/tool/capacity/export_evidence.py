@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from campaign import ROOT, assess, read
+from guidance import render
 
 from settings import CONFIG, sha256
 
@@ -120,6 +121,7 @@ def export():
         ]) + ' |')
     document += ['', 'Restart causes require separate evidence. Memory samples alone do not establish an OOM kill. See each failure phase and recovery receipt.', '']
     (DESTINATION / 'README.md').write_text('\n'.join(document))
+    render(DESTINATION)
     print(json.dumps({'exportedRuns': len(results), 'exportedRounds': len(rounds), 'destination': str(DESTINATION)}))
 
 
