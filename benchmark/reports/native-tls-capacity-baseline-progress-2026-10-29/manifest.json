@@ -46,18 +46,15 @@
     "deployment.py": "6d9a53fb696ba052786657facda4c868d93f9f52882569abd0fe048a3583f32d",
     "export_evidence.py": "4c0e5a686b259e2155edbec0b35feae8113c07bb485a8782fd4c0a3e652e05e4",
     "generator_monitor.py": "cfd64cb28360c79d6290affd6c2dee0e27a1b000b9ebdaa574dedeeb2d25a154",
-    "guidance.py": "9cd4e626a333d602d75df63741f4f74cd36fc785cf395252919a9df1dd4fea44",
+    "guidance.py": "c3d90905b3ee6cd8506cbd03edd76ed6e735a823277ed99a3aff6f535ccfa391",
     "idle_bracket.py": "333332f6bf2719fd8952accfd72f85cfda62d54165eecdcd17546facffece6a7",
     "matrix.py": "96687411b1ccfd5d60b92470127909b40080b0c8489b3dd3f57f33c118ce0b57",
     "recover.py": "e062a83c6aeb3f20b89552cdb8c91c66f81598506090f26acadd2eab012f3c64",
     "run.py": "0d52d59be7a6b01da6438828e6a98bd6e9213d633da770ee4c17223b94a81b6f",
     "settings.py": "433bafb7400c6e404ca865c59bd1d0185526f52fa45ae4f08fd3a7c0971960e8",
     "sweep.py": "af3f231baad294341297ee6db51f442ae13e865473005c1650cdb7e441a32910",
-    "test_guidance.py": "6e052189b3d4cec30ae95362ae6a513341008d52c2506dc79ed0879e2faab909",
+    "test_guidance.py": "6f7efae59569d909031cb5533abf32b75a53bef380e3b23e668ee5332126b47b",
     "test_replay.py": "7c47e158252a125b413fb734de446e5c5f8727a2bb97a36d46084770188d2435",
     "transition.py": "02ca4aa7054fa85e704c2397015d7f3824ee9d283a05a64759e95cd80c77ca74"
-  },
-  "snapshotAt": "20261029T094503Z",
-  "snapshotScope": "Provisional baseline snapshot at 20261029T094503Z. Measured server source: `e11f16b541e5613fa8e5673add5db5fae6d04d5e`, native TLS without pipelining, before the revision-checkpoint replacement. Small, Medium and Large discovery is complete; XL is partial and XXL is pending. Checkpoint-candidate Cloud results are not included.",
-  "reportGeneratorRevision": "f27c3b6d99fde69a993f388c21cf8c822f2e2894"
+  }
 }

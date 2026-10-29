@@ -1,6 +1,6 @@
 # Observed capacity by workload
 
-Provisional baseline snapshot at 20261029T094503Z. Measured server source: `e11f16b541e5613fa8e5673add5db5fae6d04d5e`, native TLS without pipelining, before the revision-checkpoint replacement. Small, Medium and Large discovery is complete; XL is partial and XXL is pending. Checkpoint-candidate Cloud results are not included.
+> Progress snapshot: 20261029T111649Z, 314 completed cases. Small through XL discovery has finished; XXL discovery is in progress. Boundary soak follow-ups and the checkpoint Cloud comparison remain pending. These measurements use the original cached/HLC native-TLS baseline at `e11f16b`, not the revision-checkpoint implementation. Failures and incomplete observations remain part of the report.
 
 These are measured workload screens, not production capacity guarantees. Use them to choose a starting configuration, then repeat a sustained test with your schema, database placement, row sizes, and activity pattern. All results belong to the exact server and client builds in [manifest.json](manifest.json).
 
@@ -16,7 +16,7 @@ These are the visible cgroup limits reported by the running server, not the host
 | medium | 0.25 | 512 |
 | large | 0.5 | 1024 |
 | xlarge | 1 | 2048 |
-| xxlarge | — | — |
+| xxlarge | 2 | 4096 |
 
 ## Active devices
 
@@ -26,43 +26,73 @@ Each cell shows **devices / p95 milliseconds** for the highest tested count that
 
 | Schema profile | Rows | Small | Medium | Large | XL | XXL |
 |---|---:|---:|---:|---:|---:|---:|
-| Person, full registry | 1 | 8 / 924 | 8 / 402 | 64 / 951 | 64 / 418 | — |
-| Person, full registry | 10 | — | 16 / 464 | 32 / 374 | 64 / 745 | — |
-| Person, full registry | 50 | — | 8 / 904 | 8 / 478 | 32 / 669 | — |
-| Person, full registry | 200 | — | — | 2 / 833 | 16 / 891 | — |
+| Person, full registry | 1 | 8 / 924 | 8 / 402 | 64 / 951 | 64 / 418 | 32 / 414 |
+| Person, full registry | 10 | — | 16 / 464 | 32 / 374 | 64 / 745 | 32 / 407 |
+| Person, full registry | 50 | — | 8 / 904 | 8 / 478 | 32 / 669 | 64 / 721 |
+| Person, full registry | 200 | — | — | 2 / 833 | 16 / 891 | 16 / 904 |
 | Person, full registry | 1000 | — | — | — | — | — |
+| Person, full registry | 5000 | — | — | — | — | — |
 | Town with linked parents, full registry | 1 | — | 16 / 670 | 32 / 386 | 64 / 551 | — |
 | Town with linked parents, full registry | 10 | — | 16 / 734 | 32 / 469 | 64 / 862 | — |
 | Town with linked parents, full registry | 50 | — | 8 / 727 | 16 / 824 | 8 / 518 | — |
 | Town with linked parents, full registry | 200 | — | — | — | — | — |
 | Town with linked parents, full registry | 1000 | — | — | — | — | — |
+| Town with linked parents, full registry | 5000 | — | — | — | — | — |
 | City, isolated registry | 1 | 2 / 794 | 8 / 372 | 32 / 390 | 128 / 663 | — |
 | City, isolated registry | 10 | 2 / 787 | 16 / 413 | 32 / 451 | 64 / 480 | — |
-| City, isolated registry | 50 | 2 / 991 | 16 / 937 | 8 / 395 | 2 / 408 | — |
-| City, isolated registry | 200 | — | — | 8 / 674 | — | — |
+| City, isolated registry | 50 | 2 / 991 | 16 / 937 | 8 / 395 | 64 / 519 | — |
+| City, isolated registry | 200 | — | — | 8 / 674 | 16 / 586 | — |
 | City, isolated registry | 1000 | — | — | — | — | — |
+| City, isolated registry | 5000 | — | — | — | — | — |
 
 ### Kept up, without a latency target
 
 | Schema profile | Rows | Small | Medium | Large | XL | XXL |
 |---|---:|---:|---:|---:|---:|---:|
-| Person, full registry | 1 | 8 / 924 | 32 / 1055 | 64 / 951 | 64 / 418 | — |
-| Person, full registry | 10 | 8 / 2038 | 16 / 464 | 32 / 374 | 64 / 745 | — |
-| Person, full registry | 50 | 4 / 1528 | 8 / 904 | 32 / 1192 | 32 / 669 | — |
-| Person, full registry | 200 | — | 4 / 1491 | 8 / 1051 | 16 / 891 | — |
+| Person, full registry | 1 | 8 / 924 | 32 / 1055 | 64 / 951 | 64 / 418 | 128 / 2067 |
+| Person, full registry | 10 | 8 / 2038 | 16 / 464 | 32 / 374 | 64 / 745 | 64 / 2486 |
+| Person, full registry | 50 | 4 / 1528 | 8 / 904 | 32 / 1192 | 32 / 669 | 64 / 721 |
+| Person, full registry | 200 | — | 4 / 1491 | 8 / 1051 | 16 / 891 | 16 / 904 |
 | Person, full registry | 1000 | — | — | — | — | — |
+| Person, full registry | 5000 | — | — | — | — | — |
 | Town with linked parents, full registry | 1 | 8 / 2159 | 16 / 670 | 32 / 386 | 64 / 551 | — |
 | Town with linked parents, full registry | 10 | 4 / 1928 | 16 / 734 | 32 / 469 | 64 / 862 | — |
 | Town with linked parents, full registry | 50 | 2 / 2125 | 8 / 727 | 16 / 824 | 32 / 1402 | — |
 | Town with linked parents, full registry | 200 | — | — | 2 / 1223 | 4 / 1586 | — |
 | Town with linked parents, full registry | 1000 | — | — | — | — | — |
+| Town with linked parents, full registry | 5000 | — | — | — | — | — |
 | City, isolated registry | 1 | 8 / 1224 | 32 / 1187 | 64 / 1095 | 128 / 663 | — |
 | City, isolated registry | 10 | 8 / 1521 | 16 / 413 | 64 / 1632 | 64 / 480 | — |
-| City, isolated registry | 50 | 4 / 1273 | 16 / 937 | 32 / 1062 | 2 / 408 | — |
-| City, isolated registry | 200 | — | 4 / 1004 | 8 / 674 | — | — |
-| City, isolated registry | 1000 | — | — | — | — | — |
+| City, isolated registry | 50 | 4 / 1273 | 16 / 937 | 32 / 1062 | 64 / 519 | — |
+| City, isolated registry | 200 | — | 4 / 1004 | 8 / 674 | 16 / 586 | — |
+| City, isolated registry | 1000 | — | — | — | 2 / 2058 | — |
+| City, isolated registry | 5000 | — | — | — | — | — |
 
 Person writes two text fields with nullable relations unpopulated. Town writes its name and populated City/Person references, with the linked parents seeded before exercise. City uses one persisted name field in an isolated registry. These profiles sample different costs; field counts alone do not model an arbitrary application schema.
+
+## Five-minute one-row validation
+
+These operating points completed at least five minutes of offered one-row traffic with exact convergence, cleanup, complete observations, and rate adherence. They use the same two-device users and two-second cadence as the short screens. A failed or incompletely observed repetition disqualifies that count. Mixed idle/active workloads remain separate. A dash means no qualifying sustained trial, not zero capacity.
+
+Each cell is **participating devices / p95 milliseconds**. Keeping up and meeting a subsecond p95 remain separate requirements. These finite runs support a starting operating point; they do not establish long-term reliability or a maximum.
+
+| Size / schema profile | Kept up | Kept up with p95 below one second |
+|---|---:|---:|
+| small / Person, full registry | — | — |
+| small / Town with linked parents, full registry | — | — |
+| small / City, isolated registry | — | — |
+| medium / Person, full registry | 8 / 449 | 8 / 449 |
+| medium / Town with linked parents, full registry | — | — |
+| medium / City, isolated registry | — | — |
+| large / Person, full registry | — | — |
+| large / Town with linked parents, full registry | — | — |
+| large / City, isolated registry | — | — |
+| xlarge / Person, full registry | 8 / 408 | 8 / 408 |
+| xlarge / Town with linked parents, full registry | — | — |
+| xlarge / City, isolated registry | — | — |
+| xxlarge / Person, full registry | — | — |
+| xxlarge / Town with linked parents, full registry | — | — |
+| xxlarge / City, isolated registry | — | — |
 
 ## Connected but idle devices
 
@@ -74,7 +104,7 @@ The largest successful trial below completed setup, the idle hold, resumed deliv
 | medium | 256 | 1005 / 1012 / 1206 | 190.0 | 1024 / close |
 | large | 64 | 521 / 512 / 614 | 119.9 | 256 / warmup |
 | xlarge | 1024 | 392 / 404 / 505 | 473.2 | 4096 / warmup |
-| xxlarge | — | — | — | — |
+| xxlarge | 1024 | 378 / 385 / 460 | 433.2 | 4096 / warmup |
 
 ## Measured overlap in one-row screens
 
@@ -94,21 +124,25 @@ These are the highest qualifying throughput screens from the second active-devic
 | xlarge / Person, full registry | 64 | 16 | 11.3 / 18 | 418 |
 | xlarge / Town with linked parents, full registry | 64 | 16 | 13.5 / 20 | 551 |
 | xlarge / City, isolated registry | 128 | 32 | 24.9 / 52 | 663 |
+| xxlarge / Person, full registry | 128 | 32 | 51.4 / 128 | 2067 |
 
 ## Mixed connections and sustained controls
 
-The controls below use one-row Person writes. They keep latency, correctness, offered-rate adherence, and observation completeness separate. An incomplete observation does not erase the client timings, but excludes the run from a matched speedup claim. A mixed-load pass can establish a connected-device count that a separate setup attempt failed to establish; inspect both rather than treating the first failure as a ceiling.
+The controls below use one-row writes in the named schema profiles. They keep latency, correctness, offered-rate adherence, and observation completeness separate. An incomplete observation does not erase the client timings, but excludes the run from a matched speedup claim. A mixed-load pass can establish a connected-device count that a separate setup attempt failed to establish; inspect both rather than treating the first failure as a ceiling.
 
-| Size / control | Connected / active devices | Rounds | Min | Median | Mean | p95 | Max | Correct / kept up / observed |
+| Size / profile / control | Connected / active devices | Rounds | Min | Median | Mean | p95 | Max | Correct / kept up / observed |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| small / five-minute offered workload | 8 / 8 | 600 | 469 | 879 | 935 | 1328 | 2186 | True / True / False |
-| small / mixed | 64 / 8 | 120 | 558 | 903 | 943 | 1316 | 1458 | True / True / True |
-| medium / five-minute offered workload | 8 / 8 | 600 | 344 | 373 | 387 | 449 | 973 | True / True / True |
-| medium / mixed | 64 / 8 | 120 | 317 | 377 | 378 | 411 | 483 | True / True / True |
-| medium / mixed | 256 / 8 | 120 | 341 | 376 | 407 | 470 | 1074 | True / True / True |
-| large / five-minute offered workload | 8 / 8 | 600 | 306 | 331 | 338 | 365 | 753 | True / True / False |
-| large / mixed | 64 / 8 | 120 | 319 | 342 | 361 | 447 | 791 | True / True / True |
-| large / mixed | 256 / 8 | 120 | 312 | 334 | 338 | 359 | 461 | True / True / True |
+| small / full/person / 5-minute offered workload | 8 / 8 | 600 | 469 | 879 | 935 | 1328 | 2186 | True / True / False |
+| small / full/person / mixed | 64 / 8 | 120 | 558 | 903 | 943 | 1316 | 1458 | True / True / True |
+| medium / full/person / 5-minute offered workload | 8 / 8 | 600 | 344 | 373 | 387 | 449 | 973 | True / True / True |
+| medium / full/person / mixed | 64 / 8 | 120 | 317 | 377 | 378 | 411 | 483 | True / True / True |
+| medium / full/person / mixed | 256 / 8 | 120 | 341 | 376 | 407 | 470 | 1074 | True / True / True |
+| large / full/person / 5-minute offered workload | 8 / 8 | 600 | 306 | 331 | 338 | 365 | 753 | True / True / False |
+| large / full/person / mixed | 64 / 8 | 120 | 319 | 342 | 361 | 447 | 791 | True / True / True |
+| large / full/person / mixed | 256 / 8 | 120 | 312 | 334 | 338 | 359 | 461 | True / True / True |
+| xlarge / full/person / 5-minute offered workload | 8 / 8 | 600 | 320 | 345 | 352 | 408 | 737 | True / True / True |
+| xlarge / full/person / mixed | 64 / 8 | 120 | 319 | 333 | 343 | 383 | 788 | True / True / True |
+| xlarge / full/person / mixed | 256 / 8 | 120 | 319 | 340 | 344 | 382 | 426 | True / True / True |
 
 ## Applying the measurements
 

@@ -1,6 +1,6 @@
 # Native TLS capacity measurements
 
-Provisional baseline snapshot at 20261029T094503Z. Measured server source: `e11f16b541e5613fa8e5673add5db5fae6d04d5e`, native TLS without pipelining, before the revision-checkpoint replacement. Small, Medium and Large discovery is complete; XL is partial and XXL is pending. Checkpoint-candidate Cloud results are not included.
+> Progress snapshot: 20261029T111649Z, 314 completed cases. Small through XL discovery has finished; XXL discovery is in progress. Boundary soak follow-ups and the checkpoint Cloud comparison remain pending. These measurements use the original cached/HLC native-TLS baseline at `e11f16b`, not the revision-checkpoint implementation. Failures and incomplete observations remain part of the report.
 
 Status: measuring. Coverage is limited to the cases listed below; unmeasured cells have no inferred result.
 
@@ -274,6 +274,56 @@ Latency values are milliseconds. Median is the arithmetic sample median; p95 use
 | xlarge-city-city-r10-c128-a128-spread-t2 | 128 / 128 | 10 | 512 | 326.1 | 1924.7 | 1566.3 | 2190.5 | 2355.4 | True / False |
 | xlarge-city-city-r10-c64-a64-spread-t2 | 64 / 64 | 10 | 256 | 313.3 | 341.0 | 355.8 | 479.8 | 721.2 | True / True |
 | xlarge-city-city-r50-c2-a2-spread-t2 | 2 / 2 | 50 | 8 | 355.6 | 377.5 | 378.8 | 408.2 | 408.2 | True / True |
+| xlarge-city-city-r50-c8-a8-spread-t2 | 8 / 8 | 50 | 32 | 374.8 | 387.7 | 395.0 | 432.5 | 545.3 | True / True |
+| xlarge-city-city-r50-c32-a32-spread-t2 | 32 / 32 | 50 | 128 | 347.6 | 371.4 | 374.0 | 398.7 | 453.8 | True / True |
+| xlarge-city-city-r50-c128-a128-spread-t2 | 128 / 128 | 50 | 512 | 424.0 | 3903.4 | 3732.7 | 4438.8 | 4798.2 | True / False |
+| xlarge-city-city-r50-c64-a64-spread-t2 | 64 / 64 | 50 | 256 | 372.3 | 421.8 | 431.2 | 518.6 | 588.8 | True / True |
+| xlarge-city-city-r200-c2-a2-spread-t2 | 2 / 2 | 200 | 8 | 533.1 | 574.6 | 574.0 | 611.2 | 611.2 | True / True |
+| xlarge-city-city-r200-c8-a8-spread-t2 | 8 / 8 | 200 | 32 | 503.2 | 544.2 | 551.2 | 599.6 | 679.6 | True / True |
+| xlarge-city-city-r200-c32-a32-spread-t2 | 32 / 32 | 200 | 128 | 577.0 | 1701.9 | 1609.6 | 2452.2 | 2546.2 | True / False |
+| xlarge-city-city-r200-c16-a16-spread-t2 | 16 / 16 | 200 | 64 | 508.7 | 546.2 | 550.3 | 586.0 | 628.4 | True / True |
+| xlarge-city-city-r1000-c2-a2-spread-t2 | 2 / 2 | 1000 | 8 | 1262.8 | 1414.5 | 1560.2 | 2058.2 | 2058.2 | True / True |
+| xlarge-city-city-r1000-c8-a8-spread-t2 | 8 / 8 | 1000 | 32 | 2250.7 | 3205.2 | 3145.3 | 3582.6 | 3881.9 | True / False |
+| xlarge-city-city-r1000-c4-a4-spread-t2 | 4 / 4 | 1000 | 16 | 1711.4 | 2019.2 | 2054.9 | 2618.0 | 2618.0 | True / False |
+| xlarge-city-city-r5000-c2-a2-spread-t2 | 2 / 2 | 5000 | 8 | 6080.4 | 6759.0 | 6758.1 | 7764.3 | 7764.3 | True / False |
+| xlarge-city-city-r5000-c2-a2-period10s-t2 | 2 / 2 | 5000 | 4 | 4646.3 | 4997.2 | 5354.9 | 6778.7 | 6778.7 | True / True |
+| xlarge-full-person-r1-c8-a8-soak | 8 / 8 | 1 | 600 | 319.6 | 345.5 | 351.9 | 408.2 | 737.3 | True / True |
+| xlarge-full-person-r1-c64-a8-mixed | 64 / 8 | 1 | 120 | 318.8 | 332.9 | 343.3 | 382.7 | 788.0 | True / True |
+| xlarge-full-person-r1-c256-a8-mixed | 256 / 8 | 1 | 120 | 319.0 | 340.2 | 343.9 | 381.6 | 426.3 | True / True |
+| xlarge-full-person-r1-c16-a16-fanout | 16 / 16 | 1 | 80 | 343.9 | 366.0 | 379.1 | 475.7 | 640.9 | True / True |
+| xlarge-full-person-r1-c8-a8-burst | 8 / 8 | 1 | 120 | 351.3 | 402.7 | 419.1 | 544.0 | 849.4 | True / True |
+| xlarge-full-person-r1-c8-a8-update | 8 / 8 | 1 | 120 | 299.0 | 328.0 | 329.1 | 348.8 | 424.6 | True / True |
+| xlarge-full-town-r1-c2-a2-nullable | 2 / 2 | 1 | 30 | 331.1 | 349.6 | 353.8 | 392.5 | 458.0 | True / True |
+| xlarge-full-town-linked-r1-c2-a2-control | 2 / 2 | 1 | 30 | 329.3 | 344.8 | 348.1 | 371.0 | 439.6 | True / True |
+| xlarge-full-city-r1-c8-a8-registry-control | 8 / 8 | 1 | 120 | 345.0 | 369.1 | 379.4 | 460.1 | 576.7 | True / True |
+| xlarge-city-city-r1-c8-a8-registry-control | 8 / 8 | 1 | 120 | 310.2 | 334.6 | 336.5 | 357.0 | 383.8 | True / True |
+| xxlarge-full-reference | 8 / 8 | 1 | 40 | 327.6 | 343.8 | 357.5 | 420.6 | 516.1 | True / True |
+| xxlarge-full-idle-c64-w4-t2 | 64 / 0 | 1 | 0 | — | — | — | — | — | True / True |
+| xxlarge-full-idle-c256-w4-t2 | 256 / 0 | 1 | 0 | — | — | — | — | — | True / True |
+| xxlarge-full-idle-c1024-w4-t2 | 1024 / 0 | 1 | 0 | — | — | — | — | — | True / True |
+| xxlarge-full-idle-c4096-w4-t2 | 4096 / 0 | 1 | 0 | — | — | — | — | — | False / None |
+| xxlarge-full-person-r1-c2-a2-spread-t2 | 2 / 2 | 1 | 8 | 326.5 | 348.9 | 343.8 | 356.8 | 356.8 | True / True |
+| xxlarge-full-person-r1-c8-a8-spread-t2 | 8 / 8 | 1 | 32 | 325.8 | 348.3 | 377.8 | 511.8 | 552.6 | True / True |
+| xxlarge-full-person-r1-c32-a32-spread-t2 | 32 / 32 | 1 | 128 | 311.1 | 337.1 | 349.3 | 413.7 | 646.8 | True / True |
+| xxlarge-full-person-r1-c128-a128-spread-t2 | 128 / 128 | 1 | 512 | 344.1 | 462.3 | 818.8 | 2067.1 | 2588.9 | True / True |
+| xxlarge-full-person-r1-c512-a512-spread-t2 | 512 / 512 | 1 | 2048 | 712.4 | 9076.1 | 8725.3 | 10338.4 | 10842.2 | True / False |
+| xxlarge-full-person-r1-c256-a256-spread-t2 | 256 / 256 | 1 | 1024 | 526.9 | 4389.2 | 4209.5 | 4902.2 | 5223.7 | True / False |
+| xxlarge-full-person-r10-c2-a2-spread-t2 | 2 / 2 | 10 | 8 | 358.2 | 371.8 | 371.8 | 388.8 | 388.8 | True / True |
+| xxlarge-full-person-r10-c8-a8-spread-t2 | 8 / 8 | 10 | 32 | 348.1 | 382.6 | 380.4 | 413.7 | 426.5 | True / True |
+| xxlarge-full-person-r10-c32-a32-spread-t2 | 32 / 32 | 10 | 128 | 345.5 | 369.2 | 372.2 | 407.4 | 429.2 | True / True |
+| xxlarge-full-person-r10-c128-a128-spread-t2 | 128 / 128 | 10 | 512 | 406.6 | 2402.2 | 2373.7 | 3103.6 | 3780.5 | False / False |
+| xxlarge-full-person-r10-c64-a64-spread-t2 | 64 / 64 | 10 | 256 | 364.6 | 440.0 | 840.5 | 2485.5 | 2748.4 | True / True |
+| xxlarge-full-person-r50-c2-a2-spread-t2 | 2 / 2 | 50 | 8 | 422.8 | 426.1 | 429.4 | 438.7 | 438.7 | True / True |
+| xxlarge-full-person-r50-c8-a8-spread-t2 | 8 / 8 | 50 | 32 | 416.4 | 435.5 | 441.2 | 486.5 | 496.7 | True / True |
+| xxlarge-full-person-r50-c32-a32-spread-t2 | 32 / 32 | 50 | 128 | 417.2 | 480.3 | 502.7 | 636.3 | 795.4 | True / True |
+| xxlarge-full-person-r50-c128-a128-spread-t2 | 128 / 128 | 50 | 512 | 516.2 | 3085.9 | 2833.2 | 3513.2 | 3799.4 | True / False |
+| xxlarge-full-person-r50-c64-a64-spread-t2 | 64 / 64 | 50 | 256 | 434.2 | 531.1 | 549.4 | 721.0 | 872.8 | True / True |
+| xxlarge-full-person-r200-c2-a2-spread-t2 | 2 / 2 | 200 | 8 | 712.3 | 730.9 | 734.3 | 767.2 | 767.2 | True / True |
+| xxlarge-full-person-r200-c8-a8-spread-t2 | 8 / 8 | 200 | 32 | 661.2 | 719.7 | 725.9 | 764.7 | 857.7 | True / True |
+| xxlarge-full-person-r200-c32-a32-spread-t2 | 32 / 32 | 200 | 128 | 730.0 | 2089.1 | 1894.6 | 2404.8 | 2518.4 | True / False |
+| xxlarge-full-person-r200-c16-a16-spread-t2 | 16 / 16 | 200 | 64 | 692.1 | 759.5 | 771.0 | 904.1 | 938.8 | True / True |
+| xxlarge-full-person-r1000-c2-a2-spread-t2 | 2 / 2 | 1000 | 8 | 2507.1 | 2838.0 | 2882.4 | 3352.3 | 3352.3 | True / False |
+| xxlarge-full-person-r1000-c2-a2-period10s-t2 | 2 / 2 | 1000 | 4 | 2163.8 | 2363.5 | 2375.1 | 2609.8 | 2609.8 | True / True |
 
 The adjacent JSON files contain raw round timings, observed overlap, offered and achieved rates, schema/workload options, memory, generator observations, sampled merge SQL counts, failures, and exact build identities.
 
@@ -297,5 +347,9 @@ Each idle test warms both directions, holds established streams for 45 seconds, 
 | xlarge-full-idle-c256-w4-t2 | 256 | 256 | True | 128 | 365.7 / 375.1 / 461.0 | 178.5 | True |
 | xlarge-full-idle-c1024-w4-t2 | 1024 | 1024 | True | 512 | 392.2 / 403.9 / 505.2 | 473.2 | True |
 | xlarge-full-idle-c4096-w4-t2 | 4096 | 2048 | False | 0 | — | 984.9 | False |
+| xxlarge-full-idle-c64-w4-t2 | 64 | 64 | True | 32 | 434.2 / 436.2 / 511.3 | 116.1 | True |
+| xxlarge-full-idle-c256-w4-t2 | 256 | 256 | True | 128 | 370.4 / 384.2 / 474.7 | 177.7 | True |
+| xxlarge-full-idle-c1024-w4-t2 | 1024 | 1024 | True | 512 | 378.2 / 384.7 / 460.2 | 433.2 | True |
+| xxlarge-full-idle-c4096-w4-t2 | 4096 | 3824 | False | 0 | — | 1475.3 | False |
 
 Restart causes require separate evidence. Memory samples alone do not establish an OOM kill. See each failure phase and recovery receipt.
