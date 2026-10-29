@@ -1,9 +1,9 @@
 # Native TLS capacity campaign
 
-Status: the cached/HLC baseline completed 372 cases across all five Cloud sizes.
-Sustained boundary follow-ups and the revision-checkpoint comparison are still
-in progress. See the [measurement ledger](../benchmark/reports/native-tls-capacity-baseline-progress-2026-10-29/README.md)
-and [sizing tables](../benchmark/reports/native-tls-capacity-baseline-progress-2026-10-29/SIZING.md).
+Status: the cached/HLC baseline completed 372 cases across all five Cloud sizes,
+plus 19 connection refinements and sustained boundary follow-ups. The separate
+revision-checkpoint comparison is still in progress. See the [combined measurement ledger](../benchmark/reports/native-tls-capacity-baseline-combined-2026-10-29/README.md)
+and [sizing tables](../benchmark/reports/native-tls-capacity-baseline-combined-2026-10-29/SIZING.md).
 The 51
 focused checks include actual separate worker processes, idle-stream probes,
 exact PostgreSQL/SQLite convergence, and cleanup. Static analysis is clean.

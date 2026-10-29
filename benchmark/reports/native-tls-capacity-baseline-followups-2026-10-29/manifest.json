@@ -1,0 +1,57 @@
+{
+  "status": "measured",
+  "stoppingPolicy": "stop-heavier-comparable-loads-v1",
+  "sourceRevision": "e11f16b541e5613fa8e5673add5db5fae6d04d5e",
+  "baseRevision": "12a606345496567527b20ca96938861910a34541",
+  "branch": "perf/native-tls-capacity-matrix",
+  "nativeTls": true,
+  "pipelining": false,
+  "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+  "clientBuilds": [
+    {
+      "sha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+      "sourceRevision": "a86a2fb72b78b59f4089f35671241586ccb4c7cc"
+    }
+  ],
+  "dartVersion": "3.13.7",
+  "databasePoolLimit": 100,
+  "mergeConcurrencyLimit": 50,
+  "commitHints": false,
+  "persistentSessionLogging": false,
+  "consoleSessionLogging": false,
+  "diagnostics": "One sampled user plus existing one-second process samples; same configuration across runs.",
+  "measurements": "Continuous established streams; local write start until exact rows are applied on every peer.",
+  "correctness": "Full journal comparison against server and every replica without repair syncs; clean stream and transaction drainage.",
+  "databasePlacement": "Unchanged remote managed PostgreSQL; separate campaign databases for full and City-only schemas.",
+  "memoryCaveat": "Cgroup allocation is authoritative for container budget; process RSS includes shared mappings.",
+  "limits": "Passing/failing workload brackets, not an unconditional maximum device count. Exploratory runs require repetitions for sizing recommendations.",
+  "restorationRequired": true,
+  "candidateRestorationRequired": false,
+  "originalDeploymentRestorationRequired": true,
+  "dependencies": {
+    "postgres": "e1079785acfe2b5734e594032c7f748d1ca23a8e",
+    "postgres_tls": "22067026c50da3447931ba71ad13fc95f230d5e8",
+    "serverpod_database": "010d23c755c48e99eb35295f7c280ea140412212"
+  },
+  "runnerFiles": {
+    "campaign.py": "022c7a85618b0836be11b8009bdda7414808377834a824fea0b31ced2494acce",
+    "cloud.py": "01c789c13844c536381925448a05ce72f8d889c1249b364429d7a6322b842512",
+    "compare.py": "0aa6ede0f0a79c6f872bc8c58be11dad744dbddf06c8add0b12d91c701e4eb7d",
+    "compute.py": "dc231125201d57ea81613b79b853567fb3a47d1ed5c880f76128443c47392aa8",
+    "deployment.py": "6d9a53fb696ba052786657facda4c868d93f9f52882569abd0fe048a3583f32d",
+    "export_evidence.py": "f81cf422178a6da2c04b9b61e2d1d45a8b6404ee905735bd7d6a2ba78a7fc16e",
+    "generator_monitor.py": "cfd64cb28360c79d6290affd6c2dee0e27a1b000b9ebdaa574dedeeb2d25a154",
+    "guidance.py": "92274398df24927e75473350ff9366ac9953333287bc2ccaa2b774730837d0b7",
+    "idle_bracket.py": "4683ffa819b1e685db2fdc07c22d997ad7178e973f7a22a670c2ebd4d6248fb5",
+    "matrix.py": "065d6a99fc2f8951e79bad33d0cb73229a1dd68ea75860077f7bd8d2235d8f35",
+    "recover.py": "e062a83c6aeb3f20b89552cdb8c91c66f81598506090f26acadd2eab012f3c64",
+    "run.py": "83367a3b7c0302f145c2a75dbee01672586e8cfa99e52b2e8819e2245202ece1",
+    "settings.py": "433bafb7400c6e404ca865c59bd1d0185526f52fa45ae4f08fd3a7c0971960e8",
+    "stopping.py": "75d17dd35ad275944031c77d0bde898b0352c612d4fca913744e9579a8a400da",
+    "sweep.py": "b8f0ccc556bec9ac6d6637ecad026a26c92231f0725184ca8e7b8c941c34da5a",
+    "test_guidance.py": "6f7efae59569d909031cb5533abf32b75a53bef380e3b23e668ee5332126b47b",
+    "test_replay.py": "7c47e158252a125b413fb734de446e5c5f8727a2bb97a36d46084770188d2435",
+    "test_stopping.py": "d05dfaf2ae354088a106bc4d387de4152fd2208aacb65a09a97e4e1c95ee8fe0",
+    "transition.py": "02ca4aa7054fa85e704c2397015d7f3824ee9d283a05a64759e95cd80c77ca74"
+  }
+}
