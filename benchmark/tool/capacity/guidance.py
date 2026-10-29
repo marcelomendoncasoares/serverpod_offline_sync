@@ -166,6 +166,11 @@ def render(report):
         'Participating-device counts describe the offered workload; measured overlap below '
         'counts devices belonging to unfinished rounds. Database transaction concurrency is '
         'a separate measurement.', '',
+        'Each user writes to a separate personal space shared by that user\'s devices. '
+        'These measurements therefore exercise concurrency across independent spaces. '
+        'Many users writing to one shared space still serialize through that space\'s '
+        'transaction lock and need a separate workload test; these tables do not establish '
+        'capacity for that pattern.', '',
         '## Observed process budgets', '',
         'These are the visible cgroup limits reported by the running server, not the host '
         'processor count. Unmeasured sizes remain blank.', '',
