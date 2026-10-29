@@ -159,6 +159,9 @@ def render(report):
         'Use them to choose a starting configuration, then repeat a sustained test with your schema, '
         'database placement, row sizes, and activity pattern. All results belong to the exact '
         'server and client builds in [manifest.json](manifest.json).', '',
+        'The active-device tables measure incremental rounds on established continuous streams. '
+        'Connection setup, initial synchronization, final verification, and teardown are separate '
+        'phases in the complete measurements. '
         'Connected devices and devices participating in active rounds are different quantities. '
         'Two devices share one user; each active user offers one round every two seconds, '
         'with at most one round outstanding. The eight-round screens use 128 bytes of seeded '
