@@ -1,0 +1,3756 @@
+{
+  "screenClientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+  "activeScreens": [
+    {
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "rows": 1,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": 8,
+            "users": 4,
+            "offeredRoundsPerSecond": 2.0,
+            "representative": {
+              "label": "small-full-person-r1-c8-a8-spread-t2",
+              "instanceSize": "small",
+              "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+              "options": {
+                "users": 4,
+                "workers": 4,
+                "duration": 20,
+                "interval-ms": 500,
+                "seed-rows": 5,
+                "payload-bytes": 128,
+                "sample-seconds": 30,
+                "timeout-seconds": 45,
+                "startup-timeout-seconds": 1200,
+                "setup-concurrency": 1,
+                "reconnect-ms": 1000,
+                "seed": 1,
+                "churn-seconds": 5,
+                "ramp-ms": 0,
+                "max-sample-failures": 0,
+                "max-unexpected-stream-ends": 0,
+                "active": 0.6,
+                "idle": 0.2,
+                "closed": 0.1,
+                "aligned-churn": false,
+                "sync-diagnostics": false,
+                "devices-min": 2,
+                "devices-max": 2,
+                "run-id": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                "mode": "continuous",
+                "write-mode": "insert",
+                "schema": "full",
+                "workload": "person",
+                "schedule": "spread",
+                "rounds": 8,
+                "rows": 1,
+                "period-ms": 2000,
+                "idle-seconds": 45,
+                "warmup-workers": 1,
+                "active-users": 4,
+                "settle-seconds": 5
+              },
+              "status": "passed",
+              "exitCode": 0,
+              "correct": true,
+              "observationsComplete": true,
+              "cleanup": {
+                "clean": true,
+                "streams": 0
+              },
+              "failures": [],
+              "elapsedSeconds": 41.916662347037345,
+              "phaseStarts": {
+                "init": "2026-10-29T15:47:54.736200Z",
+                "warmup": "2026-10-29T15:47:56.631402Z",
+                "exercise": "2026-10-29T15:48:14.737893Z",
+                "probe": "2026-10-29T15:48:32.205739Z",
+                "verify": "2026-10-29T15:48:33.023129Z",
+                "close": "2026-10-29T15:48:34.301478Z"
+              },
+              "phaseSeconds": {
+                "init": 1.561182,
+                "warmup": 12.815299,
+                "exercise": 16.624317,
+                "probe": 0.00046,
+                "verify": 1.014035,
+                "close": 0.242936
+              },
+              "startedStreamEvents": 8,
+              "exerciseCompleted": true,
+              "failurePhase": null,
+              "latency": {
+                "count": 32,
+                "minMs": 604.224,
+                "medianMs": 807.4,
+                "meanMs": 793.15665625,
+                "p95Ms": 1011.125,
+                "maxMs": 1012.922
+              },
+              "probeLatency": null,
+              "scheduleLag": {
+                "count": 32,
+                "minMs": 0.857,
+                "medianMs": 1.9435,
+                "meanMs": 1.73178125,
+                "p95Ms": 2.49,
+                "maxMs": 2.59
+              },
+              "load": {
+                "targetRoundsPerSecond": 2.0,
+                "targetRowsPerSecond": 2.0,
+                "exerciseMicros": 16403219,
+                "completedRows": 32,
+                "achievedRoundsPerSecond": 1.9508366010354432,
+                "achievedRowsPerSecond": 1.9508366010354432,
+                "domainPayloadBytes": 7776,
+                "connectedDevices": 8,
+                "activeUsers": 4,
+                "participatingDevices": 8,
+                "schedule": "spread",
+                "keptUp": true,
+                "users": [
+                  {
+                    "time": "2026-10-29T15:48:30.020863Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "userCompleted",
+                    "user": 0,
+                    "elapsedMicros": 14922179,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:48:30.372077Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "userCompleted",
+                    "user": 1,
+                    "elapsedMicros": 14810102,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:48:30.917342Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "userCompleted",
+                    "user": 2,
+                    "elapsedMicros": 14912357,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:48:31.361338Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "userCompleted",
+                    "user": 3,
+                    "elapsedMicros": 14902759,
+                    "budgetMicros": 16000000
+                  }
+                ]
+              },
+              "concurrency": {
+                "peakInFlightRounds": 3,
+                "peakParticipatingUsers": 3,
+                "peakParticipatingDevices": 6,
+                "windowMicros": 16400719,
+                "meanInFlightRounds": 1.5475655670949549,
+                "meanParticipatingDevices": 3.0951311341899097,
+                "scope": "First local write through last round completion; includes peer delivery and queueing."
+              },
+              "generator": {
+                "workers": [
+                  {
+                    "time": "2026-10-29T15:48:30.998464Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "workerExercise",
+                    "startedMicros": 1359942901309,
+                    "finishedMicros": 1359958903033,
+                    "micros": 15999966,
+                    "cpuCores": 0.016250034531323378,
+                    "loopLag": {
+                      "count": 144,
+                      "ok": 144,
+                      "failures": 0,
+                      "meanMicros": 17.916666666666668,
+                      "maxMicros": 908,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 42,
+                      "p99UpperMicros": 446
+                    },
+                    "process": {
+                      "pid": 925,
+                      "rssBytes": 69120000,
+                      "maxRssBytes": 78495744,
+                      "cpuUserTicks": 110,
+                      "cpuSystemTicks": 35,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:48:30.998478Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "workerExercise",
+                    "startedMicros": 1359942901309,
+                    "finishedMicros": 1359958903044,
+                    "micros": 15999952,
+                    "cpuCores": 0.016875050625151874,
+                    "loopLag": {
+                      "count": 144,
+                      "ok": 144,
+                      "failures": 0,
+                      "meanMicros": 12.777777777777779,
+                      "maxMicros": 614,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 46,
+                      "p99UpperMicros": 61
+                    },
+                    "process": {
+                      "pid": 923,
+                      "rssBytes": 67817472,
+                      "maxRssBytes": 77881344,
+                      "cpuUserTicks": 106,
+                      "cpuSystemTicks": 26,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:48:30.998517Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "workerExercise",
+                    "startedMicros": 1359942901309,
+                    "finishedMicros": 1359958903073,
+                    "micros": 16000007,
+                    "cpuCores": 0.01687499261719073,
+                    "loopLag": {
+                      "count": 145,
+                      "ok": 145,
+                      "failures": 0,
+                      "meanMicros": 21.158620689655173,
+                      "maxMicros": 612,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 73,
+                      "p99UpperMicros": 277
+                    },
+                    "process": {
+                      "pid": 921,
+                      "rssBytes": 67903488,
+                      "maxRssBytes": 77844480,
+                      "cpuUserTicks": 108,
+                      "cpuSystemTicks": 37,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:48:31.362019Z",
+                    "runId": "capacity-small-full-person-r1-c8-a8-spread-t2-20261029T154753Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "workerExercise",
+                    "startedMicros": 1359942901309,
+                    "finishedMicros": 1359959304528,
+                    "micros": 16401330,
+                    "cpuCores": 0.016462079599642226,
+                    "loopLag": {
+                      "count": 148,
+                      "ok": 148,
+                      "failures": 0,
+                      "meanMicros": 19.60135135135135,
+                      "maxMicros": 568,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 3,
+                      "p95UpperMicros": 73,
+                      "p99UpperMicros": 446
+                    },
+                    "process": {
+                      "pid": 927,
+                      "rssBytes": 68378624,
+                      "maxRssBytes": 77791232,
+                      "cpuUserTicks": 103,
+                      "cpuSystemTicks": 33,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  }
+                ],
+                "coordinatorLoopLag": {
+                  "count": 377,
+                  "ok": 377,
+                  "failures": 0,
+                  "meanMicros": 17.042440318302386,
+                  "maxMicros": 1026,
+                  "failureMaxMicros": null,
+                  "p50UpperMicros": 1,
+                  "p95UpperMicros": 55,
+                  "p99UpperMicros": 305
+                }
+              },
+              "generatorMonitoring": {
+                "samples": 38,
+                "peakSumRssBytes": 293138432,
+                "minimumHostAvailableBytes": 42562347008,
+                "guardReason": null,
+                "errors": [],
+                "note": "Sum of process RSS can count shared memory more than once."
+              },
+              "generatorFileDescriptorLimit": {
+                "soft": 65536,
+                "hard": 1048576
+              },
+              "cpuQuota": 0.1,
+              "memoryLimitBytes": 268435456,
+              "peakCgroupBytes": 94109696,
+              "exerciseResources": {
+                "sampleCount": 18,
+                "medianCgroupBytes": 92755968.0,
+                "maxCgroupBytes": 93130752,
+                "maxLoopLagMs": 6.18,
+                "approximateProcessCpuCores": 0.14765791602323697,
+                "scope": "Server samples selected by client phase wall-clock boundaries; CPU ticks are approximate."
+              },
+              "sampledMergeTransactions": {
+                "count": 8,
+                "receivedRowsAcrossBatches": 8,
+                "receivedChangesAcrossBatches": 8,
+                "completedSampledRounds": 8,
+                "transactionsPerCompletedRound": 1.0,
+                "statementsPerCompletedRound": 10.0,
+                "sqlWallMsPerCompletedRound": 222.6985,
+                "meanStatements": 10,
+                "meanSqlWallMs": 222.6985,
+                "meanConnectionAndBeginMs": 4.422,
+                "meanCommitAndReleaseMs": 4.997625,
+                "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+              },
+              "localCommit": {
+                "count": 32,
+                "meanMicros": 4047.46875,
+                "p50Micros": 3828,
+                "p95Micros": 5346,
+                "p99Micros": 6293,
+                "maxMicros": 6293
+              },
+              "observedConnectedDevices": {
+                "warmup": 8,
+                "exercise": 8,
+                "probe": 8
+              },
+              "databaseBytesBefore": 16891904,
+              "databaseBytesAfter": 16924672,
+              "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+              "clientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+              "collectorVersion": 2,
+              "schema": "full",
+              "rounds": 32,
+              "verifiedUsers": 4,
+              "unexpectedStreamEnds": 0,
+              "recoveryVerifiedLater": false,
+              "keptUp": true,
+              "meanBelow1s": true,
+              "p95Below1s": false,
+              "p95Below2s": true,
+              "interpretation": {
+                "datasetContext": {
+                  "tableCountsExactBefore": true,
+                  "domainRowsBefore": {
+                    "person": 10125,
+                    "town": 1602,
+                    "city": 1
+                  },
+                  "tableCountsExactAfter": false,
+                  "domainRowsAfter": {
+                    "person": 10165,
+                    "town": 1602,
+                    "city": 1
+                  },
+                  "purpose": "Check accumulated domain-table counts when matching the cached and revision-checkpoint controls. Different pruning paths can change later starting datasets even though each arm began with fresh databases."
+                }
+              }
+            },
+            "selectedTrials": [
+              "small-full-person-r1-c8-a8-spread-t2"
+            ],
+            "allTrials": [
+              "small-full-person-r1-c8-a8-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-full-person-r1-c8-a8-spread-t2"
+            ]
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": 32,
+            "users": 16,
+            "offeredRoundsPerSecond": 8.0,
+            "representative": {
+              "label": "medium-full-person-r1-c32-a32-spread-t2",
+              "instanceSize": "medium",
+              "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+              "options": {
+                "users": 16,
+                "workers": 8,
+                "duration": 20,
+                "interval-ms": 500,
+                "seed-rows": 5,
+                "payload-bytes": 128,
+                "sample-seconds": 30,
+                "timeout-seconds": 45,
+                "startup-timeout-seconds": 1200,
+                "setup-concurrency": 1,
+                "reconnect-ms": 1000,
+                "seed": 1,
+                "churn-seconds": 5,
+                "ramp-ms": 0,
+                "max-sample-failures": 0,
+                "max-unexpected-stream-ends": 0,
+                "active": 0.6,
+                "idle": 0.2,
+                "closed": 0.1,
+                "aligned-churn": false,
+                "sync-diagnostics": false,
+                "devices-min": 2,
+                "devices-max": 2,
+                "run-id": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                "mode": "continuous",
+                "write-mode": "insert",
+                "schema": "full",
+                "workload": "person",
+                "schedule": "spread",
+                "rounds": 8,
+                "rows": 1,
+                "period-ms": 2000,
+                "idle-seconds": 45,
+                "warmup-workers": 4,
+                "active-users": 16,
+                "settle-seconds": 5
+              },
+              "status": "passed",
+              "exitCode": 0,
+              "correct": true,
+              "observationsComplete": true,
+              "cleanup": {
+                "clean": true,
+                "streams": 0
+              },
+              "failures": [],
+              "elapsedSeconds": 47.783173562027514,
+              "phaseStarts": {
+                "init": "2026-10-29T15:38:19.847399Z",
+                "warmup": "2026-10-29T15:38:24.258651Z",
+                "exercise": "2026-10-29T15:38:42.086171Z",
+                "probe": "2026-10-29T15:39:00.024854Z",
+                "verify": "2026-10-29T15:39:00.849319Z",
+                "close": "2026-10-29T15:39:03.309842Z"
+              },
+              "phaseSeconds": {
+                "init": 3.58394,
+                "warmup": 8.736643,
+                "exercise": 17.112801,
+                "probe": 0.000642,
+                "verify": 2.212177,
+                "close": 0.315912
+              },
+              "startedStreamEvents": 32,
+              "exerciseCompleted": true,
+              "failurePhase": null,
+              "latency": {
+                "count": 128,
+                "minMs": 439.606,
+                "medianMs": 817.3625,
+                "meanMs": 809.930328125,
+                "p95Ms": 1009.884,
+                "maxMs": 1062.943
+              },
+              "probeLatency": null,
+              "scheduleLag": {
+                "count": 128,
+                "minMs": 0.598,
+                "medianMs": 1.502,
+                "meanMs": 1.5094609375,
+                "p95Ms": 2.314,
+                "maxMs": 3.246
+              },
+              "load": {
+                "targetRoundsPerSecond": 8.0,
+                "targetRowsPerSecond": 8.0,
+                "exerciseMicros": 16647709,
+                "completedRows": 128,
+                "achievedRoundsPerSecond": 7.688745640616376,
+                "achievedRowsPerSecond": 7.688745640616376,
+                "domainPayloadBytes": 31104,
+                "connectedDevices": 32,
+                "activeUsers": 16,
+                "participatingDevices": 32,
+                "schedule": "spread",
+                "keptUp": true,
+                "users": [
+                  {
+                    "time": "2026-10-29T15:38:57.574832Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "userCompleted",
+                    "user": 0,
+                    "elapsedMicros": 14843689,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:57.764587Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "userCompleted",
+                    "user": 1,
+                    "elapsedMicros": 14929528,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:57.859914Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "userCompleted",
+                    "user": 2,
+                    "elapsedMicros": 14910447,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:57.949984Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "userCompleted",
+                    "user": 3,
+                    "elapsedMicros": 14885526,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.041235Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 4,
+                    "type": "userCompleted",
+                    "user": 4,
+                    "elapsedMicros": 14861915,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.124371Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 5,
+                    "type": "userCompleted",
+                    "user": 5,
+                    "elapsedMicros": 14829288,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.307366Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 6,
+                    "type": "userCompleted",
+                    "user": 6,
+                    "elapsedMicros": 14907617,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.325197Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 7,
+                    "type": "userCompleted",
+                    "user": 7,
+                    "elapsedMicros": 14802429,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.481572Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "userCompleted",
+                    "user": 8,
+                    "elapsedMicros": 14851178,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.568574Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "userCompleted",
+                    "user": 9,
+                    "elapsedMicros": 14822847,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.775103Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "userCompleted",
+                    "user": 10,
+                    "elapsedMicros": 14927325,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.843896Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "userCompleted",
+                    "user": 11,
+                    "elapsedMicros": 14878760,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.923425Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 4,
+                    "type": "userCompleted",
+                    "user": 12,
+                    "elapsedMicros": 14842127,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:59.103047Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 5,
+                    "type": "userCompleted",
+                    "user": 13,
+                    "elapsedMicros": 14916706,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:59.123431Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 6,
+                    "type": "userCompleted",
+                    "user": 14,
+                    "elapsedMicros": 14814355,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:59.197938Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 7,
+                    "type": "userCompleted",
+                    "user": 15,
+                    "elapsedMicros": 14772141,
+                    "budgetMicros": 16000000
+                  }
+                ]
+              },
+              "concurrency": {
+                "peakInFlightRounds": 9,
+                "peakParticipatingUsers": 9,
+                "peakParticipatingDevices": 18,
+                "windowMicros": 16643842,
+                "meanInFlightRounds": 6.228838329515505,
+                "meanParticipatingDevices": 12.45767665903101,
+                "scope": "First local write through last round completion; includes peer delivery and queueing."
+              },
+              "generator": {
+                "workers": [
+                  {
+                    "time": "2026-10-29T15:38:58.616927Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359385598996,
+                    "micros": 15998071,
+                    "cpuCores": 0.030628692671760223,
+                    "loopLag": {
+                      "count": 147,
+                      "ok": 147,
+                      "failures": 0,
+                      "meanMicros": 16.666666666666668,
+                      "maxMicros": 561,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 55,
+                      "p99UpperMicros": 406
+                    },
+                    "process": {
+                      "pid": 117,
+                      "rssBytes": 80351232,
+                      "maxRssBytes": 79437824,
+                      "cpuUserTicks": 187,
+                      "cpuSystemTicks": 64,
+                      "openFds": 104,
+                      "threads": 7
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.616932Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359385599012,
+                    "micros": 15997989,
+                    "cpuCores": 0.030628849663542086,
+                    "loopLag": {
+                      "count": 146,
+                      "ok": 146,
+                      "failures": 0,
+                      "meanMicros": 17.84246575342466,
+                      "maxMicros": 616,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 67,
+                      "p99UpperMicros": 172
+                    },
+                    "process": {
+                      "pid": 115,
+                      "rssBytes": 80969728,
+                      "maxRssBytes": 79687680,
+                      "cpuUserTicks": 198,
+                      "cpuSystemTicks": 46,
+                      "openFds": 104,
+                      "threads": 8
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.775815Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359385775601,
+                    "micros": 16175487,
+                    "cpuCores": 0.029674531592155478,
+                    "loopLag": {
+                      "count": 148,
+                      "ok": 148,
+                      "failures": 0,
+                      "meanMicros": 9.486486486486486,
+                      "maxMicros": 101,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 42,
+                      "p99UpperMicros": 107
+                    },
+                    "process": {
+                      "pid": 119,
+                      "rssBytes": 80080896,
+                      "maxRssBytes": 79826944,
+                      "cpuUserTicks": 188,
+                      "cpuSystemTicks": 57,
+                      "openFds": 104,
+                      "threads": 8
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.844597Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359385852018,
+                    "micros": 16251953,
+                    "cpuCores": 0.029534911896434847,
+                    "loopLag": {
+                      "count": 149,
+                      "ok": 149,
+                      "failures": 0,
+                      "meanMicros": 18.23489932885906,
+                      "maxMicros": 572,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 3,
+                      "p95UpperMicros": 55,
+                      "p99UpperMicros": 491
+                    },
+                    "process": {
+                      "pid": 121,
+                      "rssBytes": 80797696,
+                      "maxRssBytes": 79863808,
+                      "cpuUserTicks": 192,
+                      "cpuSystemTicks": 58,
+                      "openFds": 104,
+                      "threads": 8
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:58.924129Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 4,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359385940359,
+                    "micros": 16340155,
+                    "cpuCores": 0.028763497041490744,
+                    "loopLag": {
+                      "count": 150,
+                      "ok": 150,
+                      "failures": 0,
+                      "meanMicros": 18.093333333333334,
+                      "maxMicros": 660,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 67,
+                      "p99UpperMicros": 157
+                    },
+                    "process": {
+                      "pid": 123,
+                      "rssBytes": 79376384,
+                      "maxRssBytes": 78667776,
+                      "cpuUserTicks": 180,
+                      "cpuSystemTicks": 55,
+                      "openFds": 104,
+                      "threads": 8
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:59.103865Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 5,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359386140073,
+                    "micros": 16539916,
+                    "cpuCores": 0.028416105619883437,
+                    "loopLag": {
+                      "count": 151,
+                      "ok": 151,
+                      "failures": 0,
+                      "meanMicros": 14.602649006622517,
+                      "maxMicros": 488,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 3,
+                      "p95UpperMicros": 50,
+                      "p99UpperMicros": 157
+                    },
+                    "process": {
+                      "pid": 125,
+                      "rssBytes": 81297408,
+                      "maxRssBytes": 80179200,
+                      "cpuUserTicks": 191,
+                      "cpuSystemTicks": 49,
+                      "openFds": 104,
+                      "threads": 8
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:59.124233Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 6,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359386162690,
+                    "micros": 16562619,
+                    "cpuCores": 0.02837715460338729,
+                    "loopLag": {
+                      "count": 152,
+                      "ok": 152,
+                      "failures": 0,
+                      "meanMicros": 14.368421052631579,
+                      "maxMicros": 511,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 46,
+                      "p99UpperMicros": 118
+                    },
+                    "process": {
+                      "pid": 128,
+                      "rssBytes": 81088512,
+                      "maxRssBytes": 80146432,
+                      "cpuUserTicks": 210,
+                      "cpuSystemTicks": 43,
+                      "openFds": 104,
+                      "threads": 7
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:59.198802Z",
+                    "runId": "capacity-medium-full-person-r1-c32-a32-spread-t2-20261029T153818Z",
+                    "phase": "exercise",
+                    "worker": 7,
+                    "type": "workerExercise",
+                    "startedMicros": 1359369597781,
+                    "finishedMicros": 1359386245490,
+                    "micros": 16644520,
+                    "cpuCores": 0.028838320360094493,
+                    "loopLag": {
+                      "count": 152,
+                      "ok": 152,
+                      "failures": 0,
+                      "meanMicros": 25.151315789473685,
+                      "maxMicros": 888,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 61,
+                      "p99UpperMicros": 869
+                    },
+                    "process": {
+                      "pid": 131,
+                      "rssBytes": 79065088,
+                      "maxRssBytes": 78262272,
+                      "cpuUserTicks": 190,
+                      "cpuSystemTicks": 58,
+                      "openFds": 104,
+                      "threads": 8
+                    }
+                  }
+                ],
+                "coordinatorLoopLag": {
+                  "count": 426,
+                  "ok": 426,
+                  "failures": 0,
+                  "meanMicros": 22.828638497652584,
+                  "maxMicros": 1593,
+                  "failureMaxMicros": null,
+                  "p50UpperMicros": 1,
+                  "p95UpperMicros": 89,
+                  "p99UpperMicros": 190
+                }
+              },
+              "generatorMonitoring": {
+                "samples": 43,
+                "peakSumRssBytes": 664420352,
+                "minimumHostAvailableBytes": 43443073024,
+                "guardReason": null,
+                "errors": [],
+                "note": "Sum of process RSS can count shared memory more than once."
+              },
+              "generatorFileDescriptorLimit": {
+                "soft": 65536,
+                "hard": 1048576
+              },
+              "cpuQuota": 0.25,
+              "memoryLimitBytes": 536870912,
+              "peakCgroupBytes": 90755072,
+              "exerciseResources": {
+                "sampleCount": 18,
+                "medianCgroupBytes": 88641536.0,
+                "maxCgroupBytes": 89497600,
+                "maxLoopLagMs": 84.207,
+                "approximateProcessCpuCores": 0.2493569648458433,
+                "scope": "Server samples selected by client phase wall-clock boundaries; CPU ticks are approximate."
+              },
+              "sampledMergeTransactions": {
+                "count": 8,
+                "receivedRowsAcrossBatches": 8,
+                "receivedChangesAcrossBatches": 8,
+                "completedSampledRounds": 8,
+                "transactionsPerCompletedRound": 1.0,
+                "statementsPerCompletedRound": 10.0,
+                "sqlWallMsPerCompletedRound": 245.066875,
+                "meanStatements": 10,
+                "meanSqlWallMs": 245.066875,
+                "meanConnectionAndBeginMs": 17.3875,
+                "meanCommitAndReleaseMs": 26.781375,
+                "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+              },
+              "localCommit": {
+                "count": 128,
+                "meanMicros": 4038.1328125,
+                "p50Micros": 3878,
+                "p95Micros": 4866,
+                "p99Micros": 5322,
+                "maxMicros": 5382
+              },
+              "observedConnectedDevices": {
+                "warmup": 32,
+                "exercise": 32,
+                "probe": 32
+              },
+              "databaseBytesBefore": 10518528,
+              "databaseBytesAfter": 10739712,
+              "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+              "clientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+              "collectorVersion": 2,
+              "schema": "full",
+              "rounds": 128,
+              "verifiedUsers": 16,
+              "unexpectedStreamEnds": 0,
+              "recoveryVerifiedLater": false,
+              "keptUp": true,
+              "meanBelow1s": true,
+              "p95Below1s": false,
+              "p95Below2s": true,
+              "interpretation": {
+                "datasetContext": {
+                  "tableCountsExactBefore": true,
+                  "domainRowsBefore": {
+                    "person": 40,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "tableCountsExactAfter": false,
+                  "domainRowsAfter": {
+                    "person": 201,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "purpose": "Check accumulated domain-table counts when matching the cached and revision-checkpoint controls. Different pruning paths can change later starting datasets even though each arm began with fresh databases."
+                }
+              }
+            },
+            "selectedTrials": [
+              "medium-full-person-r1-c32-a32-spread-t2"
+            ],
+            "allTrials": [
+              "medium-full-person-r1-c8-a8-spread-t2",
+              "medium-full-person-r1-c32-a32-spread-t2",
+              "medium-full-person-r1-c64-a64-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": 8,
+            "users": 4,
+            "offeredRoundsPerSecond": 2.0,
+            "representative": {
+              "label": "medium-full-person-r1-c8-a8-spread-t2",
+              "instanceSize": "medium",
+              "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+              "options": {
+                "users": 4,
+                "workers": 4,
+                "duration": 20,
+                "interval-ms": 500,
+                "seed-rows": 5,
+                "payload-bytes": 128,
+                "sample-seconds": 30,
+                "timeout-seconds": 45,
+                "startup-timeout-seconds": 1200,
+                "setup-concurrency": 1,
+                "reconnect-ms": 1000,
+                "seed": 1,
+                "churn-seconds": 5,
+                "ramp-ms": 0,
+                "max-sample-failures": 0,
+                "max-unexpected-stream-ends": 0,
+                "active": 0.6,
+                "idle": 0.2,
+                "closed": 0.1,
+                "aligned-churn": false,
+                "sync-diagnostics": false,
+                "devices-min": 2,
+                "devices-max": 2,
+                "run-id": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                "mode": "continuous",
+                "write-mode": "insert",
+                "schema": "full",
+                "workload": "person",
+                "schedule": "spread",
+                "rounds": 8,
+                "rows": 1,
+                "period-ms": 2000,
+                "idle-seconds": 45,
+                "warmup-workers": 4,
+                "active-users": 4,
+                "settle-seconds": 5
+              },
+              "status": "passed",
+              "exitCode": 0,
+              "correct": true,
+              "observationsComplete": true,
+              "cleanup": {
+                "clean": true,
+                "streams": 0
+              },
+              "failures": [],
+              "elapsedSeconds": 34.05157492798753,
+              "phaseStarts": {
+                "init": "2026-10-29T15:37:42.525512Z",
+                "warmup": "2026-10-29T15:37:44.759839Z",
+                "exercise": "2026-10-29T15:37:53.187559Z",
+                "probe": "2026-10-29T15:38:13.680423Z",
+                "verify": "2026-10-29T15:38:13.906182Z",
+                "close": "2026-10-29T15:38:15.057860Z"
+              },
+              "phaseSeconds": {
+                "init": 1.405483,
+                "warmup": 2.596795,
+                "exercise": 19.562827,
+                "probe": 0.000484,
+                "verify": 0.907172,
+                "close": 0.248727
+              },
+              "startedStreamEvents": 8,
+              "exerciseCompleted": true,
+              "failurePhase": null,
+              "latency": {
+                "count": 32,
+                "minMs": 305.189,
+                "medianMs": 324.123,
+                "meanMs": 337.9441875,
+                "p95Ms": 425.41,
+                "maxMs": 486.423
+              },
+              "probeLatency": null,
+              "scheduleLag": {
+                "count": 32,
+                "minMs": 0.654,
+                "medianMs": 1.57,
+                "meanMs": 1.70234375,
+                "p95Ms": 2.976,
+                "maxMs": 3.525
+              },
+              "load": {
+                "targetRoundsPerSecond": 2.0,
+                "targetRowsPerSecond": 2.0,
+                "exerciseMicros": 16002575,
+                "completedRows": 32,
+                "achievedRoundsPerSecond": 1.9996781767934224,
+                "achievedRowsPerSecond": 1.9996781767934224,
+                "domainPayloadBytes": 7776,
+                "connectedDevices": 8,
+                "activeUsers": 4,
+                "participatingDevices": 8,
+                "schedule": "spread",
+                "keptUp": true,
+                "users": [
+                  {
+                    "time": "2026-10-29T15:38:11.264439Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "userCompleted",
+                    "user": 0,
+                    "elapsedMicros": 14352108,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:11.693812Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "userCompleted",
+                    "user": 1,
+                    "elapsedMicros": 14329189,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:12.128926Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "userCompleted",
+                    "user": 2,
+                    "elapsedMicros": 14312649,
+                    "budgetMicros": 16000000
+                  },
+                  {
+                    "time": "2026-10-29T15:38:12.598885Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "userCompleted",
+                    "user": 3,
+                    "elapsedMicros": 14334826,
+                    "budgetMicros": 16000000
+                  }
+                ]
+              },
+              "concurrency": {
+                "peakInFlightRounds": 1,
+                "peakParticipatingUsers": 1,
+                "peakParticipatingDevices": 2,
+                "windowMicros": 15831795,
+                "meanInFlightRounds": 0.6830811667280937,
+                "meanParticipatingDevices": 1.3661623334561874,
+                "scope": "First local write through last round completion; includes peer delivery and queueing."
+              },
+              "generator": {
+                "workers": [
+                  {
+                    "time": "2026-10-29T15:38:12.749230Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 2,
+                    "type": "workerExercise",
+                    "startedMicros": 1359322848265,
+                    "finishedMicros": 1359338849873,
+                    "micros": 15999623,
+                    "cpuCores": 0.020000471261104092,
+                    "loopLag": {
+                      "count": 147,
+                      "ok": 147,
+                      "failures": 0,
+                      "meanMicros": 10.741496598639456,
+                      "maxMicros": 86,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 55,
+                      "p99UpperMicros": 81
+                    },
+                    "process": {
+                      "pid": 29,
+                      "rssBytes": 67182592,
+                      "maxRssBytes": 78000128,
+                      "cpuUserTicks": 110,
+                      "cpuSystemTicks": 40,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:12.749335Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 3,
+                    "type": "workerExercise",
+                    "startedMicros": 1359322848265,
+                    "finishedMicros": 1359338849933,
+                    "micros": 15998673,
+                    "cpuCores": 0.02000165888758399,
+                    "loopLag": {
+                      "count": 146,
+                      "ok": 146,
+                      "failures": 0,
+                      "meanMicros": 9.616438356164384,
+                      "maxMicros": 101,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 42,
+                      "p99UpperMicros": 81
+                    },
+                    "process": {
+                      "pid": 32,
+                      "rssBytes": 67059712,
+                      "maxRssBytes": 77680640,
+                      "cpuUserTicks": 94,
+                      "cpuSystemTicks": 32,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:12.750149Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "workerExercise",
+                    "startedMicros": 1359322848265,
+                    "finishedMicros": 1359338850840,
+                    "micros": 15999753,
+                    "cpuCores": 0.019375299106179956,
+                    "loopLag": {
+                      "count": 146,
+                      "ok": 146,
+                      "failures": 0,
+                      "meanMicros": 11.856164383561644,
+                      "maxMicros": 182,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 50,
+                      "p99UpperMicros": 107
+                    },
+                    "process": {
+                      "pid": 26,
+                      "rssBytes": 70127616,
+                      "maxRssBytes": 77877248,
+                      "cpuUserTicks": 117,
+                      "cpuSystemTicks": 32,
+                      "openFds": 56,
+                      "threads": 7
+                    }
+                  },
+                  {
+                    "time": "2026-10-29T15:38:12.750161Z",
+                    "runId": "capacity-medium-full-person-r1-c8-a8-spread-t2-20261029T153740Z",
+                    "phase": "exercise",
+                    "worker": 1,
+                    "type": "workerExercise",
+                    "startedMicros": 1359322848265,
+                    "finishedMicros": 1359338850799,
+                    "micros": 15999718,
+                    "cpuCores": 0.020000352506212925,
+                    "loopLag": {
+                      "count": 146,
+                      "ok": 146,
+                      "failures": 0,
+                      "meanMicros": 12.191780821917808,
+                      "maxMicros": 144,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 5,
+                      "p95UpperMicros": 50,
+                      "p99UpperMicros": 107
+                    },
+                    "process": {
+                      "pid": 28,
+                      "rssBytes": 67825664,
+                      "maxRssBytes": 77873152,
+                      "cpuUserTicks": 122,
+                      "cpuSystemTicks": 30,
+                      "openFds": 56,
+                      "threads": 6
+                    }
+                  }
+                ],
+                "coordinatorLoopLag": {
+                  "count": 305,
+                  "ok": 305,
+                  "failures": 0,
+                  "meanMicros": 13.688524590163935,
+                  "maxMicros": 643,
+                  "failureMaxMicros": null,
+                  "p50UpperMicros": 1,
+                  "p95UpperMicros": 50,
+                  "p99UpperMicros": 130
+                }
+              },
+              "generatorMonitoring": {
+                "samples": 31,
+                "peakSumRssBytes": 291500032,
+                "minimumHostAvailableBytes": 44152422400,
+                "guardReason": null,
+                "errors": [],
+                "note": "Sum of process RSS can count shared memory more than once."
+              },
+              "generatorFileDescriptorLimit": {
+                "soft": 65536,
+                "hard": 1048576
+              },
+              "cpuQuota": 0.25,
+              "memoryLimitBytes": 536870912,
+              "peakCgroupBytes": 82554880,
+              "exerciseResources": {
+                "sampleCount": 21,
+                "medianCgroupBytes": 79220736,
+                "maxCgroupBytes": 80314368,
+                "maxLoopLagMs": 76.491,
+                "approximateProcessCpuCores": 0.05749396600826742,
+                "scope": "Server samples selected by client phase wall-clock boundaries; CPU ticks are approximate."
+              },
+              "sampledMergeTransactions": {
+                "count": 8,
+                "receivedRowsAcrossBatches": 8,
+                "receivedChangesAcrossBatches": 8,
+                "completedSampledRounds": 8,
+                "transactionsPerCompletedRound": 1.0,
+                "statementsPerCompletedRound": 10.0,
+                "sqlWallMsPerCompletedRound": 41.130375,
+                "meanStatements": 10,
+                "meanSqlWallMs": 41.130375,
+                "meanConnectionAndBeginMs": 3.8657500000000002,
+                "meanCommitAndReleaseMs": 4.869875,
+                "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+              },
+              "localCommit": {
+                "count": 32,
+                "meanMicros": 4018.09375,
+                "p50Micros": 3890,
+                "p95Micros": 4622,
+                "p99Micros": 5381,
+                "maxMicros": 5381
+              },
+              "observedConnectedDevices": {
+                "warmup": 8,
+                "exercise": 8,
+                "probe": 8
+              },
+              "databaseBytesBefore": 10297344,
+              "databaseBytesAfter": 10518528,
+              "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+              "clientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+              "collectorVersion": 2,
+              "schema": "full",
+              "rounds": 32,
+              "verifiedUsers": 4,
+              "unexpectedStreamEnds": 0,
+              "recoveryVerifiedLater": false,
+              "keptUp": true,
+              "meanBelow1s": true,
+              "p95Below1s": true,
+              "p95Below2s": true,
+              "interpretation": {
+                "datasetContext": {
+                  "tableCountsExactBefore": true,
+                  "domainRowsBefore": {
+                    "person": 0,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "tableCountsExactAfter": false,
+                  "domainRowsAfter": {
+                    "person": 40,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "purpose": "Check accumulated domain-table counts when matching the cached and revision-checkpoint controls. Different pruning paths can change later starting datasets even though each arm began with fresh databases."
+                }
+              }
+            },
+            "selectedTrials": [
+              "medium-full-person-r1-c8-a8-spread-t2"
+            ],
+            "allTrials": [
+              "medium-full-person-r1-c8-a8-spread-t2",
+              "medium-full-person-r1-c32-a32-spread-t2",
+              "medium-full-person-r1-c64-a64-spread-t2"
+            ]
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "rows": 10,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "rows": 50,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "rows": 200,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-full-person-r200-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-full-person-r200-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": 2,
+            "users": 1,
+            "offeredRoundsPerSecond": 0.5,
+            "representative": {
+              "label": "medium-full-person-r200-c2-a2-spread-t2",
+              "instanceSize": "medium",
+              "runId": "capacity-medium-full-person-r200-c2-a2-spread-t2-20261029T154030Z",
+              "options": {
+                "users": 1,
+                "workers": 1,
+                "duration": 20,
+                "interval-ms": 500,
+                "seed-rows": 5,
+                "payload-bytes": 128,
+                "sample-seconds": 30,
+                "timeout-seconds": 45,
+                "startup-timeout-seconds": 1200,
+                "setup-concurrency": 1,
+                "reconnect-ms": 1000,
+                "seed": 1,
+                "churn-seconds": 5,
+                "ramp-ms": 0,
+                "max-sample-failures": 0,
+                "max-unexpected-stream-ends": 0,
+                "active": 0.6,
+                "idle": 0.2,
+                "closed": 0.1,
+                "aligned-churn": false,
+                "sync-diagnostics": false,
+                "devices-min": 2,
+                "devices-max": 2,
+                "run-id": "capacity-medium-full-person-r200-c2-a2-spread-t2-20261029T154030Z",
+                "mode": "continuous",
+                "write-mode": "insert",
+                "schema": "full",
+                "workload": "person",
+                "schedule": "spread",
+                "rounds": 8,
+                "rows": 200,
+                "period-ms": 2000,
+                "idle-seconds": 45,
+                "warmup-workers": 4,
+                "active-users": 1,
+                "settle-seconds": 5
+              },
+              "status": "passed",
+              "exitCode": 0,
+              "correct": true,
+              "observationsComplete": true,
+              "cleanup": {
+                "clean": true,
+                "streams": 0
+              },
+              "failures": [],
+              "elapsedSeconds": 32.04421100602485,
+              "phaseStarts": {
+                "init": "2026-10-29T15:40:32.945602Z",
+                "warmup": "2026-10-29T15:40:33.956334Z",
+                "exercise": "2026-10-29T15:40:41.095899Z",
+                "probe": "2026-10-29T15:41:01.196552Z",
+                "verify": "2026-10-29T15:41:01.448182Z",
+                "close": "2026-10-29T15:41:03.358409Z"
+              },
+              "phaseSeconds": {
+                "init": 0.778834,
+                "warmup": 1.357981,
+                "exercise": 19.748578,
+                "probe": 0.000333,
+                "verify": 1.049398,
+                "close": 0.238855
+              },
+              "startedStreamEvents": 2,
+              "exerciseCompleted": true,
+              "failurePhase": null,
+              "latency": {
+                "count": 8,
+                "minMs": 1035.319,
+                "medianMs": 1188.2425,
+                "meanMs": 1167.5745,
+                "p95Ms": 1278.035,
+                "maxMs": 1278.035
+              },
+              "probeLatency": null,
+              "scheduleLag": {
+                "count": 8,
+                "minMs": 3.914,
+                "medianMs": 5.144,
+                "meanMs": 5.06625,
+                "p95Ms": 6.143,
+                "maxMs": 6.143
+              },
+              "load": {
+                "targetRoundsPerSecond": 0.5,
+                "targetRowsPerSecond": 100.0,
+                "exerciseMicros": 16000815,
+                "completedRows": 1600,
+                "achievedRoundsPerSecond": 0.4999745325472484,
+                "achievedRowsPerSecond": 99.99490650944968,
+                "domainPayloadBytes": 391120,
+                "connectedDevices": 2,
+                "activeUsers": 1,
+                "participatingDevices": 2,
+                "schedule": "spread",
+                "keptUp": true,
+                "users": [
+                  {
+                    "time": "2026-10-29T15:40:56.732185Z",
+                    "runId": "capacity-medium-full-person-r200-c2-a2-spread-t2-20261029T154030Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "userCompleted",
+                    "user": 0,
+                    "elapsedMicros": 15283521,
+                    "budgetMicros": 16000000
+                  }
+                ]
+              },
+              "concurrency": {
+                "peakInFlightRounds": 1,
+                "peakParticipatingUsers": 1,
+                "peakParticipatingDevices": 2,
+                "windowMicros": 15276915,
+                "meanInFlightRounds": 0.6114227250724378,
+                "meanParticipatingDevices": 1.2228454501448756,
+                "scope": "First local write through last round completion; includes peer delivery and queueing."
+              },
+              "generator": {
+                "workers": [
+                  {
+                    "time": "2026-10-29T15:41:00.844178Z",
+                    "runId": "capacity-medium-full-person-r200-c2-a2-spread-t2-20261029T154030Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "workerExercise",
+                    "startedMicros": 1359490076987,
+                    "finishedMicros": 1359506077802,
+                    "micros": 15997874,
+                    "cpuCores": 0.09501262480252062,
+                    "loopLag": {
+                      "count": 145,
+                      "ok": 145,
+                      "failures": 0,
+                      "meanMicros": 152.1793103448276,
+                      "maxMicros": 13213,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 229,
+                      "p99UpperMicros": 2254
+                    },
+                    "process": {
+                      "pid": 666,
+                      "rssBytes": 80707584,
+                      "maxRssBytes": 84447232,
+                      "cpuUserTicks": 189,
+                      "cpuSystemTicks": 41,
+                      "openFds": 56,
+                      "threads": 11
+                    }
+                  }
+                ],
+                "coordinatorLoopLag": {
+                  "count": 287,
+                  "ok": 287,
+                  "failures": 0,
+                  "meanMicros": 13.32404181184669,
+                  "maxMicros": 924,
+                  "failureMaxMicros": null,
+                  "p50UpperMicros": 1,
+                  "p95UpperMicros": 38,
+                  "p99UpperMicros": 252
+                }
+              },
+              "generatorMonitoring": {
+                "samples": 29,
+                "peakSumRssBytes": 103911424,
+                "minimumHostAvailableBytes": 44449148928,
+                "guardReason": null,
+                "errors": [],
+                "note": "Sum of process RSS can count shared memory more than once."
+              },
+              "generatorFileDescriptorLimit": {
+                "soft": 65536,
+                "hard": 1048576
+              },
+              "cpuQuota": 0.25,
+              "memoryLimitBytes": 536870912,
+              "peakCgroupBytes": 130011136,
+              "exerciseResources": {
+                "sampleCount": 20,
+                "medianCgroupBytes": 127356928.0,
+                "maxCgroupBytes": 130011136,
+                "maxLoopLagMs": 96.128,
+                "approximateProcessCpuCores": 0.13736747394004808,
+                "scope": "Server samples selected by client phase wall-clock boundaries; CPU ticks are approximate."
+              },
+              "sampledMergeTransactions": {
+                "count": 8,
+                "receivedRowsAcrossBatches": 1600,
+                "receivedChangesAcrossBatches": 1600,
+                "completedSampledRounds": 8,
+                "transactionsPerCompletedRound": 1.0,
+                "statementsPerCompletedRound": 10.0,
+                "sqlWallMsPerCompletedRound": 257.632125,
+                "meanStatements": 10,
+                "meanSqlWallMs": 257.632125,
+                "meanConnectionAndBeginMs": 3.706375,
+                "meanCommitAndReleaseMs": 6.181875,
+                "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+              },
+              "localCommit": {
+                "count": 8,
+                "meanMicros": 64584.875,
+                "p50Micros": 64274,
+                "p95Micros": 75293,
+                "p99Micros": 75293,
+                "maxMicros": 75293
+              },
+              "observedConnectedDevices": {
+                "warmup": 2,
+                "exercise": 2,
+                "probe": 2
+              },
+              "databaseBytesBefore": 11567104,
+              "databaseBytesAfter": 12320768,
+              "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+              "clientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+              "collectorVersion": 2,
+              "schema": "full",
+              "rounds": 8,
+              "verifiedUsers": 1,
+              "unexpectedStreamEnds": 0,
+              "recoveryVerifiedLater": false,
+              "keptUp": true,
+              "meanBelow1s": false,
+              "p95Below1s": false,
+              "p95Below2s": true,
+              "interpretation": {
+                "datasetContext": {
+                  "tableCountsExactBefore": true,
+                  "domainRowsBefore": {
+                    "person": 520,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "tableCountsExactAfter": false,
+                  "domainRowsAfter": {
+                    "person": 2122,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "purpose": "Check accumulated domain-table counts when matching the cached and revision-checkpoint controls. Different pruning paths can change later starting datasets even though each arm began with fresh databases."
+                }
+              }
+            },
+            "selectedTrials": [
+              "medium-full-person-r200-c2-a2-spread-t2"
+            ],
+            "allTrials": [
+              "medium-full-person-r200-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-full-person-r200-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "rows": 1000,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-full-person-r1000-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-full-person-r1000-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "rows": 1,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "rows": 10,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "rows": 50,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "rows": 200,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-full-town-linked-r200-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-full-town-linked-r200-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-full-town-linked-r200-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-full-town-linked-r200-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "rows": 1000,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "rows": 1,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "rows": 10,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "rows": 50,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "rows": 200,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-city-city-r200-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "small-city-city-r200-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": 2,
+            "users": 1,
+            "offeredRoundsPerSecond": 0.5,
+            "representative": {
+              "label": "medium-city-city-r200-c2-a2-spread-t2",
+              "instanceSize": "medium",
+              "runId": "capacity-medium-city-city-r200-c2-a2-spread-t2-20261029T154446Z",
+              "options": {
+                "users": 1,
+                "workers": 1,
+                "duration": 20,
+                "interval-ms": 500,
+                "seed-rows": 5,
+                "payload-bytes": 128,
+                "sample-seconds": 30,
+                "timeout-seconds": 45,
+                "startup-timeout-seconds": 1200,
+                "setup-concurrency": 1,
+                "reconnect-ms": 1000,
+                "seed": 1,
+                "churn-seconds": 5,
+                "ramp-ms": 0,
+                "max-sample-failures": 0,
+                "max-unexpected-stream-ends": 0,
+                "active": 0.6,
+                "idle": 0.2,
+                "closed": 0.1,
+                "aligned-churn": false,
+                "sync-diagnostics": false,
+                "devices-min": 2,
+                "devices-max": 2,
+                "run-id": "capacity-medium-city-city-r200-c2-a2-spread-t2-20261029T154446Z",
+                "mode": "continuous",
+                "write-mode": "insert",
+                "schema": "city",
+                "workload": "city",
+                "schedule": "spread",
+                "rounds": 8,
+                "rows": 200,
+                "period-ms": 2000,
+                "idle-seconds": 45,
+                "warmup-workers": 4,
+                "active-users": 1,
+                "settle-seconds": 5
+              },
+              "status": "passed",
+              "exitCode": 0,
+              "correct": true,
+              "observationsComplete": true,
+              "cleanup": {
+                "clean": true,
+                "streams": 0
+              },
+              "failures": [],
+              "elapsedSeconds": 33.66169578698464,
+              "phaseStarts": {
+                "init": "2026-10-29T15:44:49.424858Z",
+                "warmup": "2026-10-29T15:44:51.058244Z",
+                "exercise": "2026-10-29T15:44:58.303479Z",
+                "probe": "2026-10-29T15:45:18.305705Z",
+                "verify": "2026-10-29T15:45:19.087168Z",
+                "close": "2026-10-29T15:45:20.519525Z"
+              },
+              "phaseSeconds": {
+                "init": 0.806565,
+                "warmup": 1.991337,
+                "exercise": 19.662543,
+                "probe": 0.000368,
+                "verify": 1.192762,
+                "close": 0.23424
+              },
+              "startedStreamEvents": 2,
+              "exerciseCompleted": true,
+              "failurePhase": null,
+              "latency": {
+                "count": 8,
+                "minMs": 830.401,
+                "medianMs": 926.0975,
+                "meanMs": 963.806375,
+                "p95Ms": 1283.869,
+                "maxMs": 1283.869
+              },
+              "probeLatency": null,
+              "scheduleLag": {
+                "count": 8,
+                "minMs": 3.738,
+                "medianMs": 4.0185,
+                "meanMs": 4.337375,
+                "p95Ms": 5.794,
+                "maxMs": 5.794
+              },
+              "load": {
+                "targetRoundsPerSecond": 0.5,
+                "targetRowsPerSecond": 100.0,
+                "exerciseMicros": 16001684,
+                "completedRows": 1600,
+                "achievedRoundsPerSecond": 0.49994738053819837,
+                "achievedRowsPerSecond": 99.98947610763967,
+                "domainPayloadBytes": 368720,
+                "connectedDevices": 2,
+                "activeUsers": 1,
+                "participatingDevices": 2,
+                "schedule": "spread",
+                "keptUp": true,
+                "users": [
+                  {
+                    "time": "2026-10-29T15:45:16.995594Z",
+                    "runId": "capacity-medium-city-city-r200-c2-a2-spread-t2-20261029T154446Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "userCompleted",
+                    "user": 0,
+                    "elapsedMicros": 14943525,
+                    "budgetMicros": 16000000
+                  }
+                ]
+              },
+              "concurrency": {
+                "peakInFlightRounds": 1,
+                "peakParticipatingUsers": 1,
+                "peakParticipatingDevices": 2,
+                "windowMicros": 14937296,
+                "meanInFlightRounds": 0.5161925558682107,
+                "meanParticipatingDevices": 1.0323851117364213,
+                "scope": "First local write through last round completion; includes peer delivery and queueing."
+              },
+              "generator": {
+                "workers": [
+                  {
+                    "time": "2026-10-29T15:45:17.965683Z",
+                    "runId": "capacity-medium-city-city-r200-c2-a2-spread-t2-20261029T154446Z",
+                    "phase": "exercise",
+                    "worker": 0,
+                    "type": "workerExercise",
+                    "startedMicros": 1359748134720,
+                    "finishedMicros": 1359764136404,
+                    "micros": 15998970,
+                    "cpuCores": 0.039377534928811034,
+                    "loopLag": {
+                      "count": 147,
+                      "ok": 147,
+                      "failures": 0,
+                      "meanMicros": 36.98639455782313,
+                      "maxMicros": 2514,
+                      "failureMaxMicros": null,
+                      "p50UpperMicros": 1,
+                      "p95UpperMicros": 38,
+                      "p99UpperMicros": 790
+                    },
+                    "process": {
+                      "pid": 824,
+                      "rssBytes": 70213632,
+                      "maxRssBytes": 77856768,
+                      "cpuUserTicks": 105,
+                      "cpuSystemTicks": 33,
+                      "openFds": 56,
+                      "threads": 7
+                    }
+                  }
+                ],
+                "coordinatorLoopLag": {
+                  "count": 302,
+                  "ok": 302,
+                  "failures": 0,
+                  "meanMicros": 12.26158940397351,
+                  "maxMicros": 772,
+                  "failureMaxMicros": null,
+                  "p50UpperMicros": 1,
+                  "p95UpperMicros": 50,
+                  "p99UpperMicros": 81
+                }
+              },
+              "generatorMonitoring": {
+                "samples": 31,
+                "peakSumRssBytes": 94150656,
+                "minimumHostAvailableBytes": 43779756032,
+                "guardReason": null,
+                "errors": [],
+                "note": "Sum of process RSS can count shared memory more than once."
+              },
+              "generatorFileDescriptorLimit": {
+                "soft": 65536,
+                "hard": 1048576
+              },
+              "cpuQuota": 0.25,
+              "memoryLimitBytes": 536870912,
+              "peakCgroupBytes": 97632256,
+              "exerciseResources": {
+                "sampleCount": 20,
+                "medianCgroupBytes": 91570176.0,
+                "maxCgroupBytes": 94224384,
+                "maxLoopLagMs": 380.213,
+                "approximateProcessCpuCores": 0.11633073491178525,
+                "scope": "Server samples selected by client phase wall-clock boundaries; CPU ticks are approximate."
+              },
+              "sampledMergeTransactions": {
+                "count": 8,
+                "receivedRowsAcrossBatches": 1600,
+                "receivedChangesAcrossBatches": 1600,
+                "completedSampledRounds": 8,
+                "transactionsPerCompletedRound": 1.0,
+                "statementsPerCompletedRound": 8.0,
+                "sqlWallMsPerCompletedRound": 90.838,
+                "meanStatements": 8,
+                "meanSqlWallMs": 90.838,
+                "meanConnectionAndBeginMs": 3.799,
+                "meanCommitAndReleaseMs": 6.591125,
+                "scope": "Sampled measured uploads matched by request and batch IDs. SQL wall time includes driver, network, and scheduling."
+              },
+              "localCommit": {
+                "count": 8,
+                "meanMicros": 9317.0,
+                "p50Micros": 9072,
+                "p95Micros": 10207,
+                "p99Micros": 10207,
+                "maxMicros": 10207
+              },
+              "observedConnectedDevices": {
+                "warmup": 2,
+                "exercise": 2,
+                "probe": 2
+              },
+              "databaseBytesBefore": 10256384,
+              "databaseBytesAfter": 11264000,
+              "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+              "clientSha256": "c4cae3219a2682db86bc235357531ebaf22c6dad444ba4771abb918d28dd3144",
+              "collectorVersion": 2,
+              "schema": "city",
+              "rounds": 8,
+              "verifiedUsers": 1,
+              "unexpectedStreamEnds": 0,
+              "recoveryVerifiedLater": false,
+              "keptUp": true,
+              "meanBelow1s": true,
+              "p95Below1s": false,
+              "p95Below2s": true,
+              "interpretation": {
+                "datasetContext": {
+                  "tableCountsExactBefore": true,
+                  "domainRowsBefore": {
+                    "person": 0,
+                    "town": 0,
+                    "city": 0
+                  },
+                  "tableCountsExactAfter": false,
+                  "domainRowsAfter": {
+                    "person": 0,
+                    "town": 0,
+                    "city": 1602
+                  },
+                  "purpose": "Check accumulated domain-table counts when matching the cached and revision-checkpoint controls. Different pruning paths can change later starting datasets even though each arm began with fresh databases."
+                }
+              }
+            },
+            "selectedTrials": [
+              "medium-city-city-r200-c2-a2-spread-t2"
+            ],
+            "allTrials": [
+              "medium-city-city-r200-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-city-city-r200-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    },
+    {
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "rows": 1000,
+      "sizes": {
+        "small": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "medium": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-city-city-r1000-c2-a2-spread-t2"
+            ]
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": [
+              "medium-city-city-r1000-c2-a2-spread-t2"
+            ]
+          }
+        },
+        "large": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        },
+        "xxlarge": {
+          "keptUp": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          },
+          "p95BelowOneSecond": {
+            "devices": null,
+            "users": null,
+            "offeredRoundsPerSecond": null,
+            "representative": null,
+            "selectedTrials": [],
+            "allTrials": []
+          }
+        }
+      }
+    }
+  ],
+  "sustainedOneRow": [
+    {
+      "size": "small",
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "small",
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "small",
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "medium",
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "medium",
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "medium",
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "large",
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "large",
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "large",
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "xlarge",
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "xlarge",
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "xlarge",
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "xxlarge",
+      "schema": "full",
+      "workload": "person",
+      "profile": "Person, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "xxlarge",
+      "schema": "full",
+      "workload": "town-linked",
+      "profile": "Town with linked parents, full registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    },
+    {
+      "size": "xxlarge",
+      "schema": "city",
+      "workload": "city",
+      "profile": "City, isolated registry",
+      "keptUp": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      },
+      "p95BelowOneSecond": {
+        "devices": null,
+        "users": null,
+        "offeredRoundsPerSecond": null,
+        "representative": null,
+        "selectedTrials": [],
+        "allTrials": []
+      }
+    }
+  ],
+  "idleConnections": [
+    {
+      "size": "small",
+      "largestSuccessfulTrial": null,
+      "unsuccessfulTrials": [],
+      "allTrials": []
+    },
+    {
+      "size": "medium",
+      "largestSuccessfulTrial": null,
+      "unsuccessfulTrials": [],
+      "allTrials": []
+    },
+    {
+      "size": "large",
+      "largestSuccessfulTrial": null,
+      "unsuccessfulTrials": [],
+      "allTrials": []
+    },
+    {
+      "size": "xlarge",
+      "largestSuccessfulTrial": null,
+      "unsuccessfulTrials": [],
+      "allTrials": []
+    },
+    {
+      "size": "xxlarge",
+      "largestSuccessfulTrial": null,
+      "unsuccessfulTrials": [],
+      "allTrials": []
+    }
+  ]
+}
