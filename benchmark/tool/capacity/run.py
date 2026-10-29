@@ -27,6 +27,10 @@ def parser():
     replay.add_argument('--baseline', help='A previous report directory for a matched comparison.')
     replay.add_argument('--leave-deployed', action='store_true')
 
+    qualify = commands.add_parser('qualify', help='Run five-minute boundary checks and smaller refinements across all tiers.')
+    qualify.add_argument('--discovery', required=True, help='Completed report from the same server and client builds.')
+    qualify.add_argument('--leave-deployed', action='store_true')
+
     freeze = commands.add_parser('freeze', help='Record actual completed case arguments without Cloud calls.')
     freeze.add_argument('--matrix', required=True)
     freeze.add_argument('--client-sha256', help='Restrict the matrix to a single benchmark client version.')
@@ -161,7 +165,13 @@ def main():
             return
 
         state = initialize()
-        specification = json.loads(Path(args.matrix if args.action == 'replay' else args.plan).read_text())
+        if args.action == 'qualify':
+            from qualify import specification as qualification_specification, validate_build
+            specification = qualification_specification(args.discovery)
+            validate_build(specification, CONFIG)
+        else:
+            specification = json.loads(Path(args.matrix if args.action == 'replay' else args.plan).read_text())
+
         invocation = {'action': args.action, 'specification': specification,
                       'sizes': getattr(args, 'sizes', None), 'stoppingPolicy': POLICY}
         fingerprint = digest(invocation)
@@ -173,6 +183,9 @@ def main():
         try:
             if args.action == 'replay':
                 replay(specification)
+            elif args.action == 'qualify':
+                from qualify import qualify
+                qualify(specification)
             else:
                 discover(specification, args.sizes)
             state = json.loads((ROOT / 'campaign-state.json').read_text())

@@ -85,6 +85,10 @@ def export():
     observation_paths = [ROOT / 'large-round-observation.json']
     observations = [read(path) for path in observation_paths if path.exists()]
     (DESTINATION / 'observations.json').write_text(json.dumps(observations, indent=2) + '\n')
+    qualification_path = ROOT / 'qualification.json'
+    if qualification_path.exists():
+        (DESTINATION / 'qualification.json').write_text(json.dumps(read(qualification_path), indent=2) + '\n')
+
     with (DESTINATION / 'rounds.jsonl').open('w') as stream:
         for row in rounds:
             stream.write(json.dumps(row, separators=(',', ':')) + '\n')

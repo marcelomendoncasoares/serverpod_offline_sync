@@ -133,6 +133,30 @@ short screens. A short passing trial cannot override a failed longer run, and a
 mixed workload with many idle connections cannot validate the same count of
 actively participating devices.
 
+Run those boundary checks automatically after discovery completes and restores
+its starting deployment:
+
+```sh
+python3 benchmark/tool/capacity/run.py --config /private/followups.json qualify \
+  --discovery benchmark/reports/discovery
+```
+
+Use the same server/client builds and database configuration, with fresh
+`evidenceDirectory` and `reportDirectory` values in the follow-up configuration.
+The command visits all five tiers and three schema profiles. It starts from each
+passing one-row screen, offers 150 rounds per user at the same two-second cadence,
+and halves concurrency after failure, incomplete observations, or falling behind.
+An existing five-minute pass at the selected count is reused. A known failed
+lighter load prevents a heavier attempt even if that failure produced no client
+summary. If no qualifying load remains, the result stays unqualified.
+
+The same command refines gaps in idle connection trials by halving a failed target
+until it passes or reaches an already measured passing point. It never increases
+load after a failure or treats a setup failure as an established-stream ceiling.
+`qualification.json` records selections, reused evidence, refinements, and source
+report hashes. Newly measured cases are also frozen in the usual `replay.json`.
+Combine the discovery and qualification reports to include reused source trials.
+
 Combine completed discovery and follow-up reports from the same server build
 without contacting Cloud:
 
