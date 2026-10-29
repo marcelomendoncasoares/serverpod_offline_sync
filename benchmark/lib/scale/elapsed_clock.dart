@@ -17,6 +17,22 @@ class ElapsedClock {
   /// Identifies the clock in each benchmark observation.
   static String get source => _raw == null ? 'Stopwatch' : 'CLOCK_MONOTONIC_RAW';
 
+  /// Shared clock origin for aligning workers and measuring round overlap.
+  /// Linux uses the same raw monotonic clock as the interval measurements.
+  static int get timestampMicroseconds =>
+      _raw?.microseconds ?? DateTime.now().toUtc().microsecondsSinceEpoch;
+
+  /// Waits against the shared origin even when the platform timer clock slews.
+  static Future<void> waitUntil(int timestamp) async {
+    while (true) {
+      final remaining = timestamp - timestampMicroseconds;
+      if (remaining <= 0) return;
+      await Future<void>.delayed(
+        Duration(microseconds: remaining < 1000 ? 1000 : remaining),
+      );
+    }
+  }
+
   static int _now() => _raw?.microseconds ?? _fallback.elapsedMicroseconds;
 
   int _elapsed = 0;

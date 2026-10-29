@@ -180,6 +180,7 @@ class ServerDiagnostics {
         'type': 'serverProcess',
         'process': processSample(),
         'cpuCgroup': cpuCgroup.sample(),
+        'memoryCgroup': memoryCgroup.sample(),
         'loopLag': _lag.takeWindow(),
         'vmMetrics': vmMetrics,
         'observationErrors': observationErrors,

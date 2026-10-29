@@ -503,14 +503,19 @@ class SyncTrace {
 List<Map<String, Object>> benchmarkRounds(Iterable<CrdtMergeChange> changes) {
   final identities = <(int, int)>{};
   for (final change in changes) {
-    if (change.tableName != 'person') continue;
+    if (!{'person', 'city', 'town'}.contains(change.tableName)) continue;
+    final markerColumn = change.tableName == 'person' ? 'surname' : 'name';
     final value = switch (change) {
-      CrdtMergeInsert() => change.databaseColumns['surname'],
-      CrdtMergeUpdate(columnName: 'surname') => change.value,
+      CrdtMergeInsert() => change.databaseColumns[markerColumn],
+      CrdtMergeUpdate(:final columnName, :final value)
+          when columnName == markerColumn =>
+        value,
       _ => null,
     };
     if (value is! String) continue;
-    final match = RegExp(r'^round:(-?\d+)/row:\d+/writer:(\d+)$').firstMatch(value);
+    final match = RegExp(
+      r'^round:(-?\d+)/row:\d+/writer:(\d+)(?:/|$)',
+    ).firstMatch(value);
     if (match == null) continue;
     identities.add((int.parse(match[1]!), int.parse(match[2]!)));
   }
