@@ -141,6 +141,8 @@ void main() {
       final channel = 'sync_${const Uuid().v4().replaceAll('-', '')}';
       final receiver = await open(channel, '$channel-receiver');
       final space = const Uuid().v7obj();
+      // This dart:io/PostgreSQL fixture verifies exact 64-bit revisions on the VM.
+      // ignore: avoid_js_rounded_ints
       final expected = {space: 9007199254740993};
       final delivered = receiver.changes.first;
 
