@@ -67,12 +67,18 @@ class OfflineSyncDatabaseContext {
     required this.syncTables,
     required DatabaseSerializationManager serializationManager,
     int? maxConcurrentMerges,
+    this.onCommittedSpaces,
   }) : _tableDefinitions = serializationManager.getTargetTableDefinitions(),
        _mergeAdmission = maxConcurrentMerges == null
            ? null
            : _MergeAdmission(maxConcurrentMerges);
 
   final _MergeAdmission? _mergeAdmission;
+
+  /// Optional best-effort publication of space revisions after an owned
+  /// transaction commits. The callback must enqueue work without waiting for
+  /// network delivery. Publication failure never changes the commit outcome.
+  final void Function(Map<UuidValue, int> revisions)? onCommittedSpaces;
 
   static final _transactionChanges = Expando<_TransactionSpaceChanges>();
   final _spaceListeners = <UuidValue, Set<void Function()>>{};
@@ -180,6 +186,25 @@ class OfflineSyncDatabaseContext {
       });
     }
 
+    receiveCommittedSpaces(changed);
+    if (changed.isNotEmpty) {
+      try {
+        onCommittedSpaces?.call(Map.unmodifiable(changed));
+      } on Object catch (error) {
+        OfflineSyncDiagnostics.event('sync.hintPublicationFailed', {
+          'type': error.runtimeType.toString(),
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /// Wakes interested streams after a committed revision is observed locally
+  /// or received through a hint transport. Hints never grant access or advance
+  /// checkpoints. Every sender rechecks membership and captures durable data;
+  /// recovery continues to compare database revisions after missed hints.
+  void receiveCommittedSpaces(Map<UuidValue, int> changed) {
     final notificationWatch = OfflineSyncDiagnostics.enabled
         ? (Stopwatch()..start())
         : null;
@@ -196,18 +221,16 @@ class OfflineSyncDatabaseContext {
           delivered = false;
         }
       }
-      if (delivered) _syncRecovery.recordLocalCommit(space, entry.value);
+      if (delivered) _syncRecovery.recordDeliveredCommit(space, entry.value);
     }
     if (notificationWatch != null) {
       OfflineSyncDiagnostics.event('sync.commitNotification', {
         'spaces': changed.length,
         'listenersNotified': listenersNotified,
         'micros': notificationWatch.elapsedMicroseconds,
-        'scope': 'localContext',
+        'scope': 'contextListeners',
       });
     }
-
-    return result;
   }
 
   /// Admits a merge before it acquires database connections, when configured.
