@@ -1,0 +1,30 @@
+{
+  "sourceRevision": "ae804fd2ad25cd5941b9b13b8ef121b356e93cc2",
+  "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+  "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+  "createdAt": "2026-10-30T17:50:38.970060+00:00",
+  "restorationRequired": false,
+  "sizes": [
+    "small",
+    "medium",
+    "large",
+    "xlarge",
+    "xxlarge"
+  ],
+  "points": [
+    64,
+    256,
+    1024,
+    4096,
+    8192,
+    16384
+  ],
+  "screenIdleSeconds": 45,
+  "qualificationIdleSeconds": 300,
+  "workers": 8,
+  "probeConcurrency": 8,
+  "closeConcurrency": 64,
+  "authentication": "Authenticated benchmark admin, no database lookup.",
+  "endpoint": "Ordinary bidirectional Serverpod method stream echoing String messages.",
+  "measurement": "One Client and WebSocket per connection; no Offline Sync session or SQL."
+}

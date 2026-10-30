@@ -1,0 +1,12 @@
+{
+  "casesAudited": 2,
+  "passingCasesAudited": 1,
+  "rawTimingObservationsAudited": 295,
+  "allExportedSamplesMatchRawEvents": true,
+  "exactStreamIdentitiesCountsAndMessagesChecked": true,
+  "buildIdentitiesChecked": true,
+  "casesWithoutClientSummary": [
+    "small-echo-c256-idle45-screen"
+  ],
+  "restorationRequired": false
+}

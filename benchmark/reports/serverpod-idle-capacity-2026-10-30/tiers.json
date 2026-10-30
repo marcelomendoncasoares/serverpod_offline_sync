@@ -1,0 +1,16 @@
+[
+  {
+    "size": "small",
+    "largestShortPass": 448,
+    "firstUnsuccessfulTarget": 640,
+    "longIdleQualified": 224,
+    "ceilingReached": false
+  },
+  {
+    "size": "medium",
+    "largestShortPass": 1024,
+    "firstUnsuccessfulTarget": 1792,
+    "longIdleQualified": 1024,
+    "ceilingReached": false
+  }
+]

@@ -1,0 +1,100 @@
+[
+  {
+    "label": "small-echo-c64-idle45-screen",
+    "size": "small",
+    "connections": 64,
+    "idleSeconds": 45,
+    "openWorkers": 1,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 64,
+    "resumed": 64,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 64,
+      "minMs": 744.518,
+      "medianMs": 1422.315,
+      "meanMs": 1189.580625,
+      "p95Ms": 1557.571,
+      "maxMs": 1588.384
+    },
+    "probeLatency": {
+      "count": 64,
+      "minMs": 218.263,
+      "medianMs": 242.5155,
+      "meanMs": 253.710984375,
+      "p95Ms": 301.072,
+      "maxMs": 325.809
+    },
+    "phaseSeconds": {
+      "init": 0.003157,
+      "open": 76.144093,
+      "idle": 46.002762,
+      "probe": 2.147523,
+      "close": 0.692
+    },
+    "generator": {
+      "samples": 122,
+      "peakSumRssBytes": 183144448,
+      "minimumHostAvailableBytes": 39379628032,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 177094656,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 64,
+      "idle": 64,
+      "probe": 64,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c256-idle45-screen",
+    "size": "small",
+    "connections": 256,
+    "idleSeconds": 45,
+    "openWorkers": 1,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": null,
+    "failures": null,
+    "opened": null,
+    "resumed": null,
+    "idleCompleted": null,
+    "streamFailures": null,
+    "sampleFailures": null,
+    "cleanupVerified": null,
+    "openLatency": null,
+    "probeLatency": null,
+    "phaseSeconds": null,
+    "generator": {
+      "samples": 184,
+      "peakSumRssBytes": 249143296,
+      "minimumHostAvailableBytes": 37743853568,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 234815488,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {},
+    "serverInstanceChanged": false
+  }
+]

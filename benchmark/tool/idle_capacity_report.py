@@ -42,6 +42,12 @@ def render(directory):
         'Regular stream: 5 min pass | 5 min probe median / p95 ms | Next unsuccessful target |',
         '|---|---:|---:|---:|---:|---|',
     ]
+    if (directory / 'OPENING_RATE_TRANSITION.md').exists():
+        lines[2:2] = [
+            'This is the initial Small/Medium campaign plus three slower Large '
+            'controls. See [the opening-rate transition](OPENING_RATE_TRANSITION.md) '
+            'for the clean handoff to the continued larger-tier campaign.', '',
+        ]
     for tier in tiers:
         size = tier['size']
         selected = next((r for r in rows if r['size'] == size and r['passed'] and

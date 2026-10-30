@@ -1,0 +1,1039 @@
+[
+  {
+    "label": "small-echo-c64-idle45-screen",
+    "size": "small",
+    "connections": 64,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 64,
+    "resumed": 64,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 64,
+      "minMs": 757.689,
+      "medianMs": 1409.0315,
+      "meanMs": 1231.484265625,
+      "p95Ms": 1684.132,
+      "maxMs": 1968.515
+    },
+    "probeLatency": {
+      "count": 64,
+      "minMs": 217.166,
+      "medianMs": 249.746,
+      "meanMs": 253.330765625,
+      "p95Ms": 307.6,
+      "maxMs": 356.18
+    },
+    "phaseSeconds": {
+      "init": 0.003356,
+      "open": 11.568992,
+      "idle": 46.002084,
+      "probe": 2.197474,
+      "close": 1.099589
+    },
+    "generator": {
+      "samples": 65,
+      "peakSumRssBytes": 173268992,
+      "minimumHostAvailableBytes": 38981083136,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 100589568,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 64,
+      "idle": 64,
+      "probe": 64,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c256-idle45-screen",
+    "size": "small",
+    "connections": 256,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 256,
+    "resumed": 256,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 256,
+      "minMs": 745.359,
+      "medianMs": 1361.004,
+      "meanMs": 1248.61678515625,
+      "p95Ms": 1734.707,
+      "maxMs": 2804.627
+    },
+    "probeLatency": {
+      "count": 256,
+      "minMs": 214.735,
+      "medianMs": 274.895,
+      "meanMs": 277.8788203125,
+      "p95Ms": 389.412,
+      "maxMs": 497.933
+    },
+    "phaseSeconds": {
+      "init": 0.0029,
+      "open": 43.699815,
+      "idle": 46.003096,
+      "probe": 9.193953,
+      "close": 3.969068
+    },
+    "generator": {
+      "samples": 103,
+      "peakSumRssBytes": 321327104,
+      "minimumHostAvailableBytes": 39016886272,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 198905856,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 256,
+      "idle": 256,
+      "probe": 256,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c1024-idle45-screen",
+    "size": "small",
+    "connections": 1024,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Bad state: Worker 5 failed: Method stream connection attempt timed out",
+      "Sampling failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Cleanup observation failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "737 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 401,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 737,
+    "sampleFailures": 1,
+    "cleanupVerified": false,
+    "openLatency": {
+      "count": 401,
+      "minMs": 737.807,
+      "medianMs": 1449.878,
+      "meanMs": 1383.3248753117207,
+      "p95Ms": 1828.386,
+      "maxMs": 27105.958
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.002882
+    },
+    "generator": {
+      "samples": 111,
+      "peakSumRssBytes": 357961728,
+      "minimumHostAvailableBytes": 39037030400,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 246267904,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0
+    },
+    "serverInstanceChanged": true
+  },
+  {
+    "label": "small-echo-c640-idle45-refinement",
+    "size": "small",
+    "connections": 640,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Bad state: Worker 6 failed: Method stream connection attempt timed out",
+      "Sampling failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Cleanup observation failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "760 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 608,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 760,
+    "sampleFailures": 1,
+    "cleanupVerified": false,
+    "openLatency": {
+      "count": 608,
+      "minMs": 742.159,
+      "medianMs": 1453.5815,
+      "meanMs": 1443.8747960526316,
+      "p95Ms": 2565.219,
+      "maxMs": 6140.026
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003689
+    },
+    "generator": {
+      "samples": 141,
+      "peakSumRssBytes": 448434176,
+      "minimumHostAvailableBytes": 38843121664,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 237338624,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0
+    },
+    "serverInstanceChanged": true
+  },
+  {
+    "label": "small-echo-c448-idle45-refinement",
+    "size": "small",
+    "connections": 448,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 448,
+    "resumed": 448,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 448,
+      "minMs": 745.069,
+      "medianMs": 1116.232,
+      "meanMs": 1245.866453125,
+      "p95Ms": 1884.646,
+      "maxMs": 3243.531
+    },
+    "probeLatency": {
+      "count": 448,
+      "minMs": 217.347,
+      "medianMs": 283.278,
+      "meanMs": 363.4421428571428,
+      "p95Ms": 675.508,
+      "maxMs": 3497.541
+    },
+    "phaseSeconds": {
+      "init": 0.002948,
+      "open": 75.502998,
+      "idle": 46.002648,
+      "probe": 20.610753,
+      "close": 7.850932
+    },
+    "generator": {
+      "samples": 146,
+      "peakSumRssBytes": 402419712,
+      "minimumHostAvailableBytes": 38588051456,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 222126080,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 448,
+      "idle": 448,
+      "probe": 448,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c448-idle300-qualification",
+    "size": "small",
+    "connections": 448,
+    "idleSeconds": 300,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Bad state: Worker 7 failed: Method stream connection attempt timed out",
+      "Sampling failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Cleanup observation failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "177 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 88,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 177,
+    "sampleFailures": 1,
+    "cleanupVerified": false,
+    "openLatency": {
+      "count": 88,
+      "minMs": 764.352,
+      "medianMs": 1442.58,
+      "meanMs": 1733.290193181818,
+      "p95Ms": 1838.026,
+      "maxMs": 21724.412
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003001
+    },
+    "generator": {
+      "samples": 66,
+      "peakSumRssBytes": 169037824,
+      "minimumHostAvailableBytes": 39229546496,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 244953088,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0
+    },
+    "serverInstanceChanged": true
+  },
+  {
+    "label": "small-echo-c224-idle300-qualification",
+    "size": "small",
+    "connections": 224,
+    "idleSeconds": 300,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 224,
+    "resumed": 224,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 224,
+      "minMs": 750.06,
+      "medianMs": 973.6615,
+      "meanMs": 1158.4860223214287,
+      "p95Ms": 1728.006,
+      "maxMs": 2541.846
+    },
+    "probeLatency": {
+      "count": 224,
+      "minMs": 217.343,
+      "medianMs": 252.098,
+      "meanMs": 263.6996339285714,
+      "p95Ms": 319.337,
+      "maxMs": 412.416
+    },
+    "phaseSeconds": {
+      "init": 0.003342,
+      "open": 36.157144,
+      "idle": 301.002688,
+      "probe": 7.524989,
+      "close": 3.497893
+    },
+    "generator": {
+      "samples": 335,
+      "peakSumRssBytes": 338755584,
+      "minimumHostAvailableBytes": 37597278208,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 230907904,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 224,
+      "idle": 224,
+      "probe": 224,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "medium-echo-c64-idle45-screen",
+    "size": "medium",
+    "connections": 64,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 64,
+    "resumed": 64,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 64,
+      "minMs": 749.2,
+      "medianMs": 963.221,
+      "meanMs": 1158.81796875,
+      "p95Ms": 1661.935,
+      "maxMs": 1872.698
+    },
+    "probeLatency": {
+      "count": 64,
+      "minMs": 219.744,
+      "medianMs": 248.0335,
+      "meanMs": 245.402625,
+      "p95Ms": 262.317,
+      "maxMs": 282.77
+    },
+    "phaseSeconds": {
+      "init": 0.003064,
+      "open": 10.442231,
+      "idle": 46.002252,
+      "probe": 1.98206,
+      "close": 0.319366
+    },
+    "generator": {
+      "samples": 63,
+      "peakSumRssBytes": 171786240,
+      "minimumHostAvailableBytes": 39531544576,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 101474304,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 64,
+      "idle": 64,
+      "probe": 64,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "medium-echo-c256-idle45-screen",
+    "size": "medium",
+    "connections": 256,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 256,
+    "resumed": 256,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 256,
+      "minMs": 743.828,
+      "medianMs": 911.7635,
+      "meanMs": 1062.890484375,
+      "p95Ms": 1572.508,
+      "maxMs": 1907.147
+    },
+    "probeLatency": {
+      "count": 256,
+      "minMs": 217.519,
+      "medianMs": 249.701,
+      "meanMs": 248.50830078125,
+      "p95Ms": 278.316,
+      "maxMs": 336.757
+    },
+    "phaseSeconds": {
+      "init": 0.003283,
+      "open": 35.135312,
+      "idle": 46.002992,
+      "probe": 8.029223,
+      "close": 1.744342
+    },
+    "generator": {
+      "samples": 92,
+      "peakSumRssBytes": 320434176,
+      "minimumHostAvailableBytes": 36287627264,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 181514240,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 256,
+      "idle": 256,
+      "probe": 256,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "medium-echo-c1024-idle45-screen",
+    "size": "medium",
+    "connections": 1024,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 1024,
+    "resumed": 1024,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 1024,
+      "minMs": 745.784,
+      "medianMs": 1003.5905,
+      "meanMs": 1179.62319140625,
+      "p95Ms": 1650.977,
+      "maxMs": 2668.802
+    },
+    "probeLatency": {
+      "count": 1024,
+      "minMs": 214.94,
+      "medianMs": 247.852,
+      "meanMs": 249.0648427734375,
+      "p95Ms": 296.904,
+      "maxMs": 428.206
+    },
+    "phaseSeconds": {
+      "init": 0.003565,
+      "open": 155.900108,
+      "idle": 46.002747,
+      "probe": 32.175367,
+      "close": 7.111355
+    },
+    "generator": {
+      "samples": 232,
+      "peakSumRssBytes": 679858176,
+      "minimumHostAvailableBytes": 39095767040,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 445853696,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 1024,
+      "idle": 1024,
+      "probe": 1024,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "medium-echo-c4096-idle45-screen",
+    "size": "medium",
+    "connections": 4096,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Sampling failed: ServerpodClientNetworkException: Request timed out. (TimeoutException after 0:00:20.000000: Future not completed)",
+      "Sampling failed: Bad state: Server instance changed during the case.",
+      "Bad state: Worker 5 failed: Method stream connection attempt timed out",
+      "Cleanup observation failed: Bad state: Server instance changed during the case.",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "1364 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 725,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 1364,
+    "sampleFailures": 2,
+    "cleanupVerified": false,
+    "openLatency": {
+      "count": 725,
+      "minMs": 749.831,
+      "medianMs": 998.894,
+      "meanMs": 1191.9294731034483,
+      "p95Ms": 1637.365,
+      "maxMs": 2834.183
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003414
+    },
+    "generator": {
+      "samples": 131,
+      "peakSumRssBytes": 485535744,
+      "minimumHostAvailableBytes": 35699261440,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 500039680,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0
+    },
+    "serverInstanceChanged": true
+  },
+  {
+    "label": "medium-echo-c2560-idle45-refinement",
+    "size": "medium",
+    "connections": 2560,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: Bad state: Server instance changed during the case.",
+      "Bad state: Worker 0 failed: Method stream connection attempt timed out",
+      "Cleanup observation failed: Bad state: Server instance changed during the case.",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "2854 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 1530,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 2854,
+    "sampleFailures": 5,
+    "cleanupVerified": false,
+    "openLatency": {
+      "count": 1530,
+      "minMs": 746.395,
+      "medianMs": 975.7275,
+      "meanMs": 1166.436291503268,
+      "p95Ms": 1693.706,
+      "maxMs": 3849.082
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003166
+    },
+    "generator": {
+      "samples": 244,
+      "peakSumRssBytes": 916160512,
+      "minimumHostAvailableBytes": 35973632000,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 493191168,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0
+    },
+    "serverInstanceChanged": true
+  },
+  {
+    "label": "medium-echo-c1792-idle45-refinement",
+    "size": "medium",
+    "connections": 1792,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>503 Service Unavailable - Serverpod</title>\n  <!-- External assets keep HTML under the 4096-byte ConfigMap limit.\n       If CDN/GCS is unreachable the page still renders, just unstyled. -->\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n  <link rel=\"stylesheet\" href=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/styles.css\">\n</head>\n<body class=\"bg-white text-gray-800 min-h-screen flex items-center justify-center\">\n  <div class=\"w-full min-h-screen relative overflow-hidden\">\n    <div class=\"absolute inset-0\">\n      <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/blue.jpg\" alt=\"Background\" class=\"w-full h-full object-cover\">\n    </div>\n    <div class=\"relative z-10 max-w-7xl mx-auto px-4 md:pl-4 md:pr-12 py-16 flex flex-col md:flex-row items-center justify-center min-h-screen\">\n      <div class=\"md:w-1/2 flex justify-center order-2 md:order-1\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/crash.webp\" alt=\"Error illustration\" class=\"w-full max-w-sm\">\n      </div>\n      <div class=\"text-center md:text-left md:w-1/2 order-1 md:order-2\">\n        <img src=\"https://storage.googleapis.com/serverpod-cloud-static-site/gateway-default-responses/on-dark.svg\" alt=\"Serverpod Logo\" class=\"h-10 mb-8 mx-auto md:mx-0\">\n        <h1 class=\"text-6xl md:text-7xl font-bold text-white mb-6\">Service Unavailable (503)</h1>\n        <p class=\"text-xl md:text-2xl text-gray-300 mb-6 max-w-xl\">\n          The service is temporarily unavailable.\n        </p>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            It may be starting up, overloaded, or undergoing maintenance.\n          </p>\n        </div>\n        <div class=\"max-w-xl mb-6\">\n          <p class=\"text-base text-gray-300\">\n            Please try again in a few minutes.\n          </p>\n        </div>\n        <p class=\"text-sm text-gray-400 mt-8\">Developer info: Check service health, scaling limits, and deployment status.</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>, statusCode: 503",
+      "Sampling failed: Bad state: Server instance changed during the case.",
+      "Bad state: Worker 6 failed: Method stream connection attempt timed out",
+      "Cleanup observation failed: Bad state: Server instance changed during the case.",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "2844 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 1521,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 2844,
+    "sampleFailures": 4,
+    "cleanupVerified": false,
+    "openLatency": {
+      "count": 1521,
+      "minMs": 745.442,
+      "medianMs": 981.519,
+      "meanMs": 1162.877623931624,
+      "p95Ms": 1687.847,
+      "maxMs": 3412.908
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003366
+    },
+    "generator": {
+      "samples": 241,
+      "peakSumRssBytes": 867840000,
+      "minimumHostAvailableBytes": 38939918336,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 497807360,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0
+    },
+    "serverInstanceChanged": true
+  },
+  {
+    "label": "medium-echo-c1024-idle300-qualification",
+    "size": "medium",
+    "connections": 1024,
+    "idleSeconds": 300,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 1024,
+    "resumed": 1024,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 1024,
+      "minMs": 745.676,
+      "medianMs": 905.564,
+      "meanMs": 1108.9363173828126,
+      "p95Ms": 1602.794,
+      "maxMs": 2305.082
+    },
+    "probeLatency": {
+      "count": 1024,
+      "minMs": 214.593,
+      "medianMs": 238.916,
+      "meanMs": 253.404494140625,
+      "p95Ms": 304.322,
+      "maxMs": 1080.524
+    },
+    "phaseSeconds": {
+      "init": 0.003496,
+      "open": 145.914792,
+      "idle": 301.003028,
+      "probe": 32.724798,
+      "close": 8.025577
+    },
+    "generator": {
+      "samples": 462,
+      "peakSumRssBytes": 731779072,
+      "minimumHostAvailableBytes": 37306019840,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 427851776,
+    "memoryLimitBytes": 536870912,
+    "visibleCpuQuota": 0.25,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 1024,
+      "idle": 1024,
+      "probe": 1024,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "large-echo-c64-idle45-screen",
+    "size": "large",
+    "connections": 64,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 64,
+    "resumed": 64,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 64,
+      "minMs": 750.749,
+      "medianMs": 869.9645,
+      "meanMs": 1048.625890625,
+      "p95Ms": 1566.346,
+      "maxMs": 1722.103
+    },
+    "probeLatency": {
+      "count": 64,
+      "minMs": 217.122,
+      "medianMs": 238.0355,
+      "meanMs": 241.899125,
+      "p95Ms": 260.589,
+      "maxMs": 270.042
+    },
+    "phaseSeconds": {
+      "init": 0.003225,
+      "open": 9.647684,
+      "idle": 46.001542,
+      "probe": 2.000086,
+      "close": 0.352944
+    },
+    "generator": {
+      "samples": 61,
+      "peakSumRssBytes": 171921408,
+      "minimumHostAvailableBytes": 39643787264,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 100458496,
+    "memoryLimitBytes": 1073741824,
+    "visibleCpuQuota": 0.5,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 64,
+      "idle": 64,
+      "probe": 64,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "large-echo-c256-idle45-screen",
+    "size": "large",
+    "connections": 256,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 256,
+    "resumed": 256,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 256,
+      "minMs": 744.295,
+      "medianMs": 863.2515,
+      "meanMs": 1054.79183984375,
+      "p95Ms": 1566.203,
+      "maxMs": 1788.936
+    },
+    "probeLatency": {
+      "count": 256,
+      "minMs": 215.797,
+      "medianMs": 241.9225,
+      "meanMs": 253.86517578125,
+      "p95Ms": 357.168,
+      "maxMs": 594.762
+    },
+    "phaseSeconds": {
+      "init": 0.003741,
+      "open": 36.205889,
+      "idle": 46.002368,
+      "probe": 8.465852,
+      "close": 1.284824
+    },
+    "generator": {
+      "samples": 92,
+      "peakSumRssBytes": 320548864,
+      "minimumHostAvailableBytes": 39570722816,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 194187264,
+    "memoryLimitBytes": 1073741824,
+    "visibleCpuQuota": 0.5,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 256,
+      "idle": 256,
+      "probe": 256,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "large-echo-c1024-idle45-screen",
+    "size": "large",
+    "connections": 1024,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "workers": 8,
+    "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 1024,
+    "resumed": 1024,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 1024,
+      "minMs": 739.713,
+      "medianMs": 913.7035,
+      "meanMs": 1114.2761669921874,
+      "p95Ms": 1579.302,
+      "maxMs": 2780.144
+    },
+    "probeLatency": {
+      "count": 1024,
+      "minMs": 215.828,
+      "medianMs": 244.6055,
+      "meanMs": 249.7826923828125,
+      "p95Ms": 297.759,
+      "maxMs": 428.765
+    },
+    "phaseSeconds": {
+      "init": 0.003105,
+      "open": 148.967928,
+      "idle": 46.003018,
+      "probe": 32.075742,
+      "close": 5.045247
+    },
+    "generator": {
+      "samples": 220,
+      "peakSumRssBytes": 691453952,
+      "minimumHostAvailableBytes": 35990839296,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 457043968,
+    "memoryLimitBytes": 1073741824,
+    "visibleCpuQuota": 0.5,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 1024,
+      "idle": 1024,
+      "probe": 1024,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  }
+]
