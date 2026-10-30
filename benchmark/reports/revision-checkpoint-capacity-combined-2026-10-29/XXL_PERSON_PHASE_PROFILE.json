@@ -1,0 +1,117 @@
+{
+  "profiles": [
+    {
+      "label": "xxlarge-full-person-r1-c128-a128-qualification-t2",
+      "sourceSha256": "8bfcdb7f696c21809ea363bdd3338f6bd519304924195d443a55fcb1ce38e666",
+      "sampledTransactions": 150,
+      "meanSqlWallMs": 1933.1614866666666,
+      "meanPhaseTimings": {
+        "body": {
+          "wallMs": 0.0911,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        },
+        "lockClockAndSpace": {
+          "wallMs": 18.82966,
+          "sqlMs": 18.371773333333334,
+          "statements": 2.0
+        },
+        "validateIncoming": {
+          "wallMs": 0.07583333333333332,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        },
+        "readNodesAndConflictMetadata": {
+          "wallMs": 96.56228,
+          "sqlMs": 95.54133333333333,
+          "statements": 3.0
+        },
+        "planConflictsAndReferences": {
+          "wallMs": 1782.3438466666666,
+          "sqlMs": 1781.6908866666668,
+          "statements": 1.0
+        },
+        "writeRowsAndChangeMetadata": {
+          "wallMs": 29.51316,
+          "sqlMs": 28.701933333333333,
+          "statements": 3.0
+        },
+        "projectConflicts": {
+          "wallMs": 0.08116666666666666,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        },
+        "writeReceivedCursors": {
+          "wallMs": 9.130093333333335,
+          "sqlMs": 8.855559999999999,
+          "statements": 1.0
+        },
+        "persistClockAndCleanup": {
+          "wallMs": 0.12346,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        }
+      },
+      "scope": "Measured uploads for sampled user0 only. SQL wall duration includes PostgreSQL execution, driver, network, and scheduling. The two sequential trials have different retained dataset sizes and do not isolate database execution time."
+    },
+    {
+      "label": "xxlarge-full-person-r1-c64-a64-qualification-t2",
+      "sourceSha256": "8c548cb6555059adff16ada0cbc95d031c7c2dc61fba1a47515613566568e705",
+      "sampledTransactions": 150,
+      "meanSqlWallMs": 95.3595,
+      "meanPhaseTimings": {
+        "body": {
+          "wallMs": 0.08734666666666667,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        },
+        "lockClockAndSpace": {
+          "wallMs": 8.71418,
+          "sqlMs": 8.198093333333334,
+          "statements": 2.0
+        },
+        "validateIncoming": {
+          "wallMs": 0.08697333333333333,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        },
+        "readNodesAndConflictMetadata": {
+          "wallMs": 14.341033333333332,
+          "sqlMs": 13.364806666666667,
+          "statements": 3.0
+        },
+        "planConflictsAndReferences": {
+          "wallMs": 53.66556666666666,
+          "sqlMs": 53.28358666666667,
+          "statements": 1.0
+        },
+        "writeRowsAndChangeMetadata": {
+          "wallMs": 16.273246666666665,
+          "sqlMs": 15.46322,
+          "statements": 3.0
+        },
+        "projectConflicts": {
+          "wallMs": 0.07555333333333333,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        },
+        "writeReceivedCursors": {
+          "wallMs": 5.328233333333333,
+          "sqlMs": 5.049793333333333,
+          "statements": 1.0
+        },
+        "persistClockAndCleanup": {
+          "wallMs": 0.10010666666666666,
+          "sqlMs": 0.0,
+          "statements": 0.0
+        }
+      },
+      "scope": "Measured uploads for sampled user0 only. SQL wall duration includes PostgreSQL execution, driver, network, and scheduling. The two sequential trials have different retained dataset sizes and do not isolate database execution time."
+    }
+  ],
+  "extractedSamples": {
+    "file": "XXL_PERSON_PHASE_SAMPLES.jsonl",
+    "sha256": "974f3fd7fdd62c388c7cd70511684a287d944849defd6813668eb7bc9772974b",
+    "count": 300
+  }
+}

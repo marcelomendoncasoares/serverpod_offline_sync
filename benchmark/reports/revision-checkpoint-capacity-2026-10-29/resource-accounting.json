@@ -1,0 +1,189 @@
+{
+  "recordedAt": "2026-10-29T14:06:48.431776+00:00",
+  "serverExecutableSha256": "0bcb5aa46f60b0f60858e0a26dd6d838a37649d026d724f41c45eee2cd3b6644",
+  "finding": "Process CPU time inferred from exposed /proc counters exceeds the visible cgroup quota during complete sustained Small runs. The cause is not yet isolated.",
+  "scope": "CPU configuration and accounting are recorded as reported. Do not derive an effective enforced CPU limit, utilization percentage, or proof of throttling from this discrepancy.",
+  "latencyAndCorrectnessUnchanged": true,
+  "examples": [
+    {
+      "label": "small-city-city-r1-c8-a8-boundary-soak-t2",
+      "correct": true,
+      "observationsComplete": true,
+      "keptUp": true,
+      "firstSample": {
+        "time": "2026-10-29T13:51:27.938993Z",
+        "instanceId": "1793281840934422-1",
+        "process": {
+          "pid": 1,
+          "rssBytes": 86323200,
+          "maxRssBytes": 95793152,
+          "cpuUserTicks": 1167,
+          "cpuSystemTicks": 151,
+          "openFds": 43,
+          "threads": 3
+        },
+        "cpuCgroup": {
+          "available": true,
+          "version": 1,
+          "quotaMicros": 10000,
+          "periodMicros": 100000,
+          "quotaCores": 0.1,
+          "periods": null,
+          "throttledPeriods": null,
+          "throttledMicros": null,
+          "scope": "visible container cgroup; ancestor limits may be hidden"
+        }
+      },
+      "lastSample": {
+        "time": "2026-10-29T13:56:29.030031Z",
+        "instanceId": "1793281840934422-1",
+        "process": {
+          "pid": 1,
+          "rssBytes": 112205824,
+          "maxRssBytes": 113250304,
+          "cpuUserTicks": 6484,
+          "cpuSystemTicks": 951,
+          "openFds": 48,
+          "threads": 4
+        },
+        "cpuCgroup": {
+          "available": true,
+          "version": 1,
+          "quotaMicros": 10000,
+          "periodMicros": 100000,
+          "quotaCores": 0.1,
+          "periods": null,
+          "throttledPeriods": null,
+          "throttledMicros": null,
+          "scope": "visible container cgroup; ancestor limits may be hidden"
+        }
+      },
+      "wallSecondsBetweenSamples": 301.091038,
+      "deltaProcessTicks": 6117,
+      "assumedTicksPerSecond": 100,
+      "inferredProcessCpuCores": 0.20316114490262574,
+      "reportedQuotaCores": 0.1,
+      "inferredToReportedRatio": 2.0316114490262573
+    },
+    {
+      "label": "small-full-person-r1-c8-a8-boundary-soak-t2",
+      "correct": true,
+      "observationsComplete": true,
+      "keptUp": true,
+      "firstSample": {
+        "time": "2026-10-29T13:38:11.664406Z",
+        "instanceId": "1793281053657141-1",
+        "process": {
+          "pid": 1,
+          "rssBytes": 117575680,
+          "maxRssBytes": 117575680,
+          "cpuUserTicks": 1120,
+          "cpuSystemTicks": 138,
+          "openFds": 45,
+          "threads": 3
+        },
+        "cpuCgroup": {
+          "available": true,
+          "version": 1,
+          "quotaMicros": 10000,
+          "periodMicros": 100000,
+          "quotaCores": 0.1,
+          "periods": null,
+          "throttledPeriods": null,
+          "throttledMicros": null,
+          "scope": "visible container cgroup; ancestor limits may be hidden"
+        }
+      },
+      "lastSample": {
+        "time": "2026-10-29T13:43:15.660412Z",
+        "instanceId": "1793281053657141-1",
+        "process": {
+          "pid": 1,
+          "rssBytes": 139087872,
+          "maxRssBytes": 139874304,
+          "cpuUserTicks": 6552,
+          "cpuSystemTicks": 988,
+          "openFds": 47,
+          "threads": 4
+        },
+        "cpuCgroup": {
+          "available": true,
+          "version": 1,
+          "quotaMicros": 10000,
+          "periodMicros": 100000,
+          "quotaCores": 0.1,
+          "periods": null,
+          "throttledPeriods": null,
+          "throttledMicros": null,
+          "scope": "visible container cgroup; ancestor limits may be hidden"
+        }
+      },
+      "wallSecondsBetweenSamples": 303.996006,
+      "deltaProcessTicks": 6282,
+      "assumedTicksPerSecond": 100,
+      "inferredProcessCpuCores": 0.20664745180895566,
+      "reportedQuotaCores": 0.1,
+      "inferredToReportedRatio": 2.0664745180895565
+    },
+    {
+      "label": "small-full-town-linked-r1-c8-a8-boundary-soak-t2",
+      "correct": true,
+      "observationsComplete": true,
+      "keptUp": true,
+      "firstSample": {
+        "time": "2026-10-29T13:43:52.660962Z",
+        "instanceId": "1793281053657141-1",
+        "process": {
+          "pid": 1,
+          "rssBytes": 154161152,
+          "maxRssBytes": 154943488,
+          "cpuUserTicks": 6815,
+          "cpuSystemTicks": 1060,
+          "openFds": 48,
+          "threads": 3
+        },
+        "cpuCgroup": {
+          "available": true,
+          "version": 1,
+          "quotaMicros": 10000,
+          "periodMicros": 100000,
+          "quotaCores": 0.1,
+          "periods": null,
+          "throttledPeriods": null,
+          "throttledMicros": null,
+          "scope": "visible container cgroup; ancestor limits may be hidden"
+        }
+      },
+      "lastSample": {
+        "time": "2026-10-29T13:48:53.660710Z",
+        "instanceId": "1793281053657141-1",
+        "process": {
+          "pid": 1,
+          "rssBytes": 124276736,
+          "maxRssBytes": 162025472,
+          "cpuUserTicks": 12383,
+          "cpuSystemTicks": 1773,
+          "openFds": 50,
+          "threads": 6
+        },
+        "cpuCgroup": {
+          "available": true,
+          "version": 1,
+          "quotaMicros": 10000,
+          "periodMicros": 100000,
+          "quotaCores": 0.1,
+          "periods": null,
+          "throttledPeriods": null,
+          "throttledMicros": null,
+          "scope": "visible container cgroup; ancestor limits may be hidden"
+        }
+      },
+      "wallSecondsBetweenSamples": 300.999748,
+      "deltaProcessTicks": 6281,
+      "assumedTicksPerSecond": 100,
+      "inferredProcessCpuCores": 0.2086712710470442,
+      "reportedQuotaCores": 0.1,
+      "inferredToReportedRatio": 2.086712710470442
+    }
+  ]
+}

@@ -1,0 +1,742 @@
+{
+  "discoverySettings": {
+    "sameRuntimeAndConfiguration": true,
+    "exactStartingDomainCountsRecorded": true
+  },
+  "qualificationSettings": {
+    "sameRuntimeAndConfiguration": true,
+    "exactStartingDomainCountsRecorded": true
+  },
+  "discoveryStatistics": {
+    "measuredCases": 324,
+    "rawRoundEvents": 62581,
+    "exerciseRounds": 41823,
+    "allStatisticsMatch": true
+  },
+  "qualificationStatistics": {
+    "measuredCases": 21,
+    "rawRoundEvents": 76316,
+    "exerciseRounds": 69600,
+    "allStatisticsMatch": true
+  },
+  "discoveryCoverage": {
+    "tierSchemaRowCells": 75,
+    "cells": [
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "person",
+        "rows": 10,
+        "measured": 2,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "person",
+        "rows": 50,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "person",
+        "rows": 200,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1000,
+        "measured": 0,
+        "skipped": 5
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 10,
+        "measured": 2,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 50,
+        "measured": 2,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 200,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1000,
+        "measured": 0,
+        "skipped": 5
+      },
+      {
+        "size": "small",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "small",
+        "schema": "city",
+        "workload": "city",
+        "rows": 10,
+        "measured": 2,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "city",
+        "workload": "city",
+        "rows": 50,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "small",
+        "schema": "city",
+        "workload": "city",
+        "rows": 200,
+        "measured": 2,
+        "skipped": 4
+      },
+      {
+        "size": "small",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "person",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "person",
+        "rows": 50,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "person",
+        "rows": 200,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 50,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 200,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "medium",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "medium",
+        "schema": "city",
+        "workload": "city",
+        "rows": 10,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "medium",
+        "schema": "city",
+        "workload": "city",
+        "rows": 50,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "medium",
+        "schema": "city",
+        "workload": "city",
+        "rows": 200,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "medium",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "person",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "person",
+        "rows": 50,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "person",
+        "rows": 200,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 10,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 50,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 200,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "large",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "large",
+        "schema": "city",
+        "workload": "city",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "large",
+        "schema": "city",
+        "workload": "city",
+        "rows": 50,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "large",
+        "schema": "city",
+        "workload": "city",
+        "rows": 200,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "large",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1000,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1,
+        "measured": 6,
+        "skipped": 0
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 50,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 200,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 50,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 200,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "xlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1,
+        "measured": 6,
+        "skipped": 0
+      },
+      {
+        "size": "xlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 50,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "xlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 200,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1000,
+        "measured": 3,
+        "skipped": 3
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1,
+        "measured": 6,
+        "skipped": 0
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 50,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 200,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "person",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1,
+        "measured": 6,
+        "skipped": 0
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 50,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 200,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "rows": 1000,
+        "measured": 1,
+        "skipped": 4
+      },
+      {
+        "size": "xxlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1,
+        "measured": 6,
+        "skipped": 0
+      },
+      {
+        "size": "xxlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 10,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xxlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 50,
+        "measured": 4,
+        "skipped": 2
+      },
+      {
+        "size": "xxlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 200,
+        "measured": 5,
+        "skipped": 1
+      },
+      {
+        "size": "xxlarge",
+        "schema": "city",
+        "workload": "city",
+        "rows": 1000,
+        "measured": 4,
+        "skipped": 2
+      }
+    ],
+    "measuredCases": 324,
+    "justifiedSkips": 207
+  },
+  "qualificationCoverage": {
+    "qualifiedProfiles": [
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "person",
+        "users": 4,
+        "devices": 8
+      },
+      {
+        "size": "small",
+        "schema": "full",
+        "workload": "town-linked",
+        "users": 2,
+        "devices": 4
+      },
+      {
+        "size": "small",
+        "schema": "city",
+        "workload": "city",
+        "users": 4,
+        "devices": 8
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "person",
+        "users": 2,
+        "devices": 4
+      },
+      {
+        "size": "medium",
+        "schema": "full",
+        "workload": "town-linked",
+        "users": 16,
+        "devices": 32
+      },
+      {
+        "size": "medium",
+        "schema": "city",
+        "workload": "city",
+        "users": 16,
+        "devices": 32
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "person",
+        "users": 32,
+        "devices": 64
+      },
+      {
+        "size": "large",
+        "schema": "full",
+        "workload": "town-linked",
+        "users": 8,
+        "devices": 16
+      },
+      {
+        "size": "large",
+        "schema": "city",
+        "workload": "city",
+        "users": 32,
+        "devices": 64
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "person",
+        "users": 32,
+        "devices": 64
+      },
+      {
+        "size": "xlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "users": 32,
+        "devices": 64
+      },
+      {
+        "size": "xlarge",
+        "schema": "city",
+        "workload": "city",
+        "users": 64,
+        "devices": 128
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "person",
+        "users": 32,
+        "devices": 64
+      },
+      {
+        "size": "xxlarge",
+        "schema": "full",
+        "workload": "town-linked",
+        "users": 64,
+        "devices": 128
+      },
+      {
+        "size": "xxlarge",
+        "schema": "city",
+        "workload": "city",
+        "users": 64,
+        "devices": 128
+      }
+    ],
+    "unqualifiedProfiles": [],
+    "sourceHashesVerified": true,
+    "combinedObservationsUnchanged": true
+  },
+  "scope": "Automated measurement checks. Manual interpretation, publication and current Cloud restoration are recorded separately."
+}

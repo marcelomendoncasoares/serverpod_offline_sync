@@ -1,0 +1,11 @@
+{
+  "measuredServerSourceRevision": "be5a9076ef7d165dd728f0ff99bff0096293ec2a",
+  "measuredClientSourceRevision": "87451ccf2733f8792d90988f8e23aebfbe1bcb17",
+  "publicRuntimeReferenceBranch": "perf/checkpoint-capacity-runtime-20261029",
+  "runtimeReferenceRevision": "be5a9076ef7d165dd728f0ff99bff0096293ec2a",
+  "clientSourceDifferencesFromReference": [
+    "test/serverpod_offline_sync_test_server/test/integration/sync/sync_duplex_test.dart"
+  ],
+  "runtimeSourceAndManifestsIdentical": true,
+  "scope": "The measured client commit differs from the public runtime reference only in an integration test file. All tracked runtime source and dependency manifests are byte-identical. This does not claim binary hashes reproduce across different build paths or environments."
+}

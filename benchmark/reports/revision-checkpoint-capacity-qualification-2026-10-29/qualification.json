@@ -1,0 +1,444 @@
+{
+  "format": 1,
+  "sourceFiles": {
+    "manifest.json": "a15ce1335c14829adef998217d070cace6956418fa54189a9a6c53e5d36b73bc",
+    "results.json": "2efda7a9be3a920a6f2a69734ed4afc72f05728a8f1219d4dcf281f28395135e",
+    "replay.json": "870aece8fe70518f6850e5f3e674f91d5ae3d7b341ac1f4e46e932ca2f9c8f68"
+  },
+  "sizes": [
+    {
+      "size": "small",
+      "idle": {
+        "passingConnectedDevices": 256,
+        "failingTargetDevices": 512,
+        "sourceTrials": [
+          "small-full-idle-c64-w1",
+          "small-full-idle-c256-w1",
+          "small-full-idle-c1024-w1"
+        ],
+        "parameters": {
+          "schema": "full",
+          "users": 512,
+          "active_users": 0,
+          "devices": 2,
+          "workers": 8,
+          "warmup_workers": 1,
+          "rows": 1,
+          "rounds": 1,
+          "period": 2000,
+          "idle_seconds": 45,
+          "settle_seconds": 5,
+          "payload_bytes": 128,
+          "timeout": 30,
+          "sample": 30,
+          "startup": 1800,
+          "deadline": 5400,
+          "workload": "person",
+          "schedule": "spread",
+          "setup": 1,
+          "write_mode": "insert",
+          "mode": "continuous",
+          "profile": true
+        },
+        "followupCases": [
+          "small-full-idle-c512-qualification"
+        ],
+        "scope": "Failed setup is not a measured established-stream ceiling. No heavier target is attempted after failure."
+      },
+      "active": [
+        {
+          "schema": "full",
+          "workload": "person",
+          "sourceScreen": "small-full-person-r1-c8-a8-spread",
+          "priorFailures": [
+            "small-full-person-r1-c32-a32-spread",
+            "small-full-person-r1-c16-a16-spread"
+          ],
+          "qualifiedUsers": 4,
+          "followupCases": [],
+          "reusedCases": [
+            "small-full-person-r1-c8-a8-soak"
+          ],
+          "status": "qualified"
+        },
+        {
+          "schema": "full",
+          "workload": "town-linked",
+          "sourceScreen": "small-full-town-linked-r1-c4-a4-spread",
+          "priorFailures": [
+            "small-full-town-linked-r1-c8-a8-spread"
+          ],
+          "qualifiedUsers": 2,
+          "followupCases": [
+            "small-full-town-linked-r1-c4-a4-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "city",
+          "workload": "city",
+          "sourceScreen": "small-city-city-r1-c8-a8-spread",
+          "priorFailures": [
+            "small-city-city-r1-c32-a32-spread",
+            "small-city-city-r1-c16-a16-spread"
+          ],
+          "qualifiedUsers": 4,
+          "followupCases": [
+            "small-city-city-r1-c8-a8-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        }
+      ]
+    },
+    {
+      "size": "medium",
+      "idle": {
+        "passingConnectedDevices": 1024,
+        "failingTargetDevices": 2048,
+        "sourceTrials": [
+          "medium-full-idle-c64-w4",
+          "medium-full-idle-c256-w4",
+          "medium-full-idle-c1024-w4",
+          "medium-full-idle-c4096-w4"
+        ],
+        "parameters": {
+          "schema": "full",
+          "users": 2048,
+          "active_users": 0,
+          "devices": 2,
+          "workers": 8,
+          "warmup_workers": 4,
+          "rows": 1,
+          "rounds": 1,
+          "period": 2000,
+          "idle_seconds": 45,
+          "settle_seconds": 5,
+          "payload_bytes": 128,
+          "timeout": 30,
+          "sample": 30,
+          "startup": 1800,
+          "deadline": 5400,
+          "workload": "person",
+          "schedule": "spread",
+          "setup": 1,
+          "write_mode": "insert",
+          "mode": "continuous",
+          "profile": true
+        },
+        "followupCases": [
+          "medium-full-idle-c2048-qualification"
+        ],
+        "scope": "Failed setup is not a measured established-stream ceiling. No heavier target is attempted after failure."
+      },
+      "active": [
+        {
+          "schema": "full",
+          "workload": "person",
+          "sourceScreen": "medium-full-person-r1-c32-a32-spread",
+          "priorFailures": [
+            "medium-full-person-r1-c128-a128-spread",
+            "medium-full-person-r1-c64-a64-spread",
+            "medium-full-person-r1-c8-a8-soak"
+          ],
+          "qualifiedUsers": 2,
+          "followupCases": [
+            "medium-full-person-r1-c4-a4-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "full",
+          "workload": "town-linked",
+          "sourceScreen": "medium-full-town-linked-r1-c32-a32-spread",
+          "priorFailures": [
+            "medium-full-town-linked-r1-c128-a128-spread",
+            "medium-full-town-linked-r1-c64-a64-spread"
+          ],
+          "qualifiedUsers": 16,
+          "followupCases": [
+            "medium-full-town-linked-r1-c32-a32-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "city",
+          "workload": "city",
+          "sourceScreen": "medium-city-city-r1-c32-a32-spread",
+          "priorFailures": [
+            "medium-city-city-r1-c128-a128-spread",
+            "medium-city-city-r1-c64-a64-spread"
+          ],
+          "qualifiedUsers": 16,
+          "followupCases": [
+            "medium-city-city-r1-c32-a32-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        }
+      ]
+    },
+    {
+      "size": "large",
+      "idle": {
+        "passingConnectedDevices": 128,
+        "failingTargetDevices": 256,
+        "sourceTrials": [
+          "large-full-idle-c64-w4",
+          "large-full-idle-c256-w4"
+        ],
+        "parameters": {
+          "schema": "full",
+          "users": 128,
+          "active_users": 0,
+          "devices": 2,
+          "workers": 8,
+          "warmup_workers": 4,
+          "rows": 1,
+          "rounds": 1,
+          "period": 2000,
+          "idle_seconds": 45,
+          "settle_seconds": 5,
+          "payload_bytes": 128,
+          "timeout": 30,
+          "sample": 30,
+          "startup": 1800,
+          "deadline": 5400,
+          "workload": "person",
+          "schedule": "spread",
+          "setup": 1,
+          "write_mode": "insert",
+          "mode": "continuous",
+          "profile": true
+        },
+        "followupCases": [
+          "large-full-idle-c128-qualification"
+        ],
+        "scope": "Failed setup is not a measured established-stream ceiling. No heavier target is attempted after failure."
+      },
+      "active": [
+        {
+          "schema": "full",
+          "workload": "person",
+          "sourceScreen": "large-full-person-r1-c64-a64-spread",
+          "priorFailures": [
+            "large-full-person-r1-c128-a128-spread"
+          ],
+          "qualifiedUsers": 32,
+          "followupCases": [
+            "large-full-person-r1-c64-a64-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "full",
+          "workload": "town-linked",
+          "sourceScreen": "large-full-town-linked-r1-c16-a16-spread",
+          "priorFailures": [
+            "large-full-town-linked-r1-c32-a32-spread"
+          ],
+          "qualifiedUsers": 8,
+          "followupCases": [
+            "large-full-town-linked-r1-c16-a16-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "city",
+          "workload": "city",
+          "sourceScreen": "large-city-city-r1-c64-a64-spread",
+          "priorFailures": [
+            "large-city-city-r1-c128-a128-spread"
+          ],
+          "qualifiedUsers": 32,
+          "followupCases": [
+            "large-city-city-r1-c64-a64-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        }
+      ]
+    },
+    {
+      "size": "xlarge",
+      "idle": {
+        "passingConnectedDevices": 512,
+        "failingTargetDevices": 1024,
+        "sourceTrials": [
+          "xlarge-full-idle-c64-w4",
+          "xlarge-full-idle-c256-w4",
+          "xlarge-full-idle-c1024-w4"
+        ],
+        "parameters": {
+          "schema": "full",
+          "users": 512,
+          "active_users": 0,
+          "devices": 2,
+          "workers": 8,
+          "warmup_workers": 4,
+          "rows": 1,
+          "rounds": 1,
+          "period": 2000,
+          "idle_seconds": 45,
+          "settle_seconds": 5,
+          "payload_bytes": 128,
+          "timeout": 30,
+          "sample": 30,
+          "startup": 1800,
+          "deadline": 5400,
+          "workload": "person",
+          "schedule": "spread",
+          "setup": 1,
+          "write_mode": "insert",
+          "mode": "continuous",
+          "profile": true
+        },
+        "followupCases": [
+          "xlarge-full-idle-c512-qualification"
+        ],
+        "scope": "Failed setup is not a measured established-stream ceiling. No heavier target is attempted after failure."
+      },
+      "active": [
+        {
+          "schema": "full",
+          "workload": "person",
+          "sourceScreen": "xlarge-full-person-r1-c128-a128-spread",
+          "priorFailures": [
+            "xlarge-full-person-r1-c512-a512-spread",
+            "xlarge-full-person-r1-c256-a256-spread"
+          ],
+          "qualifiedUsers": 32,
+          "followupCases": [
+            "xlarge-full-person-r1-c128-a128-qualification-t2",
+            "xlarge-full-person-r1-c64-a64-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "full",
+          "workload": "town-linked",
+          "sourceScreen": "xlarge-full-town-linked-r1-c64-a64-spread",
+          "priorFailures": [
+            "xlarge-full-town-linked-r1-c128-a128-spread"
+          ],
+          "qualifiedUsers": 32,
+          "followupCases": [
+            "xlarge-full-town-linked-r1-c64-a64-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "city",
+          "workload": "city",
+          "sourceScreen": "xlarge-city-city-r1-c128-a128-spread",
+          "priorFailures": [
+            "xlarge-city-city-r1-c512-a512-spread",
+            "xlarge-city-city-r1-c256-a256-spread"
+          ],
+          "qualifiedUsers": 64,
+          "followupCases": [
+            "xlarge-city-city-r1-c128-a128-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        }
+      ]
+    },
+    {
+      "size": "xxlarge",
+      "idle": {
+        "passingConnectedDevices": 1024,
+        "failingTargetDevices": 2048,
+        "sourceTrials": [
+          "xxlarge-full-idle-c64-w4",
+          "xxlarge-full-idle-c256-w4",
+          "xxlarge-full-idle-c1024-w4",
+          "xxlarge-full-idle-c4096-w4"
+        ],
+        "parameters": {
+          "schema": "full",
+          "users": 2048,
+          "active_users": 0,
+          "devices": 2,
+          "workers": 8,
+          "warmup_workers": 4,
+          "rows": 1,
+          "rounds": 1,
+          "period": 2000,
+          "idle_seconds": 45,
+          "settle_seconds": 5,
+          "payload_bytes": 128,
+          "timeout": 30,
+          "sample": 30,
+          "startup": 1800,
+          "deadline": 5400,
+          "workload": "person",
+          "schedule": "spread",
+          "setup": 1,
+          "write_mode": "insert",
+          "mode": "continuous",
+          "profile": true
+        },
+        "followupCases": [
+          "xxlarge-full-idle-c2048-qualification"
+        ],
+        "scope": "Failed setup is not a measured established-stream ceiling. No heavier target is attempted after failure."
+      },
+      "active": [
+        {
+          "schema": "full",
+          "workload": "person",
+          "sourceScreen": "xxlarge-full-person-r1-c128-a128-spread",
+          "priorFailures": [
+            "xxlarge-full-person-r1-c512-a512-spread",
+            "xxlarge-full-person-r1-c256-a256-spread"
+          ],
+          "qualifiedUsers": 32,
+          "followupCases": [
+            "xxlarge-full-person-r1-c128-a128-qualification-t2",
+            "xxlarge-full-person-r1-c64-a64-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "full",
+          "workload": "town-linked",
+          "sourceScreen": "xxlarge-full-town-linked-r1-c128-a128-spread",
+          "priorFailures": [
+            "xxlarge-full-town-linked-r1-c512-a512-spread",
+            "xxlarge-full-town-linked-r1-c256-a256-spread"
+          ],
+          "qualifiedUsers": 64,
+          "followupCases": [
+            "xxlarge-full-town-linked-r1-c128-a128-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        },
+        {
+          "schema": "city",
+          "workload": "city",
+          "sourceScreen": "xxlarge-city-city-r1-c128-a128-spread",
+          "priorFailures": [
+            "xxlarge-city-city-r1-c512-a512-spread",
+            "xxlarge-city-city-r1-c256-a256-spread"
+          ],
+          "qualifiedUsers": 64,
+          "followupCases": [
+            "xxlarge-city-city-r1-c128-a128-qualification-t2"
+          ],
+          "reusedCases": [],
+          "status": "qualified"
+        }
+      ]
+    }
+  ]
+}

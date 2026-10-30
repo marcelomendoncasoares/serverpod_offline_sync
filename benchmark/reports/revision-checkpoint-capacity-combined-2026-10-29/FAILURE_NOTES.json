@@ -1,0 +1,179 @@
+{
+  "checkedAt": "2026-10-30T00:05:47.367353+00:00",
+  "sourceReport": "revision-checkpoint-capacity-2026-10-29",
+  "cases": [
+    {
+      "label": "small-full-idle-c1024-w1",
+      "correct": false,
+      "observationsComplete": false,
+      "failurePhase": "warmup",
+      "exerciseCompleted": false,
+      "rounds": 0,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 120,
+      "observedConnectedDevices": {
+        "warmup": 286
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Sampling failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>",
+        "Bad state: Worker 2 failed: TimeoutException after 0:00:30.000000: Future not completed",
+        "Cleanup observation failed: ServerpodClientUnknownHttpException: Unknown error, data: <!DOCTYPE html>",
+        "Only 0 users passed exact verification.",
+        "120 unexpected stream ends."
+      ],
+      "interpretation": "The 1024-device idle target failed during warmup with HTTP 503 sampling errors, timeouts, and stream ends. The largest sampled established population was 286. There was no completed idle/resume exercise or exact verification. This is an unsuccessful setup attempt; the initiating cause is not established."
+    },
+    {
+      "label": "medium-full-person-r1-c128-a128-spread",
+      "correct": false,
+      "observationsComplete": true,
+      "failurePhase": "exercise",
+      "exerciseCompleted": false,
+      "rounds": 344,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 26,
+      "observedConnectedDevices": {
+        "warmup": 128,
+        "exercise": 128
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Bad state: Worker 7 failed: TimeoutException after 0:00:45.000000: Future not completed",
+        "Only 0 users passed exact verification.",
+        "Incomplete or failed measured rounds.",
+        "26 unexpected stream ends."
+      ],
+      "interpretation": "The exercise aborted on timeouts and recorded unexpected stream ends. Only a subset of requested rounds completed, and final exact verification did not run. Retained latency observations are partial. The case-level summary does not identify the initiating layer or establish that the stream ends caused the timeout."
+    },
+    {
+      "label": "medium-full-town-linked-r1-c128-a128-spread",
+      "correct": false,
+      "observationsComplete": true,
+      "failurePhase": "exercise",
+      "exerciseCompleted": false,
+      "rounds": 405,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 15,
+      "observedConnectedDevices": {
+        "warmup": 128,
+        "exercise": 113
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Bad state: Worker 5 failed: TimeoutException after 0:00:45.000000: Future not completed",
+        "Only 0 users passed exact verification.",
+        "Incomplete or failed measured rounds.",
+        "15 unexpected stream ends."
+      ],
+      "interpretation": "The exercise aborted on timeouts and recorded unexpected stream ends. Only a subset of requested rounds completed, and final exact verification did not run. Retained latency observations are partial. The case-level summary does not identify the initiating layer or establish that the stream ends caused the timeout."
+    },
+    {
+      "label": "medium-city-city-r1-c128-a128-spread",
+      "correct": false,
+      "observationsComplete": true,
+      "failurePhase": "exercise",
+      "exerciseCompleted": false,
+      "rounds": 342,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 24,
+      "observedConnectedDevices": {
+        "warmup": 128,
+        "exercise": 104
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Sampling failed: ServerpodClientInternalServerError: Internal server error, statusCode: 500",
+        "Bad state: Worker 5 failed: TimeoutException after 0:00:45.000000: Future not completed",
+        "Only 0 users passed exact verification.",
+        "Incomplete or failed measured rounds.",
+        "24 unexpected stream ends."
+      ],
+      "interpretation": "The exercise aborted on timeouts and recorded unexpected stream ends. Only a subset of requested rounds completed, and final exact verification did not run. Retained latency observations are partial. The case-level summary does not identify the initiating layer or establish that the stream ends caused the timeout."
+    },
+    {
+      "label": "medium-full-person-r1-c64-a8-mixed",
+      "correct": false,
+      "observationsComplete": true,
+      "failurePhase": "exercise",
+      "exerciseCompleted": false,
+      "rounds": 120,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 1,
+      "observedConnectedDevices": {
+        "warmup": 64,
+        "exercise": 64
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Bad state: Worker 5 failed: Bad state: Stream ended on 13/1; no automatic reconnects are allowed.",
+        "Only 0 users passed exact verification.",
+        "1 unexpected stream ends."
+      ],
+      "interpretation": "All 120 requested active rounds produced completion timings, but an idle device stream ended during the exercise phase before final verification. These timings do not qualify the overall mixed-population run; no automatic reconnect was allowed."
+    },
+    {
+      "label": "xxlarge-full-person-r1-c256-a256-spread",
+      "correct": false,
+      "observationsComplete": true,
+      "failurePhase": "warmup",
+      "exerciseCompleted": false,
+      "rounds": 0,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 1,
+      "observedConnectedDevices": {
+        "warmup": 210
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Bad state: Worker 1 failed: TimeoutException after 0:00:45.000000: Future not completed",
+        "Only 0 users passed exact verification.",
+        "Incomplete or failed measured rounds.",
+        "1 unexpected stream ends."
+      ],
+      "interpretation": "Warmup timed out before any measured exercise round or exact verification. The sampled established population stayed below the requested target, and an unexpected stream end was recorded. This does not establish an incremental-round capacity limit at the requested device count."
+    },
+    {
+      "label": "xxlarge-city-city-r1-c256-a256-spread",
+      "correct": false,
+      "observationsComplete": true,
+      "failurePhase": "warmup",
+      "exerciseCompleted": false,
+      "rounds": 0,
+      "verifiedUsers": 0,
+      "unexpectedStreamEnds": 1,
+      "observedConnectedDevices": {
+        "warmup": 134
+      },
+      "cleanup": {
+        "clean": true,
+        "streams": 0
+      },
+      "errorSummary": [
+        "Bad state: Worker 1 failed: TimeoutException after 0:00:45.000000: Future not completed",
+        "Only 0 users passed exact verification.",
+        "Incomplete or failed measured rounds.",
+        "1 unexpected stream ends."
+      ],
+      "interpretation": "Warmup timed out before any measured exercise round or exact verification. The sampled established population stayed below the requested target, and an unexpected stream end was recorded. This does not establish an incremental-round capacity limit at the requested device count."
+    }
+  ]
+}

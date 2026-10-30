@@ -1,0 +1,21 @@
+{
+  "verifiedAt": "2026-10-30T02:42:31.569543+00:00",
+  "status": "verified",
+  "restoredExecutableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+  "deployment": "Original pre-campaign executable and configuration; not the measured checkpoint/native-TLS candidate.",
+  "instanceSize": "small",
+  "minInstances": 1,
+  "maxInstances": 1,
+  "benchmarkSchema": "full",
+  "benchmarkDatabase": "original",
+  "benchmarkDatabaseAndSchemaVariablesAbsent": true,
+  "databasePoolLimit": 100,
+  "persistentSessionLogging": false,
+  "consoleSessionLogging": false,
+  "commitHints": false,
+  "protectedFilesUnchanged": 11,
+  "openStreams": 0,
+  "idleInTransactionConnections": 0,
+  "visibleCpuQuotaCores": 0.1,
+  "memoryLimitBytes": 268435456
+}

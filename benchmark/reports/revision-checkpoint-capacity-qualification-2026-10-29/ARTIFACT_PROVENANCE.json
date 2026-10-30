@@ -1,0 +1,31 @@
+{
+  "runtimeSourceRevision": "be5a9076ef7d165dd728f0ff99bff0096293ec2a",
+  "dartVersion": "3.13.7",
+  "cloudServerExecutableSha256": "f05548d20cda3669ed864c5351344d9d5874e483e0dbb281d2c142c5e5fd3ff1",
+  "localSmokeServerExecutableSha256": "c4b977ea0185ae831c245f34291fb6cc930ccc73673e88ddc3ee00725130b327",
+  "localRebuildOfUploadedArchiveSha256": "c97f2f045d5b6322179a7da4926febdea5ea48a4176b0415dc6ae7438e817403",
+  "cloudDeploymentId": "ec1b9043-5e21-4dbf-8522-bfc3cacde370",
+  "cloudRolloutSucceeded": true,
+  "uploadedArchiveSha256": "87d5c74e94c6f73864c18ea368a05965a728cd425381b72ae875c610cf9a7650",
+  "uploadedFiles": 356,
+  "manifestFilesTransformedByPackaging": [
+    "benchmark/pubspec.yaml",
+    "packages/serverpod_offline_sync/pubspec.yaml",
+    "packages/serverpod_offline_sync_server/pubspec.yaml",
+    "test/serverpod_offline_sync_test_shared/pubspec.yaml",
+    "packages/serverpod_offline_sync_client/pubspec.yaml",
+    "pubspec.yaml",
+    "pubspec.lock"
+  ],
+  "uploadedRuntimeSourceBytesMatchPreparedSource": true,
+  "retainedDependencyVersionsAndSourcesMatchPreparedBuild": true,
+  "runtimeDependencyVersionsMatchingBaseline": 72,
+  "hashPortabilityObservation": "The locally built executables embed different absolute entrypoint URIs. Cloud packaging also removes development dependencies and reorders the workspace. Local hashes are not used as expected Cloud hashes.",
+  "measurementIdentity": "Measurements and schema/size transitions require the separately observed Cloud executable hash. The native TLS and no-pipelining settings remain fixed.",
+  "localSmokeLimit": "The earlier local AOT smoke used the localSmokeServerExecutableSha256 artifact. It was not byte-identical to the Cloud artifact. The local rebuild of the uploaded archive also did not match the Cloud hash.",
+  "cloudReadiness": "The live Cloud executable, fresh comparison database, full schema, pool 100, logging disabled, commit hints disabled and clean stream/transaction state were verified. All 11 protected original files retained their hashes.",
+  "readinessValidation": {
+    "offlineSequenceChecks": 5,
+    "rejectedIdentityMismatches": 4
+  }
+}
