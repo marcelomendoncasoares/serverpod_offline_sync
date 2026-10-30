@@ -13,10 +13,13 @@ is not public. Session logging stays disabled.
 1. Start with no open sync or echo streams and no idle database transactions.
 2. Open connections gradually, checking a unique 128-byte echo on every stream.
    Eight client processes are used. The private config's `openWorkers` map
-   controls how many open concurrently on each tier. Each opening worker admits
-   one connection at a time. The capacity sweep uses eight opening workers;
-   a slower Small pilot is retained separately. The prior sync campaign used
-   one opening worker on Small and four on the other tiers.
+   controls how many workers open concurrently on each tier. The config's
+   `openConcurrencyPerWorker` map sets each worker's admission limit, defaulting
+   to one. The initial Small/Medium sweep uses eight simultaneous opens. The
+   continued larger-tier sweep uses 32 on Large and 64 on XL/XXL. The completed
+   slower controls remain recorded separately. The prior sync campaign used one
+   opening worker on Small and four on the other tiers. Probe concurrency stays
+   eight and close concurrency stays 64 regardless of opening parallelism.
 3. Settle for five seconds, then keep every connection open without application
    messages for 45 seconds. Normal transport keepalives continue. Sample server
    resources through an authenticated SQL-free control every five seconds.

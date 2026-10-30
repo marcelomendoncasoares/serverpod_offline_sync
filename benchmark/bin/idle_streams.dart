@@ -28,6 +28,7 @@ Future<void> main(List<String> args) async {
     ..addOption('connections', defaultsTo: '64')
     ..addOption('workers', defaultsTo: '8')
     ..addOption('open-workers', defaultsTo: '4')
+    ..addOption('open-concurrency-per-worker', defaultsTo: '1')
     ..addOption('idle-seconds', defaultsTo: '45')
     ..addOption('settle-seconds', defaultsTo: '5')
     ..addOption('timeout-seconds', defaultsTo: '30')
@@ -94,65 +95,73 @@ Future<void> runWorker() async {
         case 'open':
           final index = command['worker'] as int;
           final workers = options['workers'] as int;
-          for (var id = index; id < (options['connections'] as int); id += workers) {
-            if (failures.isNotEmpty) throw StateError(failures.first);
-            final client = Client(options['target'] as String)
-              ..authKeyProvider = BenchmarkAuth(requireSecret());
-            final input = StreamController<String>();
-            final compression = options['transport-compression'] as String;
-            final probe = compression == 'sdk'
-                ? null
-                : CompressionProbe(
-                    target: options['target'] as String,
-                    compression: compression == 'enabled',
-                    serializationManager: client.serializationManager,
-                    authKeyProvider: client.authKeyProvider!,
-                    input: input.stream,
-                    connectionTimeout: client.streamingConnectionTimeout,
-                  );
-            final responses =
-                probe?.output.stream ??
-                client.callStreamingServerEndpoint<Stream<String>, String>(
-                      'benchmark',
-                      'echo',
-                      {},
-                      {'messages': input.stream},
-                    )
-                    as Stream<String>;
-            final connection = connections[id] = IdleConnection(
-              responses: responses,
-              send: input.add,
-              closeInput: input.close,
-              closeClient: () {
-                client.close();
-                if (probe != null) {
-                  unawaited(
-                    probe.close().catchError((Object error) {
-                      failures.add('$id: $error');
-                      emit({
-                        'type': 'streamFailure',
-                        'connection': id,
-                        'error': '$error',
-                      });
-                    }),
-                  );
-                }
-              },
-              timeout: Duration(seconds: options['timeout-seconds'] as int),
-              onFailure: (error) {
-                failures.add('$id: $error');
-                emit({'type': 'streamFailure', 'connection': id, 'error': '$error'});
-              },
-            );
-            final micros = await connection.exchange(payload(id, 'warmup'));
-            emit({
-              'type': 'opened',
-              'connection': id,
-              'micros': micros,
-              'compressionMode': compression,
-              if (probe != null) 'negotiatedExtensions': probe.extensions,
-            });
-          }
+          final identities = [
+            for (var id = index; id < (options['connections'] as int); id += workers)
+              id,
+          ];
+          await forEachBounded(
+            identities,
+            options['open-concurrency-per-worker'] as int,
+            (id) async {
+              if (failures.isNotEmpty) throw StateError(failures.first);
+              final client = Client(options['target'] as String)
+                ..authKeyProvider = BenchmarkAuth(requireSecret());
+              final input = StreamController<String>();
+              final compression = options['transport-compression'] as String;
+              final probe = compression == 'sdk'
+                  ? null
+                  : CompressionProbe(
+                      target: options['target'] as String,
+                      compression: compression == 'enabled',
+                      serializationManager: client.serializationManager,
+                      authKeyProvider: client.authKeyProvider!,
+                      input: input.stream,
+                      connectionTimeout: client.streamingConnectionTimeout,
+                    );
+              final responses =
+                  probe?.output.stream ??
+                  client.callStreamingServerEndpoint<Stream<String>, String>(
+                        'benchmark',
+                        'echo',
+                        {},
+                        {'messages': input.stream},
+                      )
+                      as Stream<String>;
+              final connection = connections[id] = IdleConnection(
+                responses: responses,
+                send: input.add,
+                closeInput: input.close,
+                closeClient: () {
+                  client.close();
+                  if (probe != null) {
+                    unawaited(
+                      probe.close().catchError((Object error) {
+                        failures.add('$id: $error');
+                        emit({
+                          'type': 'streamFailure',
+                          'connection': id,
+                          'error': '$error',
+                        });
+                      }),
+                    );
+                  }
+                },
+                timeout: Duration(seconds: options['timeout-seconds'] as int),
+                onFailure: (error) {
+                  failures.add('$id: $error');
+                  emit({'type': 'streamFailure', 'connection': id, 'error': '$error'});
+                },
+              );
+              final micros = await connection.exchange(payload(id, 'warmup'));
+              emit({
+                'type': 'opened',
+                'connection': id,
+                'micros': micros,
+                'compressionMode': compression,
+                if (probe != null) 'negotiatedExtensions': probe.extensions,
+              });
+            },
+          );
         case 'idle':
           final origin = command['startMicros'] as int;
           await ElapsedClock.waitUntil(origin);

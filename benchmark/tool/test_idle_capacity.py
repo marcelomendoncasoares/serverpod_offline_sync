@@ -59,7 +59,8 @@ class IdleCapacityTests(unittest.TestCase):
             save(campaign.root / 'cases/small-echo-c64-idle45-screen.json', {
                 'status': 'running',
                 'workload': {'size': 'small', 'connections': 64, 'idleSeconds': 45,
-                    'openWorkers': 1, 'workers': 8, 'clientSha256': 'client',
+                    'openWorkers': 1, 'openConcurrencyPerWorker': 1,
+                    'workers': 8, 'clientSha256': 'client',
                     'serverExecutableSha256': 'server'},
             })
 

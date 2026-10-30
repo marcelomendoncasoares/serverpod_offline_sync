@@ -204,6 +204,7 @@ class Campaign:
         receipt_path = self.root / 'cases' / f'{label}.json'
         workload = {'size': size, 'connections': connections, 'idleSeconds': idle_seconds,
                     'openWorkers': self.config.get('openWorkers', {}).get(size, 1 if size == 'small' else 4),
+                    'openConcurrencyPerWorker': self.config.get('openConcurrencyPerWorker', {}).get(size, 1),
                     'workers': 8,
                     'clientSha256': self.config['clientSha256'],
                     'serverExecutableSha256': self.state['serverExecutableSha256']}
@@ -219,7 +220,9 @@ class Campaign:
         run_id = label + '-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         command = [self.config['client'], '--target', self.config['target'], '--output', str(output),
                    '--run-id', run_id, '--connections', str(connections), '--workers', '8',
-                   '--open-workers', str(workload['openWorkers']), '--idle-seconds', str(idle_seconds)]
+                   '--open-workers', str(workload['openWorkers']),
+                   '--open-concurrency-per-worker', str(workload['openConcurrencyPerWorker']),
+                   '--idle-seconds', str(idle_seconds)]
         receipt = {'label': label, 'workload': workload, 'startedAt': utc(), 'status': 'running',
                    'before': before, 'command': command}
         save(receipt_path, receipt)
@@ -376,6 +379,7 @@ class Campaign:
             'workers': 8, 'probeConcurrency': 8, 'closeConcurrency': 64,
             'openWorkers': self.config.get('openWorkers',
                 {'small': 1, 'medium': 4, 'large': 4, 'xlarge': 4, 'xxlarge': 4}),
+            'openConcurrencyPerWorker': self.config.get('openConcurrencyPerWorker', {}),
             'authentication': 'Authenticated benchmark admin, no database lookup.',
             'endpoint': 'Ordinary bidirectional Serverpod method stream echoing String messages.',
             'measurement': 'One Client and WebSocket per connection; no Offline Sync session or SQL.',

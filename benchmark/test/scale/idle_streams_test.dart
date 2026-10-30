@@ -124,6 +124,8 @@ void main() {
           '2',
           '--open-workers',
           '2',
+          '--open-concurrency-per-worker',
+          '2',
           '--idle-seconds',
           '1',
           '--settle-seconds',
@@ -140,6 +142,7 @@ void main() {
       expect(summary['status'], 'passed');
       expect(summary['opened'], 16);
       expect(summary['resumed'], 16);
+      expect(summary['options']['open-concurrency-per-worker'], 2);
       expect(summary['cleanupVerified'], isTrue);
       expect(summary['sampleFailures'], 0);
       expect(summary['streamFailures'], 0);
