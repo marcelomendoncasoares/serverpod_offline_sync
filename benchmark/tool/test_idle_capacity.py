@@ -2,6 +2,7 @@ import argparse
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from idle_capacity import Campaign, save
 
@@ -64,6 +65,29 @@ class IdleCapacityTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, 'incomplete case'):
                 campaign.run_case('small', 64, 45, 'screen')
+
+    def test_cloud_readiness_uses_the_pinned_executable_when_source_metadata_is_absent(self):
+        with tempfile.TemporaryDirectory() as path:
+            campaign = Campaign.__new__(Campaign)
+            campaign.root = Path(path)
+            campaign.config = {'originalServerExecutableSha256': 'original',
+                'serverExecutableSha256': 'candidate', 'databases': {'full': 'capacity_full'}}
+            campaign.state = {}
+            metrics = {'server': {'preparedSource': None,
+                'executable': {'executableSha256': 'candidate'}, 'maxConnectionCount': 100,
+                'sessionLogging': {'persistentEnabled': False, 'consoleEnabled': False},
+                'benchmarkDatabase': 'capacity_full', 'instanceId': 'instance'},
+                'commitHints': {'enabled': False}, 'memoryCgroup': {'limitBytes': 256 * 1024**2}}
+            campaign.metrics = lambda: metrics
+            campaign.clean = lambda _: True
+            campaign.control = lambda _: {'transport': {'open': 0}}
+            campaign.compute = lambda: {'minInstances': 1, 'maxInstances': 1, 'memoryMb': 256}
+            save(campaign.root / 'restoration-snapshot.json', {'metrics': {'server': {}}})
+
+            with patch('idle_capacity.time.monotonic', side_effect=[0, 1201]):
+                ready = campaign.wait_ready()
+
+            self.assertEqual(ready['server']['executable']['executableSha256'], 'candidate')
 
 
 if __name__ == '__main__':

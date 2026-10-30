@@ -143,14 +143,15 @@ class Campaign:
                     for key in ['benchmarkSchema', 'benchmarkDatabase']:
                         require(server[key] == wanted[key], 'Original deployment mismatch: ' + key)
                 else:
-                    require(server['preparedSource']['sourceRevision'] == self.config['sourceRevision'],
-                            'Candidate source has not deployed.')
                     require(server['benchmarkDatabase'] == self.config['databases']['full'],
                             'Candidate database has not deployed.')
                     transport = self.control('transportMetrics')
                     require(transport['transport']['open'] == 0, 'Echo streams have not drained.')
-                    expected = self.state.get('serverExecutableSha256')
+                    expected = (self.state.get('serverExecutableSha256') or
+                                self.config.get('serverExecutableSha256'))
                     actual = server['executable']['executableSha256']
+                    require(actual != self.config['originalServerExecutableSha256'],
+                            'Candidate executable has not deployed.')
                     require(expected is None or expected == actual, 'Candidate executable changed.')
                 compute = self.compute()
                 require(compute['minInstances'] == compute['maxInstances'] == 1, 'Instance count changed.')
@@ -176,8 +177,14 @@ class Campaign:
         self.set_variables({'BENCHMARK_SCHEMA': 'full',
                             'BENCHMARK_DATABASE': self.config['databases']['full']},
                            self.config['projectDirectory'])
-        self.cli(['deploy', '--dart-version', '3.13.7', '--no-await', '--output',
-                  str(self.root / 'deployment.zip')])
+        current = self.metrics()['server']['executable']['executableSha256']
+        expected = (self.state.get('serverExecutableSha256') or
+                    self.config.get('serverExecutableSha256'))
+        if current != expected:
+            require(current == self.config['originalServerExecutableSha256'],
+                    'Unrelated executable before candidate deployment.')
+            self.cli(['deploy', '--dart-version', '3.13.7', '--no-await', '--output',
+                      str(self.root / 'deployment.zip')])
         metrics = self.wait_ready()
         self.state['serverExecutableSha256'] = metrics['server']['executable']['executableSha256']
         self.state['status'] = 'measuring'
@@ -299,12 +306,13 @@ class Campaign:
         snapshot = read(self.root / 'restoration-snapshot.json')
         self.check_protected(snapshot)
         before = self.metrics()
-        allowed = {self.config['originalServerExecutableSha256'], self.state.get('serverExecutableSha256')}
-        source = before['server'].get('preparedSource', {}).get('sourceRevision')
+        allowed = {self.config['originalServerExecutableSha256'], self.state.get('serverExecutableSha256'),
+                   self.config.get('serverExecutableSha256')}
+        source = (before['server'].get('preparedSource') or {}).get('sourceRevision')
         require(before['server']['executable']['executableSha256'] in allowed or
                 source == self.config['sourceRevision'], 'Unrelated deployment; refusing restoration.')
         require(self.clean(before), 'Streams or transactions have not drained before restoration.')
-        if source == self.config['sourceRevision']:
+        if before['server']['executable']['executableSha256'] != self.config['originalServerExecutableSha256']:
             require(self.control('transportMetrics')['transport']['open'] == 0, 'Echo streams remain.')
         current = self.compute()
         wanted = snapshot['compute']
