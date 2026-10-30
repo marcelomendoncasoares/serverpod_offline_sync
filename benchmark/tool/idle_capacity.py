@@ -203,7 +203,8 @@ class Campaign:
         label = f'{size}-echo-c{connections}-idle{idle_seconds}-{suffix}'
         receipt_path = self.root / 'cases' / f'{label}.json'
         workload = {'size': size, 'connections': connections, 'idleSeconds': idle_seconds,
-                    'openWorkers': 1 if size == 'small' else 4, 'workers': 8,
+                    'openWorkers': self.config.get('openWorkers', {}).get(size, 1 if size == 'small' else 4),
+                    'workers': 8,
                     'clientSha256': self.config['clientSha256'],
                     'serverExecutableSha256': self.state['serverExecutableSha256']}
         if receipt_path.exists():
@@ -373,6 +374,8 @@ class Campaign:
             'sizes': self.args.sizes, 'points': self.args.points,
             'screenIdleSeconds': 45, 'qualificationIdleSeconds': self.args.qualification_idle_seconds,
             'workers': 8, 'probeConcurrency': 8, 'closeConcurrency': 64,
+            'openWorkers': self.config.get('openWorkers',
+                {'small': 1, 'medium': 4, 'large': 4, 'xlarge': 4, 'xxlarge': 4}),
             'authentication': 'Authenticated benchmark admin, no database lookup.',
             'endpoint': 'Ordinary bidirectional Serverpod method stream echoing String messages.',
             'measurement': 'One Client and WebSocket per connection; no Offline Sync session or SQL.',

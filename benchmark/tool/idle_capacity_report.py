@@ -81,8 +81,8 @@ def render(directory):
                      ['minMs', 'medianMs', 'meanMs', 'p95Ms', 'maxMs']) +
                      f" | {number(None if memory is None else memory / 1024**2)} |")
     lines += ['', '## Interpretation and controls', '',
-        '- Setup is bounded: one opening worker on Small, four on the other tiers, '
-        'and one new connection per opening worker at a time. Connection establishment '
+        '- Setup is bounded to the per-tier opening-worker counts in manifest.json, '
+        'with one new connection per opening worker at a time. Connection establishment '
         'does not include Offline Sync startup or a user lookup in PostgreSQL.',
         '- Authentication uses the existing benchmark admin credential. No replica '
         'database or per-user domain data is created by these clients.',
