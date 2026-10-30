@@ -1,0 +1,12 @@
+{
+  "sourceRevision": "b978a35",
+  "dartSdk": "3.13.7",
+  "compilation": "AOT executable",
+  "executableSha256": "963569b9691207c8b432f85ef77ccce1fdf83a30d0b647eefedc5feff27c6d13",
+  "server": "Plain dart:io HttpServer and WebSocketTransformer; one fresh process per case.",
+  "client": "Separate process; eight simultaneous opens and 64 simultaneous closes.",
+  "messages": "One verified 128-byte echo on every connection, followed by five seconds idle.",
+  "transport": "Unencrypted loopback WebSocket; actual compression negotiation counted on server.",
+  "measurement": "Server RSS only; no Cloud limit, Serverpod, database, or Offline Sync.",
+  "limitation": "One run per point. RSS after close may reflect GC or allocator retention; this does not prove a leak."
+}

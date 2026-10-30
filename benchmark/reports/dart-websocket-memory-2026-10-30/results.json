@@ -1,0 +1,134 @@
+[
+  {
+    "connections": 256,
+    "compressionRequested": true,
+    "idleSeconds": 5,
+    "before": {
+      "port": 45855,
+      "open": 0,
+      "messages": 0,
+      "compressedHandshakes": 0,
+      "rssBytes": 7876608,
+      "maxRssBytes": 7585792,
+      "openFileDescriptors": 9
+    },
+    "opened": {
+      "port": 45855,
+      "open": 256,
+      "messages": 256,
+      "compressedHandshakes": 256,
+      "rssBytes": 77926400,
+      "maxRssBytes": 77578240,
+      "openFileDescriptors": 265
+    },
+    "afterClose": {
+      "port": 45855,
+      "open": 0,
+      "messages": 256,
+      "compressedHandshakes": 256,
+      "rssBytes": 78540800,
+      "maxRssBytes": 78233600,
+      "openFileDescriptors": 9
+    },
+    "serverRssIncreaseBytes": 70049792
+  },
+  {
+    "connections": 256,
+    "compressionRequested": false,
+    "idleSeconds": 5,
+    "before": {
+      "port": 40955,
+      "open": 0,
+      "messages": 0,
+      "compressedHandshakes": 0,
+      "rssBytes": 7958528,
+      "maxRssBytes": 72216576,
+      "openFileDescriptors": 9
+    },
+    "opened": {
+      "port": 40955,
+      "open": 256,
+      "messages": 256,
+      "compressedHandshakes": 0,
+      "rssBytes": 16478208,
+      "maxRssBytes": 72216576,
+      "openFileDescriptors": 265
+    },
+    "afterClose": {
+      "port": 40955,
+      "open": 0,
+      "messages": 256,
+      "compressedHandshakes": 0,
+      "rssBytes": 18853888,
+      "maxRssBytes": 72216576,
+      "openFileDescriptors": 9
+    },
+    "serverRssIncreaseBytes": 8519680
+  },
+  {
+    "connections": 2048,
+    "compressionRequested": true,
+    "idleSeconds": 5,
+    "before": {
+      "port": 40857,
+      "open": 0,
+      "messages": 0,
+      "compressedHandshakes": 0,
+      "rssBytes": 7819264,
+      "maxRssBytes": 74506240,
+      "openFileDescriptors": 9
+    },
+    "opened": {
+      "port": 40857,
+      "open": 2048,
+      "messages": 2048,
+      "compressedHandshakes": 2048,
+      "rssBytes": 528834560,
+      "maxRssBytes": 527802368,
+      "openFileDescriptors": 2057
+    },
+    "afterClose": {
+      "port": 40857,
+      "open": 0,
+      "messages": 2048,
+      "compressedHandshakes": 2048,
+      "rssBytes": 531537920,
+      "maxRssBytes": 530685952,
+      "openFileDescriptors": 9
+    },
+    "serverRssIncreaseBytes": 521015296
+  },
+  {
+    "connections": 2048,
+    "compressionRequested": false,
+    "idleSeconds": 5,
+    "before": {
+      "port": 38581,
+      "open": 0,
+      "messages": 0,
+      "compressedHandshakes": 0,
+      "rssBytes": 7753728,
+      "maxRssBytes": 556916736,
+      "openFileDescriptors": 9
+    },
+    "opened": {
+      "port": 38581,
+      "open": 2048,
+      "messages": 2048,
+      "compressedHandshakes": 0,
+      "rssBytes": 53809152,
+      "maxRssBytes": 556916736,
+      "openFileDescriptors": 2057
+    },
+    "afterClose": {
+      "port": 38581,
+      "open": 0,
+      "messages": 2048,
+      "compressedHandshakes": 0,
+      "rssBytes": 54104064,
+      "maxRssBytes": 556916736,
+      "openFileDescriptors": 9
+    },
+    "serverRssIncreaseBytes": 46055424
+  }
+]

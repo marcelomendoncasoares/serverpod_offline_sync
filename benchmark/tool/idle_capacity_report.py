@@ -85,7 +85,9 @@ def render(directory):
         'with one new connection per opening worker at a time. Connection establishment '
         'does not include Offline Sync startup or a user lookup in PostgreSQL.',
         '- Authentication uses the existing benchmark admin credential. No replica '
-        'database or per-user domain data is created by these clients.',
+        'database or per-user domain data is created by these clients. The server '
+        'still loads the benchmark application; this removes Offline Sync from '
+        'the measured endpoint, not from the process baseline.',
         '- Normal Serverpod keepalives remain enabled. There are no application '
         'messages during the idle interval, no automatic reconnects, and no retries.',
         '- SQL-free server metrics are sampled every five seconds. The earlier '
@@ -100,7 +102,19 @@ def render(directory):
         'although the echo endpoint does not use the database.',
         '- [results.json](results.json) preserves all verdicts, failures, actual '
         'server connection counts and generator observations. [samples.jsonl](samples.jsonl) '
-        'preserves every open/probe timing and client resource sample.',
+        'preserves every open/probe timing and client resource sample. '
+        '[resource-boundaries.json](resource-boundaries.json) records memory, '
+        'file descriptors and stream counts at each lifecycle boundary.',
+        '- Cases on a tier reuse the instance until a restart or resize. Some '
+        'opening failures occurred with memory still high after the preceding '
+        'case closed. A five-minute qualification can therefore fail during '
+        'opening even after the same count passed a shorter case. The two '
+        'columns are observed full-lifecycle passes, not independently measured '
+        'maximum idle capacities.',
+        '- A changed server instance and high sampled memory support memory '
+        'pressure as a candidate cause. No orchestrator OOM termination reason '
+        'was captured. High memory after close also does not by itself prove '
+        'a leak: garbage collection and allocator retention were not separated.',
         '- More idle streams do not imply the same number of simultaneous syncs. '
         'A native endpoint with no database work is a control for transport '
         'capacity, not a substitute for an application workload.', '',
