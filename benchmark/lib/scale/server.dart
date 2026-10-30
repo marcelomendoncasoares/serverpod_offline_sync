@@ -28,6 +28,7 @@ import 'common.dart'
 import 'diagnostics.dart' show sqlShape;
 import 'runtime_diagnostics.dart';
 import 'server_diagnostics.dart';
+import 'transport_probe.dart';
 import 'verification.dart' show snapshotOf;
 
 Map<String, bool>? _loadedSessionLogging;
@@ -221,6 +222,7 @@ class BenchmarkEndpoint extends Endpoint {
   BenchmarkEndpoint([StreamMetrics? metrics]) : metrics = metrics ?? StreamMetrics();
 
   final StreamMetrics metrics;
+  final transport = TransportProbe();
 
   @override
   bool get requireLogin => true;
@@ -237,6 +239,15 @@ class BenchmarkEndpoint extends Endpoint {
       'hintStatus' => _hintStatus(),
       'snapshot' => await _snapshot(session, input),
       'metrics' => await _metrics(session, exact: input['exact'] == true),
+      'transportMetrics' => {
+        'time': DateTime.now().toUtc().toIso8601String(),
+        'server': await serverIdentity(session.serverpod),
+        'process': processSample(),
+        'cpuCgroup': cpuCgroup.sample(),
+        'memoryCgroup': memoryCgroup.sample(),
+        'streams': metrics.sample(),
+        'transport': transport.sample(),
+      },
       'diagnostics' => serverDiagnostics.read(
         input['tail'] == true
             ? serverDiagnostics.sequence
@@ -422,6 +433,19 @@ class BenchmarkEndpoints extends EndpointDispatch {
       name: 'benchmark',
       endpoint: endpoint,
       methodConnectors: {
+        'echo': MethodStreamConnector(
+          name: 'echo',
+          params: {},
+          streamParams: {
+            'messages': StreamParameterDescription<String>(
+              name: 'messages',
+              nullable: false,
+            ),
+          },
+          returnType: MethodStreamReturnType.streamType,
+          call: (session, params, streams) =>
+              endpoint.transport.echo(streams['messages']!.cast<String>()),
+        ),
         'control': MethodConnector(
           name: 'control',
           params: {
