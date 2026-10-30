@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-10-30T20:13:22.506591+00:00",
+  "verified": true,
+  "protectedFilesVerified": 11,
+  "originalExecutableSha256": "e61d7523bf14fb3771ecaab9de26b98df2ad525b8bc7e9c2987cad615fae5ffc",
+  "memoryLimitBytes": 268435456,
+  "openOfflineSyncStreams": 0,
+  "benchmarkSchema": "full",
+  "benchmarkDatabase": "original",
+  "originalComputeAndVariablesVerifiedByRunner": true,
+  "idleInTransactionConnections": 0
+}

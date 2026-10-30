@@ -12,7 +12,61 @@ def read(path):
     return json.loads(path.read_text())
 
 
-def render(destination, campaigns):
+def control_summary(directory, destination):
+    directory = Path(directory)
+    relative = os.path.relpath(directory, destination)
+    rows = {row['label']: row for row in read(directory / 'results.json')}
+    admissions = read(directory / 'admission-controls.json')
+    compression = read(directory / 'compression-controls.json')
+    lines = ['', '## Fresh-instance follow-ups', '',
+        'The default-compression sweep above reuses each instance between '
+        'cases. These additional cases start on fresh instances and retain '
+        'the same server executable. They are separate measurements, not '
+        'replacements for the failed sweep cases.', '',
+        '| Control | Target | Opened / resumed | Full pass | Failure phase | Peak cgroup MiB |',
+        '|---|---:|---:|---|---|---:|',
+    ]
+    for control in admissions + compression:
+        row = rows[control['label']]
+        name = NAMES[row['size']]
+        description = name + (' cold, 32 opens, compressed' if control in admissions else
+                              f" compression {control['mode']}")
+        lines.append(f"| {description} | {row['connections']:,} | {row['opened']:,} / {row['resumed']:,} | "
+                     f"{'Yes' if row['passed'] else 'No'} | {row['failurePhase'] or '—'} | "
+                     f"{number(row['peakCgroupBytes'] / 1024**2)} |")
+
+    lines += ['',
+        'The XL/XXL confirmations use 32 simultaneous opens instead of 64 and '
+        'keep ordinary WebSocket compression. They test a different admission '
+        'condition; any setup failure still does not determine established '
+        'idle capacity.', '',
+        'The two Small 256-connection cases change only compression '
+        'negotiation between fresh instances. TLS, authentication, the '
+        'streaming protocol, opening rate, idle interval and probing remain '
+        'the same.', '',
+    ]
+    paired = {c['mode']: rows[c['label']] for c in compression if c['connections'] == 256}
+    if set(paired) == {'enabled', 'disabled'} and all(row['passed'] for row in paired.values()):
+        enabled, disabled = (paired[mode]['peakCgroupBytes'] for mode in ['enabled', 'disabled'])
+        reduction = (1 - disabled / enabled) * 100
+        lines += [
+            f'The 256-stream Cloud controls both passed. Peak container memory '
+            f'fell from {enabled / 1024**2:.1f} to {disabled / 1024**2:.1f} MiB '
+            f'({reduction:.1f}% lower) without compression. This includes the '
+            'process baseline and the complete case; it is not a per-socket '
+            'heap allocation measurement.', '',
+        ]
+
+    lines += [
+        f'See [the control report]({relative}/README.md) for exact failure '
+        'messages, negotiated headers, phase memory, full latency statistics '
+        'and restoration evidence. Compression remains a diagnostic option; '
+        'active sync traffic and bandwidth tradeoffs were not benchmarked.', '',
+    ]
+    return lines
+
+
+def render(destination, campaigns, controls=None):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
     sources = []
@@ -58,14 +112,14 @@ def render(destination, campaigns):
         ('All five instance sizes have completed their searches.' if len(tiers) == 5 else
          f'Interim report: {len(tiers)} of five instance sizes have completed their searches.'), '',
         '## Observed operating points', '',
-        '| Tier | RAM MiB | Concurrent opens | 45 s full pass | 5 min full pass | Resume median / p95 ms | Prior Offline Sync strict pass |',
-        '|---|---:|---:|---:|---:|---:|---:|',
+        '| Tier | RAM MiB | Visible CPU cores | Concurrent opens | 45 s full pass | 5 min full pass | Resume median / p95 ms | Prior Offline Sync strict pass |',
+        '|---|---:|---:|---:|---:|---:|---:|---:|',
     ]
 
     for size, name in NAMES.items():
         value = tiers.get(size)
         if value is None:
-            lines.append(f'| {name} | — | — | Pending | Pending | — | {PREVIOUS_IDLE[size]:,} |')
+            lines.append(f'| {name} | — | — | — | Pending | Pending | — | {PREVIOUS_IDLE[size]:,} |')
             continue
         tier = value['tier']
         selected = value['selected']
@@ -73,7 +127,7 @@ def render(destination, campaigns):
             raise ValueError('A completed tier has no passing five-minute trial: ' + size)
         latency = selected['probeLatency']
         opening = selected['openWorkers'] * selected.get('openConcurrencyPerWorker', 1)
-        lines.append(f"| {name} | {selected['memoryLimitBytes'] // 1024**2:,} | {opening} | "
+        lines.append(f"| {name} | {selected['memoryLimitBytes'] // 1024**2:,} | {selected['visibleCpuQuota']} | {opening} | "
                      f"{tier['largestShortPass']:,} | {tier['longIdleQualified']:,} | "
                      f"{number(latency['medianMs'])} / {number(latency['p95Ms'])} | {PREVIOUS_IDLE[size]:,} |")
 
@@ -100,6 +154,12 @@ def render(destination, campaigns):
             'does not certify a sub-second latency SLA. Rare long delays are '
             'retained; their source has not been isolated.',
         ]
+
+    if controls:
+        control_manifest = read(Path(controls) / 'manifest.json')
+        if control_manifest['serverExecutableSha256'] not in executables:
+            raise ValueError('The controls used a different server executable.')
+        lines += control_summary(controls, destination)
 
     lines += ['',
         'A full pass requires exact responses from every original connection, no '
@@ -144,10 +204,13 @@ def render(destination, campaigns):
         'the same.', '',
         'The server still loads the benchmark application and its diagnostics; '
         'this is not a stripped-down minimum-memory Serverpod executable. '
-        'Session persistence/console logging are disabled. Serverpod keepalives '
-        'continue during inactivity. SQL-free metrics are collected every five '
+        'Session persistence/console logging are disabled. The pinned Serverpod '
+        'client sends a JSON ping every 20 seconds and uses a 40-second '
+        'inactivity timeout; those keepalives continue during the idle interval. '
+        'SQL-free metrics are collected every five '
         'seconds. Generator limitations fail a trial rather than being '
-        'reported as server capacity.', '',
+        'reported as server capacity. Visible CPU quotas come from the '
+        'container cgroup; hidden ancestor limits remain unverified.', '',
     ]
 
     if len(opening_controls) == 2:
@@ -176,12 +239,14 @@ def render(destination, campaigns):
     (destination / 'manifest.json').write_text(json.dumps({
         'completeTiers': list(tiers), 'serverExecutableSha256': next(iter(executables)),
         'sources': sources, 'openingRateControls': opening_controls,
+        'controlDirectory': os.path.relpath(controls, destination) if controls else None,
     }, indent=2) + '\n')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--controls')
     parser.add_argument('campaigns', nargs='+')
     args = parser.parse_args()
-    render(args.output, args.campaigns)
+    render(args.output, args.campaigns, args.controls)

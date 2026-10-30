@@ -21,7 +21,9 @@ is not public. Session logging stays disabled.
    opening worker on Small and four on the other tiers. Probe concurrency stays
    eight and close concurrency stays 64 regardless of opening parallelism.
 3. Settle for five seconds, then keep every connection open without application
-   messages for 45 seconds. Normal transport keepalives continue. Sample server
+   messages for 45 seconds. Normal Serverpod JSON keepalives continue: the pinned
+   client sends a ping every 20 seconds and uses a 40-second inactivity timeout.
+   Sample server
    resources through an authenticated SQL-free control every five seconds.
 4. Echo a new unique payload on **every** existing connection, with one probe per
    worker at a time. Record minimum, median, mean, p95 and maximum request/response
@@ -140,4 +142,15 @@ boundaries independently of the measurement runner:
 ```sh
 python3 benchmark/tool/idle_capacity_audit.py --config /private/idle-capacity.json
 python3 benchmark/tool/idle_capacity_profile.py --config /private/idle-capacity.json
+```
+
+Render the per-campaign and combined reports after measurement, restoration and
+the independent audit finish. The controls report also requires the resource
+profile export above. Give the combined renderer the two disjoint tier campaigns
+when a sweep was continued with a different opening limit:
+
+```sh
+python3 benchmark/tool/idle_capacity_report.py /public/idle-results
+python3 benchmark/tool/stream_compression_report.py /public/compression-results
+python3 benchmark/tool/idle_capacity_combined_report.py --output /public/combined --controls /public/compression-results /public/initial-results /public/continued-results
 ```

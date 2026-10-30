@@ -1,0 +1,1546 @@
+[
+  {
+    "case": "large-echo-c64-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:06:51.710544Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 72880128,
+        "residentMemoryBytes": 86540288,
+        "cpuUserTicks": 994,
+        "cpuSystemTicks": 53
+      },
+      "init": {
+        "time": "2026-10-30T19:06:52.087795Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 73797632,
+        "residentMemoryBytes": 87089152,
+        "cpuUserTicks": 995,
+        "cpuSystemTicks": 53
+      },
+      "open": {
+        "time": "2026-10-30T19:06:55.682444Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 179,
+        "cgroupMemoryBytes": 89874432,
+        "residentMemoryBytes": 119607296,
+        "cpuUserTicks": 1017,
+        "cpuSystemTicks": 58
+      },
+      "idle": {
+        "time": "2026-10-30T19:07:46.916468Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 181,
+        "cgroupMemoryBytes": 99500032,
+        "residentMemoryBytes": 177795072,
+        "cpuUserTicks": 1058,
+        "cpuSystemTicks": 91
+      },
+      "probe": {
+        "time": "2026-10-30T19:07:49.172429Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 181,
+        "cgroupMemoryBytes": 99966976,
+        "residentMemoryBytes": 180600832,
+        "cpuUserTicks": 1060,
+        "cpuSystemTicks": 96
+      },
+      "close": {
+        "time": "2026-10-30T19:07:49.764209Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 123,
+        "cgroupMemoryBytes": 100311040,
+        "residentMemoryBytes": 182493184,
+        "cpuUserTicks": 1068,
+        "cpuSystemTicks": 99
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:07:50.003919Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 100433920,
+        "residentMemoryBytes": 183447552,
+        "cpuUserTicks": 1070,
+        "cpuSystemTicks": 99
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.234024,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.014443526825064532,
+      "cgroupMemoryIncreaseBytes": 9625600
+    }
+  },
+  {
+    "case": "large-echo-c256-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:07:56.146938Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 102486016,
+        "residentMemoryBytes": 193007616,
+        "cpuUserTicks": 1075,
+        "cpuSystemTicks": 109
+      },
+      "init": {
+        "time": "2026-10-30T19:07:56.428509Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 103174144,
+        "residentMemoryBytes": 193007616,
+        "cpuUserTicks": 1076,
+        "cpuSystemTicks": 109
+      },
+      "open": {
+        "time": "2026-10-30T19:08:06.977457Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 371,
+        "cgroupMemoryBytes": 165367808,
+        "residentMemoryBytes": 243503104,
+        "cpuUserTicks": 1143,
+        "cpuSystemTicks": 136
+      },
+      "idle": {
+        "time": "2026-10-30T19:08:58.233606Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 376,
+        "cgroupMemoryBytes": 185032704,
+        "residentMemoryBytes": 261455872,
+        "cpuUserTicks": 1191,
+        "cpuSystemTicks": 191
+      },
+      "probe": {
+        "time": "2026-10-30T19:09:06.288218Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 376,
+        "cgroupMemoryBytes": 186679296,
+        "residentMemoryBytes": 270913536,
+        "cpuUserTicks": 1221,
+        "cpuSystemTicks": 210
+      },
+      "close": {
+        "time": "2026-10-30T19:09:07.817175Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 186544128,
+        "residentMemoryBytes": 272310272,
+        "cpuUserTicks": 1246,
+        "cpuSystemTicks": 216
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:09:08.056351Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 186544128,
+        "residentMemoryBytes": 272310272,
+        "cpuUserTicks": 1247,
+        "cpuSystemTicks": 216
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.256149,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.020095149949716277,
+      "cgroupMemoryIncreaseBytes": 19664896
+    }
+  },
+  {
+    "case": "large-echo-c1024-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:09:14.549625Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 186544128,
+        "residentMemoryBytes": 272310272,
+        "cpuUserTicks": 1251,
+        "cpuSystemTicks": 221
+      },
+      "init": {
+        "time": "2026-10-30T19:09:14.804452Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 187514880,
+        "residentMemoryBytes": 272310272,
+        "cpuUserTicks": 1251,
+        "cpuSystemTicks": 223
+      },
+      "open": {
+        "time": "2026-10-30T19:09:54.321183Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1139,
+        "cgroupMemoryBytes": 385445888,
+        "residentMemoryBytes": 576258048,
+        "cpuUserTicks": 1550,
+        "cpuSystemTicks": 349
+      },
+      "idle": {
+        "time": "2026-10-30T19:10:45.606253Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1141,
+        "cgroupMemoryBytes": 415846400,
+        "residentMemoryBytes": 613003264,
+        "cpuUserTicks": 1744,
+        "cpuSystemTicks": 535
+      },
+      "probe": {
+        "time": "2026-10-30T19:11:17.664330Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1142,
+        "cgroupMemoryBytes": 428457984,
+        "residentMemoryBytes": 614084608,
+        "cpuUserTicks": 1910,
+        "cpuSystemTicks": 644
+      },
+      "close": {
+        "time": "2026-10-30T19:11:22.578565Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 428630016,
+        "residentMemoryBytes": 614158336,
+        "cpuUserTicks": 2020,
+        "cpuSystemTicks": 675
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:11:22.840357Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 428630016,
+        "residentMemoryBytes": 614158336,
+        "cpuUserTicks": 2020,
+        "cpuSystemTicks": 676
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.28507,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.07409563836024792,
+      "cgroupMemoryIncreaseBytes": 30400512
+    }
+  },
+  {
+    "case": "large-echo-c4096-idle45-screen",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:11:28.559361Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 428630016,
+        "residentMemoryBytes": 614158336,
+        "cpuUserTicks": 2023,
+        "cpuSystemTicks": 678
+      },
+      "init": {
+        "time": "2026-10-30T19:11:29.512053Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 428630016,
+        "residentMemoryBytes": 614158336,
+        "cpuUserTicks": 2023,
+        "cpuSystemTicks": 678
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "large-echo-c2560-idle45-refinement",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:14:03.247411Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 77185024,
+        "residentMemoryBytes": 90075136,
+        "cpuUserTicks": 949,
+        "cpuSystemTicks": 55
+      },
+      "init": {
+        "time": "2026-10-30T19:14:04.219219Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 78671872,
+        "residentMemoryBytes": 90730496,
+        "cpuUserTicks": 951,
+        "cpuSystemTicks": 55
+      },
+      "open": {
+        "time": "2026-10-30T19:15:42.048403Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2675,
+        "cgroupMemoryBytes": 748494848,
+        "residentMemoryBytes": 1315835904,
+        "cpuUserTicks": 2077,
+        "cpuSystemTicks": 636
+      },
+      "idle": {
+        "time": "2026-10-30T19:16:33.446505Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2677,
+        "cgroupMemoryBytes": 768806912,
+        "residentMemoryBytes": 1333559296,
+        "cpuUserTicks": 2469,
+        "cpuSystemTicks": 983
+      },
+      "probe": {
+        "time": "2026-10-30T19:18:11.846477Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2679,
+        "cgroupMemoryBytes": 798982144,
+        "residentMemoryBytes": 1360150528,
+        "cpuUserTicks": 3277,
+        "cpuSystemTicks": 1682
+      },
+      "close": {
+        "time": "2026-10-30T19:18:25.142846Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 801710080,
+        "residentMemoryBytes": 1362829312,
+        "cpuUserTicks": 3591,
+        "cpuSystemTicks": 1839
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:18:25.381323Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 801710080,
+        "residentMemoryBytes": 1362829312,
+        "cpuUserTicks": 3592,
+        "cpuSystemTicks": 1839
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.398102,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.143779628282772,
+      "cgroupMemoryIncreaseBytes": 20312064
+    }
+  },
+  {
+    "case": "large-echo-c3328-idle45-refinement",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:18:30.983117Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 804331520,
+        "residentMemoryBytes": 1364926464,
+        "cpuUserTicks": 3597,
+        "cpuSystemTicks": 1843
+      },
+      "init": {
+        "time": "2026-10-30T19:18:31.239296Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 804954112,
+        "residentMemoryBytes": 1364926464,
+        "cpuUserTicks": 3598,
+        "cpuSystemTicks": 1843
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "large-echo-c2560-idle300-qualification",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:20:12.328627Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 75124736,
+        "residentMemoryBytes": 88154112,
+        "cpuUserTicks": 976,
+        "cpuSystemTicks": 36
+      },
+      "init": {
+        "time": "2026-10-30T19:20:12.584901Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 75427840,
+        "residentMemoryBytes": 89989120,
+        "cpuUserTicks": 978,
+        "cpuSystemTicks": 36
+      },
+      "open": {
+        "time": "2026-10-30T19:21:45.839520Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2676,
+        "cgroupMemoryBytes": 747778048,
+        "residentMemoryBytes": 1318739968,
+        "cpuUserTicks": 2016,
+        "cpuSystemTicks": 637
+      },
+      "idle": {
+        "time": "2026-10-30T19:26:52.281260Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2680,
+        "cgroupMemoryBytes": 799567872,
+        "residentMemoryBytes": 1363750912,
+        "cpuUserTicks": 4246,
+        "cpuSystemTicks": 2205
+      },
+      "probe": {
+        "time": "2026-10-30T19:28:17.782406Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2681,
+        "cgroupMemoryBytes": 805724160,
+        "residentMemoryBytes": 1369038848,
+        "cpuUserTicks": 4966,
+        "cpuSystemTicks": 2831
+      },
+      "close": {
+        "time": "2026-10-30T19:28:32.039176Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 807661568,
+        "residentMemoryBytes": 1370218496,
+        "cpuUserTicks": 5281,
+        "cpuSystemTicks": 3000
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:28:32.295672Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 807661568,
+        "residentMemoryBytes": 1370218496,
+        "cpuUserTicks": 5281,
+        "cpuSystemTicks": 3000
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 306.44174,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.12393872975659255,
+      "cgroupMemoryIncreaseBytes": 51789824
+    }
+  },
+  {
+    "case": "xlarge-echo-c64-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:30:05.013622Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 71880704,
+        "residentMemoryBytes": 87891968,
+        "cpuUserTicks": 697,
+        "cpuSystemTicks": 27
+      },
+      "init": {
+        "time": "2026-10-30T19:30:06.029761Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 72187904,
+        "residentMemoryBytes": 88240128,
+        "cpuUserTicks": 698,
+        "cpuSystemTicks": 27
+      },
+      "open": {
+        "time": "2026-10-30T19:30:08.022012Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 179,
+        "cgroupMemoryBytes": 87728128,
+        "residentMemoryBytes": 120225792,
+        "cpuUserTicks": 713,
+        "cpuSystemTicks": 28
+      },
+      "idle": {
+        "time": "2026-10-30T19:30:59.277910Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 183,
+        "cgroupMemoryBytes": 97443840,
+        "residentMemoryBytes": 178982912,
+        "cpuUserTicks": 758,
+        "cpuSystemTicks": 62
+      },
+      "probe": {
+        "time": "2026-10-30T19:31:01.529915Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 184,
+        "cgroupMemoryBytes": 98000896,
+        "residentMemoryBytes": 182452224,
+        "cpuUserTicks": 763,
+        "cpuSystemTicks": 66
+      },
+      "close": {
+        "time": "2026-10-30T19:31:02.102044Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 130,
+        "cgroupMemoryBytes": 98324480,
+        "residentMemoryBytes": 184336384,
+        "cpuUserTicks": 766,
+        "cpuSystemTicks": 70
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:31:02.527434Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 98476032,
+        "residentMemoryBytes": 185294848,
+        "cpuUserTicks": 766,
+        "cpuSystemTicks": 71
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.255898,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.015412860389257058,
+      "cgroupMemoryIncreaseBytes": 9715712
+    }
+  },
+  {
+    "case": "xlarge-echo-c256-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:31:06.527884Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 99815424,
+        "residentMemoryBytes": 193626112,
+        "cpuUserTicks": 770,
+        "cpuSystemTicks": 83
+      },
+      "init": {
+        "time": "2026-10-30T19:31:06.805144Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 99741696,
+        "residentMemoryBytes": 193404928,
+        "cpuUserTicks": 771,
+        "cpuSystemTicks": 85
+      },
+      "open": {
+        "time": "2026-10-30T19:31:12.777475Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 371,
+        "cgroupMemoryBytes": 155791360,
+        "residentMemoryBytes": 233648128,
+        "cpuUserTicks": 816,
+        "cpuSystemTicks": 99
+      },
+      "idle": {
+        "time": "2026-10-30T19:32:04.021851Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 377,
+        "cgroupMemoryBytes": 185028608,
+        "residentMemoryBytes": 256307200,
+        "cpuUserTicks": 887,
+        "cpuSystemTicks": 159
+      },
+      "probe": {
+        "time": "2026-10-30T19:32:12.516011Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 377,
+        "cgroupMemoryBytes": 186871808,
+        "residentMemoryBytes": 267321344,
+        "cpuUserTicks": 914,
+        "cpuSystemTicks": 176
+      },
+      "close": {
+        "time": "2026-10-30T19:32:14.046980Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 124,
+        "cgroupMemoryBytes": 178184192,
+        "residentMemoryBytes": 239984640,
+        "cpuUserTicks": 934,
+        "cpuSystemTicks": 188
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:32:14.282617Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 178188288,
+        "residentMemoryBytes": 239984640,
+        "cpuUserTicks": 936,
+        "cpuSystemTicks": 188
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.244376,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.025563780891780203,
+      "cgroupMemoryIncreaseBytes": 29237248
+    }
+  },
+  {
+    "case": "xlarge-echo-c1024-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:32:20.117692Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 178290688,
+        "residentMemoryBytes": 239984640,
+        "cpuUserTicks": 942,
+        "cpuSystemTicks": 190
+      },
+      "init": {
+        "time": "2026-10-30T19:32:20.380639Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 178339840,
+        "residentMemoryBytes": 239984640,
+        "cpuUserTicks": 942,
+        "cpuSystemTicks": 191
+      },
+      "open": {
+        "time": "2026-10-30T19:32:39.529896Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1139,
+        "cgroupMemoryBytes": 385589248,
+        "residentMemoryBytes": 574140416,
+        "cpuUserTicks": 1181,
+        "cpuSystemTicks": 265
+      },
+      "idle": {
+        "time": "2026-10-30T19:33:30.803785Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1144,
+        "cgroupMemoryBytes": 414015488,
+        "residentMemoryBytes": 609517568,
+        "cpuUserTicks": 1367,
+        "cpuSystemTicks": 438
+      },
+      "probe": {
+        "time": "2026-10-30T19:34:04.119032Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1146,
+        "cgroupMemoryBytes": 421167104,
+        "residentMemoryBytes": 609030144,
+        "cpuUserTicks": 1562,
+        "cpuSystemTicks": 598
+      },
+      "close": {
+        "time": "2026-10-30T19:34:09.020603Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 123,
+        "cgroupMemoryBytes": 420982784,
+        "residentMemoryBytes": 608595968,
+        "cpuUserTicks": 1638,
+        "cpuSystemTicks": 624
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:34:09.631901Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 420982784,
+        "residentMemoryBytes": 608595968,
+        "cpuUserTicks": 1638,
+        "cpuSystemTicks": 626
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.273889,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.07001614408456515,
+      "cgroupMemoryIncreaseBytes": 28426240
+    }
+  },
+  {
+    "case": "xlarge-echo-c4096-idle45-screen",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:34:15.605586Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 420982784,
+        "residentMemoryBytes": 608595968,
+        "cpuUserTicks": 1640,
+        "cpuSystemTicks": 628
+      },
+      "init": {
+        "time": "2026-10-30T19:34:16.588568Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 420982784,
+        "residentMemoryBytes": 608595968,
+        "cpuUserTicks": 1642,
+        "cpuSystemTicks": 628
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:36:05.752976Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 1280843776,
+        "residentMemoryBytes": 1983627264,
+        "cpuUserTicks": 3209,
+        "cpuSystemTicks": 1608
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "xlarge-echo-c2560-idle45-refinement",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:36:11.985576Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 1282641920,
+        "residentMemoryBytes": 1993723904,
+        "cpuUserTicks": 3213,
+        "cpuSystemTicks": 1680
+      },
+      "init": {
+        "time": "2026-10-30T19:36:12.308793Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 1282936832,
+        "residentMemoryBytes": 1995558912,
+        "cpuUserTicks": 3213,
+        "cpuSystemTicks": 1696
+      },
+      "open": {
+        "time": "2026-10-30T19:37:00.510659Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2675,
+        "cgroupMemoryBytes": 1364447232,
+        "residentMemoryBytes": 1821503488,
+        "cpuUserTicks": 3868,
+        "cpuSystemTicks": 2134
+      },
+      "idle": {
+        "time": "2026-10-30T19:37:51.832938Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2676,
+        "cgroupMemoryBytes": 1389178880,
+        "residentMemoryBytes": 1841852416,
+        "cpuUserTicks": 4247,
+        "cpuSystemTicks": 2497
+      },
+      "probe": {
+        "time": "2026-10-30T19:39:13.749705Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2681,
+        "cgroupMemoryBytes": 1410138112,
+        "residentMemoryBytes": 1862356992,
+        "cpuUserTicks": 4888,
+        "cpuSystemTicks": 3094
+      },
+      "close": {
+        "time": "2026-10-30T19:39:26.273966Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1414447104,
+        "residentMemoryBytes": 1865728000,
+        "cpuUserTicks": 5099,
+        "cpuSystemTicks": 3223
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:39:26.587145Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1414561792,
+        "residentMemoryBytes": 1866645504,
+        "cpuUserTicks": 5099,
+        "cpuSystemTicks": 3229
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.322279,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.14457658826881012,
+      "cgroupMemoryIncreaseBytes": 24731648
+    }
+  },
+  {
+    "case": "xlarge-echo-c3328-idle45-refinement",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:39:32.528537Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1408843776,
+        "residentMemoryBytes": 1869496320,
+        "cpuUserTicks": 5103,
+        "cpuSystemTicks": 3300
+      },
+      "init": {
+        "time": "2026-10-30T19:39:33.529292Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1409146880,
+        "residentMemoryBytes": 1871331328,
+        "cpuUserTicks": 5104,
+        "cpuSystemTicks": 3311
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:40:35.353805Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 115,
+        "cgroupMemoryBytes": 1592786944,
+        "residentMemoryBytes": 2226896896,
+        "cpuUserTicks": 5534,
+        "cpuSystemTicks": 3960
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "xlarge-echo-c2560-idle300-qualification",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:40:43.029855Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 117,
+        "cgroupMemoryBytes": 1596592128,
+        "residentMemoryBytes": 2226933760,
+        "cpuUserTicks": 5540,
+        "cpuSystemTicks": 4056
+      },
+      "init": {
+        "time": "2026-10-30T19:40:43.530033Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 1597353984,
+        "residentMemoryBytes": 2226933760,
+        "cpuUserTicks": 5543,
+        "cpuSystemTicks": 4071
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "xlarge-echo-c1280-idle300-qualification",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:42:16.312886Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 72503296,
+        "residentMemoryBytes": 86155264,
+        "cpuUserTicks": 724,
+        "cpuSystemTicks": 21
+      },
+      "init": {
+        "time": "2026-10-30T19:42:16.585947Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 73367552,
+        "residentMemoryBytes": 86155264,
+        "cpuUserTicks": 724,
+        "cpuSystemTicks": 22
+      },
+      "open": {
+        "time": "2026-10-30T19:42:40.451944Z",
+        "echoStreams": 1280,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1395,
+        "cgroupMemoryBytes": 398364672,
+        "residentMemoryBytes": 695795712,
+        "cpuUserTicks": 1050,
+        "cpuSystemTicks": 149
+      },
+      "idle": {
+        "time": "2026-10-30T19:47:46.743406Z",
+        "echoStreams": 1280,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1402,
+        "cgroupMemoryBytes": 440868864,
+        "residentMemoryBytes": 731254784,
+        "cpuUserTicks": 2353,
+        "cpuSystemTicks": 923
+      },
+      "probe": {
+        "time": "2026-10-30T19:48:28.233257Z",
+        "echoStreams": 1280,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1402,
+        "cgroupMemoryBytes": 441241600,
+        "residentMemoryBytes": 731267072,
+        "cpuUserTicks": 2553,
+        "cpuSystemTicks": 1082
+      },
+      "close": {
+        "time": "2026-10-30T19:48:34.178582Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 125,
+        "cgroupMemoryBytes": 441507840,
+        "residentMemoryBytes": 731901952,
+        "cpuUserTicks": 2659,
+        "cpuSystemTicks": 1124
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:48:34.442462Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 441507840,
+        "residentMemoryBytes": 731901952,
+        "cpuUserTicks": 2659,
+        "cpuSystemTicks": 1126
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 306.291462,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.06781122746412042,
+      "cgroupMemoryIncreaseBytes": 42504192
+    }
+  },
+  {
+    "case": "xxlarge-echo-c64-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:50:01.447965Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 73179136,
+        "residentMemoryBytes": 87715840,
+        "cpuUserTicks": 648,
+        "cpuSystemTicks": 32
+      },
+      "init": {
+        "time": "2026-10-30T19:50:02.528848Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 74452992,
+        "residentMemoryBytes": 87715840,
+        "cpuUserTicks": 648,
+        "cpuSystemTicks": 32
+      },
+      "open": {
+        "time": "2026-10-30T19:50:04.779891Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 179,
+        "cgroupMemoryBytes": 90054656,
+        "residentMemoryBytes": 118353920,
+        "cpuUserTicks": 661,
+        "cpuSystemTicks": 38
+      },
+      "idle": {
+        "time": "2026-10-30T19:50:56.051523Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 180,
+        "cgroupMemoryBytes": 99454976,
+        "residentMemoryBytes": 174202880,
+        "cpuUserTicks": 690,
+        "cpuSystemTicks": 74
+      },
+      "probe": {
+        "time": "2026-10-30T19:50:58.339154Z",
+        "echoStreams": 64,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 180,
+        "cgroupMemoryBytes": 100241408,
+        "residentMemoryBytes": 178921472,
+        "cpuUserTicks": 694,
+        "cpuSystemTicks": 76
+      },
+      "close": {
+        "time": "2026-10-30T19:50:59.057786Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 100413440,
+        "residentMemoryBytes": 179843072,
+        "cpuUserTicks": 698,
+        "cpuSystemTicks": 78
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:50:59.322800Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 116,
+        "cgroupMemoryBytes": 100724736,
+        "residentMemoryBytes": 181714944,
+        "cpuUserTicks": 698,
+        "cpuSystemTicks": 80
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.271632,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.012677575779136504,
+      "cgroupMemoryIncreaseBytes": 9400320
+    }
+  },
+  {
+    "case": "xxlarge-echo-c256-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:51:04.028220Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 102490112,
+        "residentMemoryBytes": 187310080,
+        "cpuUserTicks": 706,
+        "cpuSystemTicks": 88
+      },
+      "init": {
+        "time": "2026-10-30T19:51:04.284565Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 102490112,
+        "residentMemoryBytes": 187310080,
+        "cpuUserTicks": 706,
+        "cpuSystemTicks": 89
+      },
+      "open": {
+        "time": "2026-10-30T19:51:10.281148Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 372,
+        "cgroupMemoryBytes": 157765632,
+        "residentMemoryBytes": 234254336,
+        "cpuUserTicks": 742,
+        "cpuSystemTicks": 106
+      },
+      "idle": {
+        "time": "2026-10-30T19:52:01.553136Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 376,
+        "cgroupMemoryBytes": 186744832,
+        "residentMemoryBytes": 255213568,
+        "cpuUserTicks": 810,
+        "cpuSystemTicks": 158
+      },
+      "probe": {
+        "time": "2026-10-30T19:52:09.540270Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 376,
+        "cgroupMemoryBytes": 188428288,
+        "residentMemoryBytes": 264810496,
+        "cpuUserTicks": 830,
+        "cpuSystemTicks": 176
+      },
+      "close": {
+        "time": "2026-10-30T19:52:10.972331Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 188592128,
+        "residentMemoryBytes": 267141120,
+        "cpuUserTicks": 848,
+        "cpuSystemTicks": 185
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:52:11.223571Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 188592128,
+        "residentMemoryBytes": 267141120,
+        "cpuUserTicks": 848,
+        "cpuSystemTicks": 186
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.271988,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.023404592776858975,
+      "cgroupMemoryIncreaseBytes": 28979200
+    }
+  },
+  {
+    "case": "xxlarge-echo-c1024-idle45-screen",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:52:16.544034Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 191172608,
+        "residentMemoryBytes": 267141120,
+        "cpuUserTicks": 855,
+        "cpuSystemTicks": 191
+      },
+      "init": {
+        "time": "2026-10-30T19:52:17.524014Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 192778240,
+        "residentMemoryBytes": 267141120,
+        "cpuUserTicks": 857,
+        "cpuSystemTicks": 193
+      },
+      "open": {
+        "time": "2026-10-30T19:52:36.529336Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1139,
+        "cgroupMemoryBytes": 385458176,
+        "residentMemoryBytes": 572051456,
+        "cpuUserTicks": 1068,
+        "cpuSystemTicks": 274
+      },
+      "idle": {
+        "time": "2026-10-30T19:53:27.783938Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1142,
+        "cgroupMemoryBytes": 414167040,
+        "residentMemoryBytes": 607965184,
+        "cpuUserTicks": 1237,
+        "cpuSystemTicks": 450
+      },
+      "probe": {
+        "time": "2026-10-30T19:53:59.217275Z",
+        "echoStreams": 1024,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1144,
+        "cgroupMemoryBytes": 423383040,
+        "residentMemoryBytes": 610394112,
+        "cpuUserTicks": 1391,
+        "cpuSystemTicks": 561
+      },
+      "close": {
+        "time": "2026-10-30T19:54:03.762288Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 425541632,
+        "residentMemoryBytes": 613785600,
+        "cpuUserTicks": 1480,
+        "cpuSystemTicks": 589
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:54:04.047666Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 426328064,
+        "residentMemoryBytes": 613785600,
+        "cpuUserTicks": 1480,
+        "cpuSystemTicks": 592
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.254602,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.06731102896867681,
+      "cgroupMemoryIncreaseBytes": 28708864
+    }
+  },
+  {
+    "case": "xxlarge-echo-c4096-idle45-screen",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:54:11.048719Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 429875200,
+        "residentMemoryBytes": 620732416,
+        "cpuUserTicks": 1488,
+        "cpuSystemTicks": 614
+      },
+      "init": {
+        "time": "2026-10-30T19:54:11.342436Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 430112768,
+        "residentMemoryBytes": 622571520,
+        "cpuUserTicks": 1488,
+        "cpuSystemTicks": 619
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:55:26.821781Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 116,
+        "cgroupMemoryBytes": 1227173888,
+        "residentMemoryBytes": 2043138048,
+        "cpuUserTicks": 2703,
+        "cpuSystemTicks": 1373
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "xxlarge-echo-c2560-idle45-refinement",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:55:32.000564Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 116,
+        "cgroupMemoryBytes": 1228652544,
+        "residentMemoryBytes": 2052313088,
+        "cpuUserTicks": 2705,
+        "cpuSystemTicks": 1447
+      },
+      "init": {
+        "time": "2026-10-30T19:55:32.335469Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 116,
+        "cgroupMemoryBytes": 1228947456,
+        "residentMemoryBytes": 2054152192,
+        "cpuUserTicks": 2706,
+        "cpuSystemTicks": 1460
+      },
+      "open": {
+        "time": "2026-10-30T19:56:19.377127Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2675,
+        "cgroupMemoryBytes": 1563680768,
+        "residentMemoryBytes": 2200305664,
+        "cpuUserTicks": 3372,
+        "cpuSystemTicks": 2005
+      },
+      "idle": {
+        "time": "2026-10-30T19:57:10.619696Z",
+        "echoStreams": 2560,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 2680,
+        "cgroupMemoryBytes": 1584959488,
+        "residentMemoryBytes": 2218733568,
+        "cpuUserTicks": 3729,
+        "cpuSystemTicks": 2356
+      },
+      "cleanup": {
+        "time": "2026-10-30T19:58:49.340097Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 1609654272,
+        "residentMemoryBytes": 2224693248,
+        "cpuUserTicks": 4340,
+        "cpuSystemTicks": 3140
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.242569,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.1381663749137948,
+      "cgroupMemoryIncreaseBytes": 21278720
+    }
+  },
+  {
+    "case": "xxlarge-echo-c1792-idle45-refinement",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T19:58:56.711649Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 1614917632,
+        "residentMemoryBytes": 2224746496,
+        "cpuUserTicks": 4349,
+        "cpuSystemTicks": 3222
+      },
+      "init": {
+        "time": "2026-10-30T19:58:57.035861Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 122,
+        "cgroupMemoryBytes": 1615368192,
+        "residentMemoryBytes": 2224746496,
+        "cpuUserTicks": 4351,
+        "cpuSystemTicks": 3228
+      },
+      "open": {
+        "time": "2026-10-30T19:59:30.519072Z",
+        "echoStreams": 1792,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1908,
+        "cgroupMemoryBytes": 1786556416,
+        "residentMemoryBytes": 2485780480,
+        "cpuUserTicks": 4779,
+        "cpuSystemTicks": 3624
+      },
+      "idle": {
+        "time": "2026-10-30T20:00:21.845222Z",
+        "echoStreams": 1792,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1911,
+        "cgroupMemoryBytes": 1817075712,
+        "residentMemoryBytes": 2511585280,
+        "cpuUserTicks": 5017,
+        "cpuSystemTicks": 4030
+      },
+      "probe": {
+        "time": "2026-10-30T20:01:18.031739Z",
+        "echoStreams": 1792,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1913,
+        "cgroupMemoryBytes": 1818439680,
+        "residentMemoryBytes": 2512109568,
+        "cpuUserTicks": 5373,
+        "cpuSystemTicks": 4342
+      },
+      "close": {
+        "time": "2026-10-30T20:01:26.778229Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1819844608,
+        "residentMemoryBytes": 2513682432,
+        "cpuUserTicks": 5527,
+        "cpuSystemTicks": 4437
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:01:27.696650Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1819844608,
+        "residentMemoryBytes": 2513682432,
+        "cpuUserTicks": 5527,
+        "cpuSystemTicks": 4445
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.32615,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.1254721034014825,
+      "cgroupMemoryIncreaseBytes": 30519296
+    }
+  },
+  {
+    "case": "xxlarge-echo-c1792-idle300-qualification",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:01:31.884355Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1819848704,
+        "residentMemoryBytes": 2513682432,
+        "cpuUserTicks": 5530,
+        "cpuSystemTicks": 4455
+      },
+      "init": {
+        "time": "2026-10-30T20:01:32.852790Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 1819848704,
+        "residentMemoryBytes": 2513682432,
+        "cpuUserTicks": 5531,
+        "cpuSystemTicks": 4455
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:02:13.309053Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 118,
+        "cgroupMemoryBytes": 2028675072,
+        "residentMemoryBytes": 2790223872,
+        "cpuUserTicks": 6010,
+        "cpuSystemTicks": 4960
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "xxlarge-echo-c896-idle300-qualification",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:02:19.756187Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 2030297088,
+        "residentMemoryBytes": 2800316416,
+        "cpuUserTicks": 6017,
+        "cpuSystemTicks": 5054
+      },
+      "init": {
+        "time": "2026-10-30T20:02:20.166316Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 2030592000,
+        "residentMemoryBytes": 2802151424,
+        "cpuUserTicks": 6018,
+        "cpuSystemTicks": 5076
+      },
+      "open": {
+        "time": "2026-10-30T20:02:37.412617Z",
+        "echoStreams": 896,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1012,
+        "cgroupMemoryBytes": 2118807552,
+        "residentMemoryBytes": 2941456384,
+        "cpuUserTicks": 6212,
+        "cpuSystemTicks": 5294
+      },
+      "idle": {
+        "time": "2026-10-30T20:07:43.763850Z",
+        "echoStreams": 896,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1016,
+        "cgroupMemoryBytes": 2127589376,
+        "residentMemoryBytes": 2946723840,
+        "cpuUserTicks": 7148,
+        "cpuSystemTicks": 6121
+      },
+      "probe": {
+        "time": "2026-10-30T20:08:12.048858Z",
+        "echoStreams": 896,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 1015,
+        "cgroupMemoryBytes": 2128384000,
+        "residentMemoryBytes": 2947248128,
+        "cpuUserTicks": 7236,
+        "cpuSystemTicks": 6343
+      },
+      "close": {
+        "time": "2026-10-30T20:08:16.320518Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 2128232448,
+        "residentMemoryBytes": 2947248128,
+        "cpuUserTicks": 7310,
+        "cpuSystemTicks": 6390
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:08:16.545508Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 119,
+        "cgroupMemoryBytes": 2128232448,
+        "residentMemoryBytes": 2947248128,
+        "cpuUserTicks": 7310,
+        "cpuSystemTicks": 6391
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 306.351233,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.057548323952722594,
+      "cgroupMemoryIncreaseBytes": 8781824
+    }
+  }
+]
