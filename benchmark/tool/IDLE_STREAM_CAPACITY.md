@@ -108,3 +108,23 @@ getter always returns an empty string and cannot verify negotiation. Tests check
 both compressed and uncompressed streams against a real database-free Serverpod
 server. The Cloud control also checks every recorded handshake before accepting
 its attribution result. Its restoration procedure is the same as the main sweep.
+
+For a separate local attribution check, compile `websocket_memory.dart` to an AOT
+executable, then pass it an output JSON path. It starts a fresh plain Dart
+WebSocket server process for each 256/2,048-connection compression-on/off case,
+checks every exact echo and negotiated mode, and records server RSS before,
+while connected and after closing. There is no Serverpod dependency or TLS in
+this local control. Its five-second idle periods are not Cloud qualifications.
+
+```sh
+dart compile exe benchmark/tool/websocket_memory.dart -o /private/websocket-memory
+/private/websocket-memory /private/websocket-memory.json
+```
+
+After either Cloud campaign, audit raw receipts and export sanitized resource
+boundaries independently of the measurement runner:
+
+```sh
+python3 benchmark/tool/idle_capacity_audit.py --config /private/idle-capacity.json
+python3 benchmark/tool/idle_capacity_profile.py --config /private/idle-capacity.json
+```
