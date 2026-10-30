@@ -2,6 +2,8 @@
 
 import copy
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -109,6 +111,35 @@ class MergeTest(unittest.TestCase):
             capacity_merge.merge([first], self.output)
         with self.assertRaisesRegex(ValueError, 'distinct sibling directories'):
             capacity_merge.merge([first], first)
+
+    def test_cli_combines_reports_with_default_and_explicit_client_selection(self):
+        first = self.report('discovery', [observation('one')])
+        second = self.report('qualification', [observation('two')])
+
+        for client_sha in [None, 'client']:
+            with self.subTest(client_sha=client_sha):
+                output = self.root / ('combined-' + (client_sha or 'default'))
+                command = [
+                    sys.executable, str(Path(capacity_merge.__file__)),
+                    '--reports', str(first), str(second),
+                    '--output', str(output),
+                ]
+                if client_sha is not None:
+                    command.extend(['--client-sha256', client_sha])
+
+                process = subprocess.run(
+                    command, capture_output=True, text=True, timeout=30,
+                )
+
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(json.loads(process.stdout), {
+                    'reports': 2, 'uniqueRuns': 2, 'selectedClient': 'client',
+                })
+                self.assertEqual(
+                    {row['label'] for row in capacity_merge.read(output / 'results.json')},
+                    {'one', 'two'},
+                )
+                self.assertTrue((output / 'SIZING.md').exists())
 
 
 if __name__ == '__main__':

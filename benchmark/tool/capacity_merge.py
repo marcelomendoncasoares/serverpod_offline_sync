@@ -199,7 +199,7 @@ def main():
     parser.add_argument('--output', required=True)
     parser.add_argument('--client-sha256')
     args = parser.parse_args()
-    print(json.dumps(merge(args.reports, args.output, args.client_sha)))
+    print(json.dumps(merge(args.reports, args.output, args.client_sha256)))
 
 
 if __name__ == '__main__':

@@ -243,7 +243,8 @@ def render(report):
         'The largest successful trial below completed setup, the idle hold, resumed delivery '
         'and exact verification, and drained cleanly. Failed attempts remain listed with their '
         'phase. A setup failure is not a measured ceiling for already established streams; '
-        'a single pass is not a reliability guarantee. Probe traffic is bounded to eight users.', '',
+        'a single pass is not a reliability guarantee. Resumed-delivery probes cover every idle '
+        'user, with at most eight users being probed at once in these trials.', '',
         '| Size | Largest fully verified trial | Probe median / mean / p95 (ms) | Peak cgroup MiB | Unsuccessful target / phase |',
         '|---|---:|---|---:|---|',
     ]
