@@ -40,7 +40,7 @@ def main():
             for admission_index, spec in enumerate(admissions):
                 campaign.transition(spec['size'])
                 before = campaign.wait_ready()
-                if admission_index:
+                if admission_index and admissions[admission_index - 1]['size'] == spec['size']:
                     campaign.cli(['deploy', '--redeploy', '--no-await'])
                     before = campaign.wait_ready(changed_instance=before['server']['instanceId'])
                 os.environ['BENCHMARK_WEBSOCKET_COMPRESSION'] = 'enabled'

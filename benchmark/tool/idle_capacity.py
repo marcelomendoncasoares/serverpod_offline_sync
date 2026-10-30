@@ -371,6 +371,8 @@ class Campaign:
                 stream.write(json.dumps(sample) + '\n')
         save(report / 'manifest.json', {
             'sourceRevision': self.config['sourceRevision'],
+            'serverSourceRevision': self.config['sourceRevision'],
+            'clientSourceRevision': self.config.get('clientSourceRevision', self.config['sourceRevision']),
             'serverExecutableSha256': self.state.get('serverExecutableSha256'),
             'clientSha256': self.config['clientSha256'],
             'createdAt': utc(), 'restorationRequired': self.state.get('restorationRequired'),

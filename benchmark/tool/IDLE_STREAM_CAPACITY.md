@@ -119,8 +119,8 @@ config's explicit opening limit. They are intended to revisit a failed setup
 count at a slower admission rate, not to advance to a heavier count after a
 failure. Every successful upgrade must report HTTP 101 and negotiated deflate;
 failed upgrade HTTP statuses are recorded separately. The 2026-10-30 run uses
-this to check XL at 4,096 streams with 32 concurrent opens after an HTTP upgrade
-failure in the 64-open sweep with substantial memory still available.
+this to check XL and XXL at 4,096 streams with 32 concurrent opens after HTTP
+upgrade failures in the 64-open sweeps with substantial memory still available.
 
 For a separate local attribution check, compile `websocket_memory.dart` to an AOT
 executable, then pass it an output JSON path. It starts a fresh plain Dart
