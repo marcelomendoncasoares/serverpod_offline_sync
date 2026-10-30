@@ -357,6 +357,15 @@ class Campaign:
                     'openLatency', 'probeLatency', 'phaseSeconds']},
                 'generator': receipt['generator'],
                 'peakCgroupBytes': max(memory, default=None),
+                'peakServerFileDescriptors': max((e['process']['openFds'] for e in server_samples
+                                                 if isinstance(e['process'].get('openFds'), int)),
+                                                default=None),
+                'peakObservedServerStreams': max((e['transport']['open'] for e in server_samples),
+                                                default=None),
+                'peakWorkerFileDescriptors': max((e['process']['openFds'] for e in events
+                                                 if e['type'] == 'workerSample' and
+                                                 isinstance(e['process'].get('openFds'), int)),
+                                                default=None),
                 'memoryLimitBytes': receipt['before']['memoryCgroup']['limitBytes'],
                 'visibleCpuQuota': receipt['before']['cpuCgroup']['quotaCores'],
                 'serverOpenAtBoundaries': {phase: value['transport']['open']

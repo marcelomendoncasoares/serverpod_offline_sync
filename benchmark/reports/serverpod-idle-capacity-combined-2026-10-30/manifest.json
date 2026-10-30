@@ -16,7 +16,7 @@
         "clientSourceRevision": "ae804fd2ad25cd5941b9b13b8ef121b356e93cc2",
         "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
         "clientSha256": "cb48e7e93250d2c6ffd1882f553acabdde62e3e315590cd65890dc0d5e5ff0ed",
-        "createdAt": "2026-10-30T20:30:47.206526+00:00",
+        "createdAt": "2026-10-30T20:48:37.573151+00:00",
         "restorationRequired": false,
         "sizes": [
           "small",
@@ -59,7 +59,7 @@
         "clientSourceRevision": "b4b8f5daec84ab3e694ce0d05eded441ed899355",
         "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
         "clientSha256": "ccf8b34800785b434c94e113c5bc1e30319143b9e65fa44e164479f03ef0a99c",
-        "createdAt": "2026-10-30T20:24:32.404965+00:00",
+        "createdAt": "2026-10-30T20:48:38.301024+00:00",
         "restorationRequired": false,
         "sizes": [
           "large",
@@ -111,5 +111,5 @@
       "resumeMedianMs": 237.428
     }
   ],
-  "controlDirectory": null
+  "controlDirectory": "../serverpod-stream-compression-2026-10-30"
 }

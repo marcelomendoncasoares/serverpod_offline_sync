@@ -1,0 +1,10 @@
+{
+  "casesAudited": 5,
+  "passingCasesAudited": 2,
+  "rawTimingObservationsAudited": 10862,
+  "allExportedSamplesMatchRawEvents": true,
+  "exactStreamIdentitiesCountsAndMessagesChecked": true,
+  "buildIdentitiesChecked": true,
+  "casesWithoutClientSummary": [],
+  "restorationRequired": false
+}

@@ -4,6 +4,8 @@ These are ordinary authenticated Serverpod method streams on the Cloud benchmark
 
 All five instance sizes have completed their searches.
 
+**These are demonstrated full-lifecycle passes, not exact maximum idle capacities.** Opening failures, retained memory between cases and occasional disconnects stopped parts of the search. The non-monotonic results do not show that XXL has less hardware capacity than Large.
+
 ## Observed operating points
 
 | Tier | RAM MiB | Visible CPU cores | Concurrent opens | 45 s full pass | 5 min full pass | Resume median / p95 ms | Prior Offline Sync strict pass |
@@ -27,6 +29,29 @@ These are exact per-connection echo durations in milliseconds, including the cli
 | XXL | 896 | 214.3 | 238.5 | 248.5 | 310.0 | 541.2 |
 
 Across all completed passing trials, the worst recorded echo was 16,885.4 ms in `large-echo-c2560-idle45-refinement` ([case evidence](../serverpod-idle-capacity-larger-tiers-2026-10-30/README.md)). A capacity pass does not certify a sub-second latency SLA. Rare long delays are retained; their source has not been isolated.
+
+## Fresh-instance follow-ups
+
+The default-compression sweep above reuses each instance between cases. These additional cases start on fresh instances and retain the same server executable. They are separate measurements, not replacements for the failed sweep cases.
+
+| Control | Target | Opened / resumed | Full pass | Failure phase | Peak cgroup MiB |
+|---|---:|---:|---|---|---:|
+| XL cold, 32 opens, compressed | 4,096 | 3,957 / 0 | No | open | 1,076.9 |
+| XXL cold, 32 opens, compressed | 4,096 | 4,035 / 0 | No | open | 1,096.8 |
+| Small compression enabled | 256 | 256 / 256 | Yes | — | 157.8 |
+| Small compression disabled | 256 | 256 / 256 | Yes | — | 132.8 |
+| Small compression disabled | 2,048 | 1,846 / 0 | No | open | 130.7 |
+
+The XL/XXL confirmations use 32 simultaneous opens instead of 64 and keep ordinary WebSocket compression. They test a different admission condition; any setup failure still does not determine established idle capacity.
+
+The two Small 256-connection cases change only compression negotiation between fresh instances. TLS, authentication, the streaming protocol, opening rate, idle interval and probing remain the same.
+
+The 256-stream Cloud controls both passed. Peak container memory fell from 157.8 to 132.8 MiB (15.8% lower) without compression. This includes the process baseline and the complete case; it is not a per-socket heap allocation measurement.
+
+The 2,048-connection Small test with compression disabled failed during open. Its first recorded close code was `1002` after HTTP upgrade `101`. Peak sampled container memory was 130.7 MiB of 256 MiB. Memory savings therefore did not establish a reliable larger idle capacity; the transport failure needs separate investigation.
+
+See [the control report](../serverpod-stream-compression-2026-10-30/README.md) for exact failure messages, negotiated headers, phase memory, full latency statistics and restoration evidence. Compression remains a diagnostic option; active sync traffic and bandwidth tradeoffs were not benchmarked.
+
 
 A full pass requires exact responses from every original connection, no unexpected disconnects or reconnects, stable server identity, complete observations and zero remaining streams after close. Resume probes are limited to eight at a time; this measures idle residency and eventual responsiveness, not thousands of simultaneous active requests.
 

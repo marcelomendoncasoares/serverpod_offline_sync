@@ -1,0 +1,100 @@
+[
+  {
+    "label": "small-echo-c256-idle45-compression-enabled",
+    "mode": "enabled",
+    "connections": 256,
+    "idleSeconds": 45,
+    "passed": true,
+    "negotiatedExtensions": [
+      "permessage-deflate; client_max_window_bits=15"
+    ],
+    "checkedHandshakes": 256,
+    "recordedAt": "2026-10-30T20:30:36.831076+00:00",
+    "firstTransportFailures": [],
+    "nonUpgradeHttpStatuses": [],
+    "webSocketCloseCodes": [],
+    "failureCountNote": "Error and EOF can both be emitted; cleanup after the first fault can emit more events."
+  },
+  {
+    "label": "small-echo-c256-idle45-compression-disabled",
+    "mode": "disabled",
+    "connections": 256,
+    "idleSeconds": 45,
+    "passed": true,
+    "negotiatedExtensions": [
+      ""
+    ],
+    "checkedHandshakes": 256,
+    "recordedAt": "2026-10-30T20:33:57.085556+00:00",
+    "firstTransportFailures": [],
+    "nonUpgradeHttpStatuses": [],
+    "webSocketCloseCodes": [],
+    "failureCountNote": "Error and EOF can both be emitted; cleanup after the first fault can emit more events."
+  },
+  {
+    "label": "small-echo-c2048-idle300-compression-disabled",
+    "mode": "disabled",
+    "connections": 2048,
+    "idleSeconds": 300,
+    "passed": false,
+    "negotiatedExtensions": [
+      ""
+    ],
+    "checkedHandshakes": 1846,
+    "recordedAt": "2026-10-30T20:41:59.987311+00:00",
+    "firstTransportFailures": [
+      {
+        "time": "2026-10-30T20:40:15.970928Z",
+        "phase": "open",
+        "worker": 7,
+        "type": "streamFailure",
+        "connection": 247,
+        "error": "Method stream WebSocket connection closed",
+        "upgradeHttpStatus": 101,
+        "webSocketCloseCode": 1002
+      },
+      {
+        "time": "2026-10-30T20:40:15.970998Z",
+        "phase": "open",
+        "worker": 7,
+        "type": "streamFailure",
+        "connection": 247,
+        "error": "Bad state: Stream ended before intentional close.",
+        "upgradeHttpStatus": 101,
+        "webSocketCloseCode": 1002
+      },
+      {
+        "time": "2026-10-30T20:40:16.188304Z",
+        "phase": "open",
+        "worker": 0,
+        "type": "streamFailure",
+        "connection": 792,
+        "error": "Method stream WebSocket connection closed",
+        "upgradeHttpStatus": 101,
+        "webSocketCloseCode": 1002
+      },
+      {
+        "time": "2026-10-30T20:40:16.188396Z",
+        "phase": "open",
+        "worker": 0,
+        "type": "streamFailure",
+        "connection": 792,
+        "error": "Bad state: Stream ended before intentional close.",
+        "upgradeHttpStatus": 101,
+        "webSocketCloseCode": 1002
+      },
+      {
+        "time": "2026-10-30T20:40:16.526875Z",
+        "phase": "open",
+        "worker": 7,
+        "type": "fatal",
+        "error": "Bad state: 247: Method stream WebSocket connection closed"
+      }
+    ],
+    "nonUpgradeHttpStatuses": [],
+    "webSocketCloseCodes": [
+      1002
+    ],
+    "failureCountNote": "Error and EOF can both be emitted; cleanup after the first fault can emit more events."
+  }
+]

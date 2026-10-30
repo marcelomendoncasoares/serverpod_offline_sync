@@ -49,6 +49,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 177094656,
+    "peakServerFileDescriptors": 109,
+    "peakObservedServerStreams": 64,
+    "peakWorkerFileDescriptors": 16,
     "memoryLimitBytes": 268435456,
     "visibleCpuQuota": 0.1,
     "serverOpenAtBoundaries": {
@@ -92,6 +95,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 234815488,
+    "peakServerFileDescriptors": 205,
+    "peakObservedServerStreams": 164,
+    "peakWorkerFileDescriptors": 40,
     "memoryLimitBytes": 268435456,
     "visibleCpuQuota": 0.1,
     "serverOpenAtBoundaries": {},

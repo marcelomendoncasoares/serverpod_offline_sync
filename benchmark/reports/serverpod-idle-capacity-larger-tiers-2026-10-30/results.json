@@ -50,6 +50,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 100433920,
+    "peakServerFileDescriptors": 181,
+    "peakObservedServerStreams": 64,
+    "peakWorkerFileDescriptors": 16,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -114,6 +117,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 186679296,
+    "peakServerFileDescriptors": 376,
+    "peakObservedServerStreams": 256,
+    "peakWorkerFileDescriptors": 40,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -178,6 +184,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 428630016,
+    "peakServerFileDescriptors": 1143,
+    "peakObservedServerStreams": 1024,
+    "peakWorkerFileDescriptors": 136,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -244,6 +253,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1017819136,
+    "peakServerFileDescriptors": 3117,
+    "peakObservedServerStreams": 2992,
+    "peakWorkerFileDescriptors": 395,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -303,6 +315,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 802627584,
+    "peakServerFileDescriptors": 2679,
+    "peakObservedServerStreams": 2560,
+    "peakWorkerFileDescriptors": 328,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -368,6 +383,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1017430016,
+    "peakServerFileDescriptors": 1895,
+    "peakObservedServerStreams": 1777,
+    "peakWorkerFileDescriptors": 240,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -427,6 +445,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 807661568,
+    "peakServerFileDescriptors": 2683,
+    "peakObservedServerStreams": 2560,
+    "peakWorkerFileDescriptors": 328,
     "memoryLimitBytes": 1073741824,
     "visibleCpuQuota": 0.5,
     "serverOpenAtBoundaries": {
@@ -491,6 +512,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 98476032,
+    "peakServerFileDescriptors": 184,
+    "peakObservedServerStreams": 64,
+    "peakWorkerFileDescriptors": 16,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -555,6 +579,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 186871808,
+    "peakServerFileDescriptors": 377,
+    "peakObservedServerStreams": 256,
+    "peakWorkerFileDescriptors": 40,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -619,6 +646,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 421167104,
+    "peakServerFileDescriptors": 1146,
+    "peakObservedServerStreams": 1024,
+    "peakWorkerFileDescriptors": 136,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -679,6 +709,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1280843776,
+    "peakServerFileDescriptors": 3646,
+    "peakObservedServerStreams": 3521,
+    "peakWorkerFileDescriptors": 520,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -739,6 +772,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1414561792,
+    "peakServerFileDescriptors": 2681,
+    "peakObservedServerStreams": 2560,
+    "peakWorkerFileDescriptors": 328,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -799,6 +835,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1592786944,
+    "peakServerFileDescriptors": 663,
+    "peakObservedServerStreams": 535,
+    "peakWorkerFileDescriptors": 420,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -858,6 +897,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1992261632,
+    "peakServerFileDescriptors": 2248,
+    "peakObservedServerStreams": 2113,
+    "peakWorkerFileDescriptors": 320,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -917,6 +959,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 441556992,
+    "peakServerFileDescriptors": 1402,
+    "peakObservedServerStreams": 1280,
+    "peakWorkerFileDescriptors": 168,
     "memoryLimitBytes": 2147483648,
     "visibleCpuQuota": 1.0,
     "serverOpenAtBoundaries": {
@@ -981,6 +1026,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 100724736,
+    "peakServerFileDescriptors": 180,
+    "peakObservedServerStreams": 64,
+    "peakWorkerFileDescriptors": 16,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1045,6 +1093,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 188633088,
+    "peakServerFileDescriptors": 376,
+    "peakObservedServerStreams": 256,
+    "peakWorkerFileDescriptors": 40,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1109,6 +1160,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 426328064,
+    "peakServerFileDescriptors": 1144,
+    "peakObservedServerStreams": 1024,
+    "peakWorkerFileDescriptors": 136,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1169,6 +1223,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1227173888,
+    "peakServerFileDescriptors": 3116,
+    "peakObservedServerStreams": 3000,
+    "peakWorkerFileDescriptors": 451,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1232,6 +1289,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1609654272,
+    "peakServerFileDescriptors": 2680,
+    "peakObservedServerStreams": 2560,
+    "peakWorkerFileDescriptors": 328,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1294,6 +1354,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 1819844608,
+    "peakServerFileDescriptors": 1913,
+    "peakObservedServerStreams": 1792,
+    "peakWorkerFileDescriptors": 232,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1354,6 +1417,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 2028675072,
+    "peakServerFileDescriptors": 1680,
+    "peakObservedServerStreams": 1545,
+    "peakWorkerFileDescriptors": 208,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {
@@ -1414,6 +1480,9 @@
       "note": "Sum of process RSS can count shared memory more than once."
     },
     "peakCgroupBytes": 2128384000,
+    "peakServerFileDescriptors": 1016,
+    "peakObservedServerStreams": 896,
+    "peakWorkerFileDescriptors": 120,
     "memoryLimitBytes": 4294967296,
     "visibleCpuQuota": 2.0,
     "serverOpenAtBoundaries": {

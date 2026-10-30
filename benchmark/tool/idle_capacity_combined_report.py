@@ -57,6 +57,23 @@ def control_summary(directory, destination):
             'heap allocation measurement.', '',
         ]
 
+    for control in compression:
+        row = rows[control['label']]
+        failures = control['firstTransportFailures']
+        if row['passed'] or not failures:
+            continue
+        first = failures[0]
+        lines += [
+            f"The {row['connections']:,}-connection Small test with compression "
+            f"{control['mode']} failed during {row['failurePhase']}. Its first "
+            f"recorded close code was `{first.get('webSocketCloseCode')}` after "
+            f"HTTP upgrade `{first.get('upgradeHttpStatus')}`. Peak sampled "
+            f"container memory was {row['peakCgroupBytes'] / 1024**2:.1f} MiB "
+            f"of {row['memoryLimitBytes'] / 1024**2:.0f} MiB. Memory savings "
+            'therefore did not establish a reliable larger idle capacity; '
+            'the transport failure needs separate investigation.', '',
+        ]
+
     lines += [
         f'See [the control report]({relative}/README.md) for exact failure '
         'messages, negotiated headers, phase memory, full latency statistics '
@@ -111,6 +128,11 @@ def render(destination, campaigns, controls=None):
         'SQL and creates no Offline Sync session or local replica.', '',
         ('All five instance sizes have completed their searches.' if len(tiers) == 5 else
          f'Interim report: {len(tiers)} of five instance sizes have completed their searches.'), '',
+        '**These are demonstrated full-lifecycle passes, not exact maximum '
+        'idle capacities.** Opening failures, retained memory between cases '
+        'and occasional disconnects stopped parts of the search. The '
+        'non-monotonic results do not show that XXL has less hardware '
+        'capacity than Large.', '',
         '## Observed operating points', '',
         '| Tier | RAM MiB | Visible CPU cores | Concurrent opens | 45 s full pass | 5 min full pass | Resume median / p95 ms | Prior Offline Sync strict pass |',
         '|---|---:|---:|---:|---:|---:|---:|---:|',

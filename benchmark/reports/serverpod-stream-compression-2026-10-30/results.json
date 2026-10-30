@@ -1,0 +1,313 @@
+[
+  {
+    "label": "xlarge-echo-c4096-idle300-admission-slower",
+    "size": "xlarge",
+    "connections": 4096,
+    "idleSeconds": 300,
+    "openWorkers": 8,
+    "openConcurrencyPerWorker": 4,
+    "workers": 8,
+    "clientSha256": "01040464396747a4f99ff4728a4d89850a4fb45187d48b3ba6ae2fbbce5dca2b",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Bad state: Worker 7 failed: Method stream connection attempt timed out",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "3511 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 3957,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 3511,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 3957,
+      "minMs": 747.854,
+      "medianMs": 1113.029,
+      "meanMs": 1212.0842259287338,
+      "p95Ms": 1709.062,
+      "maxMs": 2777.907
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003223
+    },
+    "generator": {
+      "samples": 158,
+      "peakSumRssBytes": 2020388864,
+      "minimumHostAvailableBytes": 37600808960,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 1129246720,
+    "peakServerFileDescriptors": 3987,
+    "peakObservedServerStreams": 3864,
+    "peakWorkerFileDescriptors": 520,
+    "memoryLimitBytes": 2147483648,
+    "visibleCpuQuota": 1.0,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "xxlarge-echo-c4096-idle300-admission-slower",
+    "size": "xxlarge",
+    "connections": 4096,
+    "idleSeconds": 300,
+    "openWorkers": 8,
+    "openConcurrencyPerWorker": 4,
+    "workers": 8,
+    "clientSha256": "01040464396747a4f99ff4728a4d89850a4fb45187d48b3ba6ae2fbbce5dca2b",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Bad state: Worker 7 failed: Method stream connection attempt timed out",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "2043 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 4035,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 2043,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 4035,
+      "minMs": 746.272,
+      "medianMs": 1021.507,
+      "meanMs": 1197.9112713754648,
+      "p95Ms": 1693.369,
+      "maxMs": 5853.713
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.003452
+    },
+    "generator": {
+      "samples": 157,
+      "peakSumRssBytes": 1989644288,
+      "minimumHostAvailableBytes": 37473787904,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 1150062592,
+    "peakServerFileDescriptors": 4079,
+    "peakObservedServerStreams": 3960,
+    "peakWorkerFileDescriptors": 520,
+    "memoryLimitBytes": 4294967296,
+    "visibleCpuQuota": 2.0,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c256-idle45-compression-enabled",
+    "size": "small",
+    "connections": 256,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "openConcurrencyPerWorker": 1,
+    "workers": 8,
+    "clientSha256": "01040464396747a4f99ff4728a4d89850a4fb45187d48b3ba6ae2fbbce5dca2b",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 256,
+    "resumed": 256,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 256,
+      "minMs": 755.992,
+      "medianMs": 1096.4095,
+      "meanMs": 1211.0285078125,
+      "p95Ms": 1740.374,
+      "maxMs": 2499.171
+    },
+    "probeLatency": {
+      "count": 256,
+      "minMs": 216.782,
+      "medianMs": 271.6005,
+      "meanMs": 307.2360078125,
+      "p95Ms": 521.355,
+      "maxMs": 713.105
+    },
+    "phaseSeconds": {
+      "init": 0.00376,
+      "open": 41.821119,
+      "idle": 46.002739,
+      "probe": 10.264236,
+      "close": 4.797529
+    },
+    "generator": {
+      "samples": 106,
+      "peakSumRssBytes": 325054464,
+      "minimumHostAvailableBytes": 36997672960,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 165498880,
+    "peakServerFileDescriptors": 296,
+    "peakObservedServerStreams": 256,
+    "peakWorkerFileDescriptors": 40,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 256,
+      "idle": 256,
+      "probe": 256,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c256-idle45-compression-disabled",
+    "size": "small",
+    "connections": 256,
+    "idleSeconds": 45,
+    "openWorkers": 8,
+    "openConcurrencyPerWorker": 1,
+    "workers": 8,
+    "clientSha256": "01040464396747a4f99ff4728a4d89850a4fb45187d48b3ba6ae2fbbce5dca2b",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": true,
+    "failurePhase": null,
+    "failures": [],
+    "opened": 256,
+    "resumed": 256,
+    "idleCompleted": true,
+    "streamFailures": 0,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 256,
+      "minMs": 749.527,
+      "medianMs": 876.942,
+      "meanMs": 1059.86626953125,
+      "p95Ms": 1604.384,
+      "maxMs": 1930.7
+    },
+    "probeLatency": {
+      "count": 256,
+      "minMs": 216.786,
+      "medianMs": 251.0395,
+      "meanMs": 255.39871484375,
+      "p95Ms": 302.918,
+      "maxMs": 391.69
+    },
+    "phaseSeconds": {
+      "init": 0.0049,
+      "open": 35.788153,
+      "idle": 46.003304,
+      "probe": 8.312797,
+      "close": 3.706137
+    },
+    "generator": {
+      "samples": 95,
+      "peakSumRssBytes": 257605632,
+      "minimumHostAvailableBytes": 38649278464,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 139296768,
+    "peakServerFileDescriptors": 295,
+    "peakObservedServerStreams": 256,
+    "peakWorkerFileDescriptors": 40,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "open": 256,
+      "idle": 256,
+      "probe": 256,
+      "close": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  },
+  {
+    "label": "small-echo-c2048-idle300-compression-disabled",
+    "size": "small",
+    "connections": 2048,
+    "idleSeconds": 300,
+    "openWorkers": 8,
+    "openConcurrencyPerWorker": 1,
+    "workers": 8,
+    "clientSha256": "01040464396747a4f99ff4728a4d89850a4fb45187d48b3ba6ae2fbbce5dca2b",
+    "serverExecutableSha256": "a7d4a2f0b1666e37be30ead14d5d11f26698589d101d99e33430df440d840301",
+    "passed": false,
+    "failurePhase": "open",
+    "failures": [
+      "Bad state: Worker 7 failed: Bad state: 247: Method stream WebSocket connection closed",
+      "Not every stream opened.",
+      "Not every stream resumed.",
+      "827 stream failures.",
+      "Idle interval did not complete.",
+      "Connection identities are incomplete."
+    ],
+    "opened": 1846,
+    "resumed": 0,
+    "idleCompleted": false,
+    "streamFailures": 827,
+    "sampleFailures": 0,
+    "cleanupVerified": true,
+    "openLatency": {
+      "count": 1846,
+      "minMs": 752.315,
+      "medianMs": 1278.722,
+      "meanMs": 1367.392895449621,
+      "p95Ms": 2193.118,
+      "maxMs": 5595.4
+    },
+    "probeLatency": null,
+    "phaseSeconds": {
+      "init": 0.004045
+    },
+    "generator": {
+      "samples": 352,
+      "peakSumRssBytes": 829349888,
+      "minimumHostAvailableBytes": 37193453568,
+      "guardReason": null,
+      "errors": [],
+      "note": "Sum of process RSS can count shared memory more than once."
+    },
+    "peakCgroupBytes": 137039872,
+    "peakServerFileDescriptors": 1626,
+    "peakObservedServerStreams": 1591,
+    "peakWorkerFileDescriptors": 264,
+    "memoryLimitBytes": 268435456,
+    "visibleCpuQuota": 0.1,
+    "serverOpenAtBoundaries": {
+      "before": 0,
+      "init": 0,
+      "cleanup": 0
+    },
+    "serverInstanceChanged": false
+  }
+]

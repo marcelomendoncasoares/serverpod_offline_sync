@@ -1,0 +1,134 @@
+[
+  {
+    "label": "xlarge-echo-c4096-idle300-admission-slower",
+    "size": "xlarge",
+    "connections": 4096,
+    "idleSeconds": 300,
+    "openingConcurrency": 32,
+    "passed": false,
+    "checkedHandshakes": 3957,
+    "firstTransportFailures": [
+      {
+        "time": "2026-10-30T20:22:17.321857Z",
+        "phase": "open",
+        "worker": 4,
+        "type": "streamFailure",
+        "connection": 3876,
+        "error": "Method stream connection attempt timed out",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:22:17.321931Z",
+        "phase": "open",
+        "worker": 4,
+        "type": "streamFailure",
+        "connection": 3876,
+        "error": "Bad state: Stream ended before intentional close.",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:22:17.633844Z",
+        "phase": "open",
+        "worker": 5,
+        "type": "streamFailure",
+        "connection": 3885,
+        "error": "Method stream connection attempt timed out",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:22:17.633916Z",
+        "phase": "open",
+        "worker": 5,
+        "type": "streamFailure",
+        "connection": 3885,
+        "error": "Bad state: Stream ended before intentional close.",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:22:17.660784Z",
+        "phase": "open",
+        "worker": 7,
+        "type": "streamFailure",
+        "connection": 3839,
+        "error": "Method stream connection attempt timed out",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      }
+    ],
+    "nonUpgradeHttpStatuses": [],
+    "webSocketCloseCodes": [],
+    "failureCountNote": "Error and EOF can both be emitted; cleanup after the first fault can emit more events.",
+    "compression": "permessage-deflate",
+    "recordedAt": "2026-10-30T20:22:31.655572+00:00"
+  },
+  {
+    "label": "xxlarge-echo-c4096-idle300-admission-slower",
+    "size": "xxlarge",
+    "connections": 4096,
+    "idleSeconds": 300,
+    "openingConcurrency": 32,
+    "passed": false,
+    "checkedHandshakes": 4035,
+    "firstTransportFailures": [
+      {
+        "time": "2026-10-30T20:26:49.734956Z",
+        "phase": "open",
+        "worker": 6,
+        "type": "streamFailure",
+        "connection": 3966,
+        "error": "Method stream connection attempt timed out",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:26:49.735083Z",
+        "phase": "open",
+        "worker": 6,
+        "type": "streamFailure",
+        "connection": 3966,
+        "error": "Bad state: Stream ended before intentional close.",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:26:49.821983Z",
+        "phase": "open",
+        "worker": 3,
+        "type": "streamFailure",
+        "connection": 3955,
+        "error": "Method stream connection attempt timed out",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:26:49.822074Z",
+        "phase": "open",
+        "worker": 3,
+        "type": "streamFailure",
+        "connection": 3955,
+        "error": "Bad state: Stream ended before intentional close.",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      },
+      {
+        "time": "2026-10-30T20:26:50.640012Z",
+        "phase": "open",
+        "worker": 7,
+        "type": "streamFailure",
+        "connection": 4047,
+        "error": "Method stream connection attempt timed out",
+        "upgradeHttpStatus": null,
+        "webSocketCloseCode": null
+      }
+    ],
+    "nonUpgradeHttpStatuses": [],
+    "webSocketCloseCodes": [],
+    "failureCountNote": "Error and EOF can both be emitted; cleanup after the first fault can emit more events.",
+    "compression": "permessage-deflate",
+    "recordedAt": "2026-10-30T20:27:03.726650+00:00"
+  }
+]

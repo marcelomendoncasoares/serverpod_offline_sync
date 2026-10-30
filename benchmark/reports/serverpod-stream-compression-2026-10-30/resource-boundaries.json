@@ -1,0 +1,282 @@
+[
+  {
+    "case": "xlarge-echo-c4096-idle300-admission-slower",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:19:46.008050Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 73670656,
+        "residentMemoryBytes": 87826432,
+        "cpuUserTicks": 667,
+        "cpuSystemTicks": 39
+      },
+      "init": {
+        "time": "2026-10-30T20:19:46.266116Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 120,
+        "cgroupMemoryBytes": 73826304,
+        "residentMemoryBytes": 88743936,
+        "cpuUserTicks": 667,
+        "cpuSystemTicks": 39
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:22:30.005834Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 116,
+        "cgroupMemoryBytes": 1129246720,
+        "residentMemoryBytes": 2003374080,
+        "cpuUserTicks": 4520,
+        "cpuSystemTicks": 2142
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "xxlarge-echo-c4096-idle300-admission-slower",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:24:18.032158Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 74612736,
+        "residentMemoryBytes": 88842240,
+        "cpuUserTicks": 706,
+        "cpuSystemTicks": 40
+      },
+      "init": {
+        "time": "2026-10-30T20:24:19.029536Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 121,
+        "cgroupMemoryBytes": 74928128,
+        "residentMemoryBytes": 90677248,
+        "cpuUserTicks": 708,
+        "cpuSystemTicks": 40
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:27:02.279854Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 115,
+        "cgroupMemoryBytes": 1150062592,
+        "residentMemoryBytes": 2038947840,
+        "cpuUserTicks": 2727,
+        "cpuSystemTicks": 1335
+      }
+    },
+    "idleInterval": null
+  },
+  {
+    "case": "small-echo-c256-idle45-compression-enabled",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:28:44.149036Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 36,
+        "cgroupMemoryBytes": 79941632,
+        "residentMemoryBytes": 101789696,
+        "cpuUserTicks": 1050,
+        "cpuSystemTicks": 93
+      },
+      "init": {
+        "time": "2026-10-30T20:28:45.281480Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 37,
+        "cgroupMemoryBytes": 80244736,
+        "residentMemoryBytes": 103624704,
+        "cpuUserTicks": 1052,
+        "cpuSystemTicks": 94
+      },
+      "open": {
+        "time": "2026-10-30T20:29:27.352498Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 290,
+        "cgroupMemoryBytes": 149434368,
+        "residentMemoryBytes": 227553280,
+        "cpuUserTicks": 1313,
+        "cpuSystemTicks": 288
+      },
+      "idle": {
+        "time": "2026-10-30T20:30:19.012255Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 296,
+        "cgroupMemoryBytes": 159473664,
+        "residentMemoryBytes": 284741632,
+        "cpuUserTicks": 1457,
+        "cpuSystemTicks": 570
+      },
+      "probe": {
+        "time": "2026-10-30T20:30:29.829766Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 295,
+        "cgroupMemoryBytes": 161579008,
+        "residentMemoryBytes": 297115648,
+        "cpuUserTicks": 1539,
+        "cpuSystemTicks": 645
+      },
+      "close": {
+        "time": "2026-10-30T20:30:35.511787Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 47,
+        "cgroupMemoryBytes": 164409344,
+        "residentMemoryBytes": 298786816,
+        "cpuUserTicks": 1616,
+        "cpuSystemTicks": 694
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:30:36.107630Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 39,
+        "cgroupMemoryBytes": 165498880,
+        "residentMemoryBytes": 298786816,
+        "cpuUserTicks": 1617,
+        "cpuSystemTicks": 700
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.659757,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.0824626410844325,
+      "cgroupMemoryIncreaseBytes": 10039296
+    }
+  },
+  {
+    "case": "small-echo-c256-idle45-compression-disabled",
+    "passed": true,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:32:15.280488Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 37,
+        "cgroupMemoryBytes": 79769600,
+        "residentMemoryBytes": 100720640,
+        "cpuUserTicks": 1057,
+        "cpuSystemTicks": 94
+      },
+      "init": {
+        "time": "2026-10-30T20:32:15.545186Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 37,
+        "cgroupMemoryBytes": 79917056,
+        "residentMemoryBytes": 101638144,
+        "cpuUserTicks": 1057,
+        "cpuSystemTicks": 95
+      },
+      "open": {
+        "time": "2026-10-30T20:32:51.577962Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 290,
+        "cgroupMemoryBytes": 101715968,
+        "residentMemoryBytes": 130011136,
+        "cpuUserTicks": 1192,
+        "cpuSystemTicks": 160
+      },
+      "idle": {
+        "time": "2026-10-30T20:33:42.908260Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 295,
+        "cgroupMemoryBytes": 135581696,
+        "residentMemoryBytes": 153944064,
+        "cpuUserTicks": 1345,
+        "cpuSystemTicks": 211
+      },
+      "probe": {
+        "time": "2026-10-30T20:33:51.512708Z",
+        "echoStreams": 256,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 295,
+        "cgroupMemoryBytes": 138530816,
+        "residentMemoryBytes": 153944064,
+        "cpuUserTicks": 1417,
+        "cpuSystemTicks": 220
+      },
+      "close": {
+        "time": "2026-10-30T20:33:55.566254Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 43,
+        "cgroupMemoryBytes": 139186176,
+        "residentMemoryBytes": 153944064,
+        "cpuUserTicks": 1474,
+        "cpuSystemTicks": 229
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:33:55.905793Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 40,
+        "cgroupMemoryBytes": 139296768,
+        "residentMemoryBytes": 153944064,
+        "cpuUserTicks": 1475,
+        "cpuSystemTicks": 229
+      }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.330298,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.03974260971561085,
+      "cgroupMemoryIncreaseBytes": 33865728
+    }
+  },
+  {
+    "case": "small-echo-c2048-idle300-compression-disabled",
+    "passed": false,
+    "instanceChangedBetweenBoundaries": false,
+    "boundaries": {
+      "before": {
+        "time": "2026-10-30T20:35:46.860845Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 35,
+        "cgroupMemoryBytes": 79794176,
+        "residentMemoryBytes": 100909056,
+        "cpuUserTicks": 1097,
+        "cpuSystemTicks": 105
+      },
+      "init": {
+        "time": "2026-10-30T20:35:47.142962Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 36,
+        "cgroupMemoryBytes": 79953920,
+        "residentMemoryBytes": 101859328,
+        "cpuUserTicks": 1098,
+        "cpuSystemTicks": 105
+      },
+      "cleanup": {
+        "time": "2026-10-30T20:41:58.280372Z",
+        "echoStreams": 0,
+        "offlineSyncStreams": 0,
+        "openFileDescriptors": 39,
+        "cgroupMemoryBytes": 134385664,
+        "residentMemoryBytes": 140296192,
+        "cpuUserTicks": 4778,
+        "cpuSystemTicks": 1032
+      }
+    },
+    "idleInterval": null
+  }
+]

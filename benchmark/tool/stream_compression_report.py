@@ -38,8 +38,8 @@ def render(directory):
         'conditions, not an isolated measurement of either variable. Successful '
         'upgrades must report HTTP 101 and negotiated permessage-deflate. The '
         'planned idle interval is five minutes; a setup failure never reaches it.', '',
-        '| Tier | Target | Successful warmups | Resumed | Verdict / phase | Peak cgroup MiB | Restart |',
-        '|---|---:|---:|---:|---|---:|---|',
+        '| Tier | Target | Successful warmups | Resumed | Verdict / phase | Peak cgroup MiB | Peak server FDs | Restart |',
+        '|---|---:|---:|---:|---|---:|---:|---|',
     ]
 
     for control in admissions:
@@ -47,13 +47,15 @@ def render(directory):
         verdict = 'PASS' if row['passed'] else 'FAIL / ' + str(row['failurePhase'])
         lines.append(f"| {NAMES[row['size']]} | {row['connections']:,} | {row['opened']:,} | "
                      f"{row['resumed']:,} | {verdict} | {number(row['peakCgroupBytes'] / 1024**2)} | "
+                     f"{number(row.get('peakServerFileDescriptors'), 0)} | "
                      f"{'Yes' if row['serverInstanceChanged'] else 'No'} |")
 
     lines += ['',
         'Successful warmups during an aborted case are not a count of '
         'simultaneously resident sockets. No retry or reconnect is permitted. '
-        'The first fault aborts remaining work; subsequent error, EOF and '
-        'cleanup records are not independent connection failures.', '',
+        'Any unexpected fault fails the case; other workers may still finish '
+        'opening work before shutdown. Subsequent error, EOF and cleanup '
+        'records are not independent connection failures.', '',
     ]
     for control in admissions:
         failures = control['firstTransportFailures']
@@ -62,6 +64,23 @@ def render(directory):
         codes = ', '.join(map(str, control['webSocketCloseCodes'])) or 'none captured'
         lines.append(f"- {NAMES[control['size']]}: first fault `{first}`. "
                      f'Non-101 HTTP statuses: {statuses}. WebSocket close codes: {codes}.')
+
+    failed_openings = [rows[c['label']] for c in admissions
+                       if not c['passed'] and rows[c['label']]['failurePhase'] == 'open']
+    if failed_openings:
+        lines += ['',
+            'These failed openings never reached the planned idle interval. '
+            'A timeout without an HTTP response or WebSocket close code does '
+            'not locate the fault within the client, network, Cloud ingress or '
+            'server. Memory and restart observations are recorded above; '
+            'a hardware or framework connection ceiling has not been isolated.',
+            '', 'The process file-descriptor limit was not collected. Peaks '
+            'near 4,096 descriptors make that limit worth checking, alongside '
+            'Cloud ingress and the generator network path, but do not prove '
+            'descriptor exhaustion. Earlier sweep failures also occurred '
+            'with fewer descriptors. Worker descriptor peaks are retained '
+            'in results.json.',
+        ]
 
     lines += ['', '## Compression comparison on Small', '',
         'The first two cases use 256 connections, eight simultaneous opens, '
@@ -80,6 +99,32 @@ def render(directory):
         lines.append(f"| {control['mode']} | {row['connections']:,} | {row['idleSeconds']} | {verdict} | "
                      + ' | '.join(memory(boundaries, phase) for phase in ['before', 'open', 'idle', 'close'])
                      + f" | {number(row['peakCgroupBytes'] / 1024**2)} |")
+
+    for control in controls:
+        if control['passed']:
+            continue
+        first = control['firstTransportFailures'][0]
+        lines += ['',
+            f"The {control['connections']:,}-connection {control['mode']} "
+            f"case failed with `{first['error']}`. The first recorded socket "
+            f"close code was `{first.get('webSocketCloseCode')}` and its "
+            f"upgrade status was `{first.get('upgradeHttpStatus')}`. "
+            'This case does not establish a successful idle capacity, '
+            'regardless of how many opening receipts were recorded.',
+        ]
+
+    paired = {c['mode']: rows[c['label']] for c in controls if c['connections'] == 256}
+    if set(paired) == {'enabled', 'disabled'} and all(row['passed'] for row in paired.values()):
+        values = {mode: profiles[row['label']]['boundaries']['open']['cgroupMemoryBytes']
+                  for mode, row in paired.items()}
+        reduction = (1 - values['disabled'] / values['enabled']) * 100
+        lines += ['',
+            f"At the completed-open boundary, container memory fell from "
+            f"{values['enabled'] / 1024**2:.1f} to {values['disabled'] / 1024**2:.1f} MiB "
+            f'({reduction:.1f}% lower). Later allocations and collection affect '
+            'the idle and full-case peaks; this is a whole-container comparison '
+            'rather than a per-connection heap measurement.',
+        ]
 
     lines += ['',
         'Memory in this table is the visible container cgroup measurement, in '
