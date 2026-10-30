@@ -18,6 +18,7 @@ def render(destination, campaigns):
     sources = []
     tiers = {}
     opening_controls = []
+    passing_cases = []
 
     for directory in map(Path, campaigns):
         manifest = read(directory / 'manifest.json')
@@ -25,6 +26,7 @@ def render(destination, campaigns):
         relative = os.path.relpath(directory, destination)
         source = {'directory': relative, 'manifest': manifest}
         sources.append(source)
+        passing_cases.extend({'directory': relative, **row} for row in rows if row['passed'])
         for row in rows:
             if row['size'] == 'large' and row['connections'] == 1024 and row['idleSeconds'] == 45 and row['passed']:
                 opening_controls.append({
@@ -74,6 +76,30 @@ def render(destination, campaigns):
         lines.append(f"| {name} | {selected['memoryLimitBytes'] // 1024**2:,} | {opening} | "
                      f"{tier['largestShortPass']:,} | {tier['longIdleQualified']:,} | "
                      f"{number(latency['medianMs'])} / {number(latency['p95Ms'])} | {PREVIOUS_IDLE[size]:,} |")
+
+    lines += ['', '## Five-minute resume latency', '',
+        'These are exact per-connection echo durations in milliseconds, including '
+        'the client-to-Cloud network path. They are not durable sync-round times.', '',
+        '| Tier | Responses | Min | Median | Mean | p95 | Max |',
+        '|---|---:|---:|---:|---:|---:|---:|',
+    ]
+    for size, name in NAMES.items():
+        value = tiers.get(size)
+        if value is None:
+            continue
+        latency = value['selected']['probeLatency']
+        lines.append(f"| {name} | {latency['count']:,} | " + ' | '.join(
+            number(latency[key]) for key in ['minMs', 'medianMs', 'meanMs', 'p95Ms', 'maxMs']) + ' |')
+
+    if passing_cases:
+        worst = max(passing_cases, key=lambda row: row['probeLatency']['maxMs'])
+        lines += ['',
+            f"Across all completed passing trials, the worst recorded echo was "
+            f"{number(worst['probeLatency']['maxMs'])} ms in `{worst['label']}` "
+            f"([case evidence]({worst['directory']}/README.md)). A capacity pass "
+            'does not certify a sub-second latency SLA. Rare long delays are '
+            'retained; their source has not been isolated.',
+        ]
 
     lines += ['',
         'A full pass requires exact responses from every original connection, no '
