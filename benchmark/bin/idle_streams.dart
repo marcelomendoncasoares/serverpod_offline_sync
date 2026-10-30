@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:args/args.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/compression_probe.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/elapsed_clock.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/idle_connection.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/runner.dart';
@@ -19,6 +20,11 @@ Future<void> main(List<String> args) async {
     ..addOption('target', mandatory: true)
     ..addOption('output', mandatory: true)
     ..addOption('run-id', mandatory: true)
+    ..addOption(
+      'transport-compression',
+      allowed: ['sdk', 'enabled', 'disabled'],
+      defaultsTo: Platform.environment['BENCHMARK_WEBSOCKET_COMPRESSION'] ?? 'sdk',
+    )
     ..addOption('connections', defaultsTo: '64')
     ..addOption('workers', defaultsTo: '8')
     ..addOption('open-workers', defaultsTo: '4')
@@ -32,7 +38,7 @@ Future<void> main(List<String> args) async {
   if (parsed.rest.isNotEmpty) throw ArgumentError('Unexpected arguments.');
   final options = <String, dynamic>{};
   for (final key in parser.options.keys) {
-    if (['target', 'output', 'run-id'].contains(key)) {
+    if (['target', 'output', 'run-id', 'transport-compression'].contains(key)) {
       options[key] = parsed[key] as String;
     } else {
       final value = int.parse(parsed[key] as String);
@@ -93,7 +99,19 @@ Future<void> runWorker() async {
             final client = Client(options['target'] as String)
               ..authKeyProvider = BenchmarkAuth(requireSecret());
             final input = StreamController<String>();
+            final compression = options['transport-compression'] as String;
+            final probe = compression == 'sdk'
+                ? null
+                : CompressionProbe(
+                    target: options['target'] as String,
+                    compression: compression == 'enabled',
+                    serializationManager: client.serializationManager,
+                    authKeyProvider: client.authKeyProvider!,
+                    input: input.stream,
+                    connectionTimeout: client.streamingConnectionTimeout,
+                  );
             final responses =
+                probe?.output.stream ??
                 client.callStreamingServerEndpoint<Stream<String>, String>(
                       'benchmark',
                       'echo',
@@ -105,7 +123,21 @@ Future<void> runWorker() async {
               responses: responses,
               send: input.add,
               closeInput: input.close,
-              closeClient: client.close,
+              closeClient: () {
+                client.close();
+                if (probe != null) {
+                  unawaited(
+                    probe.close().catchError((Object error) {
+                      failures.add('$id: $error');
+                      emit({
+                        'type': 'streamFailure',
+                        'connection': id,
+                        'error': '$error',
+                      });
+                    }),
+                  );
+                }
+              },
               timeout: Duration(seconds: options['timeout-seconds'] as int),
               onFailure: (error) {
                 failures.add('$id: $error');
@@ -113,7 +145,13 @@ Future<void> runWorker() async {
               },
             );
             final micros = await connection.exchange(payload(id, 'warmup'));
-            emit({'type': 'opened', 'connection': id, 'micros': micros});
+            emit({
+              'type': 'opened',
+              'connection': id,
+              'micros': micros,
+              'compressionMode': compression,
+              if (probe != null) 'negotiatedExtensions': probe.extensions,
+            });
           }
         case 'idle':
           final origin = command['startMicros'] as int;

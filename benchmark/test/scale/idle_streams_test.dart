@@ -5,6 +5,7 @@ import 'dart:isolate';
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/compression_probe.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/idle_connection.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/transport_probe.dart';
@@ -144,6 +145,76 @@ void main() {
       expect(summary['streamFailures'], 0);
     },
     timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
+    'Given a stream requesting WebSocket compression, '
+    'when it echoes a message through the ordinary Serverpod manager, '
+    'then compression is negotiated and the exact message is delivered.',
+    () async {
+      final api = client.Client(target)..authKeyProvider = BenchmarkAuth(secret);
+      final input = StreamController<String>();
+      final failures = <Object>[];
+      final probe = CompressionProbe(
+        target: target,
+        compression: true,
+        serializationManager: api.serializationManager,
+        authKeyProvider: api.authKeyProvider!,
+        input: input.stream,
+        connectionTimeout: api.streamingConnectionTimeout,
+      );
+      final connection = IdleConnection(
+        responses: probe.output.stream,
+        send: input.add,
+        closeInput: input.close,
+        closeClient: api.close,
+        onFailure: failures.add,
+        timeout: const Duration(seconds: 5),
+      );
+
+      await connection.exchange('compressed-connection/exact-response');
+      final extensions = probe.extensions;
+      await connection.close();
+      await probe.close();
+
+      expect(extensions, contains('permessage-deflate'));
+      expect(failures, isEmpty);
+    },
+  );
+
+  test(
+    'Given a stream disabling WebSocket compression, '
+    'when it echoes a message through the ordinary Serverpod manager, '
+    'then no compression is negotiated and the exact message is delivered.',
+    () async {
+      final api = client.Client(target)..authKeyProvider = BenchmarkAuth(secret);
+      final input = StreamController<String>();
+      final failures = <Object>[];
+      final probe = CompressionProbe(
+        target: target,
+        compression: false,
+        serializationManager: api.serializationManager,
+        authKeyProvider: api.authKeyProvider!,
+        input: input.stream,
+        connectionTimeout: api.streamingConnectionTimeout,
+      );
+      final connection = IdleConnection(
+        responses: probe.output.stream,
+        send: input.add,
+        closeInput: input.close,
+        closeClient: api.close,
+        onFailure: failures.add,
+        timeout: const Duration(seconds: 5),
+      );
+
+      await connection.exchange('uncompressed-connection/exact-response');
+      final extensions = probe.extensions;
+      await connection.close();
+      await probe.close();
+
+      expect(extensions, isEmpty);
+      expect(failures, isEmpty);
+    },
   );
 
   test(

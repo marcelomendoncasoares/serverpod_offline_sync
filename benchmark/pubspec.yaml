@@ -22,6 +22,7 @@ dependencies:
   serverpod_auth_core_server: ^4.1.0-beta.3
   serverpod_client: ^4.1.0-beta.3
   serverpod_database: ^4.1.0-beta.3
+  web_socket_channel: ^3.0.3
   serverpod_offline_sync:
     path: ../packages/serverpod_offline_sync
   serverpod_offline_sync_client:

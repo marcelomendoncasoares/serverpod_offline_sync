@@ -83,3 +83,28 @@ Validation exercises an actual database-free Serverpod server, authenticated and
 unauthenticated streams, a complete multiprocess run, wrong responses, unexpected
 idle closure and cancellation cleanup. Python regressions check tier traversal,
 stopping, longer qualification and refusal to repeat incomplete cases.
+
+## Compression attribution control
+
+`stream_compression_capacity.py` runs separate Small controls on fresh instances:
+256 connections with default WebSocket compression, 256 without compression,
+and, only if the latter passes, 2,048 without compression for five minutes.
+Use a fresh private config and output directories with a client built from the
+compression-probe revision. The server executable stays identical to the main
+sweep. Do not run this concurrently with another campaign.
+
+```sh
+python3 benchmark/tool/stream_compression_capacity.py --config /private/compression-capacity.json
+```
+
+The diagnostic client injects a WebSocket connector into the existing Serverpod
+method-stream manager. Authentication, messages and the stream protocol remain
+the same. Only WebSocket compression negotiation changes. This adapter is not
+used by production clients or by the main sweep's default `sdk` mode.
+
+Every successful connection records the actual upgrade response's
+`Sec-WebSocket-Extensions` header. The pinned Dart SDK's `WebSocket.extensions`
+getter always returns an empty string and cannot verify negotiation. Tests check
+both compressed and uncompressed streams against a real database-free Serverpod
+server. The Cloud control also checks every recorded handshake before accepting
+its attribution result. Its restoration procedure is the same as the main sweep.
