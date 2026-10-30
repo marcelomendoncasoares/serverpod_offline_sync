@@ -112,6 +112,16 @@ both compressed and uncompressed streams against a real database-free Serverpod
 server. The Cloud control also checks every recorded handshake before accepting
 its attribution result. Its restoration procedure is the same as the main sweep.
 
+Optional `admissionControls` entries in this private config name an instance
+`size` and a `connections` count to confirm for five minutes before the Small
+comparison. These use normal compression, a fresh resized instance and the
+config's explicit opening limit. They are intended to revisit a failed setup
+count at a slower admission rate, not to advance to a heavier count after a
+failure. Every successful upgrade must report HTTP 101 and negotiated deflate;
+failed upgrade HTTP statuses are recorded separately. The 2026-10-30 run uses
+this to check XL at 4,096 streams with 32 concurrent opens after an HTTP upgrade
+failure in the 64-open sweep with substantial memory still available.
+
 For a separate local attribution check, compile `websocket_memory.dart` to an AOT
 executable, then pass it an output JSON path. It starts a fresh plain Dart
 WebSocket server process for each 256/2,048-connection compression-on/off case,

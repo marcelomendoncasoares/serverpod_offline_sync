@@ -36,7 +36,10 @@ class CompressionProbe {
           address.toString(),
           customClient: _HandshakeClient(
             _httpClient,
-            (value) => extensions = value,
+            (response) {
+              httpStatusCode = response.statusCode;
+              extensions = response.headers.value('Sec-WebSocket-Extensions') ?? '';
+            },
           ),
           compression: compression
               ? CompressionOptions.compressionDefault
@@ -70,6 +73,7 @@ class CompressionProbe {
   final output = StreamController<String>();
   late final ClientMethodStreamManager manager;
   String? extensions;
+  int? httpStatusCode;
 
   Future<void> close() => manager.closeAllConnections();
 }
@@ -79,24 +83,24 @@ class CompressionProbe {
 // These diagnostic delegates implement only the HttpClient operations used by
 // WebSocket.connect; unexpected operations fail rather than being approximated.
 class _HandshakeClient implements HttpClient {
-  _HandshakeClient(this.delegate, this.onExtensions);
+  _HandshakeClient(this.delegate, this.onResponse);
 
   final HttpClient delegate;
-  final void Function(String) onExtensions;
+  final void Function(HttpClientResponse) onResponse;
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async =>
-      _HandshakeRequest(await delegate.openUrl(method, url), onExtensions);
+      _HandshakeRequest(await delegate.openUrl(method, url), onResponse);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _HandshakeRequest implements HttpClientRequest {
-  _HandshakeRequest(this.delegate, this.onExtensions);
+  _HandshakeRequest(this.delegate, this.onResponse);
 
   final HttpClientRequest delegate;
-  final void Function(String) onExtensions;
+  final void Function(HttpClientResponse) onResponse;
 
   @override
   HttpHeaders get headers => delegate.headers;
@@ -104,7 +108,7 @@ class _HandshakeRequest implements HttpClientRequest {
   @override
   Future<HttpClientResponse> close() async {
     final response = await delegate.close();
-    onExtensions(response.headers.value('Sec-WebSocket-Extensions') ?? '');
+    onResponse(response);
     return response;
   }
 

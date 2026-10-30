@@ -24,6 +24,9 @@ def main():
     args.points = [256, 2048]
     args.qualification_idle_seconds = 300
     campaign = Campaign(args)
+    admissions = campaign.config.get('admissionControls', [])
+    args.sizes = list(dict.fromkeys([item['size'] for item in admissions] + ['small']))
+    args.points = sorted({256, 2048, *(item['connections'] for item in admissions)})
     directory = Path(tempfile.gettempdir()) / f'offline-sync-capacity-locks-{os.getuid()}'
     directory.mkdir(mode=0o700, exist_ok=True)
     name = hashlib.sha256(json.dumps(campaign.config['project'], sort_keys=True,
@@ -33,6 +36,44 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             campaign.deploy()
+            admission_results = []
+            for admission_index, spec in enumerate(admissions):
+                campaign.transition(spec['size'])
+                before = campaign.wait_ready()
+                if admission_index:
+                    campaign.cli(['deploy', '--redeploy', '--no-await'])
+                    before = campaign.wait_ready(changed_instance=before['server']['instanceId'])
+                os.environ['BENCHMARK_WEBSOCKET_COMPRESSION'] = 'enabled'
+                result = campaign.run_case(spec['size'], spec['connections'], 300,
+                                           'admission-slower')
+                events_path = campaign.root / 'runs' / result['label'] / 'events.jsonl'
+                events = [json.loads(line) for line in events_path.read_text().splitlines()]
+                opened = [event for event in events if event['type'] == 'opened']
+                require(bool(opened), 'No admission handshake was completed.')
+                require(all('permessage-deflate' in event.get('negotiatedExtensions', '')
+                            and event.get('upgradeHttpStatus') == 101 for event in opened),
+                        'Admission control did not retain ordinary compression.')
+                statuses = sorted({event['upgradeHttpStatus'] for event in events
+                                   if event.get('upgradeHttpStatus') not in [None, 101]})
+                admission_results.append({
+                    'label': result['label'], 'size': spec['size'],
+                    'connections': spec['connections'], 'idleSeconds': 300,
+                    'openingConcurrency': result['workload']['openWorkers'] *
+                        result['workload']['openConcurrencyPerWorker'],
+                    'passed': result['passed'], 'checkedHandshakes': len(opened),
+                    'nonUpgradeHttpStatuses': statuses,
+                    'compression': 'permessage-deflate',
+                    'coldInstance': before['server']['instanceId'],
+                    'recordedAt': utc(),
+                })
+                save(campaign.root / 'admission-controls.json', admission_results)
+                save(Path(campaign.config['reportDirectory']) / 'admission-controls.json',
+                     [{key: value for key, value in item.items() if key != 'coldInstance'}
+                      for item in admission_results])
+                print(json.dumps({'admissionControl': result['label'],
+                                  'passed': result['passed'],
+                                  'nonUpgradeHttpStatuses': statuses}), flush=True)
+
             campaign.transition('small')
             for index, (mode, count, idle) in enumerate([
                 ('enabled', 256, 45), ('disabled', 256, 45), ('disabled', 2048, 300),
@@ -40,7 +81,7 @@ def main():
                 if index == 2 and not controls[-1]['passed']:
                     break
                 before = campaign.wait_ready()
-                if index:
+                if index or (admissions and admissions[-1]['size'] == 'small'):
                     campaign.cli(['deploy', '--redeploy', '--no-await'])
                     before = campaign.wait_ready(changed_instance=before['server']['instanceId'])
                 os.environ['BENCHMARK_WEBSOCKET_COMPRESSION'] = mode

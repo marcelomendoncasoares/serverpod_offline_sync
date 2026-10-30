@@ -177,10 +177,12 @@ void main() {
 
       await connection.exchange('compressed-connection/exact-response');
       final extensions = probe.extensions;
+      final httpStatusCode = probe.httpStatusCode;
       await connection.close();
       await probe.close();
 
       expect(extensions, contains('permessage-deflate'));
+      expect(httpStatusCode, HttpStatus.switchingProtocols);
       expect(failures, isEmpty);
     },
   );
@@ -217,6 +219,39 @@ void main() {
 
       expect(extensions, isEmpty);
       expect(failures, isEmpty);
+    },
+  );
+
+  test(
+    'Given an HTTP server rejecting a WebSocket upgrade, '
+    'when the ordinary Serverpod manager tries to connect, '
+    'then the probe preserves the HTTP status and reports the failed connection.',
+    () async {
+      final rejecting = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      rejecting.listen((request) async {
+        request.response.statusCode = HttpStatus.serviceUnavailable;
+        await request.response.close();
+      });
+      final api = client.Client(target)..authKeyProvider = BenchmarkAuth(secret);
+      final input = StreamController<String>();
+      final probe = CompressionProbe(
+        target: 'http://127.0.0.1:${rejecting.port}/',
+        compression: true,
+        serializationManager: api.serializationManager,
+        authKeyProvider: api.authKeyProvider!,
+        input: input.stream,
+        connectionTimeout: api.streamingConnectionTimeout,
+      );
+
+      try {
+        await expectLater(probe.output.stream.first, throwsA(anything));
+        expect(probe.httpStatusCode, HttpStatus.serviceUnavailable);
+      } finally {
+        await probe.close();
+        unawaited(input.close());
+        api.close();
+        await rejecting.close(force: true);
+      }
     },
   );
 

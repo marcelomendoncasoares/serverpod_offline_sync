@@ -149,7 +149,12 @@ Future<void> runWorker() async {
                 timeout: Duration(seconds: options['timeout-seconds'] as int),
                 onFailure: (error) {
                   failures.add('$id: $error');
-                  emit({'type': 'streamFailure', 'connection': id, 'error': '$error'});
+                  emit({
+                    'type': 'streamFailure',
+                    'connection': id,
+                    'error': '$error',
+                    if (probe != null) 'upgradeHttpStatus': probe.httpStatusCode,
+                  });
                 },
               );
               final micros = await connection.exchange(payload(id, 'warmup'));
@@ -159,6 +164,7 @@ Future<void> runWorker() async {
                 'micros': micros,
                 'compressionMode': compression,
                 if (probe != null) 'negotiatedExtensions': probe.extensions,
+                if (probe != null) 'upgradeHttpStatus': probe.httpStatusCode,
               });
             },
           );
