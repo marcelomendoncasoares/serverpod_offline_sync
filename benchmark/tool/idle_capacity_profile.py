@@ -1,6 +1,7 @@
 """Export resource boundaries without publishing private runtime identities."""
 
 import argparse
+import datetime
 import json
 from pathlib import Path
 
@@ -34,11 +35,26 @@ def profile(config_path):
                 'cpuSystemTicks': process.get('cpuSystemTicks'),
             }
 
+        idle = None
+        if len(instances) == 1 and 'open' in selected and 'idle' in selected:
+            start = selected['open']
+            end = selected['idle']
+            elapsed = (datetime.datetime.fromisoformat(end['time']) -
+                       datetime.datetime.fromisoformat(start['time'])).total_seconds()
+            ticks = sum(end[key] - start[key] for key in ['cpuUserTicks', 'cpuSystemTicks'])
+            idle = {
+                'intervalIncludingSettleSeconds': elapsed,
+                'cpuTicksPerSecond': 100,
+                'cpuCoresAverage': ticks / 100 / elapsed,
+                'cgroupMemoryIncreaseBytes': end['cgroupMemoryBytes'] - start['cgroupMemoryBytes'],
+            }
+
         rows.append({
             'case': label,
             'passed': receipt['passed'],
             'instanceChangedBetweenBoundaries': len(instances) > 1,
             'boundaries': selected,
+            'idleInterval': idle,
         })
 
     report = Path(config['reportDirectory'])

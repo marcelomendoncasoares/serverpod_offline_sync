@@ -74,6 +74,12 @@
         "cpuUserTicks": 1114,
         "cpuSystemTicks": 242
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.907886,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.03140177968334137,
+      "cgroupMemoryIncreaseBytes": 9441280
     }
   },
   {
@@ -151,6 +157,12 @@
         "cpuUserTicks": 1656,
         "cpuSystemTicks": 740
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.287746,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.06824242188377708,
+      "cgroupMemoryIncreaseBytes": 16646144
     }
   },
   {
@@ -178,7 +190,8 @@
         "cpuUserTicks": 1670,
         "cpuSystemTicks": 765
       }
-    }
+    },
+    "idleInterval": null
   },
   {
     "case": "small-echo-c640-idle45-refinement",
@@ -205,7 +218,8 @@
         "cpuUserTicks": 1067,
         "cpuSystemTicks": 76
       }
-    }
+    },
+    "idleInterval": null
   },
   {
     "case": "small-echo-c448-idle45-refinement",
@@ -282,6 +296,12 @@
         "cpuUserTicks": 2074,
         "cpuSystemTicks": 1080
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.50636,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.12367404724387435,
+      "cgroupMemoryIncreaseBytes": 21843968
     }
   },
   {
@@ -309,7 +329,8 @@
         "cpuUserTicks": 2085,
         "cpuSystemTicks": 1083
       }
-    }
+    },
+    "idleInterval": null
   },
   {
     "case": "small-echo-c224-idle300-qualification",
@@ -386,6 +407,12 @@
         "cpuUserTicks": 2012,
         "cpuSystemTicks": 1161
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 306.413089,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.05091166324164435,
+      "cgroupMemoryIncreaseBytes": 94572544
     }
   },
   {
@@ -463,6 +490,12 @@
         "cpuUserTicks": 1101,
         "cpuSystemTicks": 137
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.264374,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.014239908596172461,
+      "cgroupMemoryIncreaseBytes": -6197248
     }
   },
   {
@@ -540,6 +573,12 @@
         "cpuUserTicks": 1346,
         "cpuSystemTicks": 300
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.252706,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.031998310489206164,
+      "cgroupMemoryIncreaseBytes": 10539008
     }
   },
   {
@@ -617,6 +656,12 @@
         "cpuUserTicks": 2567,
         "cpuSystemTicks": 1292
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.306692,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.08985182673636415,
+      "cgroupMemoryIncreaseBytes": 21192704
     }
   },
   {
@@ -644,7 +689,8 @@
         "cpuUserTicks": 2575,
         "cpuSystemTicks": 1292
       }
-    }
+    },
+    "idleInterval": null
   },
   {
     "case": "medium-echo-c2560-idle45-refinement",
@@ -671,7 +717,8 @@
         "cpuUserTicks": 1040,
         "cpuSystemTicks": 52
       }
-    }
+    },
+    "idleInterval": null
   },
   {
     "case": "medium-echo-c1792-idle45-refinement",
@@ -698,7 +745,8 @@
         "cpuUserTicks": 1035,
         "cpuSystemTicks": 45
       }
-    }
+    },
+    "idleInterval": null
   },
   {
     "case": "medium-echo-c1024-idle300-qualification",
@@ -775,6 +823,12 @@
         "cpuUserTicks": 3238,
         "cpuSystemTicks": 1970
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 306.266981,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.07679574181716964,
+      "cgroupMemoryIncreaseBytes": 71274496
     }
   },
   {
@@ -852,6 +906,12 @@
         "cpuUserTicks": 1187,
         "cpuSystemTicks": 125
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.238445,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.017760101814174884,
+      "cgroupMemoryIncreaseBytes": 9809920
     }
   },
   {
@@ -929,6 +989,12 @@
         "cpuUserTicks": 1389,
         "cpuSystemTicks": 280
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.341676,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.025125786700067994,
+      "cgroupMemoryIncreaseBytes": 17416192
     }
   },
   {
@@ -1006,6 +1072,12 @@
         "cpuUserTicks": 2429,
         "cpuSystemTicks": 967
       }
+    },
+    "idleInterval": {
+      "intervalIncludingSettleSeconds": 51.44995,
+      "cpuTicksPerSecond": 100,
+      "cpuCoresAverage": 0.06899909523721597,
+      "cgroupMemoryIncreaseBytes": 25714688
     }
   }
 ]
