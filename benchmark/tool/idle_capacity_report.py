@@ -121,6 +121,11 @@ def render(directory):
         'pressure as a candidate cause. No orchestrator OOM termination reason '
         'was captured. High memory after close also does not by itself prove '
         'a leak: garbage collection and allocator retention were not separated.',
+        '- Failed-case opened counts are successful warmup receipts, not '
+        'necessarily simultaneous residency. Error and EOF can both be counted '
+        'for one connection, and shutdown following the first fault can emit '
+        'additional failure events. Do not interpret event counts as independent '
+        'connection failures.',
         '- More idle streams do not imply the same number of simultaneous syncs. '
         'A native endpoint with no database work is a control for transport '
         'capacity, not a substitute for an application workload.', '',

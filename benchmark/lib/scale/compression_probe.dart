@@ -44,7 +44,10 @@ class CompressionProbe {
           compression: compression
               ? CompressionOptions.compressionDefault
               : CompressionOptions.compressionOff,
-        ),
+        ).then((socket) {
+          _socket = socket;
+          return socket;
+        }),
       ),
     );
     final details = MethodStreamConnectionDetails(
@@ -74,6 +77,9 @@ class CompressionProbe {
   late final ClientMethodStreamManager manager;
   String? extensions;
   int? httpStatusCode;
+  WebSocket? _socket;
+
+  int? get closeCode => _socket?.closeCode;
 
   Future<void> close() => manager.closeAllConnections();
 }

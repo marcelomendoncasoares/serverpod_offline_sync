@@ -12,6 +12,21 @@ import tempfile
 from idle_capacity import Campaign, require, save, utc
 
 
+def transport_failures(events):
+    failures = [event for event in events if event['type'] in ['streamFailure', 'fatal']]
+    keys = ['time', 'phase', 'worker', 'type', 'connection', 'error',
+            'upgradeHttpStatus', 'webSocketCloseCode']
+    return {
+        'firstTransportFailures': [{key: event[key] for key in keys if key in event}
+                                   for event in failures[:5]],
+        'nonUpgradeHttpStatuses': sorted({event['upgradeHttpStatus'] for event in events
+                                          if event.get('upgradeHttpStatus') not in [None, 101]}),
+        'webSocketCloseCodes': sorted({event['webSocketCloseCode'] for event in events
+                                       if event.get('webSocketCloseCode') is not None}),
+        'failureCountNote': 'Error and EOF can both be emitted; cleanup after the first fault can emit more events.',
+    }
+
+
 def main():
     def interrupted(signum, frame):
         raise KeyboardInterrupt(f'Interrupted by signal {signum}.')
@@ -53,15 +68,14 @@ def main():
                 require(all('permessage-deflate' in event.get('negotiatedExtensions', '')
                             and event.get('upgradeHttpStatus') == 101 for event in opened),
                         'Admission control did not retain ordinary compression.')
-                statuses = sorted({event['upgradeHttpStatus'] for event in events
-                                   if event.get('upgradeHttpStatus') not in [None, 101]})
+                failures = transport_failures(events)
                 admission_results.append({
                     'label': result['label'], 'size': spec['size'],
                     'connections': spec['connections'], 'idleSeconds': 300,
                     'openingConcurrency': result['workload']['openWorkers'] *
                         result['workload']['openConcurrencyPerWorker'],
                     'passed': result['passed'], 'checkedHandshakes': len(opened),
-                    'nonUpgradeHttpStatuses': statuses,
+                    **failures,
                     'compression': 'permessage-deflate',
                     'coldInstance': before['server']['instanceId'],
                     'recordedAt': utc(),
@@ -72,7 +86,7 @@ def main():
                       for item in admission_results])
                 print(json.dumps({'admissionControl': result['label'],
                                   'passed': result['passed'],
-                                  'nonUpgradeHttpStatuses': statuses}), flush=True)
+                                  'nonUpgradeHttpStatuses': failures['nonUpgradeHttpStatuses']}), flush=True)
 
             campaign.transition('small')
             for index, (mode, count, idle) in enumerate([
@@ -101,7 +115,7 @@ def main():
                     'idleSeconds': idle, 'passed': result['passed'],
                     'negotiatedExtensions': extensions, 'checkedHandshakes': len(opened),
                     'coldInstance': before['server']['instanceId'],
-                    'recordedAt': utc()}
+                    'recordedAt': utc(), **transport_failures(events)}
                 controls.append(control)
                 save(campaign.root / 'compression-controls.json', controls)
                 save(Path(campaign.config['reportDirectory']) / 'compression-controls.json',

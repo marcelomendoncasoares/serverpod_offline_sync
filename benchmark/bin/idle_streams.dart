@@ -154,6 +154,7 @@ Future<void> runWorker() async {
                     'connection': id,
                     'error': '$error',
                     if (probe != null) 'upgradeHttpStatus': probe.httpStatusCode,
+                    if (probe != null) 'webSocketCloseCode': probe.closeCode,
                   });
                 },
               );
