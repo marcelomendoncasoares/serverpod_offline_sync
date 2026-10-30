@@ -37,11 +37,14 @@ def audit(config_path):
     all_samples = [json.loads(line) for line in (report / 'samples.jsonl').read_text().splitlines()]
     raw_count = 0
     passed_count = 0
+    missing_summaries = []
     for row in rows:
         label = row['label']
         events = [json.loads(line) for line in
                   (evidence / 'runs' / label / 'events.jsonl').read_text().splitlines()]
         receipt = read(evidence / 'cases' / f'{label}.json')
+        if not receipt.get('summary'):
+            missing_summaries.append(label)
         require(row['serverExecutableSha256'] == state['serverExecutableSha256'], label + ': server changed')
         require(row['clientSha256'] == config['clientSha256'], label + ': client changed')
         require(row['passed'] == receipt['passed'], label + ': changed verdict')
@@ -54,6 +57,10 @@ def audit(config_path):
             raw_count += len(items)
             expected = distribution([e['micros'] for e in items])
             actual = row[key]
+            if actual is None and not receipt.get('summary') and not row['passed']:
+                # An operator interruption can retain raw events without the
+                # client's terminal summary. It is never a passing trial.
+                continue
             require((expected is None) == (actual is None), label + ': missing distribution')
             if expected is not None:
                 for field, value in expected.items():
@@ -92,6 +99,7 @@ def audit(config_path):
               'allExportedSamplesMatchRawEvents': True,
               'exactStreamIdentitiesCountsAndMessagesChecked': True,
               'buildIdentitiesChecked': True,
+              'casesWithoutClientSummary': missing_summaries,
               'restorationRequired': state.get('restorationRequired')}
     (report / 'MEASUREMENT_AUDIT.json').write_text(json.dumps(result, indent=2) + '\n')
     return result

@@ -20,9 +20,12 @@ void main() {
         dispatch.initializeEndpoints(_Server());
       });
 
-      test('then its only application endpoint is the benchmark control method.', () {
+      test('then its application endpoint exposes the control and echo methods.', () {
         expect(dispatch.connectors.keys, ['benchmark']);
-        expect(dispatch.connectors['benchmark']!.methodConnectors.keys, ['control']);
+        expect(
+          dispatch.connectors['benchmark']!.methodConnectors.keys,
+          unorderedEquals(['control', 'echo']),
+        );
       });
 
       test('then its only module is the offline sync module.', () {
