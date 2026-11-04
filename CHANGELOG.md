@@ -1,7 +1,5 @@
-## Unreleased
+## 0.0.12
 
-- perf: Keeps SQLite inserts batched when projected nulls and database defaults
-  differ between rows.
 - fix: BREAKING. Each user has their own clock per database, so users writing
   in different spaces no longer wait on each other. Existing local clocks will
   be reset with this change. Several interfaces have changed:
@@ -10,9 +8,6 @@
   - `recordSyncCheckpoint` takes `spaceId` instead of `userId`.
   - `transactionForUser` locks the user's clock and the space for read and write.
   - Orders writes after facts other users committed to the same space.
-
-## 0.0.11
-
 - feat: Add `transactionForSpaces(userId, spaceIds, fn)` and awaited
   `spaces.runForSpace(spaceId, fn)` scopes for atomic local writes across
   declared spaces, using the acting user's clock. Nested failures roll back
@@ -21,6 +16,14 @@
   through persistent-user wrappers, and recheck membership within each scope.
 - fix: Reload persistent-user clocks after caller savepoint rollbacks so
   concurrent commits cannot cause later writes to be skipped by sync.
+- fix: Prevents a local `updateBatch` from failing with no rows updated when it
+  moves rows to a deleted parent that a restricting child still keeps visible.
+- perf: Keeps SQLite inserts batched when projected nulls and database defaults
+  differ between rows.
+- chore: Requires Serverpod `^4.1.0`.
+
+## 0.0.11
+
 - feat: Supports Serverpod 4.1 typed SQLite `watch` API with CRDT visibility
   and live space membership, including nested included lists.
 - fix: Preserves caller include graphs across queries and keep nested object
