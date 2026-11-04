@@ -143,6 +143,38 @@ class Protocol extends _isd.DatabaseSerializationManager
           _iss.getType<List<_icw2tu00.OfflineSyncSpaceGrant>>,
         ],
         modules: const [],
+        classNames: const [
+          'CrdtDataAttemptedValue',
+          'CrdtDataDeleted',
+          'CrdtDataDeletedReason',
+          'CrdtDataField',
+          'CrdtProjectionReason',
+          'CrdtDataRow',
+          'CrdtDataRowVisibility',
+          'CrdtMergeDelete',
+          'CrdtMergeInsert',
+          'CrdtMergeUpdate',
+          'BaseHlc',
+          'CrdtNode',
+          'OfflineSyncSpace',
+          'OfflineSyncSpaceMember',
+          'OfflineSyncSpaceNode',
+          'OfflineSyncSpaceRole',
+          'CrdtSchemaColumn',
+          'CrdtSchemaTable',
+          'OfflineSyncClose',
+          'OfflineSyncConnect',
+          'OfflineSyncEndOfBatch',
+          'OfflineSyncMergeChunk',
+          'OfflineSyncSinceHlc',
+          'OfflineSyncSpaceGrant',
+          'OfflineSyncSpaceSet',
+          'OfflineSyncIdleTimeout',
+          'OfflineSyncIntegrityViolation',
+          'OfflineSyncViolationOperation',
+          'OfflineSyncViolationType',
+        ],
+        classNamePrefix: 'serverpod_offline_sync.',
       );
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
@@ -1013,13 +1045,11 @@ class Protocol extends _isd.DatabaseSerializationManager
     _hostProtocols.add(protocol);
   }
 
-  static String? getClassNameFromObjectJson(dynamic data) {
-    if (data is! Map) return null;
-    final className = data['__className__'] as String?;
-    if (className == null) return null;
-    if (!className.startsWith('serverpod_offline_sync.')) return className;
-    return className.substring(23);
-  }
+  static String? getClassNameFromObjectJson(dynamic data) =>
+      _iss.ProtocolDeserialization.normalizeClassName(
+        _iss.ProtocolDeserialization.readClassName(data),
+        prefix: 'serverpod_offline_sync.',
+      );
 
   @override
   T deserialize<T>(
@@ -1027,8 +1057,11 @@ class Protocol extends _isd.DatabaseSerializationManager
     Type? t,
   ]) {
     t ??= T;
-
-    final dataClassName = getClassNameFromObjectJson(data);
+    final rawDataClassName = _iss.ProtocolDeserialization.readClassName(data);
+    final dataClassName = _iss.ProtocolDeserialization.normalizeClassName(
+      rawDataClassName,
+      prefix: 'serverpod_offline_sync.',
+    );
     if (dataClassName != null && dataClassName != getClassNameForType(t)) {
       try {
         return deserializeByClassName({

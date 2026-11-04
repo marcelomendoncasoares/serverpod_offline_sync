@@ -38,6 +38,8 @@ class Protocol extends _isd.DatabaseSerializationManager
           _isc.getType<_icw2tu00.Hlc?>,
         ],
         modules: const [_icw2tu00.Protocol.new],
+        classNames: const ['Hlc'],
+        classNamePrefix: 'serverpod_offline_sync.',
       );
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
@@ -55,13 +57,11 @@ class Protocol extends _isd.DatabaseSerializationManager
     _icw2tu00.Protocol().registerHostProtocol(projectName, protocol);
   }
 
-  static String? getClassNameFromObjectJson(dynamic data) {
-    if (data is! Map) return null;
-    final className = data['__className__'] as String?;
-    if (className == null) return null;
-    if (!className.startsWith('serverpod_offline_sync.')) return className;
-    return className.substring(23);
-  }
+  static String? getClassNameFromObjectJson(dynamic data) =>
+      _isc.ProtocolDeserialization.normalizeClassName(
+        _isc.ProtocolDeserialization.readClassName(data),
+        prefix: 'serverpod_offline_sync.',
+      );
 
   @override
   T deserialize<T>(
@@ -69,8 +69,11 @@ class Protocol extends _isd.DatabaseSerializationManager
     Type? t,
   ]) {
     t ??= T;
-
-    final dataClassName = getClassNameFromObjectJson(data);
+    final rawDataClassName = _isc.ProtocolDeserialization.readClassName(data);
+    final dataClassName = _isc.ProtocolDeserialization.normalizeClassName(
+      rawDataClassName,
+      prefix: 'serverpod_offline_sync.',
+    );
     if (dataClassName != null && dataClassName != getClassNameForType(t)) {
       try {
         return deserializeByClassName({
@@ -90,9 +93,10 @@ class Protocol extends _isd.DatabaseSerializationManager
     if (t == _isc.getType<_icw2tu00.Hlc?>()) {
       return (data != null ? _icw2tu00.Hlc.fromJson(data) : null) as T;
     }
-    final modules = dataClassName == null
-        ? deserializationMetadata.modulesForType(t)
-        : deserializationMetadata.modules;
+    final modules = deserializationMetadata.modulesForDeserialization(
+      t,
+      className: rawDataClassName,
+    );
     for (final module in modules) {
       try {
         return module.deserialize<T>(data, t);
