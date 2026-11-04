@@ -291,7 +291,7 @@ class DemoController extends ChangeNotifier {
       try {
         await session.syncOnce(
           client,
-          onMergeSuccess: (spaceUuid, hlc) =>
+          onMergeSuccess: (spaceUuid, hlc, affectedTables) =>
               _handleReplicaMerge(slot, spaceUuid, hlc),
         );
         state.phase = SyncPhase.idle;
@@ -318,7 +318,7 @@ class DemoController extends ChangeNotifier {
         () async {
           final stream = session.syncContinuously(
             client,
-            onMergeSuccess: (spaceUuid, hlc) =>
+            onMergeSuccess: (spaceUuid, hlc, affectedTables) =>
                 unawaited(_handleReplicaMerge(slot, spaceUuid, hlc)),
           );
           state.stream = stream;

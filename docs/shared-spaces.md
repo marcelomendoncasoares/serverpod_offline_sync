@@ -355,7 +355,7 @@ authorizes (authoritative: its own membership; follower: the announced set), so
 the combined batch tolerates a peer's informational extras without widening
 access.
 
-`onMergeSuccess` becomes space-aware: `Function(UuidValue spaceUuid, Hlc hlc)`.
+`onMergeSuccess` becomes space-aware: `Function(UuidValue spaceUuid, Hlc hlc, Set<String> affectedTables)`.
 This touches three test call sites and the example app's `demo_controller`.
 
 ### Space-set reconciliation and lockstep

@@ -82,7 +82,7 @@ final class OfflineSyncSpacesTransaction {
       return await runZoned(
         () => _database._recorder.withUserClockSavepoint(
           _transaction,
-          (_) => DatabaseUtil.runInTransactionOrSavepoint(
+          (_) => _database._watchEffects.isolate(
             _database._delegate,
             _transaction,
             (tx) async {
