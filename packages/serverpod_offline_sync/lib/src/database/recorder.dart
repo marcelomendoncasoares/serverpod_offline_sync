@@ -1,13 +1,18 @@
+import 'dart:async';
+import 'dart:collection';
+
 import 'package:clock/clock.dart';
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
+import 'package:uuid/uuid.dart';
 
 import '../crdt/extensions.dart';
 import '../crdt/merge.dart';
 import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/hlc.dart';
+import '../sync/cancellation.dart';
 import '../sync/engine.dart';
 import '../sync/exceptions.dart';
 import 'database.dart';
@@ -21,6 +26,7 @@ import 'schema.dart';
 import 'unique_index_utils.dart';
 
 part 'merge.dart';
+part 'merge_admission.dart';
 part 'merge_write_batch.dart';
 
 typedef _CrdtSchema = Map<String, (int, Map<String, CrdtSchemaColumn>)>;
@@ -42,7 +48,25 @@ class OfflineSyncDatabaseContext {
   OfflineSyncDatabaseContext({
     required this.syncTables,
     required DatabaseSerializationManager serializationManager,
-  }) : _tableDefinitions = serializationManager.getTargetTableDefinitions();
+    int? maxConcurrentMerges,
+  }) : _tableDefinitions = serializationManager.getTargetTableDefinitions(),
+       _mergeAdmission = maxConcurrentMerges == null
+           ? null
+           : _MergeAdmission(maxConcurrentMerges);
+
+  final _MergeAdmission? _mergeAdmission;
+
+  /// Admits a merge before it acquires database connections, when configured.
+  /// Database transaction locks remain responsible for correctness.
+  @internal
+  Future<T> runMerge<T>(
+    UuidValue userId,
+    UuidValue spaceId,
+    Future<T> Function() action, {
+    OfflineSyncCancellation? cancellation,
+  }) =>
+      _mergeAdmission?.run(userId, spaceId, action, cancellation: cancellation) ??
+      action();
 
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
