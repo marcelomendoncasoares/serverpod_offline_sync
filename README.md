@@ -101,17 +101,17 @@ Add the packages to the server and client `pubspec.yaml` files.
 ```yaml
 # your_project_client/pubspec.yaml
 dependencies:
-  serverpod_offline_sync_client: 0.0.11
+  serverpod_offline_sync_client: 0.0.12
 ```
 
 ```yaml
 # your_project_server/pubspec.yaml
 dependencies:
-  serverpod_offline_sync_server: 0.0.11
+  serverpod_offline_sync_server: 0.0.12
 ```
 
 > [!NOTE]
-> Version `0.0.11` requires Serverpod `^4.1.0-beta.3`.
+> Version `0.0.12` requires Serverpod `^4.1.0`.
 
 After adding the dependencies, list the `serverpod_offline_sync` module on the
 `generator.yaml` file and enable the experimental `database: sync` option:
