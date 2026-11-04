@@ -1,3 +1,10 @@
+## Unreleased
+
+- fix: Refresh SQLite watches only for changes to their tracked table dependencies,
+  including CRDT visibility projections and membership grants or revocations.
+  Unrelated writes, clock updates, and unchanged sync announcements stay quiet.
+- feat: Add `watchTableChanges` to observe committed tracked-table changes on SQLite.
+
 ## 0.0.12
 
 - fix: BREAKING. Each user has their own clock per database, so users writing
