@@ -19,6 +19,7 @@ import 'merge_utils/types.dart';
 import 'merge_utils/unique_resolver.dart';
 import 'schema.dart';
 import 'unique_index_utils.dart';
+import 'visible_changes.dart';
 
 part 'merge.dart';
 part 'merge_write_batch.dart';
@@ -80,6 +81,7 @@ class OfflineSyncDatabaseContext {
       tableDefinitions: _tableDefinitions,
     );
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
+    await installVisibleChanges(session.db, syncTables);
     _registryChanged = schemaRegistry.registryChanged;
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};

@@ -22,6 +22,7 @@ import 'merge_utils/database_helpers.dart';
 import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
+import 'visible_changes.dart';
 
 part 'space.dart';
 part 'space_transaction.dart';
@@ -259,6 +260,8 @@ class OfflineSyncDatabase implements Database {
   ///
   /// Like Serverpod's watch, this is unsupported on PostgreSQL. Raw SQL in caller
   /// expressions still requires [alsoTriggerOnTables] for its dependencies.
+  /// Tracked tables use [watchTableChanges]; untracked dependencies retain their
+  /// SQLite notifications. Invalidation is table-wide, not predicate-specific.
   @override
   Stream<List<T>> watch<T extends TableRow>({
     Expression? where,
@@ -279,6 +282,35 @@ class OfflineSyncDatabase implements Database {
     throttle: throttle,
     alsoTriggerOnTables: alsoTriggerOnTables,
   );
+
+  /// Reports tracked table names whose rows or visibility changed on SQLite.
+  ///
+  /// Call [initialize] before subscribing. The first event is an empty set once
+  /// the committed baseline is ready. Later events coalesce commits according to
+  /// [throttle]. Rolled back changes, clock/checkpoint writes, repeated grants,
+  /// and role-only membership changes do not advance the visible revisions.
+  ///
+  /// The signal is database-wide, including changes from other wrappers and
+  /// users. It does not identify a particular sync pass or guarantee one event
+  /// per commit. Like [watch], it is unsupported on PostgreSQL.
+  Stream<Set<String>> watchTableChanges({
+    Duration? throttle = const Duration(milliseconds: 30),
+  }) {
+    Map<String, int>? previous;
+    return visibleTableRevisions(
+      _delegate,
+      _context.syncTableByName.keys,
+      throttle: throttle,
+    ).map((current) {
+      final before = previous;
+      previous = current;
+      return Set<String>.unmodifiable({
+        if (before != null)
+          for (final entry in current.entries)
+            if (before[entry.key] != entry.value) entry.key,
+      });
+    });
+  }
 
   /// Delegates raw watches without adding CRDT visibility or membership filters.
   /// Callers own the SQL and its [triggerOnTables] dependencies.
