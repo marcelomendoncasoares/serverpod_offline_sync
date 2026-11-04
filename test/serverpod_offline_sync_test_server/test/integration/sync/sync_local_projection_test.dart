@@ -618,7 +618,7 @@ void main() {
           final peerFacts = await peer.sync
               .collectPendingChanges(
                 peer.raw,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList();
           await node.offlineSync.db.mergeChanges(peerFacts, userId: testCrdtUserId);
@@ -627,7 +627,7 @@ void main() {
           final facts = await node.sync
               .collectPendingChanges(
                 node.raw,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList();
           authoredParents = {

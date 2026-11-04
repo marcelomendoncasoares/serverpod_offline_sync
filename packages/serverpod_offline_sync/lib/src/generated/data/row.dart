@@ -30,6 +30,9 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     this.id,
     required super.hlcDatetime,
     required super.hlcCounter,
+    int? syncRevision,
+    this.sourcePeerId,
+    this.sourcePeer,
     required this.spaceId,
     this.space,
     required this.tblId,
@@ -40,12 +43,16 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     _icw2tu00.CrdtDataRowVisibility? visibility,
     this.deleted,
     this.fields,
-  }) : visibility = visibility ?? _icw2tu00.CrdtDataRowVisibility.userInsert;
+  }) : syncRevision = syncRevision ?? 0,
+       visibility = visibility ?? _icw2tu00.CrdtDataRowVisibility.userInsert;
 
   factory CrdtDataRow({
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer,
     required int spaceId,
     _icw2tu00.OfflineSyncSpace? space,
     required int tblId,
@@ -65,6 +72,13 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
+      syncRevision: jsonSerialization['syncRevision'] as int?,
+      sourcePeerId: jsonSerialization['sourcePeerId'] as int?,
+      sourcePeer: jsonSerialization['sourcePeer'] == null
+          ? null
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.OfflineSyncPeer>(
+              jsonSerialization['sourcePeer'],
+            ),
       spaceId: jsonSerialization['spaceId'] as int,
       space: jsonSerialization['space'] == null
           ? null
@@ -111,6 +125,14 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
   @override
   int? id;
 
+  /// Local revision of this authored insertion fact, independent of its HLC.
+  int syncRevision;
+
+  int? sourcePeerId;
+
+  /// Authenticated immediate peer that supplied this fact.
+  _icw2tu00.OfflineSyncPeer? sourcePeer;
+
   int spaceId;
 
   /// Identifier for the space that owns the data.
@@ -155,6 +177,10 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer =
+        const _UndefinedCrdtDataRow$sourcePeer(),
     int? spaceId,
     _icw2tu00.OfflineSyncSpace? space = const _UndefinedCrdtDataRow$space(),
     int? tblId,
@@ -174,6 +200,9 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
+      'syncRevision': syncRevision,
+      if (sourcePeerId != null) 'sourcePeerId': sourcePeerId,
+      if (sourcePeer != null) 'sourcePeer': sourcePeer?.toJson(),
       'spaceId': spaceId,
       if (space != null) 'space': space?.toJson(),
       'tblId': tblId,
@@ -195,6 +224,9 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
+      'syncRevision': syncRevision,
+      if (sourcePeerId != null) 'sourcePeerId': sourcePeerId,
+      if (sourcePeer != null) 'sourcePeer': sourcePeer?.toJsonForProtocol(),
       'spaceId': spaceId,
       if (space != null) 'space': space?.toJsonForProtocol(),
       'tblId': tblId,
@@ -210,6 +242,7 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
   }
 
   static CrdtDataRowInclude include({
+    _icw2tu00.OfflineSyncPeerInclude? sourcePeer,
     _icw2tu00.OfflineSyncSpaceInclude? space,
     _icw2tu00.CrdtSchemaTableInclude? tbl,
     _icw2tu00.CrdtNodeInclude? node,
@@ -217,6 +250,7 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
     _icw2tu00.CrdtDataFieldIncludeList? fields,
   }) {
     return CrdtDataRowInclude._(
+      sourcePeer: sourcePeer,
       space: space,
       tbl: tbl,
       node: node,
@@ -251,6 +285,11 @@ abstract class CrdtDataRow extends _icw2tu00.BaseHlc
 
 class _Undefined {}
 
+class _UndefinedCrdtDataRow$sourcePeer extends _iss.UndefinedSentinel
+    implements _icw2tu00.OfflineSyncPeer {
+  const _UndefinedCrdtDataRow$sourcePeer();
+}
+
 class _UndefinedCrdtDataRow$space extends _iss.UndefinedSentinel
     implements _icw2tu00.OfflineSyncSpace {
   const _UndefinedCrdtDataRow$space();
@@ -276,6 +315,9 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer,
     required int spaceId,
     _icw2tu00.OfflineSyncSpace? space,
     required int tblId,
@@ -290,6 +332,9 @@ class _CrdtDataRowImpl extends CrdtDataRow {
          id: id,
          hlcDatetime: hlcDatetime,
          hlcCounter: hlcCounter,
+         syncRevision: syncRevision,
+         sourcePeerId: sourcePeerId,
+         sourcePeer: sourcePeer,
          spaceId: spaceId,
          space: space,
          tblId: tblId,
@@ -310,6 +355,10 @@ class _CrdtDataRowImpl extends CrdtDataRow {
     Object? id = _Undefined,
     DateTime? hlcDatetime,
     int? hlcCounter,
+    int? syncRevision,
+    Object? sourcePeerId = _Undefined,
+    _icw2tu00.OfflineSyncPeer? sourcePeer =
+        const _UndefinedCrdtDataRow$sourcePeer(),
     int? spaceId,
     _icw2tu00.OfflineSyncSpace? space = const _UndefinedCrdtDataRow$space(),
     int? tblId,
@@ -326,6 +375,11 @@ class _CrdtDataRowImpl extends CrdtDataRow {
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
+      syncRevision: syncRevision ?? this.syncRevision,
+      sourcePeerId: sourcePeerId is int? ? sourcePeerId : this.sourcePeerId,
+      sourcePeer: sourcePeer is _iss.UndefinedSentinel
+          ? this.sourcePeer?.copyWith()
+          : sourcePeer,
       spaceId: spaceId ?? this.spaceId,
       space: space is _iss.UndefinedSentinel ? this.space?.copyWith() : space,
       tblId: tblId ?? this.tblId,
@@ -355,6 +409,16 @@ class CrdtDataRowUpdateTable extends _isd.UpdateTable<CrdtDataRowTable> {
 
   _isd.ColumnValue<int, int> hlcCounter(int value) => _isd.ColumnValue(
     table.hlcCounter,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> syncRevision(int value) => _isd.ColumnValue(
+    table.syncRevision,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> sourcePeerId(int? value) => _isd.ColumnValue(
+    table.sourcePeerId,
     value,
   );
 
@@ -401,6 +465,15 @@ class CrdtDataRowTable extends _isd.Table<int?> {
       'hlcCounter',
       this,
     );
+    syncRevision = _isd.ColumnInt(
+      'syncRevision',
+      this,
+      hasDefault: true,
+    );
+    sourcePeerId = _isd.ColumnInt(
+      'sourcePeerId',
+      this,
+    );
     spaceId = _isd.ColumnInt(
       'spaceId',
       this,
@@ -432,6 +505,14 @@ class CrdtDataRowTable extends _isd.Table<int?> {
 
   /// The counter component of the HLC timestamp.
   late final _isd.ColumnInt hlcCounter;
+
+  /// Local revision of this authored insertion fact, independent of its HLC.
+  late final _isd.ColumnInt syncRevision;
+
+  late final _isd.ColumnInt sourcePeerId;
+
+  /// Authenticated immediate peer that supplied this fact.
+  _icw2tu00.OfflineSyncPeerTable? _sourcePeer;
 
   late final _isd.ColumnInt spaceId;
 
@@ -468,6 +549,19 @@ class CrdtDataRowTable extends _isd.Table<int?> {
 
   /// The fields for this row.
   _isd.ManyRelation<_icw2tu00.CrdtDataFieldTable>? _fields;
+
+  _icw2tu00.OfflineSyncPeerTable get sourcePeer {
+    if (_sourcePeer != null) return _sourcePeer!;
+    _sourcePeer = _isd.createRelationTable(
+      relationFieldName: 'sourcePeer',
+      field: CrdtDataRow.t.sourcePeerId,
+      foreignField: _icw2tu00.OfflineSyncPeer.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          _icw2tu00.OfflineSyncPeerTable(tableRelation: foreignTableRelation),
+    );
+    return _sourcePeer!;
+  }
 
   _icw2tu00.OfflineSyncSpaceTable get space {
     if (_space != null) return _space!;
@@ -558,6 +652,8 @@ class CrdtDataRowTable extends _isd.Table<int?> {
     id,
     hlcDatetime,
     hlcCounter,
+    syncRevision,
+    sourcePeerId,
     spaceId,
     tblId,
     uuidRowId,
@@ -567,6 +663,9 @@ class CrdtDataRowTable extends _isd.Table<int?> {
 
   @override
   _isd.Table? getRelationTable(String relationField) {
+    if (relationField == 'sourcePeer') {
+      return sourcePeer;
+    }
     if (relationField == 'space') {
       return space;
     }
@@ -588,18 +687,22 @@ class CrdtDataRowTable extends _isd.Table<int?> {
 
 class CrdtDataRowInclude extends _isd.IncludeObject {
   CrdtDataRowInclude._({
+    _icw2tu00.OfflineSyncPeerInclude? sourcePeer,
     _icw2tu00.OfflineSyncSpaceInclude? space,
     _icw2tu00.CrdtSchemaTableInclude? tbl,
     _icw2tu00.CrdtNodeInclude? node,
     _icw2tu00.CrdtDataDeletedInclude? deleted,
     _icw2tu00.CrdtDataFieldIncludeList? fields,
   }) {
+    _sourcePeer = sourcePeer;
     _space = space;
     _tbl = tbl;
     _node = node;
     _deleted = deleted;
     _fields = fields;
   }
+
+  _icw2tu00.OfflineSyncPeerInclude? _sourcePeer;
 
   _icw2tu00.OfflineSyncSpaceInclude? _space;
 
@@ -613,6 +716,7 @@ class CrdtDataRowInclude extends _isd.IncludeObject {
 
   @override
   Map<String, _isd.Include?> get includes => {
+    'sourcePeer': _sourcePeer,
     'space': _space,
     'tbl': _tbl,
     'node': _node,
@@ -649,6 +753,8 @@ class CrdtDataRowRepository {
   final attach = const CrdtDataRowAttachRepository._();
 
   final attachRow = const CrdtDataRowAttachRowRepository._();
+
+  final detachRow = const CrdtDataRowDetachRowRepository._();
 
   /// Returns a list of [CrdtDataRow]s matching the given query parameters.
   ///
@@ -1145,6 +1251,29 @@ class CrdtDataRowAttachRepository {
 class CrdtDataRowAttachRowRepository {
   const CrdtDataRowAttachRowRepository._();
 
+  /// Creates a relation between the given [CrdtDataRow] and [OfflineSyncPeer]
+  /// by setting the [CrdtDataRow]'s foreign key `sourcePeerId` to refer to the [OfflineSyncPeer].
+  Future<void> sourcePeer(
+    _isd.DatabaseSession session,
+    CrdtDataRow crdtDataRow,
+    _icw2tu00.OfflineSyncPeer sourcePeer, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (crdtDataRow.id == null) {
+      throw ArgumentError.notNull('crdtDataRow.id');
+    }
+    if (sourcePeer.id == null) {
+      throw ArgumentError.notNull('sourcePeer.id');
+    }
+
+    var $crdtDataRow = crdtDataRow.copyWith(sourcePeerId: sourcePeer.id);
+    await session.db.updateRow<CrdtDataRow>(
+      $crdtDataRow,
+      columns: [CrdtDataRow.t.sourcePeerId],
+      transaction: transaction,
+    );
+  }
+
   /// Creates a relation between the given [CrdtDataRow] and [OfflineSyncSpace]
   /// by setting the [CrdtDataRow]'s foreign key `spaceId` to refer to the [OfflineSyncSpace].
   Future<void> space(
@@ -1256,6 +1385,32 @@ class CrdtDataRowAttachRowRepository {
     await session.db.updateRow<_icw2tu00.CrdtDataField>(
       $crdtDataField,
       columns: [_icw2tu00.CrdtDataField.t.rowId],
+      transaction: transaction,
+    );
+  }
+}
+
+class CrdtDataRowDetachRowRepository {
+  const CrdtDataRowDetachRowRepository._();
+
+  /// Detaches the relation between this [CrdtDataRow] and the [OfflineSyncPeer] set in `sourcePeer`
+  /// by setting the [CrdtDataRow]'s foreign key `sourcePeerId` to `null`.
+  ///
+  /// This removes the association between the two models without deleting
+  /// the related record.
+  Future<void> sourcePeer(
+    _isd.DatabaseSession session,
+    CrdtDataRow crdtDataRow, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (crdtDataRow.id == null) {
+      throw ArgumentError.notNull('crdtDataRow.id');
+    }
+
+    var $crdtDataRow = crdtDataRow.copyWith(sourcePeerId: null);
+    await session.db.updateRow<CrdtDataRow>(
+      $crdtDataRow,
+      columns: [CrdtDataRow.t.sourcePeerId],
       transaction: transaction,
     );
   }

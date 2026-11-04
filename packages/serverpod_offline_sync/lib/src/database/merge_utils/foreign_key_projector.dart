@@ -455,6 +455,9 @@ class CrdtForeignKeyProjector {
 
   /// A field for a column of [crdtRow] that has none, born at the row's HLC.
   CrdtDataField _newFieldFor(CrdtDataRow crdtRow, int columnId) => CrdtDataField(
+    spaceId: crdtRow.spaceId,
+    syncRevision: crdtRow.syncRevision,
+    sourcePeerId: crdtRow.sourcePeerId,
     rowId: crdtRow.id!,
     columnId: columnId,
     nodeId: crdtRow.nodeId,
@@ -1053,6 +1056,8 @@ class CrdtForeignKeyProjector {
       rows[key] = (
         key: key,
         crdtRow: CrdtDataRow(
+          syncRevision: _context.revisionFor(transaction),
+          sourcePeerId: _context.sourcePeerIdFor(transaction),
           spaceId: _context.spaceIdFor(transaction),
           tblId: tableId,
           uuidRowId: pending.rowId,

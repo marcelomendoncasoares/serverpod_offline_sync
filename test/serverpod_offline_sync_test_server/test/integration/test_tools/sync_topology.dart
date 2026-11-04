@@ -34,13 +34,11 @@ Future<SyncNode> syncNode(DatabaseSession raw, List<Table> syncTables) async {
 
 /// Collects everything [from] has pending and merges it into [to].
 Future<void> pushChanges(SyncNode from, SyncNode to) async {
-  final changes = await from.sync
-      .collectPendingChanges(
-        from.raw,
-        checkpointsBySpaceUuid: {testCrdtUserId: const []},
-      )
-      .toList();
-  await to.offlineSync.db.mergeChanges(changes, userId: testCrdtUserId);
+  final capture = await from.sync.captureChanges(
+    from.raw,
+    checkpointsBySpaceUuid: {testCrdtUserId: 0},
+  );
+  await deliverCapture(from, to, capture);
 }
 
 /// Authors a row on a disconnected peer and merges its complete export.
@@ -60,7 +58,7 @@ Future<void> mergeIndependentInsert<T extends TableRow>(
   final changes = await peer.sync
       .collectPendingChanges(
         peer.raw,
-        checkpointsBySpaceUuid: {space: const []},
+        checkpointsBySpaceUuid: {space: 0},
       )
       .toList();
   await target.db.mergeChanges(changes, userId: space);
@@ -70,4 +68,41 @@ Future<void> mergeIndependentInsert<T extends TableRow>(
 Future<void> syncWithServer(SyncNode client, SyncNode server) async {
   await pushChanges(client, server);
   await pushChanges(server, client);
+}
+
+/// The receiver's durable cursor for the sender's current database epoch.
+Future<int> peerCheckpoint(SyncNode from, SyncNode to) async {
+  final epoch = await from.offlineSync.db.currentNodeId(userId: testCrdtUserId);
+  final receipt = await to.sync.createSyncSinceRevision(
+    to.raw,
+    userId: testCrdtUserId,
+    spaceId: testCrdtUserId,
+  );
+  return receipt.nodeCheckpoints
+          .where((checkpoint) => checkpoint.uuidNodeId == epoch)
+          .firstOrNull
+          ?.revision ??
+      0;
+}
+
+/// Commits a complete production capture with its immediate sender identity.
+Future<void> deliverCapture(
+  SyncNode from,
+  SyncNode to,
+  OfflineSyncCapture capture,
+) async {
+  final epoch = await from.offlineSync.db.currentNodeId(userId: testCrdtUserId);
+  final peer = await to.sync.resolvePeer(to.raw, testCrdtUserId, epoch);
+  for (final checkpoint in capture.checkpoints) {
+    await to.sync.mergeInboundBatch(
+      to.raw,
+      userId: testCrdtUserId,
+      spaceId: checkpoint.uuidSpaceId,
+      mergeSet: capture.changes
+          .where((change) => change.uuidSpaceId == checkpoint.uuidSpaceId)
+          .toList(),
+      sourcePeerId: peer.id,
+      receivedRevision: checkpoint.revision,
+    );
+  }
 }

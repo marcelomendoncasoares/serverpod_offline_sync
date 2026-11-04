@@ -7,6 +7,15 @@ extends: BaseHlc
 table: crdt_data_fields
 database: all
 fields:
+  ### Owning space, copied from the immutable row identity for indexed capture.
+  spaceId: int
+
+  ### Local revision of this authored field fact, independent of its HLC.
+  syncRevision: int, default=0
+
+  ### Authenticated immediate peer that supplied this fact.
+  sourcePeer: OfflineSyncPeer?, relation(optional)
+
   ### Row that the field belongs to.
   row: CrdtDataRow?, relation(name=row_fields, onDelete=Cascade)
 
@@ -24,3 +33,5 @@ indexes:
   crdt_data_fields_row_column_idx:
     fields: rowId, columnId
     unique: true
+  crdt_data_fields_space_revision_idx:
+    fields: spaceId, syncRevision

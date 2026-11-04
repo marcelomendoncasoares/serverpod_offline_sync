@@ -16,7 +16,7 @@ void main() {
     late DstReplica author;
     late DstReplica relay;
     late DstReplica receiver;
-    late CrdtMergeSet initial;
+    late DstBatch initial;
 
     Future<void> insert(DstReplica replica, String name) => replica.withReplicaClock(
       () => replica.session.db.transactionForUser(space, (tx) async {
@@ -59,7 +59,7 @@ void main() {
     });
 
     group('when the receiver reconnects after the production inbound merge,', () {
-      late List<Hlc> vector;
+      late DstCheckpoint vector;
       late CrdtMergeSet pending;
 
       setUp(() async {
@@ -68,18 +68,13 @@ void main() {
       });
 
       test(
-        'then each author has its own checkpoint and the relay has nothing to resend.',
+        'then the immediate relay has one durable receipt and nothing to resend.',
         () {
           expect(initial, hasLength(2));
           expect(initial.maxHlc!.nodeId, author.nodeUuidFor(space));
-          expect(vector.map((hlc) => hlc.nodeId).toSet(), hasLength(3));
-          expect(vector, hasLength(3));
-          expect(
-            vector.singleWhere((hlc) => hlc.nodeId == relay.nodeUuidFor(space)),
-            initial
-                .singleWhere((change) => change.uuidNodeId == relay.nodeUuidFor(space))
-                .hlc,
-          );
+          expect(vector, hasLength(1));
+          expect(vector.single.uuidNodeId, relay.nodeUuidFor(space));
+          expect(vector.single.revision, initial.revision);
           expect(pending, isEmpty);
         },
       );
@@ -88,7 +83,7 @@ void main() {
     group('when a stale session echoes a receiver fact before another local write,', () {
       late CrdtMergeSet echo;
       late CrdtMergeSet pending;
-      late List<Hlc> vector;
+      late DstCheckpoint vector;
 
       setUp(() async {
         final stale = await receiver.checkpoints(space);
@@ -113,98 +108,12 @@ void main() {
       test(
         'then reconnecting neither resends the relay fact nor echoes either local fact.',
         () {
-          expect(echo, hasLength(1));
-          expect(echo.single.uuidNodeId, receiver.nodeUuidFor(space));
-          expect(vector, hasLength(3));
-          expect(vector.map((hlc) => hlc.nodeId).toSet(), hasLength(3));
+          expect(echo, isEmpty);
+          expect(vector, hasLength(1));
+          expect(vector.single.uuidNodeId, relay.nodeUuidFor(space));
           expect(pending, isEmpty);
         },
       );
     });
-
-    group("when the checkpoint API is given a relayed author under the peer's id,", () {
-      late Object failure;
-      late List<Hlc> before;
-      late List<Hlc> after;
-
-      setUp(() async {
-        before = await receiver.checkpoints(space);
-        failure = await receiver.session.db
-            .recordSyncCheckpoint(
-              relay.nodeUuidFor(space),
-              initial.maxHlc!,
-              spaceId: space,
-            )
-            .then<Object>(
-              (_) => 'unexpected success',
-              onError: (Object error) => error,
-            );
-        after = await receiver.checkpoints(space);
-      });
-
-      test('then the invalid checkpoint is rejected without changing progress.', () {
-        expect(initial.maxHlc!.nodeId, author.nodeUuidFor(space));
-        expect(failure, isA<ArgumentError>());
-        expect(after, before);
-      });
-    });
-
-    group(
-      'when a stored relay checkpoint carries the wrong author from older bookkeeping,',
-      () {
-        late List<Hlc> beforeRepair;
-        late List<Hlc> afterRepair;
-        late CrdtMergeSet repair;
-        late CrdtMergeSet pending;
-        late Hlc? persisted;
-
-        setUp(() async {
-          final nodes = await OfflineSyncSpaceNode.db.find(
-            receiver.rawSession,
-            include: OfflineSyncSpaceNode.include(node: CrdtNode.include()),
-          );
-          final relayNode = nodes.singleWhere(
-            (node) => node.node!.uuidNodeId == relay.nodeUuidFor(space),
-          );
-          await OfflineSyncSpaceNode.db.updateRow(
-            receiver.rawSession,
-            relayNode.copyWith(lastReceivedHlc: initial.maxHlc),
-            columns: (t) => [t.lastReceivedHlc],
-          );
-          beforeRepair = await receiver.checkpoints(space);
-          repair = await relay.collect(space, checkpoints: beforeRepair);
-          await receiver.merge(repair, space);
-          afterRepair = await receiver.checkpoints(space);
-          persisted = (await OfflineSyncSpaceNode.db.findById(
-            receiver.rawSession,
-            relayNode.id!,
-          ))!.lastReceivedHlc;
-          pending = await relay.collect(space, checkpoints: afterRepair);
-        });
-
-        test(
-          'then one safe retransmission repairs the persisted author tag and settles.',
-          () {
-            final relayHlc = initial
-                .singleWhere((change) => change.uuidNodeId == relay.nodeUuidFor(space))
-                .hlc;
-            expect(initial.maxHlc, greaterThan(relayHlc));
-            expect(beforeRepair, hasLength(3));
-            expect(
-              beforeRepair.singleWhere((hlc) => hlc.nodeId == relay.nodeUuidFor(space)),
-              Hlc.zero(relay.nodeUuidFor(space)),
-            );
-            expect(repair, hasLength(1));
-            expect(repair.single.uuidNodeId, relay.nodeUuidFor(space));
-            expect(persisted, relayHlc);
-            expect(
-              afterRepair.singleWhere((hlc) => hlc.nodeId == relay.nodeUuidFor(space)),
-              relayHlc,
-            );
-            expect(pending, isEmpty);
-          },
-        );
-      },
-    );
   });
 }

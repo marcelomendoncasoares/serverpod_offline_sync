@@ -197,7 +197,7 @@ void main() {
               expect(events.whereType<OfflineSyncMergeChunk>(), isEmpty);
               expect(events.whereType<OfflineSyncEndOfBatch>(), isEmpty);
               expect(events.whereType<OfflineSyncClose>(), isEmpty);
-              expect(events.whereType<OfflineSyncIdleTimeout>(), isEmpty);
+              expect(events.whereType<OfflineSyncCommitted>(), isEmpty);
             }
           },
         );

@@ -1,10 +1,10 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:clock/clock.dart';
 // Imported with `show` because the barrel below re-exports overlapping names.
 import 'package:serverpod_database/serverpod_database.dart'
     show DatabaseSession, TableRow, Transaction;
-import 'package:serverpod_offline_sync/src/sync/space_state.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
@@ -190,27 +190,31 @@ class DstReplica {
     );
   }
 
-  /// Reads the production resume vector under this replica's seeded clock.
-  Future<List<Hlc>> checkpoints(UuidValue spaceUuid) => withReplicaClock(
-    () async => (await sync.createSyncSinceHlc(
-      rawSession,
-      spaceId: spaceUuid,
-    )).nodeCheckpoints,
+  /// Reads the receiver's durable replica receipts under its seeded clock.
+  Future<DstCheckpoint> checkpoints(UuidValue spaceUuid) => withReplicaClock(
+    () async => DstCheckpoint(
+      nodeUuidFor(spaceUuid),
+      (await sync.createSyncSinceRevision(
+        rawSession,
+        userId: spaceUuid,
+        spaceId: spaceUuid,
+      )).nodeCheckpoints,
+    ),
   );
 
   /// Collects a complete batch after the receiver's committed [checkpoints].
   ///
-  /// An empty vector preserves the full-history convergence experiment. Delta
-  /// callers pass the receiver's production handshake vector, including one
-  /// entry per known author in this space, never progress from queued batches.
+  /// Omitting receipts preserves the full-history convergence experiment. Delta
+  /// callers pass the receiver's production handshake receipts, including one
+  /// entry per known sender epoch in this space, never progress from queued batches.
   /// [onChange] lets the scheduler commit an application operation at a real
   /// collector yield, before requesting the next change from the same stream.
   /// [onCapture] starts an independent writer after insert metadata is read.
   /// It finishes before collection returns, even when SQLite queues it behind
   /// capture, so later scheduling never overlaps its random or clock state.
-  Future<CrdtMergeSet> collect(
+  Future<DstBatch> collect(
     UuidValue spaceUuid, {
-    List<Hlc> checkpoints = const [],
+    DstCheckpoint? checkpoints,
     Future<void> Function(CrdtMergeChange)? onChange,
     Future<void> Function()? onCapture,
   }) async {
@@ -230,17 +234,29 @@ class DstReplica {
           };
         }
 
-        final changes = <CrdtMergeChange>[];
+        late OfflineSyncCapture capture;
         try {
-          await for (final change in sync.collectPendingChanges(
+          final peer = checkpoints == null
+              ? null
+              : await sync.resolvePeer(
+                  rawSession,
+                  spaceUuid,
+                  checkpoints.replicaUuid,
+                );
+          final revision =
+              checkpoints
+                  ?.where(
+                    (cursor) => cursor.uuidNodeId == nodeUuidFor(spaceUuid),
+                  )
+                  .firstOrNull
+                  ?.revision ??
+              0;
+          capture = await sync.captureChanges(
             onCapture == null ? rawSession : _captureSession,
-            checkpointsBySpaceUuid: {
-              spaceUuid: OfflineSyncSpaceState.normalizeCheckpoints(
-                checkpoints,
-              ).values.toList(),
-            },
-          )) {
-            changes.add(change);
+            checkpointsBySpaceUuid: {spaceUuid: revision},
+            peerId: peer?.id,
+          );
+          for (final change in capture.changes) {
             await onChange?.call(change);
           }
         } finally {
@@ -249,26 +265,85 @@ class DstReplica {
             await captureWrite;
           }
         }
-        return changes;
+        return DstBatch(
+          nodeUuidFor(spaceUuid),
+          capture.checkpoints.single.revision,
+          capture.changes,
+        );
       },
     );
   }
 
-  /// Merges [changes] for [spaceUuid] into this replica.
+  /// Merges a complete capture and its durable receipt atomically.
   Future<void> merge(CrdtMergeSet changes, UuidValue spaceUuid) async {
-    if (changes.isEmpty) return;
+    final batch = changes is DstBatch ? changes : null;
+    if (changes.isEmpty && batch == null) return;
+    final peer = batch == null
+        ? null
+        : await sync.resolvePeer(
+            rawSession,
+            spaceUuid,
+            batch.replicaUuid,
+          );
     await withReplicaClock(
       () => sync.mergeInboundBatch(
         rawSession,
         userId: spaceUuid,
         spaceId: spaceUuid,
         mergeSet: changes,
+        sourcePeerId: peer?.id,
+        receivedRevision: batch?.revision,
       ),
     );
   }
 
   @override
   String toString() => name;
+}
+
+/// A receiver identity and its durable incoming positions, as on the wire.
+class DstCheckpoint extends ListBase<OfflineSyncNodeCheckpoint> {
+  DstCheckpoint(this.replicaUuid, Iterable<OfflineSyncNodeCheckpoint> entries)
+    : _entries = List.unmodifiable(entries);
+
+  final UuidValue replicaUuid;
+  final List<OfflineSyncNodeCheckpoint> _entries;
+
+  @override
+  int get length => _entries.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('Immutable receipt');
+
+  @override
+  OfflineSyncNodeCheckpoint operator [](int index) => _entries[index];
+
+  @override
+  void operator []=(int index, OfflineSyncNodeCheckpoint value) =>
+      throw UnsupportedError('Immutable receipt');
+}
+
+/// Captured facts carry their sender identity and complete local revision bound.
+class DstBatch extends ListBase<CrdtMergeChange> {
+  DstBatch(this.replicaUuid, this.revision, Iterable<CrdtMergeChange> changes)
+    : _changes = List.unmodifiable(changes);
+
+  final UuidValue replicaUuid;
+  final int revision;
+  final List<CrdtMergeChange> _changes;
+
+  @override
+  int get length => _changes.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('Immutable capture');
+
+  @override
+  CrdtMergeChange operator [](int index) => _changes[index];
+
+  @override
+  void operator []=(int index, CrdtMergeChange value) =>
+      throw UnsupportedError('Immutable capture');
 }
 
 /// The identity of a merge change, used to deduplicate delivery.

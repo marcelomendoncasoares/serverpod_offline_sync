@@ -68,35 +68,19 @@ void main() {
           ]);
         };
 
-        firstPass = await author.sync
-            .collectPendingChanges(
-              collector,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
-            )
-            .toList();
+        final capture = await author.sync.captureChanges(
+          collector,
+          checkpointsBySpaceUuid: {testCrdtUserId: 0},
+        );
+        firstPass = capture.changes;
         await write;
-        await peer.sync.mergeInboundBatch(
-          peer.raw,
-          userId: testCrdtUserId,
-          spaceId: testCrdtUserId,
-          mergeSet: firstPass,
+        await deliverCapture(author, peer, capture);
+        final checkpoint = await peerCheckpoint(author, peer);
+        final nextPass = await author.sync.captureChanges(
+          author.raw,
+          checkpointsBySpaceUuid: {testCrdtUserId: checkpoint},
         );
-        final since = await peer.sync.createSyncSinceHlc(
-          peer.raw,
-          spaceId: testCrdtUserId,
-        );
-        final nextPass = await author.sync
-            .collectPendingChanges(
-              author.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: since.nodeCheckpoints},
-            )
-            .toList();
-        await peer.sync.mergeInboundBatch(
-          peer.raw,
-          userId: testCrdtUserId,
-          spaceId: testCrdtUserId,
-          mergeSet: nextPass,
-        );
+        await deliverCapture(author, peer, nextPass);
         receivedNames = (await Person.db.find(
           peer.offlineSync,
         )).map((row) => row.name).toList()..sort();
@@ -175,7 +159,7 @@ void main() {
             await author.sync
                 .collectPendingChanges(
                   collector,
-                  checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                  checkpointsBySpaceUuid: {testCrdtUserId: 0},
                 )
                 .toList();
             await write;

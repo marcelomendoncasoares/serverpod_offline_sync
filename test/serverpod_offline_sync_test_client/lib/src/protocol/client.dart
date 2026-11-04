@@ -66,16 +66,10 @@ class EndpointDemoDebug extends _isc.EndpointRef {
     {'includeHidden': includeHidden},
   );
 
-  /// Clears the caller's space by deleting its `offline_sync_spaces` row. Every synced
-  /// table cascades on `spaceId` → `offline_sync_spaces`, so all domain rows and CRDT
-  /// metadata are removed with it — no manual per-table cleanup needed.
+  /// Clears the caller's personal space and rotates its replica epoch atomically.
   ///
-  /// The delete runs with `defer_foreign_keys` on: the spaceId cascade fans out
-  /// across the CRDT metadata diamond (`crdt_data_rows`/`crdt_data_fields`/
-  /// `crdt_data_tombstone` reference `crdt_nodes` with NO ACTION while both sides
-  /// cascade off `offline_sync_spaces`), and SQLite's cascade order can transiently
-  /// violate those immediate checks. Deferring them to commit lets the whole
-  /// cascade complete first.
+  /// Stop the caller's streams and writes first. Retained spaces keep their
+  /// historical author UUIDs; subsequent sessions use the fresh local clock.
   _ida.Future<void> resetSpace() => caller.callServerEndpoint<void>(
     'demoDebug',
     'resetSpace',

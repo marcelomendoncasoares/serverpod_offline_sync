@@ -133,7 +133,7 @@ void main() {
           changes = await node.sync
               .collectPendingChanges(
                 node.raw,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList();
 

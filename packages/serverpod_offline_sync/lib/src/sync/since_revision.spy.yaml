@@ -1,0 +1,6 @@
+### Per-space durable resume positions, scoped to the authenticated user's peers.
+class: OfflineSyncSinceRevision
+extends: OfflineSyncStreamEvent
+fields:
+  uuidSpaceId: UuidValue
+  nodeCheckpoints: List<OfflineSyncNodeCheckpoint>

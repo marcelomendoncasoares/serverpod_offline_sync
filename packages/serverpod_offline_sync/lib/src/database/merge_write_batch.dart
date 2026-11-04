@@ -145,7 +145,13 @@ class _MergeWriteBatch {
     await CrdtDataField.db.update(
       _session,
       _fieldUpdates.values.toList(),
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+      columns: (t) => [
+        t.nodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        t.syncRevision,
+        t.sourcePeerId,
+      ],
       transaction: _transaction,
       noReturn: true,
     );

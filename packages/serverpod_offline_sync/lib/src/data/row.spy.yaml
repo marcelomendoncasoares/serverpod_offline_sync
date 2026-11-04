@@ -10,6 +10,12 @@ extends: BaseHlc
 table: crdt_data_rows
 database: all
 fields:
+  ### Local revision of this authored insertion fact, independent of its HLC.
+  syncRevision: int, default=0
+
+  ### Authenticated immediate peer that supplied this fact.
+  sourcePeer: OfflineSyncPeer?, relation(optional)
+
   ### Identifier for the space that owns the data.
   space: OfflineSyncSpace?, relation(onDelete=Cascade)
 
@@ -41,3 +47,5 @@ indexes:
   crdt_data_rows_space_tbl_row_idx:
     fields: spaceId, tblId, uuidRowId
     unique: true
+  crdt_data_rows_space_revision_idx:
+    fields: spaceId, syncRevision

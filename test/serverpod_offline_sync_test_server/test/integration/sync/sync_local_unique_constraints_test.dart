@@ -622,7 +622,7 @@ void main() {
 Future<List<Object?>> _export(SyncNode node) => node.sync
     .collectPendingChanges(
       node.raw,
-      checkpointsBySpaceUuid: {testCrdtUserId: const []},
+      checkpointsBySpaceUuid: {testCrdtUserId: 0},
     )
     .map((change) => change.toJson())
     .toList();

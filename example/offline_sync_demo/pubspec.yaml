@@ -21,6 +21,8 @@ dependencies:
     path: ../../packages/serverpod_offline_sync_client
   serverpod_offline_sync_test_client:
     path: ../../test/serverpod_offline_sync_test_client
+  serverpod_offline_sync_test_shared:
+    path: ../../test/serverpod_offline_sync_test_shared
   shadcn_flutter: 0.0.52
   uuid: ^4.5.3
 

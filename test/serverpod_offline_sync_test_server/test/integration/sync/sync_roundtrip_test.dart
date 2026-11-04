@@ -68,7 +68,7 @@ void main() {
         final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
 
@@ -139,7 +139,7 @@ void main() {
         final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
 
@@ -185,7 +185,7 @@ void main() {
         final chunks = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .chunked(2)
             .toList();
@@ -248,7 +248,7 @@ void main() {
         final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
 
@@ -305,7 +305,7 @@ void main() {
         final mergeSet = await offlineSync
             .collectPendingChanges(
               testSession,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
 
@@ -390,9 +390,9 @@ void main() {
               testSession,
               checkpointsBySpaceUuid: {
                 // Simulate the personal space checkpoint advancing by passing
-                // the personal tracker's HLC and not the shared space's HLC.
-                testCrdtUserId: [personalTracker.hlc],
-                sharedSpaceId: const [],
+                // the personal tracker's revision only.
+                testCrdtUserId: personalTracker.syncRevision,
+                sharedSpaceId: 0,
               },
             )
             .toList();
@@ -405,26 +405,19 @@ void main() {
   });
 
   test(
-    'Given a user that may write a space but has no local changes, '
+    'Given a user that may write a space but has no received changes, '
     'when synchronization checkpoints are created, '
-    "then one fresh checkpoint for the user's clock is included.",
+    'then no incoming progress is invented for its local clock.',
     () async {
       await offlineSyncSession.db.transactionForUser(testCrdtUserId, (_) async {});
-      final userNodeId = await offlineSyncSession.db.currentNodeId(
-        userId: testCrdtUserId,
-      );
-      final sinceHlc = await offlineSync.createSyncSinceHlc(
+      final cursor = await offlineSync.createSyncSinceRevision(
         testSession,
+        userId: testCrdtUserId,
         spaceId: testCrdtUserId,
       );
 
-      expect(sinceHlc.uuidSpaceId, testCrdtUserId);
-      expect(sinceHlc.nodeCheckpoints, hasLength(1));
-      expect(sinceHlc.nodeCheckpoints.single.nodeId, userNodeId);
-      expect(
-        sinceHlc.nodeCheckpoints.single,
-        greaterThan(Hlc.zero(sinceHlc.nodeCheckpoints.single.nodeId)),
-      );
+      expect(cursor.uuidSpaceId, testCrdtUserId);
+      expect(cursor.nodeCheckpoints, isEmpty);
     },
   );
 }

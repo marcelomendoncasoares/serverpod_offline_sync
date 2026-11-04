@@ -7,6 +7,15 @@ extends: BaseHlc
 table: crdt_data_tombstone
 database: all
 fields:
+  ### Owning space, copied from the immutable row identity for indexed capture.
+  spaceId: int
+
+  ### Local revision of this authored visibility fact, independent of its HLC.
+  syncRevision: int, default=0
+
+  ### Authenticated immediate peer that supplied this fact.
+  sourcePeer: OfflineSyncPeer?, relation(optional)
+
   ### Row whose visibility is tracked.
   row: CrdtDataRow?, relation(name=row_deleted, field=rowId, onDelete=Cascade)
   rowId: int
@@ -24,3 +33,5 @@ indexes:
   crdt_data_tombstone_row_idx:
     fields: rowId
     unique: true
+  crdt_data_tombstone_space_revision_idx:
+    fields: spaceId, syncRevision

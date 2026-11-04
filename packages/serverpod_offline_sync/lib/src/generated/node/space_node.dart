@@ -17,7 +17,7 @@ import 'package:serverpod_offline_sync/serverpod_offline_sync.dart'
     as _icw2tu00;
 import 'package:serverpod_serialization/serverpod_serialization.dart' as _iss;
 
-/// A CRDT node's participation and checkpoint state within one space.
+/// A CRDT node's participation and observed clock within one space.
 abstract class OfflineSyncSpaceNode
     implements _isd.TableRow<int?>, _iss.ProtocolSerialization {
   OfflineSyncSpaceNode._({
@@ -78,7 +78,7 @@ abstract class OfflineSyncSpaceNode
   /// Stable replica identity participating in the space.
   _icw2tu00.CrdtNode? node;
 
-  /// Latest HLC from this node acknowledged for this space.
+  /// Highest observed author HLC; this does not prove complete delivery.
   _icw2tu00.Hlc? lastReceivedHlc;
 
   @override
@@ -271,7 +271,7 @@ class OfflineSyncSpaceNodeTable extends _isd.Table<int?> {
   /// Stable replica identity participating in the space.
   _icw2tu00.CrdtNodeTable? _node;
 
-  /// Latest HLC from this node acknowledged for this space.
+  /// Highest observed author HLC; this does not prove complete delivery.
   late final _isd.ColumnStructured<_icw2tu00.Hlc> lastReceivedHlc;
 
   _icw2tu00.OfflineSyncSpaceTable get space {

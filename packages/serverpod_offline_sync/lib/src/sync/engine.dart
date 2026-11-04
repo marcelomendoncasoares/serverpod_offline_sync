@@ -16,7 +16,6 @@ import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/space.dart';
 import '../spaces/membership.dart';
-import '../utils/case_when.dart' show Case;
 import 'cancellation.dart';
 import 'diagnostics.dart';
 import 'exceptions.dart';
@@ -24,6 +23,9 @@ import 'integrity_violation.dart';
 import 'space_state.dart';
 
 export 'space_state.dart' show OfflineSyncPeerMode;
+
+part 'session.dart';
+part 'revision_capture.dart';
 
 /// Callback function for when a merge is successful.
 typedef OfflineSyncOnMergeSuccess =
@@ -51,7 +53,7 @@ class OfflineSyncEngine {
     /// Maximum number of merge changes sent in one sync stream message.
     int syncBatchSize = defaultSyncBatchSize,
 
-    /// Delay between continuous sync rounds.
+    /// Optional throttle between continuous sync rounds.
     this._continuousSyncInterval = defaultContinuousSyncInterval,
   }) : _syncTables = syncTables,
        _serializationManager = serializationManager,
@@ -70,8 +72,10 @@ class OfflineSyncEngine {
   /// Default maximum number of merge changes sent in one stream message.
   static const defaultSyncBatchSize = 100;
 
-  /// Default delay between continuous sync rounds.
-  static const defaultContinuousSyncInterval = Duration(milliseconds: 200);
+  /// Continuous sync responds immediately unless a throttle is configured.
+  static const defaultContinuousSyncInterval = Duration.zero;
+
+  static const _idlePollInterval = Duration(milliseconds: 1200);
 
   final List<Table> _syncTables;
   final DatabaseSerializationManager _serializationManager;
@@ -126,117 +130,24 @@ class OfflineSyncEngine {
         '${uuid.v5(Namespace.oid.value, canonicalSignature)}';
   }
 
-  /// Streams pending changes for every space in [checkpointsBySpaceUuid].
+  /// Exports committed facts after each space's replica-local revision.
   ///
-  /// Changes are captured in one consistent transaction, including domain
-  /// payloads, then emitted in insert, update, and delete order. The transaction
-  /// is released before yielding, so consumer backpressure or consumer writes
-  /// cannot keep the snapshot (or SQLite's write lock) open.
-  ///
-  /// Consume this stream outside application transactions, using a session
-  /// without an ambient transaction. Collection opens its own transaction to
-  /// capture committed data; it does not join a caller's transaction.
-  ///
-  /// Foreign-key columns with an active projection override are sent with their
-  /// durable [CrdtDataAttemptedValue.value], not the visible value stored
-  /// in the domain table. Peers need the attempted fact to converge; local FK
-  /// projection materializes only the safe visible value into domain tables.
-  ///
-  /// Resolves the spaces' internal ids once and keeps their checkpoint vectors
-  /// scoped by those internal ids. Node ids are stable per replica and may
-  /// appear in multiple spaces, so checkpoint filtering must compare both
-  /// `spaceId` and `uuidNodeId`. This still runs one query per change kind for
-  /// the whole pass. Per-row ownership and integrity checks resolve against
-  /// each row's own space.
-  ///
-  /// All changes for nodes that are not present in a space's checkpoint list
-  /// are collected and emitted. Passing an empty list for a space will collect
-  /// all of its changes. Each change carries its [CrdtMergeChange.uuidSpaceId].
+  /// Zero exports the complete current state. For delivery, use [captureChanges]
+  /// and acknowledge its captured bounds only after the receiver commits them.
+  /// Bounds, metadata, and authored payloads share one repeatable-read snapshot,
+  /// released before this stream yields so consumers cannot hold its locks.
   Stream<CrdtMergeChange> collectPendingChanges(
     DatabaseSession session, {
-    required Map<UuidValue, List<Hlc>> checkpointsBySpaceUuid,
+    required Map<UuidValue, int> checkpointsBySpaceUuid,
   }) async* {
-    if (checkpointsBySpaceUuid.isEmpty) return;
-
-    // Resolve stable space identities before opening the snapshot. A wrapped
-    // database may initialize its CRDT registry on this first query, which can
-    // itself need a write transaction.
-    final spaces = await OfflineSyncSpace.db.find(
+    final capture = await captureChanges(
       session,
-      where: (t) => t.uuidSpaceId.inSet(checkpointsBySpaceUuid.keys.toSet()),
+      checkpointsBySpaceUuid: checkpointsBySpaceUuid,
     );
-    if (spaces.isEmpty) return;
-
-    final spaceUuidById = {
-      for (final space in spaces) space.id!: space.uuidSpaceId,
-    };
-    final checkpointsBySpaceId = {
-      for (final space in spaces)
-        space.id!: checkpointsBySpaceUuid[space.uuidSpaceId] ?? const <Hlc>[],
-    };
-
-    try {
-      final changes = await session.db.transaction(
-        (transaction) => _streamPendingChanges(
-          session,
-          spaceUuidById,
-          checkpointsBySpaceId,
-          transaction,
-        ).toList(),
-        settings: const TransactionSettings(
-          isolationLevel: IsolationLevel.repeatableRead,
-        ),
-      );
-
-      for (final change in changes) {
-        yield change;
-      }
-    } on PendingOutboundIntegrityViolation catch (violation) {
-      await _recordAndThrowIntegrityViolation(session, violation);
-    }
+    yield* Stream.fromIterable(capture.changes);
   }
 
-  /// Creates the [OfflineSyncSinceHlc] checkpoint for a space handshake.
-  ///
-  /// [OfflineSyncSinceHlc.nodeCheckpoints] reflects the latest change this
-  /// database has from each node in the space, tagged with the source node id.
-  /// Local nodes, including other users' clocks, are reported as complete.
-  Future<OfflineSyncSinceHlc> createSyncSinceHlc(
-    DatabaseSession session, {
-    required UuidValue spaceId,
-  }) async {
-    final space = await OfflineSyncSpaceManager(session).getOrCreate(spaceId);
-
-    final spaceNodes = await OfflineSyncSpaceNode.db.find(
-      session,
-      where: (t) => t.spaceId.equals(space.id),
-      include: OfflineSyncSpaceNode.include(node: CrdtNode.include()),
-    );
-
-    final checkpoints = <UuidValue, Hlc>{};
-    for (final spaceNode in spaceNodes) {
-      final node = spaceNode.node!;
-      final nodeId = node.uuidNodeId;
-      if (node.localUserUuid != null) {
-        // This database authored every fact of a local clock. Cover committed
-        // logical ticks as well as wall time, so peers never echo them back.
-        checkpoints[nodeId] = Hlc.now(nodeId).maxBetween(node.lastHlc);
-        continue;
-      }
-      final received = spaceNode.lastReceivedHlc;
-      // Older inbound bookkeeping could store a relayed author's clock under
-      // its direct peer. It proves no per-author progress for that peer.
-      final checkpoint = received?.nodeId == nodeId ? received! : Hlc.zero(nodeId);
-      checkpoints[nodeId] = checkpoint.maxBetween(checkpoints[nodeId]);
-    }
-
-    return OfflineSyncSinceHlc(
-      uuidSpaceId: spaceId,
-      nodeCheckpoints: checkpoints.values.toList(),
-    );
-  }
-
-  /// Merges a remote [mergeSet] and atomically records its per-author progress.
+  /// Merges a remote [mergeSet] and atomically records its complete sender revision.
   ///
   /// Inbound merge applies each remote change as [userId] in [spaceId], then
   /// materializes foreign-key projection into domain tables via
@@ -253,33 +164,32 @@ class OfflineSyncEngine {
     required UuidValue userId,
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
+    int? sourcePeerId,
+    int? receivedRevision,
     OfflineSyncCancellation? cancellation,
+    bool requireWriteAccess = false,
   }) async {
-    if (mergeSet.isEmpty) return null;
-    final maxSyncedHlc = mergeSet.maxHlc;
+    if (mergeSet.isEmpty && receivedRevision == null) return null;
+    final maxSyncedHlc = mergeSet.isEmpty ? null : mergeSet.maxHlc;
     final offlineSyncDb = _openOfflineSyncDatabase(session);
     await offlineSyncDb.mergeChanges(
       mergeSet,
       userId: userId,
       spaceId: spaceId,
       cancellation: cancellation,
+      sourcePeerId: sourcePeerId,
+      receivedRevision: receivedRevision,
+      requireWriteAccess: requireWriteAccess,
     );
     return maxSyncedHlc;
   }
 
-  /// Runs a symmetric CRDT sync session over a bidirectional event stream.
+  /// Synchronizes independent numbered batches over one bidirectional stream.
   ///
-  /// Both peers exchange [OfflineSyncConnect] and a lockstep [OfflineSyncSpaceSet]
-  /// before the data loop. Each cycle sends a combined batch — space
-  /// announcement when grants changed, [OfflineSyncSinceHlc] for newly active
-  /// spaces, and [OfflineSyncMergeChunk]s — closed by [OfflineSyncEndOfBatch] when
-  /// anything was sent. Inbound frames are de-multiplexed by collectNextBatch
-  /// until [OfflineSyncEndOfBatch] when this peer sent a batch, or an idle timeout
-  /// when both peers had nothing to send.
-  ///
-  /// When [once] is true the loop may run an extra cycle after handshakes
-  /// complete so merge data can flow; then it closes symmetrically. Continuous
-  /// mode loops with [_continuousSyncInterval] between idle cycles.
+  /// Receivers acknowledge only committed batches. A finite session completes
+  /// after the follower's selected upload and a server snapshot taken after that
+  /// upload commits have both been acknowledged. Continuous sessions remain
+  /// silent until changes or membership updates need to be sent.
   Stream<OfflineSyncStreamEvent> sync(
     DatabaseSession session, {
     required UuidValue userId,
@@ -287,379 +197,36 @@ class OfflineSyncEngine {
     required OfflineSyncPeerMode mode,
     bool once = false,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
-  }) {
-    final cancellation = OfflineSyncCancellation();
-    var completed = false;
-    late StreamIterator<OfflineSyncStreamEvent> inboundIterator;
-    late StreamSubscription<OfflineSyncStreamEvent> subscription;
-    // The generator closes this controller on completion; cancellation closes
-    // the generator after its database work has settled.
-    // ignore: close_sinks
-    late StreamController<OfflineSyncStreamEvent> controller;
-    controller = StreamController<OfflineSyncStreamEvent>(
-      onListen: () {
-        // Once sessions require complete frames; idle timeouts are only for
-        // continuous sessions waiting for the next change.
-        inboundIterator = StreamIterator(
-          once
-              ? inbound
-              : inbound.timeout(
-                  const Duration(seconds: 1),
-                  onTimeout: (sink) => sink.add(OfflineSyncIdleTimeout()),
-                ),
-        );
-        subscription =
-            _syncSession(
-              session,
-              userId: userId,
-              inboundIterator: inboundIterator,
-              mode: mode,
-              once: once,
-              onMergeSuccess: onMergeSuccess,
-              cancellation: cancellation,
-            ).listen(
-              controller.add,
-              onError: controller.addError,
-              onDone: () {
-                completed = true;
-                unawaited(controller.close());
-              },
-            );
-      },
-      onPause: () => subscription.pause(),
-      onResume: () => subscription.resume(),
-      onCancel: () async {
-        if (completed) return;
-        // An async generator alone cannot observe cancellation while awaiting
-        // admission or a database call. Signal it before awaiting its cleanup.
-        cancellation.cancel();
-        try {
-          await inboundIterator.cancel().timeout(
-            const Duration(milliseconds: 200),
-            onTimeout: () {},
-          );
-        } finally {
-          await subscription.cancel();
-        }
-      },
-    );
-    return controller.stream;
-  }
+  }) => _SyncSession(
+    this,
+    session,
+    userId: userId,
+    inbound: inbound,
+    mode: mode,
+    once: once,
+    onMergeSuccess: onMergeSuccess,
+  ).stream;
 
-  Stream<OfflineSyncStreamEvent> _syncSession(
-    DatabaseSession session, {
-    required UuidValue userId,
-    required StreamIterator<OfflineSyncStreamEvent> inboundIterator,
-    required OfflineSyncPeerMode mode,
-    required bool once,
-    required OfflineSyncCancellation cancellation,
-    OfflineSyncOnMergeSuccess? onMergeSuccess,
-  }) async* {
-    var sessionCompleted = false;
-    var cycle = 0;
-    void stage(String phase, [Map<String, Object?> data = const {}]) {
-      OfflineSyncDiagnostics.event('sync.stage', {
-        'phase': phase,
-        'cycle': cycle,
-        ...data,
-      });
-    }
-
-    try {
-      stage('handshake.localNode');
-      // Informational: the per-space checkpoints carry every node's progress.
-      final localNode = await OfflineSyncSpaceManager(
-        session,
-      ).getOrCreateUserNode(userId);
-      yield OfflineSyncConnect(
-        localNodeId: localNode.uuidNodeId,
-        syncTablesHash: currentSyncTablesHash,
-      );
-
-      stage('handshake.waitForPeerConnect');
-      final peerConnect = await inboundIterator.moveAndThrowIfNot<OfflineSyncConnect>();
-      OfflineSyncDiagnostics.event('sync.peer', {
-        'peerNodeId': peerConnect.localNodeId.toString(),
-      });
-      _validateSyncTablesHash(peerConnect.syncTablesHash);
-
-      final spaces = OfflineSyncSpaceState(
-        session,
-        userId: userId,
-        mode: mode,
-        peerNodeId: peerConnect.localNodeId,
-      );
-
-      stage('handshake.reconcileSpaces');
-      await spaces.reconcile();
-      yield OfflineSyncSpaceSet(spaces: spaces.localGrants);
-      spaces.markAnnounced();
-      stage('handshake.waitForPeerSpaces');
-      final peerSpaceSet = await inboundIterator
-          .moveAndThrowIfNot<OfflineSyncSpaceSet>();
-      stage('handshake.adoptSpaces');
-      await spaces.adoptPeerGrants(peerSpaceSet.spaces);
-
-      while (true) {
-        if (cancellation.isCancelled) return;
-        cycle++;
-        stage('cycle.reconcileSpaces');
-        await spaces.reconcile();
-
-        final hadSendableCheckpoints = spaces.sendableCheckpoints.isNotEmpty;
-        var hasChanges = false;
-        final outboundSpaces = <UuidValue>{};
-
-        if (spaces.shouldAnnounce) {
-          yield OfflineSyncSpaceSet(spaces: spaces.localGrants);
-          spaces.markAnnounced();
-          hasChanges = true;
-        }
-
-        stage('cycle.readCursors');
-        for (final spaceId in spaces.activeSpaceIds) {
-          if (!spaces.markHandshakeSent(spaceId)) continue;
-          yield await createSyncSinceHlc(session, spaceId: spaceId);
-          hasChanges = true;
-        }
-
-        stage('cycle.collectAndYieldOutbound');
-        final pendingLocalChanges = collectPendingChanges(
-          session,
-          checkpointsBySpaceUuid: spaces.sendableCheckpoints,
-        );
-
-        await for (final changes in pendingLocalChanges.chunked(_syncBatchSize)) {
-          hasChanges = true;
-          for (final change in changes) {
-            spaces.advanceCheckpoint(change.uuidSpaceId, change);
-            outboundSpaces.add(change.uuidSpaceId);
-          }
-          yield OfflineSyncMergeChunk(changes: changes);
-        }
-        if (hasChanges || once) {
-          yield OfflineSyncEndOfBatch();
-        }
-
-        stage('cycle.waitForInbound');
-        final batch = await inboundIterator.collectNextBatch(
-          allowCloseBeforeBatch: !once,
-        );
-        if (batch == null) {
-          if (once) {
-            yield OfflineSyncClose();
-          }
-          sessionCompleted = true;
-          return;
-        }
-
-        stage('cycle.applyInbound', {'changes': batch.changes.length});
-        await _applyCycleBatch(
-          session,
-          spaces,
-          batch,
-          outboundSpaces,
-          onMergeSuccess,
-          cancellation,
-        );
-        stage('cycle.applied', {'changes': batch.changes.length});
-
-        if (once) {
-          if (spaces.hasIncompleteActiveHandshake) {
-            stage('cycle.repeat', {'reason': 'incompleteSpaceHandshake'});
-            continue;
-          }
-          if (!hadSendableCheckpoints && spaces.sendableCheckpoints.isNotEmpty) {
-            stage('cycle.repeat', {'reason': 'newPeerCursorsNeedOutboundPass'});
-            continue;
-          }
-          stage('close.yieldAndWaitForPeer');
-          yield OfflineSyncClose();
-          await inboundIterator.moveAndThrowIfNot<OfflineSyncClose>();
-          sessionCompleted = true;
-          // Keep reading until the peer closes its side so the underlying
-          // transport subscription reaches "done" instead of being left paused.
-          // A paused inbound controller stalls the peer's stream teardown for
-          // several seconds (the transport's close timeout), which lands on the
-          // critical path of the next sync round over a shared connection.
-          //
-          // The drain runs detached: awaiting it here would deadlock the
-          // symmetric close handshake, since the peer only closes its side once
-          // our own outbound stream closes, which happens after this generator
-          // returns.
-          unawaited(_drainUntilDone(inboundIterator));
-          return;
-        }
-
-        // Wait for the configured interval before checking for local changes again.
-        stage('cycle.pollDelay', {
-          'configuredMicros': _continuousSyncInterval.inMicroseconds,
-        });
-        await Future<void>.delayed(_continuousSyncInterval);
-      }
-    } on OfflineSyncCancelledException {
-      // The merge has rolled back before reaching this handler.
-      if (once) rethrow;
-      return;
-    } on OfflineSyncStreamClosedException {
-      // A continuous session ending is normal: the peer closed its outbound
-      // (typically a cancel). Whether the stream closed between batches or
-      // mid-batch, nothing is left to do — complete gracefully so the `finally`
-      // skips the force-cancel that races WebSocket teardown and surfaces
-      // spurious "connection closed" errors on the peer. A `once` session has a
-      // completion contract (full handshake plus the symmetric Close), so a
-      // close before that is a real truncation and must propagate.
-      if (once) rethrow;
-      sessionCompleted = true;
-      return;
-    } finally {
-      stage('cleanup', {'sessionCompleted': sessionCompleted});
-      // Cancelling inbound on normal completion races with WebSocket stream
-      // teardown and produces "connection closed" errors on the peer. On normal
-      // completion the inbound is instead drained to "done" (see above). Keep
-      // forced cancellation for abnormal exits so listener cancellation can
-      // unblock.
-      if (!sessionCompleted) {
-        // Best-effort cleanup, since the transport will close the socket anyway.
-        const waitTimeout = Duration(milliseconds: 200);
-        await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
-      }
-      stage('finished');
-    }
-  }
-
-  Future<void> _applyCycleBatch(
-    DatabaseSession session,
-    OfflineSyncSpaceState spaces,
-    OfflineSyncCycleBatch batch,
-    Set<UuidValue> outboundSpaces,
-    OfflineSyncOnMergeSuccess? onMergeSuccess,
-    OfflineSyncCancellation cancellation,
-  ) async {
-    if (batch.spaceSet != null) {
-      await spaces.adoptPeerGrants(batch.spaceSet!.spaces);
-    }
-    for (final entry in batch.sinceHlcs.entries) {
-      if (spaces.accepts(entry.key)) {
-        spaces.recordPeerHandshake(entry.key, entry.value);
-      }
-    }
-
-    final mergedSpaces = <UuidValue>{};
-    final changesBySpace = <UuidValue, List<CrdtMergeChange>>{};
-    for (final change in batch.changes) {
-      changesBySpace.putIfAbsent(change.uuidSpaceId, () => []).add(change);
-    }
-    for (final entry in changesBySpace.entries) {
-      final spaceId = entry.key;
-      if (!spaces.accepts(spaceId)) continue;
-      mergedSpaces.add(spaceId);
-      if (spaces.isAuthoritative) {
-        await _assertCanMergeInboundSpace(
-          session,
-          spaceId: spaceId,
-          userId: spaces.userId,
-          changes: entry.value,
-        );
-      }
-      final receivedHlc = await mergeInboundBatch(
-        session,
-        userId: spaces.userId,
-        spaceId: spaceId,
-        mergeSet: entry.value,
-        cancellation: cancellation,
-      );
-      await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
-    }
-    for (final spaceId in outboundSpaces.difference(mergedSpaces)) {
-      await _reportMerge(onMergeSuccess, spaces, spaceId, null);
-    }
-  }
-
-  Future<void> _assertCanMergeInboundSpace(
-    DatabaseSession session, {
-    required UuidValue spaceId,
-    required UuidValue userId,
-    required List<CrdtMergeChange> changes,
-  }) async {
-    if (changes.isEmpty || userId == spaceId) return;
-
-    final role = await OfflineSyncSpaceMembership.roleOf(
-      session,
-      userUuid: userId,
-      spaceUuid: spaceId,
-    );
-    if (role.canWrite) return;
-
-    final firstChange = changes.first;
-    final now = clock.now().toUtc();
-    final violation = OfflineSyncIntegrityViolation(
-      type: OfflineSyncViolationType.unauthorizedWrite,
-      domainTableName: firstChange.tableName,
-      uuidRowId: firstChange.uuidRowId,
-      ownerSpaceUuid: null,
-      incomingSpaceUuid: spaceId,
-      operation: _operationForInboundChange(firstChange),
-      uuidNodeId: firstChange.uuidNodeId,
-      crdtDataRowId: null,
-      hlcDatetime: firstChange.hlcDatetime,
-      hlcCounter: firstChange.hlcCounter,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      occurrences: 1,
-    );
-    final persisted = await recordOfflineSyncIntegrityViolation(
-      session,
-      violation: violation,
-    );
-    throw OfflineSyncIntegrityViolationException(persisted);
-  }
-
-  OfflineSyncViolationOperation _operationForInboundChange(CrdtMergeChange change) {
-    return switch (change) {
-      CrdtMergeInsert() => OfflineSyncViolationOperation.mergeInsert,
-      CrdtMergeUpdate() => OfflineSyncViolationOperation.mergeUpdate,
-      CrdtMergeDelete() => OfflineSyncViolationOperation.mergeDelete,
-    };
-  }
-
-  /// Reports a successful merge for [spaceId] to [onMergeSuccess], combining the
-  /// space's checkpoint high-water mark with the [receivedHlc] just merged.
+  /// Reports a monotonic committed fact clock across both transfer directions.
+  /// Reporting clocks are independent of replica-local delivery checkpoints.
   Future<void> _reportMerge(
     OfflineSyncOnMergeSuccess? onMergeSuccess,
     OfflineSyncSpaceState spaces,
     UuidValue spaceId,
     Hlc? receivedHlc,
   ) async {
-    final checkpointMax = spaces.checkpointMaxOf(spaceId);
-    if (checkpointMax == null) {
+    if (receivedHlc != null) spaces.recordReportedHlc(spaceId, receivedHlc);
+    final syncedHlc = spaces.reportedHlcOf(spaceId);
+    if (syncedHlc == null) {
       OfflineSyncDiagnostics.event('sync.mergeReportSkipped', {
-        'reason': 'noCheckpoint',
+        'reason': 'noCommittedFact',
         'spaceId': spaceId.toString(),
       });
       return;
     }
     OfflineSyncDiagnostics.event('sync.mergeReportStart');
-    await onMergeSuccess?.call(spaceId, checkpointMax.maxBetween(receivedHlc));
+    await onMergeSuccess?.call(spaceId, syncedHlc);
     OfflineSyncDiagnostics.event('sync.mergeReportEnd');
-  }
-
-  /// Drains [iterator] until the peer closes the stream.
-  ///
-  /// Used to settle the inbound transport after the `once` close handshake so
-  /// its controller reaches "done" with an active listener instead of being
-  /// torn down while paused. Trailing events (idle timeouts, late frames) are
-  /// discarded; errors are swallowed since the transport is closing anyway.
-  static Future<void> _drainUntilDone(
-    StreamIterator<OfflineSyncStreamEvent> iterator,
-  ) async {
-    try {
-      while (await iterator.moveNext()) {
-        // Discard whatever the peer sends before it closes its side.
-      }
-    } on Object catch (_) {
-      // Best-effort: the transport is shutting down.
-    }
   }
 
   void _validateSyncTablesHash(String syncTablesHash) {
@@ -679,48 +246,17 @@ class OfflineSyncEngine {
     return db is OfflineSyncDatabase ? db : wrapDatabase(db);
   }
 
-  Stream<CrdtMergeChange> _streamPendingChanges(
-    DatabaseSession session,
-    Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-    Transaction transaction,
-  ) async* {
-    // Cache ownership within this collection's consistent snapshot.
-    final ownerCache = DomainRowOwnerCache();
-    yield* _streamInserts(
-      session,
-      spaceUuidById,
-      checkpointsBySpaceId,
-      ownerCache,
-      transaction,
-    );
-    yield* _streamUpdates(
-      session,
-      spaceUuidById,
-      checkpointsBySpaceId,
-      ownerCache,
-      transaction,
-    );
-    yield* _streamDeletes(
-      session,
-      spaceUuidById,
-      checkpointsBySpaceId,
-      ownerCache,
-      transaction,
-    );
-  }
-
   Stream<CrdtMergeInsert> _streamInserts(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async* {
+    Transaction transaction, {
+    required Expression Function(CrdtDataRowTable) filter,
+  }) async* {
     final rows = await CrdtDataRow.db.find(
       session,
       transaction: transaction,
-      where: (t) => _rowHlcAfterFilter(t, checkpointsBySpaceId),
+      where: filter,
       include: CrdtDataRow.include(
         tbl: CrdtSchemaTable.include(),
         node: CrdtNode.include(),
@@ -804,14 +340,14 @@ class OfflineSyncEngine {
   Stream<CrdtMergeUpdate> _streamUpdates(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async* {
+    Transaction transaction, {
+    required Expression Function(CrdtDataFieldTable) filter,
+  }) async* {
     final fields = await CrdtDataField.db.find(
       session,
       transaction: transaction,
-      where: (t) => _fieldHlcAfterFilter(t, checkpointsBySpaceId),
+      where: filter,
       include: CrdtDataField.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         column: CrdtSchemaColumn.include(),
@@ -885,14 +421,14 @@ class OfflineSyncEngine {
   Stream<CrdtMergeDelete> _streamDeletes(
     DatabaseSession session,
     Map<int, UuidValue> spaceUuidById,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
     DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async* {
+    Transaction transaction, {
+    required Expression Function(CrdtDataDeletedTable) filter,
+  }) async* {
     final tombstones = await CrdtDataDeleted.db.find(
       session,
       transaction: transaction,
-      where: (t) => _tombstoneHlcAfterFilter(t, checkpointsBySpaceId),
+      where: filter,
       include: CrdtDataDeleted.include(
         row: CrdtDataRow.include(tbl: CrdtSchemaTable.include()),
         node: CrdtNode.include(),
@@ -940,45 +476,6 @@ class OfflineSyncEngine {
       );
     }
   }
-
-  Expression _rowHlcAfterFilter(
-    CrdtDataRowTable t,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-  ) =>
-      t.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
-      _afterAnySpaceCheckpointFilter(
-        t.spaceId,
-        t.node.uuidNodeId,
-        t.hlcDatetime,
-        t.hlcCounter,
-        checkpointsBySpaceId,
-      );
-
-  Expression _fieldHlcAfterFilter(
-    CrdtDataFieldTable t,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-  ) =>
-      t.row.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
-      _afterAnySpaceCheckpointFilter(
-        t.row.spaceId,
-        t.node.uuidNodeId,
-        t.hlcDatetime,
-        t.hlcCounter,
-        checkpointsBySpaceId,
-      );
-
-  Expression _tombstoneHlcAfterFilter(
-    CrdtDataDeletedTable t,
-    Map<int, List<Hlc>> checkpointsBySpaceId,
-  ) =>
-      t.row.spaceId.inSet(checkpointsBySpaceId.keys.toSet()) &
-      _afterAnySpaceCheckpointFilter(
-        t.row.spaceId,
-        t.node.uuidNodeId,
-        t.hlcDatetime,
-        t.hlcCounter,
-        checkpointsBySpaceId,
-      );
 
   /// Loads outbound payloads in bounded batches within the metadata snapshot.
   /// Grouping by table and owning space preserves the original ownership filter.
@@ -1378,33 +875,6 @@ class OfflineSyncEngine {
 
     return entries;
   }
-}
-
-Expression _afterAnySpaceCheckpointFilter(
-  ColumnInt spaceId,
-  ColumnUuid uuidNodeId,
-  ColumnDateTime hlcDatetime,
-  ColumnInt hlcCounter,
-  Map<int, List<Hlc>> checkpointsBySpaceId,
-) {
-  final caseExpression = Case();
-  var hasCheckpoint = false;
-  for (final MapEntry(key: normalizedSpaceId, value: checkpoints)
-      in checkpointsBySpaceId.entries) {
-    for (final checkpoint in checkpoints) {
-      hasCheckpoint = true;
-      caseExpression.when(
-        spaceId.equals(normalizedSpaceId) & uuidNodeId.equals(checkpoint.nodeId),
-        then:
-            (hlcDatetime > checkpoint.datetime) |
-            (hlcDatetime.equals(checkpoint.datetime) &
-                (hlcCounter > checkpoint.counter)),
-      );
-    }
-  }
-  return hasCheckpoint
-      ? caseExpression.orElse(Constant.bool(true))
-      : Constant.bool(true);
 }
 
 extension on Map<String, dynamic> {

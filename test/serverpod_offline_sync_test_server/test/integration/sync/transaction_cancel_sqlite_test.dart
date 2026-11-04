@@ -109,10 +109,6 @@ void main() {
           OfflineSyncConnect(
             localNodeId: source,
             syncTablesHash: engine.currentSyncTablesHash,
-          ),
-        )
-        ..add(
-          OfflineSyncSpaceSet(
             spaces: [
               OfflineSyncSpaceGrant(
                 uuidSpaceId: user,
@@ -121,9 +117,16 @@ void main() {
             ],
           ),
         )
-        ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
-        ..add(OfflineSyncMergeChunk(changes: changes))
-        ..add(OfflineSyncEndOfBatch());
+        ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
+        ..add(OfflineSyncReady())
+        ..add(OfflineSyncMergeChunk(batchId: 1, changes: changes))
+        ..add(
+          OfflineSyncEndOfBatch(
+            batchId: 1,
+            finalForOnce: false,
+            checkpoints: [OfflineSyncSpaceCheckpoint(uuidSpaceId: user, revision: 1)],
+          ),
+        );
       await entered.future.timeout(const Duration(seconds: 10));
     });
 
@@ -135,6 +138,7 @@ void main() {
         late List<CrdtDataRow> metadataAfterCancel;
         late Hlc? clockAfterCancel;
         late Hlc? checkpointAfterCancel;
+        late List<OfflineSyncPeerCheckpoint> receiptsAfterCancel;
         late List<client.Unique> rowsAfterRetry;
 
         setUpAll(() async {
@@ -164,6 +168,7 @@ void main() {
             observer,
             where: (t) => t.node.uuidNodeId.equals(source),
           ))?.lastReceivedHlc;
+          receiptsAfterCancel = await OfflineSyncPeerCheckpoint.db.find(observer);
 
           await session.db.mergeChanges(changes, userId: user);
           rowsAfterRetry = await client.Unique.db.find(
@@ -184,6 +189,7 @@ void main() {
             expect(metadataAfterCancel, isEmpty);
             expect(clockAfterCancel, clockBefore);
             expect(checkpointAfterCancel, isNull);
+            expect(receiptsAfterCancel, isEmpty);
           },
         );
 

@@ -21,11 +21,11 @@ class DstDelivery {
     required this.target,
     required this.spaceUuid,
     required CrdtMergeSet changes,
-    List<Hlc> checkpoints = const [],
+    this.checkpoints,
     this.partial = false,
     this.replay = false,
   }) : payload = jsonEncode(changes),
-       checkpoints = List.unmodifiable(checkpoints);
+       revision = changes is DstBatch ? changes.revision : null;
 
   DstDelivery._replay(DstDelivery original)
     : source = original.source,
@@ -33,6 +33,7 @@ class DstDelivery {
       spaceUuid = original.spaceUuid,
       payload = original.payload,
       checkpoints = original.checkpoints,
+      revision = original.revision,
       partial = original.partial,
       replay = true;
 
@@ -40,14 +41,24 @@ class DstDelivery {
   final DstReplica target;
   final UuidValue spaceUuid;
   final String payload;
-  final List<Hlc> checkpoints;
+  final DstCheckpoint? checkpoints;
+  final int? revision;
   final bool partial;
   final bool replay;
 
-  CrdtMergeSet get changes => [
-    for (final value in jsonDecode(payload) as List)
-      target.rawSession.db.serializationManager.deserialize<CrdtMergeChange>(value),
-  ];
+  CrdtMergeSet get changes {
+    final decoded = [
+      for (final value in jsonDecode(payload) as List)
+        target.rawSession.db.serializationManager.deserialize<CrdtMergeChange>(value),
+    ];
+    return revision == null
+        ? decoded
+        : DstBatch(
+            source.nodeUuidFor(spaceUuid),
+            revision!,
+            decoded,
+          );
+  }
 }
 
 /// Delays, reorders, redelivers and isolates complete collected batches.
@@ -244,8 +255,8 @@ class DstAdversary {
     _count('checkpointCollections');
     final advanced = checkpoints.any(
       (checkpoint) =>
-          !target.ownNodeUuids.contains(checkpoint.nodeId) &&
-          checkpoint > Hlc.zero(checkpoint.nodeId),
+          checkpoint.uuidNodeId == source.nodeUuidFor(spaceUuid) &&
+          checkpoint.revision > 0,
     );
     if (advanced) _count('advancedCheckpointCollections');
 
@@ -275,10 +286,10 @@ class DstAdversary {
     );
   }
 
-  Future<CrdtMergeSet> _collectPending(
+  Future<DstBatch> _collectPending(
     DstReplica source,
     UuidValue spaceUuid, {
-    List<Hlc> checkpoints = const [],
+    DstCheckpoint? checkpoints,
   }) async {
     final interleave = onCollecting;
     if (phase != DstNetworkPhase.scheduled ||

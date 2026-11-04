@@ -48,7 +48,7 @@ void main() {
         final changes = await peer.sync
             .collectPendingChanges(
               peer.raw,
-              checkpointsBySpaceUuid: {testCrdtUserId: const []},
+              checkpointsBySpaceUuid: {testCrdtUserId: 0},
             )
             .toList();
         deletion = changes.deletes.single;
@@ -72,7 +72,7 @@ void main() {
           final changes = await mirror.sync
               .collectPendingChanges(
                 mirror.raw,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList();
           expect(changes.deletes.single.toJson(), deletion.toJson());
@@ -82,7 +82,7 @@ void main() {
           final changes = await mirror.sync
               .collectPendingChanges(
                 mirror.raw,
-                checkpointsBySpaceUuid: {testCrdtUserId: const []},
+                checkpointsBySpaceUuid: {testCrdtUserId: 0},
               )
               .toList();
           expect((changes.inserts.single.data as Unique).name, 'peer reinsertion');

@@ -47,13 +47,25 @@ Future<SyncRound> syncOnceOverStreams({
 
   final clientSubscription = follower(serverToClient.stream).listen(
     (event) {
+      var forwarded = event;
       if (!spliced && event is OfflineSyncEndOfBatch) {
         spliced = true;
         toServer.addAll(splice);
-        addIfOpen(clientToServer, OfflineSyncMergeChunk(changes: splice));
+        addIfOpen(
+          clientToServer,
+          OfflineSyncMergeChunk(batchId: event.batchId, changes: splice),
+        );
+        forwarded = event.copyWith(
+          checkpoints: [
+            ...event.checkpoints,
+            for (final spaceId in splice.map((change) => change.uuidSpaceId).toSet())
+              if (!event.checkpoints.any((cursor) => cursor.uuidSpaceId == spaceId))
+                OfflineSyncSpaceCheckpoint(uuidSpaceId: spaceId, revision: 1),
+          ],
+        );
       }
       if (event is OfflineSyncMergeChunk) toServer.addAll(event.changes);
-      addIfOpen(clientToServer, event);
+      addIfOpen(clientToServer, forwarded);
     },
     onError: (Object error, StackTrace stack) {
       clientError = error;

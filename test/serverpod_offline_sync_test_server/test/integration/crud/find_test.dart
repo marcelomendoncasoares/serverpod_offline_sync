@@ -272,7 +272,8 @@ void main() {
           session,
           [
             CrdtDataDeleted(
-              rowId: personCrdtRow!.id!,
+              spaceId: personCrdtRow!.spaceId,
+              rowId: personCrdtRow.id!,
               nodeId: 1,
               hlcDatetime: DateTime.now().toUtc(),
               hlcCounter: 1,
