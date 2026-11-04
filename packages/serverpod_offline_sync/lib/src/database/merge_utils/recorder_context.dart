@@ -39,6 +39,9 @@ class _UserClock {
   /// The stored high-water mark of each locked space.
   final spaceHighWater = <int, Hlc?>{};
 
+  /// Immutable identities read with the locked spaces, used after commitment.
+  final spaceUuids = <int, UuidValue>{};
+
   /// Delivery order is local to this database and independent of author HLCs.
   final storedRevisions = <int, int>{};
   final writtenRevisions = <int, int>{};
@@ -218,6 +221,7 @@ class CrdtRecorderContext {
     );
     if (space == null) throw StateError('Space $spaceId is missing.');
     userClock.spaceHighWater[spaceId] = space.lastHlc;
+    userClock.spaceUuids[spaceId] = space.uuidSpaceId;
     userClock.storedRevisions[spaceId] = space.syncRevision;
     if (space.lastHlc case final highWater?) {
       HlcManager(spaceId, userClock.node).observe(highWater);
@@ -295,6 +299,13 @@ THEN excluded."revision" ELSE "offline_sync_peer_checkpoints"."revision" END''',
         noReturn: true,
       );
       userClock.spaceHighWater[spaceId] = lastHlc.maxBetween(highWater);
+      if (revision != null) {
+        databaseContext.recordSpaceChange(
+          transaction,
+          userClock.spaceUuids[spaceId]!,
+          revision,
+        );
+      }
     }
     userClock
       ..persisted = lastHlc
@@ -1167,11 +1178,6 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
       userClock.node,
       onUse: () {
         userClock.usedInSpaces.add(spaceId);
-        databaseContext.recordSpaceChange(
-          transaction,
-          space.uuidSpaceId,
-          userClock.node.lastHlc!,
-        );
       },
     );
   }

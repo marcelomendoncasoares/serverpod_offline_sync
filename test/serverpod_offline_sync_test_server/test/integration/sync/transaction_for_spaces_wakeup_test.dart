@@ -146,7 +146,7 @@ void main() {
           ...personalPeer.outbound,
           ...sharedPeer.outbound,
         ].map((change) => change.uuidRowId).toSet();
-        polls = personalPeer.idlePolls + sharedPeer.idlePolls;
+        polls = personalPeer.recoveryWakeups + sharedPeer.recoveryWakeups;
         await personalPeer.close();
         await sharedPeer.close();
       });
