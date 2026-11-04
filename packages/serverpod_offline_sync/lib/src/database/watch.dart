@@ -33,10 +33,6 @@ extension _OfflineSyncDatabaseWatch on OfflineSyncDatabase {
       extraTables: alsoTriggerOnTables,
     );
     final tracked = dependencies.where(_context.isCrdtTrackedTableName).toSet();
-    final untracked = dependencies.difference(tracked);
-
-    // Each invalidation takes one committed snapshot through Serverpod's typed
-    // watch, including its included-list loading and deserialization.
     Stream<List<T>> query({Duration? throttle}) => _delegate.watch<T>(
       where: queryWhere,
       limit: limit,
@@ -48,17 +44,23 @@ extension _OfflineSyncDatabaseWatch on OfflineSyncDatabase {
       alsoTriggerOnTables: alsoTriggerOnTables,
     );
 
+    Stream<DatabaseResult> notifications(Iterable<String> tables) =>
+        _delegate.unsafeWatch('SELECT 1', triggerOnTables: tables, throttle: null);
+
     final stream = tracked.isEmpty || dialect != DatabaseDialect.sqlite
         ? query(throttle: throttle)
-        : _watchCommittedQueries(
-            revisions: visibleTableRevisions(_delegate, tracked),
-            otherChanges: untracked.isEmpty
-                ? null
-                : _delegate.unsafeWatch(
-                    'SELECT 1',
-                    triggerOnTables: untracked,
-                    throttle: null,
-                  ),
+        : _watchNativeQueries(
+            effects: _watchEffects,
+            dependencies: tracked,
+            domainChanges: notifications({
+              ...dependencies,
+              CrdtSchemaTable.t.tableName,
+            }),
+            metadataChanges: notifications({
+              CrdtDataRow.t.tableName,
+              CrdtDataDeleted.t.tableName,
+            }),
+            membershipChanges: _watchMembership(),
             query: () => _readOutsideTransaction(() => query().first),
             throttle: throttle,
           );
@@ -76,6 +78,24 @@ extension _OfflineSyncDatabaseWatch on OfflineSyncDatabase {
       rows.forEach(_stripSpaceId);
       return rows;
     });
+  }
+
+  Stream<String>? _watchMembership() {
+    final userId = _recorder.persistentUserId;
+    if (userId == null) return null;
+    final space = OfflineSyncSpace.t;
+    final member = OfflineSyncSpaceMember.t;
+    return _delegate
+        .unsafeWatch(
+          'SELECT ${space.id} AS visible_space FROM "${space.tableName}" '
+          'WHERE ${space.uuidSpaceId.equals(userId)} '
+          'UNION SELECT ${member.spaceId} FROM "${member.tableName}" '
+          'WHERE ${member.userUuid.equals(userId)} ORDER BY visible_space',
+          triggerOnTables: {space.tableName, member.tableName},
+          throttle: null,
+        )
+        .map((rows) => rows.map((row) => row.first).join(','))
+        .distinct();
   }
 
   Expression _watchVisibility(Table table) {
@@ -185,12 +205,15 @@ Set<String> _watchDependencies({
   return tables;
 }
 
-/// Combines revision changes and ordinary SQLite notifications before applying
-/// the caller's throttle. Reads are serialized; changes during a read or pause
-/// are retained for the next execution.
-Stream<T> _watchCommittedQueries<T>({
-  required Stream<Map<String, int>> revisions,
-  required Stream<DatabaseResult>? otherChanges,
+/// Serializes reads woken exclusively by native SQLite watch streams.
+/// Metadata is filtered before scheduling; invalidations during reads or pauses
+/// remain dirty. Each successful query acknowledges its start-time versions.
+Stream<T> _watchNativeQueries<T>({
+  required NativeWatchEffects effects,
+  required Set<String> dependencies,
+  required Stream<DatabaseResult> domainChanges,
+  required Stream<DatabaseResult> metadataChanges,
+  required Stream<String>? membershipChanges,
   required Future<T> Function() query,
   required Duration? throttle,
 }) {
@@ -198,21 +221,21 @@ Stream<T> _watchCommittedQueries<T>({
   // ignore: close_sinks
   late StreamController<T> controller;
   final subscriptions = <StreamSubscription<dynamic>>[];
+  final ready = <bool>[false, false, if (membershipChanges != null) false];
   Timer? timer;
   final sinceQuery = Stopwatch();
+  NativeWatchSnapshot? acknowledged;
   var dirty = false;
   var running = false;
   var cancelled = false;
-  var revisionsReady = false;
-  var otherReady = otherChanges == null;
-  var openSources = otherChanges == null ? 1 : 2;
+  var openSources = ready.length;
 
   void finishIfDone() {
     if (openSources == 0 &&
         !cancelled &&
         !running &&
         timer == null &&
-        (!dirty || !revisionsReady || !otherReady)) {
+        (!dirty || !ready.every((value) => value))) {
       unawaited(controller.close());
     }
   }
@@ -228,8 +251,7 @@ Stream<T> _watchCommittedQueries<T>({
         controller.isPaused ||
         !dirty ||
         timer != null ||
-        !revisionsReady ||
-        !otherReady) {
+        !ready.every((value) => value)) {
       return;
     }
     final delay = throttle == null || !sinceQuery.isRunning
@@ -243,8 +265,10 @@ Stream<T> _watchCommittedQueries<T>({
       sinceQuery
         ..reset()
         ..start();
+      final snapshot = effects.capture(dependencies);
       try {
         final result = await query();
+        acknowledged = snapshot;
         if (!cancelled) controller.add(result);
       } on Object catch (error, stack) {
         if (!cancelled) controller.addError(error, stack);
@@ -256,35 +280,28 @@ Stream<T> _watchCommittedQueries<T>({
     });
   }
 
-  void changed(Object? _) {
-    dirty = true;
-    schedule();
+  void listen(Stream<dynamic> source, int index, {bool metadata = false}) {
+    subscriptions.add(
+      source.listen(
+        (_) {
+          final initial = !ready[index];
+          ready[index] = true;
+          if (initial || !metadata || effects.shouldQuery(dependencies, acknowledged)) {
+            dirty = true;
+          }
+          schedule();
+        },
+        onError: controller.addError,
+        onDone: sourceDone,
+      ),
+    );
   }
 
   controller = StreamController<T>(
     onListen: () {
-      subscriptions.add(
-        revisions.listen(
-          (event) {
-            revisionsReady = true;
-            changed(event);
-          },
-          onError: controller.addError,
-          onDone: sourceDone,
-        ),
-      );
-      if (otherChanges != null) {
-        subscriptions.add(
-          otherChanges.listen(
-            (event) {
-              otherReady = true;
-              changed(event);
-            },
-            onError: controller.addError,
-            onDone: sourceDone,
-          ),
-        );
-      }
+      listen(domainChanges, 0);
+      listen(metadataChanges, 1, metadata: true);
+      if (membershipChanges != null) listen(membershipChanges, 2);
     },
     onPause: () {
       for (final subscription in subscriptions) {

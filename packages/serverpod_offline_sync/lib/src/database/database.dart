@@ -19,10 +19,10 @@ import '../sync/exceptions.dart';
 import '../sync/integrity_violation.dart';
 import 'includes.dart';
 import 'merge_utils/database_helpers.dart';
+import 'native_watch_effects.dart';
 import 'recorder.dart';
 import 'session.dart';
 import 'tombstone.dart';
-import 'visible_changes.dart';
 
 part 'space.dart';
 part 'space_transaction.dart';
@@ -87,7 +87,11 @@ class OfflineSyncDatabase implements Database {
          _delegate,
          context: _context,
          persistentUserId: persistentUserId,
-       );
+       ) {
+    _context.bindWatchEffects(_delegate);
+  }
+
+  NativeWatchEffects get _watchEffects => _context.watchEffects;
 
   final Database _delegate;
   final OfflineSyncDatabaseContext _context;
@@ -178,12 +182,16 @@ class OfflineSyncDatabase implements Database {
   /// personal space. The merge advances [userId]'s clock and keeps each fact's
   /// source node. It skips the write-role check, so authorize the source of
   /// [mergeSet] first, as [sync] does.
-  Future<void> mergeChanges(
+  ///
+  /// Returns an immutable, conservative set of domain tables affected by this
+  /// committed merge, including indirect visibility projections. Replayed or
+  /// clock-only merges return an empty set.
+  Future<Set<String>> mergeChanges(
     CrdtMergeSet mergeSet, {
     UuidValue? userId,
     UuidValue? spaceId,
   }) async {
-    if (mergeSet.isEmpty) return;
+    if (mergeSet.isEmpty) return const {};
     await _ensureInitialized();
 
     final effectiveUserId =
@@ -197,10 +205,13 @@ class OfflineSyncDatabase implements Database {
       for (final change in mergeSet) change.uuidNodeId,
     });
     try {
-      await _transactionAs<void>(
+      return await _transactionAs<Set<String>>(
         effectiveUserId,
         spaceId ?? effectiveUserId,
-        (tx) => _recorder.mergeChanges(mergeSet, tx),
+        (tx) async {
+          await _recorder.mergeChanges(mergeSet, tx);
+          return _watchEffects.affectedTables(tx);
+        },
         authoring: false,
       );
     } on OfflineSyncIntegrityViolationException catch (exception) {
@@ -260,8 +271,12 @@ class OfflineSyncDatabase implements Database {
   ///
   /// Like Serverpod's watch, this is unsupported on PostgreSQL. Raw SQL in caller
   /// expressions still requires [alsoTriggerOnTables] for its dependencies.
-  /// Tracked tables use [watchTableChanges]; untracked dependencies retain their
-  /// SQLite notifications. Invalidation is table-wide, not predicate-specific.
+  /// Native SQLite notifications wake watches. Metadata-only events may be
+  /// conservatively filtered using shared-owner in-memory write observations.
+  /// Domain-table events retain native behavior, including same-value writes.
+  /// Invalidation is table-wide, not predicate-specific. Configure
+  /// [OfflineSyncDatabaseContext.filterMetadataChanges] to false for metadata
+  /// writers that bypass this wrapper or its shared context.
   @override
   Stream<List<T>> watch<T extends TableRow>({
     Expression? where,
@@ -282,35 +297,6 @@ class OfflineSyncDatabase implements Database {
     throttle: throttle,
     alsoTriggerOnTables: alsoTriggerOnTables,
   );
-
-  /// Reports tracked table names whose rows or visibility changed on SQLite.
-  ///
-  /// Call [initialize] before subscribing. The first event is an empty set once
-  /// the committed baseline is ready. Later events coalesce commits according to
-  /// [throttle]. Rolled back changes, clock/checkpoint writes, repeated grants,
-  /// and role-only membership changes do not advance the visible revisions.
-  ///
-  /// The signal is database-wide, including changes from other wrappers and
-  /// users. It does not identify a particular sync pass or guarantee one event
-  /// per commit. Like [watch], it is unsupported on PostgreSQL.
-  Stream<Set<String>> watchTableChanges({
-    Duration? throttle = const Duration(milliseconds: 30),
-  }) {
-    Map<String, int>? previous;
-    return visibleTableRevisions(
-      _delegate,
-      _context.syncTableByName.keys,
-      throttle: throttle,
-    ).map((current) {
-      final before = previous;
-      previous = current;
-      return Set<String>.unmodifiable({
-        if (before != null)
-          for (final entry in current.entries)
-            if (before[entry.key] != entry.value) entry.key,
-      });
-    });
-  }
 
   /// Delegates raw watches without adding CRDT visibility or membership filters.
   /// Callers own the SQL and its [triggerOnTables] dependencies.
@@ -433,7 +419,8 @@ class OfflineSyncDatabase implements Database {
     }
     if (transaction == null) {
       // The write owns its transaction, so its scope stores the clock.
-      return _delegate.transaction(
+      return _watchEffects.transaction(
+        _delegate,
         (tx) => _recorder.withUserClock(tx, (tx) async {
           await _recorder.lockUserClock(tx);
           return action(tx);
@@ -446,7 +433,7 @@ class OfflineSyncDatabase implements Database {
     final storesOwnClock = !_recorder.hasActiveUserClock(transaction);
     return _recorder.withUserClock(transaction, (tx) async {
       await _recorder.lockUserClock(tx);
-      return DatabaseUtil.runInTransactionOrSavepoint(_delegate, tx, (tx) async {
+      return _watchEffects.isolate(_delegate, tx, (tx) async {
         final result = await action(tx);
         if (storesOwnClock) await _recorder.persistUserClock(tx);
         return result;
@@ -464,6 +451,7 @@ class OfflineSyncDatabase implements Database {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      _watchEffects.unknown(transaction);
       return _delegate.insert<T>(
         rows,
         transaction: transaction,
@@ -784,6 +772,7 @@ class OfflineSyncDatabase implements Database {
     if (rows.isEmpty) return [];
     await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>(rows.first.table)) {
+      _watchEffects.unknown(transaction);
       return _delegate.update<T>(
         rows,
         columns: columns,
@@ -825,6 +814,7 @@ class OfflineSyncDatabase implements Database {
   }) async {
     await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>(row.table)) {
+      _watchEffects.unknown(transaction);
       return _delegate.updateRow<T>(
         row,
         columns: columns,
@@ -923,6 +913,7 @@ class OfflineSyncDatabase implements Database {
   }) async {
     await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>()) {
+      _watchEffects.unknown(transaction);
       return _delegate.updateWhere<T>(
         columnValues: columnValues,
         where: where,
@@ -1036,6 +1027,7 @@ class OfflineSyncDatabase implements Database {
   }) async {
     await _ensureInitialized();
     if (!_recorder.isCrdtTracked<T>()) {
+      _watchEffects.unknown(transaction);
       return _delegate.deleteWhere<T>(
         where: where,
         orderBy: orderBy,
@@ -1120,7 +1112,12 @@ class OfflineSyncDatabase implements Database {
     // Callers can roll back savepoints created before the first tracked write,
     // releasing its locks. Each write must reload and store its own clock;
     // only the explicitly bound APIs can safely share prelocked clock state.
-    return _delegate.transaction(transactionFunction, settings: settings);
+    return _watchEffects.transaction(
+      _delegate,
+      transactionFunction,
+      settings: settings,
+      uncertain: true,
+    );
   }
 
   /// Executes the [transactionFunction] in a transaction with the provided [userId].
@@ -1170,7 +1167,8 @@ class OfflineSyncDatabase implements Database {
     final clockNode = await _recorder.getOrCreateUserNode(userId);
     if (authoring) await _recorder.ensureParticipation(space, clockNode);
 
-    return _delegate.transaction<R>(
+    return _watchEffects.transaction<R>(
+      _delegate,
       (tx) async {
         try {
           spaceForTransaction[tx] = space;
@@ -1187,6 +1185,7 @@ class OfflineSyncDatabase implements Database {
         }
       },
       settings: settings,
+      uncertain: authoring,
     );
   }
 
@@ -1218,42 +1217,47 @@ class OfflineSyncDatabase implements Database {
       await _recorder.ensureParticipation(space, clockNode);
     }
 
-    return _delegate.transaction((tx) async {
-      OfflineSyncSpacesTransaction? spaces;
-      userForTransaction[tx] = userId;
-      clockNodeForTransaction[tx] = clockNode;
-      try {
-        return await _recorder.withUserClock(tx, (tx) async {
-          await _recorder.lockUserClockInSpaces(
-            tx,
-            preparedSpaces.values.map((space) => space.id!),
-          );
-          final context = spaces = OfflineSyncSpacesTransaction._(
-            this,
-            userId,
-            tx,
-            preparedSpaces,
-          );
-          try {
-            final result = await action(context);
-            context._assertActive();
-            if (context._activeScopes.isNotEmpty) {
-              throw StateError('Await every runForSpace call before returning.');
+    return _watchEffects.transaction(
+      _delegate,
+      (tx) async {
+        OfflineSyncSpacesTransaction? spaces;
+        userForTransaction[tx] = userId;
+        clockNodeForTransaction[tx] = clockNode;
+        try {
+          return await _recorder.withUserClock(tx, (tx) async {
+            await _recorder.lockUserClockInSpaces(
+              tx,
+              preparedSpaces.values.map((space) => space.id!),
+            );
+            final context = spaces = OfflineSyncSpacesTransaction._(
+              this,
+              userId,
+              tx,
+              preparedSpaces,
+            );
+            try {
+              final result = await action(context);
+              context._assertActive();
+              if (context._activeScopes.isNotEmpty) {
+                throw StateError('Await every runForSpace call before returning.');
+              }
+              return result;
+            } finally {
+              // Clock storage can yield after the callback returns. Expire the
+              // context before that work so late scopes cannot outlive its clock.
+              context._close();
             }
-            return result;
-          } finally {
-            // Clock storage can yield after the callback returns. Expire the
-            // context before that work so late scopes cannot outlive its clock.
-            context._close();
-          }
-        });
-      } finally {
-        spaces?._close();
-        spaceForTransaction.remove(tx);
-        userForTransaction.remove(tx);
-        clockNodeForTransaction.remove(tx);
-      }
-    }, settings: settings);
+          });
+        } finally {
+          spaces?._close();
+          spaceForTransaction.remove(tx);
+          userForTransaction.remove(tx);
+          clockNodeForTransaction.remove(tx);
+        }
+      },
+      settings: settings,
+      uncertain: true,
+    );
   }
 
   Future<R> _runBound<R>(
@@ -1375,6 +1379,7 @@ class OfflineSyncDatabase implements Database {
     Transaction? transaction,
     QueryParameters? parameters,
   }) async {
+    _watchEffects.unknown(transaction);
     return _delegate.unsafeExecute(
       query,
       timeoutInSeconds: timeoutInSeconds,
@@ -1390,6 +1395,7 @@ class OfflineSyncDatabase implements Database {
     Transaction? transaction,
     QueryParameters? parameters,
   }) async {
+    _watchEffects.unknown(transaction);
     return _delegate.unsafeQuery(
       query,
       timeoutInSeconds: timeoutInSeconds,
@@ -1404,6 +1410,7 @@ class OfflineSyncDatabase implements Database {
     int? timeoutInSeconds,
     Transaction? transaction,
   }) async {
+    _watchEffects.unknown(transaction);
     return _delegate.unsafeSimpleExecute(
       query,
       timeoutInSeconds: timeoutInSeconds,
@@ -1417,6 +1424,7 @@ class OfflineSyncDatabase implements Database {
     int? timeoutInSeconds,
     Transaction? transaction,
   }) async {
+    _watchEffects.unknown(transaction);
     return _delegate.unsafeSimpleQuery(
       query,
       timeoutInSeconds: timeoutInSeconds,

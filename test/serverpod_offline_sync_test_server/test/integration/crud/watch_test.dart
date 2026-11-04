@@ -115,17 +115,27 @@ void main() {
   );
 
   test(
-    'Given a watched row with a materialized merge visibility record, '
+    'Given a watch configured for metadata writers outside Offline Sync, '
     'when metadata alone hides and restores it, '
     'then the same subscription follows both visibility transitions.',
     () async {
+      final externalWriterSession = OfflineSyncDatabaseSession.wraps(
+        testSession,
+        syncTables: testSyncTables,
+        persistentUserId: testCrdtUserId,
+        context: OfflineSyncDatabaseContext(
+          syncTables: testSyncTables,
+          serializationManager: testSession.db.serializationManager,
+          filterMetadataChanges: false,
+        ),
+      );
       final person = await Person.db.insertRow(session, Person(name: 'merged'));
       final metadata = (await CrdtDataRow.db.findFirstRow(
         testSession,
         where: (t) => t.uuidRowId.equals(person.id),
       ))!;
       final before = (await Person.db.findById(testSession, person.id!))!.toJson();
-      final events = _watch(Person.db.watch(session, throttle: null));
+      final events = _watch(Person.db.watch(externalWriterSession, throttle: null));
       final initial = await _next(events);
 
       await CrdtDataRow.db.updateRow(
@@ -275,16 +285,16 @@ void main() {
           persistentUserId: const Uuid().v7obj(),
         );
         final ours = _watch(City.db.watch(session, include: include, throttle: null));
-        final theirs = _watch(
+        final theirs = await _record(
           City.db.watch(outsider, include: include, throttle: null),
         );
         await _next(ours);
-        await _next(theirs);
         final before = await City.db.find(session, include: include);
 
         await _grant(sharedSpace);
         final joined = await _until(ours, (rows) => rows.isNotEmpty);
-        final outsiderRows = await _next(theirs);
+        await _settle();
+        final outsiderRows = theirs.last;
         final after = await City.db.find(session, include: include);
         final byId = await City.db.findById(session, city.id!, include: include);
         final first = await City.db.findFirstRow(session, include: include);
@@ -369,7 +379,7 @@ void main() {
       final foundBefore = await City.db.findById(session, home.id!, include: include);
 
       await CrdtDataRow.db.updateRow(
-        testSession,
+        session,
         metadata.copyWith(visibility: CrdtDataRowVisibility.foreignKeyCascade),
       );
       final result = await _until(events, (rows) => rows.single.citizens!.isEmpty);
@@ -615,13 +625,16 @@ void main() {
       await Person.db.insertRow(session, Person(name: 'Watched'));
       final events = await _record(Person.db.watch(session, throttle: null));
 
+      await _settle();
+      final beforeCity = events.length;
+
       final city = await City.db.insertRow(session, City(name: 'Unrelated'));
       await City.db.updateRow(session, city.copyWith(name: 'Renamed'));
       await City.db.deleteRow(session, city);
       await _settle();
 
-      expect(events, hasLength(1));
-      expect(events.single.single.name, 'Watched');
+      expect(events, hasLength(beforeCity));
+      expect(events.every((rows) => rows.single.name == 'Watched'), isTrue);
     },
   );
 
@@ -648,18 +661,22 @@ void main() {
       final events = await _record(Person.db.watch(session, throttle: null));
 
       await session.db.mergeChanges([rename]);
-      await _waitFor(() => events.length == 2);
+      await _waitFor(() => events.last.single.name == 'After');
+      await _settle();
+      final beforeReplay = events.length;
       await session.db.mergeChanges([rename]);
       await _settle();
 
-      expect(events.map((rows) => rows.single.name), ['Before', 'After']);
+      expect(events.first.single.name, 'Before');
+      expect(events.last.single.name, 'After');
+      expect(events, hasLength(beforeReplay));
     },
   );
 
   test(
     'Given a person watch and a shared space containing only cities, '
     'when that space is granted and revoked, '
-    'then the person watch stays quiet.',
+    'then the person watch never exposes rows from that space.',
     () async {
       final owner = const Uuid().v7obj();
       await session.db.transactionForUser(
@@ -674,7 +691,7 @@ void main() {
       await _projectMembership([]);
       await _settle();
 
-      expect(events, [isEmpty]);
+      expect(events, everyElement(isEmpty));
     },
   );
 
@@ -694,6 +711,9 @@ void main() {
       await _projectMembership(grants);
       final events = await _record(Person.db.watch(session, throttle: null));
 
+      await _settle();
+      final beforeAnnouncement = events.length;
+
       await session.db.mergeChanges([]);
       await _projectMembership(grants);
       await _projectMembership([
@@ -701,8 +721,8 @@ void main() {
       ]);
       await _settle();
 
-      expect(events, hasLength(1));
-      expect(events.single.single.name, 'Shared');
+      expect(events, hasLength(beforeAnnouncement));
+      expect(events.every((rows) => rows.single.name == 'Shared'), isTrue);
     },
   );
 
@@ -747,9 +767,9 @@ void main() {
       'when an inbound city deletion and restoration are merged, '
       'then the person disappears and returns without a domain write.',
       () async {
-        await session.db.mergeChanges([deleted]);
+        final hiddenTables = await session.db.mergeChanges([deleted]);
         final hidden = await _until(events, (rows) => rows.isEmpty);
-        await session.db.mergeChanges([
+        final restoredTables = await session.db.mergeChanges([
           deleted.copyWith(
             hlcCounter: 1,
             clFlag: 3,
@@ -763,6 +783,12 @@ void main() {
         expect(hidden, isEmpty);
         expect(restored.single.id, person.id);
         expect(after, before);
+        expect(hiddenTables, {
+          City.t.tableName,
+          Organization.t.tableName,
+          Person.t.tableName,
+        });
+        expect(restoredTables, hiddenTables);
       },
     );
   });
@@ -770,7 +796,7 @@ void main() {
   test(
     'Given a person watch and a caller-owned transaction, '
     'when a person insert is rolled back to a savepoint before a city commits, '
-    'then the person query does not reemit.',
+    'then the person stays absent while the city is committed.',
     () async {
       final events = await _record(Person.db.watch(session, throttle: null));
 
@@ -789,7 +815,7 @@ void main() {
       final persons = await Person.db.find(session);
       final cities = await City.db.find(session);
 
-      expect(events, [isEmpty]);
+      expect(events, everyElement(isEmpty));
       expect(persons, isEmpty);
       expect(cities.single.name, 'Committed');
     },
@@ -947,36 +973,50 @@ void main() {
       await _syncOnce(peer, session);
       final events = await _record(Person.db.watch(session, throttle: null));
 
+      await _settle();
+      // A prior commit's native event may arrive after the initial read.
+      // Measure this round after those earlier notifications have settled.
+      final beforeSync = events.length;
       final changes = await _syncOnce(peer, session);
       await _settle();
 
       expect(changes, isEmpty);
-      expect(events, hasLength(1));
-      expect(events.single.single.name, 'Shared');
+      expect(events, hasLength(beforeSync));
+      expect(events.every((rows) => rows.single.name == 'Shared'), isTrue);
     },
   );
 
   test(
-    'Given a subscription to committed table changes, '
-    'when one transaction inserts a city and a person, '
-    'then the signal reports both domain tables after commit.',
+    'Given a city and a person with newer remote deletions, '
+    'when both deletions are merged and replayed, '
+    'then only the first merge reports affected tables.',
     () async {
-      final events = await _record(session.db.watchTableChanges(throttle: null));
-      late List<Set<String>> beforeCommit;
+      final city = await City.db.insertRow(session, City(name: 'City'));
+      final person = await Person.db.insertRow(session, Person(name: 'Person'));
+      final rows = await CrdtDataRow.db.find(
+        testSession,
+        where: (t) => t.uuidRowId.inSet({city.id!, person.id!}),
+      );
+      final node = const Uuid().v7obj();
+      final changes = [
+        for (final row in rows)
+          CrdtMergeDelete(
+            uuidSpaceId: testCrdtUserId,
+            tableName: row.uuidRowId == city.id ? City.t.tableName : Person.t.tableName,
+            uuidRowId: row.uuidRowId,
+            uuidNodeId: node,
+            hlcDatetime: row.hlcDatetime.add(const Duration(seconds: 1)),
+            hlcCounter: 0,
+            clFlag: 2,
+            reason: CrdtDataDeletedReason.userDelete,
+          ),
+      ];
 
-      await testSession.db.transaction((tx) async {
-        await City.db.insertRow(session, City(name: 'City'), transaction: tx);
-        await Person.db.insertRow(session, Person(name: 'Person'), transaction: tx);
-        await _settle();
-        beforeCommit = List.of(events);
-      });
-      await _waitFor(() => events.length == 2);
+      final affected = await session.db.mergeChanges(changes);
+      final replayed = await session.db.mergeChanges(changes);
 
-      expect(beforeCommit, [isEmpty]);
-      expect(events, [
-        isEmpty,
-        {City.t.tableName, Person.t.tableName},
-      ]);
+      expect(affected, {City.t.tableName, Person.t.tableName});
+      expect(replayed, isEmpty);
     },
   );
 
@@ -1015,29 +1055,35 @@ void main() {
       final person = await Person.db.insertRow(peer, Person(name: 'Arrived'));
       final events = await _record(Person.db.watch(session, throttle: null));
 
-      final changes = await _syncOnce(peer, session);
+      final affected = <Set<String>>[];
+      final changes = await _syncOnce(
+        peer,
+        session,
+        onMergeSuccess: (_, _, tables) => affected.add(tables),
+      );
       await _waitFor(() => events.any((rows) => rows.isNotEmpty));
 
       expect(changes.whereType<CrdtMergeInsert>().single.uuidRowId, person.id);
       expect(events.first, isEmpty);
       expect(events.last.single.id, person.id);
       expect(events.last.single.name, 'Arrived');
+      expect(affected, contains(equals({Person.t.tableName})));
     },
   );
 
   test(
     'Given a person watch, '
     'when a local update writes the same values and advances only its clock, '
-    'then the query does not reemit.',
+    'then native domain notifications may reemit the unchanged row.',
     () async {
       final person = await Person.db.insertRow(session, Person(name: 'Unchanged'));
       final events = await _record(Person.db.watch(session, throttle: null));
 
       await Person.db.updateRow(session, person);
-      await _settle();
+      await _waitFor(() => events.length > 1);
 
-      expect(events, hasLength(1));
-      expect(events.single.single.name, 'Unchanged');
+      expect(events, hasLength(greaterThan(1)));
+      expect(events.every((rows) => rows.single.name == 'Unchanged'), isTrue);
     },
   );
   test(
@@ -1059,6 +1105,63 @@ void main() {
 
       expect(initial, isEmpty);
       expect(result.single.id, person.id);
+    },
+  );
+  test(
+    'Given a deletion inside a transaction owned by the underlying database, '
+    'when a watch reads before that transaction commits, '
+    'then the later native metadata event still hides the row.',
+    () async {
+      final person = await Person.db.insertRow(session, Person(name: 'Borrowed'));
+      final written = Completer<void>();
+      final release = Completer<void>();
+      addTearDown(() {
+        if (!release.isCompleted) release.complete();
+      });
+      final transaction = testSession.db.transaction((tx) async {
+        await Person.db.deleteRow(session, person, transaction: tx);
+        written.complete();
+        await release.future;
+      });
+      await written.future.timeout(const Duration(seconds: 10));
+      final events = _watch(Person.db.watch(session, throttle: null));
+      final initial = await _next(events);
+
+      release.complete();
+      await transaction;
+      final hidden = await _until(events, (rows) => rows.isEmpty);
+
+      expect(initial.single.id, person.id);
+      expect(hidden, isEmpty);
+    },
+  );
+
+  test(
+    'Given an observed application transaction containing a city insert, '
+    'when it also changes person visibility directly through the delegate, '
+    'then its unclassified metadata change refreshes the person watch.',
+    () async {
+      final person = await Person.db.insertRow(session, Person(name: 'Visible'));
+      final row = (await CrdtDataRow.db.findFirstRow(
+        testSession,
+        where: (t) => t.uuidRowId.equals(person.id),
+      ))!;
+      final events = _watch(Person.db.watch(session, throttle: null));
+      final initial = await _next(events);
+
+      await session.db.transaction((tx) async {
+        await City.db.insertRow(session, City(name: 'Known'), transaction: tx);
+        await CrdtDataRow.db.updateRow(
+          testSession,
+          row.copyWith(visibility: CrdtDataRowVisibility.userDelete),
+          columns: (t) => [t.visibility],
+          transaction: tx,
+        );
+      });
+      final hidden = await _until(events, (rows) => rows.isEmpty);
+
+      expect(initial.single.id, person.id);
+      expect(hidden, isEmpty);
     },
   );
 }
@@ -1137,8 +1240,9 @@ Future<void> _waitFor(bool Function() condition) async {
 
 Future<List<CrdtMergeChange>> _syncOnce(
   OfflineSyncDatabaseSession authoritative,
-  OfflineSyncDatabaseSession follower,
-) async {
+  OfflineSyncDatabaseSession follower, {
+  OfflineSyncOnMergeSuccess? onMergeSuccess,
+}) async {
   final toServer = StreamController<OfflineSyncStreamEvent>();
   final toClient = StreamController<OfflineSyncStreamEvent>();
   final serverDone = Completer<void>();
@@ -1169,6 +1273,7 @@ Future<List<CrdtMergeChange>> _syncOnce(
         inbound: toClient.stream,
         mode: OfflineSyncPeerMode.follower,
         once: true,
+        onMergeSuccess: onMergeSuccess,
       )
       .listen(
         (event) => relay(event, toServer),

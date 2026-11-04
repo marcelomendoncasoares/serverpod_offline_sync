@@ -74,14 +74,17 @@ void main() {
       addTearDown(subscription.cancel);
       await initial.future.timeout(const Duration(seconds: 10));
 
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      final beforeCity = events.length;
+
       await City.db.insertRow(session, City(name: 'Unrelated'));
       await Future<void>.delayed(const Duration(milliseconds: 150));
       final afterCity = List.of(events);
       await Person.db.deleteRow(session, person);
       await deleted.future.timeout(const Duration(seconds: 10));
 
-      expect(afterCity, hasLength(1));
-      expect(events, hasLength(2));
+      expect(afterCity, hasLength(beforeCity));
+      expect(events, hasLength(beforeCity + 1));
       expect(events.first.single.id, person.id);
       expect(events.last, isEmpty);
     },

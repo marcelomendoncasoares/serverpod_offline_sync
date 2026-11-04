@@ -437,7 +437,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         // raises `_ForeignSpaceRowCollision` when the row turns out to be owned
         // by another space. Rolling the savepoint back then leaves no CRDT
         // metadata, released unique values, or foreign key attempts behind.
-        context.rows[rowKey] = await DatabaseUtil.runInTransactionOrSavepoint(
+        context.rows[rowKey] = await _databaseContext.watchEffects.isolate(
           _db,
           transaction,
           (savepoint) async {
@@ -655,6 +655,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Transaction transaction,
   ) async {
     if (currentRow == null) {
+      _databaseContext.watchEffects.record(transaction, {tableName});
       final (tableId, _) = _context.schema[tableName]!;
       final insertedRow = await CrdtDataRow.db.insertRow(
         _session,
@@ -809,6 +810,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Map<String, Object?> data,
     Transaction transaction,
   ) async {
+    _databaseContext.watchEffects.record(transaction, {insert.tableName});
     final tableRow = _requireMergeInsertTableRow(insert);
     final patchedRow = _withPlannedDomainValues(tableRow, data);
     final mergingSpaceId = _context.spaceIdFor(transaction);
@@ -816,7 +818,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     try {
       // Domain insert first. A CRDT tracker row for this id, written before
       // the domain row, made SQLite reject a later null unique-FK insert.
-      await DatabaseUtil.runInTransactionOrSavepoint(
+      await _databaseContext.watchEffects.isolate(
         _db,
         transaction,
         (savepoint) => _db.insertRow(

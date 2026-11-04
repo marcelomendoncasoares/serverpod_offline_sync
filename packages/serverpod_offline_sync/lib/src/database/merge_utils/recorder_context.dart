@@ -599,6 +599,7 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
         .toList();
     if (toUpdate.isEmpty) return;
 
+    databaseContext.recordVisibleRows(toUpdate, transaction);
     await CrdtDataRow.db.update(
       databaseSession,
       toUpdate,
@@ -917,6 +918,7 @@ WHERE (${domainColumnPredicate('spaceId', spaceId)})
   ) async {
     if (rowIds.isEmpty || updates.isEmpty) return;
 
+    databaseContext.watchEffects.record(transaction, {tableName});
     final assignments = updates.entries
         .map(
           (e) =>

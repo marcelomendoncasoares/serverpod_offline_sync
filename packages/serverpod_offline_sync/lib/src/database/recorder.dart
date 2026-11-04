@@ -17,9 +17,9 @@ import 'merge_utils/foreign_key_projector.dart';
 import 'merge_utils/recorder_context.dart';
 import 'merge_utils/types.dart';
 import 'merge_utils/unique_resolver.dart';
+import 'native_watch_effects.dart';
 import 'schema.dart';
 import 'unique_index_utils.dart';
-import 'visible_changes.dart';
 
 part 'merge.dart';
 part 'merge_write_batch.dart';
@@ -43,12 +43,53 @@ class OfflineSyncDatabaseContext {
   OfflineSyncDatabaseContext({
     required this.syncTables,
     required DatabaseSerializationManager serializationManager,
+    this.filterMetadataChanges = true,
   }) : _tableDefinitions = serializationManager.getTargetTableDefinitions();
 
   /// The list of tables to sync with CRDT.
   final List<Table> syncTables;
 
+  /// Whether watches may skip metadata events using this context's write cache.
+  ///
+  /// Set to false when CRDT metadata is written directly through the underlying
+  /// database, another isolate, or an independently owned database connection.
+  /// Domain-table and membership notifications are always observed natively.
+  /// An unobserved transaction passed to Offline Sync also disables this
+  /// optimization for the shared context's lifetime.
+  final bool filterMetadataChanges;
+
   final List<TableDefinition> _tableDefinitions;
+
+  NativeWatchEffects? _watchEffects;
+
+  /// Shared by wrappers over the same delegate or engine context.
+  @internal
+  NativeWatchEffects get watchEffects => _watchEffects ??= NativeWatchEffects();
+
+  /// Binds wrappers to their shared native-event bookkeeping.
+  @internal
+  void bindWatchEffects(Database database) {
+    _watchEffects = NativeWatchEffects.bind(
+      database,
+      _watchEffects,
+      filterMetadataChanges: filterMetadataChanges,
+    );
+  }
+
+  /// Records domain owners of rows whose visibility can change.
+  @internal
+  void recordVisibleRows(Iterable<CrdtDataRow> rows, Transaction transaction) {
+    final tables = <String>{};
+    for (final row in rows) {
+      final name = tableNameForId(row.tblId);
+      if (name == null) {
+        watchEffects.unknown(transaction);
+        return;
+      }
+      tables.add(name);
+    }
+    if (tables.isNotEmpty) watchEffects.record(transaction, tables);
+  }
 
   _CrdtSchema? _schema;
   Future<_CrdtSchema>? _schemaFuture;
@@ -81,7 +122,6 @@ class OfflineSyncDatabaseContext {
       tableDefinitions: _tableDefinitions,
     );
     final (tableRows, columnRows) = await schemaRegistry.syncAndGetSchema();
-    await installVisibleChanges(session.db, syncTables);
     _registryChanged = schemaRegistry.registryChanged;
 
     final columnsByTableId = <int, Map<String, CrdtSchemaColumn>>{};
@@ -107,6 +147,17 @@ class OfflineSyncDatabaseContext {
   /// table is not registered for CRDT synchronization.
   @internal
   int? tableIdForName(String tableName) => schema[tableName]?.$1;
+
+  /// Resolves a cached schema identity without requiring initialization.
+  @internal
+  String? tableNameForId(int id) {
+    for (final entry
+        in _schema?.entries ??
+            <MapEntry<String, (int, Map<String, CrdtSchemaColumn>)>>[]) {
+      if (entry.value.$1 == id) return entry.key;
+    }
+    return null;
+  }
 
   /// Synced tables by table name.
   @internal
@@ -281,7 +332,7 @@ class CrdtMutationRecorder {
   Future<void> _rebuildProjectionsForAllSpaces() async {
     final spaces = await OfflineSyncSpace.db.find(_session);
     for (final space in spaces) {
-      await _db.transaction((tx) async {
+      await _databaseContext.watchEffects.transaction(_db, (tx) async {
         spaceForTransaction[tx] = space;
         try {
           await _foreignKeyProjector.project(tx);
@@ -901,6 +952,10 @@ class CrdtMutationRecorder {
     Transaction transaction, {
     ProjectionAttemptsByField attempts = const {},
   }) async {
+    _databaseContext.watchEffects.record(
+      transaction,
+      insertedRows.map((row) => row.table.tableName),
+    );
     validateAuthoredRows(insertedRows, null, attempts: attempts);
     await _forTrackedRows(insertedRows, transaction, (
       tableName,
@@ -938,6 +993,10 @@ class CrdtMutationRecorder {
     List<T> reinsertedRows,
     Transaction transaction,
   ) async {
+    _databaseContext.watchEffects.record(
+      transaction,
+      reinsertedRows.map((row) => row.table.tableName),
+    );
     await _forTrackedRows(reinsertedRows, transaction, (
       tableName,
       rowIds,
@@ -1043,6 +1102,10 @@ class CrdtMutationRecorder {
     Map<MergeRowKey, Map<String, Object?>> upsertInputs = const {},
     Set<String> upsertConflictColumns = const {},
   }) async {
+    _databaseContext.watchEffects.record(
+      transaction,
+      updatedRows.map((row) => row.table.tableName),
+    );
     await _foreignKeyProjector.assertVisibleTargets(updatedRows, columns, transaction);
 
     await _forTrackedRows(updatedRows, transaction, (
