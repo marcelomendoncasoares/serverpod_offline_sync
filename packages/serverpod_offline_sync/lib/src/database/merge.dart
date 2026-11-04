@@ -65,16 +65,22 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     OfflineSyncDiagnostics.event('merge.phase', {
       'phase': 'planConflictsAndReferences',
     });
-    final batch = mayAffectProjection
-        ? await _planBatchInserts(
-            operations,
-            nodesByUuid,
-            context,
-            touchedTables,
-            touchedRows,
-            transaction,
-          )
-        : (plan: null, pending: const <PendingProjectionRow>[]);
+    final needsProjectionPass =
+        mayAffectProjection &&
+        !await _canLeaveMergeProjectionUnchanged(operations, context, transaction);
+    final projectionReads = needsProjectionPass
+        ? _foreignKeyProjector.createReadCache(transaction)
+        : null;
+    final batch = await _planBatchInserts(
+      operations,
+      nodesByUuid,
+      context,
+      touchedTables,
+      touchedRows,
+      transaction,
+      projectionReads,
+      projectInserts: needsProjectionPass,
+    );
     // Every merged insert has to know whether the rows its foreign keys name
     // are there, which is one query per edge unless the batch resolves them
     // together and then keeps the answers current as it writes.
@@ -88,6 +94,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     final writes = _MergeWriteBatch(
       session: _session,
       projector: _foreignKeyProjector,
+      rows: context.rows,
       fields: context.fields,
       transaction: transaction,
     );
@@ -96,6 +103,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     OfflineSyncDiagnostics.event('merge.phase', {
       'phase': 'writeRowsAndChangeMetadata',
     });
+    projectionReads?.invalidateRows(touchedRows);
     await writes.apply(
       operations.where(
         (operation) => _context.isCrdtTrackedTableName(operation.tableName),
@@ -141,6 +149,16 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
             presence?.forget((delete.tableName, delete.uuidRowId));
         }
       },
+      canBatchInsert: (insert) => _canBatchMergeInsert(insert, context),
+      applyInserts: (inserts) => _applyMergeInsertsForMissingRows(
+        inserts,
+        nodesByUuid,
+        context,
+        batch.plan,
+        writes,
+        presence,
+        transaction,
+      ),
     );
 
     for (final delete in deferredDeletes) {
@@ -148,12 +166,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     OfflineSyncDiagnostics.event('merge.phase', {'phase': 'projectConflicts'});
-    if (mayAffectProjection) {
+    if (needsProjectionPass) {
       await _foreignKeyProjector.project(
         transaction,
         authoredOverlays: authoredOverlays,
         seedTables: touchedTables,
         seedRows: touchedRows,
+        readCache: projectionReads,
       );
     } else {
       // The pass is also what writes an update's value, so its authored
@@ -169,6 +188,54 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       remoteNodes,
       transaction,
     );
+  }
+
+  /// The local insert proof also applies to new merge rows when no other
+  /// operation can change a projection dependency. It checks live parents,
+  /// existing children, attempted references and default targets in the same
+  /// locked transaction. Reinserts, deletes and constrained edits retain both
+  /// projection passes. Unique-bearing tables are deliberately excluded.
+  Future<bool> _canLeaveMergeProjectionUnchanged(
+    List<CrdtMergeChange> operations,
+    MergeContext context,
+    Transaction transaction,
+  ) async {
+    final insertsByTable = <String, List<TableRow>>{};
+    for (final operation in operations) {
+      if (!_context.isCrdtTrackedTableName(operation.tableName)) continue;
+
+      switch (operation) {
+        case CrdtMergeInsert():
+          if (context.rows.containsKey((operation.tableName, operation.uuidRowId)) ||
+              _uniqueResolver.tableHasUniqueIndexes(operation.tableName)) {
+            return false;
+          }
+          (insertsByTable[operation.tableName] ??= []).add(
+            _requireMergeInsertTableRow(operation),
+          );
+        case CrdtMergeUpdate():
+          if (_foreignKeyProjector.needsProjection(operation.tableName, {
+            operation.columnName,
+          })) {
+            return false;
+          }
+        case CrdtMergeDelete():
+          return false;
+      }
+    }
+    if (insertsByTable.isEmpty) return false;
+
+    for (final rows in insertsByTable.values) {
+      if (!await _foreignKeyProjector.canLeaveLocalProjectionUnchanged(
+        rows,
+        transaction,
+        inserting: true,
+        persisted: false,
+      )) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _updateHlcFromIncomingOperations(
@@ -374,7 +441,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     Set<String> seedTables,
     Set<MergeRowKey> seedRows,
     Transaction transaction,
-  ) async {
+    CrdtProjectionReadCache? projectionReads, {
+    required bool projectInserts,
+  }) async {
     final pending = <PendingProjectionRow>[];
     final seenRowKeys = <MergeRowKey>{};
 
@@ -402,7 +471,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         hidden: false,
       ));
     }
-    if (pending.isEmpty) return (plan: null, pending: pending);
+    if (pending.isEmpty || !projectInserts) return (plan: null, pending: pending);
 
     return (
       plan: await _foreignKeyProjector.project(
@@ -410,6 +479,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         pendingInserts: pending,
         seedTables: seedTables,
         seedRows: seedRows,
+        readCache: projectionReads,
       ),
       pending: pending,
     );
@@ -434,69 +504,18 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       return;
     }
 
-    // Set inside the savepoint and read after it, so a rolled back insert
-    // records nothing.
-    ProjectionAttemptsByField? pendingWrites;
-
     final data = _sanitizeMergeRowData(insert.tableName, insert.databaseColumns);
 
     if (currentRow == null) {
-      final mergingSpace = _context.effectiveSpaceFor(transaction);
-      final mergingSpaceId = mergingSpace.id!;
-      try {
-        // Insert-first inside a savepoint: the domain primary key resolves
-        // creation races atomically, and `_applyMergeInsertForMissingRow`
-        // raises `_ForeignSpaceRowCollision` when the row turns out to be owned
-        // by another space. Rolling the savepoint back then leaves no CRDT
-        // metadata, released unique values, or foreign key attempts behind.
-        context.rows[rowKey] = await DatabaseUtil.runInTransactionOrSavepoint(
-          _db,
-          transaction,
-          (savepoint) async {
-            final planned = await _planMergeInsertValues(
-              insert,
-              data,
-              batchPlan,
-              presence,
-              savepoint,
-            );
-            final insertedRow = await _applyMergeInsertForMissingRow(
-              insert,
-              remoteNode,
-              incomingHlc,
-              planned.domain,
-              savepoint,
-            );
-            pendingWrites = planned.attempts;
-            return insertedRow;
-          },
-        );
-        // The row is now owned by the merging space (freshly inserted, or a
-        // same-space recovery), so same-merge field updates resolve ownership
-        // from the cache instead of re-reading the domain row.
-        context.domainOwners[rowKey] = (exists: true, spaceId: mergingSpaceId);
-        writes.recordInsertAttempts(
-          tableName: insert.tableName,
-          rowId: insert.uuidRowId,
-          node: remoteNode,
-          attempts: pendingWrites ?? const {},
-        );
-        // Written and visible, so the children arriving after it in this batch
-        // can point at it without asking the database again.
-        presence?.markVisible(rowKey);
-      } on _ForeignSpaceRowCollision catch (collision) {
-        await _throwOwnershipCollision(
-          operation: OfflineSyncViolationOperation.mergeInsert,
-          tableName: insert.tableName,
-          rowId: insert.uuidRowId,
-          owningSpaceId: collision.owningSpaceId,
-          incomingSpace: mergingSpace,
-          metadataRowId: null,
-          node: remoteNode,
-          hlc: insert.hlc,
-          transaction: transaction,
-        );
-      }
+      await _applyMergeInsertsForMissingRows(
+        [insert],
+        remoteNodes,
+        context,
+        batchPlan,
+        writes,
+        presence,
+        transaction,
+      );
     } else {
       await _applyMergeInsertForExistingRow(
         insert,
@@ -658,49 +677,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
   }
 
-  Future<CrdtDataRow> _upsertMergeRow(
-    String tableName,
-    UuidValue rowId,
-    CrdtNode remoteNode,
-    Hlc incomingHlc,
-    CrdtDataRow? currentRow,
-    Transaction transaction,
-  ) async {
-    if (currentRow == null) {
-      final (tableId, _) = _context.schema[tableName]!;
-      final insertedRow = await CrdtDataRow.db.insertRow(
-        _session,
-        CrdtDataRow(
-          spaceId: _context.spaceIdFor(transaction),
-          tblId: tableId,
-          uuidRowId: rowId,
-          nodeId: remoteNode.id!,
-          hlcDatetime: incomingHlc.datetime,
-          hlcCounter: incomingHlc.counter,
-        ),
-        transaction: transaction,
-      );
-
-      return insertedRow.copyWith(node: remoteNode);
-    }
-
-    final updatedRow = currentRow.copyWith(
-      nodeId: remoteNode.id,
-      node: remoteNode,
-      hlcDatetime: incomingHlc.datetime,
-      hlcCounter: incomingHlc.counter,
-    );
-
-    await CrdtDataRow.db.update(
-      _session,
-      [updatedRow],
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
-      transaction: transaction,
-    );
-
-    return updatedRow;
-  }
-
   Future<CrdtDataField> _upsertMergeField(
     CrdtDataRow row,
     CrdtSchemaColumn column,
@@ -812,68 +788,6 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
 
     return updatedTombstone;
-  }
-
-  Future<CrdtDataRow> _applyMergeInsertForMissingRow(
-    CrdtMergeInsert insert,
-    CrdtNode remoteNode,
-    Hlc incomingHlc,
-    Map<String, Object?> data,
-    Transaction transaction,
-  ) async {
-    final tableRow = _requireMergeInsertTableRow(insert);
-    final patchedRow = _withPlannedDomainValues(tableRow, data);
-    final mergingSpaceId = _context.spaceIdFor(transaction);
-    final spaceScopedRow = patchedRow.copyWithSpaceId(mergingSpaceId);
-    try {
-      // Domain insert first. A CRDT tracker row for this id, written before
-      // the domain row, made SQLite reject a later null unique-FK insert.
-      await DatabaseUtil.runInTransactionOrSavepoint(
-        _db,
-        transaction,
-        (savepoint) => _db.insertRow(
-          withExplicitInsertNulls(spaceScopedRow, {
-            for (final column in spaceScopedRow.table.crdtSyncableColumns)
-              if (column.hasDefault && data[column.columnName] == null)
-                column.columnName,
-          }),
-          transaction: savepoint,
-        ),
-      );
-    } on DatabaseQueryException {
-      final owner = await _readDomainRowOwner(
-        insert.tableName,
-        insert.uuidRowId,
-        transaction,
-      );
-      // No row means the violation came from something other than the
-      // primary key (e.g. a racing unique value); preserve the failure.
-      if (!owner.exists) rethrow;
-      if (owner.spaceId != mergingSpaceId) {
-        throw _ForeignSpaceRowCollision(owner.spaceId);
-      }
-
-      // Same-space recovery (a tracked row whose metadata was lost, or a
-      // race between this space's own merges). spaceId is immutable and rows
-      // are only soft-deleted, so ownership observed here cannot change for
-      // the rest of the transaction and the update is safe.
-      await _db.updateRow(
-        spaceScopedRow,
-        columns: spaceScopedRow.table.managedColumns
-            .where((c) => data.containsKey(c.columnName))
-            .toList(),
-        transaction: transaction,
-      );
-    }
-
-    return _upsertMergeRow(
-      insert.tableName,
-      insert.uuidRowId,
-      remoteNode,
-      incomingHlc,
-      null,
-      transaction,
-    );
   }
 
   Future<void> _applyMergeInsertForExistingRow(
@@ -1118,13 +1032,4 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     return space?.uuidSpaceId;
   }
-}
-
-/// Signals that a merge insert lost a primary-key race to a row owned by
-/// another space, so the savepoint around the insert application must be
-/// rolled back before the sync violation is recorded and thrown.
-class _ForeignSpaceRowCollision implements Exception {
-  _ForeignSpaceRowCollision(this.owningSpaceId);
-
-  final int? owningSpaceId;
 }

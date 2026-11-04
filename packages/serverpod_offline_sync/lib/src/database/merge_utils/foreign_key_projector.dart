@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
@@ -12,6 +14,7 @@ import 'types.dart';
 import 'unique_resolver.dart';
 
 part 'projection_reads.dart';
+part 'projection_read_cache.dart';
 
 typedef _ProjectedForeignKeyRow = ({
   MergeRowKey key,
@@ -750,6 +753,10 @@ class CrdtForeignKeyProjector {
     );
   }
 
+  /// Creates snapshots for the pre-write and final passes of one locked merge.
+  CrdtProjectionReadCache createReadCache(Transaction transaction) =>
+      CrdtProjectionReadCache._(_context, transaction);
+
   /// Recomputes FK candidates, unique claims, visibility, and attempted values.
   ///
   /// [pendingInserts] participate in planning but are not written; the returned
@@ -776,13 +783,16 @@ class CrdtForeignKeyProjector {
     bool materializeVisibility = true,
     bool localWrite = false,
     Set<MergeRowKey> restoringRows = const {},
+    CrdtProjectionReadCache? readCache,
   }) async {
+    readCache?._checkScope(_context, transaction);
     final state = await _loadProjectionState(
       transaction,
       pendingInserts: pendingInserts,
       authoredOverlays: authoredOverlays,
       seedTables: seedTables,
       seedRows: seedRows,
+      readCache: readCache,
     );
     if (state.rows.isEmpty) {
       return (
@@ -817,6 +827,7 @@ class CrdtForeignKeyProjector {
         currentHidden: currentHidden,
         finalHidden: finalHidden,
         transaction: transaction,
+        readCache: readCache,
       );
     }
     return _materializeValues(
@@ -827,6 +838,7 @@ class CrdtForeignKeyProjector {
       localWrite: localWrite,
       restoringRows: restoringRows,
       transaction: transaction,
+      readCache: readCache,
     );
   }
 
@@ -887,8 +899,9 @@ class CrdtForeignKeyProjector {
     Map<MergeFieldKey, Object?> authoredOverlays = const {},
     Set<String>? seedTables,
     Set<MergeRowKey>? seedRows,
+    CrdtProjectionReadCache? readCache,
   }) async {
-    final reader = _ProjectionReader(_context, transaction);
+    final reader = _ProjectionReader(_context, transaction, readCache);
     final rows = reader.rows;
     final fieldIds = reader.fieldIds;
     final attemptedValues = reader.attemptedValues;
@@ -1191,6 +1204,7 @@ class CrdtForeignKeyProjector {
           attemptedValues: attemptedValues,
           enqueue: enqueue,
           transaction: transaction,
+          readCache: reader._cache,
         );
       }
 
@@ -1454,6 +1468,7 @@ class CrdtForeignKeyProjector {
     required void Function(String tableName, Iterable<UuidValue> ids) enqueue,
     required bool hasAttemptedClaims,
     required Transaction transaction,
+    required CrdtProjectionReadCache? readCache,
   }) async {
     // Both the stored and the unwritten value matter: the walk has to reach the
     // parent a row points at now and the one it is about to point at.
@@ -1475,6 +1490,7 @@ class CrdtForeignKeyProjector {
       _context,
       transaction,
       includeAttemptedClaims: hasAttemptedClaims,
+      cache: readCache,
     );
 
     for (final edge in _foreignKeys.edges) {
@@ -1917,9 +1933,11 @@ class CrdtForeignKeyProjector {
     required Set<MergeRowKey> currentHidden,
     required Set<MergeRowKey> finalHidden,
     required Transaction transaction,
+    required CrdtProjectionReadCache? readCache,
   }) async {
     final rowsToHide = finalHidden.difference(currentHidden);
     final rowsToShow = currentHidden.difference(finalHidden);
+    readCache?.invalidateRows({...rowsToHide, ...rowsToShow});
 
     await _setProjectedRowVisibility(
       rowsToHide,
@@ -1976,6 +1994,7 @@ class CrdtForeignKeyProjector {
     required bool localWrite,
     required Set<MergeRowKey> restoringRows,
     required Transaction transaction,
+    required CrdtProjectionReadCache? readCache,
   }) async {
     final authoredByField = _authoredValuesByField(state, authoredOverlays);
     final foreignKeys = _planForeignKeyValues(
@@ -2056,6 +2075,7 @@ class CrdtForeignKeyProjector {
         finalDomain: finalDomain,
         skip: state.pendingInsertKeys,
         transaction: transaction,
+        readCache: readCache,
       );
       await _syncAttemptedValues(
         state: state,
@@ -2065,6 +2085,7 @@ class CrdtForeignKeyProjector {
         hidden: finalHidden,
         skip: state.pendingInsertKeys,
         transaction: transaction,
+        readCache: readCache,
       );
     }
 
@@ -2199,6 +2220,7 @@ class CrdtForeignKeyProjector {
     required Map<MergeRowKey, Map<String, Object?>> finalDomain,
     required Set<MergeRowKey> skip,
     required Transaction transaction,
+    required CrdtProjectionReadCache? readCache,
   }) async {
     final changed = <MergeRowKey, Map<String, Object?>>{};
     for (final MapEntry(key: rowKey, value: finals) in finalDomain.entries) {
@@ -2213,6 +2235,7 @@ class CrdtForeignKeyProjector {
       if (updates.isNotEmpty) changed[rowKey] = updates;
     }
     if (changed.isEmpty) return;
+    readCache?.invalidateRows(changed.keys);
 
     final parkUpdates = <MergeRowKey, Map<String, Object?>>{};
     for (final MapEntry(key: rowKey, value: updates) in changed.entries) {
@@ -2248,6 +2271,7 @@ class CrdtForeignKeyProjector {
     required Set<MergeRowKey> hidden,
     required Set<MergeRowKey> skip,
     required Transaction transaction,
+    required CrdtProjectionReadCache? readCache,
   }) async {
     final desired = <int, _AttemptedWrite>{};
     final fieldIdsToDelete = <int>{};
@@ -2260,9 +2284,13 @@ class CrdtForeignKeyProjector {
       final existing =
           state.persistedAttempted[fieldKey] ?? state.attemptedValues[fieldKey];
       if (projectionValuesEqual(domain, authored)) {
-        if (existing != null) fieldIdsToDelete.add(existing.fieldId);
+        if (existing != null) {
+          fieldIdsToDelete.add(existing.fieldId);
+          readCache?.invalidateRows([rowKey]);
+        }
         continue;
       }
+      readCache?.invalidateRows([rowKey]);
 
       final reason =
           reasons[fieldKey] ??
