@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 
@@ -37,16 +39,29 @@ extension OfflineSyncInitialize on Serverpod {
   ///
   /// [continuousSyncInterval] controls how long a continuous sync session waits
   /// after completing one sync round before checking for local changes again.
+  ///
+  /// [maxConcurrentMerges] bounds merges using database connections. Merges that
+  /// share a user clock or space queue before acquiring a connection. Defaults
+  /// to half the configured pool size (at least one), or five for an unlimited
+  /// pool. Transaction locks still serialize work across server instances.
   void initializeOfflineSync({
     required List<Table> syncTables,
     int syncBatchSize = OfflineSyncEngine.defaultSyncBatchSize,
     Duration continuousSyncInterval = OfflineSyncEngine.defaultContinuousSyncInterval,
+    int? maxConcurrentMerges,
   }) {
     _offlineSyncByServerpod[this] = OfflineSyncEngine(
       syncTables: syncTables,
       serializationManager: serializationManager,
       syncBatchSize: syncBatchSize,
       continuousSyncInterval: continuousSyncInterval,
+      databaseContext: OfflineSyncDatabaseContext(
+        syncTables: syncTables,
+        serializationManager: serializationManager,
+        maxConcurrentMerges:
+            maxConcurrentMerges ??
+            max(1, (config.database?.maxConnectionCount ?? 10) ~/ 2),
+      ),
     );
   }
 }

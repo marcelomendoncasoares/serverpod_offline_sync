@@ -17,6 +17,7 @@ import '../hlc/hlc.dart';
 import '../managers/space.dart';
 import '../spaces/membership.dart';
 import '../utils/case_when.dart' show Case;
+import 'cancellation.dart';
 import 'exceptions.dart';
 import 'integrity_violation.dart';
 import 'space_state.dart';
@@ -251,11 +252,17 @@ class OfflineSyncEngine {
     required UuidValue userId,
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
+    OfflineSyncCancellation? cancellation,
   }) async {
     if (mergeSet.isEmpty) return null;
     final maxSyncedHlc = mergeSet.maxHlc;
     final offlineSyncDb = _openOfflineSyncDatabase(session);
-    await offlineSyncDb.mergeChanges(mergeSet, userId: userId, spaceId: spaceId);
+    await offlineSyncDb.mergeChanges(
+      mergeSet,
+      userId: userId,
+      spaceId: spaceId,
+      cancellation: cancellation,
+    );
     return maxSyncedHlc;
   }
 
@@ -279,21 +286,74 @@ class OfflineSyncEngine {
     required OfflineSyncPeerMode mode,
     bool once = false,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
-  }) async* {
-    // Idle timeouts are a continuous-only affordance: they let an idle cycle
-    // settle into an empty batch without closing the stream. A `once` session
-    // is strictly lockstep — every batch ends with a [OfflineSyncEndOfBatch] and
-    // the session with a [OfflineSyncClose] — so it must wait for those end frames
-    // rather than truncate a slow peer's batch on a timeout.
-    final inboundIterator = StreamIterator(
-      once
-          ? inbound
-          : inbound.timeout(
-              const Duration(seconds: 1),
-              onTimeout: (sink) => sink.add(OfflineSyncIdleTimeout()),
-            ),
+  }) {
+    final cancellation = OfflineSyncCancellation();
+    var completed = false;
+    late StreamIterator<OfflineSyncStreamEvent> inboundIterator;
+    late StreamSubscription<OfflineSyncStreamEvent> subscription;
+    // The generator closes this controller on completion; cancellation closes
+    // the generator after its database work has settled.
+    // ignore: close_sinks
+    late StreamController<OfflineSyncStreamEvent> controller;
+    controller = StreamController<OfflineSyncStreamEvent>(
+      onListen: () {
+        // Once sessions require complete frames; idle timeouts are only for
+        // continuous sessions waiting for the next change.
+        inboundIterator = StreamIterator(
+          once
+              ? inbound
+              : inbound.timeout(
+                  const Duration(seconds: 1),
+                  onTimeout: (sink) => sink.add(OfflineSyncIdleTimeout()),
+                ),
+        );
+        subscription =
+            _syncSession(
+              session,
+              userId: userId,
+              inboundIterator: inboundIterator,
+              mode: mode,
+              once: once,
+              onMergeSuccess: onMergeSuccess,
+              cancellation: cancellation,
+            ).listen(
+              controller.add,
+              onError: controller.addError,
+              onDone: () {
+                completed = true;
+                unawaited(controller.close());
+              },
+            );
+      },
+      onPause: () => subscription.pause(),
+      onResume: () => subscription.resume(),
+      onCancel: () async {
+        if (completed) return;
+        // An async generator alone cannot observe cancellation while awaiting
+        // admission or a database call. Signal it before awaiting its cleanup.
+        cancellation.cancel();
+        try {
+          await inboundIterator.cancel().timeout(
+            const Duration(milliseconds: 200),
+            onTimeout: () {},
+          );
+        } finally {
+          await subscription.cancel();
+        }
+      },
     );
+    return controller.stream;
+  }
 
+  Stream<OfflineSyncStreamEvent> _syncSession(
+    DatabaseSession session, {
+    required UuidValue userId,
+    required StreamIterator<OfflineSyncStreamEvent> inboundIterator,
+    required OfflineSyncPeerMode mode,
+    required bool once,
+    required OfflineSyncCancellation cancellation,
+    OfflineSyncOnMergeSuccess? onMergeSuccess,
+  }) async* {
     var sessionCompleted = false;
     try {
       // Informational: the per-space checkpoints carry every node's progress.
@@ -323,6 +383,7 @@ class OfflineSyncEngine {
       await spaces.adoptPeerGrants(peerSpaceSet.spaces);
 
       while (true) {
+        if (cancellation.isCancelled) return;
         await spaces.reconcile();
 
         final hadSendableCheckpoints = spaces.sendableCheckpoints.isNotEmpty;
@@ -375,6 +436,7 @@ class OfflineSyncEngine {
           batch,
           outboundSpaces,
           onMergeSuccess,
+          cancellation,
         );
 
         if (once) {
@@ -404,6 +466,10 @@ class OfflineSyncEngine {
         // Wait for the configured interval before checking for local changes again.
         await Future<void>.delayed(_continuousSyncInterval);
       }
+    } on OfflineSyncCancelledException {
+      // The merge has rolled back before reaching this handler.
+      if (once) rethrow;
+      return;
     } on OfflineSyncStreamClosedException {
       // A continuous session ending is normal: the peer closed its outbound
       // (typically a cancel). Whether the stream closed between batches or
@@ -435,6 +501,7 @@ class OfflineSyncEngine {
     OfflineSyncCycleBatch batch,
     Set<UuidValue> outboundSpaces,
     OfflineSyncOnMergeSuccess? onMergeSuccess,
+    OfflineSyncCancellation cancellation,
   ) async {
     if (batch.spaceSet != null) {
       await spaces.adoptPeerGrants(batch.spaceSet!.spaces);
@@ -467,6 +534,7 @@ class OfflineSyncEngine {
         userId: spaces.userId,
         spaceId: spaceId,
         mergeSet: entry.value,
+        cancellation: cancellation,
       );
       await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
     }

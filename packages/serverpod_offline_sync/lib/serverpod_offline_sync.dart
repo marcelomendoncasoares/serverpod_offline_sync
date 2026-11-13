@@ -14,6 +14,7 @@ export 'src/hlc/hlc.dart';
 export 'src/managers/hlc.dart';
 export 'src/managers/space.dart';
 export 'src/spaces/membership.dart';
+export 'src/sync/cancellation.dart';
 export 'src/sync/client_sync.dart';
 export 'src/sync/engine.dart';
 export 'src/sync/exceptions.dart' hide PendingOutboundIntegrityViolation;
