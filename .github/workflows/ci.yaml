@@ -9,9 +9,7 @@ on:
     paths-ignore:
       - '**/*.md'
   pull_request:
-    branches:
-      - main
-      - stable-*
+    # Also validate PRs whose base is another branch in a review stack.
     paths-ignore:
       - '**/*.md'
 
@@ -194,7 +192,19 @@ jobs:
 
       - name: Push Benchmark Data
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork != true
-        run: git push origin refs/notes/benchmarks
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if git push origin refs/notes/benchmarks; then
+              exit 0
+            fi
+
+            # Concurrent PR runs may have published notes since checkout.
+            # Preserve their commits while keeping this run's note on conflict.
+            git fetch origin +refs/notes/benchmarks:refs/notes/benchmark-remote
+            git notes --ref=benchmarks merge -s ours refs/notes/benchmark-remote
+          done
+
+          git push origin refs/notes/benchmarks
 
   # TODO: Re-enable the publish check when the package is ready for first
   # public version.
