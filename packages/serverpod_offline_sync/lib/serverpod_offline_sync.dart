@@ -7,7 +7,7 @@ export 'src/database/database.dart'
         spaceForTransaction,
         userForTransaction;
 export 'src/database/exceptions.dart';
-export 'src/database/recorder.dart';
+export 'src/database/recorder.dart' hide OfflineSyncRecoverySubscription;
 export 'src/database/schema.dart';
 export 'src/database/session.dart'
     show OfflineSyncDatabaseAccess, OfflineSyncDatabaseSession;
