@@ -5,9 +5,17 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   /// Merges remote CRDT changes into the current database.
   Future<void> mergeChanges(
     CrdtMergeSet mergeSet,
-    Transaction transaction,
-  ) async {
-    if (mergeSet.isEmpty) return;
+    Transaction transaction, {
+    int? receivedRevision,
+  }) async {
+    if (mergeSet.isEmpty) {
+      await _context.persistMergeProgress(
+        const [],
+        transaction,
+        receivedRevision: receivedRevision,
+      );
+      return;
+    }
 
     OfflineSyncDiagnostics.event('merge.phase', {'phase': 'validateIncoming'});
     final operations = mergeSet.causallyOrderedChanges;
@@ -187,6 +195,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       operations,
       remoteNodes,
       transaction,
+      receivedRevision: receivedRevision,
     );
   }
 
@@ -241,8 +250,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   Future<void> _updateHlcFromIncomingOperations(
     List<CrdtMergeChange> operations,
     MergeNodes remoteNodes,
-    Transaction transaction,
-  ) async {
+    Transaction transaction, {
+    int? receivedRevision,
+  }) async {
     final maxIncomingHlc = operations.fold<Hlc?>(
       null,
       (current, change) => change.hlc.maxBetween(current),
@@ -284,14 +294,11 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       remoteNodes.spaceNodesByUuid[nodeId] = updatedSpaceNode;
     }
 
-    if (spaceNodesToUpdate.isNotEmpty) {
-      await OfflineSyncSpaceNode.db.update(
-        _session,
-        spaceNodesToUpdate,
-        columns: (t) => [t.lastReceivedHlc],
-        transaction: transaction,
-      );
-    }
+    await _context.persistMergeProgress(
+      spaceNodesToUpdate,
+      transaction,
+      receivedRevision: receivedRevision,
+    );
   }
 
   Future<MergeNodes> _findOrCreateNodesForMerge(
