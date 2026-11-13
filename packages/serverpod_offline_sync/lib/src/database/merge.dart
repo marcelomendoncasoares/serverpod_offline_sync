@@ -9,6 +9,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
   ) async {
     if (mergeSet.isEmpty) return;
 
+    OfflineSyncDiagnostics.event('merge.phase', {'phase': 'validateIncoming'});
     final operations = mergeSet.causallyOrderedChanges;
     // Validate remote facts before touching rows or progress, including stale
     // and repeated deliveries. Generated alternatives are never authored facts.
@@ -40,6 +41,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       operations,
     );
     final authoredOverlays = <MergeFieldKey, Object?>{};
+    OfflineSyncDiagnostics.event('merge.phase', {
+      'phase': 'readNodesAndConflictMetadata',
+    });
     final remoteNodes = await _findOrCreateNodesForMerge(
       _context.spaceIdFor(transaction),
       {for (final change in operations) change.uuidNodeId},
@@ -58,6 +62,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       touchedRows.add((operation.tableName, operation.uuidRowId));
     }
 
+    OfflineSyncDiagnostics.event('merge.phase', {
+      'phase': 'planConflictsAndReferences',
+    });
     final batch = mayAffectProjection
         ? await _planBatchInserts(
             operations,
@@ -86,6 +93,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     );
     final deferredDeletes = <CrdtMergeDelete>[];
 
+    OfflineSyncDiagnostics.event('merge.phase', {
+      'phase': 'writeRowsAndChangeMetadata',
+    });
     await writes.apply(
       operations.where(
         (operation) => _context.isCrdtTrackedTableName(operation.tableName),
@@ -137,6 +147,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       await _applyMergeDelete(delete, nodesByUuid, context, transaction);
     }
 
+    OfflineSyncDiagnostics.event('merge.phase', {'phase': 'projectConflicts'});
     if (mayAffectProjection) {
       await _foreignKeyProjector.project(
         transaction,
@@ -152,6 +163,7 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
         transaction,
       );
     }
+    OfflineSyncDiagnostics.event('merge.phase', {'phase': 'writeReceivedCursors'});
     await _updateHlcFromIncomingOperations(
       operations,
       remoteNodes,
