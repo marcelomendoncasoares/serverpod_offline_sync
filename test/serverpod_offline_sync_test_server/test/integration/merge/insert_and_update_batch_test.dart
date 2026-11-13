@@ -37,7 +37,7 @@ void main() {
     return offlineSync
         .collectPendingChanges(
           testSession,
-          checkpointsBySpaceUuid: {testCrdtUserId: const []},
+          checkpointsBySpaceUuid: {testCrdtUserId: 0},
         )
         .toList();
   }

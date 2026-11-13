@@ -39,6 +39,10 @@ class _UserClock {
   /// The stored high-water mark of each locked space.
   final spaceHighWater = <int, Hlc?>{};
 
+  /// Delivery order is local to this database and independent of author HLCs.
+  final storedRevisions = <int, int>{};
+  final writtenRevisions = <int, int>{};
+
   /// Spaces whose clock must be stored.
   final usedInSpaces = <int>{};
 }
@@ -163,13 +167,27 @@ class CrdtRecorderContext {
     final userClock = _userClockFor(transaction);
     final lastHlc = userClock.node.lastHlc;
     final usedInSpaces = Set<int>.of(userClock.usedInSpaces);
+    final writtenRevisions = Map<int, int>.of(userClock.writtenRevisions);
+    final persisted = userClock.persisted;
+    final spaceHighWater = Map<int, Hlc?>.of(userClock.spaceHighWater);
+    final storedRevisions = Map<int, int>.of(userClock.storedRevisions);
     try {
-      return await action(transaction);
+      return await databaseContext.withSpaceChangesSavepoint(transaction, action);
     } catch (_) {
       userClock.node.lastHlc = lastHlc;
+      userClock.persisted = persisted;
+      userClock.spaceHighWater
+        ..clear()
+        ..addAll(spaceHighWater);
+      userClock.storedRevisions
+        ..clear()
+        ..addAll(storedRevisions);
       userClock.usedInSpaces
         ..clear()
         ..addAll(usedInSpaces);
+      userClock.writtenRevisions
+        ..clear()
+        ..addAll(writtenRevisions);
       rethrow;
     }
   }
@@ -200,6 +218,7 @@ class CrdtRecorderContext {
     );
     if (space == null) throw StateError('Space $spaceId is missing.');
     userClock.spaceHighWater[spaceId] = space.lastHlc;
+    userClock.storedRevisions[spaceId] = space.syncRevision;
     if (space.lastHlc case final highWater?) {
       HlcManager(spaceId, userClock.node).observe(highWater);
     }
@@ -209,6 +228,33 @@ class CrdtRecorderContext {
   Future<void> persistUserClock(Transaction transaction) =>
       _persistUserClock(_userClockFor(transaction), transaction);
 
+  /// Allocates one revision for all effective facts written in this scope.
+  /// The space lock remains held through commit, so revision order is commit order.
+  int revisionFor(Transaction transaction) {
+    final clock = _userClockFor(transaction);
+    final spaceId = spaceIdFor(transaction);
+    final stored = clock.storedRevisions[spaceId];
+    if (stored == null) throw StateError('Lock the space before recording a fact.');
+    return clock.writtenRevisions.putIfAbsent(spaceId, () => stored + 1);
+  }
+
+  /// Immediate peer identity is bound by the session, never by an author's HLC.
+  int? sourcePeerIdFor(Transaction transaction) =>
+      sourcePeerForTransaction[transaction];
+
+  Future<void> recordReceivedRevision(
+    int peerId,
+    int revision,
+    Transaction transaction,
+  ) => database.unsafeExecute(
+    '''INSERT INTO "offline_sync_peer_checkpoints" ("spaceId", "peerId", "revision")
+VALUES (${spaceIdFor(transaction)}, $peerId, $revision)
+ON CONFLICT ("spaceId", "peerId") DO UPDATE SET "revision" =
+CASE WHEN excluded."revision" > "offline_sync_peer_checkpoints"."revision"
+THEN excluded."revision" ELSE "offline_sync_peer_checkpoints"."revision" END''',
+    transaction: transaction,
+  );
+
   /// Stores the clock and the high-water mark of each space it was used in,
   /// when they moved. A transaction that only read stores nothing.
   Future<void> _persistUserClock(
@@ -216,7 +262,10 @@ class CrdtRecorderContext {
     Transaction transaction,
   ) async {
     final lastHlc = userClock.node.lastHlc;
-    if (userClock.usedInSpaces.isEmpty || lastHlc == null) return;
+    if ((userClock.usedInSpaces.isEmpty && userClock.writtenRevisions.isEmpty) ||
+        lastHlc == null) {
+      return;
+    }
 
     if (lastHlc != userClock.persisted) {
       await CrdtNode.db.updateWhere(
@@ -228,17 +277,24 @@ class CrdtRecorderContext {
       );
     }
 
-    for (final spaceId in userClock.usedInSpaces) {
+    for (final spaceId in {
+      ...userClock.usedInSpaces,
+      ...userClock.writtenRevisions.keys,
+    }) {
       final highWater = userClock.spaceHighWater[spaceId];
-      if (highWater != null && lastHlc <= highWater) continue;
+      final revision = userClock.writtenRevisions[spaceId];
+      if (highWater != null && lastHlc <= highWater && revision == null) continue;
       await OfflineSyncSpace.db.updateWhere(
         databaseSession,
-        columnValues: (t) => [t.lastHlc(lastHlc)],
+        columnValues: (t) => [
+          t.lastHlc(lastHlc.maxBetween(highWater)),
+          if (revision != null) t.syncRevision(revision),
+        ],
         where: (t) => t.id.equals(spaceId),
         transaction: transaction,
         noReturn: true,
       );
-      userClock.spaceHighWater[spaceId] = lastHlc;
+      userClock.spaceHighWater[spaceId] = lastHlc.maxBetween(highWater);
     }
     userClock
       ..persisted = lastHlc
@@ -449,6 +505,8 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
         final hlc = hlcManager.increment();
         fields.add(
           CrdtDataField(
+            spaceId: row.spaceId,
+            syncRevision: revisionFor(transaction),
             rowId: row.id!,
             columnId: schemaCol.id!,
             nodeId: hlcManager.normalizedNodeId,
@@ -463,7 +521,13 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
       databaseSession,
       fields,
       conflictColumns: (t) => [t.rowId, t.columnId],
-      updateColumns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+      updateColumns: (t) => [
+        t.nodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        t.syncRevision,
+        t.sourcePeerId,
+      ],
       transaction: transaction,
       noReturn: true,
     );
@@ -487,6 +551,8 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
           t.nodeId(row.nodeId),
           t.hlcDatetime(row.hlcDatetime),
           t.hlcCounter(row.hlcCounter),
+          t.syncRevision(row.syncRevision),
+          t.sourcePeerId(row.sourcePeerId),
         ],
         where: (t) => t.rowId.equals(row.id),
         transaction: transaction,
@@ -550,6 +616,8 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
       if (existing == null) {
         toInsert.add(
           CrdtDataDeleted(
+            spaceId: row.spaceId,
+            syncRevision: revisionFor(transaction),
             rowId: rowPk,
             nodeId: hlcManager.normalizedNodeId,
             hlcDatetime: hlc.datetime,
@@ -561,6 +629,8 @@ WHERE r."spaceId" = $spaceId AND r."tblId" = $childTableId
       } else {
         toUpdate.add(
           existing.copyWith(
+            syncRevision: revisionFor(transaction),
+            sourcePeerId: null,
             nodeId: hlcManager.normalizedNodeId,
             hlcDatetime: hlc.datetime,
             hlcCounter: hlc.counter,
@@ -1068,9 +1138,15 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
     );
   }
 
-  CrdtDataRow withNextHlc(CrdtDataRow row, HlcManager hlcManager) {
+  CrdtDataRow withNextHlc(
+    CrdtDataRow row,
+    HlcManager hlcManager,
+    Transaction transaction,
+  ) {
     final hlc = hlcManager.increment();
     return row.copyWith(
+      syncRevision: revisionFor(transaction),
+      sourcePeerId: null,
       nodeId: hlcManager.normalizedNodeId,
       hlcDatetime: hlc.datetime,
       hlcCounter: hlc.counter,
@@ -1084,11 +1160,19 @@ WHERE "id" IN (${rowIds.sqlLiteralList()})
       userClock.active && userClock.nodeLocked != null,
       'Lock the user clock inside withUserClock before allocating timestamps.',
     );
-    final spaceId = spaceIdFor(transaction);
+    final space = effectiveSpaceFor(transaction);
+    final spaceId = space.id!;
     return userClock.managers[spaceId] ??= HlcManager(
       spaceId,
       userClock.node,
-      onUse: () => userClock.usedInSpaces.add(spaceId),
+      onUse: () {
+        userClock.usedInSpaces.add(spaceId);
+        databaseContext.recordSpaceChange(
+          transaction,
+          space.uuidSpaceId,
+          userClock.node.lastHlc!,
+        );
+      },
     );
   }
 

@@ -1,0 +1,11 @@
+### A replica epoch scoped to the authenticated user of its connection.
+class: OfflineSyncPeer
+table: offline_sync_peers
+database: all
+fields:
+  userUuid: UuidValue
+  peerUuid: UuidValue
+indexes:
+  offline_sync_peer_identity_idx:
+    fields: userUuid, peerUuid
+    unique: true

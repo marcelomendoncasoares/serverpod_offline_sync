@@ -313,10 +313,6 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
               OfflineSyncConnect(
                 localNodeId: source,
                 syncTablesHash: engine.currentSyncTablesHash,
-              ),
-            )
-            ..add(
-              OfflineSyncSpaceSet(
                 spaces: [
                   OfflineSyncSpaceGrant(
                     uuidSpaceId: user,
@@ -325,9 +321,18 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
                 ],
               ),
             )
-            ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
-            ..add(OfflineSyncMergeChunk(changes: changes))
-            ..add(OfflineSyncEndOfBatch());
+            ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(OfflineSyncReady())
+            ..add(OfflineSyncMergeChunk(batchId: 1, changes: changes))
+            ..add(
+              OfflineSyncEndOfBatch(
+                batchId: 1,
+                finalForOnce: false,
+                checkpoints: [
+                  OfflineSyncSpaceCheckpoint(uuidSpaceId: user, revision: 1),
+                ],
+              ),
+            );
           await entered.future.timeout(const Duration(seconds: 10));
         });
 
@@ -627,6 +632,138 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
           },
         );
       });
+
+      test(
+        'Given an authorized upload queued behind global merge capacity, '
+        'when its shared-space grant is revoked before admission, '
+        'then the transaction rejects it without acknowledging or storing the row.',
+        () async {
+          final user = const Uuid().v7obj();
+          final space = await OfflineSyncSpaceManager(
+            observer,
+          ).getOrCreate(const Uuid().v7obj());
+          final member = await OfflineSyncSpaceMember.db.insertRow(
+            observer,
+            OfflineSyncSpaceMember(
+              spaceId: space.id!,
+              userUuid: user,
+              role: OfflineSyncSpaceRole.readWrite,
+            ),
+          );
+          final shared = context(1);
+          final entered = Completer<void>();
+          final release = Completer<void>();
+          final holder = await wrapper(
+            shared,
+            database: _HoldMerge(sessions.build().db, entered, release),
+          );
+          final holding = _merge(holder, user: const Uuid().v7obj());
+          addTearDown(() async {
+            if (!release.isCompleted) release.complete();
+            await holding;
+          });
+          await entered.future.timeout(const Duration(seconds: 10));
+          final engine = OfflineSyncEngine(
+            syncTables: server.syncTables,
+            serializationManager: observer.db.serializationManager,
+            databaseContext: shared,
+          );
+          final inbound = StreamController<OfflineSyncStreamEvent>();
+          final queued = Completer<void>();
+          final finished = Completer<void>();
+          final acknowledgements = <OfflineSyncCommitted>[];
+          Object? error;
+          final subscription = OfflineSyncDiagnostics.run(
+            (event) {
+              if (event['name'] == 'queue.join' && !queued.isCompleted) {
+                queued.complete();
+              }
+            },
+            () => engine
+                .sync(
+                  sessions.build(),
+                  userId: user,
+                  inbound: inbound.stream,
+                  mode: OfflineSyncPeerMode.authoritative,
+                )
+                .listen(
+                  (event) {
+                    if (event is OfflineSyncCommitted) acknowledgements.add(event);
+                  },
+                  onError: (Object failure) => error = failure,
+                  onDone: finished.complete,
+                ),
+          );
+          addTearDown(() async {
+            await subscription.cancel();
+            if (!inbound.isClosed) unawaited(inbound.close());
+          });
+          final row = server.Unique(
+            id: const Uuid().v7obj(),
+            name: 'revoked while queued',
+          );
+
+          inbound
+            ..add(
+              OfflineSyncConnect(
+                localNodeId: const Uuid().v7obj(),
+                syncTablesHash: engine.currentSyncTablesHash,
+                spaces: const [],
+              ),
+            )
+            ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(
+              OfflineSyncSinceRevision(
+                uuidSpaceId: space.uuidSpaceId,
+                nodeCheckpoints: [],
+              ),
+            )
+            ..add(OfflineSyncReady())
+            ..add(
+              OfflineSyncMergeChunk(
+                batchId: 1,
+                changes: [
+                  CrdtMergeInsert(
+                    uuidSpaceId: space.uuidSpaceId,
+                    tableName: server.Unique.t.tableName,
+                    uuidRowId: row.id!,
+                    uuidNodeId: const Uuid().v7obj(),
+                    hlcDatetime: DateTime.utc(2026),
+                    hlcCounter: 0,
+                    data: row,
+                  ),
+                ],
+              ),
+            )
+            ..add(
+              OfflineSyncEndOfBatch(
+                batchId: 1,
+                finalForOnce: false,
+                checkpoints: [
+                  OfflineSyncSpaceCheckpoint(
+                    uuidSpaceId: space.uuidSpaceId,
+                    revision: 1,
+                  ),
+                ],
+              ),
+            );
+          await queued.future.timeout(const Duration(seconds: 10));
+          await OfflineSyncSpaceMember.db.deleteRow(observer, member);
+          release.complete();
+          await holding;
+          await finished.future.timeout(const Duration(seconds: 10));
+          final persisted = await server.Unique.db.findById(observer, row.id!);
+          final violations = await OfflineSyncIntegrityViolation.db.find(
+            observer,
+            where: (t) => t.uuidRowId.equals(row.id),
+          );
+
+          expect(error, isA<OfflineSyncIntegrityViolationException>());
+          expect(persisted, isNull);
+          expect(acknowledgements, isEmpty);
+          expect(violations.single.type, OfflineSyncViolationType.unauthorizedWrite);
+        },
+      );
 
       test(
         'Given independent admission contexts sharing a database, '
