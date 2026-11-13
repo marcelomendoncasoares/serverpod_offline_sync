@@ -623,6 +623,7 @@ class OfflineSyncEngine {
       rows,
       transaction,
     );
+    final domainRows = await _loadOutboundRows(session, rows, transaction);
 
     for (final row in rows) {
       final tableName = row.tbl!.name;
@@ -635,18 +636,18 @@ class OfflineSyncEngine {
       final spaceId = row.spaceId;
       final spaceUuid = spaceUuidById[spaceId]!;
 
-      final domainRow = await _fetchDomainRow(
-        session,
-        tableName,
-        row.uuidRowId,
-        table,
-        dartName,
-        attemptedValueFieldsByRowId[row.id!],
-        spaceId,
-        ownerCache,
-        transaction,
-      );
-      if (!domainRow.exists) {
+      final columns = domainRows[(tableName, spaceId, row.uuidRowId)];
+      final owner = columns == null
+          ? await _readDomainRowOwner(
+              session,
+              tableName,
+              row.uuidRowId,
+              ownerCache,
+              transaction,
+            )
+          : (exists: true, spaceId: spaceId);
+      ownerCache[(tableName, row.uuidRowId)] = owner;
+      if (!owner.exists) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: row.id,
           type: OfflineSyncViolationType.missingDomainRow,
@@ -659,14 +660,14 @@ class OfflineSyncEngine {
           hlc: row.hlc,
         );
       }
-      if (domainRow.ownerSpaceId != spaceId) {
+      if (owner.spaceId != spaceId) {
         _throwPendingIntegrityViolation(
           crdtDataRowId: row.id,
           type: OfflineSyncViolationType.ownershipCollision,
           operation: OfflineSyncViolationOperation.outboundInsert,
           tableName: tableName,
           rowId: row.uuidRowId,
-          ownerSpaceId: domainRow.ownerSpaceId,
+          ownerSpaceId: owner.spaceId,
           incomingSpaceUuid: spaceUuid,
           uuidNodeId: row.node!.uuidNodeId,
           hlc: row.hlc,
@@ -680,7 +681,13 @@ class OfflineSyncEngine {
         tableName: tableName,
         uuidRowId: row.uuidRowId,
         uuidNodeId: row.node!.uuidNodeId,
-        data: domainRow.row,
+        data: _decodeOutboundRow(
+          session,
+          table,
+          dartName,
+          columns!,
+          attemptedValueFieldsByRowId[row.id!],
+        ),
       );
     }
   }
@@ -864,54 +871,68 @@ class OfflineSyncEngine {
         checkpointsBySpaceId,
       );
 
-  /// Loads a domain row for outbound insert sync.
+  /// Loads outbound payloads in bounded batches within the metadata snapshot.
+  /// Grouping by table and owning space preserves the original ownership filter.
+  Future<Map<(String, int, UuidValue), Map<String, dynamic>>> _loadOutboundRows(
+    DatabaseSession session,
+    List<CrdtDataRow> rows,
+    Transaction transaction,
+  ) async {
+    final groups = <(String, int), Set<UuidValue>>{};
+    for (final row in rows) {
+      final tableName = row.tbl!.name;
+      if (!_syncTablesByName.containsKey(tableName) ||
+          !_classNamesByTableName.containsKey(tableName)) {
+        continue;
+      }
+      groups.putIfAbsent((tableName, row.spaceId), () => {}).add(row.uuidRowId);
+    }
+
+    final payloads = <(String, int, UuidValue), Map<String, dynamic>>{};
+    for (final entry in groups.entries) {
+      final (tableName, spaceId) = entry.key;
+      final table = _syncTablesByName[tableName]!;
+      final columns = table.columns
+          .map(
+            (column) =>
+                '${_outboundColumnExpression(session, column)} AS "${column.columnName.escapeIdentifier()}"',
+          )
+          .join(', ');
+      final ids = entry.value.toList();
+      const batchSize = 100;
+      for (var start = 0; start < ids.length; start += batchSize) {
+        final batch = ids.skip(start).take(batchSize).map((id) => id.sqlLiteral());
+        final result = await session.db.unsafeQuery(
+          'SELECT $columns FROM "${tableName.escapeIdentifier()}" '
+          'WHERE "id" IN (${batch.join(', ')}) AND "spaceId" = ${spaceId.sqlLiteral()}',
+          transaction: transaction,
+        );
+        for (final row in result) {
+          final columns = row.toColumnMap();
+          final id = _serializationManager.deserialize<UuidValue>(columns['id']);
+          payloads[(tableName, spaceId, id)] = columns;
+        }
+      }
+    }
+    return payloads;
+  }
+
+  /// Decodes a domain row for outbound insert sync.
   ///
-  /// Reads the materialized row from the domain table, then swaps any columns
+  /// Takes the materialized row from the domain table, then swaps any columns
   /// with an active [CrdtDataAttemptedValue] back to the authored value before
   /// deserializing. The domain table and projected columns are only known at
   /// runtime, so a generated repository cannot express this query. Keeping one
   /// targeted SQL projection also avoids fetching and serializing unrelated
   /// columns. This is the inverse of inbound FK materialization: the wire payload
   /// carries attempted facts, not locally projected visible values.
-  Future<({bool exists, int? ownerSpaceId, dynamic row})> _fetchDomainRow(
+  Object _decodeOutboundRow(
     DatabaseSession session,
-    String tableName,
-    UuidValue rowId,
     Table table,
     String dartName,
+    Map<String, dynamic> rawColumns,
     List<CrdtDataField>? attemptedValueFields,
-    int spaceId,
-    DomainRowOwnerCache ownerCache,
-    Transaction transaction,
-  ) async {
-    final cols = table.columns
-        .map(
-          (column) =>
-              '${_outboundColumnExpression(session, column)} AS "${column.columnName.escapeIdentifier()}"',
-        )
-        .join(', ');
-    final encodedRowId = rowId.sqlLiteral();
-    final encodedSpaceId = spaceId.sqlLiteral();
-    final escapedTableName = tableName.escapeIdentifier();
-    final result = await session.db.unsafeQuery(
-      'SELECT $cols FROM "$escapedTableName" '
-      'WHERE "id" = $encodedRowId AND "spaceId" = $encodedSpaceId '
-      'LIMIT 1',
-      transaction: transaction,
-    );
-    if (result.isEmpty) {
-      final owner = await _readDomainRowOwner(
-        session,
-        tableName,
-        rowId,
-        ownerCache,
-        transaction,
-      );
-      return (exists: owner.exists, ownerSpaceId: owner.spaceId, row: null);
-    }
-    ownerCache[(tableName, rowId)] = (exists: true, spaceId: spaceId);
-
-    final rawColumns = result.first.toColumnMap();
+  ) {
     final columnMap =
         <String, dynamic>{
             for (final column in table.columns)
@@ -934,11 +955,10 @@ class OfflineSyncEngine {
     // model rather than failing on a name it does not know.
     // `Object` rather than `dynamic`: a dynamic target is read as a wrapped
     // dynamic field instead of a model payload.
-    final row = session.db.serializationManager.deserialize<Object>({
+    return session.db.serializationManager.deserialize<Object>({
       ...columnMap,
       '__className__': dartName,
     });
-    return (exists: true, ownerSpaceId: spaceId, row: row);
   }
 
   /// Resolves a column value for outbound update sync.
