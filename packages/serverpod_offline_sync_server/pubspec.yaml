@@ -10,6 +10,7 @@ resolution: workspace
 
 dependencies:
   meta: ^1.16.0
+  postgres: ^3.5.20
   serverpod: ^4.1.0
   serverpod_database: ^4.1.0
   serverpod_offline_sync: 0.0.12
