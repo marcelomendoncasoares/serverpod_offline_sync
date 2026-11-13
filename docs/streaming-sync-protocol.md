@@ -40,4 +40,6 @@ Cancellation signals the active merge's native rollback and waits for SQL and ca
 
 ## Memory limits
 
+After capture, acknowledgement bookkeeping retains only each space's captured revision and maximum callback clock, allowing consumed frames to release row payloads. The captured revision advances delivery progress only after the matching acknowledgement. Callback clocks report committed facts and do not control delivery.
+
 The implementation buffers complete outbound snapshots and incoming batches. One outstanding batch limits protocol concurrency, not bytes or peak backlog memory. Any future storage bound must preserve complete snapshot enumeration and durable checkpoint correctness.
