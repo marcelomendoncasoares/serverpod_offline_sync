@@ -1,8 +1,9 @@
 # Diagnostic and mechanism probes
 
 These tools complement the [scale and round harness](SCALE.md). Their results
-answer narrower questions than a capacity run. Use the workspace's pinned SDK Git
-dependencies for every build and retain source identities with each comparison.
+answer narrower questions than a capacity run. Build every compared client and
+server from the workspace's `pubspec.lock` and retain source identities with each
+comparison.
 Credentials come from `BENCHMARK_SECRET` and must stay out of shared artifacts.
 
 | Tool | Measurement and limits |
