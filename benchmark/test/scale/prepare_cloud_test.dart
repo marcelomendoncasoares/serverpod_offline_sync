@@ -60,8 +60,7 @@ void main() {
         late String metadataText;
         late String resolvedPasswordName;
         late Map<String, bool> uploadIgnored;
-        late Map<dynamic, dynamic> sourceOverrides;
-        late Map<dynamic, dynamic> exportedOverrides;
+        late Map<dynamic, dynamic> sourceLockedPackages;
         late Map<dynamic, dynamic> lockedPackages;
         late String runtimeDiagnosticsSource;
         late String exportedRuntimeDiagnostics;
@@ -111,17 +110,9 @@ void main() {
           resolvedPasswordName = benchmarkPasswordName(
             p.join(output, 'benchmark'),
           );
-          sourceOverrides =
-              (loadYaml(await File(p.join(root, 'pubspec.yaml')).readAsString())
-                      as Map)['dependency_overrides']
-                  as Map;
-          exportedOverrides =
-              (loadYaml(
-                        await File(
-                          p.join(output, 'pubspec.yaml'),
-                        ).readAsString(),
-                      )
-                      as Map)['dependency_overrides']
+          sourceLockedPackages =
+              (loadYaml(await File(p.join(root, 'pubspec.lock')).readAsString())
+                      as Map)['packages']
                   as Map;
           lockedPackages =
               (loadYaml(
@@ -175,30 +166,24 @@ void main() {
         );
 
         test(
-          'then the normal manifest resolves all six reviewed SDK Git packages.',
+          'then the export locks the same Serverpod packages as the source workspace.',
           () {
-            expect(exportedOverrides, sourceOverrides);
-            expect(
-              exportedOverrides.keys,
-              unorderedEquals([
-                'serverpod',
-                'serverpod_client',
-                'serverpod_database',
-                'serverpod_shared',
-                'serverpod_serialization',
-                'serverpod_embedded_postgres',
-              ]),
-            );
-            for (final entry in exportedOverrides.entries) {
-              final git = (entry.value as Map)['git'] as Map;
-              final locked = lockedPackages[entry.key] as Map;
-              final description = locked['description'] as Map;
+            final serverpodPackages = lockedPackages.keys
+                .cast<String>()
+                .where((name) => name.startsWith('serverpod'))
+                .toList();
 
-              expect(git['ref'], matches(RegExp(r'^[0-9a-f]{40}$')));
-              expect(locked['source'], 'git');
-              expect(description['url'], git['url']);
-              expect(description['path'], git['path']);
-              expect(description['resolved-ref'], git['ref']);
+            expect(serverpodPackages, contains('serverpod'));
+            for (final name in serverpodPackages) {
+              final exported = lockedPackages[name] as Map;
+              final source = sourceLockedPackages[name] as Map?;
+
+              expect(exported['version'], source?['version'], reason: name);
+              expect(
+                exported['description'],
+                source?['description'],
+                reason: name,
+              );
             }
           },
         );

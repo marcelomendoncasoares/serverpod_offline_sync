@@ -427,14 +427,14 @@ whether a database or console writer is enabled.
 
 ### Serverpod SDK source dependencies
 
-The workspace root pins the six sibling SDK packages to the reviewed Git source
-in `pubspec.yaml`. That source includes prompt method-stream cancellation and
-client startup changes. Use the same manifest for clients and prepared servers;
-`prepare_cloud.dart` carries these overrides into its normal root manifest.
-Cloud builds therefore do not depend on `pubspec_overrides.yaml`, a modified Pub
-cache, or a vendored patch. The SDK regression tests live with the SDK changes.
+The workspace resolves Serverpod from pub.dev. `prepare_cloud.dart` copies the
+workspace's `pubspec.lock` into the export, so clients and prepared servers build
+with the same Serverpod packages. If the workspace root declares
+`dependency_overrides`, they must be Git dependencies, and the tool carries them
+into the export's normal root manifest. Cloud builds therefore do not depend on
+`pubspec_overrides.yaml`, a modified Pub cache, or a vendored patch.
 
-The export test resolves the Git dependencies, checks their locked revisions,
+The export test checks that the export locks the workspace's Serverpod packages,
 regenerates and analyzes the exported sources, and checks upload exclusions.
 Those checks run in CI. Preparing sources locally is not a deployment result.
 

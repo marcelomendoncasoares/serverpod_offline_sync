@@ -80,12 +80,9 @@ Future<void> prepare(
   };
   final rootSpec =
       loadYaml(await File(p.join(root, 'pubspec.yaml')).readAsString()) as Map;
-  final overrides = rootSpec['dependency_overrides'] as Map?;
-  if (overrides == null || overrides.isEmpty) {
-    throw StateError(
-      'The source workspace must declare its SDK Git dependencies.',
-    );
-  }
+  // Overrides are optional. A Cloud build can't reach a path outside its
+  // upload, so any override must be a Git dependency.
+  final overrides = rootSpec['dependency_overrides'] as Map? ?? const {};
   for (final entry in overrides.entries) {
     final dependency = entry.value;
     if (dependency is! Map || dependency['git'] is! Map) {
@@ -105,9 +102,9 @@ Future<void> prepare(
     'publish_to': 'none',
     'environment': {'sdk': '^3.12.2'},
     'workspace': packages.values.toList(),
-    // scloud does not upload pubspec_overrides.yaml. Keep the reviewed SDK
-    // source identities in the normal manifest used by every build.
-    'dependency_overrides': overrides,
+    // scloud does not upload pubspec_overrides.yaml. Keep any SDK source
+    // overrides in the normal manifest used by every build.
+    if (overrides.isNotEmpty) 'dependency_overrides': overrides,
   });
   final benchmarkSpec =
       loadYaml(
