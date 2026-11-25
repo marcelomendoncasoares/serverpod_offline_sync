@@ -224,6 +224,18 @@ class Protocol extends _isd.DatabaseSerializationManager
       );
 
   static List<_isd.TableDefinition> get targetTableDefinitions => [
+    ..._ownTableDefinitions,
+    ..._iacc.Protocol() is _isd.DatabaseSerializationManager
+        ? (_iacc.Protocol() as _isd.DatabaseSerializationManager)
+              .getOwnTableDefinitions()
+        : [],
+    ..._ipulbpi2.Protocol() is _isd.DatabaseSerializationManager
+        ? (_ipulbpi2.Protocol() as _isd.DatabaseSerializationManager)
+              .getOwnTableDefinitions()
+        : [],
+  ];
+
+  static List<_isd.TableDefinition> get _ownTableDefinitions => [
     _isd.TableDefinition(
       name: 'address',
       dartName: 'Address',
@@ -2401,17 +2413,9 @@ class Protocol extends _isd.DatabaseSerializationManager
       ],
       managed: true,
     ),
-    ..._iacc.Protocol() is _isd.DatabaseSerializationManager
-        ? (_iacc.Protocol() as _isd.DatabaseSerializationManager)
-              .getTargetTableDefinitions()
-        : [],
-    ..._ipulbpi2.Protocol() is _isd.DatabaseSerializationManager
-        ? (_ipulbpi2.Protocol() as _isd.DatabaseSerializationManager)
-              .getTargetTableDefinitions()
-        : [],
     ..._i2ap9bqs.Protocol() is _isd.DatabaseSerializationManager
         ? (_i2ap9bqs.Protocol() as _isd.DatabaseSerializationManager)
-              .getTargetTableDefinitions()
+              .getOwnTableDefinitions()
         : [],
   ];
 
@@ -3131,6 +3135,9 @@ class Protocol extends _isd.DatabaseSerializationManager
   @override
   List<_isd.TableDefinition> getTargetTableDefinitions() =>
       targetTableDefinitions;
+
+  @override
+  List<_isd.TableDefinition> getOwnTableDefinitions() => _ownTableDefinitions;
 
   @override
   String getModuleName() => 'serverpod_offline_sync_test';

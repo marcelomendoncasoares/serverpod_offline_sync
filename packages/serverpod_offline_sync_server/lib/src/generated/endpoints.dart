@@ -18,6 +18,11 @@ import '../endpoints/offline_sync_endpoint.dart' as _i3x2h4cf;
 class Endpoints extends _is.EndpointDispatch {
   @override
   void initializeEndpoints(_is.Server server) {
+    initializeOwnEndpoints(server);
+  }
+
+  @override
+  void initializeOwnEndpoints(_is.Server server) {
     var endpoints = <String, _is.Endpoint>{
       'offlineSync': _i3x2h4cf.OfflineSyncEndpoint()
         ..initialize(

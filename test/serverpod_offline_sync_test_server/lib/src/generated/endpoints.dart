@@ -21,6 +21,15 @@ import '../endpoints/demo_debug_endpoint.dart' as _ikfteyi1;
 class Endpoints extends _is.EndpointDispatch {
   @override
   void initializeEndpoints(_is.Server server) {
+    initializeOwnEndpoints(server);
+    modules['serverpod_auth_core'] = _iacs.Endpoints()
+      ..initializeOwnEndpoints(server);
+    modules['serverpod_offline_sync'] = _izehhkf5.Endpoints()
+      ..initializeOwnEndpoints(server);
+  }
+
+  @override
+  void initializeOwnEndpoints(_is.Server server) {
     var endpoints = <String, _is.Endpoint>{
       'demoAuth': _il5og7ym.DemoAuthEndpoint()
         ..initialize(
@@ -120,9 +129,5 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
-    modules['serverpod_auth_core'] = _iacs.Endpoints()
-      ..initializeEndpoints(server);
-    modules['serverpod_offline_sync'] = _izehhkf5.Endpoints()
-      ..initializeEndpoints(server);
   }
 }
