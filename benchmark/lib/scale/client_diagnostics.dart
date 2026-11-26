@@ -1,7 +1,7 @@
 // Internal benchmark tooling, not a published library API.
 // ignore_for_file: public_member_api_docs, type_annotate_public_apis
 
-import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 
 import 'diagnostics.dart';

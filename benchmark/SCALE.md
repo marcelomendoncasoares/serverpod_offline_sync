@@ -336,16 +336,18 @@ contains the underlying `syncTrace`, `mergeTrace`, `syncCycleTrace`, `verifyRoun
 Request IDs include the run, user, device and attempt; the user UUID is the
 server-authenticated identity. `peerNodeId` identifies the actual replica.
 
-Core instrumentation is opt-in through `OfflineSyncDiagnostics.run`; ordinary
-package users do not collect traces. The benchmark's connector adds optional
-correlation arguments without changing the production sync protocol. Old
-clients still work. The core observer runs synchronously and must avoid I/O;
-observer errors cannot fail a sync. The benchmark buffers records in memory
-(4096 records or 16 MiB), exposes them only through the existing admin control
-endpoint, and prints one structured Cloud log line per completed merge/request.
-The collector tracks a cursor per server instance and reports missing records.
-For multiple replicas, also collect centralized Cloud logs: a load-balanced
-control connection cannot guarantee visiting every process.
+Core instrumentation is opt-in through `OfflineSyncDiagnostics.run`, from
+`package:serverpod_offline_sync/diagnostics.dart`, and is for performance work
+only; ordinary package users do not collect traces. The benchmark's connector
+adds optional correlation arguments without changing the production sync
+protocol. Old clients still work. The core observer runs synchronously and
+must avoid I/O; observer errors cannot fail a sync. The benchmark buffers
+records in memory (4096 records or 16 MiB), exposes them only through the
+existing admin control endpoint, and prints one structured Cloud log line per
+completed merge/request. The collector tracks a cursor per server instance and
+reports missing records. For multiple replicas, also collect centralized Cloud
+logs: a load-balanced control connection cannot guarantee visiting every
+process.
 
 Timing interpretation:
 
@@ -359,8 +361,10 @@ Timing interpretation:
   `commitOrRollbackAndReleaseMicros` starts when that callback exits and includes
   transaction completion and connection release. All timings are monotonic.
 - Transaction phases record elapsed time, SQL count, affected rows and SQL
-  duration. SQL intervals are combined before computing `unattributedBodyMicros`,
-  so parallel SQL is not double-counted as wall time. This residual includes ORM
+  duration. The core marks no merge phases, so each transaction reports one
+  `body` phase unless an investigation adds `merge.phase` events back. SQL
+  intervals are combined before computing `unattributedBodyMicros`, so parallel
+  SQL is not double-counted as wall time. This residual includes ORM
   decoding, Dart computation, scheduling and awaits outside logged SQL. It is not
   a CPU-time measurement. The SQLite client has no statement observer; its
   residual also includes SQLite operations. Process samples show the active

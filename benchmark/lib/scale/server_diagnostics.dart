@@ -8,6 +8,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 
 import 'common.dart' show LoopLag, processSample;

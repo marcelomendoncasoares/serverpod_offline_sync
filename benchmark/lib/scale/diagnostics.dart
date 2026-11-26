@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 
 typedef DiagnosticOutput = void Function(Map<String, dynamic> record);

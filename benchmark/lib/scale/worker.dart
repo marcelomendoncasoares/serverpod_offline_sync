@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:path/path.dart' as p;
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync_client/serverpod_offline_sync_client.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 

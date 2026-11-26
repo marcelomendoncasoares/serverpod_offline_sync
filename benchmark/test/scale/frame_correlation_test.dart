@@ -1,3 +1,4 @@
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/diagnostics.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
